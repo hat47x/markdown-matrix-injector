@@ -11,7 +11,7 @@ async function main(): Promise<void> {
   try {
     const extensionDevelopmentPath = path.resolve(__dirname, '../..');
     const extensionTestsPath = path.resolve(__dirname, '../../dist/test/e2e/suite/index.js');
-    const workspacePath = path.resolve(__dirname, '../fixtures/workspace');
+    const workspacePath = createE2EWorkspace();
     const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-vscode-user-data-'));
     const extensionsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-vscode-extensions-'));
     process.env.MMI_E2E_WORKSPACE = workspacePath;
@@ -33,6 +33,19 @@ async function main(): Promise<void> {
     console.error('Failed to run VSCode E2E tests');
     throw error;
   }
+}
+
+function createE2EWorkspace(): string {
+  const templateRoot = path.resolve(__dirname, '../fixtures/workspace');
+  const workspaceRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-vscode-workspace-'));
+  fs.cpSync(templateRoot, workspaceRoot, { recursive: true });
+  fs.writeFileSync(
+    path.join(workspaceRoot, 'data', 'invalid.xml'),
+    '<root><worksheet name="Sheet1"></worksheet></root>',
+    'utf8',
+  );
+
+  return workspaceRoot;
 }
 
 void main();
