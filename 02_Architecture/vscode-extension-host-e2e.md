@@ -15,13 +15,13 @@
 ### 3.1 現段階の自動化スコープ
 - Extension Host テストは `vscode.commands.executeCommand`, `vscode.executeCompletionItemProvider`, `vscode.languages.getDiagnostics` を利用し、Stream A が公開した最小の VSCode surface を検証する。
 - `renderEmbedForTest` は既存レンダリングの回帰確認に使う。
-- Paste / D&D は native OS イベントの完全再現ではなく、コマンド引数経由の adapter 統合として検証する。
+- Paste / D&D は native provider (`registerDocumentPasteEditProvider` / `registerDocumentDropEditProvider`) を正規入口とし、E2E では DataTransfer adapter と command fallback の両方を検証する。
 
 ### 3.2 責務分離
 - **DXロジック本体**: `03_Implement/src/dx/autocompleteProvider.ts`, `diagnostics.ts`, `pasteDrop.ts`
   - 候補生成、診断判定、clipboard/filepath 解析の仕様正本。
 - **VSCode統合層**: `03_Implement/src/extension.ts`
-  - Completion Provider 登録、Diagnostics collection 反映、Text Editor Command の公開。
+  - Completion Provider 登録、Diagnostics collection 反映、native paste/drop provider 登録、非対応 host 向け command fallback の公開。
 - **E2E検証レイヤ**: `03_Implement/test/e2e/**`
   - 実エンジン上で公開 API を呼び、Phase 5 の統合結果だけを検証する。
 

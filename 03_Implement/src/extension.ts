@@ -12,8 +12,12 @@ import {
 import {
   buildCompletionItems,
   createDiagnosticsForDocument,
+  getDropEditFromDataTransfer,
   getDropInsertText,
+  getDropInsertTextFromDataTransfer,
+  getPasteEditFromDataTransfer,
   getPasteInsertText,
+  getPasteInsertTextFromDataTransfer,
   getTextBeforePosition,
   resolveWorkbookReference,
   toRelativeSuggestion,
@@ -30,6 +34,9 @@ interface RenderEmbedForTestArgs {
 const MARKDOWN_SELECTOR: vscode.DocumentSelector = [{ language: 'markdown' }];
 const SUPPORTED_COMPLETION_TRIGGER_CHARACTERS = ['[', '#', '|', '?', '&'] as const;
 const WORKBOOK_FILE_GLOB = '**/*.{xlsx,xls,csv,xml}';
+const NATIVE_PASTE_DROP_EDIT_KIND = vscode.DocumentDropOrPasteEditKind.Text.append('markdownMatrixInjector', 'embed');
+const PASTE_MIME_TYPES = ['text/html', 'files'] as const;
+const DROP_MIME_TYPES = ['text/html', 'text/uri-list', 'files'] as const;
 
 export function activate(context: vscode.ExtensionContext): void {
   const diagnostics = vscode.languages.createDiagnosticCollection('markdown-matrix-injector');
@@ -65,6 +72,14 @@ export function activate(context: vscode.ExtensionContext): void {
         });
       },
     ),
+    vscode.commands.registerCommand(
+      'markdownMatrixInjector.__test.getPasteInsertTextFromDataTransfer',
+      (dataTransfer: vscode.DataTransfer) => getPasteInsertTextFromDataTransfer(dataTransfer),
+    ),
+    vscode.commands.registerCommand(
+      'markdownMatrixInjector.__test.getDropInsertTextFromDataTransfer',
+      (dataTransfer: vscode.DataTransfer) => getDropInsertTextFromDataTransfer(dataTransfer),
+    ),
     vscode.languages.registerCompletionItemProvider(
       MARKDOWN_SELECTOR,
       createCompletionProvider(),
@@ -75,6 +90,8 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.workspace.onDidSaveTextDocument((document) => refreshDiagnosticsForDocument(document, diagnostics)),
     vscode.workspace.onDidCloseTextDocument((document) => diagnostics.delete(document.uri)),
   );
+
+  registerNativePasteDropProviders(context);
 
   for (const document of vscode.workspace.textDocuments) {
     refreshDiagnosticsForDocument(document, diagnostics);
@@ -92,6 +109,55 @@ export async function renderEmbedForTest(args: RenderEmbedForTestArgs): Promise<
   });
 
   return md.render(args.markdown);
+}
+
+function registerNativePasteDropProviders(context: vscode.ExtensionContext): void {
+  // Older/unsupported VS Code hosts keep using the explicit command entry points.
+  if (typeof vscode.languages.registerDocumentPasteEditProvider !== 'function') {
+    return;
+  }
+
+  context.subscriptions.push(
+    vscode.languages.registerDocumentPasteEditProvider(
+      MARKDOWN_SELECTOR,
+      {
+        async provideDocumentPasteEdits(_document, _ranges, dataTransfer, _context, _token) {
+          const edit = await getPasteEditFromDataTransfer(dataTransfer, {
+            createEdit: (insertText) =>
+              new vscode.DocumentPasteEdit(insertText, 'Insert Markdown Matrix embed', NATIVE_PASTE_DROP_EDIT_KIND),
+          });
+
+          return edit ? [edit] : [];
+        },
+      },
+      {
+        providedPasteEditKinds: [NATIVE_PASTE_DROP_EDIT_KIND],
+        pasteMimeTypes: [...PASTE_MIME_TYPES],
+      },
+    ),
+  );
+
+  if (typeof vscode.languages.registerDocumentDropEditProvider !== 'function') {
+    return;
+  }
+
+  context.subscriptions.push(
+    vscode.languages.registerDocumentDropEditProvider(
+      MARKDOWN_SELECTOR,
+      {
+        async provideDocumentDropEdits(_document, _position, dataTransfer, _token) {
+          return getDropEditFromDataTransfer(dataTransfer, {
+            createEdit: (insertText) =>
+              new vscode.DocumentDropEdit(insertText, 'Insert Markdown Matrix embed', NATIVE_PASTE_DROP_EDIT_KIND),
+          });
+        },
+      },
+      {
+        providedDropEditKinds: [NATIVE_PASTE_DROP_EDIT_KIND],
+        dropMimeTypes: [...DROP_MIME_TYPES],
+      },
+    ),
+  );
 }
 
 function createCompletionProvider(): vscode.CompletionItemProvider {
