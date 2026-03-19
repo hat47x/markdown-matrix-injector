@@ -4,22 +4,88 @@ import { type WorkbookData } from './workbookLoader.js';
 const MAX_COLUMNS_BEFORE_CARD = 10;
 const MAX_CELLS_BEFORE_CARD = 500;
 
+export type SmartFallbackRenderMode = 'table' | 'card';
+
+export type SmartFallbackReason =
+  | 'explicit-card-mode'
+  | 'explicit-table-mode'
+  | 'missing-sheet-target'
+  | 'column-threshold-exceeded'
+  | 'cell-threshold-exceeded'
+  | 'within-table-threshold';
+
+export interface SmartFallbackInput {
+  mode?: string;
+  hasSheetTarget: boolean;
+  rowCount: number;
+  columnCount: number;
+  cellCount: number;
+}
+
+export interface SmartFallbackDecision {
+  renderMode: SmartFallbackRenderMode;
+  reasons: SmartFallbackReason[];
+  metrics: {
+    rowCount: number;
+    columnCount: number;
+    cellCount: number;
+  };
+}
+
+export function evaluateSmartFallback(input: SmartFallbackInput): SmartFallbackDecision {
+  const normalizedMode = input.mode?.trim().toLowerCase();
+
+  if (normalizedMode === 'card') {
+    return createDecision('card', ['explicit-card-mode'], input);
+  }
+
+  if (normalizedMode === 'table') {
+    return createDecision('table', ['explicit-table-mode'], input);
+  }
+
+  if (!input.hasSheetTarget) {
+    return createDecision('card', ['missing-sheet-target'], input);
+  }
+
+  const thresholdReasons: SmartFallbackReason[] = [];
+  if (input.columnCount > MAX_COLUMNS_BEFORE_CARD) {
+    thresholdReasons.push('column-threshold-exceeded');
+  }
+
+  if (input.cellCount > MAX_CELLS_BEFORE_CARD) {
+    thresholdReasons.push('cell-threshold-exceeded');
+  }
+
+  if (thresholdReasons.length > 0) {
+    return createDecision('card', thresholdReasons, input);
+  }
+
+  return createDecision('table', ['within-table-threshold'], input);
+}
+
 export function shouldRenderAsCardImmediately(query: EmbedQuery): boolean {
-  return query.params.get('mode') === 'card';
+  return evaluateSmartFallback({
+    mode: query.params.get('mode') ?? undefined,
+    hasSheetTarget: true,
+    rowCount: 0,
+    columnCount: 0,
+    cellCount: 0,
+  }).renderMode === 'card';
 }
 
 export function shouldRenderAsCardAfterLoad(query: EmbedQuery, workbook: WorkbookData): boolean {
-  const mode = query.params.get('mode');
-  if (mode === 'card') {
-    return true;
-  }
+  const metrics = getWorkbookSelectionMetrics(query, workbook);
 
-  if (mode === 'table') {
-    return false;
-  }
+  return evaluateSmartFallback({
+    mode: query.params.get('mode') ?? undefined,
+    hasSheetTarget: Boolean(query.target),
+    ...metrics,
+  }).renderMode === 'card';
+}
 
+function getWorkbookSelectionMetrics(query: EmbedQuery, workbook: WorkbookData): Pick<SmartFallbackInput, 'rowCount' | 'columnCount' | 'cellCount'> {
   if (!query.target) {
-    return true;
+    return { rowCount: 0, columnCount: 0, cellCount: 0 };
   }
 
   const rows = workbook.sheets[query.target];
@@ -28,10 +94,27 @@ export function shouldRenderAsCardAfterLoad(query: EmbedQuery, workbook: Workboo
   }
 
   const slicedRows = query.range ? sliceRange(rows, query.range) : rows;
-  const columnCount = slicedRows.reduce((max, row) => Math.max(max, row.length), 0);
-  const cellCount = slicedRows.reduce((count, row) => count + row.length, 0);
+  return {
+    rowCount: slicedRows.length,
+    columnCount: slicedRows.reduce((max, row) => Math.max(max, row.length), 0),
+    cellCount: slicedRows.reduce((count, row) => count + row.length, 0),
+  };
+}
 
-  return columnCount > MAX_COLUMNS_BEFORE_CARD || cellCount > MAX_CELLS_BEFORE_CARD;
+function createDecision(
+  renderMode: SmartFallbackRenderMode,
+  reasons: SmartFallbackReason[],
+  input: SmartFallbackInput,
+): SmartFallbackDecision {
+  return {
+    renderMode,
+    reasons,
+    metrics: {
+      rowCount: input.rowCount,
+      columnCount: input.columnCount,
+      cellCount: input.cellCount,
+    },
+  };
 }
 
 function sliceRange(rows: string[][], range: string): string[][] {
