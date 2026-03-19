@@ -94,6 +94,37 @@ test('markdownMatrixPlugin renders card mode without loading a table', () => {
   assert.doesNotMatch(html, /mmi-table/);
 });
 
+
+
+test('markdownMatrixPlugin adds caption, id, page break and orientation metadata', () => {
+  const fixture = createCsvFixture([
+    ['ID', 'State'],
+    ['1', 'Draft'],
+    ['2', 'Done'],
+  ]);
+
+  const md = createMarkdownIt(fixture.markdownFilePath);
+  const html = md.render('![[./roles.csv#Sheet1|A1:B3?header=first&caption=%E7%8A%B6%E6%85%8B%E4%B8%80%E8%A6%A7&id=tbl-state&pageBreak=before&orientation=landscape]]');
+
+  assert.match(html, /<figure class="mmi-embed" id="tbl-state" data-page-break="before" data-orientation="landscape">/);
+  assert.match(html, /<figcaption class="mmi-embed__caption">状態一覧<\/figcaption>/);
+  assert.match(html, /<table class="mmi-table">/);
+});
+
+test('markdownMatrixPlugin wraps card mode embeds in the same metadata frame', () => {
+  const fixture = createCsvFixture([
+    ['ID', 'Name', 'Role'],
+    ['1', 'Alice', 'Admin'],
+  ]);
+
+  const md = createMarkdownIt(fixture.markdownFilePath);
+  const html = md.render('![[./roles.csv#Sheet1|A1:C2?mode=card&caption=Roles&id=card-roles&pageBreak=both&orientation=portrait]]');
+
+  assert.match(html, /<figure class="mmi-embed" id="card-roles" data-page-break="both" data-orientation="portrait">/);
+  assert.match(html, /<figcaption class="mmi-embed__caption">Roles<\/figcaption>/);
+  assert.match(html, /class="mmi-card"/);
+});
+
 test('markdownMatrixPlugin resolves workspace fallback paths and xlsx sheets', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-plugin-xlsx-'));
   const docsDir = path.join(tempDir, 'docs');
