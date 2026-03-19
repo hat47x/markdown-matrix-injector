@@ -14,6 +14,7 @@ export async function runIntegrationTests(): Promise<void> {
   await verifyAutocompleteIntegration(markdownFilePath);
   await verifyDiagnosticsIntegration(workspaceRoot);
   await verifyPasteDropCommands(markdownFilePath);
+  await verifyNativePasteDropProviders(markdownFilePath);
 }
 
 async function verifyRenderEmbedForTestCommand(markdownFilePath: string, workspaceRoot: string): Promise<void> {
@@ -90,15 +91,69 @@ async function verifyPasteDropCommands(markdownFilePath: string): Promise<void> 
   assert.match(document.getText(), /!\[\[\/tmp\/drop-target\.csv\]\]/);
 }
 
+
+async function verifyNativePasteDropProviders(markdownFilePath: string): Promise<void> {
+  const document = await openMarkdownDocument(
+    path.join(path.dirname(markdownFilePath), 'phase5-native-provider.md'),
+    `# NativeProviders\n`,
+  );
+  const pasteProvider = (vscode.languages as typeof vscode.languages & {
+    registerDocumentPasteEditProvider?: unknown;
+  }).registerDocumentPasteEditProvider;
+  const dropProvider = (vscode.languages as typeof vscode.languages & {
+    registerDocumentDropEditProvider?: unknown;
+  }).registerDocumentDropEditProvider;
+
+  assert.equal(typeof pasteProvider, 'function');
+  assert.equal(typeof dropProvider, 'function');
+  assert.ok(vscode.DocumentDropOrPasteEditKind.Text.contains(vscode.DocumentDropOrPasteEditKind.Text.append('markdownMatrixInjector', 'embed')));
+
+  const editor = await vscode.window.showTextDocument(document);
+  editor.selection = new vscode.Selection(new vscode.Position(1, 0), new vscode.Position(1, 0));
+
+  const pasteTransfer = new vscode.DataTransfer();
+  pasteTransfer.set(
+    'text/html',
+    new vscode.DataTransferItem(
+      '<div data-sheet="Summary">file:///tmp/native.xlsx</div><table><tr><td>ID</td><td>Name</td></tr></table>',
+    ),
+  );
+
+  const pasteInsert = await vscode.commands.executeCommand<string>('markdownMatrixInjector.__test.getPasteInsertTextFromDataTransfer', pasteTransfer);
+  assert.equal(pasteInsert, '![[/tmp/native.xlsx#Summary|A1:B1]]');
+
+  const dropTransfer = new vscode.DataTransfer();
+  dropTransfer.set('text/uri-list', new vscode.DataTransferItem('file:///tmp/native-drop.csv'));
+
+  const dropInsert = await vscode.commands.executeCommand<string>('markdownMatrixInjector.__test.getDropInsertTextFromDataTransfer', dropTransfer);
+  assert.equal(dropInsert, '![[/tmp/native-drop.csv]]');
+}
+
 async function getCompletionLabels(filePath: string, content: string): Promise<string[]> {
-  const document = await openMarkdownDocument(filePath, content);
+  const uniqueFilePath = filePath.replace(/\.md$/, `-${Math.random().toString(36).slice(2)}.md`);
+  const document = await openMarkdownDocument(uniqueFilePath, content);
   const position = new vscode.Position(document.lineCount - 1, document.lineAt(document.lineCount - 1).text.length);
+
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    const completionList = await vscode.commands.executeCommand<vscode.CompletionList>(
+      'vscode.executeCompletionItemProvider',
+      document.uri,
+      position,
+    );
+    const labels = (completionList?.items ?? []).map((item) => item.label.toString());
+
+    if (labels.length > 0) {
+      return labels;
+    }
+
+    await delay(200);
+  }
+
   const completionList = await vscode.commands.executeCommand<vscode.CompletionList>(
     'vscode.executeCompletionItemProvider',
     document.uri,
     position,
   );
-
   return (completionList?.items ?? []).map((item) => item.label.toString());
 }
 
