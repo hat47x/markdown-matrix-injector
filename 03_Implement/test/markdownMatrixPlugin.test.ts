@@ -79,6 +79,60 @@ test('markdownMatrixPlugin supports transpose and numeric header rows', () => {
 
 
 
+
+
+test('markdownMatrixPlugin short-circuits mode=card before workbook loading', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-plugin-card-shortcircuit-'));
+  const docsDir = path.join(tempDir, 'docs');
+  fs.mkdirSync(docsDir, { recursive: true });
+  fs.writeFileSync(path.join(docsDir, 'broken.xml'), '<root />');
+
+  const md = createMarkdownIt(path.join(docsDir, 'spec.md'));
+  const html = md.render('![[./broken.xml#Sheet1|A1:B2?mode=card]]');
+
+  assert.match(html, /class="mmi-card"/);
+  assert.doesNotMatch(html, /class="mmi-error"/);
+});
+
+test('markdownMatrixPlugin auto-falls back to card mode for wide tables', () => {
+  const fixture = createCsvFixture([
+    ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10', 'C11'],
+    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'],
+  ]);
+
+  const md = createMarkdownIt(fixture.markdownFilePath);
+  const html = md.render('![[./roles.csv#Sheet1|A1:K2]]');
+
+  assert.match(html, /class="mmi-card"/);
+  assert.doesNotMatch(html, /class="mmi-table"/);
+});
+
+test('markdownMatrixPlugin keeps table mode when mode=table overrides smart fallback', () => {
+  const fixture = createCsvFixture([
+    ['C1', 'C2', 'C3', 'C4', 'C5', 'C6', 'C7', 'C8', 'C9', 'C10', 'C11'],
+    ['1', '2', '3', '4', '5', '6', '7', '8', '9', '10', '11'],
+  ]);
+
+  const md = createMarkdownIt(fixture.markdownFilePath);
+  const html = md.render('![[./roles.csv#Sheet1|A1:K2?mode=table]]');
+
+  assert.match(html, /class="mmi-table"/);
+  assert.doesNotMatch(html, /class="mmi-card"/);
+});
+
+test('markdownMatrixPlugin auto-falls back to card mode when no sheet is specified', () => {
+  const fixture = createCsvFixture([
+    ['ID', 'Name'],
+    ['1', 'Alice'],
+  ]);
+
+  const md = createMarkdownIt(fixture.markdownFilePath);
+  const html = md.render('![[./roles.csv]]');
+
+  assert.match(html, /class="mmi-card"/);
+  assert.doesNotMatch(html, /class="mmi-table"/);
+});
+
 test('markdownMatrixPlugin renders card mode without loading a table', () => {
   const fixture = createCsvFixture([
     ['ID', 'Name', 'Role'],
