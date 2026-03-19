@@ -36,5 +36,6 @@ Word文書を超えるエンタープライズ品質の設計書を、Markdown�
 ## 開発の始め方
 
 1. リポジトリをクローンし、`npm install` を実行します。
-2. 新規開発・修正を行う場合は、まず `01_Plans/issues/TEMPLATE.md` を用いてタスクの Issue Memo を起票してください。
-3. AIエージェント（Codex等）を使用する場合は、必ず作業前に [`AGENTS.md`](AGENTS.md) を一読させてください。
+2. 実装コード、テスト、ビルド設定は [`03_Implement/`](03_Implement/README.md) 配下にあります。
+3. 新規開発・修正を行う場合は、まず `01_Plans/issues/TEMPLATE.md` を用いてタスクの Issue Memo を起票してください。
+4. AIエージェント（Codex等）を使用する場合は、必ず作業前に [`AGENTS.md`](AGENTS.md) を一読させてください。
