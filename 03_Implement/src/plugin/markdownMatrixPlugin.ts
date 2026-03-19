@@ -4,6 +4,7 @@ import { resolveSourcePath } from '../core/pathResolver.js';
 import { renderEmbedCard } from '../core/renderCard.js';
 import { renderEmbedFrame } from '../core/renderEmbedFrame.js';
 import { renderEmbedTable } from '../core/renderTable.js';
+import { shouldRenderAsCardAfterLoad, shouldRenderAsCardImmediately } from '../core/smartFallback.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
 import { extractEmbedQueries } from '../parser/embedSyntax.js';
 
@@ -48,11 +49,15 @@ function renderEmbed(embed: ReturnType<typeof extractEmbedQueries>[number], opti
       sourcePath: embed.filepath,
       workspaceRoot: options.workspaceRoot,
     });
-    if (embed.params.get('mode') === 'card') {
+    if (shouldRenderAsCardImmediately(embed)) {
       return renderEmbedFrame(embed, renderEmbedCard(embed, absolutePath));
     }
 
     const workbook = loadWorkbook({ absolutePath, cache: options.cache });
+    if (shouldRenderAsCardAfterLoad(embed, workbook)) {
+      return renderEmbedFrame(embed, renderEmbedCard(embed, absolutePath));
+    }
+
     return renderEmbedFrame(embed, renderEmbedTable(embed, workbook));
   } catch (error) {
     return `<div class="mmi-error">${escapeHtml(getErrorMessage(error))}</div>`;
