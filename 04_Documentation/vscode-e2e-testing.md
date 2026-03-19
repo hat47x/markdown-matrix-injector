@@ -8,6 +8,13 @@ Markdown Matrix Injector では、Docker コンテナ内でも VSCode Extension 
 - Problems パネル相当の Diagnostics 生成（file not found / invalid XML / sheet not found）。
 - Paste / D&D 入口コマンドによる Markdown 挿入。
 
+ただし、自動 E2E は **Extension Host API レベル** の事実確認に留まります。以下は手動 E2E で補完してください。
+
+- Markdown Preview / Webview DOM 上で、実際に `table` / card / error UI が見えているか。
+- Problems パネル UI に、診断コード・メッセージ・対象行が期待どおり並ぶか。
+- 補完 UI が編集中のカーソル位置に追随し、候補のラベルや絞り込みが違和感なく見えるか。
+- Paste / D&D がネイティブ OS イベント経由でも実運用どおりに挿入されるか。
+
 ## Prerequisites
 - Node.js / npm
 - `xvfb-run` (`sudo apt-get install -y xvfb` など)
@@ -45,6 +52,159 @@ npm run test:e2e
   2. `![[` を入力して補完候補を確認する。
   3. 存在しないファイル / シート / invalid XML を書いて Problems を確認する。
   4. コマンドパレットから Paste / Drop 入口コマンドを実行し、挿入結果を確認する。
+
+## Manual E2E checklist for UX gaps
+以下は **自動 E2E の対象外だが、実運用では重要** な確認項目です。次エージェントが文書だけで再現できるよう、VSCode デバッグ起動から観点を固定しています。
+
+### Why manual E2E is still required
+| 系統 | 自動 E2E で足りない理由 | 手動で見るもの |
+|---|---|---|
+| Preview DOM | Extension Host テストは Preview/Webview の DOM を直接取得しないため。 | 表・カード・エラー表示が Preview 上で崩れず描画されること。 |
+| Problems パネル | 自動 E2E は `languages.getDiagnostics` の内容しか見ておらず、Problems ビューの並び・視認性は未確認のため。 | エラー行、メッセージ、診断コードの見え方。 |
+| Autocomplete | API では候補集合を取れるが、候補ウィジェットの表示位置・絞り込み・操作感は未確認のため。 | サジェストポップアップの内容、選択後の挿入結果。 |
+| Paste / D&D | 現行自動化は command 引数経由で、OS ネイティブ paste / drag-and-drop event を再現していないため。 | 実際の Ctrl/Cmd+V とファイル D&D での挿入結果。 |
+
+### Manual environment setup
+1. ホスト OS の VSCode でリポジトリ `/workspace/markdown-matrix-injector` を開く。
+2. ターミナルで `cd 03_Implement && npm install && npm run build` を実行し、拡張のビルドを最新化する。
+3. VSCode で `03_Implement` フォルダを基準に `.vscode/launch.json` の `Run Extension` 構成を選び、`F5` で Extension Development Host を起動する。
+4. Development Host 側で `File > Open Folder...` から `03_Implement/test/fixtures/workspace` を開く。
+5. Explorer に `docs/phase5-preview-manual.md` が無ければ新規作成し、以下の確認用 Markdown を貼り付けて保存する。
+
+```md
+# Phase 5 manual verification
+
+## Preview targets
+
+Valid table:
+![[data/sample.csv#Sheet1|A1:B3?header=first]]
+
+Missing file:
+![[data/missing.csv#Sheet1|A1:B2]]
+
+Missing sheet:
+![[data/sample.csv#Unknown|A1:B2]]
+
+Invalid xml:
+![[data/invalid.xml#Sheet1|A1:B2]]
+```
+
+> `data/invalid.xml` が fixture に存在しない場合は、同じ `data/` 配下へ名前だけ先に作成し、Excel XML ではない適当な XML 文字列を保存してください。目的は Problems/Preview の invalid XML 経路を手動確認することです。
+
+### Checklist A: Markdown Preview / Preview DOM
+**目的**: Preview DOM は自動 E2E 未対象なので、Preview 上の見た目とエラー表示を確認する。
+
+1. エディタで `phase5-preview-manual.md` を開き、`Markdown: Open Preview to the Side` を実行する。
+2. `Valid table` セクションで、表が 2 列以上の HTML table として表示されることを確認する。
+3. `Missing file` / `Missing sheet` / `Invalid xml` の各セクションで、壊れた空白ではなく、埋め込み失敗が分かるエラー表示または代替 UI が描画されることを確認する。
+4. Preview をスクロールし、表やエラー UI が極端に重ならないこと、Markdown 見出しとの順序が崩れないことを確認する。
+
+**Expected results**
+- `Valid table` は、少なくとも 1 行以上のデータを含む表として視認できる。
+- エラー系 3 件は Preview 上で「何が壊れたか分からない空白」ではなく、失敗が分かる表示になる。
+- Preview とエディタ本文の順序が一致し、対象 embed の前後が入れ替わらない。
+
+**Failure hints**
+- Preview が更新されない場合は Markdown ファイル保存後に `Developer: Reload Window` を試す。
+- 全 embed が素のテキストのままなら、Development Host 側で拡張が有効になっているか確認する。
+- `invalid.xml` だけ無反応の場合は、手動作成した XML が fixture に保存されているか確認する。
+
+### Checklist B: Problems パネル / Diagnostics visibility
+**目的**: Diagnostics 自体は自動化済みだが、Problems パネルの視認性・対象行・コード確認は手動で行う。
+
+1. `phase5-preview-manual.md` を保存した状態で、`View: Problems` を開く。
+2. フィルタを解除し、`phase5-preview-manual.md` に紐づく問題だけを確認する。
+3. 次の 3 件が Error として表示されることを確認する。
+   - file not found
+   - invalid XML
+   - sheet not found
+4. 各項目をクリックし、エディタカーソルが該当 embed 行へジャンプすることを確認する。
+5. 可能なら Problems の詳細表示または Hover で、診断コードが `MMI_FILE_NOT_FOUND` / `MMI_INVALID_XML` / `MMI_SHEET_NOT_FOUND` と読み取れることを確認する。
+
+**Expected results**
+- Problems パネルに 3 件だけ並び、保存のたびに重複して増殖しない。
+- 各問題が該当 embed の行へナビゲートできる。
+- メッセージだけでなく、どの種別の壊れ方か判別できる表示になっている。
+
+**Failure hints**
+- Problems が 0 件なら Markdown ファイルとして開いているか、保存済みかを確認する。
+- 件数が増え続ける場合は DiagnosticCollection の消し込み不全を疑い、再読み込み後も再現するか記録する。
+- 行ジャンプがずれる場合は embed 記法の範囲計算ずれとして、実際に飛んだ行番号を記録する。
+
+### Checklist C: Autocomplete UI
+**目的**: 補完候補の中身だけでなく、補完ウィジェットの見え方と挿入後の本文変化を確認する。
+
+1. `phase5-preview-manual.md` の末尾に新しい行を作る。
+2. `![[` と入力し、必要なら `Ctrl+Space` / `Cmd+Space` で補完を開く。
+3. filepath 候補に `data/sample.csv` など workspace 内パス候補が出ることを確認する。
+4. 候補を 1 件選択し、挿入後に `#` を入力する。
+5. sheet/range 候補が続けて表示されることを確認し、1 件選択する。
+6. 続けて `?` を入力し、`header=`, `mode=`, `columns=` など query parameter 候補が表示されることを確認する。
+7. 補完を 1 つ確定し、最終的に `![[...#...?...]]` の形で本文へ挿入されることを確認する。
+
+**Expected results**
+- `![[` 直後は filepath 候補、`#` 直後は sheet/range 候補、`?` 直後は query 候補と、段階的に切り替わる。
+- 候補選択後、既存文字列を壊さず embed 記法の続きを自然に入力できる。
+- 補完 UI がカーソル近傍に表示され、候補 0 件なのに無言で閉じるような違和感がない。
+
+**Failure hints**
+- 補完が出ない場合は言語モードが Markdown か、カーソルが `![[`, `#`, `?` の直後かを確認する。
+- filepath 候補だけ出る場合は fixture workspace を開いているか確認する。
+- 候補確定後に括弧が壊れる場合は、どのトリガー文字で崩れたかを記録する。
+
+### Checklist D: Paste insertion (native clipboard path)
+**目的**: command 経由ではなく、実際の paste 操作で embed がどう挿入されるかを確認する。
+
+1. OS 上で Excel / Google Sheets / 表計算ソフト、または HTML table をコピーできるブラウザを準備する。
+2. その表をコピーし、Development Host の Markdown エディタへ戻る。
+3. 新しい行で `Ctrl+V` / `Cmd+V` を実行する。
+4. 必要に応じて `Editor: Paste As...` や拡張が提供する paste 関連コマンドも試し、結果を比較する。
+
+**Expected results**
+- 通常のプレーンテキスト貼り付けではなく、ベストエフォートで `![[...]]` 形式の embed または、それに準ずる提案結果が挿入される。
+- 挿入直後に Markdown が壊れず、少なくとも 1 行の有効な embed 記法として残る。
+- 期待どおりの変換ができない場合も、無言失敗ではなく「何も変換されなかった」事実を記録できる。
+
+**Failure hints**
+- OS/ブラウザ差で clipboard HTML が取得できないことがあるため、利用したアプリ名と OS を必ず記録する。
+- 何も起きなければ、現実装が native paste hook ではなく command 入口中心かを切り分ける。
+- 文字化けや複数行崩れがあれば、貼り付け前後の本文差分を残す。
+
+### Checklist E: Drag & Drop insertion (native drop path)
+**目的**: Explorer やファイルマネージャからのファイルドロップで、実際の UX を確認する。
+
+1. ホスト OS のファイルマネージャ、または Development Host の Explorer から `sample.csv` 等をつかめる状態にする。
+2. Markdown エディタ上の空行へ CSV / XLSX / XML ファイルをドロップする。
+3. 複数ファイルを同時にドロップできる環境なら、単一ファイル時との差も確認する。
+
+**Expected results**
+- 少なくとも単一ファイルのドロップで `![[...]]` 記法が 1 つ挿入される。
+- 挿入パスが絶対/相対のどちらになったかを確認し、次エージェントが再現できるよう記録できる。
+- 未対応形式や複数ドロップ時は、落ちるのではなく「未変換」または既知制約として扱える。
+
+**Failure hints**
+- ドロップしても本文無変化なら、VSCode 標準のファイル挿入と競合していないか確認する。
+- Development Host とホスト VSCode で挙動差がある場合は、どちらで再現したか明記する。
+- 複数ファイル時に一部だけ入る場合は、順序と実際に入ったパスを記録する。
+
+## Suggested manual result log template
+手動確認の結果は、以下のような表で残すと次エージェントが差分を追いやすくなります。
+
+| Date | VSCode version | OS | Checklist | Result | Notes |
+|---|---|---|---|---|---|
+| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | Preview DOM | Pass/Fail | 例: invalid XML は赤枠表示 |
+| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | Problems | Pass/Fail | 例: 3 件表示、行ジャンプ正常 |
+| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | Autocomplete | Pass/Fail | 例: `?` で `header=` 候補あり |
+| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | Paste | Pass/Fail | 例: Google Sheets からは未変換 |
+| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | D&D | Pass/Fail | 例: CSV 単体のみ成功 |
+
+## Future Playwright candidates
+手動でしか確認しにくい項目のうち、将来 Playwright 化を検討する候補を整理します。
+
+1. Markdown Preview の `table`, `figcaption`, `mmi-card`, error UI の DOM 存在確認。
+2. Problems パネルの件数表示、対象ファイル表示、クリック遷移のスモークテスト。
+3. Suggest widget の表示有無までは UI Automation で確認し、候補中身は既存 API テストを流用する。
+4. Native paste/drop は OS 依存が強いため、まずは VSCode 提供 API で再現できる範囲だけ段階的に自動化する。
 
 ## Failure triage
 - `xvfb-run is required ...` で失敗した場合: OS パッケージ `xvfb` を導入する。
