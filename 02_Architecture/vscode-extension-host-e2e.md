@@ -7,7 +7,7 @@
 ## 2. Requirements整理
 1. **実エンジン起動**: `@vscode/test-electron` で VSCode をダウンロードし、開発中の拡張を Extension Host 上で起動する。
 2. **Headless対応**: Docker では `xvfb-run` を介して Electron が要求するディスプレイを仮想化する。
-3. **MMI検証対象**: Markdown 埋め込み結果の HTML 断面、補完候補、Diagnostics、Paste / D&D 入口コマンドを検証する。
+3. **MMI検証対象**: Markdown 埋め込み結果の HTML 断面、補完候補、Diagnostics、native paste/drop provider の adapter、非対応 host 向け command fallback を検証する。
 4. **責務分離**: DX ロジック本体 (`src/dx/*`)・VSCode 統合層 (`src/extension.ts`)・E2E 検証レイヤ (`test/e2e/**`) の責務を混同しない。
 5. **将来拡張**: Webview / Markdown Preview の iframe DOM を Playwright で検証できる構造にしておく。
 
@@ -15,7 +15,10 @@
 ### 3.1 現段階の自動化スコープ
 - Extension Host テストは `vscode.commands.executeCommand`, `vscode.executeCompletionItemProvider`, `vscode.languages.getDiagnostics` を利用し、Stream A が公開した最小の VSCode surface を検証する。
 - `renderEmbedForTest` は既存レンダリングの回帰確認に使う。
-- Paste / D&D は native provider (`registerDocumentPasteEditProvider` / `registerDocumentDropEditProvider`) を正規入口とし、E2E では DataTransfer adapter と command fallback の両方を検証する。
+- Paste / D&D は native provider (`registerDocumentPasteEditProvider` / `registerDocumentDropEditProvider`) を正規入口とする。
+- Extension Host E2E は provider API の存在確認、DataTransfer adapter の返却値、command fallback の挿入結果までを検証する。
+- OS ネイティブの paste / drag-and-drop event から editor edit が適用される最終経路は manual E2E の担当とする。
+- headless VSCode 1.112 系では autocomplete の sheet 候補取得が不安定な既知事象があり、Paste / D&D 経路とは別トラックで切り分ける。
 
 ### 3.2 責務分離
 - **DXロジック本体**: `03_Implement/src/dx/autocompleteProvider.ts`, `diagnostics.ts`, `pasteDrop.ts`
@@ -46,5 +49,5 @@
 | Layer | Tool | Assert |
 |---|---|---|
 | Unit | `node --test` | パーサ、ローダー、DX ロジック単体仕様 |
-| Integration | `@vscode/test-electron` | 実際の VSCode Engine 上での render / completion / diagnostics / paste-drop command |
+| Integration | `@vscode/test-electron` | 実際の VSCode Engine 上での render / completion / diagnostics / native provider adapter / command fallback |
 | Future E2E | Playwright + VSCode Preview | Webview / Markdown Preview の DOM と表示崩れ |
