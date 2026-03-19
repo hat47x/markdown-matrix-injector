@@ -1,6 +1,6 @@
 export type AutocompleteStage = 'filepath' | 'sheet-or-range' | 'query-params';
 
-export type AutocompleteCandidateKind = 'file' | 'sheet' | 'query-param';
+export type AutocompleteCandidateKind = 'file' | 'sheet' | 'range' | 'query-param';
 
 export interface AutocompleteCandidate {
   label: string;
@@ -11,7 +11,16 @@ export interface AutocompleteCandidate {
 export interface AutocompleteCandidateSets {
   files: readonly string[];
   sheets: readonly string[];
+  ranges?: readonly string[];
   queryParams?: readonly string[];
+}
+
+interface AutocompleteContext {
+  stage: AutocompleteStage;
+  fragment: string;
+  queryParamFragment?: string;
+  usedQueryParams: readonly string[];
+  sheetOrRangeTarget?: 'sheet' | 'range';
 }
 
 const DEFAULT_QUERY_PARAM_CANDIDATES = [
@@ -39,23 +48,71 @@ function extractEmbedBody(input: string): string {
   return input;
 }
 
-export function classifyAutocompleteStage(input: string): AutocompleteStage {
+function getPathAndTarget(embedBody: string): string {
+  return embedBody.split(']]', 1)[0] ?? '';
+}
+
+function createAutocompleteContext(input: string): AutocompleteContext {
   const embedBody = extractEmbedBody(input);
-  const queryIndex = embedBody.indexOf('?');
+  const pathAndTarget = getPathAndTarget(embedBody);
+  const queryIndex = pathAndTarget.indexOf('?');
 
   if (queryIndex >= 0) {
-    return 'query-params';
+    const queryText = pathAndTarget.slice(queryIndex + 1);
+    const querySegments = queryText.split('&');
+    const activeSegment = querySegments.at(-1) ?? '';
+    const usedQueryParams = querySegments
+      .slice(0, -1)
+      .map((segment) => segment.split('=', 1)[0] ?? '')
+      .filter((segment) => segment.length > 0);
+
+    if (activeSegment.includes('=')) {
+      const activeParamName = activeSegment.split('=', 1)[0] ?? '';
+
+      if (activeParamName.length > 0) {
+        usedQueryParams.push(activeParamName);
+      }
+    }
+
+    return {
+      stage: 'query-params',
+      fragment: queryText,
+      queryParamFragment: activeSegment.split('=', 1)[0] ?? '',
+      usedQueryParams,
+    };
   }
 
-  const pathAndTarget = embedBody.split(']]', 1)[0] ?? '';
-  const hasSheetMarker = pathAndTarget.includes('#');
-  const hasRangeMarker = pathAndTarget.includes('|');
+  const rangeIndex = pathAndTarget.indexOf('|');
 
-  if (hasSheetMarker || hasRangeMarker) {
-    return 'sheet-or-range';
+  if (rangeIndex >= 0) {
+    return {
+      stage: 'sheet-or-range',
+      fragment: pathAndTarget.slice(rangeIndex + 1),
+      usedQueryParams: [],
+      sheetOrRangeTarget: 'range',
+    };
   }
 
-  return 'filepath';
+  const sheetIndex = pathAndTarget.indexOf('#');
+
+  if (sheetIndex >= 0) {
+    return {
+      stage: 'sheet-or-range',
+      fragment: pathAndTarget.slice(sheetIndex + 1),
+      usedQueryParams: [],
+      sheetOrRangeTarget: 'sheet',
+    };
+  }
+
+  return {
+    stage: 'filepath',
+    fragment: pathAndTarget,
+    usedQueryParams: [],
+  };
+}
+
+export function classifyAutocompleteStage(input: string): AutocompleteStage {
+  return createAutocompleteContext(input).stage;
 }
 
 function toCandidates(values: readonly string[], kind: AutocompleteCandidateKind): AutocompleteCandidate[] {
@@ -66,26 +123,64 @@ function toCandidates(values: readonly string[], kind: AutocompleteCandidateKind
   }));
 }
 
+function normalizeFragment(value: string | undefined): string {
+  return value?.trim().toLowerCase() ?? '';
+}
+
+function filterByFragment(values: readonly string[], fragment: string): string[] {
+  const normalizedFragment = normalizeFragment(fragment);
+
+  if (normalizedFragment.length === 0) {
+    return [...values];
+  }
+
+  return values.filter((value) => value.toLowerCase().includes(normalizedFragment));
+}
+
 function getDefaultQueryParamCandidates(): AutocompleteCandidate[] {
-  return toCandidates(DEFAULT_QUERY_PARAM_CANDIDATES, 'query-param');
+  return DEFAULT_QUERY_PARAM_CANDIDATES.map((value) => ({
+    label: value,
+    insertText: `${value}=`,
+    kind: 'query-param',
+  }));
+}
+
+function getQueryParamCandidates(
+  context: AutocompleteContext,
+  candidateSets: AutocompleteCandidateSets,
+): AutocompleteCandidate[] {
+  const source = candidateSets.queryParams ?? DEFAULT_QUERY_PARAM_CANDIDATES;
+  const filtered = filterByFragment(source, context.queryParamFragment ?? '').filter(
+    (value) => !context.usedQueryParams.includes(value),
+  );
+
+  return filtered.map((value) => ({
+    label: value,
+    insertText: `${value}=`,
+    kind: 'query-param',
+  }));
 }
 
 export function getAutocompleteCandidates(
   input: string,
   candidateSets: AutocompleteCandidateSets,
 ): AutocompleteCandidate[] {
-  const stage = classifyAutocompleteStage(input);
+  const context = createAutocompleteContext(input);
 
-  switch (stage) {
+  switch (context.stage) {
     case 'filepath':
-      return toCandidates(candidateSets.files, 'file');
+      return toCandidates(filterByFragment(candidateSets.files, context.fragment), 'file');
     case 'sheet-or-range':
-      return toCandidates(candidateSets.sheets, 'sheet');
+      if (context.sheetOrRangeTarget === 'range') {
+        return toCandidates(
+          filterByFragment(candidateSets.ranges ?? candidateSets.sheets, context.fragment),
+          'range',
+        );
+      }
+
+      return toCandidates(filterByFragment(candidateSets.sheets, context.fragment), 'sheet');
     case 'query-params':
-      return toCandidates(
-        candidateSets.queryParams ?? DEFAULT_QUERY_PARAM_CANDIDATES,
-        'query-param',
-      );
+      return getQueryParamCandidates(context, candidateSets);
     default:
       return getDefaultQueryParamCandidates();
   }
