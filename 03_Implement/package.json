@@ -26,13 +26,24 @@
     "vscode": "^1.96.0"
   },
   "activationEvents": [
-    "onCommand:markdownMatrixInjector.renderEmbedForTest"
+    "onCommand:markdownMatrixInjector.renderEmbedForTest",
+    "onCommand:markdownMatrixInjector.insertEmbedFromPaste",
+    "onCommand:markdownMatrixInjector.insertEmbedFromDrop",
+    "onLanguage:markdown"
   ],
   "contributes": {
     "commands": [
       {
         "command": "markdownMatrixInjector.renderEmbedForTest",
         "title": "MMI: Render Embed For Test"
+      },
+      {
+        "command": "markdownMatrixInjector.insertEmbedFromPaste",
+        "title": "MMI: Insert Embed From Paste"
+      },
+      {
+        "command": "markdownMatrixInjector.insertEmbedFromDrop",
+        "title": "MMI: Insert Embed From Drop"
       }
     ]
   }
