@@ -3,8 +3,12 @@ import assert from 'node:assert/strict';
 import {
   buildCompletionItems,
   createDiagnosticsForDocument,
+  getDropEditFromDataTransfer,
   getDropInsertText,
+  getDropInsertTextFromDataTransfer,
+  getPasteEditFromDataTransfer,
   getPasteInsertText,
+  getPasteInsertTextFromDataTransfer,
   resolveWorkbookReference,
 } from '../src/dx/vscodeAdapters.js';
 
@@ -71,4 +75,53 @@ test('getPasteInsertText and getDropInsertText reuse pasteDrop suggestions throu
   );
   assert.equal(getDropInsertText({ droppedFiles: ['/tmp/report.csv'] }), '![[/tmp/report.csv]]');
   assert.equal(getPasteInsertText(), undefined);
+});
+
+
+test('native paste/drop adapters reuse pasteDrop logic from DataTransfer surfaces', async () => {
+  const htmlTransfer = {
+    get(mimeType: string) {
+      if (mimeType !== 'text/html') {
+        return undefined;
+      }
+
+      return {
+        async asString() {
+          return '<div data-sheet="Summary">file:///tmp/report.xlsx</div><table><tr><td>A</td></tr></table>';
+        },
+      };
+    },
+  };
+
+  const fileTransfer = {
+    get(mimeType: string) {
+      if (mimeType !== 'files') {
+        return undefined;
+      }
+
+      return {
+        async asString() {
+          return '';
+        },
+        asFile() {
+          return {
+            uri: {
+              fsPath: '/tmp/report.csv',
+            },
+          };
+        },
+      };
+    },
+  };
+
+  assert.equal(await getPasteInsertTextFromDataTransfer(htmlTransfer), '![[/tmp/report.xlsx#Summary|A1:A1]]');
+  assert.equal(await getDropInsertTextFromDataTransfer(fileTransfer), '![[/tmp/report.csv]]');
+  assert.deepEqual(
+    await getPasteEditFromDataTransfer(htmlTransfer, { createEdit: (insertText) => ({ insertText, surface: 'paste' }) }),
+    { insertText: '![[/tmp/report.xlsx#Summary|A1:A1]]', surface: 'paste' },
+  );
+  assert.deepEqual(
+    await getDropEditFromDataTransfer(fileTransfer, { createEdit: (insertText) => ({ insertText, surface: 'drop' }) }),
+    { insertText: '![[/tmp/report.csv]]', surface: 'drop' },
+  );
 });
