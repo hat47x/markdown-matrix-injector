@@ -6,3 +6,4 @@ export * from './core/renderTable.js';
 export * from './core/workbookLoader.js';
 export * from './parser/embedSyntax.js';
 export * from './plugin/markdownMatrixPlugin.js';
+export * from './core/smartFallback.js';
