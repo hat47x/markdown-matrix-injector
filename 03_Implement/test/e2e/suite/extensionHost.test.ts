@@ -40,19 +40,25 @@ async function verifyRenderEmbedForTestCommand(markdownFilePath: string, workspa
 }
 
 async function verifyAutocompleteIntegration(markdownFilePath: string): Promise<void> {
-  const fileSuggestions = await getCompletionLabels(markdownFilePath, 'Autocomplete file\n![[../da');
-  assert.ok(fileSuggestions.includes('../data/roles.csv'), 'Expected workbook filepath completion from ![[ stage.');
+  const fileCompletion = await getCompletionState(markdownFilePath, 'Autocomplete file\n![[../da');
+  assert.ok(
+    fileCompletion.labels.includes('../data/roles.csv'),
+    `Expected workbook filepath completion from ![[ stage. got: ${formatCompletionState(fileCompletion)}`,
+  );
 
-  const sheetSuggestions = await getCompletionLabels(markdownFilePath, 'Autocomplete sheet\n![[../data/roles.csv#');
-  if (!sheetSuggestions.includes('Sheet1')) {
-    console.warn(`[mmi:e2e] Known flaky autocomplete gap after #: ${sheetSuggestions.join(', ') || '(no suggestions)'}`);
+  const sheetCompletion = await getCompletionState(markdownFilePath, 'Autocomplete sheet\n![[../data/roles.csv#');
+  if (!sheetCompletion.labels.includes('Sheet1')) {
+    console.warn(`[mmi:e2e] Known flaky autocomplete gap after #: ${formatCompletionState(sheetCompletion)}`);
   }
 
-  const queryParamSuggestions = await getCompletionLabels(
+  const queryCompletion = await getCompletionState(
     markdownFilePath,
     'Autocomplete query\n![[../data/roles.csv#Sheet1|A1:B2?he',
   );
-  assert.ok(queryParamSuggestions.includes('header'), 'Expected query parameter completion after ?.');
+  assert.ok(
+    queryCompletion.labels.includes('header'),
+    `Expected query parameter completion after ?. got: ${formatCompletionState(queryCompletion)}`,
+  );
 }
 
 async function verifyDiagnosticsIntegration(workspaceRoot: string): Promise<void> {
@@ -156,14 +162,32 @@ async function verifyNativePasteDropSurfaceOrFallback(markdownFilePath: string):
   await verifyPasteDropCommandFallback(markdownFilePath);
 }
 
-async function getCompletionLabels(filePath: string, content: string): Promise<string[]> {
+interface CompletionState {
+  readonly lineText: string;
+  readonly position: {
+    readonly line: number;
+    readonly character: number;
+  };
+  readonly attempts: number;
+  readonly labels: string[];
+  readonly vscodeVersion: string;
+  readonly platform: string;
+  readonly display: string;
+}
+
+async function getCompletionState(filePath: string, content: string): Promise<CompletionState> {
   const uniqueFilePath = filePath.replace(/\.md$/, `-${Math.random().toString(36).slice(2)}.md`);
   const document = await openMarkdownDocument(uniqueFilePath, content);
   const editor = await vscode.window.showTextDocument(document);
-  const position = new vscode.Position(document.lineCount - 1, document.lineAt(document.lineCount - 1).text.length);
+  const lineNumber = document.lineCount - 1;
+  const lineText = document.lineAt(lineNumber).text;
+  const position = new vscode.Position(lineNumber, lineText.length);
   editor.selection = new vscode.Selection(position, position);
 
-  for (let attempt = 0; attempt < 15; attempt += 1) {
+  let labels: string[] = [];
+  let attempts = 0;
+
+  for (; attempts < 15; attempts += 1) {
     await vscode.commands.executeCommand('editor.action.triggerSuggest');
 
     const completionList = await vscode.commands.executeCommand<vscode.CompletionList>(
@@ -171,21 +195,50 @@ async function getCompletionLabels(filePath: string, content: string): Promise<s
       document.uri,
       position,
     );
-    const labels = (completionList?.items ?? []).map((item) => item.label.toString());
+    labels = (completionList?.items ?? []).map((item) => item.label.toString());
 
     if (labels.length > 0) {
-      return labels;
+      attempts += 1;
+      break;
     }
 
     await delay(200);
   }
 
-  const completionList = await vscode.commands.executeCommand<vscode.CompletionList>(
-    'vscode.executeCompletionItemProvider',
-    document.uri,
-    position,
-  );
-  return (completionList?.items ?? []).map((item) => item.label.toString());
+  if (labels.length === 0) {
+    const completionList = await vscode.commands.executeCommand<vscode.CompletionList>(
+      'vscode.executeCompletionItemProvider',
+      document.uri,
+      position,
+    );
+    labels = (completionList?.items ?? []).map((item) => item.label.toString());
+    attempts += 1;
+  }
+
+  return {
+    lineText,
+    position: {
+      line: position.line,
+      character: position.character,
+    },
+    attempts,
+    labels,
+    vscodeVersion: vscode.version,
+    platform: process.platform,
+    display: process.env.DISPLAY ?? '(unset)',
+  };
+}
+
+function formatCompletionState(state: CompletionState): string {
+  return JSON.stringify({
+    vscodeVersion: state.vscodeVersion,
+    platform: state.platform,
+    display: state.display,
+    lineText: state.lineText,
+    position: state.position,
+    attempts: state.attempts,
+    labels: state.labels,
+  });
 }
 
 async function openMarkdownDocument(filePath: string, content: string): Promise<vscode.TextDocument> {
