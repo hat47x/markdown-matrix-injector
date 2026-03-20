@@ -45,6 +45,7 @@
 - 責務:
   - 実際の VSCode Engine 上で、公開 surface の統合結果を検証する。
   - render / completion / diagnostics / native provider adapter / command fallback を API レベルで確認する。
+  - Paste / D&D では、native provider が正規入口として登録され、同一解析ロジックへ委譲され、非対応 host では command fallback が互換経路として残ることを確認する。
 - 非責務:
   - Preview DOM の視覚保証
   - Problems パネル UI の視認性保証
@@ -60,6 +61,7 @@
   - Problems パネル UI の確認
   - suggest widget の操作感確認
   - OS ネイティブ paste / drag-and-drop から editor edit が反映される最終経路の確認
+  - native provider が editor UX として自然に機能するか、および fallback 導線が必要な host で運用上破綻しないかの最終確認
 - 非責務:
   - DX ロジックや統合層の仕様決定
   - 自動 E2E の代替となる詳細実装説明
@@ -82,9 +84,11 @@
   - native provider を登録できる host capability があること
   - provider が再利用する DataTransfer 解析ロジックが期待どおりであること
   - native provider 非対応 host でも command fallback が成立すること
+  - したがって issue-0010 の受入条件における『native provider surface から発火できること』『fallback 方針が明示されること』は、自動 E2E の設計対象に含まれる。
 - 自動 E2E が保証しないもの:
   - OS ネイティブ event から editor edit が適用される最終挙動
   - 操作感や UI 上の導線
+  - host ごとのメニュー導線や権限差分を含む運用確認
 - これらは manual E2E 補完領域へ委譲する。
 
 ## 5. Headless execution boundary
@@ -95,7 +99,8 @@
 ## 6. Known architectural risk
 - **headless VSCode 1.112** 系では、autocomplete の sheet 候補取得が不安定になる既知リスクがある。
 - このリスクは、現時点では Paste / D&D の native provider / command fallback 境界とは独立したものとして扱う。
-- したがって設計上は、autocomplete の不安定要因を理由に Paste / D&D の責務境界を崩さない。
+- したがって設計上は、autocomplete の不安定要因を理由に Paste / D&D の責務境界、E2E 対象範囲、manual E2E への委譲線を変更しない。
+- autocomplete の不安定性は『自動 E2E 全体の信頼性監視対象』ではあるが、『Paste / D&D fallback 判断を左右する入力』ではない。
 - 再現手順、観測ログ、暫定回避策などの運用詳細は documentation 側へ委譲する。
 
 ## 7. Directory mapping
