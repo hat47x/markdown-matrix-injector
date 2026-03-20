@@ -12,6 +12,8 @@
 - **Manual**: Preview / Problems / OS ネイティブ paste / drag-and-drop など、実機操作で最終確認すべき事実。
 - **Known unstable**: 現時点で既知の不安定要因。失敗しても、直ちに Paste / D&D 不具合と断定してはいけない事象。
 
+この文書は **manual E2E と運用の正本** です。architecture 的な責務境界の再定義は行わず、**再現手順・観測ポイント・失敗時の見方** だけを更新対象とします。
+
 ## Overview
 Markdown Matrix Injector では、Docker コンテナ内でも VSCode Extension Host を起動した自動検証を行えます。現在の Phase 5 E2E では、実際の VSCode エンジン上で次の 5 系統を確認します。
 
@@ -84,6 +86,15 @@ npm run test:e2e
 - そのため、**fallback command が成功し native path だけ失敗する** 場合は、まず host capability / OS event / DataTransfer payload の差を疑ってください。
 - 逆に、**native path と fallback path の両方が失敗する** 場合は、provider 登録可否ではなく解析ロジックまたは入力データ自体の問題を優先的に疑います。
 
+### Host matrix: what to run first on each host
+次エージェントが迷わないよう、host の種類ごとの観測順序を固定します。
+
+| Host class | Capability expectation | 先に試す入口 | 比較対象 | この host で確定したいこと |
+|---|---|---|---|---|
+| native provider 対応 host | `registerDocumentPasteEditProvider` / `registerDocumentDropEditProvider` が available | 通常の `Ctrl+V` / `Cmd+V`、通常の drag-and-drop | `markdownMatrixInjector.insertEmbedFromPaste` / `markdownMatrixInjector.insertEmbedFromDrop` | native path が使えること、fallback と結果差がないこと |
+| native provider 非対応 host | provider API unavailable、または host 制約で native path 不可 | `markdownMatrixInjector.insertEmbedFromPaste` / `markdownMatrixInjector.insertEmbedFromDrop` | 通常貼り付け / 通常 drop は参考観測 | fallback が運用上の正規代替手段として成立すること |
+| capability 未確定 host | provider API の有無をまだ確認していない | capability 記録 → fallback command | その後 native path | まず fallback を成立させ、native-only 障害か共通障害かを分離すること |
+
 ### Practical boundary: what next agents should conclude
 - **Automated で Pass**: 解析ロジックと fallback command は少なくとも Extension Host レベルで成立している。
 - **Manual native path で Fail / fallback で Pass**: native provider 非対応 host、または host 依存制約の可能性が高い。
@@ -150,6 +161,28 @@ Invalid xml:
 
 > `data/invalid.xml` が fixture に存在しない場合は、同じ `data/` 配下へ名前だけ先に作成し、Excel XML ではない適当な XML 文字列を保存してください。目的は Problems/Preview の invalid XML 経路を手動確認することです。
 
+## Manual execution order (run this top to bottom)
+比較観測の順番を固定します。**native path / fallback path / known unstable** を混同しないため、必ず次の順に進めてください。
+
+1. **Setup を完了する**
+   - Manual environment setup の手順どおり Development Host を起動する。
+   - 比較用 Markdown (`phase5-preview-manual.md`) を保存した状態にする。
+2. **Capability を先に記録する**
+   - VSCode version、OS、Development Host / 通常ホストのどちらかをメモする。
+   - `registerDocumentPasteEditProvider` / `registerDocumentDropEditProvider` が available か unavailable か unconfirmed かを最初に書く。
+3. **Preview / Problems / autocomplete を先に確認する**
+   - Checklist A → Checklist B → Checklist C の順に実施する。
+   - この順番にしておくと、Paste / D&D で本文が変化しても基準状態を失わない。
+4. **Paste は fallback を基準に成立確認する**
+   - capability 未確定 host と native provider 非対応 host では、`markdownMatrixInjector.insertEmbedFromPaste` を先に実行する。
+   - native provider 対応 host では、通常 paste を先に観測してから fallback command を比較実行する。
+5. **Drop も同じ順序で比較する**
+   - capability 未確定 host と native provider 非対応 host では、`markdownMatrixInjector.insertEmbedFromDrop` を先に実行する。
+   - native provider 対応 host では、通常 drop を先に観測してから fallback command を比較実行する。
+6. **Autocomplete の失敗は最後に独立判定する**
+   - `#` 直後だけ候補 0 件のときは Known unstable として separate log に分ける。
+   - Paste / D&D の成否判定には混ぜない。
+
 ## Checklist A: Markdown Preview / Preview DOM
 **Classification**: Manual  
 **目的**: Preview DOM は自動 E2E 未対象なので、Preview 上の見た目とエラー表示を確認する。
@@ -159,6 +192,11 @@ Invalid xml:
 2. `Valid table` セクションで、表が 2 列以上の HTML table として表示されることを確認する。
 3. `Missing file` / `Missing sheet` / `Invalid xml` の各セクションで、壊れた空白ではなく、埋め込み失敗が分かるエラー表示または代替 UI が描画されることを確認する。
 4. Preview をスクロールし、表やエラー UI が極端に重ならないこと、Markdown 見出しとの順序が崩れないことを確認する。
+
+### Observation points
+- `Valid table` は header 行と data 行の区別が見えるか。
+- エラー系 3 件は空白ではなく、失敗種別が推測できる UI になっているか。
+- Preview 側の表示順がエディタ本文の順番と一致しているか。
 
 ### Expected results
 - `Valid table` は、少なくとも 1 行以上のデータを含む表として視認できる。
@@ -184,6 +222,11 @@ Invalid xml:
 4. 各項目をクリックし、エディタカーソルが該当 embed 行へジャンプすることを確認する。
 5. 可能なら Problems の詳細表示または Hover で、診断コードが `MMI_FILE_NOT_FOUND` / `MMI_INVALID_XML` / `MMI_SHEET_NOT_FOUND` と読み取れることを確認する。
 
+### Observation points
+- 件数が常に 3 件に保たれるか。
+- 行ジャンプ先が embed 行と一致するか。
+- コード表示がメッセージだけでなく識別子レベルで区別できるか。
+
 ### Expected results
 - Problems パネルに 3 件だけ並び、保存のたびに重複して増殖しない。
 - 各問題が該当 embed の行へナビゲートできる。
@@ -207,6 +250,11 @@ Invalid xml:
 6. 続けて `?` を入力し、`header=`, `mode=`, `columns=` など query parameter 候補が表示されることを確認する。
 7. 補完を 1 つ確定し、最終的に `![[...#...?...]]` の形で本文へ挿入されることを確認する。
 
+### Observation points
+- filepath → sheet/range → query parameter の順で候補集合が切り替わるか。
+- 候補確定後に記法の括弧や `#` / `?` の境界が壊れないか。
+- `#` 直後だけ候補が消える場合、Paste / D&D とは別の既知不安定として見分けられるか。
+
 ### Expected results
 - `![[` 直後は filepath 候補、`#` 直後は sheet/range 候補、`?` 直後は query 候補と、段階的に切り替わる。
 - 候補選択後、既存文字列を壊さず embed 記法の続きを自然に入力できる。
@@ -225,10 +273,17 @@ Invalid xml:
 ### Steps
 1. OS 上で Excel / Google Sheets / 表計算ソフト、または HTML table をコピーできるブラウザを準備する。
 2. その表をコピーし、Development Host の Markdown エディタへ戻る。
-3. 新しい行で `Ctrl+V` / `Cmd+V` を実行する。
-4. 通常の貼り付けだけで挙動を確認し、native paste が働いたかを観察する。
-5. 直後に同じ入力条件で `markdownMatrixInjector.insertEmbedFromPaste` を実行し、fallback path の結果を比較する。
-6. 必要なら `Editor: Paste As...` のような VSCode 側 UI も併記し、どの入口を使ったかを明示する。
+3. **host class に応じて開始入口を選ぶ。**
+   - native provider 対応 host: 新しい行で `Ctrl+V` / `Cmd+V` を先に実行する。
+   - native provider 非対応 host または capability 未確定 host: `markdownMatrixInjector.insertEmbedFromPaste` を先に実行する。
+4. 1 回目の結果を保存し、続けて比較対象のもう一方の入口も必ず実行する。
+5. `Editor: Paste As...` のような VSCode 側 UI を経由した場合は、それも別列で記録する。
+6. 挿入結果の差分を見て、native path / fallback path / 入力元アプリ差のどれが主要因かを判定する。
+
+### Observation points
+- native paste と fallback command で、挿入された `![[...]]` の文字列差があるか。
+- 何も変換されなかった場合、そのとき clipboard 元アプリと host capability は何か。
+- 1 回目と 2 回目で同じ入力を使ったか。
 
 ### Expected results
 - native provider 対応 host では、通常の貼り付け操作だけでベストエフォートの `![[...]]` 形式 embed またはそれに準ずる提案結果が挿入される。
@@ -253,9 +308,17 @@ Invalid xml:
 
 ### Steps
 1. ホスト OS のファイルマネージャ、または Development Host の Explorer から `sample.csv` 等をつかめる状態にする。
-2. Markdown エディタ上の空行へ CSV / XLSX / XML ファイルを通常ドロップする。
-3. 挿入結果を確認したら、比較のため `markdownMatrixInjector.insertEmbedFromDrop` も実行する。
+2. **host class に応じて開始入口を選ぶ。**
+   - native provider 対応 host: Markdown エディタ上の空行へ CSV / XLSX / XML ファイルを通常ドロップする。
+   - native provider 非対応 host または capability 未確定 host: まず `markdownMatrixInjector.insertEmbedFromDrop` を実行する。
+3. 1 回目の結果を保存し、続けて比較対象のもう一方の入口も必ず実行する。
 4. 複数ファイルを同時にドロップできる環境なら、単一ファイル時との差も確認する。
+5. 挿入結果の差分を見て、native path / fallback path / dropped payload 差のどれが主要因かを判定する。
+
+### Observation points
+- native drop と fallback command で、相対/絶対パスやシート補完の差が出るか。
+- 無変化だった場合、それが native だけか両方か。
+- 単一ファイルと複数ファイルで結果差があるか。
 
 ### Expected results
 - native drop provider 対応 host では、少なくとも単一ファイルのドロップで `![[...]]` 記法が 1 つ挿入される。
@@ -286,6 +349,15 @@ Invalid xml:
 - 後者なら、cursor position や trigger character の全面故障ではなく、sheet metadata 読み出しまたは headless host の suggest 挙動差を優先的に疑ってください。
 - この不安定要因は issue-0010 の native provider 変更とは独立に残っているため、**autocomplete の失敗を Paste / D&D の失敗と混同しない** ことが重要です。
 
+### Triage order for autocomplete vs Paste / D&D
+autocomplete の失敗を見つけたときは、次の順で判断してください。
+
+1. `![[` 直後の filepath 補完が出るか確認する。
+2. `?` 直後の query parameter 補完が出るか確認する。
+3. `#` 直後だけ失敗しているなら、まず Known unstable として記録する。
+4. その状態でも Paste / D&D の native path / fallback path は別チェックリストで独立に実施する。
+5. 1〜4 を満たしたうえで、Paste / D&D も同じ run で壊れているなら、初めて「共通環境要因の可能性あり」と注記する。
+
 ## Reproduction and failure isolation workflow
 Paste / D&D の不具合を切り分けるときは、必ず次の順番で確認してください。
 
@@ -306,27 +378,29 @@ Paste / D&D の不具合を切り分けるときは、必ず次の順番で確�
 実地確認時は、少なくとも次の順番でチェックしてください。
 
 - [ ] Manual setup が完了している。
+- [ ] Host capability を記録した。
 - [ ] Checklist A: Preview DOM を確認した。
 - [ ] Checklist B: Problems パネルを確認した。
 - [ ] Checklist C: autocomplete を確認した。
-- [ ] Checklist D: **native paste** を確認した。
-- [ ] Checklist D: **fallback paste command** を比較実行した。
-- [ ] Checklist E: **native drop** を確認した。
-- [ ] Checklist E: **fallback drop command** を比較実行した。
-- [ ] Host capability を記録した。
+- [ ] native provider 対応/非対応/未確定のどの host class かを記録した。
+- [ ] Checklist D: **1 回目の Paste 入口** を host class に応じて選んだ。
+- [ ] Checklist D: **比較対象の Paste 入口** を追加実行した。
+- [ ] Checklist E: **1 回目の Drop 入口** を host class に応じて選んだ。
+- [ ] Checklist E: **比較対象の Drop 入口** を追加実行した。
 - [ ] autocomplete の失敗有無を Paste / D&D と分離して記録した。
+- [ ] Failure log template に結果を転記した。
 
 ## Suggested manual result log template
 手動確認の結果は、次のテンプレートで残すと差分を追いやすくなります。
 
 ### Summary table
-| Date | VSCode version | OS | Host capability | Checklist | Result | Notes |
-|---|---|---|---|---|---|---|
-| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only | Preview DOM | Pass/Fail | 例: invalid XML は赤枠表示 |
-| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only | Problems | Pass/Fail | 例: 3 件表示、行ジャンプ正常 |
-| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only | Autocomplete | Pass/Fail | 例: `?` で `header=` 候補あり / `#` で sheet 0件 |
-| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only | Paste | Pass/Fail | 例: native paste は無変化だが fallback 成功 |
-| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only | D&D | Pass/Fail | 例: 単一 CSV は native 成功、複数 drop は未変換 |
+| Date | VSCode version | OS | Host capability | Checklist | First path tried | Comparison path tried | Result | Notes |
+|---|---|---|---|---|---|---|---|---|
+| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only | Preview DOM | n/a | n/a | Pass/Fail | 例: invalid XML は赤枠表示 |
+| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only | Problems | n/a | n/a | Pass/Fail | 例: 3 件表示、行ジャンプ正常 |
+| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only | Autocomplete | filepath → sheet → query | n/a | Pass/Fail | 例: `?` で `header=` 候補あり / `#` で sheet 0件 |
+| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only | Paste | native or fallback | the other path | Pass/Fail | 例: native paste は無変化だが fallback 成功 |
+| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only | D&D | native or fallback | the other path | Pass/Fail | 例: 単一 CSV は native 成功、複数 drop は未変換 |
 
 ### Detailed log template
 ```md
@@ -335,35 +409,78 @@ Paste / D&D の不具合を切り分けるときは、必ず次の順番で確�
 - VSCode version:
 - OS:
 - Workspace:
+- Host class: native provider available / fallback only / capability unconfirmed
 - Host capability:
   - registerDocumentPasteEditProvider: available / unavailable / unconfirmed
   - registerDocumentDropEditProvider: available / unavailable / unconfirmed
 
 ### Preview DOM
 - Result:
+- Observation points:
 - Notes:
 
 ### Problems
 - Result:
+- Observation points:
 - Notes:
 
 ### Autocomplete
 - Result:
-- Notes:
+- filepath completion:
+- `#` completion:
+- `?` completion:
 - Known unstable involved?: yes / no
+- Notes:
 
 ### Paste
 - Input source app:
+- First path tried: native / fallback
 - Native paste result:
 - Fallback command result:
+- DataTransfer / clipboard notes:
 - Notes:
 
 ### D&D
 - Input source:
+- First path tried: native / fallback
 - Native drop result:
 - Fallback command result:
+- DataTransfer notes:
 - Notes:
 ```
+
+### Failure log template (copy for regressions)
+```md
+## Failure record
+- Date:
+- VSCode version:
+- OS:
+- Host class:
+- Failing area: Preview / Problems / Autocomplete / Paste / D&D
+- First path tried:
+- Comparison path tried:
+- Expected:
+- Actual:
+- Did fallback pass?: yes / no / not run
+- Did native path pass?: yes / no / not run
+- Known unstable suspected?: yes / no
+- Input source app or file:
+- DataTransfer notes:
+- Attached logs / screenshots:
+- Next hypothesis:
+```
+
+## Keyword audit for issue-0010 operations
+文書更新後は、少なくとも次のキーワードが欠けていないか `rg` で確認してください。
+
+```bash
+rg -n "native|fallback|Known unstable|autocomplete|Paste / D&D|DataTransfer" 04_Documentation/vscode-e2e-testing.md
+```
+
+確認観点:
+- `native` と `fallback` が policy / checklist / failure triage の 3 箇所以上に出ているか。
+- `Known unstable` と `autocomplete` が独立節として存在するか。
+- `Paste / D&D` と `DataTransfer` が比較手順または failure log に含まれているか。
 
 ## Future Playwright candidates
 手動でしか確認しにくい項目のうち、将来 Playwright 化を検討する候補は次のとおりです。
@@ -392,4 +509,4 @@ Paste / D&D の不具合を切り分けるときは、必ず次の順番で確�
 - **「unit / E2E の双方で退行がないこと」への運用補助**
   - 自動 E2E が何を証明し、何を証明しないかを分離し、manual E2E で補完すべき観点をチェックリスト化しました。
 - **Task breakdown の「Extension Host E2E と運用ドキュメントを更新する」**
-  - manual E2E の再現手順、比較観点、失敗時の見方、結果ログテンプレートを改善し、次エージェントが native provider / fallback / autocomplete known unstable を混同しないよう整理しました。
+  - manual E2E の再現手順、比較観点、観測ポイント、失敗時ログテンプレートを改善し、次エージェントが native provider / fallback / autocomplete known unstable を混同しないよう整理しました。
