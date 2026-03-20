@@ -9,6 +9,14 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const LOG_PREFIX = '[mmi:e2e:runner]';
+const AUTOCOMPLETE_UNSTABLE_PATTERNS = [
+  'Expected autocomplete suggestions after ![[.',
+  'Expected sheet completion after #.',
+  'Expected parameter completion after ?.',
+  'completion',
+  'autocomplete',
+] as const;
+const PASTE_DROP_PATTERNS = ['paste', 'drop', 'drag', 'DataTransfer', 'clipboard'] as const;
 
 type E2ERuntimeContext = {
   extensionDevelopmentPath: string;
@@ -18,6 +26,30 @@ type E2ERuntimeContext = {
   extensionsDir: string;
   launchArgs: string[];
   startedAtMs: number;
+  packageJson: Record<string, unknown>;
+  packageJsonPath: string;
+  fixtureSnapshot: WorkspaceSnapshot;
+  launchMetadata: LaunchMetadata;
+};
+
+type WorkspaceSnapshot = {
+  fixtureFileCount: number;
+  fixtureFiles: string[];
+  invalidXmlPath: string;
+  markdownFiles: string[];
+  dataFiles: string[];
+  hasWorkspaceFile: boolean;
+};
+
+type LaunchMetadata = {
+  executablePath?: string;
+  requestedVersion?: string;
+  platform: string;
+  userHome: string;
+  tmpdir: string;
+  ci: boolean;
+  displayServer: 'wayland' | 'x11' | 'headless';
+  envHints: string[];
 };
 
 async function main(): Promise<void> {
@@ -35,9 +67,23 @@ async function main(): Promise<void> {
       workspacePath: runtime.workspacePath,
       userDataDir: runtime.userDataDir,
       extensionsDir: runtime.extensionsDir,
+      packageJsonPath: runtime.packageJsonPath,
+      packageJsonSummary: summarizePackageJson(runtime.packageJson),
     });
 
-    logSection('workspace-fixture', describeWorkspace(runtime.workspacePath));
+    logSection('workspace-context', runtime.fixtureSnapshot);
+    logSection('launch-context', {
+      ...runtime.launchMetadata,
+      launchArgs: runtime.launchArgs,
+      extensionDevelopmentExists: fs.existsSync(runtime.extensionDevelopmentPath),
+      extensionTestsExists: fs.existsSync(runtime.extensionTestsPath),
+    });
+    logSection('triage-hints', {
+      knownUnstableAutocompleteSignals: AUTOCOMPLETE_UNSTABLE_PATTERNS,
+      pasteDropSignals: PASTE_DROP_PATTERNS,
+      guidance:
+        'If failureSignature.category=autocomplete-known-unstable, prioritize VSCode/headless completion investigation. If category=paste-drop-provider, prioritize DataTransfer / provider capability investigation.',
+    });
     logSection('launch:start', { launchArgs: runtime.launchArgs });
 
     await runTests({
@@ -48,10 +94,13 @@ async function main(): Promise<void> {
 
     logSection('launch:success', {
       durationMs: Date.now() - runtime.startedAtMs,
+      launchMetadata: runtime.launchMetadata,
     });
   } catch (error) {
+    const signature = classifyFailure(error);
     logSection('launch:failure', {
       durationMs: Date.now() - runtime.startedAtMs,
+      failureSignature: signature,
       error: formatError(error),
       environment: collectEnvironmentSnapshot(runtime),
     });
@@ -66,6 +115,8 @@ function createRuntimeContext(): E2ERuntimeContext {
   const workspacePath = createE2EWorkspace();
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-vscode-user-data-'));
   const extensionsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-vscode-extensions-'));
+  const packageJsonPath = path.join(extensionDevelopmentPath, 'package.json');
+  const packageJson = JSON.parse(fs.readFileSync(packageJsonPath, 'utf8')) as Record<string, unknown>;
   const launchArgs = [
     workspacePath,
     '--disable-workspace-trust',
@@ -84,6 +135,10 @@ function createRuntimeContext(): E2ERuntimeContext {
     extensionsDir,
     launchArgs,
     startedAtMs: Date.now(),
+    packageJson,
+    packageJsonPath,
+    fixtureSnapshot: describeWorkspace(workspacePath),
+    launchMetadata: collectLaunchMetadata(packageJson),
   };
 }
 
@@ -100,12 +155,16 @@ function createE2EWorkspace(): string {
   return workspaceRoot;
 }
 
-function describeWorkspace(workspacePath: string): Record<string, unknown> {
+function describeWorkspace(workspacePath: string): WorkspaceSnapshot {
   const files = collectRelativeEntries(workspacePath);
+  const normalizedWorkspaceFile = files.find((entry) => entry.endsWith('.code-workspace'));
   return {
     fixtureFileCount: files.length,
     fixtureFiles: files,
     invalidXmlPath: path.join(workspacePath, 'data', 'invalid.xml'),
+    markdownFiles: files.filter((entry) => entry.endsWith('.md')),
+    dataFiles: files.filter((entry) => /(\.csv|\.xlsx|\.xml)$/i.test(entry)),
+    hasWorkspaceFile: normalizedWorkspaceFile !== undefined,
   };
 }
 
@@ -142,9 +201,12 @@ function collectEnvironmentSnapshot(runtime: E2ERuntimeContext): Record<string, 
     nodeVersion: process.version,
     platform: `${process.platform}/${process.arch}`,
     tmpdir: os.tmpdir(),
+    displayServer: runtime.launchMetadata.displayServer,
     workspaceExists: fs.existsSync(runtime.workspacePath),
     extensionTestsExists: fs.existsSync(runtime.extensionTestsPath),
     extensionDevelopmentExists: fs.existsSync(runtime.extensionDevelopmentPath),
+    workspaceSnapshot: runtime.fixtureSnapshot,
+    packageJsonSummary: summarizePackageJson(runtime.packageJson),
     userDataEntries: safeReadDir(runtime.userDataDir),
     extensionsEntries: safeReadDir(runtime.extensionsDir),
     workspaceEntries: safeReadDir(runtime.workspacePath),
@@ -156,8 +218,97 @@ function collectEnvironmentSnapshot(runtime: E2ERuntimeContext): Record<string, 
       'MMI_E2E_WORKSPACE',
       'CI',
       'npm_config_user_agent',
+      'HEADLESS',
+      'VSCODE_CLI',
     ]),
   };
+}
+
+function collectLaunchMetadata(packageJson: Record<string, unknown>): LaunchMetadata {
+  const requestedVersion = readNestedString(packageJson, ['devDependencies', '@vscode/test-electron']);
+  const executablePath = typeof process.env.VSCODE_EXECUTABLE_PATH === 'string' ? process.env.VSCODE_EXECUTABLE_PATH : undefined;
+  const envHints = [
+    process.env.CI === 'true' ? 'ci' : undefined,
+    executablePath ? 'custom-vscode-executable' : undefined,
+    process.env.DISPLAY ? 'x11-display' : undefined,
+    process.env.WAYLAND_DISPLAY ? 'wayland-display' : undefined,
+    !process.env.DISPLAY && !process.env.WAYLAND_DISPLAY ? 'headless-display' : undefined,
+  ].filter((value): value is string => value !== undefined);
+
+  return {
+    executablePath,
+    requestedVersion,
+    platform: `${process.platform}/${process.arch}`,
+    userHome: os.homedir(),
+    tmpdir: os.tmpdir(),
+    ci: process.env.CI === 'true',
+    displayServer: detectDisplayServer(),
+    envHints,
+  };
+}
+
+function summarizePackageJson(packageJson: Record<string, unknown>): Record<string, unknown> {
+  return {
+    name: packageJson.name,
+    version: packageJson.version,
+    engines: packageJson.engines,
+    packageManager: packageJson.packageManager,
+    vscodeTestElectron: readNestedString(packageJson, ['devDependencies', '@vscode/test-electron']),
+    vscodeEngine: readNestedString(packageJson, ['engines', 'vscode']),
+  };
+}
+
+function classifyFailure(error: unknown): Record<string, unknown> {
+  const printable = JSON.stringify(formatError(error));
+  const normalized = printable.toLowerCase();
+  const matchedAutocompleteSignals = AUTOCOMPLETE_UNSTABLE_PATTERNS.filter((pattern) => normalized.includes(pattern.toLowerCase()));
+  const matchedPasteDropSignals = PASTE_DROP_PATTERNS.filter((pattern) => normalized.includes(pattern.toLowerCase()));
+
+  if (matchedPasteDropSignals.length > 0) {
+    return {
+      category: 'paste-drop-provider',
+      matchedSignals: matchedPasteDropSignals,
+      nextAction:
+        'Inspect DataTransfer payloads, provider registration, and native capability checks before changing autocomplete assertions.',
+    };
+  }
+
+  if (matchedAutocompleteSignals.length > 0) {
+    return {
+      category: 'autocomplete-known-unstable',
+      matchedSignals: matchedAutocompleteSignals,
+      nextAction:
+        'Treat as likely headless VSCode completion instability first; confirm completion provider registration and host version before blaming paste/drop.',
+    };
+  }
+
+  return {
+    category: 'unclassified',
+    matchedSignals: [],
+    nextAction:
+      'Inspect the error payload and runtime-context / launch-context logs to determine whether the failure is in workspace setup, launch, or provider behavior.',
+  };
+}
+
+function detectDisplayServer(): LaunchMetadata['displayServer'] {
+  if (process.env.WAYLAND_DISPLAY) {
+    return 'wayland';
+  }
+  if (process.env.DISPLAY) {
+    return 'x11';
+  }
+  return 'headless';
+}
+
+function readNestedString(source: Record<string, unknown>, pathSegments: string[]): string | undefined {
+  let current: unknown = source;
+  for (const segment of pathSegments) {
+    if (!current || typeof current !== 'object' || !(segment in current)) {
+      return undefined;
+    }
+    current = (current as Record<string, unknown>)[segment];
+  }
+  return typeof current === 'string' ? current : undefined;
 }
 
 function safeReadDir(targetPath: string): string[] {
