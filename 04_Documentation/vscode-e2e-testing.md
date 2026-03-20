@@ -1,12 +1,13 @@
 # VSCode Engine E2E Testing Guide
 
 ## Overview
-Markdown Matrix Injector では、Docker コンテナ内でも VSCode Extension Host を起動した自動検証を行えるようにしています。現在の Phase 5 E2E は、実際の VSCode エンジン上で次の 4 系統を確認します。
+Markdown Matrix Injector では、Docker コンテナ内でも VSCode Extension Host を起動した自動検証を行えるようにしています。現在の Phase 5 E2E は、実際の VSCode エンジン上で次の 5 系統を確認します。
 
 - `markdownMatrixInjector.renderEmbedForTest` による HTML 生成。
 - Markdown 補完 (`![[` → filepath / `#` → sheet / `?` → query parameter)。
 - Problems パネル相当の Diagnostics 生成（file not found / invalid XML / sheet not found）。
-- Paste / D&D 入口コマンドによる Markdown 挿入。
+- Paste / D&D の command fallback による Markdown 挿入。
+- native paste / drop provider が利用可能な host 上で、DataTransfer adapter が embed 記法を返せること。
 
 ただし、自動 E2E は **Extension Host API レベル** の事実確認に留まります。以下は手動 E2E で補完してください。
 
@@ -14,6 +15,7 @@ Markdown Matrix Injector では、Docker コンテナ内でも VSCode Extension 
 - Problems パネル UI に、診断コード・メッセージ・対象行が期待どおり並ぶか。
 - 補完 UI が編集中のカーソル位置に追随し、候補のラベルや絞り込みが違和感なく見えるか。
 - Paste / D&D がネイティブ OS イベント経由でも実運用どおりに挿入されるか。
+- native provider 対応 host と非対応 host で、どちらの入口が使われたか。
 
 ## Prerequisites
 - Node.js / npm
@@ -33,13 +35,15 @@ npm run test:e2e
 2. `scripts/run-vscode-e2e.sh` が `xvfb-run` の有無を確認し、仮想ディスプレイ上で `test/e2e/runTest.ts` を起動する。
 3. `runTest.ts` が fixture workspace を一時ディレクトリへ複製し、Diagnostics 用の `invalid.xml` を追加する。
 4. `@vscode/test-electron` が VSCode を取得し、開発中の拡張を読み込んだ Extension Host を立ち上げる。
-5. `test/e2e/suite/extensionHost.test.ts` がコマンド・補完・Diagnostics・Paste/D&D コマンドの通し確認を実行する。
+5. `test/e2e/suite/extensionHost.test.ts` が render / 補完 / Diagnostics / command fallback / native provider adapter の通し確認を実行する。
 
 ## Current assertions
 - `renderEmbedForTest` が table/card の既存レンダリングを返す。
 - `vscode.executeCompletionItemProvider` 経由で filepath / sheet / query parameter の候補が取得できる。
 - Markdown 文書上で `MMI_FILE_NOT_FOUND`, `MMI_INVALID_XML`, `MMI_SHEET_NOT_FOUND` が Diagnostics として取得できる。
-- `markdownMatrixInjector.insertEmbedFromPaste` / `markdownMatrixInjector.insertEmbedFromDrop` がエディタへ embed 記法を挿入できる。
+- `markdownMatrixInjector.insertEmbedFromPaste` / `markdownMatrixInjector.insertEmbedFromDrop` が、native provider 非対応 host でも利用できる command fallback としてエディタへ embed 記法を挿入できる。
+- `markdownMatrixInjector.__test.getPasteInsertTextFromDataTransfer` / `markdownMatrixInjector.__test.getDropInsertTextFromDataTransfer` が native provider と同じ DataTransfer 解析結果を返す。
+- 実行中 host が `registerDocumentPasteEditProvider` / `registerDocumentDropEditProvider` を公開している場合、その API が存在することを確認する。
 
 ## Stream A integration points reflected in E2E
 - Activation: `onLanguage:markdown` と各 command activation を前提に、Markdown 文書を開いて Extension Host を有効化する。
@@ -62,7 +66,7 @@ npm run test:e2e
 | Preview DOM | Extension Host テストは Preview/Webview の DOM を直接取得しないため。 | 表・カード・エラー表示が Preview 上で崩れず描画されること。 |
 | Problems パネル | 自動 E2E は `languages.getDiagnostics` の内容しか見ておらず、Problems ビューの並び・視認性は未確認のため。 | エラー行、メッセージ、診断コードの見え方。 |
 | Autocomplete | API では候補集合を取れるが、候補ウィジェットの表示位置・絞り込み・操作感は未確認のため。 | サジェストポップアップの内容、選択後の挿入結果。 |
-| Paste / D&D | 現行自動化は command 引数経由で、OS ネイティブ paste / drag-and-drop event を再現していないため。 | 実際の Ctrl/Cmd+V とファイル D&D での挿入結果。 |
+| Paste / D&D | 自動 E2E は native provider の DataTransfer 解析と command fallback の両方を見ているが、OS ネイティブ paste / drag-and-drop event 自体は再現していないため。 | 実際の Ctrl/Cmd+V とファイル D&D での挿入結果、どの入口が選ばれたか。 |
 
 ### Manual environment setup
 1. ホスト OS の VSCode でリポジトリ `/workspace/markdown-matrix-injector` を開く。
@@ -152,51 +156,89 @@ Invalid xml:
 - filepath 候補だけ出る場合は fixture workspace を開いているか確認する。
 - 候補確定後に括弧が壊れる場合は、どのトリガー文字で崩れたかを記録する。
 
+### Fallback policy and automation boundary
+
+#### Canonical entry point
+- 正規入口は VSCode の native paste / drop provider (`registerDocumentPasteEditProvider` / `registerDocumentDropEditProvider`) です。
+- 自動 E2E では、provider 関数そのものを直接呼ぶ代わりに、同じ `DataTransfer` 解析ロジックを公開した `__test.getPasteInsertTextFromDataTransfer` / `__test.getDropInsertTextFromDataTransfer` を通じて、native provider が返すべき embed 文字列を検証します。
+- そのため、自動 E2E が保証するのは「provider 登録 API が host に存在すること」と「provider が再利用する解析ロジックが期待どおりの embed を返すこと」までです。OS ネイティブイベントから editor へ edit が適用される最終経路は manual E2E の担当です。
+
+#### Command fallback policy
+- `markdownMatrixInjector.insertEmbedFromPaste` / `markdownMatrixInjector.insertEmbedFromDrop` は、native provider 非対応 host での明示的 fallback として残します。
+- これらの command は native provider と同じ解析ロジックを再利用し、HTML クリップボード解析や dropped file 解析を二重実装しません。
+- manual E2E では、native provider が動く host でも command を比較対象として 1 回は実行し、native path と fallback path の差分を記録してください。
+
+#### Known unstable point: autocomplete E2E
+- headless VSCode 1.112 系では、`vscode.executeCompletionItemProvider` による sheet 候補取得が 0 件になることがあり、既存 assertion `Expected sheet completion after #.` が継続失敗しています。
+- 現行テストは 200ms 間隔・最大 10 回の再試行後に最終取得を行いますが、それでも空配列のまま終わるケースがあります。
+- この不安定要因は issue-0010 の native provider 変更とは独立に残っているため、Paste / D&D の失敗と混同せず切り分けてください。
+
 ### Checklist D: Paste insertion (native clipboard path)
-**目的**: command 経由ではなく、実際の paste 操作で embed がどう挿入されるかを確認する。
+**目的**: command fallback ではなく、まず native paste provider の経路で embed がどう挿入されるかを確認し、必要に応じて fallback command と比較する。
 
 1. OS 上で Excel / Google Sheets / 表計算ソフト、または HTML table をコピーできるブラウザを準備する。
 2. その表をコピーし、Development Host の Markdown エディタへ戻る。
 3. 新しい行で `Ctrl+V` / `Cmd+V` を実行する。
-4. 必要に応じて `Editor: Paste As...` や拡張が提供する paste 関連コマンドも試し、結果を比較する。
+4. まず通常の `Ctrl+V` / `Cmd+V` だけで挙動を確認し、native provider が働いたかを観察する。
+5. その後、必要に応じて `Editor: Paste As...` や `markdownMatrixInjector.insertEmbedFromPaste` を実行し、fallback command と結果を比較する。
 
 **Expected results**
-- 通常のプレーンテキスト貼り付けではなく、ベストエフォートで `![[...]]` 形式の embed または、それに準ずる提案結果が挿入される。
+- native provider 対応 host では、通常の貼り付け操作だけでベストエフォートの `![[...]]` 形式 embed またはそれに準ずる提案結果が挿入される。
+- native provider 非対応 host では、通常貼り付けで変換されない代わりに `markdownMatrixInjector.insertEmbedFromPaste` を使って同等の embed を再現できる。
 - 挿入直後に Markdown が壊れず、少なくとも 1 行の有効な embed 記法として残る。
 - 期待どおりの変換ができない場合も、無言失敗ではなく「何も変換されなかった」事実を記録できる。
 
 **Failure hints**
 - OS/ブラウザ差で clipboard HTML が取得できないことがあるため、利用したアプリ名と OS を必ず記録する。
-- 何も起きなければ、現実装が native paste hook ではなく command 入口中心かを切り分ける。
+- 通常貼り付けで何も起きない場合は、host が native paste provider 非対応か、clipboard の HTML メタデータが不足しているかを切り分ける。
+- fallback command では成功する場合、native provider 未対応または host 側制約の可能性が高い。
 - 文字化けや複数行崩れがあれば、貼り付け前後の本文差分を残す。
 
 ### Checklist E: Drag & Drop insertion (native drop path)
-**目的**: Explorer やファイルマネージャからのファイルドロップで、実際の UX を確認する。
+**目的**: Explorer やファイルマネージャからのファイルドロップで、まず native drop provider の経路を確認し、必要に応じて fallback command と比較する。
 
 1. ホスト OS のファイルマネージャ、または Development Host の Explorer から `sample.csv` 等をつかめる状態にする。
 2. Markdown エディタ上の空行へ CSV / XLSX / XML ファイルをドロップする。
 3. 複数ファイルを同時にドロップできる環境なら、単一ファイル時との差も確認する。
 
 **Expected results**
-- 少なくとも単一ファイルのドロップで `![[...]]` 記法が 1 つ挿入される。
+- native drop provider 対応 host では、少なくとも単一ファイルのドロップで `![[...]]` 記法が 1 つ挿入される。
+- native provider 非対応 host では、`markdownMatrixInjector.insertEmbedFromDrop` 実行で同等の挿入結果を再現できる。
 - 挿入パスが絶対/相対のどちらになったかを確認し、次エージェントが再現できるよう記録できる。
 - 未対応形式や複数ドロップ時は、落ちるのではなく「未変換」または既知制約として扱える。
 
 **Failure hints**
-- ドロップしても本文無変化なら、VSCode 標準のファイル挿入と競合していないか確認する。
+- 通常ドロップで本文無変化なら、host が native drop provider 非対応か、VSCode 標準のファイル挿入と競合していないか確認する。
+- fallback command では成功する場合、native drop provider 未対応または host 側制約として記録する。
 - Development Host とホスト VSCode で挙動差がある場合は、どちらで再現したか明記する。
 - 複数ファイル時に一部だけ入る場合は、順序と実際に入ったパスを記録する。
+
+## Reproduction and failure isolation workflow
+次エージェントは、Paste / D&D の不具合を次の順番で切り分けると再現性を保ちやすくなります。
+
+1. **Host capability を確認する**
+   - Development Host の `Developer: Toggle Developer Tools` や Extension Host のログで、利用中 VSCode version を記録する。
+   - `registerDocumentPasteEditProvider` / `registerDocumentDropEditProvider` が存在する前提の host か、非対応 host かを最初にメモする。
+2. **command fallback が動くかを先に確認する**
+   - `markdownMatrixInjector.insertEmbedFromPaste` または `markdownMatrixInjector.insertEmbedFromDrop` をコマンドパレットから実行し、同じ入力ソースで embed が入るかを見る。
+   - ここが失敗する場合は native provider ではなく解析ロジック全体の問題として扱う。
+3. **native path を確認する**
+   - Paste は `Ctrl+V` / `Cmd+V`、Drop は通常のドラッグ&ドロップで挿入を試す。
+   - native path だけ失敗する場合、host capability・OS・入力元アプリ・DataTransfer payload 種別を記録する。
+4. **autocomplete 失敗は別トラックで管理する**
+   - `Expected sheet completion after #.` に相当する失敗は、Paste / D&D 回りと同一原因とみなさない。
+   - 同一実行で併発しても、ログ上は autocomplete と paste/drop を別項目に分離して残す。
 
 ## Suggested manual result log template
 手動確認の結果は、以下のような表で残すと次エージェントが差分を追いやすくなります。
 
-| Date | VSCode version | OS | Checklist | Result | Notes |
-|---|---|---|---|---|---|
-| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | Preview DOM | Pass/Fail | 例: invalid XML は赤枠表示 |
-| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | Problems | Pass/Fail | 例: 3 件表示、行ジャンプ正常 |
-| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | Autocomplete | Pass/Fail | 例: `?` で `header=` 候補あり |
-| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | Paste | Pass/Fail | 例: Google Sheets からは未変換 |
-| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | D&D | Pass/Fail | 例: CSV 単体のみ成功 |
+| Date | VSCode version | OS | Host capability | Checklist | Result | Notes |
+|---|---|---|---|---|---|---|
+| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only | Preview DOM | Pass/Fail | 例: invalid XML は赤枠表示 |
+| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only | Problems | Pass/Fail | 例: 3 件表示、行ジャンプ正常 |
+| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only | Autocomplete | Pass/Fail | 例: `?` で `header=` 候補あり / `#` で sheet 0件 |
+| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only | Paste | Pass/Fail | 例: Ctrl+V は無変化だが command fallback 成功 |
+| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only | D&D | Pass/Fail | 例: 単一 CSV は native 成功、複数 drop は未変換 |
 
 ## Future Playwright candidates
 手動でしか確認しにくい項目のうち、将来 Playwright 化を検討する候補を整理します。
@@ -204,16 +246,16 @@ Invalid xml:
 1. Markdown Preview の `table`, `figcaption`, `mmi-card`, error UI の DOM 存在確認。
 2. Problems パネルの件数表示、対象ファイル表示、クリック遷移のスモークテスト。
 3. Suggest widget の表示有無までは UI Automation で確認し、候補中身は既存 API テストを流用する。
-4. Native paste/drop は OS 依存が強いため、まずは VSCode 提供 API で再現できる範囲だけ段階的に自動化する。
+4. Native paste/drop は OS 依存が強いため、現行自動化は DataTransfer adapter と fallback command までを保証し、OS イベントからの最終挿入は manual E2E で確認する。
 
 ## Failure triage
 - `xvfb-run is required ...` で失敗した場合: OS パッケージ `xvfb` を導入する。
 - VSCode ダウンロードや Electron 起動で失敗した場合: ネットワーク制約または GUI 依存ライブラリ不足を疑う。
-- Completion が 0 件の場合: 対象文書が Markdown として開かれているか、カーソル位置が `![[`, `#`, `?` の直後かを確認する。
+- Completion が 0 件の場合: 対象文書が Markdown として開かれているか、カーソル位置が `![[`, `#`, `?` の直後かを確認する。特に `#` 直後の sheet 候補 0 件は、headless VSCode 1.112 系の既知不安定要因として別記録に切り出す。
 - Diagnostics が不足する場合: 一時 workspace の `data/invalid.xml` 作成と、対象 Markdown 文書保存内容を確認する。
-- Paste / D&D 挿入が失敗する場合: 現段階では native paste/drop provider ではなく command 経由の検証である点を確認する。
+- Paste / D&D 挿入が失敗する場合: まず native path 失敗か fallback command 失敗かを分離する。native path だけ失敗するなら host capability / OS event / clipboard or drop payload を確認し、fallback も失敗するなら解析ロジック側を疑う。
 
 ## Known scope limits
 - この E2E は Extension Host API レベルの検証であり、Markdown Preview / Webview の DOM までは検査しません。
-- Paste / D&D は実環境制約上、OS ネイティブイベントではなく command 引数経由で再現しています。
+- Paste / D&D は native provider が正規入口だが、自動 E2E では DataTransfer adapter と command fallback までを再現し、OS ネイティブイベント自体は manual E2E に委ねています。
 - Problems パネル UI 自体の視覚確認は未自動化で、Diagnostics collection の内容を事実ベースで検証します。
