@@ -92,3 +92,41 @@ test('isSupportedWorkbookPath only accepts workbook-like extensions', () => {
   assert.equal(isSupportedWorkbookPath('/tmp/table.csv'), true);
   assert.equal(isSupportedWorkbookPath('/tmp/table.md'), false);
 });
+
+
+test('suggestEmbedFromClipboardHtml returns a supported file path even when HTML includes unsupported paths first', () => {
+  const html = [
+    '<div>file:///tmp/readme.md</div>',
+    '<div data-sheet="Summary">file:///tmp/report.xlsx</div>',
+    '<table><tr><td>A</td><td>B</td></tr></table>',
+  ].join('');
+
+  assert.deepEqual(suggestEmbedFromClipboardHtml(html), {
+    source: 'clipboard-html',
+    filepath: '/tmp/report.xlsx',
+    sheet: 'Summary',
+    range: 'A1:B1',
+    markdown: '![[/tmp/report.xlsx#Summary|A1:B1]]',
+  });
+});
+
+test('suggestEmbedFromDroppedFiles returns null for empty or unsupported dropped file variations', () => {
+  assert.equal(suggestEmbedFromDroppedFiles([]), null);
+  assert.equal(suggestEmbedFromDroppedFiles(['/tmp/readme.md', '/tmp/diagram.png']), null);
+});
+
+test('suggestEmbedFromPasteDrop falls back to supported dropped files when clipboard HTML is unsupported or empty', () => {
+  assert.deepEqual(
+    suggestEmbedFromPasteDrop({
+      clipboardHtml: '<div>Copied from unsupported source</div>',
+      droppedFiles: ['/tmp/readme.md', '/tmp/report.xml'],
+    }),
+    {
+      source: 'file-drop',
+      filepath: '/tmp/report.xml',
+      markdown: '![[/tmp/report.xml]]',
+    },
+  );
+
+  assert.equal(suggestEmbedFromPasteDrop({ clipboardHtml: '', droppedFiles: [] }), null);
+});
