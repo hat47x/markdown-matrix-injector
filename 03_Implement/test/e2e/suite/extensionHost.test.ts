@@ -40,25 +40,31 @@ async function verifyRenderEmbedForTestCommand(markdownFilePath: string, workspa
 }
 
 async function verifyAutocompleteIntegration(markdownFilePath: string): Promise<void> {
-  const fileCompletion = await getCompletionState(markdownFilePath, 'Autocomplete file\n![[../da');
-  assert.ok(
-    fileCompletion.labels.includes('../data/roles.csv'),
-    `Expected workbook filepath completion from ![[ stage. got: ${formatCompletionState(fileCompletion)}`,
-  );
+  const fileCompletion = await getCompletionState({
+    filePath: markdownFilePath,
+    stageName: '![[ file path',
+    content: 'Autocomplete file\n![[../da',
+    expectedLabel: '../data/roles.csv',
+  });
+  assertCompletionIncludes(fileCompletion, '../data/roles.csv');
 
-  const sheetCompletion = await getCompletionState(markdownFilePath, 'Autocomplete sheet\n![[../data/roles.csv#');
-  if (!sheetCompletion.labels.includes('Sheet1')) {
-    console.warn(`[mmi:e2e] Known flaky autocomplete gap after #: ${formatCompletionState(sheetCompletion)}`);
-  }
+  const sheetCompletion = await getCompletionState({
+    filePath: markdownFilePath,
+    stageName: '# sheet',
+    content: 'Autocomplete sheet\n![[../data/roles.csv#',
+    expectedLabel: 'Sheet1',
+    maxAttempts: 20,
+    delayMs: 250,
+  });
+  reportKnownSheetCompletionFlake(sheetCompletion, 'Sheet1');
 
-  const queryCompletion = await getCompletionState(
-    markdownFilePath,
-    'Autocomplete query\n![[../data/roles.csv#Sheet1|A1:B2?he',
-  );
-  assert.ok(
-    queryCompletion.labels.includes('header'),
-    `Expected query parameter completion after ?. got: ${formatCompletionState(queryCompletion)}`,
-  );
+  const queryCompletion = await getCompletionState({
+    filePath: markdownFilePath,
+    stageName: '? query parameter',
+    content: 'Autocomplete query\n![[../data/roles.csv#Sheet1|A1:B2?he',
+    expectedLabel: 'header',
+  });
+  assertCompletionIncludes(queryCompletion, 'header');
 }
 
 async function verifyDiagnosticsIntegration(workspaceRoot: string): Promise<void> {
@@ -162,7 +168,18 @@ async function verifyNativePasteDropSurfaceOrFallback(markdownFilePath: string):
   await verifyPasteDropCommandFallback(markdownFilePath);
 }
 
+interface CompletionRequest {
+  readonly filePath: string;
+  readonly stageName: string;
+  readonly content: string;
+  readonly expectedLabel?: string;
+  readonly maxAttempts?: number;
+  readonly delayMs?: number;
+}
+
 interface CompletionState {
+  readonly stageName: string;
+  readonly expectedLabel?: string;
   readonly lineText: string;
   readonly position: {
     readonly line: number;
@@ -175,19 +192,21 @@ interface CompletionState {
   readonly display: string;
 }
 
-async function getCompletionState(filePath: string, content: string): Promise<CompletionState> {
-  const uniqueFilePath = filePath.replace(/\.md$/, `-${Math.random().toString(36).slice(2)}.md`);
-  const document = await openMarkdownDocument(uniqueFilePath, content);
+async function getCompletionState(request: CompletionRequest): Promise<CompletionState> {
+  const uniqueFilePath = request.filePath.replace(/\.md$/, `-${Math.random().toString(36).slice(2)}.md`);
+  const document = await openMarkdownDocument(uniqueFilePath, request.content);
   const editor = await vscode.window.showTextDocument(document);
   const lineNumber = document.lineCount - 1;
   const lineText = document.lineAt(lineNumber).text;
   const position = new vscode.Position(lineNumber, lineText.length);
+  const maxAttempts = request.maxAttempts ?? 15;
+  const delayMs = request.delayMs ?? 200;
   editor.selection = new vscode.Selection(position, position);
 
   let labels: string[] = [];
   let attempts = 0;
 
-  for (; attempts < 15; attempts += 1) {
+  for (; attempts < maxAttempts; attempts += 1) {
     await vscode.commands.executeCommand('editor.action.triggerSuggest');
 
     const completionList = await vscode.commands.executeCommand<vscode.CompletionList>(
@@ -197,15 +216,15 @@ async function getCompletionState(filePath: string, content: string): Promise<Co
     );
     labels = (completionList?.items ?? []).map((item) => item.label.toString());
 
-    if (labels.length > 0) {
+    if (request.expectedLabel ? labels.includes(request.expectedLabel) : labels.length > 0) {
       attempts += 1;
       break;
     }
 
-    await delay(200);
+    await delay(delayMs);
   }
 
-  if (labels.length === 0) {
+  if (request.expectedLabel ? !labels.includes(request.expectedLabel) : labels.length === 0) {
     const completionList = await vscode.commands.executeCommand<vscode.CompletionList>(
       'vscode.executeCompletionItemProvider',
       document.uri,
@@ -216,6 +235,8 @@ async function getCompletionState(filePath: string, content: string): Promise<Co
   }
 
   return {
+    stageName: request.stageName,
+    expectedLabel: request.expectedLabel,
     lineText,
     position: {
       line: position.line,
@@ -229,8 +250,27 @@ async function getCompletionState(filePath: string, content: string): Promise<Co
   };
 }
 
+function assertCompletionIncludes(state: CompletionState, expectedLabel: string): void {
+  assert.ok(
+    state.labels.includes(expectedLabel),
+    `Expected autocomplete label ${JSON.stringify(expectedLabel)} at ${state.stageName}. got: ${formatCompletionState(state)}`,
+  );
+}
+
+function reportKnownSheetCompletionFlake(state: CompletionState, expectedLabel: string): void {
+  if (state.labels.includes(expectedLabel)) {
+    return;
+  }
+
+  console.warn(
+    `[mmi:e2e] Known flaky autocomplete gap isolated to ${state.stageName}: ${formatCompletionState(state)}`,
+  );
+}
+
 function formatCompletionState(state: CompletionState): string {
   return JSON.stringify({
+    stageName: state.stageName,
+    expectedLabel: state.expectedLabel,
     vscodeVersion: state.vscodeVersion,
     platform: state.platform,
     display: state.display,
