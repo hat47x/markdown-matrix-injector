@@ -169,8 +169,9 @@ Invalid xml:
 - manual E2E では、native provider が動く host でも command を比較対象として 1 回は実行し、native path と fallback path の差分を記録してください。
 
 #### Known unstable point: autocomplete E2E
-- headless VSCode 1.112 系では、`vscode.executeCompletionItemProvider` による sheet 候補取得が 0 件になることがあり、既存 assertion `Expected sheet completion after #.` が継続失敗しています。
-- 現行テストは 200ms 間隔・最大 10 回の再試行後に最終取得を行いますが、それでも空配列のまま終わるケースがあります。
+- headless VSCode 1.112 系では、`vscode.executeCompletionItemProvider` による sheet 候補取得が 0 件になることがあり、既存 assertion `Expected sheet completion after #.` が継続失敗していました。
+- 現行テストは 200ms 間隔・最大 15 回の再試行に加え、最終的な completion state (`vscodeVersion`, `platform`, `DISPLAY`, `lineText`, `position`, `attempts`, `labels`) を警告ログへ残します。
+- 切り分けの観点は「filepath 補完と query parameter 補完が同一実行で成功しているか」「`#` 直後だけ labels が document words に寄るか / 空になるか」です。後者なら cursor position や trigger character の全面故障ではなく、sheet metadata 読み出しまたは headless host の suggest 挙動差を優先的に疑ってください。
 - この不安定要因は issue-0010 の native provider 変更とは独立に残っているため、Paste / D&D の失敗と混同せず切り分けてください。
 
 ### Checklist D: Paste insertion (native clipboard path)
@@ -251,7 +252,7 @@ Invalid xml:
 ## Failure triage
 - `xvfb-run is required ...` で失敗した場合: OS パッケージ `xvfb` を導入する。
 - VSCode ダウンロードや Electron 起動で失敗した場合: ネットワーク制約または GUI 依存ライブラリ不足を疑う。
-- Completion が 0 件の場合: 対象文書が Markdown として開かれているか、カーソル位置が `![[`, `#`, `?` の直後かを確認する。特に `#` 直後の sheet 候補 0 件は、headless VSCode 1.112 系の既知不安定要因として別記録に切り出す。
+- Completion が 0 件の場合: 対象文書が Markdown として開かれているか、カーソル位置が `![[`, `#`, `?` の直後かを確認する。特に `#` 直後の sheet 候補 0 件は、headless VSCode 1.112 系の既知不安定要因として別記録に切り出す。E2E ログには `vscodeVersion`, `platform`, `DISPLAY`, `lineText`, `position`, `attempts`, `labels` を JSON で出すようにしてあるため、まず filepath / query parameter 補完が同一実行で生きているかを見て、sheet 段だけが欠落しているかを判定する。
 - Diagnostics が不足する場合: 一時 workspace の `data/invalid.xml` 作成と、対象 Markdown 文書保存内容を確認する。
 - Paste / D&D 挿入が失敗する場合: まず native path 失敗か fallback command 失敗かを分離する。native path だけ失敗するなら host capability / OS event / clipboard or drop payload を確認し、fallback も失敗するなら解析ロジック側を疑う。
 
