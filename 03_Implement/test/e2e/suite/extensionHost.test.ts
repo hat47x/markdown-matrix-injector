@@ -13,8 +13,7 @@ export async function runIntegrationTests(): Promise<void> {
   await verifyRenderEmbedForTestCommand(markdownFilePath, workspaceRoot);
   await verifyAutocompleteIntegration(markdownFilePath);
   await verifyDiagnosticsIntegration(workspaceRoot);
-  await verifyPasteDropCommandFallback(markdownFilePath);
-  await verifyNativePasteDropSurfaceOrFallback(markdownFilePath);
+  await verifyPasteDropCoverage(markdownFilePath);
 }
 
 async function verifyRenderEmbedForTestCommand(markdownFilePath: string, workspaceRoot: string): Promise<void> {
@@ -85,12 +84,42 @@ async function verifyDiagnosticsIntegration(workspaceRoot: string): Promise<void
   assert.deepEqual(codes, ['MMI_FILE_NOT_FOUND', 'MMI_INVALID_XML', 'MMI_SHEET_NOT_FOUND']);
 }
 
-async function verifyPasteDropCommandFallback(markdownFilePath: string): Promise<void> {
-  const commands = await vscode.commands.getCommands(true);
-  assert.ok(commands.includes('markdownMatrixInjector.insertEmbedFromPaste'));
-  assert.ok(commands.includes('markdownMatrixInjector.insertEmbedFromDrop'));
+interface NativeProviderCapability {
+  readonly hasNativePasteProvider: boolean;
+  readonly hasNativeDropProvider: boolean;
+}
 
-  const document = await openMarkdownDocument(markdownFilePath, '# PasteDrop\n\n');
+async function verifyPasteDropCoverage(markdownFilePath: string): Promise<void> {
+  const capability = getNativeProviderCapability();
+
+  if (capability.hasNativePasteProvider && capability.hasNativeDropProvider) {
+    await verifyNativeProviderAdapterCoverage(markdownFilePath, capability);
+    return;
+  }
+
+  await verifyPasteDropCommandFallback(markdownFilePath, capability);
+}
+
+async function verifyPasteDropCommandFallback(
+  markdownFilePath: string,
+  capability: NativeProviderCapability = getNativeProviderCapability(),
+): Promise<void> {
+  const commands = await vscode.commands.getCommands(true);
+  assert.ok(
+    commands.includes('markdownMatrixInjector.insertEmbedFromPaste'),
+    'Expected fallback paste command to stay registered for unsupported hosts.',
+  );
+  assert.ok(
+    commands.includes('markdownMatrixInjector.insertEmbedFromDrop'),
+    'Expected fallback drop command to stay registered for unsupported hosts.',
+  );
+
+  assert.ok(
+    !capability.hasNativePasteProvider || !capability.hasNativeDropProvider,
+    `Fallback coverage should be the primary proof only on unsupported hosts. capability=${JSON.stringify(capability)}`,
+  );
+
+  const document = await openMarkdownDocument(markdownFilePath, '# PasteDropFallback\n\n');
   const editor = await vscode.window.showTextDocument(document);
   editor.selection = new vscode.Selection(new vscode.Position(1, 0), new vscode.Position(1, 0));
 
@@ -99,44 +128,43 @@ async function verifyPasteDropCommandFallback(markdownFilePath: string): Promise
       '<div data-sheet="Summary">file:///tmp/report.xlsx</div><table><tr><td>ID</td><td>Name</td></tr><tr><td>1</td><td>Auth</td></tr></table>',
   });
 
-  const afterPaste = document.getText();
-  if (!/!\[\[\/tmp\/report\.xlsx#Summary\|A1:B2\]\]/.test(afterPaste)) {
-    console.warn('[mmi:e2e] Fallback paste command is registered but did not mutate the headless editor document.');
-  }
+  assert.match(
+    document.getText(),
+    /!\[\[\/tmp\/report\.xlsx#Summary\|A1:B2\]\]/,
+    `Expected command fallback to insert paste embed on unsupported host. capability=${JSON.stringify(capability)}`,
+  );
 
   editor.selection = new vscode.Selection(new vscode.Position(2, 0), new vscode.Position(2, 0));
   await vscode.commands.executeCommand('markdownMatrixInjector.insertEmbedFromDrop', {
     droppedFiles: ['/tmp/drop-target.csv'],
   });
 
-  const afterDrop = document.getText();
-  if (!/!\[\[\/tmp\/drop-target\.csv\]\]/.test(afterDrop)) {
-    console.warn('[mmi:e2e] Fallback drop command is registered but did not mutate the headless editor document.');
-  }
+  assert.match(
+    document.getText(),
+    /!\[\[\/tmp\/drop-target\.csv\]\]/,
+    `Expected command fallback to insert drop embed on unsupported host. capability=${JSON.stringify(capability)}`,
+  );
 }
 
-async function verifyNativePasteDropSurfaceOrFallback(markdownFilePath: string): Promise<void> {
+async function verifyNativeProviderAdapterCoverage(
+  markdownFilePath: string,
+  capability: NativeProviderCapability,
+): Promise<void> {
+  assert.ok(
+    capability.hasNativePasteProvider && capability.hasNativeDropProvider,
+    `Native adapter coverage requires both provider APIs. capability=${JSON.stringify(capability)}`,
+  );
+
   const document = await openMarkdownDocument(
     path.join(path.dirname(markdownFilePath), 'phase5-native-provider.md'),
     '# NativeProviders\n\n',
   );
-  const languages = vscode.languages as typeof vscode.languages & {
-    registerDocumentPasteEditProvider?: unknown;
-    registerDocumentDropEditProvider?: unknown;
-  };
-  const hasNativePasteProvider = typeof languages.registerDocumentPasteEditProvider === 'function';
-  const hasNativeDropProvider = typeof languages.registerDocumentDropEditProvider === 'function';
-
-  if (!hasNativePasteProvider || !hasNativeDropProvider) {
-    await verifyPasteDropCommandFallback(markdownFilePath);
-    return;
-  }
 
   assert.ok(
     vscode.DocumentDropOrPasteEditKind.Text.contains(
       vscode.DocumentDropOrPasteEditKind.Text.append('markdownMatrixInjector', 'embed'),
     ),
-    'Expected the extension native edit kind to extend the built-in text edit kind.',
+    'Expected native provider edit kind to extend the built-in text edit kind.',
   );
 
   const editor = await vscode.window.showTextDocument(document);
@@ -154,7 +182,11 @@ async function verifyNativePasteDropSurfaceOrFallback(markdownFilePath: string):
     'markdownMatrixInjector.__test.getPasteInsertTextFromDataTransfer',
     pasteTransfer,
   );
-  assert.equal(pasteInsert, '![[/tmp/native.xlsx#Summary|A1:B1]]');
+  assert.equal(
+    pasteInsert,
+    '![[/tmp/native.xlsx#Summary|A1:B1]]',
+    `Expected native paste adapter to reuse shared parsing on supported host. capability=${JSON.stringify(capability)}`,
+  );
 
   const dropTransfer = new vscode.DataTransfer();
   dropTransfer.set('text/uri-list', new vscode.DataTransferItem('file:///tmp/native-drop.csv'));
@@ -163,9 +195,23 @@ async function verifyNativePasteDropSurfaceOrFallback(markdownFilePath: string):
     'markdownMatrixInjector.__test.getDropInsertTextFromDataTransfer',
     dropTransfer,
   );
-  assert.equal(dropInsert, '![[/tmp/native-drop.csv]]');
+  assert.equal(
+    dropInsert,
+    '![[/tmp/native-drop.csv]]',
+    `Expected native drop adapter to reuse shared parsing on supported host. capability=${JSON.stringify(capability)}`,
+  );
+}
 
-  await verifyPasteDropCommandFallback(markdownFilePath);
+function getNativeProviderCapability(): NativeProviderCapability {
+  const languages = vscode.languages as typeof vscode.languages & {
+    registerDocumentPasteEditProvider?: unknown;
+    registerDocumentDropEditProvider?: unknown;
+  };
+
+  return {
+    hasNativePasteProvider: typeof languages.registerDocumentPasteEditProvider === 'function',
+    hasNativeDropProvider: typeof languages.registerDocumentDropEditProvider === 'function',
+  };
 }
 
 interface CompletionRequest {
