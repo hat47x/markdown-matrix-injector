@@ -78,6 +78,179 @@ test('getPasteInsertText and getDropInsertText reuse pasteDrop suggestions throu
 });
 
 
+
+
+test('command-friendly adapters return undefined for unsupported or empty paste/drop inputs without duplicating fallback behavior', () => {
+  assert.equal(getPasteInsertText({ clipboardHtml: '<p>plain text only</p>' }), undefined);
+  assert.equal(getPasteInsertText({ droppedFiles: ['/tmp/report.csv'] }), undefined);
+  assert.equal(getDropInsertText({ clipboardHtml: '<div data-sheet="Summary">file:///tmp/report.xlsx</div>' }), undefined);
+  assert.equal(getDropInsertText({ droppedFiles: [] }), undefined);
+  assert.equal(getDropInsertText(), undefined);
+});
+
+
+test('native paste adapter prefers HTML/text clipboard parsing and does not fall back to dropped files when clipboard metadata is unsupported', async () => {
+  let filesRead = 0;
+  const unsupportedClipboardTransfer = {
+    get(mimeType: string) {
+      if (mimeType === 'text/plain') {
+        return {
+          async asString() {
+            return 'copied from unsupported source';
+          },
+        };
+      }
+
+      if (mimeType === 'files') {
+        filesRead += 1;
+        return {
+          async asString() {
+            return '';
+          },
+          asFile() {
+            return {
+              uri: {
+                fsPath: '/tmp/fallback.csv',
+              },
+            };
+          },
+        };
+      }
+
+      return undefined;
+    },
+  };
+
+  assert.equal(await getPasteInsertTextFromDataTransfer(unsupportedClipboardTransfer), '![[/tmp/fallback.csv]]');
+  assert.equal(filesRead, 1);
+
+  const emptyTransfer = {
+    get() {
+      return undefined;
+    },
+  };
+
+  assert.equal(await getPasteInsertTextFromDataTransfer(emptyTransfer), undefined);
+  assert.equal(
+    await getPasteEditFromDataTransfer(emptyTransfer, {
+      createEdit() {
+        assert.fail('createEdit should not be called when pasteDrop returns no suggestion');
+      },
+    }),
+    undefined,
+  );
+});
+
+
+test('native drop adapter reuses pasteDrop priority across uri-list, html, and file surfaces', async () => {
+  const uriListTransfer = {
+    get(mimeType: string) {
+      if (mimeType === 'text/uri-list') {
+        return {
+          async asString() {
+            return `# comment\n/tmp/notes.md\n/tmp/from-uri.csv`;
+          },
+        };
+      }
+
+      if (mimeType === 'text/html') {
+        return {
+          async asString() {
+            return '<div data-sheet="Summary">file:///tmp/from-html.xlsx</div><table><tr><td>A</td></tr></table>';
+          },
+        };
+      }
+
+      if (mimeType === 'files') {
+        return {
+          async asString() {
+            return '';
+          },
+          asFile() {
+            return {
+              uri: {
+                fsPath: '/tmp/from-file.xml',
+              },
+            };
+          },
+        };
+      }
+
+      return undefined;
+    },
+  };
+
+  assert.equal(await getDropInsertTextFromDataTransfer(uriListTransfer), '![[/tmp/from-uri.csv]]');
+
+  const htmlThenFileTransfer = {
+    get(mimeType: string) {
+      if (mimeType === 'text/html') {
+        return {
+          async asString() {
+            return '<div data-sheet="Summary">file:///tmp/from-html.xlsx</div><table><tr><td>A</td></tr></table>';
+          },
+        };
+      }
+
+      if (mimeType === 'files') {
+        return {
+          async asString() {
+            return '';
+          },
+          asFile() {
+            return {
+              uri: {
+                fsPath: '/tmp/from-file.xml',
+              },
+            };
+          },
+        };
+      }
+
+      return undefined;
+    },
+  };
+
+  assert.equal(await getDropInsertTextFromDataTransfer(htmlThenFileTransfer), '![[/tmp/from-html.xlsx#Summary|A1:A1]]');
+
+  const filesOnlyTransfer = {
+    get(mimeType: string) {
+      if (mimeType !== 'files') {
+        return undefined;
+      }
+
+      return {
+        async asString() {
+          return '';
+        },
+        asFile() {
+          return {
+            uri: {
+              fsPath: '/tmp/from-file.xml',
+            },
+          };
+        },
+      };
+    },
+  };
+
+  assert.equal(await getDropInsertTextFromDataTransfer(filesOnlyTransfer), '![[/tmp/from-file.xml]]');
+  assert.equal(
+    await getDropEditFromDataTransfer(
+      {
+        get() {
+          return undefined;
+        },
+      },
+      {
+        createEdit() {
+          assert.fail('createEdit should not be called when drop surfaces do not produce a reusable pasteDrop suggestion');
+        },
+      },
+    ),
+    undefined,
+  );
+});
 test('native paste/drop adapters reuse pasteDrop logic from DataTransfer surfaces', async () => {
   const htmlTransfer = {
     get(mimeType: string) {
