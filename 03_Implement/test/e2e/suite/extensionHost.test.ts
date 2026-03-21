@@ -118,7 +118,9 @@ interface PasteDropVerificationBoundary {
   readonly autocompleteSheetCompletionStable: boolean;
   readonly autocompleteKnownUnstableReason?: string;
   readonly e2eProofBoundary: string;
-  readonly proofMode: 'native-provider-surface' | 'command-fallback-compatibility';
+  readonly proofTargets: readonly ['native-provider-surface', 'fallback-compatibility', 'known-unstable-isolation'];
+  readonly nativeProviderSupported: boolean;
+  readonly dropProviderSupported: boolean;
 }
 
 async function verifyPasteDropCoverage(
@@ -131,11 +133,10 @@ async function verifyPasteDropCoverage(
     autocompleteSheetCompletionStable: autocompleteResult.sheetCompletionStable,
     autocompleteKnownUnstableReason: autocompleteResult.knownUnstableReason,
     e2eProofBoundary:
-      'E2E proves native provider registration surface and shared parsing/fallback command behavior, not final OS-native event UX dispatch.',
-    proofMode:
-      capability.hasNativePasteProvider && capability.hasNativeDropProvider
-        ? 'native-provider-surface'
-        : 'command-fallback-compatibility',
+      'E2E proves native provider registration surface, fallback compatibility, and known unstable isolation; it does not prove final OS-native event UX dispatch.',
+    proofTargets: ['native-provider-surface', 'fallback-compatibility', 'known-unstable-isolation'],
+    nativeProviderSupported: capability.hasNativePasteProvider,
+    dropProviderSupported: capability.hasNativeDropProvider,
   };
 
   logStage('paste-drop-boundary:capability', { capability, integrationState, verificationBoundary });
@@ -165,6 +166,15 @@ async function verifyPasteDropCoverage(
   );
   assert.ok(integrationState.pasteMimeTypes.includes('text/html'));
   assert.ok(integrationState.dropMimeTypes.includes('text/uri-list'));
+  assert.deepEqual(verificationBoundary.proofTargets, [
+    'native-provider-surface',
+    'fallback-compatibility',
+    'known-unstable-isolation',
+  ]);
+
+  await runStage('paste-drop-fallback-compatibility', () =>
+    verifyPasteDropCommandFallback(markdownFilePath, capability, integrationState, verificationBoundary),
+  );
 
   if (capability.hasNativePasteProvider && capability.hasNativeDropProvider) {
     assert.ok(integrationState.registeredPasteProvider, 'Expected paste provider registration on supported host.');
@@ -186,9 +196,11 @@ async function verifyPasteDropCoverage(
     `Drop provider registration should only be skipped when the host lacks the API. integrationState=${JSON.stringify(integrationState)}`,
   );
 
-  await runStage('paste-drop-command-fallback-compatibility', () =>
-    verifyPasteDropCommandFallback(markdownFilePath, capability, integrationState, verificationBoundary),
-  );
+  logStage('paste-drop-native-provider-surface:skipped', {
+    reason: 'unsupported-host',
+    capability,
+    verificationBoundary,
+  });
 }
 
 async function runStage<T>(stageName: string, run: () => Promise<T>): Promise<T> {
@@ -229,17 +241,16 @@ async function verifyPasteDropCommandFallback(
   verificationBoundary?: PasteDropVerificationBoundary,
 ): Promise<void> {
   assert.ok(
-    !capability.hasNativePasteProvider || !capability.hasNativeDropProvider,
-    `Fallback coverage should be the primary proof only on unsupported hosts. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)}`,
-  );
-  assert.ok(
     verificationBoundary,
     `Expected fallback verification metadata to be provided. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)}`,
   );
-  assert.equal(verificationBoundary.proofMode, 'command-fallback-compatibility');
+  assert.ok(
+    verificationBoundary.proofTargets.includes('fallback-compatibility'),
+    `Expected fallback compatibility to remain inside the fixed verification boundary. boundary=${JSON.stringify(verificationBoundary)}`,
+  );
   assert.match(
     verificationBoundary.e2eProofBoundary,
-    /shared parsing\/fallback command behavior/,
+    /fallback compatibility/,
     `Expected fallback verification to stay scoped to explicit proof boundary. boundary=${JSON.stringify(verificationBoundary)}`,
   );
 
@@ -255,7 +266,7 @@ async function verifyPasteDropCommandFallback(
   assert.match(
     document.getText(),
     /!\[\[\/tmp\/report\.xlsx#Summary\|A1:B2\]\]/,
-    `Expected command fallback to insert paste embed on unsupported host. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)} boundary=${JSON.stringify(verificationBoundary)}`,
+    `Expected command fallback compatibility path to insert paste embed. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)} boundary=${JSON.stringify(verificationBoundary)}`,
   );
 
   editor.selection = new vscode.Selection(new vscode.Position(2, 0), new vscode.Position(2, 0));
@@ -266,7 +277,7 @@ async function verifyPasteDropCommandFallback(
   assert.match(
     document.getText(),
     /!\[\[\/tmp\/drop-target\.csv\]\]/,
-    `Expected command fallback to insert drop embed on unsupported host. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)} boundary=${JSON.stringify(verificationBoundary)}`,
+    `Expected command fallback compatibility path to insert drop embed. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)} boundary=${JSON.stringify(verificationBoundary)}`,
   );
 }
 
@@ -277,13 +288,16 @@ async function verifyNativeProviderAdapterCoverage(
   verificationBoundary: PasteDropVerificationBoundary,
 ): Promise<void> {
   assert.ok(
-    capability.hasNativePasteProvider && capability.hasNativeDropProvider,
+    verificationBoundary.nativeProviderSupported && verificationBoundary.dropProviderSupported,
     `Native adapter coverage requires both provider APIs. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)}`,
   );
-  assert.equal(verificationBoundary.proofMode, 'native-provider-surface');
+  assert.ok(
+    verificationBoundary.proofTargets.includes('native-provider-surface'),
+    `Expected native provider surface to remain inside the fixed verification boundary. boundary=${JSON.stringify(verificationBoundary)}`,
+  );
   assert.match(
     verificationBoundary.e2eProofBoundary,
-    /native provider registration surface and shared parsing/,
+    /native provider registration surface/,
     `Expected native verification to stay scoped to provider surface proof. boundary=${JSON.stringify(verificationBoundary)}`,
   );
   assert.ok(
@@ -459,7 +473,7 @@ function reportKnownSheetCompletionFlake(state: CompletionState, expectedLabel: 
   }
 
   console.warn(
-    `[mmi:e2e] Known flaky autocomplete gap isolated to ${state.stageName}; paste/drop verification remains independent and acceptance is limited to provider surface/shared parser fallback, not OS-native UX dispatch. ${formatCompletionState(state)}`,
+    `[mmi:e2e] Known flaky autocomplete gap isolated to ${state.stageName}; paste/drop verification remains independent and acceptance is limited to native provider surface/fallback compatibility, not OS-native UX dispatch. ${formatCompletionState(state)}`,
   );
   return false;
 }
