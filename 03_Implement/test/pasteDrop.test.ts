@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   inferRangeFromHtmlTable,
   isSupportedWorkbookPath,
+  suggestEmbedFromDataTransfer,
   suggestEmbedFromClipboardHtml,
   suggestEmbedFromDroppedFiles,
   suggestEmbedFromPasteDrop,
@@ -129,4 +130,150 @@ test('suggestEmbedFromPasteDrop falls back to supported dropped files when clipb
   );
 
   assert.equal(suggestEmbedFromPasteDrop({ clipboardHtml: '', droppedFiles: [] }), null);
+});
+
+test('suggestEmbedFromDataTransfer reuses clipboard HTML parsing for native paste surfaces', async () => {
+  const transfer = {
+    get(mimeType: string) {
+      if (mimeType !== 'text/html') {
+        return undefined;
+      }
+
+      return {
+        async asString() {
+          return '<div data-sheet="Architecture">file:///tmp/spec.xlsx</div><table><tr><td>A</td><td>B</td></tr></table>';
+        },
+      };
+    },
+  };
+
+  assert.deepEqual(await suggestEmbedFromDataTransfer(transfer, 'paste'), {
+    source: 'clipboard-html',
+    filepath: '/tmp/spec.xlsx',
+    sheet: 'Architecture',
+    range: 'A1:B1',
+    markdown: '![[/tmp/spec.xlsx#Architecture|A1:B1]]',
+  });
+});
+
+test('suggestEmbedFromDataTransfer reuses dropped file parsing when paste clipboard metadata is unsupported', async () => {
+  let filesRead = 0;
+  const transfer = {
+    get(mimeType: string) {
+      if (mimeType === 'text/plain') {
+        return {
+          async asString() {
+            return 'copied from unsupported source';
+          },
+        };
+      }
+
+      if (mimeType === 'files') {
+        filesRead += 1;
+        return {
+          async asString() {
+            return '';
+          },
+          asFile() {
+            return {
+              uri: {
+                fsPath: '/tmp/fallback.csv',
+              },
+            };
+          },
+        };
+      }
+
+      return undefined;
+    },
+  };
+
+  assert.deepEqual(await suggestEmbedFromDataTransfer(transfer, 'paste'), {
+    source: 'file-drop',
+    filepath: '/tmp/fallback.csv',
+    markdown: '![[/tmp/fallback.csv]]',
+  });
+  assert.equal(filesRead, 1);
+});
+
+test('suggestEmbedFromDataTransfer preserves native drop priority across uri-list, html, and file surfaces', async () => {
+  const uriListTransfer = {
+    get(mimeType: string) {
+      if (mimeType === 'text/uri-list') {
+        return {
+          async asString() {
+            return '# comment\n/tmp/readme.md\nfile:///tmp/from-uri.csv';
+          },
+        };
+      }
+
+      if (mimeType === 'text/html') {
+        return {
+          async asString() {
+            return '<div data-sheet="Summary">file:///tmp/from-html.xlsx</div><table><tr><td>A</td></tr></table>';
+          },
+        };
+      }
+
+      if (mimeType === 'files') {
+        return {
+          async asString() {
+            return '';
+          },
+          asFile() {
+            return {
+              uri: {
+                fsPath: '/tmp/from-file.xml',
+              },
+            };
+          },
+        };
+      }
+
+      return undefined;
+    },
+  };
+
+  assert.deepEqual(await suggestEmbedFromDataTransfer(uriListTransfer, 'drop'), {
+    source: 'file-drop',
+    filepath: '/tmp/from-uri.csv',
+    markdown: '![[/tmp/from-uri.csv]]',
+  });
+
+  const htmlThenFileTransfer = {
+    get(mimeType: string) {
+      if (mimeType === 'text/html') {
+        return {
+          async asString() {
+            return '<div data-sheet="Summary">file:///tmp/from-html.xlsx</div><table><tr><td>A</td></tr></table>';
+          },
+        };
+      }
+
+      if (mimeType === 'files') {
+        return {
+          async asString() {
+            return '';
+          },
+          asFile() {
+            return {
+              uri: {
+                fsPath: '/tmp/from-file.xml',
+              },
+            };
+          },
+        };
+      }
+
+      return undefined;
+    },
+  };
+
+  assert.deepEqual(await suggestEmbedFromDataTransfer(htmlThenFileTransfer, 'drop'), {
+    source: 'clipboard-html',
+    filepath: '/tmp/from-html.xlsx',
+    sheet: 'Summary',
+    range: 'A1:A1',
+    markdown: '![[/tmp/from-html.xlsx#Summary|A1:A1]]',
+  });
 });
