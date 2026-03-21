@@ -18,3 +18,14 @@
 
 **Performance note for AI agents:**
 作業開始時、全ファイルを読まず、着手する `issue-XXXX.md` と関連 `ADR-XXXX.md` のみをコンテキストに含めること。
+
+## Planning triage shortcut
+未処理の ADR / issue を最小コンテキストで抽出したい場合は、まず `01_Plans/tools/planning_queue.py` を実行する。
+
+```bash
+python3 01_Plans/tools/planning_queue.py
+```
+
+- このツールは `01_Plans/adr/` と `01_Plans/issues/` の**先頭メタ情報だけ**を走査し、pending ADR / pending issue / 欠落 ADR 参照を一覧化する。
+- 運用手順の詳細は `01_Plans/planning-triage.md` を参照する。
+- ツール出力で対象を 1 件に絞ってから、その issue 本文と関連 ADR だけを読むこと。
