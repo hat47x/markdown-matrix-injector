@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  getDropEditFromDataTransfer,
+  getPasteEditFromDataTransfer,
+} from '../src/dx/vscodeAdapters.js';
+import {
   inferRangeFromHtmlTable,
   isSupportedWorkbookPath,
   suggestEmbedFromDataTransfer,
@@ -37,6 +41,21 @@ test('suggestEmbedFromClipboardHtml extracts filepath, sheet, and inferred range
   });
 });
 
+test('suggestEmbedFromClipboardHtml normalizes encoded workbook paths from clipboard html metadata', () => {
+  const html = [
+    '<div data-sheet="Summary">file:///tmp/My%20Report.xlsx</div>',
+    '<table><tr><td>A</td></tr></table>',
+  ].join('');
+
+  assert.deepEqual(suggestEmbedFromClipboardHtml(html), {
+    source: 'clipboard-html',
+    filepath: '/tmp/My Report.xlsx',
+    sheet: 'Summary',
+    range: 'A1:A1',
+    markdown: '![[/tmp/My Report.xlsx#Summary|A1:A1]]',
+  });
+});
+
 test('suggestEmbedFromDroppedFiles returns the first supported file and ignores unsupported entries', () => {
   assert.deepEqual(
     suggestEmbedFromDroppedFiles(['/tmp/readme.md', 'C:\\docs\\matrix.xml', '/tmp/another.csv']),
@@ -46,6 +65,14 @@ test('suggestEmbedFromDroppedFiles returns the first supported file and ignores 
       markdown: '![[C:/docs/matrix.xml]]',
     },
   );
+});
+
+test('suggestEmbedFromDroppedFiles normalizes encoded file URIs before building markdown', () => {
+  assert.deepEqual(suggestEmbedFromDroppedFiles([' file:///tmp/Design%20Matrix.csv ']), {
+    source: 'file-drop',
+    filepath: '/tmp/Design Matrix.csv',
+    markdown: '![[/tmp/Design Matrix.csv]]',
+  });
 });
 
 test('suggestEmbedFromPasteDrop prefers clipboard-derived suggestions before falling back to dropped files', () => {
@@ -86,6 +113,12 @@ test('inferRangeFromHtmlTable counts rows and colspan to infer an A1 range', () 
   ].join('');
 
   assert.equal(inferRangeFromHtmlTable(html), 'A1:C3');
+});
+
+test('inferRangeFromHtmlTable expands beyond column Z and returns undefined for cell-less rows', () => {
+  const wideCells = Array.from({ length: 28 }, (_, index) => `<td>${index + 1}</td>`).join('');
+  assert.equal(inferRangeFromHtmlTable(`<table><tr>${wideCells}</tr><tr>${wideCells}</tr></table>`), 'A1:AB2');
+  assert.equal(inferRangeFromHtmlTable('<table><tr></tr></table>'), undefined);
 });
 
 test('isSupportedWorkbookPath only accepts workbook-like extensions', () => {
@@ -196,7 +229,7 @@ test('suggestEmbedFromDataTransfer reuses dropped file parsing when paste clipbo
   assert.equal(filesRead, 1);
 });
 
-test('suggestEmbedFromDataTransfer preserves native drop priority across uri-list, html, and file surfaces', async () => {
+test('suggestEmbedFromDataTransfer preserves native drop priority across uri-list, html, plain text, and file surfaces', async () => {
   const uriListTransfer = {
     get(mimeType: string) {
       if (mimeType === 'text/uri-list') {
@@ -211,6 +244,14 @@ test('suggestEmbedFromDataTransfer preserves native drop priority across uri-lis
         return {
           async asString() {
             return '<div data-sheet="Summary">file:///tmp/from-html.xlsx</div><table><tr><td>A</td></tr></table>';
+          },
+        };
+      }
+
+      if (mimeType === 'text/plain') {
+        return {
+          async asString() {
+            return '/tmp/from-plain.xml';
           },
         };
       }
@@ -240,12 +281,12 @@ test('suggestEmbedFromDataTransfer preserves native drop priority across uri-lis
     markdown: '![[/tmp/from-uri.csv]]',
   });
 
-  const htmlThenFileTransfer = {
+  const plainTextThenFileTransfer = {
     get(mimeType: string) {
-      if (mimeType === 'text/html') {
+      if (mimeType === 'text/plain') {
         return {
           async asString() {
-            return '<div data-sheet="Summary">file:///tmp/from-html.xlsx</div><table><tr><td>A</td></tr></table>';
+            return 'file:///tmp/from-plain.xml';
           },
         };
       }
@@ -269,11 +310,86 @@ test('suggestEmbedFromDataTransfer preserves native drop priority across uri-lis
     },
   };
 
-  assert.deepEqual(await suggestEmbedFromDataTransfer(htmlThenFileTransfer, 'drop'), {
+  assert.deepEqual(await suggestEmbedFromDataTransfer(plainTextThenFileTransfer, 'drop'), {
     source: 'clipboard-html',
-    filepath: '/tmp/from-html.xlsx',
-    sheet: 'Summary',
-    range: 'A1:A1',
-    markdown: '![[/tmp/from-html.xlsx#Summary|A1:A1]]',
+    filepath: '/tmp/from-plain.xml',
+    markdown: '![[/tmp/from-plain.xml]]',
   });
+});
+
+test('suggestEmbedFromDataTransfer normalizes encoded uri-list paths before falling back to file items', async () => {
+  const transfer = {
+    get(mimeType: string) {
+      if (mimeType === 'text/uri-list') {
+        return {
+          async asString() {
+            return 'file:///tmp/Encoded%20Matrix.xlsx';
+          },
+        };
+      }
+
+      if (mimeType === 'files') {
+        return {
+          async asString() {
+            return '';
+          },
+          asFile() {
+            return {
+              uri: {
+                fsPath: '/tmp/from-file.xml',
+              },
+            };
+          },
+        };
+      }
+
+      return undefined;
+    },
+  };
+
+  assert.deepEqual(await suggestEmbedFromDataTransfer(transfer, 'drop'), {
+    source: 'file-drop',
+    filepath: '/tmp/Encoded Matrix.xlsx',
+    markdown: '![[/tmp/Encoded Matrix.xlsx]]',
+  });
+});
+
+test('paste/drop edit adapters create edits only when shared parsing resolves a suggestion', async () => {
+  const pasteTransfer = {
+    get(mimeType: string) {
+      if (mimeType !== 'text/plain') {
+        return undefined;
+      }
+
+      return {
+        async asString() {
+          return 'file:///tmp/Adapter%20Paste.xlsx';
+        },
+      };
+    },
+  };
+
+  assert.deepEqual(
+    await getPasteEditFromDataTransfer(pasteTransfer, {
+      createEdit(insertText) {
+        return { insertText, source: 'paste' };
+      },
+    }),
+    { insertText: '![[/tmp/Adapter Paste.xlsx]]', source: 'paste' },
+  );
+
+  const unsupportedTransfer = {
+    get() {
+      return undefined;
+    },
+  };
+
+  assert.equal(
+    await getDropEditFromDataTransfer(unsupportedTransfer, {
+      createEdit() {
+        assert.fail('createEdit should not run for unsupported drop payloads');
+      },
+    }),
+    undefined,
+  );
 });
