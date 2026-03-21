@@ -19,8 +19,8 @@ const AUTOCOMPLETE_UNSTABLE_PATTERNS = [
   'autocomplete',
 ] as const;
 const PASTE_DROP_PROVIDER_PATTERNS = [
-  'Expected command fallback to insert paste embed',
-  'Expected command fallback to insert drop embed',
+  'Expected command fallback compatibility path to insert paste embed',
+  'Expected command fallback compatibility path to insert drop embed',
   'Expected native paste adapter to reuse shared parsing',
   'Expected native drop adapter to reuse shared parsing',
   'paste provider registration',
@@ -29,7 +29,7 @@ const PASTE_DROP_PROVIDER_PATTERNS = [
   'native provider',
   'paste-drop-boundary',
   'paste-drop-native-provider-surface',
-  'paste-drop-command-fallback-compatibility',
+  'paste-drop-fallback-compatibility',
   'DocumentPasteEditProvider',
   'DocumentDropEditProvider',
   'DataTransfer',
@@ -130,6 +130,7 @@ async function main(): Promise<void> {
 
   try {
     process.env.MMI_E2E_WORKSPACE = runtime.workspacePath;
+    assertHeadlessPrerequisites(runtime);
 
     logSection('runtime-context', {
       cwd: process.cwd(),
@@ -224,6 +225,26 @@ function createRuntimeContext(): E2ERuntimeContext {
     fixtureSnapshot: describeWorkspace(workspacePath),
     launchMetadata: collectLaunchMetadata(packageJson),
   };
+}
+
+function assertHeadlessPrerequisites(runtime: E2ERuntimeContext): void {
+  if (process.platform !== 'linux') {
+    return;
+  }
+
+  if (process.env.DISPLAY || process.env.WAYLAND_DISPLAY || process.env.MMI_E2E_UNDER_XVFB === '1') {
+    return;
+  }
+
+  logSection('launch:precondition-failure', {
+    reason: 'missing-virtual-display',
+    recommendation: 'Run through 03_Implement/scripts/run-vscode-e2e.sh so xvfb-run can provide a virtual display.',
+    launchMetadata: runtime.launchMetadata,
+  });
+
+  throw new Error(
+    'Headless prerequisite missing: no DISPLAY/WAYLAND_DISPLAY detected. Re-run via 03_Implement/scripts/run-vscode-e2e.sh or `cd 03_Implement && npm run test:e2e`.',
+  );
 }
 
 function createE2EWorkspace(): string {
