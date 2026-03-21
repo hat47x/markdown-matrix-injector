@@ -89,34 +89,71 @@ interface NativeProviderCapability {
   readonly hasNativeDropProvider: boolean;
 }
 
+interface PasteDropIntegrationState {
+  readonly fallbackCommandIds: readonly string[];
+  readonly nativeEditKind: string;
+  readonly pasteMimeTypes: readonly string[];
+  readonly dropMimeTypes: readonly string[];
+  readonly hostSupportsPasteProvider: boolean;
+  readonly hostSupportsDropProvider: boolean;
+  readonly registeredPasteProvider: boolean;
+  readonly registeredDropProvider: boolean;
+}
+
 async function verifyPasteDropCoverage(markdownFilePath: string): Promise<void> {
   const capability = getNativeProviderCapability();
+  const integrationState = await getPasteDropIntegrationState();
+
+  assert.deepEqual(
+    {
+      hasNativePasteProvider: capability.hasNativePasteProvider,
+      hasNativeDropProvider: capability.hasNativeDropProvider,
+    },
+    {
+      hasNativePasteProvider: integrationState.hostSupportsPasteProvider,
+      hasNativeDropProvider: integrationState.hostSupportsDropProvider,
+    },
+    `Expected extension host capability probe to match integration state. integrationState=${JSON.stringify(integrationState)}`,
+  );
+
+  const commands = await vscode.commands.getCommands(true);
+  for (const commandId of integrationState.fallbackCommandIds) {
+    assert.ok(commands.includes(commandId), `Expected fallback command ${commandId} to be registered.`);
+  }
+
+  assert.equal(integrationState.nativeEditKind, 'text.markdownMatrixInjector.embed');
+  assert.ok(integrationState.pasteMimeTypes.includes('text/html'));
+  assert.ok(integrationState.dropMimeTypes.includes('text/uri-list'));
 
   if (capability.hasNativePasteProvider && capability.hasNativeDropProvider) {
-    await verifyNativeProviderAdapterCoverage(markdownFilePath, capability);
+    assert.ok(integrationState.registeredPasteProvider, 'Expected paste provider registration on supported host.');
+    assert.ok(integrationState.registeredDropProvider, 'Expected drop provider registration on supported host.');
+    await verifyNativeProviderAdapterCoverage(markdownFilePath, capability, integrationState);
     return;
   }
 
-  await verifyPasteDropCommandFallback(markdownFilePath, capability);
+  assert.equal(
+    integrationState.registeredPasteProvider,
+    capability.hasNativePasteProvider,
+    `Paste provider registration should only be skipped when the host lacks the API. integrationState=${JSON.stringify(integrationState)}`,
+  );
+  assert.equal(
+    integrationState.registeredDropProvider,
+    capability.hasNativeDropProvider,
+    `Drop provider registration should only be skipped when the host lacks the API. integrationState=${JSON.stringify(integrationState)}`,
+  );
+
+  await verifyPasteDropCommandFallback(markdownFilePath, capability, integrationState);
 }
 
 async function verifyPasteDropCommandFallback(
   markdownFilePath: string,
   capability: NativeProviderCapability = getNativeProviderCapability(),
+  integrationState?: PasteDropIntegrationState,
 ): Promise<void> {
-  const commands = await vscode.commands.getCommands(true);
-  assert.ok(
-    commands.includes('markdownMatrixInjector.insertEmbedFromPaste'),
-    'Expected fallback paste command to stay registered for unsupported hosts.',
-  );
-  assert.ok(
-    commands.includes('markdownMatrixInjector.insertEmbedFromDrop'),
-    'Expected fallback drop command to stay registered for unsupported hosts.',
-  );
-
   assert.ok(
     !capability.hasNativePasteProvider || !capability.hasNativeDropProvider,
-    `Fallback coverage should be the primary proof only on unsupported hosts. capability=${JSON.stringify(capability)}`,
+    `Fallback coverage should be the primary proof only on unsupported hosts. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)}`,
   );
 
   const document = await openMarkdownDocument(markdownFilePath, '# PasteDropFallback\n\n');
@@ -131,7 +168,7 @@ async function verifyPasteDropCommandFallback(
   assert.match(
     document.getText(),
     /!\[\[\/tmp\/report\.xlsx#Summary\|A1:B2\]\]/,
-    `Expected command fallback to insert paste embed on unsupported host. capability=${JSON.stringify(capability)}`,
+    `Expected command fallback to insert paste embed on unsupported host. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)}`,
   );
 
   editor.selection = new vscode.Selection(new vscode.Position(2, 0), new vscode.Position(2, 0));
@@ -142,17 +179,18 @@ async function verifyPasteDropCommandFallback(
   assert.match(
     document.getText(),
     /!\[\[\/tmp\/drop-target\.csv\]\]/,
-    `Expected command fallback to insert drop embed on unsupported host. capability=${JSON.stringify(capability)}`,
+    `Expected command fallback to insert drop embed on unsupported host. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)}`,
   );
 }
 
 async function verifyNativeProviderAdapterCoverage(
   markdownFilePath: string,
   capability: NativeProviderCapability,
+  integrationState: PasteDropIntegrationState,
 ): Promise<void> {
   assert.ok(
     capability.hasNativePasteProvider && capability.hasNativeDropProvider,
-    `Native adapter coverage requires both provider APIs. capability=${JSON.stringify(capability)}`,
+    `Native adapter coverage requires both provider APIs. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)}`,
   );
 
   const document = await openMarkdownDocument(
@@ -166,6 +204,7 @@ async function verifyNativeProviderAdapterCoverage(
     ),
     'Expected native provider edit kind to extend the built-in text edit kind.',
   );
+  assert.equal(integrationState.nativeEditKind, 'text.markdownMatrixInjector.embed');
 
   const editor = await vscode.window.showTextDocument(document);
   editor.selection = new vscode.Selection(new vscode.Position(1, 0), new vscode.Position(1, 0));
@@ -185,7 +224,7 @@ async function verifyNativeProviderAdapterCoverage(
   assert.equal(
     pasteInsert,
     '![[/tmp/native.xlsx#Summary|A1:B1]]',
-    `Expected native paste adapter to reuse shared parsing on supported host. capability=${JSON.stringify(capability)}`,
+    `Expected native paste adapter to reuse shared parsing on supported host. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)}`,
   );
 
   const dropTransfer = new vscode.DataTransfer();
@@ -198,8 +237,16 @@ async function verifyNativeProviderAdapterCoverage(
   assert.equal(
     dropInsert,
     '![[/tmp/native-drop.csv]]',
-    `Expected native drop adapter to reuse shared parsing on supported host. capability=${JSON.stringify(capability)}`,
+    `Expected native drop adapter to reuse shared parsing on supported host. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)}`,
   );
+}
+
+async function getPasteDropIntegrationState(): Promise<PasteDropIntegrationState> {
+  const state = await vscode.commands.executeCommand<PasteDropIntegrationState>(
+    'markdownMatrixInjector.__test.getPasteDropIntegrationState',
+  );
+  assert.ok(state, 'Expected extension integration state command to return a snapshot.');
+  return state;
 }
 
 function getNativeProviderCapability(): NativeProviderCapability {
@@ -233,6 +280,7 @@ interface CompletionState {
   };
   readonly attempts: number;
   readonly labels: string[];
+  readonly labelsByAttempt: readonly string[][];
   readonly vscodeVersion: string;
   readonly platform: string;
   readonly display: string;
@@ -251,6 +299,7 @@ async function getCompletionState(request: CompletionRequest): Promise<Completio
 
   let labels: string[] = [];
   let attempts = 0;
+  const labelsByAttempt: string[][] = [];
 
   for (; attempts < maxAttempts; attempts += 1) {
     await vscode.commands.executeCommand('editor.action.triggerSuggest');
@@ -261,6 +310,7 @@ async function getCompletionState(request: CompletionRequest): Promise<Completio
       position,
     );
     labels = (completionList?.items ?? []).map((item) => item.label.toString());
+    labelsByAttempt.push(labels);
 
     if (request.expectedLabel ? labels.includes(request.expectedLabel) : labels.length > 0) {
       attempts += 1;
@@ -277,6 +327,7 @@ async function getCompletionState(request: CompletionRequest): Promise<Completio
       position,
     );
     labels = (completionList?.items ?? []).map((item) => item.label.toString());
+    labelsByAttempt.push(labels);
     attempts += 1;
   }
 
@@ -290,6 +341,7 @@ async function getCompletionState(request: CompletionRequest): Promise<Completio
     },
     attempts,
     labels,
+    labelsByAttempt,
     vscodeVersion: vscode.version,
     platform: process.platform,
     display: process.env.DISPLAY ?? '(unset)',
@@ -309,7 +361,7 @@ function reportKnownSheetCompletionFlake(state: CompletionState, expectedLabel: 
   }
 
   console.warn(
-    `[mmi:e2e] Known flaky autocomplete gap isolated to ${state.stageName}: ${formatCompletionState(state)}`,
+    `[mmi:e2e] Known flaky autocomplete gap isolated to ${state.stageName}; paste/drop verification remains independent. ${formatCompletionState(state)}`,
   );
 }
 
@@ -324,6 +376,7 @@ function formatCompletionState(state: CompletionState): string {
     position: state.position,
     attempts: state.attempts,
     labels: state.labels,
+    labelsByAttempt: state.labelsByAttempt,
   });
 }
 
