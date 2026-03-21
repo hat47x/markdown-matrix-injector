@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   AUTOCOMPLETE_QUERY_PARAM_CANDIDATES,
   classifyAutocompleteStage,
+  getAutocompleteDependencyProfile,
   getAutocompleteCandidates,
 } from '../src/dx/autocompleteProvider.js';
 
@@ -24,6 +25,27 @@ test('classifyAutocompleteStage detects query parameter stage across unfinished 
   assert.equal(classifyAutocompleteStage('![[docs/spec.xlsx#Sheet1|A1:C3?mode=table'), 'query-params');
   assert.equal(classifyAutocompleteStage('![[docs/spec.xlsx#Sheet1|A1:C3?mode=table&'), 'query-params');
   assert.equal(classifyAutocompleteStage('![[docs/spec.xlsx#Sheet1|A1:C3?mode=table&header'), 'query-params');
+});
+
+test('getAutocompleteDependencyProfile isolates workbook metadata to sheet and range completion only', () => {
+  assert.deepEqual(getAutocompleteDependencyProfile('![[docs/spec'), {
+    stage: 'filepath',
+    requiresWorkspaceFileList: true,
+    requiresWorkbookMetadata: false,
+    usesQueryParamCatalog: false,
+  });
+  assert.deepEqual(getAutocompleteDependencyProfile('![[docs/spec.xlsx#'), {
+    stage: 'sheet-or-range',
+    requiresWorkspaceFileList: false,
+    requiresWorkbookMetadata: true,
+    usesQueryParamCatalog: false,
+  });
+  assert.deepEqual(getAutocompleteDependencyProfile('![[docs/spec.xlsx#Sheet1|A1:C3?he'), {
+    stage: 'query-params',
+    requiresWorkspaceFileList: false,
+    requiresWorkbookMetadata: false,
+    usesQueryParamCatalog: true,
+  });
 });
 
 test('getAutocompleteCandidates returns filtered file candidates for filepath stage', () => {
@@ -109,4 +131,14 @@ test('getAutocompleteCandidates allows overriding query parameter candidates whe
   assert.deepEqual(candidates, [
     { label: 'caption', insertText: 'caption=', kind: 'query-param' },
   ]);
+});
+
+test('getAutocompleteCandidates does not re-suggest an already assigned active query parameter name', () => {
+  const candidates = getAutocompleteCandidates('![[docs/spec.xlsx#Sheet1|A1:C3?mode=table&header=', {
+    files: ['./roles.csv'],
+    sheets: ['Sheet1'],
+  });
+
+  assert.equal(candidates.some((candidate) => candidate.label === 'header'), false);
+  assert.equal(candidates.some((candidate) => candidate.label === 'mode'), false);
 });
