@@ -15,6 +15,19 @@ export interface PasteDropInput {
   droppedFiles?: readonly string[];
 }
 
+export interface PasteDropDataTransferItemLike {
+  asString(): PromiseLike<string>;
+  asFile?(): { uri?: { fsPath: string } } | undefined;
+}
+
+export interface PasteDropDataTransferLike {
+  get(mimeType: string): PasteDropDataTransferItemLike | undefined;
+}
+
+const PASTE_HTML_MIME_TYPES = ['text/html', 'text/plain'] as const;
+const DROP_MIME_TYPES = ['text/uri-list', ...PASTE_HTML_MIME_TYPES] as const;
+const FILES_MIME_TYPE = 'files';
+
 export function suggestEmbedFromPasteDrop(input: PasteDropInput): PasteDropSuggestion | null {
   const clipboardSuggestion = input.clipboardHtml
     ? suggestEmbedFromClipboardHtml(input.clipboardHtml)
@@ -25,6 +38,32 @@ export function suggestEmbedFromPasteDrop(input: PasteDropInput): PasteDropSugge
   }
 
   return suggestEmbedFromDroppedFiles(input.droppedFiles ?? []);
+}
+
+export async function suggestEmbedFromDataTransfer(
+  dataTransfer: PasteDropDataTransferLike,
+  source: 'paste' | 'drop',
+): Promise<PasteDropSuggestion | null> {
+  const mimeTypes = source === 'drop' ? DROP_MIME_TYPES : PASTE_HTML_MIME_TYPES;
+
+  for (const mimeType of mimeTypes) {
+    const item = dataTransfer.get(mimeType);
+    const value = item ? await item.asString() : undefined;
+
+    if (!value) {
+      continue;
+    }
+
+    const suggestion = mimeType === 'text/uri-list'
+      ? suggestEmbedFromDroppedFiles(parseUriList(value))
+      : suggestEmbedFromClipboardHtml(value);
+
+    if (suggestion) {
+      return suggestion;
+    }
+  }
+
+  return suggestEmbedFromDroppedFiles(await readDroppedFiles(dataTransfer));
 }
 
 export function suggestEmbedFromClipboardHtml(html: string): PasteDropSuggestion | null {
@@ -159,4 +198,18 @@ function normalizePath(filepath: string): string {
   const withForwardSlashes = withoutFileScheme.replace(/\\/g, '/');
 
   return withForwardSlashes.replace(/^\/(?:[A-Za-z]:\/)/, (match) => match.slice(1));
+}
+
+async function readDroppedFiles(dataTransfer: PasteDropDataTransferLike): Promise<string[]> {
+  const filesItem = dataTransfer.get(FILES_MIME_TYPE);
+  const filepath = filesItem?.asFile?.()?.uri?.fsPath;
+  return filepath ? [filepath] : [];
+}
+
+function parseUriList(value: string): string[] {
+  return value
+    .split(/\r?\n/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0 && !entry.startsWith('#'))
+    .map((entry) => entry.replace(/^file:\/\//i, ''));
 }
