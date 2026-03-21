@@ -13,10 +13,79 @@ const AUTOCOMPLETE_UNSTABLE_PATTERNS = [
   'Expected autocomplete suggestions after ![[.',
   'Expected sheet completion after #.',
   'Expected parameter completion after ?.',
+  'Known flaky autocomplete gap isolated',
   'completion',
   'autocomplete',
 ] as const;
-const PASTE_DROP_PATTERNS = ['paste', 'drop', 'drag', 'DataTransfer', 'clipboard'] as const;
+const PASTE_DROP_PROVIDER_PATTERNS = [
+  'Expected command fallback to insert paste embed',
+  'Expected command fallback to insert drop embed',
+  'Expected native paste adapter to reuse shared parsing',
+  'Expected native drop adapter to reuse shared parsing',
+  'paste provider registration',
+  'drop provider registration',
+  'provider registration',
+  'native provider',
+  'DocumentPasteEditProvider',
+  'DocumentDropEditProvider',
+  'DataTransfer',
+  'clipboard',
+  'text/html',
+  'text/uri-list',
+  'paste',
+  'drop',
+  'drag',
+] as const;
+const DATA_TRANSFER_PATTERNS = [
+  'DataTransfer',
+  'text/html',
+  'text/uri-list',
+  'clipboard',
+  'droppedFiles',
+  'native paste adapter',
+  'native drop adapter',
+] as const;
+const PROVIDER_CAPABILITY_PATTERNS = [
+  'host lacks the API',
+  'unsupported host',
+  'capability=',
+  'hostSupportsPasteProvider',
+  'hostSupportsDropProvider',
+  'registeredPasteProvider',
+  'registeredDropProvider',
+  'DocumentPasteEditProvider',
+  'DocumentDropEditProvider',
+] as const;
+const ENVIRONMENT_PATTERNS = [
+  'failed to launch',
+  'browser',
+  'display',
+  'headless',
+  'xvfb',
+  'electron',
+  'mmi_e2e_workspace is not set',
+  'extension host terminated unexpectedly',
+  'econnrefused',
+  'spawn',
+  'enoent',
+  'timeout',
+] as const;
+
+type FailureCategory =
+  | 'paste-drop-provider-capability'
+  | 'paste-drop-data-transfer'
+  | 'autocomplete-known-unstable'
+  | 'environment-prerequisite'
+  | 'unclassified';
+
+type FailureSignature = {
+  category: FailureCategory;
+  matchedSignals: string[];
+  confidence: 'high' | 'medium' | 'low';
+  likelyStream: 'autocomplete' | 'paste-drop-provider' | 'environment' | 'unknown';
+  nextAction: string;
+  reasoning: string;
+};
 
 type E2ERuntimeContext = {
   extensionDevelopmentPath: string;
@@ -80,9 +149,20 @@ async function main(): Promise<void> {
     });
     logSection('triage-hints', {
       knownUnstableAutocompleteSignals: AUTOCOMPLETE_UNSTABLE_PATTERNS,
-      pasteDropSignals: PASTE_DROP_PATTERNS,
-      guidance:
-        'If failureSignature.category=autocomplete-known-unstable, prioritize VSCode/headless completion investigation. If category=paste-drop-provider, prioritize DataTransfer / provider capability investigation.',
+      pasteDropProviderSignals: PASTE_DROP_PROVIDER_PATTERNS,
+      dataTransferSignals: DATA_TRANSFER_PATTERNS,
+      providerCapabilitySignals: PROVIDER_CAPABILITY_PATTERNS,
+      environmentSignals: ENVIRONMENT_PATTERNS,
+      guidance: {
+        'autocomplete-known-unstable':
+          'Treat autocomplete as an independent headless instability first; do not regress paste/drop assertions until provider-specific signals appear.',
+        'paste-drop-provider-capability':
+          'Prioritize host capability probes, provider registration, and fallback routing. Compare capability=... payloads against integration state.',
+        'paste-drop-data-transfer':
+          'Prioritize DataTransfer payload shape, mime types, and adapter parsing before changing provider registration logic.',
+        'environment-prerequisite':
+          'Prioritize missing display/headless launch prerequisites, workspace/bootstrap failures, or extension host startup issues before blaming test logic.',
+      },
     });
     logSection('launch:start', { launchArgs: runtime.launchArgs });
 
@@ -97,7 +177,7 @@ async function main(): Promise<void> {
       launchMetadata: runtime.launchMetadata,
     });
   } catch (error) {
-    const signature = classifyFailure(error);
+    const signature = classifyFailure(error, runtime.launchMetadata);
     logSection('launch:failure', {
       durationMs: Date.now() - runtime.startedAtMs,
       failureSignature: signature,
@@ -202,6 +282,7 @@ function collectEnvironmentSnapshot(runtime: E2ERuntimeContext): Record<string, 
     platform: `${process.platform}/${process.arch}`,
     tmpdir: os.tmpdir(),
     displayServer: runtime.launchMetadata.displayServer,
+    launchHints: runtime.launchMetadata.envHints,
     workspaceExists: fs.existsSync(runtime.workspacePath),
     extensionTestsExists: fs.existsSync(runtime.extensionTestsPath),
     extensionDevelopmentExists: fs.existsSync(runtime.extensionDevelopmentPath),
@@ -258,18 +339,38 @@ function summarizePackageJson(packageJson: Record<string, unknown>): Record<stri
   };
 }
 
-function classifyFailure(error: unknown): Record<string, unknown> {
+function classifyFailure(error: unknown, launchMetadata: LaunchMetadata): FailureSignature {
   const printable = JSON.stringify(formatError(error));
   const normalized = printable.toLowerCase();
-  const matchedAutocompleteSignals = AUTOCOMPLETE_UNSTABLE_PATTERNS.filter((pattern) => normalized.includes(pattern.toLowerCase()));
-  const matchedPasteDropSignals = PASTE_DROP_PATTERNS.filter((pattern) => normalized.includes(pattern.toLowerCase()));
+  const matchedAutocompleteSignals = matchPatterns(normalized, AUTOCOMPLETE_UNSTABLE_PATTERNS);
+  const matchedProviderSignals = matchPatterns(normalized, PASTE_DROP_PROVIDER_PATTERNS);
+  const matchedDataTransferSignals = matchPatterns(normalized, DATA_TRANSFER_PATTERNS);
+  const matchedCapabilitySignals = matchPatterns(normalized, PROVIDER_CAPABILITY_PATTERNS);
+  const matchedEnvironmentSignals = matchPatterns(normalized, ENVIRONMENT_PATTERNS);
 
-  if (matchedPasteDropSignals.length > 0) {
+  if (matchedCapabilitySignals.length > 0) {
     return {
-      category: 'paste-drop-provider',
-      matchedSignals: matchedPasteDropSignals,
+      category: 'paste-drop-provider-capability',
+      matchedSignals: dedupe([...matchedProviderSignals, ...matchedCapabilitySignals]),
+      confidence: 'high',
+      likelyStream: 'paste-drop-provider',
       nextAction:
-        'Inspect DataTransfer payloads, provider registration, and native capability checks before changing autocomplete assertions.',
+        'Inspect capability payloads, provider registration flags, and host API availability. Validate whether fallback commands should have been the proof point on this VSCode host.',
+      reasoning:
+        'Provider capability or registration markers were present in the failure, which usually indicates native API availability mismatches rather than autocomplete instability.',
+    };
+  }
+
+  if (matchedDataTransferSignals.length > 0) {
+    return {
+      category: 'paste-drop-data-transfer',
+      matchedSignals: dedupe([...matchedProviderSignals, ...matchedDataTransferSignals]),
+      confidence: 'high',
+      likelyStream: 'paste-drop-provider',
+      nextAction:
+        'Inspect DataTransfer contents, mime types, and adapter parsing output. Confirm whether HTML clipboard metadata or uri-list payloads were present before changing provider registration logic.',
+      reasoning:
+        'The failure references DataTransfer payloads or mime types, which points to paste/drop input parsing or adapter bridging rather than the autocomplete path.',
     };
   }
 
@@ -277,17 +378,53 @@ function classifyFailure(error: unknown): Record<string, unknown> {
     return {
       category: 'autocomplete-known-unstable',
       matchedSignals: matchedAutocompleteSignals,
+      confidence: launchMetadata.displayServer === 'headless' ? 'high' : 'medium',
+      likelyStream: 'autocomplete',
       nextAction:
-        'Treat as likely headless VSCode completion instability first; confirm completion provider registration and host version before blaming paste/drop.',
+        'Treat as likely headless VSCode completion instability first. Reproduce with the logged VSCode host version and display mode before blaming paste/drop provider work.',
+      reasoning:
+        'Only autocomplete-specific signals matched, and issue-0010 already records a known headless completion instability that is independent from paste/drop provider coverage.',
+    };
+  }
+
+  if (matchedEnvironmentSignals.length > 0 || hasEnvironmentRisk(launchMetadata, normalized)) {
+    return {
+      category: 'environment-prerequisite',
+      matchedSignals: dedupe([
+        ...matchedEnvironmentSignals,
+        ...(hasEnvironmentRisk(launchMetadata, normalized) ? [launchMetadata.displayServer === 'headless' ? 'headless-display' : 'display-server'] : []),
+      ]),
+      confidence: matchedEnvironmentSignals.length > 0 ? 'medium' : 'low',
+      likelyStream: 'environment',
+      nextAction:
+        'Inspect launch-context and environment snapshot first. Confirm display/headless prerequisites, workspace bootstrap, and extension host startup before attributing the failure to provider logic.',
+      reasoning:
+        'The failure did not clearly point to a test assertion path and instead matched launch/bootstrap or host-environment signals.',
     };
   }
 
   return {
     category: 'unclassified',
-    matchedSignals: [],
+    matchedSignals: dedupe([...matchedProviderSignals, ...matchedAutocompleteSignals]),
+    confidence: 'low',
+    likelyStream: 'unknown',
     nextAction:
-      'Inspect the error payload and runtime-context / launch-context logs to determine whether the failure is in workspace setup, launch, or provider behavior.',
+      'Inspect the error payload together with runtime-context, launch-context, and workspace-context logs to determine whether this is a launch problem, autocomplete gap, or paste/drop provider regression.',
+    reasoning:
+      'No decisive signature matched, so additional context from the runner snapshots is required to reproduce and triage the failure.',
   };
+}
+
+function matchPatterns(normalized: string, patterns: readonly string[]): string[] {
+  return patterns.filter((pattern) => normalized.includes(pattern.toLowerCase()));
+}
+
+function dedupe(values: string[]): string[] {
+  return [...new Set(values)];
+}
+
+function hasEnvironmentRisk(launchMetadata: LaunchMetadata, normalizedError: string): boolean {
+  return launchMetadata.displayServer === 'headless' && !normalizedError.includes('autocomplete') && !normalizedError.includes('datatransfer');
 }
 
 function detectDisplayServer(): LaunchMetadata['displayServer'] {
