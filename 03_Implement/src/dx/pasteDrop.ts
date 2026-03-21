@@ -86,7 +86,7 @@ export function suggestEmbedFromDroppedFiles(files: readonly string[]): PasteDro
     return null;
   }
 
-  return buildSuggestion('file-drop', normalizePath(filepath));
+  return buildSuggestion('file-drop', filepath);
 }
 
 export function isSupportedWorkbookPath(filepath: string): boolean {
@@ -194,10 +194,20 @@ function decodeHtmlEntities(value: string): string {
 }
 
 function normalizePath(filepath: string): string {
-  const withoutFileScheme = filepath.replace(/^file:\/\//i, '');
-  const withForwardSlashes = withoutFileScheme.replace(/\\/g, '/');
+  const trimmed = filepath.trim();
+  const withoutFileScheme = trimmed.replace(/^file:\/\//i, '');
+  const decoded = decodeUriComponentSafely(withoutFileScheme);
+  const withForwardSlashes = decoded.replace(/\\/g, '/');
 
   return withForwardSlashes.replace(/^\/(?:[A-Za-z]:\/)/, (match) => match.slice(1));
+}
+
+function decodeUriComponentSafely(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
 }
 
 async function readDroppedFiles(dataTransfer: PasteDropDataTransferLike): Promise<string[]> {
@@ -211,5 +221,5 @@ function parseUriList(value: string): string[] {
     .split(/\r?\n/)
     .map((entry) => entry.trim())
     .filter((entry) => entry.length > 0 && !entry.startsWith('#'))
-    .map((entry) => entry.replace(/^file:\/\//i, ''));
+    .map((entry) => normalizePath(entry));
 }
