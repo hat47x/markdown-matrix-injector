@@ -34,4 +34,6 @@
 
 ## Progress Notes
 - Native paste/drop provider を `registerDocumentPasteEditProvider` / `registerDocumentDropEditProvider` で登録し、非対応 host では既存 command fallback を残した。
-- Unit / build は pass。E2E は headless VSCode 1.112 上で既存の autocomplete assertion (`Expected sheet completion after #.`) が継続失敗し、issue-0010 変更以外の既存不安定要因を含めて追加切り分けが必要。
+- Extension Host E2E は native provider registration surface / shared parsing / fallback command behavior を proof boundary とし、autocomplete の `#` 補完不安定を Paste / D&D 受入判定から分離する構成へ整理済み。
+- 運用文書 `04_Documentation/vscode-e2e-testing.md` に、host class ごとの native path / fallback path の観測順、manual E2E の比較順、known unstable の切り分けと failure triage を追記済み。
+- 2026-03-21 の最終統合検証では `cd 03_Implement && npm run build` と `cd 03_Implement && npm test` は Pass。`cd 03_Implement && npm run test:e2e` は `xvfb-run` 未導入のため環境起因で未完了。よって本 issue は Done へは未更新とし、E2E 再実行までは `In Progress` を維持する。
