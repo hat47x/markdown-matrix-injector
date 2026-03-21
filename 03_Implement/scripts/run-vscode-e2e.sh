@@ -16,10 +16,11 @@ log "starting VSCode Extension Host E2E harness"
 log "platform=$(uname -s 2>/dev/null || echo unknown) arch=$(uname -m 2>/dev/null || echo unknown) node=$(node -v 2>/dev/null || echo unavailable)"
 
 if ! command -v xvfb-run >/dev/null 2>&1; then
-  fail "environment-missing:xvfb-run Install xvfb (example: sudo apt-get install -y xvfb) before running npm run test:e2e."
+  fail "environment-missing:xvfb-run Run 'sudo apt-get update && sudo apt-get install -y xvfb', verify with 'xvfb-run --help', then re-run 'cd 03_Implement && npm run test:e2e'."
 fi
 
 log "dependency-check:xvfb-run path=$(command -v xvfb-run)"
+log "launch-plan=cd 03_Implement && npm run build && npm run test:e2e"
 
 set +e
 output=$(xvfb-run -a node --import tsx ./test/e2e/runTest.ts 2>&1)
