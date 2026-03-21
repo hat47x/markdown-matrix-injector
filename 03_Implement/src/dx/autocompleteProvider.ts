@@ -15,6 +15,13 @@ export interface AutocompleteCandidateSets {
   queryParams?: readonly string[];
 }
 
+export interface AutocompleteDependencyProfile {
+  stage: AutocompleteStage;
+  requiresWorkspaceFileList: boolean;
+  requiresWorkbookMetadata: boolean;
+  usesQueryParamCatalog: boolean;
+}
+
 interface AutocompleteContext {
   stage: AutocompleteStage;
   fragment: string;
@@ -113,6 +120,34 @@ function createAutocompleteContext(input: string): AutocompleteContext {
 
 export function classifyAutocompleteStage(input: string): AutocompleteStage {
   return createAutocompleteContext(input).stage;
+}
+
+export function getAutocompleteDependencyProfile(input: string): AutocompleteDependencyProfile {
+  const stage = createAutocompleteContext(input).stage;
+
+  switch (stage) {
+    case 'filepath':
+      return {
+        stage,
+        requiresWorkspaceFileList: true,
+        requiresWorkbookMetadata: false,
+        usesQueryParamCatalog: false,
+      };
+    case 'sheet-or-range':
+      return {
+        stage,
+        requiresWorkspaceFileList: false,
+        requiresWorkbookMetadata: true,
+        usesQueryParamCatalog: false,
+      };
+    case 'query-params':
+      return {
+        stage,
+        requiresWorkspaceFileList: false,
+        requiresWorkbookMetadata: false,
+        usesQueryParamCatalog: true,
+      };
+  }
 }
 
 function toCandidates(values: readonly string[], kind: AutocompleteCandidateKind): AutocompleteCandidate[] {
