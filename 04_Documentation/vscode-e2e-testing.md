@@ -1,19 +1,24 @@
 # VSCode Engine E2E Testing Guide
 
 ## Purpose and scope
-この文書は、issue-0010 の残タスク「Extension Host E2E と運用ドキュメントを更新する」を**文書面で完了にするための正本**です。完了条件は次の 3 点に分解して扱います。
+この文書は、issue-0010 の未完了条件に対して **manual E2E の運用正本** として使うものです。ここで扱う範囲は次の 3 点に限定します。
 
-1. **native provider 非対応 host における command fallback 方針を明示すること**
-2. **manual E2E の再現手順・比較順・failure log を固定し、次エージェントが本書だけで再現できるようにすること**
-3. **autocomplete known unstable を Paste / D&D 失敗から独立に切り分け、issue-0010 の受入条件へ追跡できるようにすること**
+1. **再現手順**: 次エージェントが同じ host class / 同じ入力条件で manual E2E をやり直せること。
+2. **観測順**: host class ごとの first move、native path / fallback path の比較順、manual と automation の handoff を固定すること。
+3. **failure triage**: native path・fallback path・Known unstable を混線させずに切り分けること。
 
-したがって本書では、Phase 5 E2E を次の 3 分類で切り分けて扱います。
+本書で扱わないこと:
+- architecture / API 責務の再定義
+- 実装変更やテストコード変更
+- Paste / D&D と無関係な一般論としての VSCode UX 論評
+
+Phase 5 E2E は運用上、次の 3 分類で読み分けます。
 
 - **Automated**: Extension Host API レベルで自動確認できる事実。
 - **Manual**: Preview / Problems / OS ネイティブ paste / drag-and-drop など、実機操作で最終確認すべき事実。
-- **Known unstable**: 現時点で既知の不安定要因。失敗しても、直ちに Paste / D&D 不具合と断定してはいけない事象。
+- **Known unstable**: 既知の不安定要因。失敗しても、直ちに Paste / D&D 不具合と断定してはいけない事象。
 
-この文書は **manual E2E と運用の正本** です。architecture 的な責務境界の再定義は行わず、**再現手順・観測ポイント・失敗時の見方** だけを更新対象とします。
+以降の節は、**再現手順・観測順・failure triage だけを改善対象とする** という前提で読んでください。
 
 ## Overview
 Markdown Matrix Injector では、Docker コンテナ内でも VSCode Extension Host を起動した自動検証を行えます。現在の Phase 5 E2E では、実際の VSCode エンジン上で次の 5 系統を確認します。
@@ -55,6 +60,7 @@ xvfb-run --help
 cd 03_Implement
 npm install
 npm run build
+xvfb-run --help
 npm run test:e2e
 ```
 
@@ -66,7 +72,7 @@ issue-0010 の運用では、**automation scope の確認** と **manual scope �
 | 1 | 拡張バンドルを最新化する | `cd 03_Implement && npm run build` | manual E2E 開始前の前提。Development Host 起動前に実行する。 |
 | 2 | Extension Host 自動確認を回す | `cd 03_Implement && npm run test:e2e` | automation scope の事実確認。native provider adapter / fallback command / diagnostics / completion API の境界を確認する。 |
 | 3 | Development Host で manual E2E を始める | `F5` で `Run Extension` | OS native paste/drop, Preview DOM, Problems UI, suggest widget は manual scope。 |
-| 4 | 文書更新後のキーワード監査を行う | `rg -n "native|fallback|Known unstable|autocomplete|Paste / D&D|DataTransfer" 04_Documentation/vscode-e2e-testing.md` | 本書が issue-0010 の運用語彙を落としていないかを確認する。 |
+| 4 | 文書更新後のキーワード監査を行う | `rg -n "native|fallback|Known unstable|autocomplete|Paste / D&D|DataTransfer|xvfb-run" 04_Documentation/vscode-e2e-testing.md` | 本書が issue-0010 の運用語彙と `xvfb-run` 前提を落としていないかを確認する。 |
 
 **Interpretation rule**
 - `npm run build` が通っていても、manual E2E の観測順までは保証しません。
@@ -240,13 +246,13 @@ Invalid xml:
 ### Manual execution quick map by host class
 次エージェントが host class ごとの first move を即決できるよう、manual E2E の開始順を簡略表でも固定します。
 
-| Host class | Preview / Problems / Autocomplete | Paste first move | Drop first move | What to conclude first |
-|---|---|---|---|---|
-| native provider 対応 host | 先に全部実施 | 通常 paste | 通常 drop | native path が canonical に動くか |
-| native provider 非対応 host | 先に全部実施 | fallback command | fallback command | fallback 方針が運用上成立するか |
-| capability 未確定 host | 先に全部実施 | fallback command | fallback command | native-only failure か共通 failure か |
+| Host class | Baseline before Paste / D&D | Paste first move | Paste comparison | Drop first move | Drop comparison | First conclusion |
+|---|---|---|---|---|---|---|
+| native provider 対応 host | Preview → Problems → Autocomplete | 通常 paste | fallback command | 通常 drop | fallback command | native path が canonical に動くか |
+| native provider 非対応 host | Preview → Problems → Autocomplete | fallback command | 通常 paste は参考観測 | fallback command | 通常 drop は参考観測 | fallback 方針が運用上成立するか |
+| capability 未確定 host | Preview → Problems → Autocomplete | fallback command | 通常 paste | fallback command | 通常 drop | native-only failure か共通 failure か |
 
-この簡略表は `Host matrix` の運用版です。判定に迷った場合は、**「未確定 host では先に fallback」** という原則を優先してください。
+この簡略表は `Host matrix` の運用版です。判定に迷った場合は、**「未確定 host では先に fallback」** を優先し、その直後に comparison path を同一入力で実施してください。
 
 ## Checklist A: Markdown Preview / Preview DOM
 **Classification**: Manual  
@@ -603,13 +609,14 @@ Paste / D&D の不具合を切り分けるときは、必ず次の順番で確�
 文書更新後は、少なくとも次のキーワードが欠けていないか `rg` で確認してください。
 
 ```bash
-rg -n "native|fallback|Known unstable|autocomplete|Paste / D&D|DataTransfer" 04_Documentation/vscode-e2e-testing.md
+rg -n "native|fallback|Known unstable|autocomplete|Paste / D&D|DataTransfer|xvfb-run" 04_Documentation/vscode-e2e-testing.md
 ```
 
 確認観点:
 - `native` と `fallback` が policy / checklist / failure triage の 3 箇所以上に出ているか。
 - `Known unstable` と `autocomplete` が独立節として存在するか。
 - `Paste / D&D` と `DataTransfer` が比較手順または failure log に含まれているか。
+- `xvfb-run` が prerequisite / command / failure triage のいずれかで明示されているか。
 
 ## Future Playwright candidates
 手動でしか確認しにくい項目のうち、将来 Playwright 化を検討する候補は次のとおりです。
@@ -631,11 +638,12 @@ rg -n "native|fallback|Known unstable|autocomplete|Paste / D&D|DataTransfer" 04_
 - native provider の edit 適用は host capability と OS イベントに依存するため、最終挿入結果は manual E2E で補完する必要があります。
 
 ## issue-0010 acceptance criteria coverage from documentation
-本書が issue-0010 の acceptance criteria を文書面で補完する範囲は次のとおりです。
+本書が issue-0010 の acceptance criteria を文書面で補完する範囲を、短い対応表で固定します。
 
-- **「native provider が使えない環境では、command ベースのフォールバック方針がコードまたはドキュメントで明示されていること」**
-  - 本書の `Native provider and fallback policy` 節で、native path と fallback path の責務、および失敗時の読み方を明示しました。
-- **「unit / E2E の双方で退行がないこと」への運用補助**
-  - 自動 E2E が何を証明し、何を証明しないかを分離し、manual E2E で補完すべき観点をチェックリスト化しました。
-- **Task breakdown の「Extension Host E2E と運用ドキュメントを更新する」**
-  - manual E2E の再現手順、比較観点、観測ポイント、失敗時ログテンプレートを改善し、次エージェントが native provider / fallback / autocomplete known unstable を混同しないよう整理しました。
+| Acceptance criteria / task | 本書で担保する節 | 要約 |
+|---|---|---|
+| native provider surface から発火できること | `Automated coverage`, `Checklist D`, `Checklist E` | native path を自動確認の境界と manual 観測手順の両方で追跡する。 |
+| 既存解析ロジックを再利用し二重実装しないこと | `Automated coverage`, `Native provider and fallback policy` | native / fallback が同じ DataTransfer 解析ロジックを共有する前提を明示する。 |
+| native provider 非対応 host の fallback 方針が明示されていること | `Host matrix`, `Manual execution quick map by host class`, `Failure triage` | fallback only host の first move・comparison・結論範囲を固定する。 |
+| Extension Host E2E と運用ドキュメントを更新すること | `Command alignment`, `Manual execution order`, `Checklist A-E`, `Failure log template` | automation と manual の handoff、比較順、記録方法を自己完結で再現できるようにする。 |
+| known unstable を Paste / D&D と混線させないこと | `Checklist C`, `Known unstable`, `Fast triage table` | autocomplete は別トラックで記録し、Paste / D&D の成否へ混ぜない。 |
