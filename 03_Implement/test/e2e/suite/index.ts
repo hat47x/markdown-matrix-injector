@@ -21,6 +21,11 @@ export async function run(): Promise<void> {
       workspace: process.env.MMI_E2E_WORKSPACE ?? '(unset)',
       display: process.env.DISPLAY ?? '(unset)',
       wayland: process.env.WAYLAND_DISPLAY ?? '(unset)',
+      verificationBoundary: [
+        'native-provider-surface',
+        'fallback-compatibility',
+        'known-unstable-isolation',
+      ],
     })}`,
   );
 
@@ -33,7 +38,7 @@ export async function run(): Promise<void> {
         durationMs: Date.now() - startedAtMs,
         stageHint: 'extensionHost.test.ts',
         responsibilityHint:
-          'If runner classified autocomplete-known-unstable, keep paste/drop provider work isolated. If runner classified paste-drop-provider-*, inspect capability/DataTransfer assertions in extensionHost.test.ts logs.',
+          'If runner classified autocomplete-known-unstable, keep paste/drop provider work isolated. If runner classified paste-drop-provider-*, inspect native provider surface, fallback compatibility, and DataTransfer assertions in extensionHost.test.ts logs.',
       })}`,
     );
     throw error;
