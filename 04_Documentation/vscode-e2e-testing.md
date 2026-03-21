@@ -87,6 +87,35 @@ issue-0010 の運用では、**automation scope の確認** と **manual scope �
 4. `@vscode/test-electron` が VSCode を取得し、開発中の拡張を読み込んだ Extension Host を立ち上げる。
 5. `test/e2e/suite/extensionHost.test.ts` が render / 補完 / Diagnostics / command fallback / native provider adapter の通し確認を実行する。
 
+## First triage when `npm run test:e2e` fails
+`npm run test:e2e` が失敗したら、**native/fallback の議論に入る前に** 次の順で切り分けてください。次エージェントはこの順番を崩さないでください。
+
+1. **Headless prerequisite を確認する**
+   - `xvfb-run --help` が通るか。
+   - 通らないなら first triage の結論は **環境未充足** です。`xvfb` 導入を先に済ませ、provider triage へ進まないでください。
+2. **Extension Host 起動まで進んだかを見る**
+   - VSCode ダウンロード失敗、Electron 起動失敗、共有ライブラリ不足、ネットワーク失敗のどれかをログで確認する。
+   - ここで止まっている場合、native provider / fallback command の成否はまだ未観測です。
+3. **失敗箇所を 3 系統へ分類する**
+   - completion / known unstable
+   - diagnostics / render
+   - Paste / D&D native-fallback boundary
+4. **Paste / D&D 系なら comparison rule で読む**
+   - fallback command assertion も落ちているか。落ちていれば共通解析または fixture 条件を先に疑う。
+   - native adapter 観測だけが落ちているなら host capability 差または native surface 側を優先する。
+5. **`Expected sheet completion after #.` 系なら Known unstable へ分離する**
+   - filepath 補完と query parameter 補完が同じ run で生きているか先に確認する。
+   - `#` 段だけなら、Paste / D&D の退行とは別チケット候補として扱う。
+
+### First triage quick table
+| First symptom | First interpretation | Immediate next step | Do not conclude yet |
+|---|---|---|---|
+| `xvfb-run is required` | headless prerequisite 不足 | `xvfb-run --help` が通る状態にする | native provider が壊れた |
+| Electron / shared library / download failure | Extension Host 未起動 | VSCode 起動前提を直す | fallback command が壊れた |
+| `Expected sheet completion after #.` | Known unstable 候補 | filepath / query 補完の同時成功有無を確認 | Paste / D&D 退行 |
+| fallback command assertion fail | 共通解析または入力条件の問題 | fixture / DataTransfer 前提を確認 | native only 問題 |
+| native adapter assertion fail + fallback pass | native surface / host capability 差 | host class と VSCode version を記録 | parser 全体が壊れた |
+
 ## Automated coverage: what the current E2E actually proves
 ### Assertions covered by automation
 - `renderEmbedForTest` が table/card の既存レンダリングを返す。

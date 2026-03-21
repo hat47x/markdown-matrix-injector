@@ -96,7 +96,16 @@
 - command fallback は暫定実装ではなく、**unsupported host を支える compatibility path** として architecture に含める。
 - issue-0010 における「fallback 方針が明示されること」は、native provider を置き換えることではなく、host capability 不足時の互換入口を維持する方針を明示することを指す。
 
-### 4.3 Shared-logic boundary
+### 4.3 Host-class observation order boundary
+- architecture 上、host は **native provider available / fallback only / capability unconfirmed** の 3 class で扱う。
+- manual E2E の first move は host class に従って固定する。
+  - native provider available: native paste / native drop を first path とし、その直後に command fallback を comparison path とする。
+  - fallback only: command fallback を first path とし、native path は reference observation に留める。
+  - capability unconfirmed: まず command fallback を通し、その後 native path を比較実行して capability 差か共通解析差かを分離する。
+- したがって architecture が固定する観測順は **capability record → baseline UI → first path → comparison path → separate triage** である。
+- この順序は documentation の runbook に委譲されるが、順序そのものは boundary contract として architecture に含める。
+
+### 4.4 Shared-logic boundary
 - native provider と command fallback は、入口は分かれていても **DataTransfer / dropped file 解析と embed 生成の仕様正本を共有**する。
 - したがって architecture 上の境界は「surface は複数でも、解釈ロジックは単一」である。
 - この shared logic boundary では、DX ロジック本体が唯一の解釈責務を持ち、VSCode 統合層と E2E 検証レイヤはその仕様正本を書き換えない。
@@ -137,6 +146,8 @@
 - ただし headless 実行の成立は「E2E を実行可能にする環境前提」であり、手順や依存パッケージの詳細は運用文書へ委譲する。
 - architecture として固定するのは、**headless 実行でも API レベルの統合確認を先に成立させる**という方針である。
 - ここでいう API レベル統合確認には、native provider registration / fallback exposure / DX ロジック再利用の確認を含むが、UX の完全再現は含めない。
+- headless host では `xvfb-run` のような仮想ディスプレイ前提が欠けると、native/fallback 比較以前に VSCode 起動自体が成立しない。したがって architecture 上の first triage は **(1) headless prerequisite 充足確認 → (2) Extension Host 起動可否 → (3) native/fallback 境界の切り分け** の順とする。
+- この first triage 順により、環境起因の起動失敗と provider/fallback の仕様境界を混同しない。
 
 ## 7. Known risk isolation
 - **headless VSCode 1.112** 系では、autocomplete の sheet 候補取得が不安定になる既知リスクがある。
