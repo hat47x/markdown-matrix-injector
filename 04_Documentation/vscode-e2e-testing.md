@@ -34,13 +34,26 @@ Markdown Matrix Injector では、Docker コンテナ内でも VSCode Extension 
 
 ## Prerequisites
 - Node.js / npm
-- `xvfb-run` (`sudo apt-get install -y xvfb` など)
-- Electron が利用する基本ライブラリ群
 - `npm install` 済みであること
+- `xvfb-run` が利用可能であること
+- Electron が利用する基本ライブラリ群
+
+## Required setup for `xvfb-run`
+自動 E2E を実行する前に、**必ず `xvfb-run` を導入して存在確認してから** `npm run test:e2e` を叩いてください。issue-0010 の Extension Host E2E では、この前提を省略してはいけません。
+
+```bash
+sudo apt-get update
+sudo apt-get install -y xvfb
+xvfb-run --help
+```
+
+- `xvfb-run --help` が成功したら、仮想ディスプレイ前提は満たされています。
+- ここで失敗する場合は、`npm run test:e2e` を実行せず、まず OS パッケージ導入を完了させてください。
 
 ## Commands
 ```bash
 cd 03_Implement
+npm install
 npm run build
 npm run test:e2e
 ```
@@ -63,7 +76,7 @@ issue-0010 の運用では、**automation scope の確認** と **manual scope �
 
 ## What `npm run test:e2e` does
 1. `npm run build` で Extension Host 用のテストバンドルを生成する。
-2. `scripts/run-vscode-e2e.sh` が `xvfb-run` の有無を確認し、仮想ディスプレイ上で `test/e2e/runTest.ts` を起動する。
+2. `scripts/run-vscode-e2e.sh` が `xvfb-run` の有無を確認し、不足時は `sudo apt-get update && sudo apt-get install -y xvfb` → `xvfb-run --help` → `cd 03_Implement && npm run test:e2e` の順で再実行する手順をエラーメッセージとして案内する。
 3. `runTest.ts` が fixture workspace を一時ディレクトリへ複製し、Diagnostics 用の `invalid.xml` を追加する。
 4. `@vscode/test-electron` が VSCode を取得し、開発中の拡張を読み込んだ Extension Host を立ち上げる。
 5. `test/e2e/suite/extensionHost.test.ts` が render / 補完 / Diagnostics / command fallback / native provider adapter の通し確認を実行する。
