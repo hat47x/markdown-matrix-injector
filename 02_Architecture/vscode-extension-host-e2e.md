@@ -8,8 +8,8 @@
 
 ## 2. Architecture decision summary
 1. **自動 E2E の主対象は Extension Host API レベルの統合確認**とする。
-2. **native paste/drop provider** を Paste / D&D の canonical path とする。
-3. host capability や API 制約で native provider を使えない場合に備え、**command fallback** を compatibility path として残す。
+2. **native paste/drop provider** を Paste / D&D の canonical path とし、通常 host ではこの入口を優先保証対象に含める。
+3. host capability や API 制約で native provider を使えない場合に備え、**command fallback** を compatibility path として残し、unsupported host を吸収する。
 4. native provider と command fallback は、同一の DX ロジックへ収束させ、解析仕様を二重化しない。
 5. OS ネイティブイベントから最終的に editor edit が反映される UX 確認は、設計上 **delegated manual scope** の責務とする。
 6. headless VSCode 1.112 系の autocomplete 不安定要因は、Paste / D&D 受入判定から切り離した **known risk** として扱う。
@@ -99,6 +99,7 @@
 ### 4.3 Shared-logic boundary
 - native provider と command fallback は、入口は分かれていても **DataTransfer / dropped file 解析と embed 生成の仕様正本を共有**する。
 - したがって architecture 上の境界は「surface は複数でも、解釈ロジックは単一」である。
+- この shared logic boundary では、DX ロジック本体が唯一の解釈責務を持ち、VSCode 統合層と E2E 検証レイヤはその仕様正本を書き換えない。
 - issue-0010 における「既存 `pasteDrop.ts` を再利用し、重複実装しないこと」は、この shared-logic boundary に対応する。
 
 ## 5. Verification boundary
@@ -124,6 +125,12 @@
 - Paste / D&D の受入判定は、canonical path の公開、compatibility path の維持、shared logic の単一性までで閉じる。
 - autocomplete の安定性、visual UI、OS レベル最終挙動は、同一テストスイートに存在しても Paste / D&D の acceptance boundary に流入させない。
 - これにより、issue-0010 の automation boundary と delegated manual boundary を相互に独立した設計判断として維持する。
+
+### 5.4 Guarantee / delegation rule
+- architecture 文書が保証するのは、**canonical path・compatibility path・shared logic・known risk isolation** の境界定義までである。
+- architecture 文書は、native provider が優先入口であり、fallback が互換入口であり、両者が同一ロジックへ収束し、autocomplete known unstable が Paste / D&D acceptance boundary に混入しないことを保証対象として固定する。
+- 一方で、各 host でどの UI 操作を行うか、どの順に manual scope を確認するか、失敗時にどう切り分けるかは documentation 側へ委譲する。
+- したがって automation scope と manual scope の境界は architecture が決めるが、運用手順そのものは architecture の責務に含めない。
 
 ## 6. Headless execution boundary
 - Extension Host E2E は、Docker / CI の headless 環境でも VSCode Engine を起動できる構成を前提とする。
