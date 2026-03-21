@@ -350,3 +350,15 @@ test('extension integration state remains source-visible for native edit kind mi
   assert.match(source, /providedPasteEditKinds: \[NATIVE_PASTE_DROP_EDIT_KIND\],\s*pasteMimeTypes: \[\.\.\.PASTE_MIME_TYPES\]/s);
   assert.match(source, /providedDropEditKinds: \[NATIVE_PASTE_DROP_EDIT_KIND\],\s*dropMimeTypes: \[\.\.\.DROP_MIME_TYPES\]/s);
 });
+
+test('e2e lane keeps paste/drop observation ahead of autocomplete to isolate known completion instability', async () => {
+  const { default: fs } = await import('node:fs/promises');
+  const source = await fs.readFile(new URL('./e2e/suite/extensionHost.test.ts', import.meta.url), 'utf8');
+
+  assert.match(source, /runStage\('paste-drop-observation', \(\) => observePasteDropBoundary\(\)\);\s*await runStage\('paste-drop-boundary'/s);
+  assert.match(source, /await runStage\('paste-drop-boundary', \(\) => verifyPasteDropCoverage\(markdownFilePath, pasteDropBoundary\)\);\s*const autocompleteResult = await runStage\('autocomplete-boundary'/s);
+  assert.match(source, /markdownMatrixInjector\.__test\.getPasteInsertTextFromDataTransfer/);
+  assert.match(source, /markdownMatrixInjector\.__test\.getDropInsertTextFromDataTransfer/);
+  assert.match(source, /markdownMatrixInjector\.__test\.getPasteDropIntegrationState/);
+  assert.match(source, /Paste\/drop acceptance is observed before autocomplete so the provider lane stays independent from known completion instability\./);
+});

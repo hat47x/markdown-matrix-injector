@@ -13,9 +13,15 @@ export async function runIntegrationTests(): Promise<void> {
   const markdownFilePath = path.join(workspaceRoot, 'docs', 'spec.md');
 
   await runStage('render-command', () => verifyRenderEmbedForTestCommand(markdownFilePath, workspaceRoot));
+  const pasteDropBoundary = await runStage('paste-drop-observation', () => observePasteDropBoundary());
+  await runStage('paste-drop-boundary', () => verifyPasteDropCoverage(markdownFilePath, pasteDropBoundary));
   const autocompleteResult = await runStage('autocomplete-boundary', () => verifyAutocompleteIntegration(markdownFilePath));
   await runStage('diagnostics', () => verifyDiagnosticsIntegration(workspaceRoot));
-  await runStage('paste-drop-boundary', () => verifyPasteDropCoverage(markdownFilePath, autocompleteResult));
+  logStage('paste-drop-boundary:post-autocomplete', {
+    autocompleteSheetCompletionStable: autocompleteResult.sheetCompletionStable,
+    autocompleteKnownUnstableReason: autocompleteResult.knownUnstableReason,
+    proofTargets: pasteDropBoundary.proofTargets,
+  });
 }
 
 async function verifyRenderEmbedForTestCommand(markdownFilePath: string, workspaceRoot: string): Promise<void> {
@@ -103,6 +109,14 @@ interface NativeProviderCapability {
   readonly hasNativeDropProvider: boolean;
 }
 
+interface PasteDropObservationState {
+  readonly integrationState: PasteDropIntegrationState;
+  readonly capability: NativeProviderCapability;
+  readonly registeredCommandIds: readonly string[];
+  readonly proofTargets: readonly ['native-provider-surface', 'fallback-compatibility', 'known-unstable-isolation'];
+  readonly e2eProofBoundary: string;
+}
+
 interface PasteDropIntegrationState {
   readonly fallbackCommandIds: readonly string[];
   readonly nativeEditKind: string;
@@ -123,23 +137,47 @@ interface PasteDropVerificationBoundary {
   readonly dropProviderSupported: boolean;
 }
 
-async function verifyPasteDropCoverage(
-  markdownFilePath: string,
-  autocompleteResult: AutocompleteVerificationResult,
-): Promise<void> {
+async function observePasteDropBoundary(): Promise<PasteDropObservationState> {
   const capability = getNativeProviderCapability();
   const integrationState = await getPasteDropIntegrationState();
-  const verificationBoundary: PasteDropVerificationBoundary = {
-    autocompleteSheetCompletionStable: autocompleteResult.sheetCompletionStable,
-    autocompleteKnownUnstableReason: autocompleteResult.knownUnstableReason,
+  const commands = await vscode.commands.getCommands(true);
+  const registeredCommandIds = [
+    ...integrationState.fallbackCommandIds,
+    'markdownMatrixInjector.__test.getPasteInsertTextFromDataTransfer',
+    'markdownMatrixInjector.__test.getDropInsertTextFromDataTransfer',
+    'markdownMatrixInjector.__test.getPasteDropIntegrationState',
+  ].filter((commandId) => commands.includes(commandId));
+
+  const observation: PasteDropObservationState = {
+    integrationState,
+    capability,
+    registeredCommandIds,
+    proofTargets: ['native-provider-surface', 'fallback-compatibility', 'known-unstable-isolation'],
     e2eProofBoundary:
       'E2E proves native provider registration surface, fallback compatibility, and known unstable isolation; it does not prove final OS-native event UX dispatch.',
-    proofTargets: ['native-provider-surface', 'fallback-compatibility', 'known-unstable-isolation'],
+  };
+
+  logStage('paste-drop-observation:snapshot', { ...observation });
+
+  return observation;
+}
+
+async function verifyPasteDropCoverage(
+  markdownFilePath: string,
+  observation: PasteDropObservationState,
+): Promise<void> {
+  const { capability, integrationState, registeredCommandIds } = observation;
+  const verificationBoundary: PasteDropVerificationBoundary = {
+    autocompleteSheetCompletionStable: false,
+    autocompleteKnownUnstableReason:
+      'Paste/drop acceptance is observed before autocomplete so the provider lane stays independent from known completion instability.',
+    e2eProofBoundary: observation.e2eProofBoundary,
+    proofTargets: observation.proofTargets,
     nativeProviderSupported: capability.hasNativePasteProvider,
     dropProviderSupported: capability.hasNativeDropProvider,
   };
 
-  logStage('paste-drop-boundary:capability', { capability, integrationState, verificationBoundary });
+  logStage('paste-drop-boundary:capability', { capability, integrationState, registeredCommandIds, verificationBoundary });
 
   assert.deepEqual(
     {
@@ -153,9 +191,16 @@ async function verifyPasteDropCoverage(
     `Expected extension host capability probe to match integration state. integrationState=${JSON.stringify(integrationState)}`,
   );
 
-  const commands = await vscode.commands.getCommands(true);
+  assert.equal(registeredCommandIds.length, 5, `Expected fallback/test commands to be registered for paste/drop observation. observation=${JSON.stringify(observation)}`);
   for (const commandId of integrationState.fallbackCommandIds) {
-    assert.ok(commands.includes(commandId), `Expected fallback command ${commandId} to be registered.`);
+    assert.ok(registeredCommandIds.includes(commandId), `Expected fallback command ${commandId} to be registered.`);
+  }
+  for (const commandId of [
+    'markdownMatrixInjector.__test.getPasteInsertTextFromDataTransfer',
+    'markdownMatrixInjector.__test.getDropInsertTextFromDataTransfer',
+    'markdownMatrixInjector.__test.getPasteDropIntegrationState',
+  ]) {
+    assert.ok(registeredCommandIds.includes(commandId), `Expected test observation command ${commandId} to be registered.`);
   }
 
   assert.equal(integrationState.nativeEditKind, 'text.markdownMatrixInjector.embed');
