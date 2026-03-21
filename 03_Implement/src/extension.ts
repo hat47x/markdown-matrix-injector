@@ -49,20 +49,39 @@ interface NativePasteDropState {
   registeredDropProvider: boolean;
 }
 
-export function activate(context: vscode.ExtensionContext): void {
-  const diagnostics = vscode.languages.createDiagnosticCollection('markdown-matrix-injector');
-  const nativePasteDropState: NativePasteDropState = {
+function createNativePasteDropState(): NativePasteDropState {
+  return {
     hostSupportsPasteProvider: typeof vscode.languages.registerDocumentPasteEditProvider === 'function',
     hostSupportsDropProvider: typeof vscode.languages.registerDocumentDropEditProvider === 'function',
     registeredPasteProvider: false,
     registeredDropProvider: false,
   };
+}
+
+function createNativePasteProviderOptions(): vscode.DocumentPasteProviderMetadata {
+  return {
+    providedPasteEditKinds: [NATIVE_PASTE_DROP_EDIT_KIND],
+    pasteMimeTypes: [...PASTE_MIME_TYPES],
+  };
+}
+
+function createNativeDropProviderOptions(): vscode.DocumentDropEditProviderMetadata {
+  return {
+    providedDropEditKinds: [NATIVE_PASTE_DROP_EDIT_KIND],
+    dropMimeTypes: [...DROP_MIME_TYPES],
+  };
+}
+
+export function activate(context: vscode.ExtensionContext): void {
+  const diagnostics = vscode.languages.createDiagnosticCollection('markdown-matrix-injector');
+  const nativePasteDropState = createNativePasteDropState();
 
   context.subscriptions.push(
     diagnostics,
     vscode.commands.registerCommand('markdownMatrixInjector.renderEmbedForTest', async (args: RenderEmbedForTestArgs) =>
       renderEmbedForTest(args),
     ),
+    // Compatibility path for older hosts or explicit command routing.
     vscode.commands.registerTextEditorCommand(
       'markdownMatrixInjector.insertEmbedFromPaste',
       async (editor, _edit, args?: PasteDropCommandArgs) => {
@@ -136,7 +155,12 @@ export async function renderEmbedForTest(args: RenderEmbedForTestArgs): Promise<
 }
 
 function registerNativePasteDropProviders(context: vscode.ExtensionContext, nativePasteDropState: NativePasteDropState): void {
-  // Older/unsupported VS Code hosts keep using the explicit command entry points.
+  registerNativePasteProvider(context, nativePasteDropState);
+  registerNativeDropProvider(context, nativePasteDropState);
+}
+
+function registerNativePasteProvider(context: vscode.ExtensionContext, nativePasteDropState: NativePasteDropState): void {
+  // Canonical path for hosts that support native paste providers.
   if (typeof vscode.languages.registerDocumentPasteEditProvider !== 'function') {
     return;
   }
@@ -156,13 +180,13 @@ function registerNativePasteDropProviders(context: vscode.ExtensionContext, nati
           return edit ? [edit] : [];
         },
       },
-      {
-        providedPasteEditKinds: [NATIVE_PASTE_DROP_EDIT_KIND],
-        pasteMimeTypes: [...PASTE_MIME_TYPES],
-      },
+      createNativePasteProviderOptions(),
     ),
   );
+}
 
+function registerNativeDropProvider(context: vscode.ExtensionContext, nativePasteDropState: NativePasteDropState): void {
+  // Canonical path for hosts that support native drop providers.
   if (typeof vscode.languages.registerDocumentDropEditProvider !== 'function') {
     return;
   }
@@ -180,10 +204,7 @@ function registerNativePasteDropProviders(context: vscode.ExtensionContext, nati
           });
         },
       },
-      {
-        providedDropEditKinds: [NATIVE_PASTE_DROP_EDIT_KIND],
-        dropMimeTypes: [...DROP_MIME_TYPES],
-      },
+      createNativeDropProviderOptions(),
     ),
   );
 }
