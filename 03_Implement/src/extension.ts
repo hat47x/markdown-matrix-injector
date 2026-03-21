@@ -37,9 +37,26 @@ const WORKBOOK_FILE_GLOB = '**/*.{xlsx,xls,csv,xml}';
 const NATIVE_PASTE_DROP_EDIT_KIND = vscode.DocumentDropOrPasteEditKind.Text.append('markdownMatrixInjector', 'embed');
 const PASTE_MIME_TYPES = ['text/html', 'files'] as const;
 const DROP_MIME_TYPES = ['text/html', 'text/uri-list', 'files'] as const;
+const FALLBACK_COMMAND_IDS = [
+  'markdownMatrixInjector.insertEmbedFromPaste',
+  'markdownMatrixInjector.insertEmbedFromDrop',
+] as const;
+
+interface NativePasteDropState {
+  hostSupportsPasteProvider: boolean;
+  hostSupportsDropProvider: boolean;
+  registeredPasteProvider: boolean;
+  registeredDropProvider: boolean;
+}
 
 export function activate(context: vscode.ExtensionContext): void {
   const diagnostics = vscode.languages.createDiagnosticCollection('markdown-matrix-injector');
+  const nativePasteDropState: NativePasteDropState = {
+    hostSupportsPasteProvider: typeof vscode.languages.registerDocumentPasteEditProvider === 'function',
+    hostSupportsDropProvider: typeof vscode.languages.registerDocumentDropEditProvider === 'function',
+    registeredPasteProvider: false,
+    registeredDropProvider: false,
+  };
 
   context.subscriptions.push(
     diagnostics,
@@ -80,6 +97,13 @@ export function activate(context: vscode.ExtensionContext): void {
       'markdownMatrixInjector.__test.getDropInsertTextFromDataTransfer',
       (dataTransfer: vscode.DataTransfer) => getDropInsertTextFromDataTransfer(dataTransfer),
     ),
+    vscode.commands.registerCommand('markdownMatrixInjector.__test.getPasteDropIntegrationState', () => ({
+      fallbackCommandIds: [...FALLBACK_COMMAND_IDS],
+      nativeEditKind: NATIVE_PASTE_DROP_EDIT_KIND.value,
+      pasteMimeTypes: [...PASTE_MIME_TYPES],
+      dropMimeTypes: [...DROP_MIME_TYPES],
+      ...nativePasteDropState,
+    })),
     vscode.languages.registerCompletionItemProvider(
       MARKDOWN_SELECTOR,
       createCompletionProvider(),
@@ -91,7 +115,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.workspace.onDidCloseTextDocument((document) => diagnostics.delete(document.uri)),
   );
 
-  registerNativePasteDropProviders(context);
+  registerNativePasteDropProviders(context, nativePasteDropState);
 
   for (const document of vscode.workspace.textDocuments) {
     refreshDiagnosticsForDocument(document, diagnostics);
@@ -111,11 +135,13 @@ export async function renderEmbedForTest(args: RenderEmbedForTestArgs): Promise<
   return md.render(args.markdown);
 }
 
-function registerNativePasteDropProviders(context: vscode.ExtensionContext): void {
+function registerNativePasteDropProviders(context: vscode.ExtensionContext, nativePasteDropState: NativePasteDropState): void {
   // Older/unsupported VS Code hosts keep using the explicit command entry points.
   if (typeof vscode.languages.registerDocumentPasteEditProvider !== 'function') {
     return;
   }
+
+  nativePasteDropState.registeredPasteProvider = true;
 
   context.subscriptions.push(
     vscode.languages.registerDocumentPasteEditProvider(
@@ -140,6 +166,8 @@ function registerNativePasteDropProviders(context: vscode.ExtensionContext): voi
   if (typeof vscode.languages.registerDocumentDropEditProvider !== 'function') {
     return;
   }
+
+  nativePasteDropState.registeredDropProvider = true;
 
   context.subscriptions.push(
     vscode.languages.registerDocumentDropEditProvider(
