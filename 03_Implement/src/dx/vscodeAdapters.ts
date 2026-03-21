@@ -1,14 +1,14 @@
 import path from 'node:path';
 import { type AutocompleteCandidate } from './autocompleteProvider.js';
 import { validateEmbedDiagnostics, type EmbedDiagnostic, type XmlMode } from './diagnostics.js';
-import { suggestEmbedFromPasteDrop } from './pasteDrop.js';
+import {
+  suggestEmbedFromDataTransfer,
+  suggestEmbedFromPasteDrop,
+  type PasteDropDataTransferItemLike,
+} from './pasteDrop.js';
 
 const EMBED_PATTERN = /!\[\[([^\]]+)\]\]/g;
 const XML_SPREADSHEET_SIGNATURES = ['<?mso-application progid="Excel.Sheet"?>', '<Workbook'];
-const HTML_MIME_TYPES = ['text/html', 'text/plain'] as const;
-const URI_LIST_MIME_TYPE = 'text/uri-list';
-const FILES_MIME_TYPE = 'files';
-
 export interface PasteDropCommandArgs {
   clipboardHtml?: string;
   droppedFiles?: readonly string[];
@@ -148,42 +148,11 @@ export function getDropInsertText(args?: PasteDropCommandArgs): string | undefin
 }
 
 export async function getPasteInsertTextFromDataTransfer(dataTransfer: DataTransferLike): Promise<string | undefined> {
-  for (const mimeType of HTML_MIME_TYPES) {
-    const item = dataTransfer.get(mimeType);
-    const html = item ? await item.asString() : undefined;
-    if (!html) {
-      continue;
-    }
-
-    const markdown = suggestEmbedFromPasteDrop({ clipboardHtml: html })?.markdown;
-    if (markdown) {
-      return markdown;
-    }
-  }
-
-  const droppedFiles = await readDroppedFiles(dataTransfer);
-  return droppedFiles.length > 0 ? suggestEmbedFromPasteDrop({ droppedFiles })?.markdown : undefined;
+  return (await suggestEmbedFromDataTransfer(toPasteDropDataTransfer(dataTransfer), 'paste'))?.markdown;
 }
 
 export async function getDropInsertTextFromDataTransfer(dataTransfer: DataTransferLike): Promise<string | undefined> {
-  for (const mimeType of [URI_LIST_MIME_TYPE, ...HTML_MIME_TYPES]) {
-    const item = dataTransfer.get(mimeType);
-    const value = item ? await item.asString() : undefined;
-    if (!value) {
-      continue;
-    }
-
-    const markdown = mimeType === URI_LIST_MIME_TYPE
-      ? suggestEmbedFromPasteDrop({ droppedFiles: parseUriList(value) })?.markdown
-      : suggestEmbedFromPasteDrop({ clipboardHtml: value })?.markdown;
-
-    if (markdown) {
-      return markdown;
-    }
-  }
-
-  const droppedFiles = await readDroppedFiles(dataTransfer);
-  return droppedFiles.length > 0 ? suggestEmbedFromPasteDrop({ droppedFiles })?.markdown : undefined;
+  return (await suggestEmbedFromDataTransfer(toPasteDropDataTransfer(dataTransfer), 'drop'))?.markdown;
 }
 
 export async function getPasteEditFromDataTransfer<T>(
@@ -251,19 +220,12 @@ async function hasSheet(filepath: string, target: string, dependencies: Diagnost
   }
 }
 
-async function readDroppedFiles(dataTransfer: DataTransferLike): Promise<string[]> {
-  const filesItem = dataTransfer.get(FILES_MIME_TYPE);
-  const file = filesItem?.asFile?.();
-  const filepath = file?.uri?.fsPath;
-  return filepath ? [filepath] : [];
-}
-
-function parseUriList(value: string): string[] {
-  return value
-    .split(/\r?\n/)
-    .map((entry) => entry.trim())
-    .filter((entry) => entry.length > 0 && !entry.startsWith('#'))
-    .map((entry) => entry.replace(/^file:\/\//i, ''));
+function toPasteDropDataTransfer(dataTransfer: DataTransferLike) {
+  return {
+    get(mimeType: string): PasteDropDataTransferItemLike | undefined {
+      return dataTransfer.get(mimeType);
+    },
+  };
 }
 
 function rangeFromOffsets(text: string, startOffset: number, endOffset: number): RangeLike {
