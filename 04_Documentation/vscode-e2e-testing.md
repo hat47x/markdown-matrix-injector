@@ -45,6 +45,22 @@ npm run build
 npm run test:e2e
 ```
 
+## Command alignment: automation vs manual handoff
+issue-0010 の運用では、**automation scope の確認** と **manual scope の観測** を同じ runbook 上で扱います。ただし、両者の役割を混ぜないよう、次の順番でコマンド整合を確認してください。
+
+| Order | Purpose | Command / action | Notes |
+|---|---|---|---|
+| 1 | 拡張バンドルを最新化する | `cd 03_Implement && npm run build` | manual E2E 開始前の前提。Development Host 起動前に実行する。 |
+| 2 | Extension Host 自動確認を回す | `cd 03_Implement && npm run test:e2e` | automation scope の事実確認。native provider adapter / fallback command / diagnostics / completion API の境界を確認する。 |
+| 3 | Development Host で manual E2E を始める | `F5` で `Run Extension` | OS native paste/drop, Preview DOM, Problems UI, suggest widget は manual scope。 |
+| 4 | 文書更新後のキーワード監査を行う | `rg -n "native|fallback|Known unstable|autocomplete|Paste / D&D|DataTransfer" 04_Documentation/vscode-e2e-testing.md` | 本書が issue-0010 の運用語彙を落としていないかを確認する。 |
+
+**Interpretation rule**
+- `npm run build` が通っていても、manual E2E の観測順までは保証しません。
+- `npm run test:e2e` が通っていても、OS ネイティブ paste / drop の最終 UX は保証しません。
+- manual E2E で native path だけ失敗しても、`npm run test:e2e` 側で fallback と shared logic が成立していれば、まず host capability 差として読みます。
+- `#` 補完だけ不安定な場合は、上記どちらの結果にも自動的に連座させず、Known unstable として別管理します。
+
 ## What `npm run test:e2e` does
 1. `npm run build` で Extension Host 用のテストバンドルを生成する。
 2. `scripts/run-vscode-e2e.sh` が `xvfb-run` の有無を確認し、仮想ディスプレイ上で `test/e2e/runTest.ts` を起動する。
@@ -207,6 +223,17 @@ Invalid xml:
 7. **Result log を埋めて acceptance criteria へ結びつける**
    - native provider 対応可否、fallback 成立可否、known unstable の有無をそれぞれ別欄で記録する。
    - これにより issue-0010 の「native provider surface」「fallback 方針」「manual E2E 再現性」を 1 回の手順で trace できる。
+
+### Manual execution quick map by host class
+次エージェントが host class ごとの first move を即決できるよう、manual E2E の開始順を簡略表でも固定します。
+
+| Host class | Preview / Problems / Autocomplete | Paste first move | Drop first move | What to conclude first |
+|---|---|---|---|---|
+| native provider 対応 host | 先に全部実施 | 通常 paste | 通常 drop | native path が canonical に動くか |
+| native provider 非対応 host | 先に全部実施 | fallback command | fallback command | fallback 方針が運用上成立するか |
+| capability 未確定 host | 先に全部実施 | fallback command | fallback command | native-only failure か共通 failure か |
+
+この簡略表は `Host matrix` の運用版です。判定に迷った場合は、**「未確定 host では先に fallback」** という原則を優先してください。
 
 ## Checklist A: Markdown Preview / Preview DOM
 **Classification**: Manual  
