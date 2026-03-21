@@ -1,10 +1,11 @@
 # VSCode Engine E2E Testing Guide
 
 ## Purpose and scope
-この文書は、issue-0010 の文書面の責務を次の 2 点に固定して整理するためのガイドです。
+この文書は、issue-0010 の残タスク「Extension Host E2E と運用ドキュメントを更新する」を**文書面で完了にするための正本**です。完了条件は次の 3 点に分解して扱います。
 
 1. **native provider 非対応 host における command fallback 方針を明示すること**
-2. **manual E2E の再現性を確保すること**
+2. **manual E2E の再現手順・比較順・failure log を固定し、次エージェントが本書だけで再現できるようにすること**
+3. **autocomplete known unstable を Paste / D&D 失敗から独立に切り分け、issue-0010 の受入条件へ追跡できるようにすること**
 
 したがって本書では、Phase 5 E2E を次の 3 分類で切り分けて扱います。
 
@@ -87,7 +88,7 @@ npm run test:e2e
 - 逆に、**native path と fallback path の両方が失敗する** 場合は、provider 登録可否ではなく解析ロジックまたは入力データ自体の問題を優先的に疑います。
 
 ### Host matrix: what to run first on each host
-次エージェントが迷わないよう、host の種類ごとの観測順序を固定します。**観測開始順は acceptance criteria の切り分け順そのもの** であり、manual E2E でも崩さないでください。
+次エージェントが迷わないよう、host の種類ごとの観測順序を固定します。**観測開始順は acceptance criteria の切り分け順そのもの** であり、manual E2E でも崩さないでください。native provider 対応可否を最初に固定し、次に first path と comparison path を必ず 1 セットで実施します。
 
 | Host class | Capability expectation | 0. 事前記録 | 1. 最初の入口 | 2. 比較入口 | この host で確定したいこと |
 |---|---|---|---|---|---|
@@ -103,9 +104,20 @@ npm run test:e2e
 
 ### Practical boundary: what next agents should conclude
 - **Automated で Pass**: 解析ロジックと fallback command は少なくとも Extension Host レベルで成立している。
-- **Manual native path で Fail / fallback で Pass**: native provider 非対応 host、または host 依存制約の可能性が高い。
+- **Manual native path で Fail / fallback で Pass**: native provider 非対応 host、または host 依存制約の可能性が高い。**この場合に結論づけてよいのは「fallback 方針は成立している」まで** であり、即座に parser 共通障害とは扱わない。
 - **Manual native path で Fail / fallback でも Fail**: command fallback を含む共通処理の問題として扱う。
-- **Autocomplete のみ Fail**: Paste / D&D と同一原因とみなさず、known unstable の節で別トラック管理する。
+- **Autocomplete のみ Fail**: Paste / D&D と同一原因とみなさず、known unstable の節で別トラック管理する。**この場合に結論づけてはいけないのは「Paste / Drop も壊れている」という推定** です。
+
+### Observation order contract
+manual E2E の観測順序は次の契約で固定します。次エージェントは host ごとの例外運用を考えず、この順で進めてください。
+
+1. **Capability record**: host class と provider availability を最初に確定または暫定記録する。
+2. **Baseline UI**: Preview → Problems → Autocomplete の順で、Paste / Drop 実行前の基準状態を記録する。
+3. **First path**: host class に応じた初手を 1 回だけ先に試す。
+4. **Comparison path**: 直後にもう一方の入口を同一入力で実施し、差分を記録する。
+5. **Separate triage**: autocomplete の既知不安定は最後に独立判定し、Paste / Drop 結果へ混ぜない。
+
+この contract により、native provider host / fallback only host / capability 未確定 host のどれでも、**「どの入口から観測を始めたか」** と **「比較対象を実行済みか」** を必ず残せます。
 
 ## Stream A integration points reflected in E2E
 - Activation: `onLanguage:markdown` と各 command activation を前提に、Markdown 文書を開いて Extension Host を有効化する。
@@ -262,6 +274,7 @@ Invalid xml:
 5. sheet/range 候補が続けて表示されることを確認し、1 件選択する。
 6. 続けて `?` を入力し、`header=`, `mode=`, `columns=` など query parameter 候補が表示されることを確認する。
 7. 補完を 1 つ確定し、最終的に `![[...#...?...]]` の形で本文へ挿入されることを確認する。
+8. **`#` 直後だけ候補が出ない場合でも、その場で Paste / D&D 不具合へ昇格させず、Known unstable 用の記録欄へ分離する。**
 
 ### Observation points
 - filepath → sheet/range → query parameter の順で候補集合が切り替わるか。
@@ -278,6 +291,7 @@ Invalid xml:
 - filepath 候補だけ出る場合は fixture workspace を開いているか確認する。
 - 候補確定後に括弧が壊れる場合は、どのトリガー文字で崩れたかを記録する。
 - `#` 直後の sheet 候補だけが 0 件でも、Paste / D&D 回りの失敗とは混同しない。known unstable の節へ分離して記録する。
+- 特に **Paste / Drop をまだ試していない段階では、autocomplete Failure から provider failure を推定しない**。
 
 ## Checklist D: Paste comparison (native paste vs fallback paste)
 **Classification**: Manual  
@@ -324,6 +338,7 @@ Invalid xml:
 - 通常貼り付けで何も起きない場合は、host が native paste provider 非対応か、clipboard の HTML メタデータが不足しているかを切り分ける。
 - fallback command では成功する場合、native provider 未対応または host 側制約の可能性が高い。
 - 文字化けや複数行崩れがあれば、貼り付け前後の本文差分を残す。
+- autocomplete が同じ run で失敗していても、Paste failure 欄の結論は native/fallback 比較結果だけで書く。
 
 ## Checklist E: Drag & Drop comparison (native drop vs fallback drop)
 **Classification**: Manual  
@@ -369,9 +384,12 @@ Invalid xml:
 - fallback command では成功する場合、native drop provider 未対応または host 側制約として記録する。
 - Development Host とホスト VSCode で挙動差がある場合は、どちらで再現したか明記する。
 - 複数ファイル時に一部だけ入る場合は、順序と実際に入ったパスを記録する。
+- autocomplete が同じ run で失敗していても、D&D failure 欄の結論は native/fallback 比較結果だけで書く。
 
 ## Known unstable: autocomplete must be tracked separately
 **Classification**: Known unstable
+
+この節は **Paste / D&D triage から autocomplete を切り離すための独立節** です。ここに該当した failure は、Checklist D / E の失敗件数へ混ぜません。
 
 - headless VSCode 1.112 系では、`vscode.executeCompletionItemProvider` による sheet 候補取得が 0 件になることがあります。
 - 既存 assertion `Expected sheet completion after #.` は、この既知不安定要因の影響を受ける場合があります。
@@ -400,23 +418,26 @@ autocomplete の失敗を見つけたときは、次の順で判断してくだ�
 | Paste fallback NG / Drop fallback NG | 共通解析または入力条件の問題 | 入力データと payload を再確認する | native provider 非対応だけを原因にしない |
 
 ## Reproduction and failure isolation workflow
-Paste / D&D の不具合を切り分けるときは、必ず次の順番で確認してください。
+Paste / D&D の不具合を切り分けるときは、必ず次の順番で確認してください。**この節は Native provider and fallback policy / Known unstable / Failure log template をつなぐ中核フロー** です。
 
 1. **Host capability を記録する**
    - Development Host の `Developer: Toggle Developer Tools` や Extension Host のログで、利用中 VSCode version を記録する。
    - `registerDocumentPasteEditProvider` / `registerDocumentDropEditProvider` が存在する前提の host か、fallback only host かを最初にメモする。
-2. **command fallback を先に成立させる**
-   - `markdownMatrixInjector.insertEmbedFromPaste` または `markdownMatrixInjector.insertEmbedFromDrop` をコマンドパレットから実行し、同じ入力ソースで embed が入るかを見る。
-   - ここが失敗する場合は native provider ではなく、解析ロジック全体または入力データの問題として扱う。
-3. **native path を確認する**
+2. **host class に応じて first path を決める**
+   - native provider 対応 host では native path を first path にする。
+   - fallback only host / capability 未確定 host では fallback command を first path にする。
+3. **comparison path を必ず同一入力で実施する**
+   - `markdownMatrixInjector.insertEmbedFromPaste` または `markdownMatrixInjector.insertEmbedFromDrop` を比較対象として実行し、native path と同一入力で差分を取る。
+   - fallback が失敗する場合は native provider ではなく、解析ロジック全体または入力データの問題として扱う。
+4. **native path だけ失敗した場合の結論を限定する**
    - Paste は `Ctrl+V` / `Cmd+V`、Drop は通常のドラッグ&ドロップで挿入を試す。
-   - native path だけ失敗する場合、host capability・OS・入力元アプリ・DataTransfer payload 種別を記録する。
-4. **autocomplete 失敗は別トラックに分離する**
+   - native path だけ失敗する場合、host capability・OS・入力元アプリ・DataTransfer payload 種別を記録し、**「fallback 方針は成立」までを結論** とする。
+5. **autocomplete 失敗は別トラックに分離する**
    - `Expected sheet completion after #.` 相当の失敗は、Paste / D&D 回りと同一原因とみなさない。
    - 同一実行で併発しても、ログ上は autocomplete と paste/drop を別項目に分ける。
 
 ## Recommended checklist summary
-実地確認時は、少なくとも次の順番でチェックしてください。
+実地確認時は、少なくとも次の順番でチェックしてください。Failure triage と result log template がこの並びを前提にしているため、順序を入れ替えないでください。
 
 - [ ] Manual setup が完了している。
 - [ ] Host capability を記録した。
@@ -437,11 +458,11 @@ Paste / D&D の不具合を切り分けるときは、必ず次の順番で確�
 ### Summary table
 | Date | VSCode version | OS | Host capability | Checklist | First path tried | Comparison path tried | Result | Notes |
 |---|---|---|---|---|---|---|---|---|
-| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only | Preview DOM | n/a | n/a | Pass/Fail | 例: invalid XML は赤枠表示 |
-| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only | Problems | n/a | n/a | Pass/Fail | 例: 3 件表示、行ジャンプ正常 |
-| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only | Autocomplete | filepath → sheet → query | n/a | Pass/Fail | 例: `?` で `header=` 候補あり / `#` で sheet 0件 |
-| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only | Paste | native or fallback | the other path | Pass/Fail | 例: native paste は無変化だが fallback 成功 |
-| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only | D&D | native or fallback | the other path | Pass/Fail | 例: 単一 CSV は native 成功、複数 drop は未変換 |
+| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only / capability unconfirmed | Preview DOM | n/a | n/a | Pass/Fail | 例: invalid XML は赤枠表示 |
+| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only / capability unconfirmed | Problems | n/a | n/a | Pass/Fail | 例: 3 件表示、行ジャンプ正常 |
+| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only / capability unconfirmed | Autocomplete | filepath → sheet → query | n/a | Pass/Fail | 例: `?` で `header=` 候補あり / `#` で sheet 0件 |
+| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only / capability unconfirmed | Paste | native or fallback | the other path | Pass/Fail | 例: native paste は無変化だが fallback 成功 |
+| YYYY-MM-DD | 1.xx | Ubuntu/macOS/Windows | native paste/drop available or fallback only / capability unconfirmed | D&D | native or fallback | the other path | Pass/Fail | 例: 単一 CSV は native 成功、複数 drop は未変換 |
 
 ### Detailed log template
 ```md
@@ -454,6 +475,7 @@ Paste / D&D の不具合を切り分けるときは、必ず次の順番で確�
 - Host capability:
   - registerDocumentPasteEditProvider: available / unavailable / unconfirmed
   - registerDocumentDropEditProvider: available / unavailable / unconfirmed
+- Observation order followed?: yes / no
 
 ### Preview DOM
 - Result:
@@ -471,21 +493,26 @@ Paste / D&D の不具合を切り分けるときは、必ず次の順番で確�
 - `#` completion:
 - `?` completion:
 - Known unstable involved?: yes / no
+- Must stay separate from Paste / D&D?: yes
 - Notes:
 
 ### Paste
 - Input source app:
 - First path tried: native / fallback
+- Comparison path tried: native / fallback
 - Native paste result:
 - Fallback command result:
+- Did fallback establish policy?: yes / no
 - DataTransfer / clipboard notes:
 - Notes:
 
 ### D&D
 - Input source:
 - First path tried: native / fallback
+- Comparison path tried: native / fallback
 - Native drop result:
 - Fallback command result:
+- Did fallback establish policy?: yes / no
 - DataTransfer notes:
 - Notes:
 ```
@@ -504,12 +531,33 @@ Paste / D&D の不具合を切り分けるときは、必ず次の順番で確�
 - Actual:
 - Did fallback pass?: yes / no / not run
 - Did native path pass?: yes / no / not run
+- Fallback-only conclusion allowed?: yes / no
 - Known unstable suspected?: yes / no
 - Input source app or file:
 - DataTransfer notes:
 - Attached logs / screenshots:
 - Next hypothesis:
 ```
+
+## Cross-reference map
+- **Native provider and fallback policy** を読むと、host class ごとの first path / comparison path が分かります。
+- **Known unstable** を読むと、autocomplete failure を Paste / D&D から分離してよい条件が分かります。
+- **Reproduction and failure isolation workflow** を読むと、上記 2 系統をどの順で result log template に落とすかが分かります。
+- **Suggested manual result log template / Failure log template** は、issue-0010 の acceptance criteria のうち「fallback 方針の明示」と「manual E2E 再現性」の記録面を担当します。
+
+## issue-0010 acceptance trace (documentation)
+本書で満たす文書トレースを、受入条件ごとに固定します。
+
+1. **native provider surface から発火できること**
+   - `Automated coverage`, `Native provider and fallback policy`, `Checklist D`, `Checklist E` で native path の観測点を保持する。
+2. **既存解析ロジックを再利用し、二重実装しないこと**
+   - `Automated coverage`, `Native path`, `Fallback path` で DataTransfer 解析ロジック再利用を明記する。
+3. **native provider 非対応環境で fallback 方針が明示されること**
+   - `Host matrix`, `Observation order contract`, `How to read failures`, `Reproduction and failure isolation workflow` で fallback only host の運用を明文化する。
+4. **manual E2E の再現性があること**
+   - `Manual environment setup`, `Manual execution order`, `Checklist A-E`, `Suggested manual result log template`, `Failure log template` で再現手順・比較順・失敗ログを固定する。
+5. **autocomplete known unstable を独立運用できること**
+   - `Checklist C`, `Known unstable`, `Fast triage table`, `Cross-reference map` で Paste / D&D と混同しない導線を作る。
 
 ## Keyword audit for issue-0010 operations
 文書更新後は、少なくとも次のキーワードが欠けていないか `rg` で確認してください。
