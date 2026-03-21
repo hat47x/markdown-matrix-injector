@@ -14,6 +14,7 @@ const AUTOCOMPLETE_UNSTABLE_PATTERNS = [
   'Expected sheet completion after #.',
   'Expected parameter completion after ?.',
   'Known flaky autocomplete gap isolated',
+  'autocomplete-boundary',
   'completion',
   'autocomplete',
 ] as const;
@@ -26,6 +27,9 @@ const PASTE_DROP_PROVIDER_PATTERNS = [
   'drop provider registration',
   'provider registration',
   'native provider',
+  'paste-drop-boundary',
+  'paste-drop-native-provider-surface',
+  'paste-drop-command-fallback-compatibility',
   'DocumentPasteEditProvider',
   'DocumentDropEditProvider',
   'DataTransfer',

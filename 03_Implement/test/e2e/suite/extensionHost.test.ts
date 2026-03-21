@@ -2,6 +2,8 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import * as vscode from 'vscode';
 
+const LOG_PREFIX = '[mmi:e2e:extension-host]';
+
 export async function runIntegrationTests(): Promise<void> {
   const workspaceRoot = process.env.MMI_E2E_WORKSPACE;
   if (!workspaceRoot) {
@@ -10,10 +12,10 @@ export async function runIntegrationTests(): Promise<void> {
 
   const markdownFilePath = path.join(workspaceRoot, 'docs', 'spec.md');
 
-  await verifyRenderEmbedForTestCommand(markdownFilePath, workspaceRoot);
-  const autocompleteResult = await verifyAutocompleteIntegration(markdownFilePath);
-  await verifyDiagnosticsIntegration(workspaceRoot);
-  await verifyPasteDropCoverage(markdownFilePath, autocompleteResult);
+  await runStage('render-command', () => verifyRenderEmbedForTestCommand(markdownFilePath, workspaceRoot));
+  const autocompleteResult = await runStage('autocomplete-boundary', () => verifyAutocompleteIntegration(markdownFilePath));
+  await runStage('diagnostics', () => verifyDiagnosticsIntegration(workspaceRoot));
+  await runStage('paste-drop-boundary', () => verifyPasteDropCoverage(markdownFilePath, autocompleteResult));
 }
 
 async function verifyRenderEmbedForTestCommand(markdownFilePath: string, workspaceRoot: string): Promise<void> {
@@ -116,6 +118,7 @@ interface PasteDropVerificationBoundary {
   readonly autocompleteSheetCompletionStable: boolean;
   readonly autocompleteKnownUnstableReason?: string;
   readonly e2eProofBoundary: string;
+  readonly proofMode: 'native-provider-surface' | 'command-fallback-compatibility';
 }
 
 async function verifyPasteDropCoverage(
@@ -129,7 +132,13 @@ async function verifyPasteDropCoverage(
     autocompleteKnownUnstableReason: autocompleteResult.knownUnstableReason,
     e2eProofBoundary:
       'E2E proves native provider registration surface and shared parsing/fallback command behavior, not final OS-native event UX dispatch.',
+    proofMode:
+      capability.hasNativePasteProvider && capability.hasNativeDropProvider
+        ? 'native-provider-surface'
+        : 'command-fallback-compatibility',
   };
+
+  logStage('paste-drop-boundary:capability', { capability, integrationState, verificationBoundary });
 
   assert.deepEqual(
     {
@@ -160,7 +169,9 @@ async function verifyPasteDropCoverage(
   if (capability.hasNativePasteProvider && capability.hasNativeDropProvider) {
     assert.ok(integrationState.registeredPasteProvider, 'Expected paste provider registration on supported host.');
     assert.ok(integrationState.registeredDropProvider, 'Expected drop provider registration on supported host.');
-    await verifyNativeProviderAdapterCoverage(markdownFilePath, capability, integrationState, verificationBoundary);
+    await runStage('paste-drop-native-provider-surface', () =>
+      verifyNativeProviderAdapterCoverage(markdownFilePath, capability, integrationState, verificationBoundary),
+    );
     return;
   }
 
@@ -175,7 +186,40 @@ async function verifyPasteDropCoverage(
     `Drop provider registration should only be skipped when the host lacks the API. integrationState=${JSON.stringify(integrationState)}`,
   );
 
-  await verifyPasteDropCommandFallback(markdownFilePath, capability, integrationState, verificationBoundary);
+  await runStage('paste-drop-command-fallback-compatibility', () =>
+    verifyPasteDropCommandFallback(markdownFilePath, capability, integrationState, verificationBoundary),
+  );
+}
+
+async function runStage<T>(stageName: string, run: () => Promise<T>): Promise<T> {
+  logStage(`${stageName}:start`);
+  try {
+    const result = await run();
+    logStage(`${stageName}:success`);
+    return result;
+  } catch (error) {
+    logStage(`${stageName}:failure`, { error: formatError(error) });
+    throw error;
+  }
+}
+
+function logStage(stageName: string, payload?: Record<string, unknown>): void {
+  const body = payload ? ` ${JSON.stringify(payload)}` : '';
+  console.log(`${LOG_PREFIX} ${stageName}${body}`);
+}
+
+function formatError(error: unknown): Record<string, unknown> {
+  if (error instanceof Error) {
+    return {
+      name: error.name,
+      message: error.message,
+      stack: error.stack,
+    };
+  }
+
+  return {
+    message: String(error),
+  };
 }
 
 async function verifyPasteDropCommandFallback(
@@ -192,6 +236,7 @@ async function verifyPasteDropCommandFallback(
     verificationBoundary,
     `Expected fallback verification metadata to be provided. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)}`,
   );
+  assert.equal(verificationBoundary.proofMode, 'command-fallback-compatibility');
   assert.match(
     verificationBoundary.e2eProofBoundary,
     /shared parsing\/fallback command behavior/,
@@ -235,6 +280,7 @@ async function verifyNativeProviderAdapterCoverage(
     capability.hasNativePasteProvider && capability.hasNativeDropProvider,
     `Native adapter coverage requires both provider APIs. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)}`,
   );
+  assert.equal(verificationBoundary.proofMode, 'native-provider-surface');
   assert.match(
     verificationBoundary.e2eProofBoundary,
     /native provider registration surface and shared parsing/,
