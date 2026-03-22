@@ -6,7 +6,8 @@ const MIME_PRIORITY_BY_SOURCE = {
 } as const;
 
 type PasteDropSource = 'clipboard-html' | 'file-drop';
-type PasteDropEntrySource = 'paste' | 'drop';
+export type PasteDropEntrySource = keyof typeof MIME_PRIORITY_BY_SOURCE;
+export type PasteDropMimeType = (typeof MIME_PRIORITY_BY_SOURCE)[PasteDropEntrySource][number];
 
 type PasteDropCandidate =
   | { kind: 'clipboard'; value: string }
@@ -25,6 +26,11 @@ export interface PasteDropInput {
   droppedFiles?: readonly string[];
 }
 
+export interface PasteDropTransferValues {
+  clipboardValues?: Partial<Record<PasteDropMimeType, string>>;
+  droppedFiles?: readonly string[];
+}
+
 export interface PasteDropDataTransferItemLike {
   asString(): PromiseLike<string>;
   asFile?(): { uri?: { fsPath: string } } | undefined;
@@ -35,10 +41,21 @@ export interface PasteDropDataTransferLike {
 }
 
 export function suggestEmbedFromPasteDrop(input: PasteDropInput): PasteDropSuggestion | null {
-  return firstSuggestionFromCandidates([
-    toClipboardCandidate(input.clipboardHtml),
-    toFilesCandidate(input.droppedFiles),
-  ]);
+  return suggestEmbedFromTransferValues('paste', {
+    clipboardValues: input.clipboardHtml ? { 'text/html': input.clipboardHtml } : undefined,
+    droppedFiles: input.droppedFiles,
+  });
+}
+
+export function suggestEmbedFromTransferValues(
+  source: PasteDropEntrySource,
+  input: PasteDropTransferValues,
+): PasteDropSuggestion | null {
+  const candidates = MIME_PRIORITY_BY_SOURCE[source]
+    .map((mimeType) => toTransferCandidate(mimeType, input.clipboardValues?.[mimeType]))
+    .filter((candidate): candidate is PasteDropCandidate => candidate !== undefined);
+
+  return firstSuggestionFromCandidates([...candidates, toFilesCandidate(input.droppedFiles)]);
 }
 
 export async function suggestEmbedFromDataTransfer(
@@ -48,21 +65,13 @@ export async function suggestEmbedFromDataTransfer(
   for (const mimeType of MIME_PRIORITY_BY_SOURCE[source]) {
     const item = dataTransfer.get(mimeType);
     const value = item ? (await item.asString()).trim() : '';
-    if (!value) {
-      continue;
-    }
-
-    const suggestion = suggestEmbedFromCandidate(
-      mimeType === 'text/uri-list'
-        ? { kind: 'files', value: parseUriList(value) }
-        : { kind: 'clipboard', value },
-    );
+    const suggestion = suggestEmbedFromCandidate(toTransferCandidate(mimeType, value));
     if (suggestion) {
       return suggestion;
     }
   }
 
-  return suggestEmbedFromCandidate({ kind: 'files', value: await readDroppedFiles(dataTransfer) });
+  return suggestEmbedFromDroppedFiles(await readDroppedFiles(dataTransfer));
 }
 
 export function suggestEmbedFromClipboardHtml(html: string): PasteDropSuggestion | null {
@@ -82,10 +91,7 @@ export function suggestEmbedFromClipboardHtml(html: string): PasteDropSuggestion
 }
 
 export function suggestEmbedFromDroppedFiles(files: readonly string[]): PasteDropSuggestion | null {
-  const filepath = files
-    .map((file) => normalizePath(file))
-    .find((file) => isSupportedWorkbookPath(file));
-
+  const filepath = firstSupportedPath(files);
   if (!filepath) {
     return null;
   }
@@ -124,9 +130,15 @@ export function inferRangeFromHtmlTable(html: string): string | undefined {
   return `A1:${columnNumberToLabel(maxColumnCount)}${rowCount}`;
 }
 
-function toClipboardCandidate(value?: string): PasteDropCandidate | undefined {
+function toTransferCandidate(mimeType: PasteDropMimeType, value?: string): PasteDropCandidate | undefined {
   const normalized = value?.trim();
-  return normalized ? { kind: 'clipboard', value: normalized } : undefined;
+  if (!normalized) {
+    return undefined;
+  }
+
+  return mimeType === 'text/uri-list'
+    ? { kind: 'files', value: parseUriList(normalized) }
+    : { kind: 'clipboard', value: normalized };
 }
 
 function toFilesCandidate(value?: readonly string[]): PasteDropCandidate | undefined {
@@ -174,13 +186,12 @@ function buildSuggestion(
 
 function extractSupportedFilepathFromHtml(html: string): string | undefined {
   const decodedHtml = decodeHtmlEntities(html);
-  const matches = decodedHtml.match(/(?:file:\/\/\/[^"'\s<>]+|[A-Za-z]:[\\/][^"'<>\s]+|\.\.?\/[^\"]+?|\/[^"'<>\s]+?)(?:\.xlsx|\.xls|\.csv|\.xml)/gi);
+  const matches = decodedHtml.match(/(?:file:\/\/\/[^"'\s<>]+|[A-Za-z]:[\/][^"'<>\s]+|\.\.?\/[^"]+?|\/[^"'<>\s]+?)(?:\.xlsx|\.xls|\.csv|\.xml)/gi);
   if (!matches) {
     return undefined;
   }
 
-  const filepath = matches.find((candidate) => isSupportedWorkbookPath(candidate));
-  return filepath ? normalizePath(filepath) : undefined;
+  return firstSupportedPath(matches);
 }
 
 function extractSheetNameFromHtml(html: string): string | undefined {
@@ -200,6 +211,10 @@ function extractSheetNameFromHtml(html: string): string | undefined {
   }
 
   return undefined;
+}
+
+function firstSupportedPath(files: readonly string[]): string | undefined {
+  return files.map((file) => normalizePath(file)).find((file) => isSupportedWorkbookPath(file));
 }
 
 function columnNumberToLabel(columnNumber: number): string {
