@@ -92,6 +92,27 @@ npm run test:e2e
 
 > manual E2E の詳細手順やチェックリストは `04_Documentation/vscode-e2e-testing.md` に分離しています。本書では環境準備と実行入口だけを扱い、Preview / Problems / native event の詳細手順、comparison 順、failure triage はそちらへ委譲します。
 
+## Phase 5 issue-0010 alignment snapshot
+architecture / runbook / setup の責務境界を迷わず辿るため、issue-0010 に関わる文書正本をここで最短参照にまとめます。
+
+| Concern bucket | Primary source of truth | Why this file only links, not redefines |
+|---|---|---|
+| native canonical path | `02_Architecture/vscode-extension-host-e2e.md` | canonical path の定義は architecture の責務であり、setup は参照入口だけを持つ |
+| fallback compatibility path | `04_Documentation/vscode-e2e-testing.md` | unsupported host の first path / comparison path は runbook の責務であり、setup は起動前提だけを示す |
+| xvfb-run prerequisite | `04_Documentation/developer-setup.md` と `04_Documentation/vscode-e2e-testing.md` | setup は prerequisite と実行入口を正本として持ち、詳細 triage は runbook へ委譲する |
+| known unstable separation | `04_Documentation/vscode-e2e-testing.md` | autocomplete と Paste / D&D の切り分けは runbook の責務であり、setup は注意喚起に留める |
+
+## Phase 5 command gate (before runbook)
+manual / automation のどちらに進む場合も、次の gate を先に通してください。**ここで止まった場合は runbook 上の native/fallback triage に進まない** のが issue-0010 の運用ルールです。
+
+| Order | Gate | Command / action | Exit condition |
+|---|---|---|---|
+| 1 | dependency gate | `cd 03_Implement && npm install` | package install 完了 |
+| 2 | build gate | `cd 03_Implement && npm run build` | 最新バンドル生成完了 |
+| 3 | xvfb-run prerequisite gate | `xvfb-run --help` | headless automation へ進んでよい / 失敗なら automation blocked |
+| 4 | automation gate | `cd 03_Implement && npm run test:e2e` | automated proof boundary を確認 |
+| 5 | manual gate | `F5` で `Run Extension` → `04_Documentation/vscode-e2e-testing.md` の host-class 手順へ進む | first path / comparison path / separate triage を runbook で追跡 |
+
 ## Phase 5 / VSCode integration の進め方
 1. `cd 03_Implement && npm install`
 2. `cd 03_Implement && npm run build`
