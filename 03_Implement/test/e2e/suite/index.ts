@@ -35,9 +35,12 @@ export async function run(): Promise<void> {
           'autocomplete-known-unstable',
           'unknown',
         ],
-        environmentPrerequisite: 'Missing DISPLAY/xvfb or Extension Host bootstrap issues are categorized before extensionHost.test.ts assertions run.',
-        pasteDropBoundary: 'Paste/drop acceptance covers provider surface, fallback compatibility, and shared logic reuse only after environment triage is already clear.',
-        knownUnstableIsolation: 'Autocomplete instability is logged separately and should not be used to fail paste/drop acceptance.',
+        environmentPrerequisite:
+          'Missing DISPLAY/xvfb or Extension Host bootstrap issues are categorized before extensionHost.test.ts assertions run. If issue-0010 assertion markers never appear, suspect entry-condition failure first.',
+        pasteDropBoundary:
+          'Paste/drop acceptance covers provider surface, fallback compatibility, and shared logic reuse only after environment triage is already clear and issue-0010 assertion markers are present.',
+        knownUnstableIsolation:
+          'Autocomplete instability is logged separately and should not be used to fail paste/drop acceptance unless provider-specific assertion markers also fail.',
         nativeFallbackGuardrail: 'Do not start native-fallback design debate unless fallback compatibility evidence also fails after environment triage.',
       },
     })}`,
@@ -52,12 +55,12 @@ export async function run(): Promise<void> {
         durationMs: Date.now() - startedAtMs,
         stageHint: 'extensionHost.test.ts',
         responsibilityHint:
-          'Suite output is boundary guidance only. Follow runner category first: environment-prerequisite means fix display/xvfb or Extension Host bootstrap before reading assertions; paste-drop-provider-* means compare provider surface, fallback compatibility, and DataTransfer evidence only after environment triage is clean; autocomplete-known-unstable means keep paste/drop work isolated; unknown means collect logs and stop short of policy debate.',
+          'Suite output is boundary guidance only. Follow runner category first: environment-prerequisite means fix display/xvfb or Extension Host bootstrap before reading assertions, especially if issue-0010 assertion markers never appeared; paste-drop-provider-* means compare provider surface, fallback compatibility, and DataTransfer evidence only after environment triage is clean and the assertion-stage markers are visible; autocomplete-known-unstable means keep paste/drop work isolated; unknown means collect logs and stop short of policy debate.',
         nextStepOrder: [
           '1) Confirm runner category and matched signals',
-          '2) If environment-prerequisite, restore headless/bootstrap prerequisites and rerun before any native/fallback discussion',
-          '3) If paste-drop-provider-*, compare fallback evidence before touching native provider assumptions',
-          '4) If autocomplete-known-unstable, record separately from paste/drop acceptance',
+          '2) If environment-prerequisite, verify xvfb/display and Extension Host bootstrap; if assertion-stage markers are absent, stop there and rerun before any native/fallback discussion',
+          '3) If paste-drop-provider-*, compare fallback evidence and provider/capability or DataTransfer signals before touching native-provider assumptions',
+          '4) If autocomplete-known-unstable, record separately from paste/drop acceptance and do not reopen provider triage unless provider markers also failed',
           '5) If unknown, inspect runner snapshots before opening a new design thread',
         ],
       })}`,
