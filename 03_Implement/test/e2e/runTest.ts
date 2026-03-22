@@ -66,18 +66,25 @@ const PROVIDER_CAPABILITY_PATTERNS = [
   'DocumentDropEditProvider',
 ] as const;
 const ENVIRONMENT_PATTERNS = [
-  'failed to launch',
-  'browser',
   'display',
   'headless',
   'xvfb',
-  'electron',
   'mmi_e2e_workspace is not set',
+  'enoent',
+] as const;
+const EXTENSION_HOST_BOOTSTRAP_PATTERNS = [
+  'failed to launch',
+  'browser',
+  'electron',
   'extension host terminated unexpectedly',
   'econnrefused',
   'spawn',
-  'enoent',
   'timeout',
+  'failed to download vs code',
+  'failed to download and unzip vs code',
+  'getaddrinfo',
+  'error while loading shared libraries',
+  'cannot open display',
 ] as const;
 
 type FailureCategory =
@@ -177,6 +184,7 @@ async function main(): Promise<void> {
       dataTransferSignals: DATA_TRANSFER_PATTERNS,
       providerCapabilitySignals: PROVIDER_CAPABILITY_PATTERNS,
       environmentSignals: ENVIRONMENT_PATTERNS,
+      extensionHostBootstrapSignals: EXTENSION_HOST_BOOTSTRAP_PATTERNS,
       guidance: {
         'autocomplete-known-unstable':
           'Treat autocomplete as an independent headless instability first; do not regress paste/drop assertions until provider-specific signals appear.',
@@ -185,7 +193,7 @@ async function main(): Promise<void> {
         'paste-drop-provider-data-transfer':
           'Prioritize DataTransfer payload shape, mime types, and adapter parsing before changing provider registration logic.',
         'environment-prerequisite':
-          'Prioritize missing display/headless launch prerequisites, workspace/bootstrap failures, or extension host startup issues before blaming test logic.',
+          'Prioritize missing display/headless launch prerequisites or Extension Host bootstrap issues before blaming test logic.',
       },
     });
     logSection('launch:start', { launchArgs: runtime.launchArgs });
@@ -398,6 +406,29 @@ function classifyFailure(error: unknown, launchMetadata: LaunchMetadata): Failur
   const matchedDataTransferSignals = matchPatterns(normalized, DATA_TRANSFER_PATTERNS);
   const matchedCapabilitySignals = matchPatterns(normalized, PROVIDER_CAPABILITY_PATTERNS);
   const matchedEnvironmentSignals = matchPatterns(normalized, ENVIRONMENT_PATTERNS);
+  const matchedBootstrapSignals = matchPatterns(normalized, EXTENSION_HOST_BOOTSTRAP_PATTERNS);
+
+  if (matchedEnvironmentSignals.length > 0 || matchedBootstrapSignals.length > 0 || hasEnvironmentRisk(launchMetadata, normalized)) {
+    return {
+      category: 'environment-prerequisite',
+      matchedSignals: dedupe([
+        ...matchedEnvironmentSignals,
+        ...matchedBootstrapSignals,
+        ...(hasEnvironmentRisk(launchMetadata, normalized) ? [launchMetadata.displayServer === 'headless' ? 'headless-display' : 'display-server'] : []),
+      ]),
+      confidence:
+        matchedEnvironmentSignals.length > 0 || matchedBootstrapSignals.length > 0
+          ? 'high'
+          : 'low',
+      likelyStream: 'environment',
+      nextAction:
+        'Inspect launch-context and environment snapshot first. Confirm display/xvfb prerequisites, VSCode download/runtime dependencies, workspace bootstrap, and Extension Host startup before attributing the failure to provider logic.',
+      reasoning:
+        'Headless prerequisite or Extension Host bootstrap signals were present, so provider/fallback assertions may not have executed. Treat this as an environment gating issue first.',
+      boundaryReminder:
+        'Runner scope ends at environment triage here. Do not enter native-vs-fallback product discussion until Extension Host assertions actually run.',
+    };
+  }
 
   if (matchedCapabilitySignals.length > 0) {
     return {
@@ -441,24 +472,6 @@ function classifyFailure(error: unknown, launchMetadata: LaunchMetadata): Failur
         'Only autocomplete-specific signals matched, and issue-0010 already records a known headless completion instability that is independent from paste/drop provider coverage.',
       boundaryReminder:
         'Keep paste/drop provider acceptance isolated. This category is not evidence for or against native-fallback behavior.',
-    };
-  }
-
-  if (matchedEnvironmentSignals.length > 0 || hasEnvironmentRisk(launchMetadata, normalized)) {
-    return {
-      category: 'environment-prerequisite',
-      matchedSignals: dedupe([
-        ...matchedEnvironmentSignals,
-        ...(hasEnvironmentRisk(launchMetadata, normalized) ? [launchMetadata.displayServer === 'headless' ? 'headless-display' : 'display-server'] : []),
-      ]),
-      confidence: matchedEnvironmentSignals.length > 0 ? 'medium' : 'low',
-      likelyStream: 'environment',
-      nextAction:
-        'Inspect launch-context and environment snapshot first. Confirm display/headless prerequisites, workspace bootstrap, and extension host startup before attributing the failure to provider logic.',
-      reasoning:
-        'The failure did not clearly point to a test assertion path and instead matched launch/bootstrap or host-environment signals. This category should be treated as an environment warning unless provider-specific assertions also appear.',
-      boundaryReminder:
-        'Fix launch/bootstrap prerequisites first. Provider and native-fallback discussions are out of scope until Extension Host assertions actually run.',
     };
   }
 
