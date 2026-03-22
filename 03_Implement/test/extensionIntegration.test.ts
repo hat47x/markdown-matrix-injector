@@ -362,3 +362,91 @@ test('e2e lane keeps paste/drop observation ahead of autocomplete to isolate kno
   assert.match(source, /markdownMatrixInjector\.__test\.getPasteDropIntegrationState/);
   assert.match(source, /Paste\/drop acceptance is observed before autocomplete so the provider lane stays independent from known completion instability\./);
 });
+
+
+test('extension adapters preserve shared paste/drop boundaries across command and native entry points', async () => {
+  const html = '<div data-sheet="Summary">file:///tmp/shared.xlsx</div><table><tr><td>A</td><td>B</td></tr></table>';
+  const droppedFiles = ['/tmp/shared.csv'];
+
+  assert.equal(getPasteInsertText({ clipboardHtml: html }), '![[/tmp/shared.xlsx#Summary|A1:B1]]');
+  assert.equal(await getPasteInsertTextFromDataTransfer({
+    get(mimeType: string) {
+      if (mimeType !== 'text/html') {
+        return undefined;
+      }
+
+      return {
+        async asString() {
+          return html;
+        },
+      };
+    },
+  }), '![[/tmp/shared.xlsx#Summary|A1:B1]]');
+
+  assert.equal(getDropInsertText({ droppedFiles }), '![[/tmp/shared.csv]]');
+  assert.equal(await getDropInsertTextFromDataTransfer({
+    get(mimeType: string) {
+      if (mimeType !== 'files') {
+        return undefined;
+      }
+
+      return {
+        async asString() {
+          return '';
+        },
+        asFile() {
+          return {
+            uri: {
+              fsPath: droppedFiles[0],
+            },
+          };
+        },
+      };
+    },
+  }), '![[/tmp/shared.csv]]');
+});
+
+test('native adapter regressions keep shared drop priority source-visible from uri-list to html to files', async () => {
+  const transfer = {
+    get(mimeType: string) {
+      if (mimeType === 'text/uri-list') {
+        return {
+          async asString() {
+            return `# comment\n/tmp/ignore.txt\nfile:///tmp/from-uri.xml`;
+          },
+        };
+      }
+
+      if (mimeType === 'text/html') {
+        return {
+          async asString() {
+            return '<div data-sheet="Summary">file:///tmp/from-html.xlsx</div><table><tr><td>A</td></tr></table>';
+          },
+        };
+      }
+
+      if (mimeType === 'files') {
+        return {
+          async asString() {
+            return '';
+          },
+          asFile() {
+            return {
+              uri: {
+                fsPath: '/tmp/from-file.csv',
+              },
+            };
+          },
+        };
+      }
+
+      return undefined;
+    },
+  };
+
+  assert.equal(await getDropInsertTextFromDataTransfer(transfer), '![[/tmp/from-uri.xml]]');
+  assert.deepEqual(
+    await getDropEditFromDataTransfer(transfer, { createEdit: (insertText) => ({ insertText, via: 'native-drop' }) }),
+    { insertText: '![[/tmp/from-uri.xml]]', via: 'native-drop' },
+  );
+});

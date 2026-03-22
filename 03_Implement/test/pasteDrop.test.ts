@@ -393,3 +393,185 @@ test('paste/drop edit adapters create edits only when shared parsing resolves a 
     undefined,
   );
 });
+
+
+test('suggestEmbedFromDataTransfer honors paste mime priority by preferring text/html over later text/plain payloads', async () => {
+  let plainReads = 0;
+  const transfer = {
+    get(mimeType: string) {
+      if (mimeType === 'text/html') {
+        return {
+          async asString() {
+            return '<div data-sheet="Summary">file:///tmp/from-html.xlsx</div><table><tr><td>A</td></tr></table>';
+          },
+        };
+      }
+
+      if (mimeType === 'text/plain') {
+        plainReads += 1;
+        return {
+          async asString() {
+            return '<div data-sheet="Summary">file:///tmp/from-plain.csv</div><table><tr><td>A</td></tr></table>';
+          },
+        };
+      }
+
+      return undefined;
+    },
+  };
+
+  assert.deepEqual(await suggestEmbedFromDataTransfer(transfer, 'paste'), {
+    source: 'clipboard-html',
+    filepath: '/tmp/from-html.xlsx',
+    sheet: 'Summary',
+    range: 'A1:A1',
+    markdown: '![[/tmp/from-html.xlsx#Summary|A1:A1]]',
+  });
+  assert.equal(plainReads, 0);
+});
+
+test('suggestEmbedFromDataTransfer skips unsupported clipboard payloads before falling back to files for paste', async () => {
+  const mimeReads: string[] = [];
+  const transfer = {
+    get(mimeType: string) {
+      mimeReads.push(mimeType);
+
+      if (mimeType === 'text/html') {
+        return {
+          async asString() {
+            return '<p>unsupported html payload</p>';
+          },
+        };
+      }
+
+      if (mimeType === 'text/plain') {
+        return {
+          async asString() {
+            return 'plain text with no workbook reference';
+          },
+        };
+      }
+
+      if (mimeType === 'files') {
+        return {
+          async asString() {
+            return '';
+          },
+          asFile() {
+            return {
+              uri: {
+                fsPath: '/tmp/fallback.xml',
+              },
+            };
+          },
+        };
+      }
+
+      return undefined;
+    },
+  };
+
+  assert.deepEqual(await suggestEmbedFromDataTransfer(transfer, 'paste'), {
+    source: 'file-drop',
+    filepath: '/tmp/fallback.xml',
+    markdown: '![[/tmp/fallback.xml]]',
+  });
+  assert.deepEqual(mimeReads, ['text/html', 'text/plain', 'files']);
+});
+
+test('suggestEmbedFromDataTransfer normalizes uri-list paths before file fallback on drop', async () => {
+  const transfer = {
+    get(mimeType: string) {
+      if (mimeType === 'text/uri-list') {
+        return {
+          async asString() {
+            return `# comment\nfile:///tmp/Notes.md\n file:///C:/docs/Shared%20Matrix.xlsx `;
+          },
+        };
+      }
+
+      if (mimeType === 'files') {
+        return {
+          async asString() {
+            return '';
+          },
+          asFile() {
+            return {
+              uri: {
+                fsPath: '/tmp/fallback.csv',
+              },
+            };
+          },
+        };
+      }
+
+      return undefined;
+    },
+  };
+
+  assert.deepEqual(await suggestEmbedFromDataTransfer(transfer, 'drop'), {
+    source: 'file-drop',
+    filepath: 'C:/docs/Shared Matrix.xlsx',
+    markdown: '![[C:/docs/Shared Matrix.xlsx]]',
+  });
+});
+
+test('suggestEmbedFromDataTransfer keeps drop priority ordered as uri-list, html, then files', async () => {
+  const reads: string[] = [];
+  const transfer = {
+    get(mimeType: string) {
+      if (mimeType === 'text/uri-list') {
+        return {
+          async asString() {
+            reads.push('text/uri-list');
+            return `# only unsupported entries\n/tmp/readme.md`;
+          },
+        };
+      }
+
+      if (mimeType === 'text/html') {
+        return {
+          async asString() {
+            reads.push('text/html');
+            return '<div data-sheet="Summary">file:///tmp/from-html.xlsx</div><table><tr><td>A</td><td>B</td></tr></table>';
+          },
+        };
+      }
+
+      if (mimeType === 'text/plain') {
+        return {
+          async asString() {
+            reads.push('text/plain');
+            return '<div data-sheet="Summary">file:///tmp/from-plain.csv</div><table><tr><td>A</td></tr></table>';
+          },
+        };
+      }
+
+      if (mimeType === 'files') {
+        return {
+          async asString() {
+            return '';
+          },
+          asFile() {
+            return {
+              uri: {
+                fsPath: '/tmp/from-file.xml',
+              },
+            };
+          },
+        };
+      }
+
+      return undefined;
+    },
+  };
+
+  assert.deepEqual(await suggestEmbedFromDataTransfer(transfer, 'drop'), {
+    source: 'clipboard-html',
+    filepath: '/tmp/from-html.xlsx',
+    sheet: 'Summary',
+    range: 'A1:B1',
+    markdown: '![[/tmp/from-html.xlsx#Summary|A1:B1]]',
+  });
+  assert.deepEqual(reads, ['text/uri-list', 'text/html']);
+});
