@@ -15,6 +15,7 @@ import {
   suggestEmbedFromClipboardHtml,
   suggestEmbedFromDroppedFiles,
   suggestEmbedFromPasteDrop,
+  suggestEmbedFromTransferValues,
 } from '../src/dx/pasteDrop.js';
 
 test('suggestEmbedFromClipboardHtml returns null when HTML does not expose a supported workbook path', () => {
@@ -167,6 +168,49 @@ test('suggestEmbedFromPasteDrop falls back to supported dropped files when clipb
   );
 
   assert.equal(suggestEmbedFromPasteDrop({ clipboardHtml: '', droppedFiles: [] }), null);
+});
+
+test('suggestEmbedFromTransferValues centralizes paste/drop priority and normalization for shared adapters', () => {
+  assert.deepEqual(
+    suggestEmbedFromTransferValues('paste', {
+      clipboardValues: {
+        'text/html': '<div>unsupported html payload</div>',
+        'text/plain': 'file:///tmp/Paste%20Fallback.csv',
+      },
+      droppedFiles: ['/tmp/ignored.xml'],
+    }),
+    {
+      source: 'clipboard-html',
+      filepath: '/tmp/Paste Fallback.csv',
+      markdown: '![[/tmp/Paste Fallback.csv]]',
+    },
+  );
+
+  assert.deepEqual(
+    suggestEmbedFromTransferValues('drop', {
+      clipboardValues: {
+        'text/uri-list': '# comment\nfile:///tmp/Drop%20Priority.xlsx',
+        'text/html': '<div data-sheet="Ignored">file:///tmp/ignored.csv</div><table><tr><td>A</td></tr></table>',
+      },
+      droppedFiles: ['/tmp/from-files.xml'],
+    }),
+    {
+      source: 'file-drop',
+      filepath: '/tmp/Drop Priority.xlsx',
+      markdown: '![[/tmp/Drop Priority.xlsx]]',
+    },
+  );
+
+  assert.equal(
+    suggestEmbedFromTransferValues('drop', {
+      clipboardValues: {
+        'text/html': '<p>unsupported</p>',
+        'text/plain': 'still unsupported',
+      },
+      droppedFiles: ['/tmp/readme.md'],
+    }),
+    null,
+  );
 });
 
 test('suggestEmbedFromDataTransfer reuses clipboard HTML parsing for native paste surfaces', async () => {
@@ -652,3 +696,72 @@ file:///tmp/fallback.csv`;
   assert.equal(nativeInsertText, fallbackInsertText);
 });
 
+
+test('command fallback and native adapters return the same markdown for equivalent paste and drop payloads', async () => {
+  const pasteArgs = {
+    clipboardHtml: '<div data-sheet="Summary">file:///tmp/Shared%20Paste.xlsx</div><table><tr><td>A</td><td>B</td></tr></table>',
+  };
+  const pasteTransfer = {
+    get(mimeType: string) {
+      if (mimeType !== 'text/html') {
+        return undefined;
+      }
+
+      return {
+        async asString() {
+          return pasteArgs.clipboardHtml ?? '';
+        },
+      };
+    },
+  };
+
+  assert.equal(await getPasteInsertTextFromDataTransfer(pasteTransfer), getPasteInsertText(pasteArgs));
+
+  const dropArgs = {
+    droppedFiles: ['file:///tmp/Shared%20Drop.csv'],
+  };
+  const dropTransfer = {
+    get(mimeType: string) {
+      if (mimeType === 'text/uri-list') {
+        return {
+          async asString() {
+            return 'file:///tmp/Shared%20Drop.csv';
+          },
+        };
+      }
+
+      if (mimeType === 'files') {
+        return {
+          async asString() {
+            return '';
+          },
+          asFile() {
+            return {
+              uri: {
+                fsPath: '/tmp/ignored.xml',
+              },
+            };
+          },
+        };
+      }
+
+      return undefined;
+    },
+  };
+
+  assert.equal(await getDropInsertTextFromDataTransfer(dropTransfer), getDropInsertText(dropArgs));
+});
+
+test('command fallback and native adapters preserve empty failures without over-editing', async () => {
+  assert.equal(getPasteInsertText({ clipboardHtml: '<div>unsupported</div>' }), undefined);
+  assert.equal(getDropInsertText({ droppedFiles: ['/tmp/readme.md'] }), undefined);
+
+  const unsupportedTransfer = {
+    get() {
+      return undefined;
+    },
+  };
+
+  assert.equal(await getPasteInsertTextFromDataTransfer(unsupportedTransfer), undefined);
+  assert.equal(await getDropInsertTextFromDataTransfer(unsupportedTransfer), undefined);
+});
