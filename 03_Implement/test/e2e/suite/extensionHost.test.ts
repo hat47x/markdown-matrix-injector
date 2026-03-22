@@ -3,6 +3,13 @@ import path from 'node:path';
 import * as vscode from 'vscode';
 
 const LOG_PREFIX = '[mmi:e2e:extension-host]';
+const PASTE_DROP_PROOF_TARGETS = [
+  'native-provider-surface',
+  'fallback-compatibility',
+  'known-unstable-isolation',
+] as const;
+const PASTE_DROP_E2E_BOUNDARY =
+  'E2E proves native provider registration surface, fallback compatibility, and known unstable isolation; it does not prove final OS-native event UX dispatch.';
 
 export async function runIntegrationTests(): Promise<void> {
   const workspaceRoot = process.env.MMI_E2E_WORKSPACE;
@@ -13,6 +20,19 @@ export async function runIntegrationTests(): Promise<void> {
   const markdownFilePath = path.join(workspaceRoot, 'docs', 'spec.md');
 
   await runStage('render-command', () => verifyRenderEmbedForTestCommand(markdownFilePath, workspaceRoot));
+  logStage('issue-0010-e2e-scope', {
+    acceptanceCriteria: {
+      nativeProviderSurface: 'Verify native provider registration surface and shared adapter visibility from the Extension Host API.',
+      fallbackCompatibility: 'Verify command fallback remains observable as the compatibility path when native provider support is absent or intentionally bypassed.',
+      knownUnstableIsolation: 'Keep autocomplete known instability out of paste/drop pass-fail so provider regressions remain attributable.',
+    },
+    validationPlan: {
+      e2eLane: '03_Implement/test/e2e/** proves the automation boundary only.',
+      excludedFromAutomation: ['final OS-native paste event dispatch', 'final OS-native drag-and-drop UX dispatch'],
+    },
+    proofTargets: PASTE_DROP_PROOF_TARGETS,
+    e2eProofBoundary: PASTE_DROP_E2E_BOUNDARY,
+  });
   const pasteDropBoundary = await runStage('paste-drop-observation', () => observePasteDropBoundary());
   await runStage('paste-drop-boundary', () => verifyPasteDropCoverage(markdownFilePath, pasteDropBoundary));
   const autocompleteResult = await runStage('autocomplete-boundary', () => verifyAutocompleteIntegration(markdownFilePath));
@@ -113,7 +133,7 @@ interface PasteDropObservationState {
   readonly integrationState: PasteDropIntegrationState;
   readonly capability: NativeProviderCapability;
   readonly registeredCommandIds: readonly string[];
-  readonly proofTargets: readonly ['native-provider-surface', 'fallback-compatibility', 'known-unstable-isolation'];
+  readonly proofTargets: typeof PASTE_DROP_PROOF_TARGETS;
   readonly e2eProofBoundary: string;
 }
 
@@ -132,7 +152,7 @@ interface PasteDropVerificationBoundary {
   readonly autocompleteSheetCompletionStable: boolean;
   readonly autocompleteKnownUnstableReason?: string;
   readonly e2eProofBoundary: string;
-  readonly proofTargets: readonly ['native-provider-surface', 'fallback-compatibility', 'known-unstable-isolation'];
+  readonly proofTargets: typeof PASTE_DROP_PROOF_TARGETS;
   readonly nativeProviderSupported: boolean;
   readonly dropProviderSupported: boolean;
 }
@@ -152,12 +172,18 @@ async function observePasteDropBoundary(): Promise<PasteDropObservationState> {
     integrationState,
     capability,
     registeredCommandIds,
-    proofTargets: ['native-provider-surface', 'fallback-compatibility', 'known-unstable-isolation'],
-    e2eProofBoundary:
-      'E2E proves native provider registration surface, fallback compatibility, and known unstable isolation; it does not prove final OS-native event UX dispatch.',
+    proofTargets: PASTE_DROP_PROOF_TARGETS,
+    e2eProofBoundary: PASTE_DROP_E2E_BOUNDARY,
   };
 
-  logStage('paste-drop-observation:snapshot', { ...observation });
+  logStage('paste-drop-observation:snapshot', {
+    ...observation,
+    acceptanceTrace: {
+      nativeProviderSurface: observation.capability.hasNativePasteProvider && observation.capability.hasNativeDropProvider,
+      fallbackCompatibility: observation.integrationState.fallbackCommandIds,
+      knownUnstableIsolation: 'paste-drop assertions execute before autocomplete-boundary and log their own proof targets',
+    },
+  });
 
   return observation;
 }
@@ -177,7 +203,28 @@ async function verifyPasteDropCoverage(
     dropProviderSupported: capability.hasNativeDropProvider,
   };
 
-  logStage('paste-drop-boundary:capability', { capability, integrationState, registeredCommandIds, verificationBoundary });
+  logStage('paste-drop-boundary:capability', {
+    capability,
+    integrationState,
+    registeredCommandIds,
+    verificationBoundary,
+    acceptanceTrace: {
+      nativeProviderSurface: {
+        hostSupportsPasteProvider: integrationState.hostSupportsPasteProvider,
+        hostSupportsDropProvider: integrationState.hostSupportsDropProvider,
+        registeredPasteProvider: integrationState.registeredPasteProvider,
+        registeredDropProvider: integrationState.registeredDropProvider,
+      },
+      fallbackCompatibility: {
+        fallbackCommandIds: integrationState.fallbackCommandIds,
+        registeredCommandIds,
+      },
+      knownUnstableIsolation: {
+        autocompleteStateIsDeferred: true,
+        reason: verificationBoundary.autocompleteKnownUnstableReason,
+      },
+    },
+  });
 
   assert.deepEqual(
     {
@@ -211,11 +258,7 @@ async function verifyPasteDropCoverage(
   );
   assert.ok(integrationState.pasteMimeTypes.includes('text/html'));
   assert.ok(integrationState.dropMimeTypes.includes('text/uri-list'));
-  assert.deepEqual(verificationBoundary.proofTargets, [
-    'native-provider-surface',
-    'fallback-compatibility',
-    'known-unstable-isolation',
-  ]);
+  assert.deepEqual(verificationBoundary.proofTargets, [...PASTE_DROP_PROOF_TARGETS]);
 
   await runStage('paste-drop-fallback-compatibility', () =>
     verifyPasteDropCommandFallback(markdownFilePath, capability, integrationState, verificationBoundary),
@@ -243,8 +286,10 @@ async function verifyPasteDropCoverage(
 
   logStage('paste-drop-native-provider-surface:skipped', {
     reason: 'unsupported-host',
+    categorization: 'environment-or-host-capability',
     capability,
     verificationBoundary,
+    triage: 'Treat this as fallback compatibility coverage, not as a provider parsing failure.',
   });
 }
 
@@ -308,8 +353,16 @@ async function verifyPasteDropCommandFallback(
       '<div data-sheet="Summary">file:///tmp/report.xlsx</div><table><tr><td>ID</td><td>Name</td></tr><tr><td>1</td><td>Auth</td></tr></table>',
   });
 
+  const fallbackTextAfterPaste = document.getText();
+  logStage('paste-drop-fallback-compatibility:after-paste', {
+    capability,
+    integrationState,
+    verificationBoundary,
+    documentText: fallbackTextAfterPaste,
+  });
+
   assert.match(
-    document.getText(),
+    fallbackTextAfterPaste,
     /!\[\[\/tmp\/report\.xlsx#Summary\|A1:B2\]\]/,
     `Expected command fallback compatibility path to insert paste embed. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)} boundary=${JSON.stringify(verificationBoundary)}`,
   );
@@ -319,8 +372,16 @@ async function verifyPasteDropCommandFallback(
     droppedFiles: ['/tmp/drop-target.csv'],
   });
 
+  const fallbackTextAfterDrop = document.getText();
+  logStage('paste-drop-fallback-compatibility:after-drop', {
+    capability,
+    integrationState,
+    verificationBoundary,
+    documentText: fallbackTextAfterDrop,
+  });
+
   assert.match(
-    document.getText(),
+    fallbackTextAfterDrop,
     /!\[\[\/tmp\/drop-target\.csv\]\]/,
     `Expected command fallback compatibility path to insert drop embed. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)} boundary=${JSON.stringify(verificationBoundary)}`,
   );
@@ -374,6 +435,12 @@ async function verifyNativeProviderAdapterCoverage(
     ),
   );
 
+  logStage('paste-drop-native-provider-surface:transfer-shape', {
+    pasteMimeTypes: integrationState.pasteMimeTypes,
+    dropMimeTypes: integrationState.dropMimeTypes,
+    verificationBoundary,
+  });
+
   const pasteInsert = await vscode.commands.executeCommand<string>(
     'markdownMatrixInjector.__test.getPasteInsertTextFromDataTransfer',
     pasteTransfer,
@@ -391,6 +458,12 @@ async function verifyNativeProviderAdapterCoverage(
     'markdownMatrixInjector.__test.getDropInsertTextFromDataTransfer',
     dropTransfer,
   );
+  logStage('paste-drop-native-provider-surface:results', {
+    pasteInsert,
+    dropInsert,
+    verificationBoundary,
+  });
+
   assert.equal(
     dropInsert,
     '![[/tmp/native-drop.csv]]',
