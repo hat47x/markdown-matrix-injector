@@ -6,26 +6,28 @@
 - Node / TypeScript 設定: `03_Implement/package.json`, `03_Implement/tsconfig.json`, `03_Implement/.gitignore`
 
 ## この文書の責務
-この文書は **前提条件** と **実行入口** だけを扱います。issue-0010 の validation plan に合わせ、ここで固定するのは次の 3 点だけです。
+この文書は **前提条件** と **実行入口** だけを扱います。`02_Architecture/vscode-extension-host-e2e.md` の「Headless execution boundary」で定義されたとおり、ここで扱うのは **verification entry condition を成立させるための環境前提** までです。issue-0010 の validation plan に合わせ、ここで固定するのは次の 4 点だけです。
 
-1. `npm install` / `npm run build` / `xvfb-run --help` / `npm run test:e2e` / manual gate (`F5`) の順で迷わず進めること。
-2. `xvfb-run` や GUI 依存不足による **automation blocked** を、native provider / fallback の仕様失敗と混同しないこと。
-3. 詳細な manual runbook や architecture 境界の説明は、それぞれ専用文書へ委譲すること。
+1. 対象読者は、ローカル開発者・CI maintainer・container 利用者のうち、**これから Extension Host E2E の開始条件を整える人** であること。
+2. `npm install` / `npm run build` / `xvfb-run --help` / `npm run test:e2e` / manual gate (`F5`) の順で迷わず進めること。
+3. `xvfb-run` や GUI 依存不足による **automation blocked** を、native provider / fallback の仕様失敗と混同しないこと。
+4. 詳細な manual runbook や architecture 境界の説明は、それぞれ専用文書へ委譲すること。
 
 - architecture の正本: `02_Architecture/vscode-extension-host-e2e.md`
 - manual runbook の正本: `04_Documentation/vscode-e2e-testing.md`
 
 ## まず入れておく依存関係
-Phase 5 の VSCode 連携確認では、単なる `npm install` だけでなく、**host 側で Extension Host を起動できること** と **headless 実行に必要な表示系依存がそろっていること** が前提です。
+Phase 5 の VSCode 連携確認では、単なる `npm install` だけでなく、**host 側で Extension Host を起動できること** と **headless / CI / container 実行に必要な表示系依存がそろっていること** が前提です。ここでの目的は E2E ケース内容の説明ではなく、**VSCode Engine を起動する前提条件を setup 文書だけで理解できる状態にすること** です。
 
 ### 必須
 - Node.js / npm
 - VSCode 本体（manual 確認で Extension Development Host を起動できる host）
 - `03_Implement` 配下の npm 依存 (`npm install`)
 
-### headless E2E 用
-- `xvfb-run`
+### headless / CI / container 用
+- `xvfb-run` または同等の仮想ディスプレイ起動手段
 - Electron / VSCode が headless 起動時に必要とする基本ライブラリ群
+- Linux container / CI 上で `DISPLAY` を持たない状態でも Extension Host を起動できること
 
 Debian / Ubuntu 系の例:
 ```bash
@@ -34,6 +36,17 @@ sudo apt-get install -y xvfb libgtk-3-0 libnss3 libxss1 libasound2
 ```
 
 > `npm run test:e2e` は内部で VSCode Extension Host を起動します。GUI を持たない Linux / container 環境では、通常 `xvfb-run` が無いと開始地点に立てません。
+>
+> CI で別の仮想ディスプレイ手段を使う場合でも、ここで確認したい意味は同じです。**「Extension Host を headless で起動できるか」** が entry condition であり、provider / fallback の仕様判定とは別です。
+
+## headless prerequisite の読み方
+`02_Architecture/vscode-extension-host-e2e.md` の headless execution boundary を setup に落とすと、読むべきポイントは次の 3 つです。
+
+1. `xvfb-run` 相当が無い状態では、provider / fallback の比較以前に **VSCode Extension Host 自体が起動できない** 可能性がある。
+2. したがって `xvfb-run --help` や GUI 依存確認は、E2E assertion ではなく **verification entry condition の確認** である。
+3. entry condition を満たした後ではじめて、`npm run test:e2e` の失敗を provider registration / fallback command / shared DataTransfer logic の論点として読める。
+
+この文書は 1〜2 の説明だけを受け持ちます。3 以降の run 結果の読み分けは `04_Documentation/vscode-e2e-testing.md` に委譲します。
 
 ## 実行入口: まずこの順で進める
 manual / automation のどちらへ進む場合でも、まず次の gate を上から順に通してください。setup の責務は **入口の整列** までであり、途中で失敗した場合の詳細 triage は runbook へ委譲します。
@@ -85,6 +98,19 @@ npm run test:e2e
 - ここで確定するのは **manual 観測に入れること** までです。
 - Preview / Problems / native Paste / D&D / host class / comparison 順の詳細は `04_Documentation/vscode-e2e-testing.md` を参照してください。
 
+## provider / fallback 仕様失敗との切り分けメモ
+headless prerequisite 不足と provider / fallback 仕様失敗は、記録上も明確に分けて扱ってください。
+
+- `xvfb-run --help` が失敗した、または GUI 依存不足で VSCode が起動しない
+  - 分類: **verification entry condition 未充足**
+  - 意味: Extension Host E2E をまだ開始できていない
+- `npm run test:e2e` までは到達したが native provider registration / fallback command / shared parsing assertion が落ちた
+  - 分類: **provider/fallback 仕様または実装の失敗**
+  - 意味: headless prerequisite は満たしており、E2E の観測結果として扱える
+- autocomplete の known unstable が同じ run で見えた
+  - 分類: **別トラックの既知リスク**
+  - 意味: Paste / D&D の acceptance boundary と混同しない
+
 ## automation blocked の定義
 次の状態は **automation blocked** として扱います。
 
@@ -116,3 +142,8 @@ npm run test:e2e
 ## テストデータ方針
 - Excel / Spreadsheet 系のテストデータはリポジトリへ固定ファイルとして追加せず、ユニットテスト内で都度生成する。
 - VSCode E2E は既存 fixture workspace を一時コピーし、必要な追加ファイル（例: invalid XML）だけを実行時に生成する。
+
+## この追記で確認できる位置
+- **対象読者**: 「この文書の責務」で、ローカル開発者 / CI maintainer / container 利用者向けの setup 文書であることを明記しました。
+- **前提条件**: 「まず入れておく依存関係」と「headless prerequisite の読み方」に、`xvfb-run` 相当と GUI 依存が Extension Host 起動条件であることを集約しました。
+- **手順の位置**: 実行順は「実行入口: まずこの順で進める」に限定し、manual E2E の詳細手順は `04_Documentation/vscode-e2e-testing.md` へ委譲する形を維持しました。
