@@ -42,6 +42,13 @@ const FALLBACK_COMMAND_IDS = [
   'markdownMatrixInjector.insertEmbedFromDrop',
 ] as const;
 
+interface PasteDropIntegrationTestMetadata {
+  fallbackCommandIds: string[];
+  nativeEditKind: string;
+  pasteMimeTypes: string[];
+  dropMimeTypes: string[];
+}
+
 interface NativePasteDropState {
   hostSupportsPasteProvider: boolean;
   hostSupportsDropProvider: boolean;
@@ -72,6 +79,15 @@ function createNativeDropProviderOptions(): vscode.DocumentDropEditProviderMetad
   };
 }
 
+function createPasteDropIntegrationTestMetadata(): PasteDropIntegrationTestMetadata {
+  return {
+    fallbackCommandIds: [...FALLBACK_COMMAND_IDS],
+    nativeEditKind: NATIVE_PASTE_DROP_EDIT_KIND.value,
+    pasteMimeTypes: [...PASTE_MIME_TYPES],
+    dropMimeTypes: [...DROP_MIME_TYPES],
+  };
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   const diagnostics = vscode.languages.createDiagnosticCollection('markdown-matrix-injector');
   const nativePasteDropState = createNativePasteDropState();
@@ -81,33 +97,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('markdownMatrixInjector.renderEmbedForTest', async (args: RenderEmbedForTestArgs) =>
       renderEmbedForTest(args),
     ),
-    // Compatibility path for older hosts or explicit command routing.
-    vscode.commands.registerTextEditorCommand(
-      'markdownMatrixInjector.insertEmbedFromPaste',
-      async (editor, _edit, args?: PasteDropCommandArgs) => {
-        const insertText = getPasteInsertText(args);
-        if (!insertText) {
-          return;
-        }
-
-        await editor.edit((editBuilder) => {
-          editBuilder.replace(editor.selection, insertText);
-        });
-      },
-    ),
-    vscode.commands.registerTextEditorCommand(
-      'markdownMatrixInjector.insertEmbedFromDrop',
-      async (editor, _edit, args?: PasteDropCommandArgs) => {
-        const insertText = getDropInsertText(args);
-        if (!insertText) {
-          return;
-        }
-
-        await editor.edit((editBuilder) => {
-          editBuilder.replace(editor.selection, insertText);
-        });
-      },
-    ),
+    ...registerCompatibilityPasteDropCommands(),
     vscode.commands.registerCommand(
       'markdownMatrixInjector.__test.getPasteInsertTextFromDataTransfer',
       (dataTransfer: vscode.DataTransfer) => getPasteInsertTextFromDataTransfer(dataTransfer),
@@ -117,10 +107,7 @@ export function activate(context: vscode.ExtensionContext): void {
       (dataTransfer: vscode.DataTransfer) => getDropInsertTextFromDataTransfer(dataTransfer),
     ),
     vscode.commands.registerCommand('markdownMatrixInjector.__test.getPasteDropIntegrationState', () => ({
-      fallbackCommandIds: [...FALLBACK_COMMAND_IDS],
-      nativeEditKind: NATIVE_PASTE_DROP_EDIT_KIND.value,
-      pasteMimeTypes: [...PASTE_MIME_TYPES],
-      dropMimeTypes: [...DROP_MIME_TYPES],
+      ...createPasteDropIntegrationTestMetadata(),
       ...nativePasteDropState,
     })),
     vscode.languages.registerCompletionItemProvider(
@@ -158,6 +145,39 @@ function registerNativePasteDropProviders(context: vscode.ExtensionContext, nati
   registerNativePasteProvider(context, nativePasteDropState);
   registerNativeDropProvider(context, nativePasteDropState);
 }
+
+function registerCompatibilityPasteDropCommands(): vscode.Disposable[] {
+  return [
+    // Compatibility path for older hosts or explicit command routing.
+    vscode.commands.registerTextEditorCommand(
+      FALLBACK_COMMAND_IDS[0],
+      async (editor, _edit, args?: PasteDropCommandArgs) => {
+        const insertText = getPasteInsertText(args);
+        if (!insertText) {
+          return;
+        }
+
+        await editor.edit((editBuilder) => {
+          editBuilder.replace(editor.selection, insertText);
+        });
+      },
+    ),
+    vscode.commands.registerTextEditorCommand(
+      FALLBACK_COMMAND_IDS[1],
+      async (editor, _edit, args?: PasteDropCommandArgs) => {
+        const insertText = getDropInsertText(args);
+        if (!insertText) {
+          return;
+        }
+
+        await editor.edit((editBuilder) => {
+          editBuilder.replace(editor.selection, insertText);
+        });
+      },
+    ),
+  ];
+}
+
 
 function registerNativePasteProvider(context: vscode.ExtensionContext, nativePasteDropState: NativePasteDropState): void {
   // Canonical path for hosts that support native paste providers.
