@@ -24,8 +24,9 @@ export async function run(): Promise<void> {
       verificationBoundary: [
         'native-provider-surface',
         'fallback-compatibility',
-        'known-unstable-isolation',
+        'shared-logic-reuse',
       ],
+      autocompleteIsolationBoundary: 'Known unstable autocomplete is logged separately and remains outside the paste/drop proof boundary.',
       triageBoundary: {
         suiteResponsibility: 'Summarize proof boundary and next-step order only; do not infer product decisions from a single failing run.',
         firstTriageOrder: [
@@ -34,7 +35,7 @@ export async function run(): Promise<void> {
           'paste-drop-provider-* vs autocomplete-known-unstable vs unknown',
         ],
         environmentPrerequisite: 'Missing DISPLAY/xvfb is categorized before extensionHost.test.ts assertions run.',
-        pasteDropBoundary: 'Paste/drop acceptance covers provider surface and fallback compatibility only.',
+        pasteDropBoundary: 'Paste/drop acceptance covers provider surface, fallback compatibility, and shared logic reuse only.',
         knownUnstableIsolation: 'Autocomplete instability is logged separately and should not be used to fail paste/drop acceptance.',
         nativeFallbackGuardrail: 'Do not start native-fallback design debate unless fallback compatibility evidence also fails after environment triage.',
       },
