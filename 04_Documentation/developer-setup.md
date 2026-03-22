@@ -5,8 +5,18 @@
 - テスト: `03_Implement/test/`
 - Node / TypeScript 設定: `03_Implement/package.json`, `03_Implement/tsconfig.json`, `03_Implement/.gitignore`
 
+## この文書の責務
+この文書は **前提条件** と **実行入口** だけを扱います。issue-0010 の validation plan に合わせ、ここで固定するのは次の 3 点だけです。
+
+1. `npm install` / `npm run build` / `xvfb-run --help` / `npm run test:e2e` / manual gate (`F5`) の順で迷わず進めること。
+2. `xvfb-run` や GUI 依存不足による **automation blocked** を、native provider / fallback の仕様失敗と混同しないこと。
+3. 詳細な manual runbook や architecture 境界の説明は、それぞれ専用文書へ委譲すること。
+
+- architecture の正本: `02_Architecture/vscode-extension-host-e2e.md`
+- manual runbook の正本: `04_Documentation/vscode-e2e-testing.md`
+
 ## まず入れておく依存関係
-Phase 5 の VSCode 連携確認では、単なる `npm install` だけでなく、**host 側で Extension Host を起動できること** と **headless 実行に必要な表示系依存がそろっていること** が前提になります。
+Phase 5 の VSCode 連携確認では、単なる `npm install` だけでなく、**host 側で Extension Host を起動できること** と **headless 実行に必要な表示系依存がそろっていること** が前提です。
 
 ### 必須
 - Node.js / npm
@@ -25,102 +35,83 @@ sudo apt-get install -y xvfb libgtk-3-0 libnss3 libxss1 libasound2
 
 > `npm run test:e2e` は内部で VSCode Extension Host を起動します。GUI を持たない Linux / container 環境では、通常 `xvfb-run` が無いと開始地点に立てません。
 
-## 開発コマンド
+## 実行入口: まずこの順で進める
+manual / automation のどちらへ進む場合でも、まず次の gate を上から順に通してください。setup の責務は **入口の整列** までであり、途中で失敗した場合の詳細 triage は runbook へ委譲します。
+
+| Order | Gate | Command / action | この文書での判定 |
+|---|---|---|---|
+| 1 | dependency gate | `cd 03_Implement && npm install` | npm 依存がそろったら次へ進む |
+| 2 | build gate | `cd 03_Implement && npm run build` | 最新バンドルができたら次へ進む |
+| 3 | headless prerequisite gate | `xvfb-run --help` | 成功なら automation へ進める。失敗なら automation blocked |
+| 4 | automation gate | `cd 03_Implement && npm run test:e2e` | Extension Host 自動確認の入口 |
+| 5 | manual gate | `F5` で `Run Extension` | manual runbook の host-class 手順へ進む |
+
+## 入口ごとの最短解釈
+### 1. dependency gate
 ```bash
 cd 03_Implement
 npm install
-npm test
-npm run build
-npm run test:e2e
 ```
+- 以後の build / test:e2e / manual gate の共通前提です。
+- setup 文書では依存導入完了だけを確認し、依存不整合の詳細分析は扱いません。
 
-## Phase 5 に入る前の理解ポイント
-Phase 5 の native provider / fallback 確認は、次の 4 つを分けて考えると迷いません。
-
-1. **ビルド前提**: `npm run build` で拡張を最新状態にする。
-2. **headless prerequisite**: `npm run test:e2e` の前に `xvfb-run --help` が通ることを確認し、通らない場合は automation blocked と判断する。
-3. **自動 E2E 範囲**: Extension Host 上で native provider registration / fallback command / shared DataTransfer logic / diagnostics / completion API の境界を確認する。
-4. **手動 E2E 範囲**: ホスト OS 上の VSCode で Extension Development Host を起動し、native paste / drop の最終 UX、Preview / Problems、manual comparison 順を確認する。
-
-## Automation と manual の責務早見表
-| Concern | Automation (`npm run test:e2e`) | Manual E2E (Development Host) | 判定メモ |
-|---|---|---|---|
-| native provider が canonical path であること | provider registration / adapter / shared logic を確認 | 通常 paste / 通常 drop の最終 UX を確認 | 実 OS event の最終反映は manual 側 |
-| fallback command が unsupported host 向け compatibility path であること | fallback command が成立することを確認 | fallback only host で比較順どおりに再現する | fallback は native 代替ではなく互換経路 |
-| shared logic 再利用方針 | DataTransfer 解析の再利用を自動確認する | native と fallback の挿入結果差を観測する | 差分が両方失敗なら parser / payload を疑う |
-| `xvfb-run` 前提 | `xvfb-run` が無ければ開始しない | manual は継続可能だが automation blocked を記録する | manual 成功で automation failure を上書きしない |
-| autocomplete Known unstable | `#` 補完の非決定性を別トラックで扱う | Paste / D&D と別欄に記録する | Known unstable を provider failure に混ぜない |
-
-## 自動確認の入口
-Extension Host ベースの自動確認を行うときは、**必ず headless prerequisite を確認してから** 次を実行します。
-
+### 2. build gate
 ```bash
-xvfb-run --help
 cd 03_Implement
 npm run build
+```
+- issue-0010 の validation plan にある build 確認入口です。
+- automation / manual の両方で、まず最新ビルドを作ってから先へ進みます。
+
+### 3. headless prerequisite gate
+```bash
+xvfb-run --help
+```
+- `npm run test:e2e` の前に必ず確認する入口です。
+- ここで失敗した場合の結論は **automation blocked** です。
+- この時点では **native provider / fallback / DataTransfer 仕様の失敗はまだ未観測** です。
+
+### 4. automation gate
+```bash
+cd 03_Implement
 npm run test:e2e
 ```
+- Extension Host ベースの自動確認入口です。
+- provider registration / fallback command / shared DataTransfer logic / diagnostics / completion API など、automation scope の事実確認に進みます。
+- 何をどう切り分けるかの詳細は `04_Documentation/vscode-e2e-testing.md` を参照してください。
 
-この入口で確認する対象:
-- VSCode Extension Host が起動できること
-- `xvfb-run` を前提とした headless 実行条件が満たされていること
-- 補完 / Diagnostics / command fallback / native provider adapter の自動確認が走ること
-- native provider と fallback command が同一 DataTransfer 解析ロジックを再利用していること
+### 5. manual gate
+- `F5` で `Run Extension` を起動し、Extension Development Host を開きます。
+- ここで確定するのは **manual 観測に入れること** までです。
+- Preview / Problems / native Paste / D&D / host class / comparison 順の詳細は `04_Documentation/vscode-e2e-testing.md` を参照してください。
 
-### automation blocked と判断する条件
+## automation blocked の定義
+次の状態は **automation blocked** として扱います。
+
 - `xvfb-run --help` が失敗する。
 - Electron / VSCode の起動に必要な GUI 依存が欠け、Extension Host が立ち上がらない。
-- この場合は **provider/fallback の仕様失敗ではなく headless prerequisite 未充足** として扱い、manual E2E の記録とは別に残してください。
+- headless 前提不足のため、`npm run test:e2e` の入口に到達できない。
 
-## 手動確認の入口
-次のような項目は、自動 E2E だけでは完結しません。
+一方で、次は **automation blocked ではありません**。
 
-- Markdown Preview 上の見た目
-- Problems パネルの見え方
-- VSCode Suggest UI の操作感
-- OS ネイティブの paste / drag-and-drop が実際にどう振る舞うか
-- native path と fallback path の比較順どおりに観測できるか
+- native provider registration の失敗
+- fallback command の assertion failure
+- shared DataTransfer parsing の失敗
+- autocomplete の Known unstable
 
-そのため、manual 確認に入る前提として以下を満たしてください。
+これらは **headless prerequisite を満たした後に観測される automation scope の結果** であり、provider/fallback の仕様失敗または別トラックの不安定要因として runbook / architecture 側で扱います。
 
-1. ホスト OS の VSCode でリポジトリを開けること。
-2. `cd 03_Implement && npm install && npm run build` が完了していること。
-3. VSCode の `Run Extension` などを使って **Extension Development Host** を起動できること。
-4. native paste / drop を試す場合、clipboard / file drag-and-drop を実際に発火できるローカル host であること。
-5. host class を **native provider 対応 / fallback only / capability 未確定** のどれかで先にメモすること。
-6. autocomplete の `#` 補完 failure が出ても、Paste / D&D の結論欄と混ぜないことを理解していること。
-
-> manual E2E の詳細手順やチェックリストは `04_Documentation/vscode-e2e-testing.md` に分離しています。本書では環境準備と実行入口だけを扱い、Preview / Problems / native event の詳細手順、comparison 順、failure triage はそちらへ委譲します。
-
-## Phase 5 issue-0010 alignment snapshot
-architecture / runbook / setup の責務境界を迷わず辿るため、issue-0010 に関わる文書正本をここで最短参照にまとめます。
-
-| Concern bucket | Primary source of truth | Why this file only links, not redefines |
+## setup / runbook / architecture の責務差分
+| 文書 | 役割 | ここに書かないこと |
 |---|---|---|
-| native canonical path | `02_Architecture/vscode-extension-host-e2e.md` | canonical path の定義は architecture の責務であり、setup は参照入口だけを持つ |
-| fallback compatibility path | `04_Documentation/vscode-e2e-testing.md` | unsupported host の first path / comparison path は runbook の責務であり、setup は起動前提だけを示す |
-| xvfb-run prerequisite | `04_Documentation/developer-setup.md` と `04_Documentation/vscode-e2e-testing.md` | setup は prerequisite と実行入口を正本として持ち、詳細 triage は runbook へ委譲する |
-| known unstable separation | `04_Documentation/vscode-e2e-testing.md` | autocomplete と Paste / D&D の切り分けは runbook の責務であり、setup は注意喚起に留める |
+| `04_Documentation/developer-setup.md` | 前提条件と実行入口を最短で示す | manual 詳細手順、failure triage 詳細、architecture 境界の再定義 |
+| `04_Documentation/vscode-e2e-testing.md` | manual E2E の再現手順、観測順、failure triage を持つ | setup の前提条件を再定義すること |
+| `02_Architecture/vscode-extension-host-e2e.md` | native canonical path / fallback compatibility path / shared logic / known risk isolation の境界を固定する | 実行手順や運用チェックリストの詳細 |
 
-## Phase 5 command gate (before runbook)
-manual / automation のどちらに進む場合も、次の gate を先に通してください。**ここで止まった場合は runbook 上の native/fallback triage に進まない** のが issue-0010 の運用ルールです。
-
-| Order | Gate | Command / action | Exit condition |
-|---|---|---|---|
-| 1 | dependency gate | `cd 03_Implement && npm install` | package install 完了 |
-| 2 | build gate | `cd 03_Implement && npm run build` | 最新バンドル生成完了 |
-| 3 | xvfb-run prerequisite gate | `xvfb-run --help` | headless automation へ進んでよい / 失敗なら automation blocked |
-| 4 | automation gate | `cd 03_Implement && npm run test:e2e` | automated proof boundary を確認 |
-| 5 | manual gate | `F5` で `Run Extension` → `04_Documentation/vscode-e2e-testing.md` の host-class 手順へ進む | first path / comparison path / separate triage を runbook で追跡 |
-
-## Phase 5 / VSCode integration の進め方
-1. `cd 03_Implement && npm install`
-2. `cd 03_Implement && npm run build`
-3. `xvfb-run --help` を実行し、headless prerequisite を確認する。
-4. automation scope を回すなら `cd 03_Implement && npm run test:e2e` を実行する。
-5. Preview / Problems / native paste / native drop の最終確認が必要なら、ホスト VSCode で Extension Development Host を起動する。
-6. manual では host class を記録し、native path / fallback path の比較順を `04_Documentation/vscode-e2e-testing.md` の checklist に従って実施する。
-7. `#` 補完 failure は Known unstable として別欄へ記録し、Paste / D&D の成否欄へ混ぜない。
+## 最短参照導線
+- **前提条件と入口を確認したい** → この文書
+- **manual E2E の観測順や failure triage を確認したい** → `04_Documentation/vscode-e2e-testing.md`
+- **native provider / fallback / known unstable の責務境界を確認したい** → `02_Architecture/vscode-extension-host-e2e.md`
 
 ## テストデータ方針
 - Excel / Spreadsheet 系のテストデータはリポジトリへ固定ファイルとして追加せず、ユニットテスト内で都度生成する。
