@@ -123,6 +123,11 @@ type LaunchMetadata = {
   ci: boolean;
   displayServer: 'wayland' | 'x11' | 'headless';
   envHints: string[];
+  headlessPrerequisiteState: {
+    hasDisplayEnv: boolean;
+    underXvfbHarness: boolean;
+    recommendedRunner: string;
+  };
 };
 
 async function main(): Promise<void> {
@@ -151,6 +156,11 @@ async function main(): Promise<void> {
       launchArgs: runtime.launchArgs,
       extensionDevelopmentExists: fs.existsSync(runtime.extensionDevelopmentPath),
       extensionTestsExists: fs.existsSync(runtime.extensionTestsPath),
+      triageBoundary: {
+        environmentPrerequisite: 'Missing display/xvfb is categorized before provider or fallback assertions run.',
+        providerFailures: 'Only provider registration/DataTransfer assertions should classify as paste-drop-provider-*.',
+        autocompleteFailures: 'Known unstable autocomplete remains an independent category and does not fail paste/drop acceptance by itself.',
+      },
     });
     logSection('triage-hints', {
       knownUnstableAutocompleteSignals: AUTOCOMPLETE_UNSTABLE_PATTERNS,
@@ -238,12 +248,14 @@ function assertHeadlessPrerequisites(runtime: E2ERuntimeContext): void {
 
   logSection('launch:precondition-failure', {
     reason: 'missing-virtual-display',
+    failureCategory: 'environment-prerequisite',
+    separationFromSpec: 'Provider/fallback assertions were not executed; treat this as a headless prerequisite issue, not a paste/drop specification failure.',
     recommendation: 'Run through 03_Implement/scripts/run-vscode-e2e.sh so xvfb-run can provide a virtual display.',
     launchMetadata: runtime.launchMetadata,
   });
 
   throw new Error(
-    'Headless prerequisite missing: no DISPLAY/WAYLAND_DISPLAY detected. Re-run via 03_Implement/scripts/run-vscode-e2e.sh or `cd 03_Implement && npm run test:e2e`.',
+    'Headless prerequisite missing (environment-prerequisite): no DISPLAY/WAYLAND_DISPLAY detected, so provider/fallback assertions never started. Re-run via 03_Implement/scripts/run-vscode-e2e.sh or `cd 03_Implement && npm run test:e2e`.',
   );
 }
 
@@ -350,6 +362,11 @@ function collectLaunchMetadata(packageJson: Record<string, unknown>): LaunchMeta
     ci: process.env.CI === 'true',
     displayServer: detectDisplayServer(),
     envHints,
+    headlessPrerequisiteState: {
+      hasDisplayEnv: Boolean(process.env.DISPLAY || process.env.WAYLAND_DISPLAY),
+      underXvfbHarness: process.env.MMI_E2E_UNDER_XVFB === '1',
+      recommendedRunner: 'cd 03_Implement && npm run test:e2e',
+    },
   };
 }
 
@@ -424,7 +441,7 @@ function classifyFailure(error: unknown, launchMetadata: LaunchMetadata): Failur
       nextAction:
         'Inspect launch-context and environment snapshot first. Confirm display/headless prerequisites, workspace bootstrap, and extension host startup before attributing the failure to provider logic.',
       reasoning:
-        'The failure did not clearly point to a test assertion path and instead matched launch/bootstrap or host-environment signals.',
+        'The failure did not clearly point to a test assertion path and instead matched launch/bootstrap or host-environment signals. This category should be treated as an environment warning unless provider-specific assertions also appear.',
     };
   }
 

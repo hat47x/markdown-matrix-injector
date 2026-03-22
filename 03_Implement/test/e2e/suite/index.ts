@@ -26,6 +26,11 @@ export async function run(): Promise<void> {
         'fallback-compatibility',
         'known-unstable-isolation',
       ],
+      triageBoundary: {
+        environmentPrerequisite: 'Missing DISPLAY/xvfb is categorized before extensionHost.test.ts assertions run.',
+        pasteDropBoundary: 'Paste/drop acceptance covers provider surface and fallback compatibility only.',
+        knownUnstableIsolation: 'Autocomplete instability is logged separately and should not be used to fail paste/drop acceptance.',
+      },
     })}`,
   );
 
@@ -38,7 +43,7 @@ export async function run(): Promise<void> {
         durationMs: Date.now() - startedAtMs,
         stageHint: 'extensionHost.test.ts',
         responsibilityHint:
-          'If runner classified autocomplete-known-unstable, keep paste/drop provider work isolated. If runner classified paste-drop-provider-*, inspect native provider surface, fallback compatibility, and DataTransfer assertions in extensionHost.test.ts logs.',
+          'If runner classified environment-prerequisite, fix display/xvfb bootstrap before reading provider assertions. If runner classified autocomplete-known-unstable, keep paste/drop provider work isolated. If runner classified paste-drop-provider-*, inspect native provider surface, fallback compatibility, and DataTransfer assertions in extensionHost.test.ts logs.',
       })}`,
     );
     throw error;
