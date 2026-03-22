@@ -96,16 +96,7 @@
 - command fallback は暫定実装ではなく、**unsupported host を支える compatibility path** として architecture に含める。
 - issue-0010 における「fallback 方針が明示されること」は、native provider を置き換えることではなく、host capability 不足時の互換入口を維持する方針を明示することを指す。
 
-### 4.3 Host-class observation order boundary
-- architecture 上、host は **native provider available / fallback only / capability unconfirmed** の 3 class で扱う。
-- manual E2E の first move は host class に従って固定する。
-  - native provider available: native paste / native drop を first path とし、その直後に command fallback を comparison path とする。
-  - fallback only: command fallback を first path とし、native path は reference observation に留める。
-  - capability unconfirmed: まず command fallback を通し、その後 native path を比較実行して capability 差か共通解析差かを分離する。
-- したがって architecture が固定する観測順は **capability record → baseline UI → first path → comparison path → separate triage** である。
-- この順序は documentation の runbook に委譲されるが、順序そのものは boundary contract として architecture に含める。
-
-### 4.4 Shared-logic boundary
+### 4.3 Shared-logic boundary
 - native provider と command fallback は、入口は分かれていても **DataTransfer / dropped file 解析と embed 生成の仕様正本を共有**する。
 - したがって architecture 上の境界は「surface は複数でも、解釈ロジックは単一」である。
 - この shared logic boundary では、DX ロジック本体が唯一の解釈責務を持ち、VSCode 統合層と E2E 検証レイヤはその仕様正本を書き換えない。
@@ -121,6 +112,7 @@
   - unsupported host でも command fallback が compatibility path として成立すること
   - native provider と command fallback が別々の解析仕様へ分岐していないこと
 - したがって issue-0010 の受入条件における『native provider surface から発火できること』『既存ロジックを再利用すること』『fallback 方針が明示されること』は、自動 E2E の設計対象に含まれる。
+- ここでの automation boundary は **provider/fallback の仕様境界** に限定し、headless prerequisite の充足有無そのものは pass/fail の対象ではなく、後段の triage 前提として扱う。
 
 ### 5.2 Delegated manual scope
 - 自動 E2E が保証しないもの:
@@ -132,6 +124,7 @@
 
 ### 5.3 Verification boundary rule
 - Paste / D&D の受入判定は、canonical path の公開、compatibility path の維持、shared logic の単一性までで閉じる。
+- headless prerequisite の欠落で Extension Host 自体を起動できない場合は、provider/fallback 仕様の失敗として解釈せず、**verification entry condition 未充足** として別系統で扱う。
 - autocomplete の安定性、visual UI、OS レベル最終挙動は、同一テストスイートに存在しても Paste / D&D の acceptance boundary に流入させない。
 - これにより、issue-0010 の automation boundary と delegated manual boundary を相互に独立した設計判断として維持する。
 
@@ -147,6 +140,7 @@
 - architecture として固定するのは、**headless 実行でも API レベルの統合確認を先に成立させる**という方針である。
 - ここでいう API レベル統合確認には、native provider registration / fallback exposure / DX ロジック再利用の確認を含むが、UX の完全再現は含めない。
 - headless host では `xvfb-run` のような仮想ディスプレイ前提が欠けると、native/fallback 比較以前に VSCode 起動自体が成立しない。したがって architecture 上の first triage は **(1) headless prerequisite 充足確認 → (2) Extension Host 起動可否 → (3) native/fallback 境界の切り分け** の順とする。
+- ここでの `xvfb-run` 欠落は **verification entry condition の不足** を示すだけであり、provider/fallback 仕様の適否を直接示す証拠としては扱わない。
 - この first triage 順により、環境起因の起動失敗と provider/fallback の仕様境界を混同しない。
 
 ## 7. Known risk isolation
@@ -177,8 +171,11 @@
 - Acceptance criteria 1「native provider surface から発火できること」には、`4.1 Canonical path boundary` と `5.1 Automation scope` が対応する。
 - Acceptance criteria 2「既存 `pasteDrop.ts` を再利用し重複実装しないこと」には、`4.3 Shared-logic boundary` が対応する。
 - Acceptance criteria 3「native provider が使えない環境での fallback 方針明示」には、`4.2 Compatibility path boundary` と `5.1 Automation scope` が対応する。
+- Progress note にある「native provider registration surface / shared parsing / fallback command behavior を proof boundary とする」整理は、`5.1 Automation scope` と `5.3 Verification boundary rule` に反映されている。
+- Progress note にある「`xvfb-run` 未導入時は環境起因で E2E 未完了」との扱いは、`6. Headless execution boundary` にて verification entry condition として分離している。
+- Progress note にある「manual E2E の比較順・failure triage は documentation 側に保持する」整理は、`3.4 Delegated manual scope` と `11. Documentation handoff rule` に反映されている。
 - Acceptance criteria 4「unit / E2E の双方で退行がないこと」のうち、本 architecture 文書が固定するのは **Extension Host E2E の verification boundary** までであり、unit の詳細や運用手順は実装層・documentation 層の責務とする。
-- 以上により、architecture 文書だけを読んでも、issue-0010 の automation boundary / delegated manual boundary / known unstable 分離方針を追跡できる。
+- 以上により、architecture 文書だけを読んでも、issue-0010 の automation boundary / delegated manual boundary / headless triage boundary を追跡できる。
 
 ## 11. Documentation handoff rule
 - この architecture 文書で固定するもの:
