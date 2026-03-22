@@ -65,14 +65,15 @@ npm run test:e2e
 ```
 
 ## Command alignment: automation vs manual handoff
-issue-0010 の運用では、**automation scope の確認** と **manual scope の観測** を同じ runbook 上で扱います。ただし、両者の役割を混ぜないよう、次の順番でコマンド整合を確認してください。
+issue-0010 の運用では、**automation scope の確認** と **manual scope の観測** を同じ runbook 上で扱います。ただし、両者の役割を混ぜないよう、次の順番でコマンド整合を確認してください。ここでの order は **xvfb-run prerequisite → automated proof boundary → manual comparison path → keyword audit** の順に固定します。
 
 | Order | Purpose | Command / action | Notes |
 |---|---|---|---|
-| 1 | 拡張バンドルを最新化する | `cd 03_Implement && npm run build` | manual E2E 開始前の前提。Development Host 起動前に実行する。 |
-| 2 | Extension Host 自動確認を回す | `cd 03_Implement && npm run test:e2e` | automation scope の事実確認。native provider adapter / fallback command / diagnostics / completion API の境界を確認する。 |
-| 3 | Development Host で manual E2E を始める | `F5` で `Run Extension` | OS native paste/drop, Preview DOM, Problems UI, suggest widget は manual scope。 |
-| 4 | 文書更新後のキーワード監査を行う | `rg -n "native|fallback|Known unstable|autocomplete|Paste / D&D|DataTransfer|xvfb-run" 04_Documentation/vscode-e2e-testing.md` | 本書が issue-0010 の運用語彙と `xvfb-run` 前提を落としていないかを確認する。 |
+| 1 | headless prerequisite を先に固定する | `xvfb-run --help` | failure 時は automation blocked。native/fallback triage に進まない。 |
+| 2 | 拡張バンドルを最新化する | `cd 03_Implement && npm run build` | manual E2E 開始前の前提。Development Host 起動前に実行する。 |
+| 3 | Extension Host 自動確認を回す | `cd 03_Implement && npm run test:e2e` | automation scope の事実確認。native provider adapter / fallback command / diagnostics / completion API の境界を確認する。 |
+| 4 | Development Host で manual E2E を始める | `F5` で `Run Extension` | OS native paste/drop, Preview DOM, Problems UI, suggest widget は manual scope。 |
+| 5 | 文書更新後のキーワード監査を行う | `rg -n "native|fallback|Known unstable|autocomplete|Paste / D&D|DataTransfer|xvfb-run" 02_Architecture/vscode-extension-host-e2e.md 04_Documentation/vscode-e2e-testing.md 04_Documentation/developer-setup.md` | architecture / runbook / setup の語彙と運用導線が一致しているかを確認する。 |
 
 **Interpretation rule**
 - `npm run build` が通っていても、manual E2E の観測順までは保証しません。
@@ -668,6 +669,28 @@ Paste / D&D の不具合を切り分けるときは、必ず次の順番で確�
 - **Known unstable** を読むと、autocomplete failure を Paste / D&D から分離してよい条件が分かります。
 - **Reproduction and failure isolation workflow** を読むと、上記 2 系統をどの順で result log template に落とすかが分かります。
 - **Suggested manual result log template / Failure log template** は、issue-0010 の acceptance criteria のうち「fallback 方針の明示」と「manual E2E 再現性」の記録面を担当します。
+
+## Host-class tracking sheet (minimum record)
+first path / comparison path / separate triage を host class ごとに追跡しやすくするため、manual log の前に最低限この表を埋めてください。**この表が埋まっていれば、known unstable autocomplete が Paste / D&D 判定へ混入していないことを後から監査できます。**
+
+| Host class | First path (Paste / D&D) | Comparison path | Separate triage record | Required evidence |
+|---|---|---|---|---|
+| native provider 対応 host | native paste, native drop | fallback paste command, fallback drop command | autocomplete を別欄へ記録 | native/fallback の結果差 + host capability |
+| native provider 非対応 host | fallback paste command, fallback drop command | native path は参考観測、または unavailable 理由を明記 | autocomplete を別欄へ記録 | fallback 成功 + native unavailable 根拠 |
+| capability 未確定 host | fallback paste command, fallback drop command | 直後に native paste, native drop | autocomplete を別欄へ記録 | fallback baseline + native comparison + 更新後 host class |
+
+## Acceptance and progress-note source-of-truth map
+issue-0010 の acceptance criteria / Progress Notes に対して、runbook では次の節を運用正本とします。architecture 境界の再定義は行わず、**どの手順・表・判断基準で追跡するか** だけを固定します。
+
+| Acceptance / progress note | Runbook source of truth | Why this section is authoritative |
+|---|---|---|
+| Acceptance 1: native provider surface から発火できること | `Native provider and fallback policy`, `Host matrix`, `Checklist D`, `Checklist E` | native canonical path を first path / comparison path として追跡できるため |
+| Acceptance 2: `pasteDrop.ts` を再利用し二重実装しないこと | `Automated coverage`, `Native provider and fallback policy`, `Practical boundary` | native と fallback が同一 DataTransfer 解釈へ収束する前提を運用語彙で固定するため |
+| Acceptance 3: fallback 方針が明示されていること | `Fallback path`, `Host-class completion rule`, `Reproduction and failure isolation workflow` | fallback compatibility path を unsupported host / unconfirmed host でも追跡できるため |
+| Acceptance 4: unit / E2E の双方で退行がないこと | `Command alignment: automation vs manual handoff`, `First triage when npm run test:e2e fails`, `Checklist A-E` | automation boundary と manual boundary の handoff を 1 本の運用導線として固定するため |
+| Progress note: native provider registration surface / shared parsing / fallback command behavior を proof boundary とする | `Automated coverage`, `Native provider and fallback policy`, `Acceptance-to-runbook mapping` | automated proof boundary と manual comparison boundary を同じ runbook 上で参照できるため |
+| Progress note: `xvfb-run` 未導入なら環境起因で E2E 未完了 | `Required setup for xvfb-run`, `First triage when npm run test:e2e fails`, `If xvfb-run is not installed` | xvfb-run prerequisite を provider/fallback failure と混同しないため |
+| Progress note: known unstable autocomplete を Paste / D&D から分離する | `Checklist C`, `Known unstable`, `Separate triage quick runbook`, `Host-class tracking sheet` | separate triage を host-class 記録へ必須化し、Paste / D&D と別欄で閉じられるため |
 
 ## issue-0010 acceptance trace (documentation)
 本書で満たす文書トレースを、受入条件ごとに固定します。
