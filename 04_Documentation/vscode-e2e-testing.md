@@ -155,14 +155,14 @@ issue-0010 の運用では、**automation scope の確認** と **manual scope �
 ### Host matrix: what to run first on each host
 次エージェントが迷わないよう、host の種類ごとの観測順序を固定します。**観測開始順は acceptance criteria の切り分け順そのもの** であり、manual E2E でも崩さないでください。native provider 対応可否を最初に固定し、次に first path と comparison path を必ず 1 セットで実施します。
 
-| Host class | Capability expectation | 0. 事前記録 | 1. 最初の入口 | 2. 比較入口 | この host で確定したいこと |
+| Host class | Capability expectation | First path | Comparison path | Separate triage | この host で確定したいこと |
 |---|---|---|---|---|---|
-| native provider 対応 host | `registerDocumentPasteEditProvider` / `registerDocumentDropEditProvider` が available | VSCode version / OS / provider availability を記録 | 通常の `Ctrl+V` / `Cmd+V`、通常の drag-and-drop | `markdownMatrixInjector.insertEmbedFromPaste` / `markdownMatrixInjector.insertEmbedFromDrop` | native path が使えること、fallback と結果差がないこと |
-| native provider 非対応 host | provider API unavailable、または host 制約で native path 不可 | unavailable の根拠を記録 | `markdownMatrixInjector.insertEmbedFromPaste` / `markdownMatrixInjector.insertEmbedFromDrop` | 通常貼り付け / 通常 drop は参考観測 | fallback が運用上の正規代替手段として成立すること |
-| capability 未確定 host | provider API の有無をまだ確認していない | unconfirmed と記録し、確認方法もメモ | `markdownMatrixInjector.insertEmbedFromPaste` / `markdownMatrixInjector.insertEmbedFromDrop` | その後 native path | まず fallback を成立させ、native-only 障害か共通障害かを分離すること |
+| native provider 対応 host | `registerDocumentPasteEditProvider` / `registerDocumentDropEditProvider` が available | 通常の `Ctrl+V` / `Cmd+V`、通常の drag-and-drop | `markdownMatrixInjector.insertEmbedFromPaste` / `markdownMatrixInjector.insertEmbedFromDrop` | `#` 補完は別欄へ分離 | native path が canonical entry として観測でき、fallback と結果差がないこと |
+| native provider 非対応 host | provider API unavailable、または host 制約で native path 不可 | `markdownMatrixInjector.insertEmbedFromPaste` / `markdownMatrixInjector.insertEmbedFromDrop` | 通常貼り付け / 通常 drop は参考観測 | `#` 補完は別欄へ分離 | fallback が unsupported host 向け compatibility path として成立すること |
+| capability 未確定 host | provider API の有無をまだ確認していない | `markdownMatrixInjector.insertEmbedFromPaste` / `markdownMatrixInjector.insertEmbedFromDrop` | その直後に native path | `#` 補完は別欄へ分離 | まず fallback baseline を作り、native-only 障害か共通障害かを分離すること |
 
 **Decision rule**
-1. **native provider 対応 host**: native → fallback の順で比較する。
+1. **native provider 対応 host**: native → fallback → separate triage の順で閉じる。
 2. **native provider 非対応 host**: fallback を正規入口として扱い、native は参考観測に留める。
 3. **capability 未確定 host**: まず fallback を通し、次に native を試し、その差分から capability 問題か共通処理問題かを判定する。
 4. どの host class でも **比較入口を未実行のまま完了扱いにしない**。issue-0010 の fallback 方針を trace するため、native/fallback の比較記録が必要です。
@@ -178,10 +178,16 @@ host class ごとの完了判定も固定します。**first path / comparison p
 | capability 未確定 host | fallback paste / fallback drop を baseline として 1 回以上記録済み | その直後に native path を同一入力で比較済み | autocomplete を別欄化し、capability 差と known unstable を切り分け済み | native-only failure か共通解析 failure かを区別でき、host class を最終的に更新できる |
 
 ### Practical boundary: what next agents should conclude
+この節は **failure triage の短縮版** です。次の 3 パターンを先に読めば、manual E2E の conclusion を誤読しにくくなります。
+
+| Observed result | First reading | ここで確定してよいこと | ここで確定してはいけないこと |
+|---|---|---|---|
+| native Fail / fallback Pass | native surface または host capability 差 | fallback policy は成立している | shared parser 全体が壊れた、とは言わない |
+| native Fail / fallback Fail | shared parser / payload issue | native only failure ではない | native provider 非対応だけで説明しない |
+| autocomplete `#` only Fail | Known unstable separate triage | Paste / D&D と別トラックで管理する | Paste / Drop も壊れている、と連座させない |
+
+補足:
 - **Automated で Pass**: 解析ロジックと fallback command は少なくとも Extension Host レベルで成立している。manual はその上に UX / host 差分を観測する handoff 先です。
-- **Manual native path で Fail / fallback で Pass**: native provider 非対応 host、または host 依存制約の可能性が高い。**この場合に結論づけてよいのは「fallback 方針は成立している」まで** であり、即座に parser 共通障害とは扱わない。
-- **Manual native path で Fail / fallback でも Fail**: command fallback を含む共通処理の問題として扱う。**native only failure ではなく shared parser / payload failure と読む。**
-- **Autocomplete のみ Fail**: Paste / D&D と同一原因とみなさず、known unstable の節で別トラック管理する。**この場合に結論づけてはいけないのは「Paste / Drop も壊れている」という推定** です。
 - **`xvfb-run` 未導入で automation 未実施**: provider failure ではなく entry condition 未充足。manual scope only の run として記録し、automation handoff は保留にする。
 
 ### Acceptance-to-runbook mapping
@@ -305,13 +311,13 @@ manual E2E 自体は GUI を開ける host で進められますが、issue-0010
    - これにより issue-0010 の「native provider surface」「fallback 方針」「manual E2E 再現性」を 1 回の手順で trace できる。
 
 ### Manual execution quick map by host class
-次エージェントが host class ごとの first move を即決できるよう、manual E2E の開始順を簡略表でも固定します。
+次エージェントが host class ごとの first move を即決できるよう、manual E2E の開始順を簡略表でも固定します。**読む順は First path → Comparison path → Separate triage の 3 列です。**
 
-| Host class | Baseline before Paste / D&D | Paste first move | Paste comparison | Drop first move | Drop comparison | First conclusion | Completion gate |
-|---|---|---|---|---|---|---|---|
-| native provider 対応 host | Preview → Problems → Autocomplete | 通常 paste | fallback command | 通常 drop | fallback command | native path が canonical に動くか | native/fallback の両経路記録 + autocomplete 分離記録 |
-| native provider 非対応 host | Preview → Problems → Autocomplete | fallback command | 通常 paste は参考観測 | fallback command | 通常 drop は参考観測 | fallback 方針が運用上成立するか | fallback 成功記録 + native 参考観測理由 + autocomplete 分離記録 |
-| capability 未確定 host | Preview → Problems → Autocomplete | fallback command | 通常 paste | fallback command | 通常 drop | native-only failure か共通 failure か | fallback baseline + native comparison + host class 更新記録 |
+| Host class | Baseline before Paste / D&D | First path | Comparison path | Separate triage | First conclusion | Completion gate |
+|---|---|---|---|---|---|---|
+| native provider 対応 host | Preview → Problems → Autocomplete | 通常 paste / 通常 drop | fallback command | autocomplete を別欄へ記録 | native path が canonical に動くか | native/fallback の両経路記録 + autocomplete 分離記録 |
+| native provider 非対応 host | Preview → Problems → Autocomplete | fallback command | 通常 paste / 通常 drop は参考観測 | autocomplete を別欄へ記録 | fallback 方針が運用上成立するか | fallback 成功記録 + native 参考観測理由 + autocomplete 分離記録 |
+| capability 未確定 host | Preview → Problems → Autocomplete | fallback command | 通常 paste / 通常 drop | autocomplete を別欄へ記録 | native-only failure か共通 failure か | fallback baseline + native comparison + host class 更新記録 |
 
 この簡略表は `Host matrix` の運用版です。判定に迷った場合は、**「未確定 host では先に fallback」** を優先し、その直後に comparison path を同一入力で実施してください。
 
@@ -321,9 +327,9 @@ Paste / D&D と Known unstable を混線させないため、最後の判定だ�
 | Observed combination | まず付けるラベル | 先に閉じてよい範囲 | 追加で残すべき記録 |
 |---|---|---|---|
 | native Pass / fallback Pass / autocomplete Fail(`#` only) | Known unstable separate | Paste / D&D は Pass 扱い可 | `#` 補完のみ別欄へ記録 |
-| native Fail / fallback Pass / autocomplete Pass | host capability or native path issue | fallback policy 成立まで | OS、VSCode version、入力元アプリ or dropped file |
-| native Fail / fallback Pass / autocomplete Fail(`#` only) | 2 件併発だが別トラック | Paste / D&D は fallback policy 成立、autocomplete は Known unstable | 両者を別項目で記録 |
+| native Fail / fallback Pass | host capability or native path issue | fallback policy 成立まで | OS、VSCode version、入力元アプリ or dropped file |
 | native Fail / fallback Fail | shared parser or payload issue | host capability 問題だけでは閉じない。共通解析 failure として扱う | DataTransfer / clipboard / dropped payload 条件 |
+| autocomplete `#` only Fail | Known unstable separate | Paste / D&D 判定へ混ぜない | filepath / `?` 補完が生きていたか |
 | `xvfb-run` missing | environment prerequisite missing | automation blocked まで | `xvfb-run --help` の結果と manual-only 実施有無 |
 
 ## Checklist A: Markdown Preview / Preview DOM
@@ -755,7 +761,9 @@ rg -n "native|fallback|Known unstable|autocomplete|Paste / D&D|DataTransfer|xvfb
 ## Stream B completion summary
 この Stream は **運用手順の明確化のみ** を担当し、architecture や implementation の再定義を行いません。そのため、他 Stream の完了待ちをせず本書単体でクローズできます。
 
-- host class を **native provider 対応 / 非対応 / capability 未確定** の 3 分類で固定し、それぞれの first path / comparison path / completion gate を明文化した。
+- host class を **native provider 対応 / 非対応 / capability 未確定** の 3 分類で固定し、それぞれの first path / comparison path / separate triage / completion gate を明文化した。
 - `xvfb-run` 未導入時は provider triage に進まず、**headless prerequisite 未充足** として automation blocked を先に記録する runbook を追加した。
-- Known unstable と Paste / D&D regression の関係を、separate triage として独立に閉じる手順へ整理した。
-- 以上により、issue-0010 の manual scope は **first path / comparison path / separate triage / fallback policy trace** の 4 点を文書単体で再現可能です。
+- fallback policy を **unsupported host 向け compatibility path** として明示し、native Fail / fallback Pass と native Fail / fallback Fail を別結論で読む表へ整理した。
+- Known unstable と Paste / D&D regression の関係を、autocomplete `#` only Fail を独立させる separate triage として閉じる手順へ整理した。
+- manual E2E がまだ必要な理由は、Preview DOM / Problems UI / suggest widget / OS native paste/drop の最終挙動が automation boundary の外にあり、delegated manual scope でしか確認できないためです。
+- 以上により、issue-0010 の manual scope は **xvfb-run prerequisite → automation proof boundary → manual comparison path → keyword audit** の導線を保ったまま、**first path / comparison path / separate triage / fallback policy trace** の 4 点を文書単体で再現可能です。
