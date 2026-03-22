@@ -11,7 +11,8 @@ const PASTE_DROP_PROOF_TARGETS = [
 const ISSUE_0010_ACCEPTANCE_TRACE = {
   acceptance1: 'issue-0010 acceptance 1: native provider registration surface',
   acceptance2: 'issue-0010 acceptance 2: shared logic reuse',
-  acceptance4: 'issue-0010 acceptance 4: e2e regression coverage',
+  acceptance3: 'issue-0010 acceptance 3: fallback compatibility path',
+  acceptance4: 'issue-0010 acceptance 4: e2e regression coverage boundary',
 } as const;
 const AUTOCOMPLETE_ISOLATION_BOUNDARY =
   'Known unstable autocomplete remains outside the paste/drop proof boundary and must be triaged independently.';
@@ -36,7 +37,7 @@ export async function runIntegrationTests(): Promise<void> {
   logStage('issue-0010-e2e-scope', {
     acceptanceCriteria: {
       providerRegistrationSurface: `${ISSUE_0010_ACCEPTANCE_TRACE.acceptance1}: Verify native paste/drop providers are exposed on the Extension Host registration surface when the host advertises the APIs.`,
-      fallbackCompatibility: `${ISSUE_0010_ACCEPTANCE_TRACE.acceptance4}: Verify command fallback remains observable as the compatibility path when native provider support is absent or intentionally bypassed.`,
+      fallbackCompatibility: `${ISSUE_0010_ACCEPTANCE_TRACE.acceptance3}: Verify command fallback remains observable as the compatibility path when native provider support is absent or intentionally bypassed.`,
       sharedLogicReuse: `${ISSUE_0010_ACCEPTANCE_TRACE.acceptance2}: Verify native-provider adapters and command fallback converge on the same embed-generation logic instead of diverging implementations.`,
       autocompleteIsolation: 'Keep autocomplete known instability out of paste/drop pass-fail so provider regressions remain attributable.',
     },
@@ -208,7 +209,8 @@ async function observePasteDropBoundary(): Promise<PasteDropObservationState> {
     ...observation,
     acceptanceTrace: {
       acceptance1_providerRegistrationSurface: observation.capability.hasNativePasteProvider && observation.capability.hasNativeDropProvider,
-      acceptance4_fallbackCompatibility: observation.integrationState.fallbackCommandIds,
+      acceptance3_fallbackCompatibility: observation.integrationState.fallbackCommandIds,
+      acceptance4_e2eRegressionBoundary: 'Extension Host E2E keeps proof limited to provider registration surface, fallback compatibility, and shared logic reuse.',
       acceptance2_sharedLogicReuse: 'native-provider adapters and command fallback are both verified against shared embed-generation commands',
       autocompleteIsolation: AUTOCOMPLETE_ISOLATION_BOUNDARY,
     },
@@ -245,7 +247,7 @@ async function verifyPasteDropCoverage(
         registeredPasteProvider: integrationState.registeredPasteProvider,
         registeredDropProvider: integrationState.registeredDropProvider,
       },
-      acceptance4_fallbackCompatibility: {
+      acceptance3_fallbackCompatibility: {
         fallbackCommandIds: integrationState.fallbackCommandIds,
         registeredCommandIds,
       },
@@ -255,6 +257,11 @@ async function verifyPasteDropCoverage(
           'markdownMatrixInjector.__test.getDropInsertTextFromDataTransfer',
         ],
         assertion: 'native-provider adapters and command fallback must keep reusing shared embed parsing/building logic',
+      },
+      acceptance4_e2eRegressionBoundary: {
+        proofTargets: observation.proofTargets,
+        e2eProofBoundary: observation.e2eProofBoundary,
+        headlessEntryConditionGuidance: HEADLESS_ENTRY_CONDITION_GUIDANCE,
       },
       knownUnstableIsolation: {
         autocompleteStateIsDeferred: true,
@@ -296,10 +303,19 @@ async function verifyPasteDropCoverage(
   );
   assert.ok(integrationState.pasteMimeTypes.includes('text/html'));
   assert.ok(integrationState.dropMimeTypes.includes('text/uri-list'));
-  assert.deepEqual(verificationBoundary.proofTargets, [...PASTE_DROP_PROOF_TARGETS]);
+  assert.equal(
+    verificationBoundary.acceptanceTrace.acceptance4,
+    ISSUE_0010_ACCEPTANCE_TRACE.acceptance4,
+    `Expected E2E boundary verification to remain explicitly mapped to ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance4}. boundary=${JSON.stringify(verificationBoundary)}`,
+  );
+  assert.match(
+    verificationBoundary.e2eProofBoundary,
+    /shared logic reuse/,
+    `Expected ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance4} to keep regression proof scoped to provider surface, fallback compatibility, and shared logic reuse. boundary=${JSON.stringify(verificationBoundary)}`,
+  );
   assert.equal(observation.autocompleteIsolationBoundary, AUTOCOMPLETE_ISOLATION_BOUNDARY);
 
-  await runStage('issue-0010-acceptance4-fallback-compatibility', () =>
+  await runStage('issue-0010-acceptance3-fallback-compatibility', () =>
     verifyPasteDropCommandFallback(markdownFilePath, capability, integrationState, verificationBoundary),
   );
 
@@ -378,12 +394,12 @@ async function verifyPasteDropCommandFallback(
 ): Promise<void> {
   assert.ok(
     verificationBoundary,
-    `Expected fallback verification metadata for ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance4}. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)}`,
+    `Expected fallback verification metadata for ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance3}. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)}`,
   );
   assert.equal(
-    verificationBoundary.acceptanceTrace.acceptance4,
-    ISSUE_0010_ACCEPTANCE_TRACE.acceptance4,
-    `Expected fallback verification to remain explicitly mapped to ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance4}. boundary=${JSON.stringify(verificationBoundary)}`,
+    verificationBoundary.acceptanceTrace.acceptance3,
+    ISSUE_0010_ACCEPTANCE_TRACE.acceptance3,
+    `Expected fallback verification to remain explicitly mapped to ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance3}. boundary=${JSON.stringify(verificationBoundary)}`,
   );
   assert.ok(
     verificationBoundary.proofTargets.includes('fallback-compatibility'),
@@ -415,7 +431,7 @@ async function verifyPasteDropCommandFallback(
   assert.match(
     fallbackTextAfterPaste,
     /!\[\[\/tmp\/report\.xlsx#Summary\|A1:B2\]\]/,
-    `Expected ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance4} to keep the paste fallback path inserting through the shared paste/drop logic. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)} boundary=${JSON.stringify(verificationBoundary)}`,
+    `Expected ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance3} to keep the paste fallback path inserting through the shared paste/drop logic. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)} boundary=${JSON.stringify(verificationBoundary)}`,
   );
   assert.ok(
     fallbackTextAfterPaste.includes(PASTE_FALLBACK_EXPECTED_INSERT),
@@ -438,7 +454,7 @@ async function verifyPasteDropCommandFallback(
   assert.match(
     fallbackTextAfterDrop,
     /!\[\[\/tmp\/drop-target\.csv\]\]/,
-    `Expected ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance4} to keep the drop fallback path inserting through the shared paste/drop logic. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)} boundary=${JSON.stringify(verificationBoundary)}`,
+    `Expected ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance3} to keep the drop fallback path inserting through the shared paste/drop logic. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)} boundary=${JSON.stringify(verificationBoundary)}`,
   );
   assert.ok(
     fallbackTextAfterDrop.includes(DROP_FALLBACK_EXPECTED_INSERT),

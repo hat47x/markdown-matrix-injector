@@ -38,7 +38,7 @@ export async function run(): Promise<void> {
         environmentPrerequisite:
           'Missing DISPLAY/xvfb or Extension Host bootstrap issues are categorized before extensionHost.test.ts assertions run. If issue-0010 assertion markers never appear, suspect entry-condition failure first.',
         pasteDropBoundary:
-          'Paste/drop acceptance covers provider surface, fallback compatibility, and shared logic reuse only after environment triage is already clear and issue-0010 assertion markers are present.',
+          'Paste/drop acceptance covers acceptance 1 provider surface, acceptance 3 fallback compatibility, and shared logic reuse for acceptance 4 boundary coverage only after environment triage is already clear and issue-0010 assertion markers are present.',
         knownUnstableIsolation:
           'Autocomplete instability is logged separately and should not be used to fail paste/drop acceptance unless provider-specific assertion markers also fail.',
         nativeFallbackGuardrail: 'Do not start native-fallback design debate unless fallback compatibility evidence also fails after environment triage.',
@@ -55,7 +55,7 @@ export async function run(): Promise<void> {
         durationMs: Date.now() - startedAtMs,
         stageHint: 'extensionHost.test.ts',
         responsibilityHint:
-          'Suite output is boundary guidance only. Follow runner category first: environment-prerequisite means fix display/xvfb or Extension Host bootstrap before reading assertions, especially if issue-0010 assertion markers never appeared; paste-drop-provider-* means compare provider surface, fallback compatibility, and DataTransfer evidence only after environment triage is clean and the assertion-stage markers are visible; autocomplete-known-unstable means keep paste/drop work isolated; unknown means collect logs and stop short of policy debate.',
+          'Suite output is boundary guidance only. Follow runner category first: environment-prerequisite means fix display/xvfb or Extension Host bootstrap before reading assertions, especially if issue-0010 assertion markers never appeared; paste-drop-provider-* means compare acceptance 1 provider surface, acceptance 3 fallback compatibility, and shared DataTransfer evidence within the acceptance 4 E2E boundary only after environment triage is clean and the assertion-stage markers are visible; autocomplete-known-unstable means keep paste/drop work isolated; unknown means collect logs and stop short of policy debate.',
         nextStepOrder: [
           '1) Confirm runner category and matched signals',
           '2) If environment-prerequisite, verify xvfb/display and Extension Host bootstrap; if assertion-stage markers are absent, stop there and rerun before any native/fallback discussion',

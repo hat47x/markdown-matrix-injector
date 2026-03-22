@@ -90,6 +90,7 @@ const EXTENSION_HOST_ASSERTION_PATTERNS = [
   'extensionhost.test.ts',
   'issue-0010-acceptance1',
   'issue-0010-acceptance2',
+  'issue-0010-acceptance3',
   'issue-0010-acceptance4',
   'paste-drop-proof-boundary',
   'autocomplete-boundary',
@@ -147,6 +148,13 @@ type WorkspaceSnapshot = {
   hasWorkspaceFile: boolean;
 };
 
+type HeadlessEntryCondition = {
+  hasDisplayEnv: boolean;
+  underXvfbHarness: boolean;
+  xvfbRunInstalled: boolean;
+  recommendedRunner: string;
+};
+
 type LaunchMetadata = {
   executablePath?: string;
   requestedVersion?: string;
@@ -156,11 +164,7 @@ type LaunchMetadata = {
   ci: boolean;
   displayServer: 'wayland' | 'x11' | 'headless';
   envHints: string[];
-  headlessPrerequisiteState: {
-    hasDisplayEnv: boolean;
-    underXvfbHarness: boolean;
-    recommendedRunner: string;
-  };
+  headlessPrerequisiteState: HeadlessEntryCondition;
 };
 
 async function main(): Promise<void> {
@@ -275,11 +279,12 @@ function createRuntimeContext(): E2ERuntimeContext {
 }
 
 function assertHeadlessPrerequisites(runtime: E2ERuntimeContext): void {
+  const headlessEntryCondition = runtime.launchMetadata.headlessPrerequisiteState;
   if (process.platform !== 'linux') {
     return;
   }
 
-  if (process.env.DISPLAY || process.env.WAYLAND_DISPLAY || process.env.MMI_E2E_UNDER_XVFB === '1') {
+  if (headlessEntryCondition.hasDisplayEnv || headlessEntryCondition.underXvfbHarness) {
     return;
   }
 
@@ -287,12 +292,28 @@ function assertHeadlessPrerequisites(runtime: E2ERuntimeContext): void {
     reason: 'missing-virtual-display',
     failureCategory: 'environment-prerequisite',
     separationFromSpec: 'Provider/fallback assertions were not executed; treat this as a headless prerequisite issue, not a paste/drop specification failure.',
-    recommendation: 'Run through 03_Implement/scripts/run-vscode-e2e.sh so xvfb-run can provide a virtual display.',
+    recommendation: headlessEntryCondition.xvfbRunInstalled
+      ? 'Run through 03_Implement/scripts/run-vscode-e2e.sh so xvfb-run can provide a virtual display.'
+      : 'Install xvfb-run (for example via the xvfb package) or provide DISPLAY/WAYLAND_DISPLAY before rerunning the VSCode E2E harness.',
+    headlessEntryCondition,
     launchMetadata: runtime.launchMetadata,
   });
 
   throw new Error(
-    'Headless prerequisite missing (environment-prerequisite): no DISPLAY/WAYLAND_DISPLAY detected, so provider/fallback assertions never started. Re-run via 03_Implement/scripts/run-vscode-e2e.sh or `cd 03_Implement && npm run test:e2e`.',
+    headlessEntryCondition.xvfbRunInstalled
+      ? 'Headless prerequisite missing (environment-prerequisite): no DISPLAY/WAYLAND_DISPLAY detected, so provider/fallback assertions never started. Re-run via 03_Implement/scripts/run-vscode-e2e.sh or `cd 03_Implement && npm run test:e2e`.'
+      : 'Headless prerequisite missing (environment-prerequisite): no DISPLAY/WAYLAND_DISPLAY detected and xvfb-run is not installed, so provider/fallback assertions never started. Install xvfb-run or run with a display before attributing this to provider logic.',
+  );
+}
+
+function isCommandAvailable(commandName: string): boolean {
+  const pathEntries = (process.env.PATH ?? '').split(path.delimiter).filter(Boolean);
+  const executableExtensions = process.platform === 'win32'
+    ? (process.env.PATHEXT ?? '.EXE;.CMD;.BAT;.COM').split(';').filter(Boolean)
+    : [''];
+
+  return pathEntries.some((entry) =>
+    executableExtensions.some((extension) => fs.existsSync(path.join(entry, `${commandName}${extension}`))),
   );
 }
 
@@ -402,6 +423,7 @@ function collectLaunchMetadata(packageJson: Record<string, unknown>): LaunchMeta
     headlessPrerequisiteState: {
       hasDisplayEnv: Boolean(process.env.DISPLAY || process.env.WAYLAND_DISPLAY),
       underXvfbHarness: process.env.MMI_E2E_UNDER_XVFB === '1',
+      xvfbRunInstalled: isCommandAvailable('xvfb-run'),
       recommendedRunner: 'cd 03_Implement && npm run test:e2e',
     },
   };
