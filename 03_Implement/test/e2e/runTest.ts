@@ -86,6 +86,25 @@ const EXTENSION_HOST_BOOTSTRAP_PATTERNS = [
   'error while loading shared libraries',
   'cannot open display',
 ] as const;
+const EXTENSION_HOST_ASSERTION_PATTERNS = [
+  'extensionhost.test.ts',
+  'issue-0010-acceptance1',
+  'issue-0010-acceptance2',
+  'issue-0010-acceptance4',
+  'paste-drop-proof-boundary',
+  'autocomplete-boundary',
+  'known flaky autocomplete gap isolated',
+  'expected supported host to register the native paste provider surface',
+  'expected supported host to register the native drop provider surface',
+  'expected command fallback verification metadata',
+  'expected command fallback compatibility path to insert paste embed',
+  'expected command fallback compatibility path to insert drop embed',
+  'expected native paste adapter to reuse shared parsing',
+  'expected native drop adapter to reuse shared parsing',
+  'expected autocomplete suggestions after ![[.',
+  'expected sheet completion after #.',
+  'expected parameter completion after ?.',
+] as const;
 
 type FailureCategory =
   | 'environment-prerequisite'
@@ -188,13 +207,13 @@ async function main(): Promise<void> {
       extensionHostBootstrapSignals: EXTENSION_HOST_BOOTSTRAP_PATTERNS,
       guidance: {
         'environment-prerequisite':
-          'Finish environment triage first. Missing display/headless launch prerequisites or Extension Host bootstrap failures block any native/fallback discussion.',
+          'Finish environment triage first. Missing xvfb/display prerequisites or Extension Host bootstrap failures block any native/fallback discussion. If assertion-stage signals are absent, stop here and restore the entry condition before reading provider evidence.',
         'paste-drop-provider-capability':
-          'After environment triage passes, inspect host capability probes, provider registration, and fallback routing. Compare capability=... payloads against integration state.',
+          'After environment triage passes and assertion-stage signals are present, inspect host capability probes, provider registration, and fallback routing. Compare capability=... payloads against integration state.',
         'paste-drop-provider-data-transfer':
-          'After environment triage passes, inspect DataTransfer payload shape, mime types, and adapter parsing before changing provider registration logic.',
+          'After environment triage passes and assertion-stage signals are present, inspect DataTransfer payload shape, mime types, and adapter parsing before changing provider registration logic.',
         'autocomplete-known-unstable':
-          'Track autocomplete as an independent headless instability. Do not regress paste/drop assertions unless provider-specific signals also appear.',
+          'Track autocomplete as an independent headless instability only when autocomplete-specific assertion-stage signals appear without provider failure evidence. Do not regress paste/drop assertions unless provider-specific signals also appear.',
       },
     });
     logSection('launch:start', { launchArgs: runtime.launchArgs });
@@ -408,39 +427,45 @@ function classifyFailure(error: unknown, launchMetadata: LaunchMetadata): Failur
   const matchedCapabilitySignals = matchPatterns(normalized, PROVIDER_CAPABILITY_PATTERNS);
   const matchedEnvironmentSignals = matchPatterns(normalized, ENVIRONMENT_PATTERNS);
   const matchedBootstrapSignals = matchPatterns(normalized, EXTENSION_HOST_BOOTSTRAP_PATTERNS);
+  const matchedAssertionSignals = matchPatterns(normalized, EXTENSION_HOST_ASSERTION_PATTERNS);
+  const reachedAssertionStage = matchedAssertionSignals.length > 0;
+  const environmentRisk = hasEnvironmentRisk(launchMetadata, normalized, reachedAssertionStage);
 
-  if (matchedEnvironmentSignals.length > 0 || matchedBootstrapSignals.length > 0 || hasEnvironmentRisk(launchMetadata, normalized)) {
+  if (matchedEnvironmentSignals.length > 0 || matchedBootstrapSignals.length > 0 || environmentRisk) {
     return {
       category: 'environment-prerequisite',
       matchedSignals: dedupe([
         ...matchedEnvironmentSignals,
         ...matchedBootstrapSignals,
-        ...(hasEnvironmentRisk(launchMetadata, normalized) ? [launchMetadata.displayServer === 'headless' ? 'headless-display' : 'display-server'] : []),
+        ...(!reachedAssertionStage ? ['assertion-stage-not-reached'] : []),
+        ...(environmentRisk ? [launchMetadata.displayServer === 'headless' ? 'headless-display' : 'display-server'] : []),
       ]),
       confidence:
-        matchedEnvironmentSignals.length > 0 || matchedBootstrapSignals.length > 0
+        matchedEnvironmentSignals.length > 0 || matchedBootstrapSignals.length > 0 || !reachedAssertionStage
           ? 'high'
           : 'low',
       likelyStream: 'environment',
       triageStage: 'first-triage',
       nextAction:
-        'Inspect launch-context and environment snapshot first. Confirm display/xvfb prerequisites, VSCode download/runtime dependencies, workspace bootstrap, and Extension Host startup before attributing the failure to provider logic.',
+        'Inspect launch-context and environment snapshot first. Confirm xvfb/display prerequisites, VSCode download/runtime dependencies, workspace bootstrap, and Extension Host startup before attributing the failure to provider logic. If issue-0010 assertion-stage markers never appeared, do not read this as a provider regression.',
       reasoning:
-        'Headless prerequisite or Extension Host bootstrap signals were present, so provider/fallback assertions may not have executed. Treat this as an environment gating issue first.',
+        reachedAssertionStage
+          ? 'Headless prerequisite or Extension Host bootstrap signals were present, so provider/fallback assertions may not have executed cleanly. Treat this as an environment gating issue first.'
+          : 'The runner never observed issue-0010 assertion-stage markers, so the failure happened before provider/fallback proof could start. Treat this as an environment gating issue first.',
       boundaryReminder:
-        'Runner scope ends at environment triage here. Do not enter native-vs-fallback product discussion until environment gating is cleared and Extension Host assertions actually run.',
+        'Runner scope ends at environment triage here. Do not enter native-vs-fallback product discussion until environment gating is cleared and issue-0010 assertion stages actually run.',
     };
   }
 
-  if (matchedCapabilitySignals.length > 0) {
+  if (matchedCapabilitySignals.length > 0 && reachedAssertionStage) {
     return {
       category: 'paste-drop-provider-capability',
-      matchedSignals: dedupe([...matchedProviderSignals, ...matchedCapabilitySignals]),
+      matchedSignals: dedupe([...matchedAssertionSignals, ...matchedProviderSignals, ...matchedCapabilitySignals]),
       confidence: 'high',
       likelyStream: 'paste-drop-provider',
       triageStage: 'provider-triage',
       nextAction:
-        'Inspect capability payloads, provider registration flags, and host API availability. Validate fallback compatibility evidence on this VSCode host before changing native-provider assumptions.',
+        'Inspect capability payloads, provider registration flags, and host API availability. Validate fallback compatibility evidence on this VSCode host before changing native-provider assumptions, and keep autocomplete evidence on a separate track.',
       reasoning:
         'Provider capability or registration markers were present after environment triage, which usually indicates native API availability mismatches rather than autocomplete instability.',
       boundaryReminder:
@@ -448,15 +473,15 @@ function classifyFailure(error: unknown, launchMetadata: LaunchMetadata): Failur
     };
   }
 
-  if (matchedDataTransferSignals.length > 0) {
+  if (matchedDataTransferSignals.length > 0 && reachedAssertionStage) {
     return {
       category: 'paste-drop-provider-data-transfer',
-      matchedSignals: dedupe([...matchedProviderSignals, ...matchedDataTransferSignals]),
+      matchedSignals: dedupe([...matchedAssertionSignals, ...matchedProviderSignals, ...matchedDataTransferSignals]),
       confidence: 'high',
       likelyStream: 'paste-drop-provider',
       triageStage: 'provider-triage',
       nextAction:
-        'Inspect DataTransfer contents, mime types, and adapter parsing output. Confirm whether HTML clipboard metadata or uri-list payloads were present before changing provider registration logic or fallback expectations.',
+        'Inspect DataTransfer contents, mime types, and adapter parsing output. Confirm whether HTML clipboard metadata or uri-list payloads were present before changing provider registration logic or fallback expectations, and keep autocomplete evidence on a separate track.',
       reasoning:
         'The failure references DataTransfer payloads or mime types after environment triage, which points to paste/drop input parsing or adapter bridging rather than the autocomplete path.',
       boundaryReminder:
@@ -464,15 +489,15 @@ function classifyFailure(error: unknown, launchMetadata: LaunchMetadata): Failur
     };
   }
 
-  if (matchedAutocompleteSignals.length > 0) {
+  if (matchedAutocompleteSignals.length > 0 && reachedAssertionStage) {
     return {
       category: 'autocomplete-known-unstable',
-      matchedSignals: matchedAutocompleteSignals,
+      matchedSignals: dedupe([...matchedAssertionSignals, ...matchedAutocompleteSignals]),
       confidence: launchMetadata.displayServer === 'headless' ? 'high' : 'medium',
       likelyStream: 'autocomplete',
       triageStage: 'known-unstable-isolation',
       nextAction:
-        'Treat as likely headless VSCode completion instability first. Reproduce with the logged VSCode host version and display mode before blaming paste/drop provider work.',
+        'Treat as likely headless VSCode completion instability first. Reproduce with the logged VSCode host version and display mode before blaming paste/drop provider work, and keep provider/fallback acceptance tied to its own assertion signals.',
       reasoning:
         'Only autocomplete-specific signals matched, and issue-0010 already records a known headless completion instability that is independent from paste/drop provider coverage.',
       boundaryReminder:
@@ -503,8 +528,18 @@ function dedupe(values: string[]): string[] {
   return [...new Set(values)];
 }
 
-function hasEnvironmentRisk(launchMetadata: LaunchMetadata, normalizedError: string): boolean {
-  return launchMetadata.displayServer === 'headless' && !normalizedError.includes('autocomplete') && !normalizedError.includes('datatransfer');
+function hasEnvironmentRisk(
+  launchMetadata: LaunchMetadata,
+  normalizedError: string,
+  reachedAssertionStage: boolean,
+): boolean {
+  return (
+    launchMetadata.displayServer === 'headless' &&
+    !reachedAssertionStage &&
+    !normalizedError.includes('autocomplete') &&
+    !normalizedError.includes('datatransfer') &&
+    !normalizedError.includes('provider registration')
+  );
 }
 
 function detectDisplayServer(): LaunchMetadata['displayServer'] {
