@@ -19,6 +19,10 @@ const PASTE_DROP_E2E_BOUNDARY =
   'E2E proves provider registration surface, fallback compatibility, and shared logic reuse; it does not prove final OS-native paste/drop UX dispatch.';
 const HEADLESS_ENTRY_CONDITION_GUIDANCE =
   'If Extension Host cannot start because headless prerequisites such as xvfb-run/display wiring are missing, treat it as a verification entry-condition failure rather than a provider regression.';
+const PASTE_FALLBACK_EXPECTED_INSERT = '![[/tmp/report.xlsx#Summary|A1:B2]]';
+const DROP_FALLBACK_EXPECTED_INSERT = '![[/tmp/drop-target.csv]]';
+const NATIVE_PASTE_EXPECTED_INSERT = '![[/tmp/native.xlsx#Summary|A1:B1]]';
+const NATIVE_DROP_EXPECTED_INSERT = '![[/tmp/native-drop.csv]]';
 
 export async function runIntegrationTests(): Promise<void> {
   const workspaceRoot = process.env.MMI_E2E_WORKSPACE;
@@ -177,6 +181,7 @@ interface PasteDropVerificationBoundary {
   readonly proofTargets: typeof PASTE_DROP_PROOF_TARGETS;
   readonly nativeProviderSupported: boolean;
   readonly dropProviderSupported: boolean;
+  readonly acceptanceTrace: typeof ISSUE_0010_ACCEPTANCE_TRACE;
 }
 
 async function observePasteDropBoundary(): Promise<PasteDropObservationState> {
@@ -225,6 +230,7 @@ async function verifyPasteDropCoverage(
     proofTargets: observation.proofTargets,
     nativeProviderSupported: capability.hasNativePasteProvider,
     dropProviderSupported: capability.hasNativeDropProvider,
+    acceptanceTrace: ISSUE_0010_ACCEPTANCE_TRACE,
   };
 
   logStage('paste-drop-proof-boundary:capability', {
@@ -374,6 +380,11 @@ async function verifyPasteDropCommandFallback(
     verificationBoundary,
     `Expected fallback verification metadata for ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance4}. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)}`,
   );
+  assert.equal(
+    verificationBoundary.acceptanceTrace.acceptance4,
+    ISSUE_0010_ACCEPTANCE_TRACE.acceptance4,
+    `Expected fallback verification to remain explicitly mapped to ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance4}. boundary=${JSON.stringify(verificationBoundary)}`,
+  );
   assert.ok(
     verificationBoundary.proofTargets.includes('fallback-compatibility'),
     `Expected fallback compatibility to remain inside the fixed verification boundary. boundary=${JSON.stringify(verificationBoundary)}`,
@@ -406,6 +417,10 @@ async function verifyPasteDropCommandFallback(
     /!\[\[\/tmp\/report\.xlsx#Summary\|A1:B2\]\]/,
     `Expected ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance4} to keep the paste fallback path inserting through the shared paste/drop logic. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)} boundary=${JSON.stringify(verificationBoundary)}`,
   );
+  assert.ok(
+    fallbackTextAfterPaste.includes(PASTE_FALLBACK_EXPECTED_INSERT),
+    `Expected fallback paste command to produce ${PASTE_FALLBACK_EXPECTED_INSERT} so command compatibility remains distinguishable from autocomplete instability. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)} boundary=${JSON.stringify(verificationBoundary)}`,
+  );
 
   editor.selection = new vscode.Selection(new vscode.Position(2, 0), new vscode.Position(2, 0));
   await vscode.commands.executeCommand('markdownMatrixInjector.insertEmbedFromDrop', {
@@ -425,6 +440,10 @@ async function verifyPasteDropCommandFallback(
     /!\[\[\/tmp\/drop-target\.csv\]\]/,
     `Expected ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance4} to keep the drop fallback path inserting through the shared paste/drop logic. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)} boundary=${JSON.stringify(verificationBoundary)}`,
   );
+  assert.ok(
+    fallbackTextAfterDrop.includes(DROP_FALLBACK_EXPECTED_INSERT),
+    `Expected fallback drop command to produce ${DROP_FALLBACK_EXPECTED_INSERT} so provider-regression triage remains separate from unrelated autocomplete flakes. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)} boundary=${JSON.stringify(verificationBoundary)}`,
+  );
 }
 
 async function verifyNativeProviderAdapterCoverage(
@@ -436,6 +455,16 @@ async function verifyNativeProviderAdapterCoverage(
   assert.ok(
     verificationBoundary.nativeProviderSupported && verificationBoundary.dropProviderSupported,
     `Native adapter coverage for ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance1} and ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance2} requires both provider APIs. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)}`,
+  );
+  assert.equal(
+    verificationBoundary.acceptanceTrace.acceptance1,
+    ISSUE_0010_ACCEPTANCE_TRACE.acceptance1,
+    `Expected native provider verification to remain explicitly mapped to ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance1}. boundary=${JSON.stringify(verificationBoundary)}`,
+  );
+  assert.equal(
+    verificationBoundary.acceptanceTrace.acceptance2,
+    ISSUE_0010_ACCEPTANCE_TRACE.acceptance2,
+    `Expected shared-logic verification to remain explicitly mapped to ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance2}. boundary=${JSON.stringify(verificationBoundary)}`,
   );
   assert.ok(
     verificationBoundary.proofTargets.includes('provider-registration-surface'),
@@ -487,7 +516,7 @@ async function verifyNativeProviderAdapterCoverage(
   );
   assert.equal(
     pasteInsert,
-    '![[/tmp/native.xlsx#Summary|A1:B1]]',
+    NATIVE_PASTE_EXPECTED_INSERT,
     `Expected ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance2} to keep the native paste adapter on the shared paste/drop parsing path after ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance1} is satisfied. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)} boundary=${JSON.stringify(verificationBoundary)}`,
   );
 
@@ -506,13 +535,25 @@ async function verifyNativeProviderAdapterCoverage(
 
   assert.equal(
     dropInsert,
-    '![[/tmp/native-drop.csv]]',
+    NATIVE_DROP_EXPECTED_INSERT,
     `Expected ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance2} to keep the native drop adapter on the shared paste/drop parsing path after ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance1} is satisfied. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)} boundary=${JSON.stringify(verificationBoundary)}`,
+  );
+  assert.notEqual(
+    pasteInsert,
+    PASTE_FALLBACK_EXPECTED_INSERT,
+    `Expected native paste adapter coverage to remain distinct from command fallback fixtures while still proving ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance2}. boundary=${JSON.stringify(verificationBoundary)}`,
+  );
+  assert.notEqual(
+    dropInsert,
+    DROP_FALLBACK_EXPECTED_INSERT,
+    `Expected native drop adapter coverage to remain distinct from command fallback fixtures while still proving ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance2}. boundary=${JSON.stringify(verificationBoundary)}`,
   );
 
   logStage('issue-0010-acceptance2-shared-logic-reuse', {
     pasteInsert,
     dropInsert,
+    expectedNativeInsertions: [NATIVE_PASTE_EXPECTED_INSERT, NATIVE_DROP_EXPECTED_INSERT],
+    expectedFallbackInsertions: [PASTE_FALLBACK_EXPECTED_INSERT, DROP_FALLBACK_EXPECTED_INSERT],
     nativeEditKind: integrationState.nativeEditKind,
     verificationBoundary,
     trace: ISSUE_0010_ACCEPTANCE_TRACE.acceptance2,
@@ -639,7 +680,7 @@ function reportKnownSheetCompletionFlake(state: CompletionState, expectedLabel: 
   }
 
   console.warn(
-    `[mmi:e2e] Known flaky autocomplete gap isolated to ${state.stageName}; paste/drop verification remains independent and acceptance is limited to provider registration surface/fallback compatibility/shared logic reuse, while autocomplete remains outside that proof boundary and OS-native UX dispatch or headless entry-condition triage are not covered. ${formatCompletionState(state)}`,
+    `[mmi:e2e] Known flaky autocomplete gap isolated to ${state.stageName}; this does not fail issue-0010 paste/drop acceptance because the proof boundary is limited to native provider registration surface, shared logic reuse, and fallback compatibility. Autocomplete remains a separate known-unstable lane, and OS-native UX dispatch or headless entry-condition triage are not covered here. ${formatCompletionState(state)}`,
   );
   return false;
 }
