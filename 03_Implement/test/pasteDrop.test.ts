@@ -2,7 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
   getDropEditFromDataTransfer,
+  getDropInsertText,
+  getDropInsertTextFromDataTransfer,
   getPasteEditFromDataTransfer,
+  getPasteInsertText,
+  getPasteInsertTextFromDataTransfer,
 } from '../src/dx/vscodeAdapters.js';
 import {
   inferRangeFromHtmlTable,
@@ -575,3 +579,76 @@ test('suggestEmbedFromDataTransfer keeps drop priority ordered as uri-list, html
   });
   assert.deepEqual(reads, ['text/uri-list', 'text/html']);
 });
+
+
+test('vscodeAdapters command fallback and native paste surface converge on the same shared paste logic', async () => {
+  const clipboardHtml = '<div data-sheet="Summary">file:///tmp/adapter.xlsx</div><table><tr><td>A</td><td>B</td></tr></table>';
+  const transfer = {
+    get(mimeType: string) {
+      if (mimeType !== 'text/html') {
+        return undefined;
+      }
+
+      return {
+        async asString() {
+          return clipboardHtml;
+        },
+      };
+    },
+  };
+
+  const fallbackInsertText = getPasteInsertText({ clipboardHtml });
+  const nativeInsertText = await getPasteInsertTextFromDataTransfer(transfer);
+
+  assert.equal(fallbackInsertText, '![[/tmp/adapter.xlsx#Summary|A1:B1]]');
+  assert.equal(nativeInsertText, fallbackInsertText);
+});
+
+test('vscodeAdapters command fallback and native drop surface keep uri-list, file, and html priority aligned', async () => {
+  const droppedFiles = ['/tmp/notes.md', 'file:///tmp/fallback.csv'];
+  const transfer = {
+    get(mimeType: string) {
+      if (mimeType === 'text/uri-list') {
+        return {
+          async asString() {
+            return `# comment
+/tmp/notes.md
+file:///tmp/fallback.csv`;
+          },
+        };
+      }
+
+      if (mimeType === 'text/html') {
+        return {
+          async asString() {
+            return '<div data-sheet="Summary">file:///tmp/from-html.xlsx</div><table><tr><td>A</td></tr></table>';
+          },
+        };
+      }
+
+      if (mimeType === 'files') {
+        return {
+          async asString() {
+            return '';
+          },
+          asFile() {
+            return {
+              uri: {
+                fsPath: '/tmp/from-file.xml',
+              },
+            };
+          },
+        };
+      }
+
+      return undefined;
+    },
+  };
+
+  const fallbackInsertText = getDropInsertText({ droppedFiles });
+  const nativeInsertText = await getDropInsertTextFromDataTransfer(transfer);
+
+  assert.equal(fallbackInsertText, '![[/tmp/fallback.csv]]');
+  assert.equal(nativeInsertText, fallbackInsertText);
+});
+
