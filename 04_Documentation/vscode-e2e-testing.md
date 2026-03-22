@@ -166,6 +166,15 @@ issue-0010 の運用では、**automation scope の確認** と **manual scope �
 3. **capability 未確定 host**: まず fallback を通し、次に native を試し、その差分から capability 問題か共通処理問題かを判定する。
 4. どの host class でも **比較入口を未実行のまま完了扱いにしない**。issue-0010 の fallback 方針を trace するため、native/fallback の比較記録が必要です。
 
+### Host-class completion rule
+host class ごとの完了判定も固定します。**first path / comparison path / separate triage** の 3 点が揃うまで、manual E2E を Done 扱いにしないでください。
+
+| Host class | First path 完了条件 | Comparison path 完了条件 | Separate triage 完了条件 | この host class で言ってよい結論 |
+|---|---|---|---|---|
+| native provider 対応 host | 通常 paste / 通常 drop のどちらも 1 回以上記録済み | fallback paste / fallback drop のどちらも同一入力で 1 回以上比較済み | autocomplete を Paste / D&D と別欄で記録済み | native path が canonical entry として観測でき、fallback との差分有無を説明できる |
+| native provider 非対応 host | fallback paste / fallback drop を正規入口として 1 回以上記録済み | native path を参考観測として試すか、「未対応のため参考観測のみ」と理由付きで明記済み | autocomplete を別トラック化し、native 非対応と混同していない | fallback が compatibility path として成立し、native 不在を parser 障害へ誤変換していない |
+| capability 未確定 host | fallback paste / fallback drop を baseline として 1 回以上記録済み | その直後に native path を同一入力で比較済み | autocomplete を別欄化し、capability 差と known unstable を切り分け済み | native-only failure か共通解析 failure かを区別でき、host class を最終的に更新できる |
+
 ### Practical boundary: what next agents should conclude
 - **Automated で Pass**: 解析ロジックと fallback command は少なくとも Extension Host レベルで成立している。
 - **Manual native path で Fail / fallback で Pass**: native provider 非対応 host、または host 依存制約の可能性が高い。**この場合に結論づけてよいのは「fallback 方針は成立している」まで** であり、即座に parser 共通障害とは扱わない。
@@ -243,6 +252,15 @@ Invalid xml:
 
 > `data/invalid.xml` が fixture に存在しない場合は、同じ `data/` 配下へ名前だけ先に作成し、Excel XML ではない適当な XML 文字列を保存してください。目的は Problems/Preview の invalid XML 経路を手動確認することです。
 
+### If `xvfb-run` is not installed
+manual E2E 自体は GUI を開ける host で進められますが、issue-0010 の acceptance trace では **automation scope の未実施理由を先に固定** してから manual scope に進んでください。
+
+1. `xvfb-run --help` を実行する。
+2. 通らない場合は、automation scope の結論を **`xvfb-run` 未導入による headless prerequisite 未充足** と記録する。
+3. その状態では `npm run test:e2e` を provider failure と読まない。まず `sudo apt-get update && sudo apt-get install -y xvfb` を案内し、導入後に `xvfb-run --help` を再確認する。
+4. どうしても当該 host で `xvfb-run` を入れられない場合は、manual E2E を続行してよいが、結果ログに **「manual scope only / automation blocked by missing xvfb-run」** と明記する。
+5. つまり `xvfb-run` 未導入は **環境未充足** であり、native provider / fallback / DataTransfer triage に入る前段の停止条件です。
+
 ## Manual execution order (run this top to bottom)
 比較観測の順番を固定します。**native path / fallback path / known unstable** を混同しないため、必ず次の順に進めてください。ここでの順序は issue-0010 の未完了条件である **manual E2E による fallback 方針の明示** と **native/fallback 境界の運用再現** に直接対応します。
 
@@ -275,13 +293,24 @@ Invalid xml:
 ### Manual execution quick map by host class
 次エージェントが host class ごとの first move を即決できるよう、manual E2E の開始順を簡略表でも固定します。
 
-| Host class | Baseline before Paste / D&D | Paste first move | Paste comparison | Drop first move | Drop comparison | First conclusion |
-|---|---|---|---|---|---|---|
-| native provider 対応 host | Preview → Problems → Autocomplete | 通常 paste | fallback command | 通常 drop | fallback command | native path が canonical に動くか |
-| native provider 非対応 host | Preview → Problems → Autocomplete | fallback command | 通常 paste は参考観測 | fallback command | 通常 drop は参考観測 | fallback 方針が運用上成立するか |
-| capability 未確定 host | Preview → Problems → Autocomplete | fallback command | 通常 paste | fallback command | 通常 drop | native-only failure か共通 failure か |
+| Host class | Baseline before Paste / D&D | Paste first move | Paste comparison | Drop first move | Drop comparison | First conclusion | Completion gate |
+|---|---|---|---|---|---|---|---|
+| native provider 対応 host | Preview → Problems → Autocomplete | 通常 paste | fallback command | 通常 drop | fallback command | native path が canonical に動くか | native/fallback の両経路記録 + autocomplete 分離記録 |
+| native provider 非対応 host | Preview → Problems → Autocomplete | fallback command | 通常 paste は参考観測 | fallback command | 通常 drop は参考観測 | fallback 方針が運用上成立するか | fallback 成功記録 + native 参考観測理由 + autocomplete 分離記録 |
+| capability 未確定 host | Preview → Problems → Autocomplete | fallback command | 通常 paste | fallback command | 通常 drop | native-only failure か共通 failure か | fallback baseline + native comparison + host class 更新記録 |
 
 この簡略表は `Host matrix` の運用版です。判定に迷った場合は、**「未確定 host では先に fallback」** を優先し、その直後に comparison path を同一入力で実施してください。
+
+### Separate triage quick runbook
+Paste / D&D と Known unstable を混線させないため、最後の判定だけを 1 表に圧縮します。
+
+| Observed combination | まず付けるラベル | 先に閉じてよい範囲 | 追加で残すべき記録 |
+|---|---|---|---|
+| native Pass / fallback Pass / autocomplete Fail(`#` only) | Known unstable separate | Paste / D&D は Pass 扱い可 | `#` 補完のみ別欄へ記録 |
+| native Fail / fallback Pass / autocomplete Pass | host capability or native path issue | fallback policy 成立まで | OS、VSCode version、入力元アプリ or dropped file |
+| native Fail / fallback Pass / autocomplete Fail(`#` only) | 2 件併発だが別トラック | Paste / D&D は fallback policy 成立、autocomplete は Known unstable | 両者を別項目で記録 |
+| native Fail / fallback Fail | shared parser or payload issue | host capability 問題だけでは閉じない | DataTransfer / clipboard / dropped payload 条件 |
+| `xvfb-run` missing | environment prerequisite missing | automation blocked まで | `xvfb-run --help` の結果と manual-only 実施有無 |
 
 ## Checklist A: Markdown Preview / Preview DOM
 **Classification**: Manual  
@@ -511,6 +540,12 @@ Paste / D&D の不具合を切り分けるときは、必ず次の順番で確�
    - `Expected sheet completion after #.` 相当の失敗は、Paste / D&D 回りと同一原因とみなさない。
    - 同一実行で併発しても、ログ上は autocomplete と paste/drop を別項目に分ける。
 
+### Runbook note: known unstable vs Paste / D&D regression
+- **Known unstable** は `#` 補完の不安定性を指すラベルであり、native paste / native drop / fallback command の pass-fail を上書きしません。
+- したがって `#` 補完 failure を見つけても、Checklist D / E をまだ実施していないなら **Paste / D&D 退行判定を保留** してください。
+- 逆に、Paste / D&D の native/fallback 比較が終わっているなら、autocomplete が同時失敗していても **Paste / D&D 欄の結論は native/fallback 比較結果だけで確定** して構いません。
+- この順序を崩すと、issue-0010 の acceptance criteria にある fallback 方針の明示と Known unstable 分離が同時に壊れます。
+
 ## Recommended checklist summary
 実地確認時は、少なくとも次の順番でチェックしてください。Failure triage と result log template がこの並びを前提にしているため、順序を入れ替えないでください。
 
@@ -676,3 +711,11 @@ rg -n "native|fallback|Known unstable|autocomplete|Paste / D&D|DataTransfer|xvfb
 | native provider 非対応 host の fallback 方針が明示されていること | `Host matrix`, `Manual execution quick map by host class`, `Failure triage` | fallback only host の first move・comparison・結論範囲を固定する。 |
 | Extension Host E2E と運用ドキュメントを更新すること | `Command alignment`, `Manual execution order`, `Checklist A-E`, `Failure log template` | automation と manual の handoff、比較順、記録方法を自己完結で再現できるようにする。 |
 | known unstable を Paste / D&D と混線させないこと | `Checklist C`, `Known unstable`, `Fast triage table` | autocomplete は別トラックで記録し、Paste / D&D の成否へ混ぜない。 |
+
+## Stream B completion summary
+この Stream は **運用手順の明確化のみ** を担当し、architecture や implementation の再定義を行いません。そのため、他 Stream の完了待ちをせず本書単体でクローズできます。
+
+- host class を **native provider 対応 / 非対応 / capability 未確定** の 3 分類で固定し、それぞれの first path / comparison path / completion gate を明文化した。
+- `xvfb-run` 未導入時は provider triage に進まず、**headless prerequisite 未充足** として automation blocked を先に記録する runbook を追加した。
+- Known unstable と Paste / D&D regression の関係を、separate triage として独立に閉じる手順へ整理した。
+- 以上により、issue-0010 の manual scope は **first path / comparison path / separate triage / fallback policy trace** の 4 点を文書単体で再現可能です。
