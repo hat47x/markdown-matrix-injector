@@ -89,7 +89,7 @@ test('command-friendly adapters return undefined for unsupported or empty paste/
 });
 
 
-test('native paste adapter prefers HTML/text clipboard parsing and does not fall back to dropped files when clipboard metadata is unsupported', async () => {
+test('native paste adapter reuses shared parsing and falls back to files only after unsupported clipboard metadata is exhausted', async () => {
   let filesRead = 0;
   const unsupportedClipboardTransfer = {
     get(mimeType: string) {
@@ -310,15 +310,17 @@ test('extension integration boundaries keep canonical native providers and compa
 
   assert.match(source, /function registerCompatibilityPasteDropCommands\(\): vscode\.Disposable\[] \{/);
   assert.match(source, /Compatibility path for older hosts or explicit command routing\./);
-  assert.match(source, /registerTextEditorCommand\(\s*FALLBACK_COMMAND_IDS\[0\],[^]*getPasteInsertText\(args\)/s);
-  assert.match(source, /registerTextEditorCommand\(\s*FALLBACK_COMMAND_IDS\[1\],[^]*getDropInsertText\(args\)/s);
+  assert.match(source, /registerTextEditorCommand\(\s*FALLBACK_COMMAND_IDS\[0\],\s*createCompatibilityPasteDropCommandHandler\(getPasteInsertText\),/s);
+  assert.match(source, /registerTextEditorCommand\(\s*FALLBACK_COMMAND_IDS\[1\],\s*createCompatibilityPasteDropCommandHandler\(getDropInsertText\),/s);
+  assert.match(source, /function createCompatibilityPasteDropCommandHandler\([^]*const insertText = getInsertText\(args\);[^]*editBuilder\.replace\(editor\.selection, insertText\);/s);
   assert.match(source, /\.\.\.registerCompatibilityPasteDropCommands\(\),/);
   assert.match(source, /Canonical path for hosts that support native paste providers\./);
   assert.match(source, /Canonical path for hosts that support native drop providers\./);
   assert.match(source, /registerNativePasteDropProviders\(context, nativePasteDropState\);/);
   assert.match(source, /registerNativePasteProvider\(context, nativePasteDropState\);\s*registerNativeDropProvider\(context, nativePasteDropState\);/s);
-  assert.match(source, /function registerNativePasteProvider[^]*getPasteEditFromDataTransfer\(dataTransfer/s);
-  assert.match(source, /function registerNativeDropProvider[^]*getDropEditFromDataTransfer\(dataTransfer/s);
+  assert.match(source, /const NATIVE_PASTE_DROP_COMMAND_NAME = 'Insert Markdown Matrix embed';/);
+  assert.match(source, /function registerNativePasteProvider[^]*getPasteEditFromDataTransfer\(dataTransfer[^]*NATIVE_PASTE_DROP_COMMAND_NAME/s);
+  assert.match(source, /function registerNativeDropProvider[^]*getDropEditFromDataTransfer\(dataTransfer[^]*NATIVE_PASTE_DROP_COMMAND_NAME/s);
   assert.doesNotMatch(source, /provideDocumentPasteEdits[^]*getPasteInsertText\(args\)/s);
   assert.doesNotMatch(source, /provideDocumentDropEdits[^]*getDropInsertText\(args\)/s);
 
@@ -337,6 +339,36 @@ test('extension integration boundaries keep canonical native providers and compa
       'markdownMatrixInjector.renderEmbedForTest',
       'markdownMatrixInjector.insertEmbedFromPaste',
       'markdownMatrixInjector.insertEmbedFromDrop',
+    ],
+  );
+});
+
+test('native provider metadata stays API-visible without collapsing command fallback visibility', async () => {
+  const packageJsonModule = await import('../package.json', { with: { type: 'json' } });
+  const packageJson = packageJsonModule.default;
+
+  assert.deepEqual(
+    packageJson.contributes.commands,
+    [
+      {
+        command: 'markdownMatrixInjector.renderEmbedForTest',
+        title: 'MMI: Render Embed For Test',
+      },
+      {
+        command: 'markdownMatrixInjector.insertEmbedFromPaste',
+        title: 'MMI: Insert Embed From Paste',
+      },
+      {
+        command: 'markdownMatrixInjector.insertEmbedFromDrop',
+        title: 'MMI: Insert Embed From Drop',
+      },
+    ],
+  );
+  assert.deepEqual(
+    packageJson.activationEvents.filter((event: string) => event.startsWith('onCommand:markdownMatrixInjector.insertEmbedFrom')),
+    [
+      'onCommand:markdownMatrixInjector.insertEmbedFromPaste',
+      'onCommand:markdownMatrixInjector.insertEmbedFromDrop',
     ],
   );
 });
