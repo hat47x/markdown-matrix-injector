@@ -308,13 +308,19 @@ test('extension integration boundaries keep canonical native providers and compa
   const packageJson = packageJsonModule.default;
   const source = await fs.readFile(new URL('../src/extension.ts', import.meta.url), 'utf8');
 
+  assert.match(source, /function registerCompatibilityPasteDropCommands\(\): vscode\.Disposable\[] \{/);
   assert.match(source, /Compatibility path for older hosts or explicit command routing\./);
+  assert.match(source, /registerTextEditorCommand\(\s*FALLBACK_COMMAND_IDS\[0\],[^]*getPasteInsertText\(args\)/s);
+  assert.match(source, /registerTextEditorCommand\(\s*FALLBACK_COMMAND_IDS\[1\],[^]*getDropInsertText\(args\)/s);
+  assert.match(source, /\.\.\.registerCompatibilityPasteDropCommands\(\),/);
   assert.match(source, /Canonical path for hosts that support native paste providers\./);
   assert.match(source, /Canonical path for hosts that support native drop providers\./);
   assert.match(source, /registerNativePasteDropProviders\(context, nativePasteDropState\);/);
   assert.match(source, /registerNativePasteProvider\(context, nativePasteDropState\);\s*registerNativeDropProvider\(context, nativePasteDropState\);/s);
-  assert.match(source, /function registerNativePasteProvider[^]*typeof vscode\.languages\.registerDocumentPasteEditProvider !== 'function'/s);
-  assert.match(source, /function registerNativeDropProvider[^]*typeof vscode\.languages\.registerDocumentDropEditProvider !== 'function'/s);
+  assert.match(source, /function registerNativePasteProvider[^]*getPasteEditFromDataTransfer\(dataTransfer/s);
+  assert.match(source, /function registerNativeDropProvider[^]*getDropEditFromDataTransfer\(dataTransfer/s);
+  assert.doesNotMatch(source, /provideDocumentPasteEdits[^]*getPasteInsertText\(args\)/s);
+  assert.doesNotMatch(source, /provideDocumentDropEdits[^]*getDropInsertText\(args\)/s);
 
   assert.deepEqual(
     packageJson.activationEvents,
@@ -339,10 +345,16 @@ test('extension integration state remains source-visible for native edit kind mi
   const { default: fs } = await import('node:fs/promises');
   const source = await fs.readFile(new URL('../src/extension.ts', import.meta.url), 'utf8');
 
+  assert.match(source, /interface PasteDropIntegrationTestMetadata \{/);
+  assert.match(source, /function createPasteDropIntegrationTestMetadata\(\): PasteDropIntegrationTestMetadata \{/);
+  assert.match(source, /fallbackCommandIds: \[\.\.\.FALLBACK_COMMAND_IDS\]/);
+  assert.match(source, /nativeEditKind: NATIVE_PASTE_DROP_EDIT_KIND\.value/);
+  assert.match(source, /pasteMimeTypes: \[\.\.\.PASTE_MIME_TYPES\]/);
+  assert.match(source, /dropMimeTypes: \[\.\.\.DROP_MIME_TYPES\]/);
+  assert.match(source, /vscode\.commands\.registerCommand\('markdownMatrixInjector\.__test\.getPasteDropIntegrationState', \(\) => \(\{\s*\.\.\.createPasteDropIntegrationTestMetadata\(\),\s*\.\.\.nativePasteDropState,\s*\}\)\)/s);
   assert.match(source, /const NATIVE_PASTE_DROP_EDIT_KIND = vscode\.DocumentDropOrPasteEditKind\.Text\.append\('markdownMatrixInjector', 'embed'\);/);
   assert.match(source, /const PASTE_MIME_TYPES = \['text\/html', 'files'\] as const;/);
   assert.match(source, /const DROP_MIME_TYPES = \['text\/html', 'text\/uri-list', 'files'\] as const;/);
-  assert.match(source, /fallbackCommandIds: \[\.\.\.FALLBACK_COMMAND_IDS\],\s*nativeEditKind: NATIVE_PASTE_DROP_EDIT_KIND\.value,\s*pasteMimeTypes: \[\.\.\.PASTE_MIME_TYPES\],\s*dropMimeTypes: \[\.\.\.DROP_MIME_TYPES\],\s*\.\.\.nativePasteDropState,/s);
   assert.match(source, /hostSupportsPasteProvider: typeof vscode\.languages\.registerDocumentPasteEditProvider === 'function'/);
   assert.match(source, /hostSupportsDropProvider: typeof vscode\.languages\.registerDocumentDropEditProvider === 'function'/);
   assert.match(source, /registeredPasteProvider: false/);
