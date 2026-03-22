@@ -494,3 +494,107 @@ test('native adapter regressions keep shared drop priority source-visible from u
     { insertText: '![[/tmp/from-uri.xml]]', via: 'native-drop' },
   );
 });
+
+
+test('shared paste/drop boundaries keep fallback commands and native adapters behaviorally identical for supported, unsupported, and empty payloads', async () => {
+  const sharedPasteHtml = '<div data-sheet="Summary">file:///tmp/shared-proof.xlsx</div><table><tr><td>A</td><td>B</td></tr></table>';
+  const nativePasteTransfer = {
+    get(mimeType: string) {
+      if (mimeType !== 'text/html') {
+        return undefined;
+      }
+
+      return {
+        async asString() {
+          return sharedPasteHtml;
+        },
+      };
+    },
+  };
+  assert.equal(
+    await getPasteInsertTextFromDataTransfer(nativePasteTransfer),
+    getPasteInsertText({ clipboardHtml: sharedPasteHtml }),
+  );
+
+  const sharedDropFiles = ['file:///tmp/shared-proof.csv'];
+  const nativeDropTransfer = {
+    get(mimeType: string) {
+      if (mimeType !== 'files') {
+        return undefined;
+      }
+
+      return {
+        async asString() {
+          return '';
+        },
+        asFile() {
+          return {
+            uri: {
+              fsPath: sharedDropFiles[0],
+            },
+          };
+        },
+      };
+    },
+  };
+  assert.equal(
+    await getDropInsertTextFromDataTransfer(nativeDropTransfer),
+    getDropInsertText({ droppedFiles: sharedDropFiles }),
+  );
+
+  const unsupportedPasteTransfer = {
+    get(mimeType: string) {
+      if (mimeType !== 'text/plain') {
+        return undefined;
+      }
+
+      return {
+        async asString() {
+          return 'unsupported clipboard text';
+        },
+      };
+    },
+  };
+  assert.equal(getPasteInsertText({ clipboardHtml: '<p>unsupported clipboard text</p>' }), undefined);
+  assert.equal(await getPasteInsertTextFromDataTransfer(unsupportedPasteTransfer), undefined);
+
+  const unsupportedDropTransfer = {
+    get(mimeType: string) {
+      if (mimeType === 'text/html') {
+        return {
+          async asString() {
+            return '<div>unsupported host payload</div>';
+          },
+        };
+      }
+      if (mimeType === 'files') {
+        return {
+          async asString() {
+            return '';
+          },
+          asFile() {
+            return {
+              uri: {
+                fsPath: '/tmp/readme.md',
+              },
+            };
+          },
+        };
+      }
+
+      return undefined;
+    },
+  };
+  assert.equal(getDropInsertText({ droppedFiles: ['/tmp/readme.md'] }), undefined);
+  assert.equal(await getDropInsertTextFromDataTransfer(unsupportedDropTransfer), undefined);
+
+  const emptyTransfer = {
+    get() {
+      return undefined;
+    },
+  };
+  assert.equal(getPasteInsertText(), undefined);
+  assert.equal(getDropInsertText(), undefined);
+  assert.equal(await getPasteInsertTextFromDataTransfer(emptyTransfer), undefined);
+  assert.equal(await getDropInsertTextFromDataTransfer(emptyTransfer), undefined);
+});
