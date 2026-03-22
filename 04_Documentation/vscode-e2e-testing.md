@@ -20,6 +20,20 @@ Phase 5 E2E は運用上、次の 3 分類で読み分けます。
 
 以降の節は、**再現手順・観測順・failure triage だけを改善対象とする** という前提で読んでください。
 
+## Scope lock from issue-0010 and architecture
+Task 1 / Task 3 の自己点検用に、本書が依拠する上流文書の責務をここで固定します。**この節は architecture の境界を言い換えるためではなく、runbook が逸脱していないことを明示するためのガードレール**です。
+
+| Upstream source | Already fixed there | What this runbook is allowed to add | What this runbook must not redefine |
+|---|---|---|---|
+| `01_Plans/issues/issue-0010-phase5-native-paste-drop-provider.md` Progress Notes | native provider / shared parsing / fallback behavior を proof boundary とし、manual E2E に native/fallback 比較順・known unstable 分離・failure triage を残すこと | Progress Notes にある manual 運用項目を、再実行可能な手順・表・ログテンプレートへ落とす | acceptance criteria 自体の変更、issue status の判定基準変更 |
+| `02_Architecture/vscode-extension-host-e2e.md` automation boundary | canonical path / compatibility path / shared-logic boundary / known unstable separation | manual 観測順、host class ごとの first path / comparison path、failure 記録方法 | canonical path / compatibility path の意味、delegated manual scope の範囲 |
+| `04_Documentation/developer-setup.md` setup boundary | 前提条件、実行入口、`xvfb-run` prerequisite の setup 導線 | setup 後にどの順で manual E2E を進めるか | OS セットアップ手順の正本化、architecture handoff の再定義 |
+
+### Boundary shorthand used in this runbook
+- **manual scope**: Preview DOM / Problems UI / suggest widget / OS native paste-drop の最終観測順と記録方法。
+- **automation scope**: `npm run test:e2e` が先に保証する proof boundary の読み方。
+- **boundary rule**: automation と manual の境界線は architecture が固定済みで、本書はその境界線の**渡り方**だけを説明します。
+
 ## Overview
 Markdown Matrix Injector では、Docker コンテナ内でも VSCode Extension Host を起動した自動検証を行えます。現在の Phase 5 E2E では、実際の VSCode エンジン上で次の 5 系統を確認します。
 
@@ -715,18 +729,27 @@ issue-0010 の acceptance criteria / Progress Notes に対して、runbook で�
 ## Manual runbook completion rule (short summary)
 manual runbook は、**同じ host class で同じ比較順を再実行でき、native only failure / shared parser failure / Known unstable を別々に記録できる状態** になった時点で完了です。
 
+## Boundary self-check before closing the document task
+Task 3 の自己点検として、文書更新後に次の 4 問へ **すべて Yes** と答えられるか確認してください。
+
+1. native / fallback / shared logic / known unstable の**定義そのもの**を変更せず、観測順と triage 順だけを書いたか。
+2. delegated manual scope の具体化として、Preview DOM / Problems UI / suggest widget / OS native paste-drop の観測手順だけを追加したか。
+3. `xvfb-run` prerequisite を provider/fallback failure と混同せず、entry condition として先に扱っているか。
+4. host class ごとの first path / comparison path / failure log template が、automation scope の再説明ではなく manual runbook の再現性向上に使われているか。
+
+上の 4 問のどれかが No なら、本書は architecture の責務へ踏み込み過ぎています。文書を閉じる前に、その記述を runbook の操作語彙へ戻してください。
+
 ## Keyword audit for issue-0010 operations
 文書更新後は、少なくとも次のキーワードが欠けていないか `rg` で確認してください。
 
 ```bash
-rg -n "native|fallback|Known unstable|autocomplete|Paste / D&D|DataTransfer|xvfb-run" 04_Documentation/vscode-e2e-testing.md
+rg -n "native|fallback|manual|xvfb|autocomplete" 04_Documentation/vscode-e2e-testing.md 02_Architecture/vscode-extension-host-e2e.md
 ```
 
 確認観点:
-- `native` と `fallback` が policy / checklist / failure triage の 3 箇所以上に出ているか。
-- `Known unstable` と `autocomplete` が独立節として存在するか。
-- `Paste / D&D` と `DataTransfer` が比較手順または failure log に含まれているか。
-- `xvfb-run` が prerequisite / command / failure triage のいずれかで明示されているか。
+- `native` と `fallback` が architecture と runbook の両方で比較境界として現れているか。
+- `manual` と `autocomplete` が delegated manual scope / known unstable separation の文脈で残っているか。
+- `xvfb` が prerequisite / triage / handoff のいずれかで明示されているか。
 
 ## Future Playwright candidates
 手動でしか確認しにくい項目のうち、将来 Playwright 化を検討する候補は次のとおりです。
