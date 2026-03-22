@@ -38,9 +38,9 @@ export async function runIntegrationTests(): Promise<void> {
     proofTargets: PASTE_DROP_PROOF_TARGETS,
     e2eProofBoundary: PASTE_DROP_E2E_BOUNDARY,
   });
-  const pasteDropBoundary = await runStage('paste-drop-proof-observation', () => observePasteDropBoundary());
-  await runStage('paste-drop-proof-boundary', () => verifyPasteDropCoverage(markdownFilePath, pasteDropBoundary));
-  const autocompleteResult = await runStage('autocomplete-known-unstable-boundary', () => verifyAutocompleteIntegration(markdownFilePath));
+  const pasteDropBoundary = await runStage('paste-drop-observation', () => observePasteDropBoundary());
+  await runStage('paste-drop-boundary', () => verifyPasteDropCoverage(markdownFilePath, pasteDropBoundary));
+  const autocompleteResult = await runStage('autocomplete-boundary', () => verifyAutocompleteIntegration(markdownFilePath));
   await runStage('diagnostics', () => verifyDiagnosticsIntegration(workspaceRoot));
   logStage('paste-drop-proof-boundary:post-autocomplete', {
     autocompleteSheetCompletionStable: autocompleteResult.sheetCompletionStable,
@@ -194,7 +194,7 @@ async function observePasteDropBoundary(): Promise<PasteDropObservationState> {
       providerRegistrationSurface: observation.capability.hasNativePasteProvider && observation.capability.hasNativeDropProvider,
       fallbackCompatibility: observation.integrationState.fallbackCommandIds,
       sharedLogicReuse: 'native-provider adapters and command fallback are both verified against shared embed-generation commands',
-      knownUnstableIsolation: 'paste-drop assertions execute before autocomplete-known-unstable-boundary and log their own proof targets',
+      knownUnstableIsolation: 'paste-drop assertions execute before autocomplete-boundary and log their own proof targets',
     },
   });
 
