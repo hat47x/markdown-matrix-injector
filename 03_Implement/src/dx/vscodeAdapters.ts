@@ -3,7 +3,7 @@ import { type AutocompleteCandidate } from './autocompleteProvider.js';
 import { validateEmbedDiagnostics, type EmbedDiagnostic, type XmlMode } from './diagnostics.js';
 import {
   suggestEmbedFromDataTransfer,
-  suggestEmbedFromPasteDrop,
+  suggestEmbedFromTransferValues,
   type PasteDropDataTransferLike,
 } from './pasteDrop.js';
 
@@ -140,11 +140,23 @@ export async function createDiagnosticsForDocument(
 }
 
 export function getPasteInsertText(args?: PasteDropCommandArgs): string | undefined {
-  return args?.clipboardHtml ? suggestEmbedFromPasteDrop({ clipboardHtml: args.clipboardHtml })?.markdown : undefined;
+  if (!args?.clipboardHtml) {
+    return undefined;
+  }
+
+  return suggestEmbedFromTransferValues('paste', {
+    clipboardValues: { 'text/html': args.clipboardHtml },
+  })?.markdown;
 }
 
 export function getDropInsertText(args?: PasteDropCommandArgs): string | undefined {
-  return args?.droppedFiles ? suggestEmbedFromPasteDrop({ droppedFiles: args.droppedFiles })?.markdown : undefined;
+  if (!args?.droppedFiles) {
+    return undefined;
+  }
+
+  return suggestEmbedFromTransferValues('drop', {
+    droppedFiles: args.droppedFiles,
+  })?.markdown;
 }
 
 export async function getPasteInsertTextFromDataTransfer(dataTransfer: DataTransferLike): Promise<string | undefined> {
