@@ -179,13 +179,16 @@
 - `04_Documentation/vscode-e2e-testing.md`: delegated manual scope と実行運用
 
 ## 10. issue-0010 acceptance mapping
-| Acceptance / progress-note concern | Architecture decision | Boundary section | Handoff / note |
-|---|---|---|---|
-| native provider が canonical path であること | native paste/drop provider を Paste / D&D の正規入口として固定する | `4.1 Canonical path boundary`, `5.1 Automation scope` | manual E2E は UX 最終到達だけを補完する |
-| fallback command が unsupported host 向け compatibility path であること | command fallback を native 代替ではなく互換境界として維持する | `4.2 Compatibility path boundary`, `5.3 Verification boundary rule` | host capability 不足時でも受入条件 3 を追跡できる |
-| shared logic 再利用方針 | native / fallback が同一 DataTransfer 解析と embed 生成へ収束する | `3.1 DXロジック本体`, `4.3 Shared-logic boundary` | `pasteDrop.ts` 再利用を architecture の仕様正本として扱う |
-| `xvfb-run` 前提と manual/automation handoff | headless prerequisite 未充足は verification entry condition として扱う | `3.4 Delegated manual scope`, `6. Headless execution boundary` | automation blocked と manual continuation を混線させない |
-| autocomplete known unstable の分離 | `#` 補完不安定は Paste / D&D acceptance 境界から外す | `5.3 Verification boundary rule`, `7. Known risk isolation` | 同一 run で併発しても別トラックで記録する |
+issue-0010 の acceptance criteria 1〜4 と Progress Notes に残っている未完了論点は、architecture 上では次の 4 類型へ正規化して読む。
+
+| Concern bucket | What remains open on the document side | Architecture decision | Boundary section | Handoff / note |
+|---|---|---|---|---|
+| native canonical path | native provider surface を Paste / D&D の canonical path として固定し、受入条件 1 の追跡点を明示する | native paste/drop provider を Paste / D&D の正規入口として固定する | `4.1 Canonical path boundary`, `5.1 Automation scope` | manual E2E は UX 最終到達だけを補完する |
+| fallback compatibility path | unsupported host でも fallback policy を acceptance criteria 3 として追跡できるようにする | command fallback を native 代替ではなく互換境界として維持する | `4.2 Compatibility path boundary`, `5.3 Verification boundary rule` | host capability 不足時でも受入条件 3 を追跡できる |
+| xvfb-run prerequisite | headless 実行前提不足を provider/fallback 仕様失敗と混同しない | headless prerequisite 未充足は verification entry condition として扱う | `3.4 Delegated manual scope`, `6. Headless execution boundary` | automation blocked と manual continuation を混線させない |
+| known unstable separation | autocomplete known unstable を Paste / D&D acceptance boundary から隔離する | `#` 補完不安定は Paste / D&D acceptance 境界から外す | `5.3 Verification boundary rule`, `7. Known risk isolation` | 同一 run で併発しても別トラックで記録する |
+
+補足として、acceptance criteria 2 の shared-logic reuse は上記 4 類型を横断する設計制約であり、native canonical path と fallback compatibility path の両方で `pasteDrop.ts` 再利用を守る前提条件として扱う。
 
 ## 11. issue-0010 acceptance trace summary
 - Acceptance criteria 1「native provider surface から発火できること」には、`4.1 Canonical path boundary` と `5.1 Automation scope` が対応する。
