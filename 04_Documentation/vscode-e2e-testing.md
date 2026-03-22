@@ -165,6 +165,7 @@ issue-0010 の運用では、**automation scope の確認** と **manual scope �
 2. **native provider 非対応 host**: fallback を正規入口として扱い、native は参考観測に留める。
 3. **capability 未確定 host**: まず fallback を通し、次に native を試し、その差分から capability 問題か共通処理問題かを判定する。
 4. どの host class でも **比較入口を未実行のまま完了扱いにしない**。issue-0010 の fallback 方針を trace するため、native/fallback の比較記録が必要です。
+5. capability 未確定 host では、**fallback baseline を先に確立してから native を試す**。これにより、native only failure と shared parser failure を誤読しません。
 
 ### Host-class completion rule
 host class ごとの完了判定も固定します。**first path / comparison path / separate triage** の 3 点が揃うまで、manual E2E を Done 扱いにしないでください。
@@ -176,10 +177,11 @@ host class ごとの完了判定も固定します。**first path / comparison p
 | capability 未確定 host | fallback paste / fallback drop を baseline として 1 回以上記録済み | その直後に native path を同一入力で比較済み | autocomplete を別欄化し、capability 差と known unstable を切り分け済み | native-only failure か共通解析 failure かを区別でき、host class を最終的に更新できる |
 
 ### Practical boundary: what next agents should conclude
-- **Automated で Pass**: 解析ロジックと fallback command は少なくとも Extension Host レベルで成立している。
+- **Automated で Pass**: 解析ロジックと fallback command は少なくとも Extension Host レベルで成立している。manual はその上に UX / host 差分を観測する handoff 先です。
 - **Manual native path で Fail / fallback で Pass**: native provider 非対応 host、または host 依存制約の可能性が高い。**この場合に結論づけてよいのは「fallback 方針は成立している」まで** であり、即座に parser 共通障害とは扱わない。
-- **Manual native path で Fail / fallback でも Fail**: command fallback を含む共通処理の問題として扱う。
+- **Manual native path で Fail / fallback でも Fail**: command fallback を含む共通処理の問題として扱う。**native only failure ではなく shared parser / payload failure と読む。**
 - **Autocomplete のみ Fail**: Paste / D&D と同一原因とみなさず、known unstable の節で別トラック管理する。**この場合に結論づけてはいけないのは「Paste / Drop も壊れている」という推定** です。
+- **`xvfb-run` 未導入で automation 未実施**: provider failure ではなく entry condition 未充足。manual scope only の run として記録し、automation handoff は保留にする。
 
 ### Observation order contract
 manual E2E の観測順序は次の契約で固定します。次エージェントは host ごとの例外運用を考えず、この順で進めてください。
@@ -302,14 +304,14 @@ manual E2E 自体は GUI を開ける host で進められますが、issue-0010
 この簡略表は `Host matrix` の運用版です。判定に迷った場合は、**「未確定 host では先に fallback」** を優先し、その直後に comparison path を同一入力で実施してください。
 
 ### Separate triage quick runbook
-Paste / D&D と Known unstable を混線させないため、最後の判定だけを 1 表に圧縮します。
+Paste / D&D と Known unstable を混線させないため、最後の判定だけを 1 表に圧縮します。**native only failure** と **shared parser failure** を読み違えないための最短表でもあります。
 
 | Observed combination | まず付けるラベル | 先に閉じてよい範囲 | 追加で残すべき記録 |
 |---|---|---|---|
 | native Pass / fallback Pass / autocomplete Fail(`#` only) | Known unstable separate | Paste / D&D は Pass 扱い可 | `#` 補完のみ別欄へ記録 |
 | native Fail / fallback Pass / autocomplete Pass | host capability or native path issue | fallback policy 成立まで | OS、VSCode version、入力元アプリ or dropped file |
 | native Fail / fallback Pass / autocomplete Fail(`#` only) | 2 件併発だが別トラック | Paste / D&D は fallback policy 成立、autocomplete は Known unstable | 両者を別項目で記録 |
-| native Fail / fallback Fail | shared parser or payload issue | host capability 問題だけでは閉じない | DataTransfer / clipboard / dropped payload 条件 |
+| native Fail / fallback Fail | shared parser or payload issue | host capability 問題だけでは閉じない。共通解析 failure として扱う | DataTransfer / clipboard / dropped payload 条件 |
 | `xvfb-run` missing | environment prerequisite missing | automation blocked まで | `xvfb-run --help` の結果と manual-only 実施有無 |
 
 ## Checklist A: Markdown Preview / Preview DOM
@@ -547,7 +549,7 @@ Paste / D&D の不具合を切り分けるときは、必ず次の順番で確�
 - この順序を崩すと、issue-0010 の acceptance criteria にある fallback 方針の明示と Known unstable 分離が同時に壊れます。
 
 ## Recommended checklist summary
-実地確認時は、少なくとも次の順番でチェックしてください。Failure triage と result log template がこの並びを前提にしているため、順序を入れ替えないでください。
+実地確認時は、少なくとも次の順番でチェックしてください。Failure triage と result log template がこの並びを前提にしているため、順序を入れ替えないでください。**完了条件は「host class を固定し、first move と comparison を同一入力で記録し、Known unstable を別欄へ分離した」状態です。**
 
 - [ ] Manual setup が完了している。
 - [ ] Host capability を記録した。
@@ -561,6 +563,7 @@ Paste / D&D の不具合を切り分けるときは、必ず次の順番で確�
 - [ ] Checklist E: **比較対象の Drop 入口** を追加実行した。
 - [ ] autocomplete の失敗有無を Paste / D&D と分離して記録した。
 - [ ] Failure log template に結果を転記した。
+- [ ] manual runbook の完了条件を満たしたと短く要約できる。
 
 ## Suggested manual result log template
 手動確認の結果は、次のテンプレートで残すと差分を追いやすくなります。
@@ -668,6 +671,9 @@ Paste / D&D の不具合を切り分けるときは、必ず次の順番で確�
    - `Manual environment setup`, `Manual execution order`, `Checklist A-E`, `Suggested manual result log template`, `Failure log template` で再現手順・比較順・失敗ログを固定する。
 5. **autocomplete known unstable を独立運用できること**
    - `Checklist C`, `Known unstable`, `Fast triage table`, `Cross-reference map` で Paste / D&D と混同しない導線を作る。
+
+## Manual runbook completion rule (short summary)
+manual runbook は、**同じ host class で同じ比較順を再実行でき、native only failure / shared parser failure / Known unstable を別々に記録できる状態** になった時点で完了です。
 
 ## Keyword audit for issue-0010 operations
 文書更新後は、少なくとも次のキーワードが欠けていないか `rg` で確認してください。
