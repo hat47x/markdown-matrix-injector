@@ -7,10 +7,11 @@ const PASTE_DROP_PROOF_TARGETS = [
   'provider-registration-surface',
   'fallback-compatibility',
   'shared-logic-reuse',
-  'known-unstable-isolation',
 ] as const;
+const AUTOCOMPLETE_ISOLATION_BOUNDARY =
+  'Known unstable autocomplete remains outside the paste/drop proof boundary and must be triaged independently.';
 const PASTE_DROP_E2E_BOUNDARY =
-  'E2E proves provider registration surface, fallback compatibility, shared logic reuse, and known unstable isolation; it does not prove final OS-native paste/drop UX dispatch.';
+  'E2E proves provider registration surface, fallback compatibility, and shared logic reuse; it does not prove final OS-native paste/drop UX dispatch.';
 const HEADLESS_ENTRY_CONDITION_GUIDANCE =
   'If Extension Host cannot start because headless prerequisites such as xvfb-run/display wiring are missing, treat it as a verification entry-condition failure rather than a provider regression.';
 
@@ -28,7 +29,7 @@ export async function runIntegrationTests(): Promise<void> {
       providerRegistrationSurface: 'Verify native paste/drop providers are exposed on the Extension Host registration surface when the host advertises the APIs.',
       fallbackCompatibility: 'Verify command fallback remains observable as the compatibility path when native provider support is absent or intentionally bypassed.',
       sharedLogicReuse: 'Verify native-provider adapters and command fallback converge on the same embed-generation logic instead of diverging implementations.',
-      knownUnstableIsolation: 'Keep autocomplete known instability out of paste/drop pass-fail so provider regressions remain attributable.',
+      autocompleteIsolation: 'Keep autocomplete known instability out of paste/drop pass-fail so provider regressions remain attributable.',
     },
     validationPlan: {
       e2eLane: '03_Implement/test/e2e/** proves the automation boundary only.',
@@ -36,6 +37,7 @@ export async function runIntegrationTests(): Promise<void> {
       environmentPrerequisiteBoundary: HEADLESS_ENTRY_CONDITION_GUIDANCE,
     },
     proofTargets: PASTE_DROP_PROOF_TARGETS,
+    autocompleteIsolationBoundary: AUTOCOMPLETE_ISOLATION_BOUNDARY,
     e2eProofBoundary: PASTE_DROP_E2E_BOUNDARY,
   });
   const pasteDropBoundary = await runStage('paste-drop-observation', () => observePasteDropBoundary());
@@ -46,12 +48,14 @@ export async function runIntegrationTests(): Promise<void> {
     autocompleteSheetCompletionStable: autocompleteResult.sheetCompletionStable,
     autocompleteKnownUnstableReason: autocompleteResult.knownUnstableReason,
     proofTargets: pasteDropBoundary.proofTargets,
+    autocompleteIsolationBoundary: AUTOCOMPLETE_ISOLATION_BOUNDARY,
   });
   logStage('paste-drop-proof-boundary:summary', {
     whatThisE2EProves:
-      'This Extension Host E2E proves provider registration surface, fallback compatibility, shared logic reuse, and isolation of known unstable autocomplete from paste/drop acceptance.',
+      'This Extension Host E2E proves provider registration surface, fallback compatibility, and shared logic reuse.',
     whatThisE2EDoesNotProve:
       'It does not prove headless prerequisites are installed, nor final OS-native paste/drop event dispatch or visual editor UX behavior.',
+    autocompleteIsolationBoundary: AUTOCOMPLETE_ISOLATION_BOUNDARY,
     headlessEntryConditionGuidance: HEADLESS_ENTRY_CONDITION_GUIDANCE,
   });
 }
@@ -114,7 +118,7 @@ async function verifyAutocompleteIntegration(markdownFilePath: string): Promise<
     sheetCompletionStable,
     knownUnstableReason: sheetCompletionStable
       ? undefined
-      : 'Known unstable autocomplete assertion after # is isolated from paste/drop acceptance.',
+      : `Known unstable autocomplete assertion after # is isolated from paste/drop acceptance. ${AUTOCOMPLETE_ISOLATION_BOUNDARY}`,
   };
 }
 
@@ -146,6 +150,7 @@ interface PasteDropObservationState {
   readonly capability: NativeProviderCapability;
   readonly registeredCommandIds: readonly string[];
   readonly proofTargets: typeof PASTE_DROP_PROOF_TARGETS;
+  readonly autocompleteIsolationBoundary: string;
   readonly e2eProofBoundary: string;
 }
 
@@ -185,6 +190,7 @@ async function observePasteDropBoundary(): Promise<PasteDropObservationState> {
     capability,
     registeredCommandIds,
     proofTargets: PASTE_DROP_PROOF_TARGETS,
+    autocompleteIsolationBoundary: AUTOCOMPLETE_ISOLATION_BOUNDARY,
     e2eProofBoundary: PASTE_DROP_E2E_BOUNDARY,
   };
 
@@ -194,7 +200,7 @@ async function observePasteDropBoundary(): Promise<PasteDropObservationState> {
       providerRegistrationSurface: observation.capability.hasNativePasteProvider && observation.capability.hasNativeDropProvider,
       fallbackCompatibility: observation.integrationState.fallbackCommandIds,
       sharedLogicReuse: 'native-provider adapters and command fallback are both verified against shared embed-generation commands',
-      knownUnstableIsolation: 'paste-drop assertions execute before autocomplete-boundary and log their own proof targets',
+      autocompleteIsolation: AUTOCOMPLETE_ISOLATION_BOUNDARY,
     },
   });
 
@@ -242,6 +248,7 @@ async function verifyPasteDropCoverage(
       knownUnstableIsolation: {
         autocompleteStateIsDeferred: true,
         reason: verificationBoundary.autocompleteKnownUnstableReason,
+        boundary: AUTOCOMPLETE_ISOLATION_BOUNDARY,
       },
     },
   });
@@ -279,6 +286,7 @@ async function verifyPasteDropCoverage(
   assert.ok(integrationState.pasteMimeTypes.includes('text/html'));
   assert.ok(integrationState.dropMimeTypes.includes('text/uri-list'));
   assert.deepEqual(verificationBoundary.proofTargets, [...PASTE_DROP_PROOF_TARGETS]);
+  assert.equal(observation.autocompleteIsolationBoundary, AUTOCOMPLETE_ISOLATION_BOUNDARY);
 
   await runStage('paste-drop-proof-fallback-compatibility', () =>
     verifyPasteDropCommandFallback(markdownFilePath, capability, integrationState, verificationBoundary),
@@ -362,7 +370,7 @@ async function verifyPasteDropCommandFallback(
   assert.match(
     verificationBoundary.e2eProofBoundary,
     /fallback compatibility/,
-    `Expected fallback verification to stay scoped to explicit proof boundary rather than autocomplete or headless prerequisite failures. boundary=${JSON.stringify(verificationBoundary)}`,
+    `Expected fallback verification to stay scoped to explicit proof boundary rather than autocomplete or headless prerequisite failures. boundary=${JSON.stringify(verificationBoundary)} autocompleteIsolation=${AUTOCOMPLETE_ISOLATION_BOUNDARY}`,
   );
 
   const document = await openMarkdownDocument(markdownFilePath, '# PasteDropFallback\n\n');
@@ -429,7 +437,7 @@ async function verifyNativeProviderAdapterCoverage(
   );
   assert.ok(
     typeof verificationBoundary.autocompleteSheetCompletionStable === 'boolean',
-    `Expected autocomplete isolation metadata alongside native provider verification. boundary=${JSON.stringify(verificationBoundary)}`,
+    `Expected autocomplete isolation metadata alongside native provider verification. boundary=${JSON.stringify(verificationBoundary)} autocompleteIsolation=${AUTOCOMPLETE_ISOLATION_BOUNDARY}`,
   );
 
   const document = await openMarkdownDocument(
@@ -612,7 +620,7 @@ function reportKnownSheetCompletionFlake(state: CompletionState, expectedLabel: 
   }
 
   console.warn(
-    `[mmi:e2e] Known flaky autocomplete gap isolated to ${state.stageName}; paste/drop verification remains independent and acceptance is limited to provider registration surface/fallback compatibility/shared logic reuse, not OS-native UX dispatch or headless entry-condition triage. ${formatCompletionState(state)}`,
+    `[mmi:e2e] Known flaky autocomplete gap isolated to ${state.stageName}; paste/drop verification remains independent and acceptance is limited to provider registration surface/fallback compatibility/shared logic reuse, while autocomplete remains outside that proof boundary and OS-native UX dispatch or headless entry-condition triage are not covered. ${formatCompletionState(state)}`,
   );
   return false;
 }
