@@ -27,9 +27,16 @@ export async function run(): Promise<void> {
         'known-unstable-isolation',
       ],
       triageBoundary: {
+        suiteResponsibility: 'Summarize proof boundary and next-step order only; do not infer product decisions from a single failing run.',
+        firstTriageOrder: [
+          'environment-prerequisite',
+          'extension-host-bootstrap',
+          'paste-drop-provider-* vs autocomplete-known-unstable vs unknown',
+        ],
         environmentPrerequisite: 'Missing DISPLAY/xvfb is categorized before extensionHost.test.ts assertions run.',
         pasteDropBoundary: 'Paste/drop acceptance covers provider surface and fallback compatibility only.',
         knownUnstableIsolation: 'Autocomplete instability is logged separately and should not be used to fail paste/drop acceptance.',
+        nativeFallbackGuardrail: 'Do not start native-fallback design debate unless fallback compatibility evidence also fails after environment triage.',
       },
     })}`,
   );
@@ -43,7 +50,14 @@ export async function run(): Promise<void> {
         durationMs: Date.now() - startedAtMs,
         stageHint: 'extensionHost.test.ts',
         responsibilityHint:
-          'If runner classified environment-prerequisite, fix display/xvfb bootstrap before reading provider assertions. If runner classified autocomplete-known-unstable, keep paste/drop provider work isolated. If runner classified paste-drop-provider-*, inspect native provider surface, fallback compatibility, and DataTransfer assertions in extensionHost.test.ts logs.',
+          'Suite output is boundary guidance only. Follow runner category first: environment-prerequisite means fix display/xvfb or Extension Host bootstrap before reading assertions; autocomplete-known-unstable means keep paste/drop work isolated; paste-drop-provider-* means compare provider surface, fallback compatibility, and DataTransfer evidence before any native-fallback discussion; unknown means collect logs and stop short of policy debate.',
+        nextStepOrder: [
+          '1) Confirm runner category and matched signals',
+          '2) If environment-prerequisite, restore headless/bootstrap prerequisites and rerun',
+          '3) If paste-drop-provider-*, compare fallback evidence before touching native provider assumptions',
+          '4) If autocomplete-known-unstable, record separately from paste/drop acceptance',
+          '5) If unknown, inspect runner snapshots before opening a new design thread',
+        ],
       })}`,
     );
     throw error;
