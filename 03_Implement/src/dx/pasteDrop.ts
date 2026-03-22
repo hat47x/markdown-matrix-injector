@@ -40,6 +40,10 @@ export interface PasteDropDataTransferLike {
   get(mimeType: string): PasteDropDataTransferItemLike | undefined;
 }
 
+export interface PasteDropTransferReadResult extends PasteDropTransferValues {
+  clipboardValues: Partial<Record<PasteDropMimeType, string>>;
+}
+
 export function suggestEmbedFromPasteDrop(input: PasteDropInput): PasteDropSuggestion | null {
   return suggestEmbedFromTransferValues('paste', {
     clipboardValues: input.clipboardHtml ? { 'text/html': input.clipboardHtml } : undefined,
@@ -62,16 +66,7 @@ export async function suggestEmbedFromDataTransfer(
   dataTransfer: PasteDropDataTransferLike,
   source: PasteDropEntrySource,
 ): Promise<PasteDropSuggestion | null> {
-  for (const mimeType of MIME_PRIORITY_BY_SOURCE[source]) {
-    const item = dataTransfer.get(mimeType);
-    const value = item ? (await item.asString()).trim() : '';
-    const suggestion = suggestEmbedFromCandidate(toTransferCandidate(mimeType, value));
-    if (suggestion) {
-      return suggestion;
-    }
-  }
-
-  return suggestEmbedFromDroppedFiles(await readDroppedFiles(dataTransfer));
+  return suggestEmbedFromTransferValues(source, await readTransferValuesFromDataTransfer(dataTransfer, source));
 }
 
 export function suggestEmbedFromClipboardHtml(html: string): PasteDropSuggestion | null {
@@ -128,6 +123,26 @@ export function inferRangeFromHtmlTable(html: string): string | undefined {
   }
 
   return `A1:${columnNumberToLabel(maxColumnCount)}${rowCount}`;
+}
+
+export async function readTransferValuesFromDataTransfer(
+  dataTransfer: PasteDropDataTransferLike,
+  source: PasteDropEntrySource,
+): Promise<PasteDropTransferReadResult> {
+  const clipboardValues: Partial<Record<PasteDropMimeType, string>> = {};
+
+  for (const mimeType of MIME_PRIORITY_BY_SOURCE[source]) {
+    const item = dataTransfer.get(mimeType);
+    const value = item ? (await item.asString()).trim() : '';
+    if (value) {
+      clipboardValues[mimeType] = value;
+    }
+  }
+
+  return {
+    clipboardValues,
+    droppedFiles: await readDroppedFiles(dataTransfer),
+  };
 }
 
 function toTransferCandidate(mimeType: PasteDropMimeType, value?: string): PasteDropCandidate | undefined {

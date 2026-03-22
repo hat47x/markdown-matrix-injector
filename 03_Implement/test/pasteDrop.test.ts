@@ -10,6 +10,7 @@ import {
 } from '../src/dx/vscodeAdapters.js';
 import {
   inferRangeFromHtmlTable,
+  readTransferValuesFromDataTransfer,
   isSupportedWorkbookPath,
   suggestEmbedFromDataTransfer,
   suggestEmbedFromClipboardHtml,
@@ -307,6 +308,33 @@ test('suggestEmbedFromDataTransfer reuses dropped file parsing when paste clipbo
   assert.equal(filesRead, 1);
 });
 
+test('readTransferValuesFromDataTransfer feeds the same shared transfer parser used by command fallback and native paste', async () => {
+  const clipboardHtml = '<div data-sheet="Architecture">file:///tmp/shared-native.xlsx</div><table><tr><td>A</td><td>B</td></tr></table>';
+  const transfer = {
+    get(mimeType: string) {
+      if (mimeType !== 'text/html') {
+        return undefined;
+      }
+
+      return {
+        async asString() {
+          return clipboardHtml;
+        },
+      };
+    },
+  };
+
+  const transferValues = await readTransferValuesFromDataTransfer(transfer, 'paste');
+  assert.deepEqual(transferValues, {
+    clipboardValues: { 'text/html': clipboardHtml },
+    droppedFiles: [],
+  });
+  assert.equal(
+    suggestEmbedFromTransferValues('paste', transferValues)?.markdown,
+    getPasteInsertText({ clipboardHtml }),
+  );
+});
+
 test('suggestEmbedFromDataTransfer preserves native drop priority across uri-list, html, plain text, and file surfaces', async () => {
   const uriListTransfer = {
     get(mimeType: string) {
@@ -474,21 +502,22 @@ test('paste/drop edit adapters create edits only when shared parsing resolves a 
 
 
 test('suggestEmbedFromDataTransfer honors paste mime priority by preferring text/html over later text/plain payloads', async () => {
-  let plainReads = 0;
+  const reads: string[] = [];
   const transfer = {
     get(mimeType: string) {
       if (mimeType === 'text/html') {
         return {
           async asString() {
+            reads.push('text/html');
             return '<div data-sheet="Summary">file:///tmp/from-html.xlsx</div><table><tr><td>A</td></tr></table>';
           },
         };
       }
 
       if (mimeType === 'text/plain') {
-        plainReads += 1;
         return {
           async asString() {
+            reads.push('text/plain');
             return '<div data-sheet="Summary">file:///tmp/from-plain.csv</div><table><tr><td>A</td></tr></table>';
           },
         };
@@ -505,7 +534,12 @@ test('suggestEmbedFromDataTransfer honors paste mime priority by preferring text
     range: 'A1:A1',
     markdown: '![[/tmp/from-html.xlsx#Summary|A1:A1]]',
   });
-  assert.equal(plainReads, 0);
+  assert.deepEqual(
+    suggestEmbedFromTransferValues('paste', await readTransferValuesFromDataTransfer(transfer, 'paste')),
+    await suggestEmbedFromDataTransfer(transfer, 'paste'),
+  );
+  assert.ok(reads.includes('text/html'));
+  assert.ok(reads.includes('text/plain'));
 });
 
 test('suggestEmbedFromDataTransfer skips unsupported clipboard payloads before falling back to files for paste', async () => {
@@ -651,7 +685,13 @@ test('suggestEmbedFromDataTransfer keeps drop priority ordered as uri-list, html
     range: 'A1:B1',
     markdown: '![[/tmp/from-html.xlsx#Summary|A1:B1]]',
   });
-  assert.deepEqual(reads, ['text/uri-list', 'text/html']);
+  assert.deepEqual(
+    suggestEmbedFromTransferValues('drop', await readTransferValuesFromDataTransfer(transfer, 'drop')),
+    await suggestEmbedFromDataTransfer(transfer, 'drop'),
+  );
+  assert.ok(reads.includes('text/uri-list'));
+  assert.ok(reads.includes('text/html'));
+  assert.ok(reads.includes('text/plain'));
 });
 
 
@@ -724,6 +764,47 @@ file:///tmp/fallback.csv`;
 
   assert.equal(fallbackInsertText, '![[/tmp/fallback.csv]]');
   assert.equal(nativeInsertText, fallbackInsertText);
+});
+
+test('native drop adapters reuse readTransferValuesFromDataTransfer plus suggestEmbedFromTransferValues instead of a dedicated parser', async () => {
+  const transfer = {
+    get(mimeType: string) {
+      if (mimeType === 'text/uri-list') {
+        return {
+          async asString() {
+            return 'file:///tmp/Shared%20Reuse.csv';
+          },
+        };
+      }
+
+      if (mimeType === 'files') {
+        return {
+          async asString() {
+            return '';
+          },
+          asFile() {
+            return {
+              uri: {
+                fsPath: '/tmp/ignored.xml',
+              },
+            };
+          },
+        };
+      }
+
+      return undefined;
+    },
+  };
+
+  const transferValues = await readTransferValuesFromDataTransfer(transfer, 'drop');
+  assert.deepEqual(transferValues, {
+    clipboardValues: { 'text/uri-list': 'file:///tmp/Shared%20Reuse.csv' },
+    droppedFiles: ['/tmp/ignored.xml'],
+  });
+  assert.equal(
+    suggestEmbedFromTransferValues('drop', transferValues)?.markdown,
+    await getDropInsertTextFromDataTransfer(transfer),
+  );
 });
 
 

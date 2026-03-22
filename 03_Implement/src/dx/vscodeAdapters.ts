@@ -2,7 +2,7 @@ import path from 'node:path';
 import { type AutocompleteCandidate } from './autocompleteProvider.js';
 import { validateEmbedDiagnostics, type EmbedDiagnostic, type XmlMode } from './diagnostics.js';
 import {
-  suggestEmbedFromDataTransfer,
+  readTransferValuesFromDataTransfer,
   suggestEmbedFromTransferValues,
   type PasteDropDataTransferLike,
 } from './pasteDrop.js';
@@ -160,11 +160,19 @@ export function getDropInsertText(args?: PasteDropCommandArgs): string | undefin
 }
 
 export async function getPasteInsertTextFromDataTransfer(dataTransfer: DataTransferLike): Promise<string | undefined> {
-  return (await suggestEmbedFromDataTransfer(toPasteDropDataTransfer(dataTransfer), 'paste'))?.markdown;
+  const pasteDropTransfer = toPasteDropDataTransfer(dataTransfer);
+  return suggestEmbedFromTransferValues(
+    'paste',
+    await readTransferValuesFromDataTransfer(pasteDropTransfer, 'paste'),
+  )?.markdown;
 }
 
 export async function getDropInsertTextFromDataTransfer(dataTransfer: DataTransferLike): Promise<string | undefined> {
-  return (await suggestEmbedFromDataTransfer(toPasteDropDataTransfer(dataTransfer), 'drop'))?.markdown;
+  const pasteDropTransfer = toPasteDropDataTransfer(dataTransfer);
+  return suggestEmbedFromTransferValues(
+    'drop',
+    await readTransferValuesFromDataTransfer(pasteDropTransfer, 'drop'),
+  )?.markdown;
 }
 
 export async function getPasteEditFromDataTransfer<T>(
