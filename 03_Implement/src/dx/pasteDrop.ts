@@ -1,6 +1,16 @@
 const SUPPORTED_EXTENSIONS = ['.xlsx', '.xls', '.csv', '.xml'] as const;
+const FILES_MIME_TYPE = 'files';
+const MIME_PRIORITY_BY_SOURCE = {
+  paste: ['text/html', 'text/plain'],
+  drop: ['text/uri-list', 'text/html', 'text/plain'],
+} as const;
 
 type PasteDropSource = 'clipboard-html' | 'file-drop';
+type PasteDropEntrySource = 'paste' | 'drop';
+
+type PasteDropCandidate =
+  | { kind: 'clipboard'; value: string }
+  | { kind: 'files'; value: readonly string[] };
 
 export interface PasteDropSuggestion {
   source: PasteDropSource;
@@ -24,63 +34,57 @@ export interface PasteDropDataTransferLike {
   get(mimeType: string): PasteDropDataTransferItemLike | undefined;
 }
 
-const PASTE_HTML_MIME_TYPES = ['text/html', 'text/plain'] as const;
-const DROP_MIME_TYPES = ['text/uri-list', ...PASTE_HTML_MIME_TYPES] as const;
-const FILES_MIME_TYPE = 'files';
-
 export function suggestEmbedFromPasteDrop(input: PasteDropInput): PasteDropSuggestion | null {
-  const clipboardSuggestion = input.clipboardHtml
-    ? suggestEmbedFromClipboardHtml(input.clipboardHtml)
-    : null;
-
-  if (clipboardSuggestion) {
-    return clipboardSuggestion;
-  }
-
-  return suggestEmbedFromDroppedFiles(input.droppedFiles ?? []);
+  return firstSuggestionFromCandidates([
+    toClipboardCandidate(input.clipboardHtml),
+    toFilesCandidate(input.droppedFiles),
+  ]);
 }
 
 export async function suggestEmbedFromDataTransfer(
   dataTransfer: PasteDropDataTransferLike,
-  source: 'paste' | 'drop',
+  source: PasteDropEntrySource,
 ): Promise<PasteDropSuggestion | null> {
-  const mimeTypes = source === 'drop' ? DROP_MIME_TYPES : PASTE_HTML_MIME_TYPES;
-
-  for (const mimeType of mimeTypes) {
+  for (const mimeType of MIME_PRIORITY_BY_SOURCE[source]) {
     const item = dataTransfer.get(mimeType);
-    const value = item ? await item.asString() : undefined;
-
+    const value = item ? (await item.asString()).trim() : '';
     if (!value) {
       continue;
     }
 
-    const suggestion = mimeType === 'text/uri-list'
-      ? suggestEmbedFromDroppedFiles(parseUriList(value))
-      : suggestEmbedFromClipboardHtml(value);
-
+    const suggestion = suggestEmbedFromCandidate(
+      mimeType === 'text/uri-list'
+        ? { kind: 'files', value: parseUriList(value) }
+        : { kind: 'clipboard', value },
+    );
     if (suggestion) {
       return suggestion;
     }
   }
 
-  return suggestEmbedFromDroppedFiles(await readDroppedFiles(dataTransfer));
+  return suggestEmbedFromCandidate({ kind: 'files', value: await readDroppedFiles(dataTransfer) });
 }
 
 export function suggestEmbedFromClipboardHtml(html: string): PasteDropSuggestion | null {
-  const filepath = extractSupportedFilepathFromHtml(html);
+  const normalizedHtml = html.trim();
+  if (!normalizedHtml) {
+    return null;
+  }
 
+  const filepath = extractSupportedFilepathFromHtml(normalizedHtml);
   if (!filepath) {
     return null;
   }
 
-  const sheet = extractSheetNameFromHtml(html);
-  const range = inferRangeFromHtmlTable(html);
-
+  const sheet = extractSheetNameFromHtml(normalizedHtml);
+  const range = inferRangeFromHtmlTable(normalizedHtml);
   return buildSuggestion('clipboard-html', filepath, sheet, range);
 }
 
 export function suggestEmbedFromDroppedFiles(files: readonly string[]): PasteDropSuggestion | null {
-  const filepath = files.find((file) => isSupportedWorkbookPath(file));
+  const filepath = files
+    .map((file) => normalizePath(file))
+    .find((file) => isSupportedWorkbookPath(file));
 
   if (!filepath) {
     return null;
@@ -96,7 +100,6 @@ export function isSupportedWorkbookPath(filepath: string): boolean {
 
 export function inferRangeFromHtmlTable(html: string): string | undefined {
   const rowMatches = [...html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)];
-
   if (rowMatches.length === 0) {
     return undefined;
   }
@@ -121,6 +124,36 @@ export function inferRangeFromHtmlTable(html: string): string | undefined {
   return `A1:${columnNumberToLabel(maxColumnCount)}${rowCount}`;
 }
 
+function toClipboardCandidate(value?: string): PasteDropCandidate | undefined {
+  const normalized = value?.trim();
+  return normalized ? { kind: 'clipboard', value: normalized } : undefined;
+}
+
+function toFilesCandidate(value?: readonly string[]): PasteDropCandidate | undefined {
+  return value && value.length > 0 ? { kind: 'files', value } : undefined;
+}
+
+function firstSuggestionFromCandidates(candidates: readonly (PasteDropCandidate | undefined)[]): PasteDropSuggestion | null {
+  for (const candidate of candidates) {
+    const suggestion = suggestEmbedFromCandidate(candidate);
+    if (suggestion) {
+      return suggestion;
+    }
+  }
+
+  return null;
+}
+
+function suggestEmbedFromCandidate(candidate: PasteDropCandidate | undefined): PasteDropSuggestion | null {
+  if (!candidate) {
+    return null;
+  }
+
+  return candidate.kind === 'clipboard'
+    ? suggestEmbedFromClipboardHtml(candidate.value)
+    : suggestEmbedFromDroppedFiles(candidate.value);
+}
+
 function buildSuggestion(
   source: PasteDropSource,
   filepath: string,
@@ -141,8 +174,7 @@ function buildSuggestion(
 
 function extractSupportedFilepathFromHtml(html: string): string | undefined {
   const decodedHtml = decodeHtmlEntities(html);
-  const matches = decodedHtml.match(/(?:file:\/\/\/[^"'\s<>]+|[A-Za-z]:[\\/][^"'<>\s]+|\.\.?\/[^"]+?|\/[^"'<>\s]+?)(?:\.xlsx|\.xls|\.csv|\.xml)/gi);
-
+  const matches = decodedHtml.match(/(?:file:\/\/\/[^"'\s<>]+|[A-Za-z]:[\\/][^"'<>\s]+|\.\.?\/[^\"]+?|\/[^"'<>\s]+?)(?:\.xlsx|\.xls|\.csv|\.xml)/gi);
   if (!matches) {
     return undefined;
   }
@@ -162,7 +194,6 @@ function extractSheetNameFromHtml(html: string): string | undefined {
   for (const pattern of patterns) {
     const match = decodedHtml.match(pattern);
     const value = match?.[1] ?? match?.[2];
-
     if (value) {
       return value.trim();
     }
@@ -198,7 +229,6 @@ function normalizePath(filepath: string): string {
   const withoutFileScheme = trimmed.replace(/^file:\/\//i, '');
   const decoded = decodeUriComponentSafely(withoutFileScheme);
   const withForwardSlashes = decoded.replace(/\\/g, '/');
-
   return withForwardSlashes.replace(/^\/(?:[A-Za-z]:\/)/, (match) => match.slice(1));
 }
 
@@ -211,8 +241,7 @@ function decodeUriComponentSafely(value: string): string {
 }
 
 async function readDroppedFiles(dataTransfer: PasteDropDataTransferLike): Promise<string[]> {
-  const filesItem = dataTransfer.get(FILES_MIME_TYPE);
-  const filepath = filesItem?.asFile?.()?.uri?.fsPath;
+  const filepath = dataTransfer.get(FILES_MIME_TYPE)?.asFile?.()?.uri?.fsPath;
   return filepath ? [filepath] : [];
 }
 

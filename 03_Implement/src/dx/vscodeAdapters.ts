@@ -4,7 +4,7 @@ import { validateEmbedDiagnostics, type EmbedDiagnostic, type XmlMode } from './
 import {
   suggestEmbedFromDataTransfer,
   suggestEmbedFromPasteDrop,
-  type PasteDropDataTransferItemLike,
+  type PasteDropDataTransferLike,
 } from './pasteDrop.js';
 
 const EMBED_PATTERN = /!\[\[([^\]]+)\]\]/g;
@@ -220,9 +220,9 @@ async function hasSheet(filepath: string, target: string, dependencies: Diagnost
   }
 }
 
-function toPasteDropDataTransfer(dataTransfer: DataTransferLike) {
+function toPasteDropDataTransfer(dataTransfer: DataTransferLike): PasteDropDataTransferLike {
   return {
-    get(mimeType: string): PasteDropDataTransferItemLike | undefined {
+    get(mimeType: string) {
       return dataTransfer.get(mimeType);
     },
   };
