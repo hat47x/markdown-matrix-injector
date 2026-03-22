@@ -171,12 +171,14 @@ test('suggestEmbedFromPasteDrop falls back to supported dropped files when clipb
 });
 
 test('suggestEmbedFromTransferValues centralizes paste/drop priority and normalization for shared adapters', () => {
+  const unsupportedPasteClipboardValues = {
+    'text/html': '<div>unsupported html payload</div>',
+    'text/plain': 'file:///tmp/Paste%20Fallback.csv',
+  } as const;
+
   assert.deepEqual(
     suggestEmbedFromTransferValues('paste', {
-      clipboardValues: {
-        'text/html': '<div>unsupported html payload</div>',
-        'text/plain': 'file:///tmp/Paste%20Fallback.csv',
-      },
+      clipboardValues: unsupportedPasteClipboardValues,
       droppedFiles: ['/tmp/ignored.xml'],
     }),
     {
@@ -185,13 +187,25 @@ test('suggestEmbedFromTransferValues centralizes paste/drop priority and normali
       markdown: '![[/tmp/Paste Fallback.csv]]',
     },
   );
+  assert.equal(
+    suggestEmbedFromTransferValues('paste', {
+      clipboardValues: unsupportedPasteClipboardValues,
+      droppedFiles: ['/tmp/ignored.xml'],
+    })?.markdown,
+    suggestEmbedFromPasteDrop({
+      clipboardHtml: unsupportedPasteClipboardValues['text/html'],
+      droppedFiles: ['/tmp/Paste Fallback.csv'],
+    })?.markdown,
+  );
+
+  const nativeDropClipboardValues = {
+    'text/uri-list': '# comment\nfile:///tmp/Drop%20Priority.xlsx',
+    'text/html': '<div data-sheet="Ignored">file:///tmp/ignored.csv</div><table><tr><td>A</td></tr></table>',
+  } as const;
 
   assert.deepEqual(
     suggestEmbedFromTransferValues('drop', {
-      clipboardValues: {
-        'text/uri-list': '# comment\nfile:///tmp/Drop%20Priority.xlsx',
-        'text/html': '<div data-sheet="Ignored">file:///tmp/ignored.csv</div><table><tr><td>A</td></tr></table>',
-      },
+      clipboardValues: nativeDropClipboardValues,
       droppedFiles: ['/tmp/from-files.xml'],
     }),
     {
@@ -200,16 +214,32 @@ test('suggestEmbedFromTransferValues centralizes paste/drop priority and normali
       markdown: '![[/tmp/Drop Priority.xlsx]]',
     },
   );
+  assert.deepEqual(
+    suggestEmbedFromTransferValues('drop', {
+      clipboardValues: nativeDropClipboardValues,
+      droppedFiles: ['/tmp/from-files.xml'],
+    }),
+    suggestEmbedFromDroppedFiles(['/tmp/Drop Priority.xlsx', '/tmp/from-files.xml']),
+  );
+
+  const unsupportedDropClipboardValues = {
+    'text/html': '<p>unsupported</p>',
+    'text/plain': 'still unsupported',
+  } as const;
 
   assert.equal(
     suggestEmbedFromTransferValues('drop', {
-      clipboardValues: {
-        'text/html': '<p>unsupported</p>',
-        'text/plain': 'still unsupported',
-      },
+      clipboardValues: unsupportedDropClipboardValues,
       droppedFiles: ['/tmp/readme.md'],
     }),
     null,
+  );
+  assert.equal(
+    suggestEmbedFromTransferValues('drop', {
+      clipboardValues: unsupportedDropClipboardValues,
+      droppedFiles: [],
+    }),
+    suggestEmbedFromDroppedFiles([]),
   );
 });
 
@@ -764,4 +794,103 @@ test('command fallback and native adapters preserve empty failures without over-
 
   assert.equal(await getPasteInsertTextFromDataTransfer(unsupportedTransfer), undefined);
   assert.equal(await getDropInsertTextFromDataTransfer(unsupportedTransfer), undefined);
+});
+
+
+test('shared parsing keeps equivalent supported, unsupported, and empty payload outcomes aligned across fallback and native surfaces', async () => {
+  const html = '<div data-sheet="Summary">file:///tmp/Shared%20Boundary.xlsx</div><table><tr><td>A</td><td>B</td></tr></table>';
+  const fallbackPasteArgs = { clipboardHtml: html };
+  const nativePasteTransfer = {
+    get(mimeType: string) {
+      if (mimeType !== 'text/html') {
+        return undefined;
+      }
+
+      return {
+        async asString() {
+          return html;
+        },
+      };
+    },
+  };
+  assert.equal(await getPasteInsertTextFromDataTransfer(nativePasteTransfer), getPasteInsertText(fallbackPasteArgs));
+
+  const fallbackDropArgs = { droppedFiles: ['/tmp/Shared Boundary.csv'] };
+  const nativeDropTransfer = {
+    get(mimeType: string) {
+      if (mimeType !== 'files') {
+        return undefined;
+      }
+
+      return {
+        async asString() {
+          return '';
+        },
+        asFile() {
+          return {
+            uri: {
+              fsPath: fallbackDropArgs.droppedFiles[0],
+            },
+          };
+        },
+      };
+    },
+  };
+  assert.equal(await getDropInsertTextFromDataTransfer(nativeDropTransfer), getDropInsertText(fallbackDropArgs));
+
+  const unsupportedPasteTransfer = {
+    get(mimeType: string) {
+      if (mimeType !== 'text/plain') {
+        return undefined;
+      }
+
+      return {
+        async asString() {
+          return 'unsupported clipboard';
+        },
+      };
+    },
+  };
+  assert.equal(getPasteInsertText({ clipboardHtml: '<p>unsupported clipboard</p>' }), undefined);
+  assert.equal(await getPasteInsertTextFromDataTransfer(unsupportedPasteTransfer), undefined);
+
+  const unsupportedDropTransfer = {
+    get(mimeType: string) {
+      if (mimeType === 'text/html') {
+        return {
+          async asString() {
+            return '<div>unsupported host payload</div>';
+          },
+        };
+      }
+      if (mimeType === 'files') {
+        return {
+          async asString() {
+            return '';
+          },
+          asFile() {
+            return {
+              uri: {
+                fsPath: '/tmp/readme.md',
+              },
+            };
+          },
+        };
+      }
+
+      return undefined;
+    },
+  };
+  assert.equal(getDropInsertText({ droppedFiles: ['/tmp/readme.md'] }), undefined);
+  assert.equal(await getDropInsertTextFromDataTransfer(unsupportedDropTransfer), undefined);
+
+  const emptyTransfer = {
+    get() {
+      return undefined;
+    },
+  };
+  assert.equal(getPasteInsertText(), undefined);
+  assert.equal(getDropInsertText(), undefined);
+  assert.equal(await getPasteInsertTextFromDataTransfer(emptyTransfer), undefined);
+  assert.equal(await getDropInsertTextFromDataTransfer(emptyTransfer), undefined);
 });
