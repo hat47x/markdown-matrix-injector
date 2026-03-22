@@ -9,6 +9,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const LOG_PREFIX = '[mmi:e2e:runner]';
+const FIRST_TRIAGE_ORDER = [
+  'environment-prerequisite',
+  'extension-host-bootstrap',
+  'paste-drop-provider-* vs autocomplete-known-unstable vs unknown',
+] as const;
 const AUTOCOMPLETE_UNSTABLE_PATTERNS = [
   'Expected autocomplete suggestions after ![[.',
   'Expected sheet completion after #.',
@@ -76,11 +81,11 @@ const ENVIRONMENT_PATTERNS = [
 ] as const;
 
 type FailureCategory =
-  | 'paste-drop-provider-capability'
-  | 'paste-drop-data-transfer'
-  | 'autocomplete-known-unstable'
   | 'environment-prerequisite'
-  | 'unclassified';
+  | 'paste-drop-provider-capability'
+  | 'paste-drop-provider-data-transfer'
+  | 'autocomplete-known-unstable'
+  | 'unknown';
 
 type FailureSignature = {
   category: FailureCategory;
@@ -89,6 +94,7 @@ type FailureSignature = {
   likelyStream: 'autocomplete' | 'paste-drop-provider' | 'environment' | 'unknown';
   nextAction: string;
   reasoning: string;
+  boundaryReminder: string;
 };
 
 type E2ERuntimeContext = {
@@ -157,9 +163,12 @@ async function main(): Promise<void> {
       extensionDevelopmentExists: fs.existsSync(runtime.extensionDevelopmentPath),
       extensionTestsExists: fs.existsSync(runtime.extensionTestsPath),
       triageBoundary: {
-        environmentPrerequisite: 'Missing display/xvfb is categorized before provider or fallback assertions run.',
+        runnerResponsibility: 'Classify and route only. The runner does not decide native-vs-fallback product policy.',
+        firstTriageOrder: FIRST_TRIAGE_ORDER,
+        environmentPrerequisite: 'Missing display/xvfb or Extension Host bootstrap failures are categorized before provider or fallback assertions run.',
         providerFailures: 'Only provider registration/DataTransfer assertions should classify as paste-drop-provider-*.',
         autocompleteFailures: 'Known unstable autocomplete remains an independent category and does not fail paste/drop acceptance by itself.',
+        unknownFailures: 'If no decisive signal matches, stop at unknown and inspect logs before entering native-fallback discussion.',
       },
     });
     logSection('triage-hints', {
@@ -173,7 +182,7 @@ async function main(): Promise<void> {
           'Treat autocomplete as an independent headless instability first; do not regress paste/drop assertions until provider-specific signals appear.',
         'paste-drop-provider-capability':
           'Prioritize host capability probes, provider registration, and fallback routing. Compare capability=... payloads against integration state.',
-        'paste-drop-data-transfer':
+        'paste-drop-provider-data-transfer':
           'Prioritize DataTransfer payload shape, mime types, and adapter parsing before changing provider registration logic.',
         'environment-prerequisite':
           'Prioritize missing display/headless launch prerequisites, workspace/bootstrap failures, or extension host startup issues before blaming test logic.',
@@ -400,12 +409,14 @@ function classifyFailure(error: unknown, launchMetadata: LaunchMetadata): Failur
         'Inspect capability payloads, provider registration flags, and host API availability. Validate whether fallback commands should have been the proof point on this VSCode host.',
       reasoning:
         'Provider capability or registration markers were present in the failure, which usually indicates native API availability mismatches rather than autocomplete instability.',
+      boundaryReminder:
+        'Runner scope ends at classification: compare host capability and fallback evidence first, and avoid expanding into native-fallback policy changes unless fallback assertions also fail.',
     };
   }
 
   if (matchedDataTransferSignals.length > 0) {
     return {
-      category: 'paste-drop-data-transfer',
+      category: 'paste-drop-provider-data-transfer',
       matchedSignals: dedupe([...matchedProviderSignals, ...matchedDataTransferSignals]),
       confidence: 'high',
       likelyStream: 'paste-drop-provider',
@@ -413,6 +424,8 @@ function classifyFailure(error: unknown, launchMetadata: LaunchMetadata): Failur
         'Inspect DataTransfer contents, mime types, and adapter parsing output. Confirm whether HTML clipboard metadata or uri-list payloads were present before changing provider registration logic.',
       reasoning:
         'The failure references DataTransfer payloads or mime types, which points to paste/drop input parsing or adapter bridging rather than the autocomplete path.',
+      boundaryReminder:
+        'Stay within parser/fixture triage first. Do not jump to native-fallback design discussion until command fallback evidence is compared.',
     };
   }
 
@@ -426,6 +439,8 @@ function classifyFailure(error: unknown, launchMetadata: LaunchMetadata): Failur
         'Treat as likely headless VSCode completion instability first. Reproduce with the logged VSCode host version and display mode before blaming paste/drop provider work.',
       reasoning:
         'Only autocomplete-specific signals matched, and issue-0010 already records a known headless completion instability that is independent from paste/drop provider coverage.',
+      boundaryReminder:
+        'Keep paste/drop provider acceptance isolated. This category is not evidence for or against native-fallback behavior.',
     };
   }
 
@@ -442,11 +457,13 @@ function classifyFailure(error: unknown, launchMetadata: LaunchMetadata): Failur
         'Inspect launch-context and environment snapshot first. Confirm display/headless prerequisites, workspace bootstrap, and extension host startup before attributing the failure to provider logic.',
       reasoning:
         'The failure did not clearly point to a test assertion path and instead matched launch/bootstrap or host-environment signals. This category should be treated as an environment warning unless provider-specific assertions also appear.',
+      boundaryReminder:
+        'Fix launch/bootstrap prerequisites first. Provider and native-fallback discussions are out of scope until Extension Host assertions actually run.',
     };
   }
 
   return {
-    category: 'unclassified',
+    category: 'unknown',
     matchedSignals: dedupe([...matchedProviderSignals, ...matchedAutocompleteSignals]),
     confidence: 'low',
     likelyStream: 'unknown',
@@ -454,6 +471,8 @@ function classifyFailure(error: unknown, launchMetadata: LaunchMetadata): Failur
       'Inspect the error payload together with runtime-context, launch-context, and workspace-context logs to determine whether this is a launch problem, autocomplete gap, or paste/drop provider regression.',
     reasoning:
       'No decisive signature matched, so additional context from the runner snapshots is required to reproduce and triage the failure.',
+    boundaryReminder:
+      'Stop at unknown. Collect runner and suite logs before speculating about native provider fallback strategy.',
   };
 }
 
