@@ -41,6 +41,7 @@ const FALLBACK_COMMAND_IDS = [
   'markdownMatrixInjector.insertEmbedFromPaste',
   'markdownMatrixInjector.insertEmbedFromDrop',
 ] as const;
+const NATIVE_PASTE_DROP_COMMAND_NAME = 'Insert Markdown Matrix embed';
 
 interface PasteDropIntegrationTestMetadata {
   fallbackCommandIds: string[];
@@ -151,33 +152,33 @@ function registerCompatibilityPasteDropCommands(): vscode.Disposable[] {
     // Compatibility path for older hosts or explicit command routing.
     vscode.commands.registerTextEditorCommand(
       FALLBACK_COMMAND_IDS[0],
-      async (editor, _edit, args?: PasteDropCommandArgs) => {
-        const insertText = getPasteInsertText(args);
-        if (!insertText) {
-          return;
-        }
-
-        await editor.edit((editBuilder) => {
-          editBuilder.replace(editor.selection, insertText);
-        });
-      },
+      createCompatibilityPasteDropCommandHandler(getPasteInsertText),
     ),
     vscode.commands.registerTextEditorCommand(
       FALLBACK_COMMAND_IDS[1],
-      async (editor, _edit, args?: PasteDropCommandArgs) => {
-        const insertText = getDropInsertText(args);
-        if (!insertText) {
-          return;
-        }
-
-        await editor.edit((editBuilder) => {
-          editBuilder.replace(editor.selection, insertText);
-        });
-      },
+      createCompatibilityPasteDropCommandHandler(getDropInsertText),
     ),
   ];
 }
 
+function createCompatibilityPasteDropCommandHandler(
+  getInsertText: (args?: PasteDropCommandArgs) => string | undefined,
+): (
+  editor: vscode.TextEditor,
+  edit: vscode.TextEditorEdit,
+  args?: PasteDropCommandArgs,
+) => Promise<void> {
+  return async (editor: vscode.TextEditor, _edit: vscode.TextEditorEdit, args?: PasteDropCommandArgs) => {
+    const insertText = getInsertText(args);
+    if (!insertText) {
+      return;
+    }
+
+    await editor.edit((editBuilder) => {
+      editBuilder.replace(editor.selection, insertText);
+    });
+  };
+}
 
 function registerNativePasteProvider(context: vscode.ExtensionContext, nativePasteDropState: NativePasteDropState): void {
   // Canonical path for hosts that support native paste providers.
@@ -194,7 +195,7 @@ function registerNativePasteProvider(context: vscode.ExtensionContext, nativePas
         async provideDocumentPasteEdits(_document, _ranges, dataTransfer, _context, _token) {
           const edit = await getPasteEditFromDataTransfer(dataTransfer, {
             createEdit: (insertText) =>
-              new vscode.DocumentPasteEdit(insertText, 'Insert Markdown Matrix embed', NATIVE_PASTE_DROP_EDIT_KIND),
+              new vscode.DocumentPasteEdit(insertText, NATIVE_PASTE_DROP_COMMAND_NAME, NATIVE_PASTE_DROP_EDIT_KIND),
           });
 
           return edit ? [edit] : [];
@@ -220,7 +221,7 @@ function registerNativeDropProvider(context: vscode.ExtensionContext, nativePast
         async provideDocumentDropEdits(_document, _position, dataTransfer, _token) {
           return getDropEditFromDataTransfer(dataTransfer, {
             createEdit: (insertText) =>
-              new vscode.DocumentDropEdit(insertText, 'Insert Markdown Matrix embed', NATIVE_PASTE_DROP_EDIT_KIND),
+              new vscode.DocumentDropEdit(insertText, NATIVE_PASTE_DROP_COMMAND_NAME, NATIVE_PASTE_DROP_EDIT_KIND),
           });
         },
       },
