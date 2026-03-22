@@ -183,7 +183,18 @@ host class ごとの完了判定も固定します。**first path / comparison p
 - **Autocomplete のみ Fail**: Paste / D&D と同一原因とみなさず、known unstable の節で別トラック管理する。**この場合に結論づけてはいけないのは「Paste / Drop も壊れている」という推定** です。
 - **`xvfb-run` 未導入で automation 未実施**: provider failure ではなく entry condition 未充足。manual scope only の run として記録し、automation handoff は保留にする。
 
-### Observation order contract
+### Acceptance-to-runbook mapping
+この runbook では、issue-0010 の acceptance と Progress Notes を次の 5 つの運用正本に固定します。
+
+| Concern | Operational source of truth | First question | Escalation boundary |
+|---|---|---|---|
+| native provider が canonical path | native path を first path として観測する | host は native provider 対応か | native only failure なら host capability / OS event を疑う |
+| fallback command が unsupported host 向け compatibility path | fallback path を comparison または first path として必ず観測する | fallback は同一入力で成功するか | fallback も失敗したら shared parser / payload を疑う |
+| shared logic 再利用方針 | native / fallback の両方で DataTransfer 起点の同一解釈を確認する | 両経路の挿入結果はどこまで一致するか | 解析差分は provider 可否ではなく shared logic 側で追う |
+| `xvfb-run` 前提と manual/automation handoff | headless prerequisite を最初に確認する | Extension Host を起動する前提は満たされているか | 欠落時は automation blocked、manual は別記録 |
+| autocomplete Known unstable の分離 | `#` 補完 failure を Paste / D&D から独立管理する | filepath / query は生きているか | `#` だけ失敗なら Known unstable として閉じる |
+
+## Observation order contract
 manual E2E の観測順序は次の契約で固定します。次エージェントは host ごとの例外運用を考えず、この順で進めてください。
 
 1. **Capability record**: host class と provider availability を最初に確定または暫定記録する。

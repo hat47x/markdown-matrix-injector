@@ -178,7 +178,16 @@
 - `03_Implement/test/e2e/**`: E2E検証レイヤ
 - `04_Documentation/vscode-e2e-testing.md`: delegated manual scope と実行運用
 
-## 10. issue-0010 acceptance trace summary
+## 10. issue-0010 acceptance mapping
+| Acceptance / progress-note concern | Architecture decision | Boundary section | Handoff / note |
+|---|---|---|---|
+| native provider が canonical path であること | native paste/drop provider を Paste / D&D の正規入口として固定する | `4.1 Canonical path boundary`, `5.1 Automation scope` | manual E2E は UX 最終到達だけを補完する |
+| fallback command が unsupported host 向け compatibility path であること | command fallback を native 代替ではなく互換境界として維持する | `4.2 Compatibility path boundary`, `5.3 Verification boundary rule` | host capability 不足時でも受入条件 3 を追跡できる |
+| shared logic 再利用方針 | native / fallback が同一 DataTransfer 解析と embed 生成へ収束する | `3.1 DXロジック本体`, `4.3 Shared-logic boundary` | `pasteDrop.ts` 再利用を architecture の仕様正本として扱う |
+| `xvfb-run` 前提と manual/automation handoff | headless prerequisite 未充足は verification entry condition として扱う | `3.4 Delegated manual scope`, `6. Headless execution boundary` | automation blocked と manual continuation を混線させない |
+| autocomplete known unstable の分離 | `#` 補完不安定は Paste / D&D acceptance 境界から外す | `5.3 Verification boundary rule`, `7. Known risk isolation` | 同一 run で併発しても別トラックで記録する |
+
+## 11. issue-0010 acceptance trace summary
 - Acceptance criteria 1「native provider surface から発火できること」には、`4.1 Canonical path boundary` と `5.1 Automation scope` が対応する。
 - Acceptance criteria 2「既存 `pasteDrop.ts` を再利用し重複実装しないこと」には、`4.3 Shared-logic boundary` が対応する。
 - Acceptance criteria 3「native provider が使えない環境での fallback 方針明示」には、`4.2 Compatibility path boundary` と `5.1 Automation scope` が対応する。
@@ -189,7 +198,7 @@
 - 強化点として、acceptance criteria 4 を『E2E がどこまで退行検知を担い、どこから先を headless entry condition / delegated manual scope に分離するか』まで追跡可能にした。
 - 以上により、architecture 文書だけを読んでも、issue-0010 の automation boundary / delegated manual boundary / headless triage boundary を追跡できる。
 
-## 11. Documentation handoff rule
+## 12. Documentation handoff rule
 - この architecture 文書で固定するもの:
   - 各層の責務境界
   - native paste/drop provider を canonical path とする方針

@@ -35,16 +35,27 @@ npm run test:e2e
 ```
 
 ## Phase 5 に入る前の理解ポイント
-Phase 5 の native provider / fallback 確認は、次の 3 つを分けて考えると迷いません。
+Phase 5 の native provider / fallback 確認は、次の 4 つを分けて考えると迷いません。
 
 1. **ビルド前提**: `npm run build` で拡張を最新状態にする。
-2. **自動 E2E 前提**: `npm run test:e2e` が `xvfb-run` 経由で VSCode Extension Host を headless 起動できる。
-3. **手動確認前提**: ホスト OS 上の VSCode で Extension Development Host を起動し、native paste / drop や Preview / Problems を実機確認できる。
+2. **headless prerequisite**: `npm run test:e2e` の前に `xvfb-run --help` が通ることを確認し、通らない場合は automation blocked と判断する。
+3. **自動 E2E 範囲**: Extension Host 上で native provider registration / fallback command / shared DataTransfer logic / diagnostics / completion API の境界を確認する。
+4. **手動 E2E 範囲**: ホスト OS 上の VSCode で Extension Development Host を起動し、native paste / drop の最終 UX、Preview / Problems、manual comparison 順を確認する。
+
+## Automation と manual の責務早見表
+| Concern | Automation (`npm run test:e2e`) | Manual E2E (Development Host) | 判定メモ |
+|---|---|---|---|
+| native provider が canonical path であること | provider registration / adapter / shared logic を確認 | 通常 paste / 通常 drop の最終 UX を確認 | 実 OS event の最終反映は manual 側 |
+| fallback command が unsupported host 向け compatibility path であること | fallback command が成立することを確認 | fallback only host で比較順どおりに再現する | fallback は native 代替ではなく互換経路 |
+| shared logic 再利用方針 | DataTransfer 解析の再利用を自動確認する | native と fallback の挿入結果差を観測する | 差分が両方失敗なら parser / payload を疑う |
+| `xvfb-run` 前提 | `xvfb-run` が無ければ開始しない | manual は継続可能だが automation blocked を記録する | manual 成功で automation failure を上書きしない |
+| autocomplete Known unstable | `#` 補完の非決定性を別トラックで扱う | Paste / D&D と別欄に記録する | Known unstable を provider failure に混ぜない |
 
 ## 自動確認の入口
-Extension Host ベースの自動確認を行うときは、まず次を実行します。
+Extension Host ベースの自動確認を行うときは、**必ず headless prerequisite を確認してから** 次を実行します。
 
 ```bash
+xvfb-run --help
 cd 03_Implement
 npm run build
 npm run test:e2e
@@ -52,8 +63,14 @@ npm run test:e2e
 
 この入口で確認する対象:
 - VSCode Extension Host が起動できること
-- headless 環境でも E2E ハーネスが開始できること
+- `xvfb-run` を前提とした headless 実行条件が満たされていること
 - 補完 / Diagnostics / command fallback / native provider adapter の自動確認が走ること
+- native provider と fallback command が同一 DataTransfer 解析ロジックを再利用していること
+
+### automation blocked と判断する条件
+- `xvfb-run --help` が失敗する。
+- Electron / VSCode の起動に必要な GUI 依存が欠け、Extension Host が立ち上がらない。
+- この場合は **provider/fallback の仕様失敗ではなく headless prerequisite 未充足** として扱い、manual E2E の記録とは別に残してください。
 
 ## 手動確認の入口
 次のような項目は、自動 E2E だけでは完結しません。
@@ -62,6 +79,7 @@ npm run test:e2e
 - Problems パネルの見え方
 - VSCode Suggest UI の操作感
 - OS ネイティブの paste / drag-and-drop が実際にどう振る舞うか
+- native path と fallback path の比較順どおりに観測できるか
 
 そのため、manual 確認に入る前提として以下を満たしてください。
 
@@ -69,15 +87,19 @@ npm run test:e2e
 2. `cd 03_Implement && npm install && npm run build` が完了していること。
 3. VSCode の `Run Extension` などを使って **Extension Development Host** を起動できること。
 4. native paste / drop を試す場合、clipboard / file drag-and-drop を実際に発火できるローカル host であること。
+5. host class を **native provider 対応 / fallback only / capability 未確定** のどれかで先にメモすること。
+6. autocomplete の `#` 補完 failure が出ても、Paste / D&D の結論欄と混ぜないことを理解していること。
 
-> manual E2E の詳細手順やチェックリストは `04_Documentation/vscode-e2e-testing.md` に分離しています。本書では環境準備と実行入口だけを扱い、Preview / Problems / native event の詳細手順はそちらへ委譲します。
+> manual E2E の詳細手順やチェックリストは `04_Documentation/vscode-e2e-testing.md` に分離しています。本書では環境準備と実行入口だけを扱い、Preview / Problems / native event の詳細手順、comparison 順、failure triage はそちらへ委譲します。
 
 ## Phase 5 / VSCode integration の進め方
 1. `cd 03_Implement && npm install`
 2. `cd 03_Implement && npm run build`
-3. headless 自動確認が必要なら `cd 03_Implement && npm run test:e2e`
-4. Preview / Problems / native paste / native drop の最終確認が必要なら、ホスト VSCode で Extension Development Host を起動する。
-5. 手動で「何を見ればよいか」は `04_Documentation/vscode-e2e-testing.md` の manual checklist を参照する。
+3. `xvfb-run --help` を実行し、headless prerequisite を確認する。
+4. automation scope を回すなら `cd 03_Implement && npm run test:e2e` を実行する。
+5. Preview / Problems / native paste / native drop の最終確認が必要なら、ホスト VSCode で Extension Development Host を起動する。
+6. manual では host class を記録し、native path / fallback path の比較順を `04_Documentation/vscode-e2e-testing.md` の checklist に従って実施する。
+7. `#` 補完 failure は Known unstable として別欄へ記録し、Paste / D&D の成否欄へ混ぜない。
 
 ## テストデータ方針
 - Excel / Spreadsheet 系のテストデータはリポジトリへ固定ファイルとして追加せず、ユニットテスト内で都度生成する。
