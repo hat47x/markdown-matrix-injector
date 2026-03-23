@@ -312,7 +312,25 @@ test('extension integration boundaries keep canonical native providers and compa
   assert.match(source, /Compatibility path for older hosts or explicit command routing\./);
   assert.match(source, /registerTextEditorCommand\(\s*FALLBACK_COMMAND_IDS\[0\],\s*createCompatibilityPasteDropCommandHandler\(getPasteInsertText\),/s);
   assert.match(source, /registerTextEditorCommand\(\s*FALLBACK_COMMAND_IDS\[1\],\s*createCompatibilityPasteDropCommandHandler\(getDropInsertText\),/s);
-  assert.match(source, /function createCompatibilityPasteDropCommandHandler\([^]*const insertText = getInsertText\(args\);[^]*editBuilder\.replace\(editor\.selection, insertText\);/s);
+  assert.match(source, /if \(shouldRegisterTestCommands\(context\)\) \{\s*context\.subscriptions\.push\(\.\.\.registerTestCommands\(nativePasteDropState\)\);\s*\}/s);
+  assert.match(
+    source,
+    /const ENABLE_TEST_COMMANDS_ENV_VAR = 'MMI_ENABLE_TEST_COMMANDS';/s,
+  );
+  assert.match(
+    source,
+    /function shouldRegisterTestCommands\(context: vscode\.ExtensionContext\): boolean \{\s*return context\.extensionMode === vscode\.ExtensionMode\.Test \|\| process\.env\[ENABLE_TEST_COMMANDS_ENV_VAR\] === '1';\s*\}/s,
+  );
+  assert.match(source, /function registerTestCommands\(nativePasteDropState: NativePasteDropState\): vscode\.Disposable\[] \{/);
+  assert.match(source, /registerCommand\('markdownMatrixInjector\.__test\.insertEmbedFromPaste', \(args\?: PasteDropCommandArgs\) =>/s);
+  assert.match(source, /registerCommand\('markdownMatrixInjector\.__test\.insertEmbedFromDrop', \(args\?: PasteDropCommandArgs\) =>/s);
+  assert.match(
+    source,
+    /function createCompatibilityPasteDropCommandHandler\([^]*insertEmbedIntoEditor\(editor, getInsertText\(args\)\);/s,
+  );
+  assert.match(source, /async function insertEmbedIntoActiveEditor\(insertText: string \| undefined\): Promise<void> \{/);
+  assert.match(source, /async function insertEmbedIntoEditor\(editor: vscode\.TextEditor \| undefined, insertText: string \| undefined\): Promise<void> \{/);
+  assert.match(source, /editBuilder\.replace\(editor\.selection, insertText\);/);
   assert.match(source, /\.\.\.registerCompatibilityPasteDropCommands\(\),/);
   assert.match(source, /Canonical path for hosts that support native paste providers\./);
   assert.match(source, /Canonical path for hosts that support native drop providers\./);
