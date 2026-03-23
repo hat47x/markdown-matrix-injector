@@ -415,7 +415,7 @@ async function verifyPasteDropCommandFallback(
   const editor = await vscode.window.showTextDocument(document);
   editor.selection = new vscode.Selection(new vscode.Position(1, 0), new vscode.Position(1, 0));
 
-  await vscode.commands.executeCommand('markdownMatrixInjector.insertEmbedFromPaste', {
+  await vscode.commands.executeCommand('markdownMatrixInjector.__test.insertEmbedFromPaste', {
     clipboardHtml:
       '<div data-sheet="Summary">file:///tmp/report.xlsx</div><table><tr><td>ID</td><td>Name</td></tr><tr><td>1</td><td>Auth</td></tr></table>',
   });
@@ -439,7 +439,7 @@ async function verifyPasteDropCommandFallback(
   );
 
   editor.selection = new vscode.Selection(new vscode.Position(2, 0), new vscode.Position(2, 0));
-  await vscode.commands.executeCommand('markdownMatrixInjector.insertEmbedFromDrop', {
+  await vscode.commands.executeCommand('markdownMatrixInjector.__test.insertEmbedFromDrop', {
     droppedFiles: ['/tmp/drop-target.csv'],
   });
 

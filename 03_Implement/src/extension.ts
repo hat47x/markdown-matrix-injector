@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import process from 'node:process';
 import MarkdownIt from 'markdown-it';
 import * as vscode from 'vscode';
 import * as XLSX from 'xlsx';
@@ -42,6 +43,7 @@ const FALLBACK_COMMAND_IDS = [
   'markdownMatrixInjector.insertEmbedFromDrop',
 ] as const;
 const NATIVE_PASTE_DROP_COMMAND_NAME = 'Insert Markdown Matrix embed';
+const ENABLE_TEST_COMMANDS_ENV_VAR = 'MMI_ENABLE_TEST_COMMANDS';
 
 interface PasteDropIntegrationTestMetadata {
   fallbackCommandIds: string[];
@@ -99,18 +101,6 @@ export function activate(context: vscode.ExtensionContext): void {
       renderEmbedForTest(args),
     ),
     ...registerCompatibilityPasteDropCommands(),
-    vscode.commands.registerCommand(
-      'markdownMatrixInjector.__test.getPasteInsertTextFromDataTransfer',
-      (dataTransfer: vscode.DataTransfer) => getPasteInsertTextFromDataTransfer(dataTransfer),
-    ),
-    vscode.commands.registerCommand(
-      'markdownMatrixInjector.__test.getDropInsertTextFromDataTransfer',
-      (dataTransfer: vscode.DataTransfer) => getDropInsertTextFromDataTransfer(dataTransfer),
-    ),
-    vscode.commands.registerCommand('markdownMatrixInjector.__test.getPasteDropIntegrationState', () => ({
-      ...createPasteDropIntegrationTestMetadata(),
-      ...nativePasteDropState,
-    })),
     vscode.languages.registerCompletionItemProvider(
       MARKDOWN_SELECTOR,
       createCompletionProvider(),
@@ -121,6 +111,10 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.workspace.onDidSaveTextDocument((document) => refreshDiagnosticsForDocument(document, diagnostics)),
     vscode.workspace.onDidCloseTextDocument((document) => diagnostics.delete(document.uri)),
   );
+
+  if (shouldRegisterTestCommands(context)) {
+    context.subscriptions.push(...registerTestCommands(nativePasteDropState));
+  }
 
   registerNativePasteDropProviders(context, nativePasteDropState);
 
@@ -161,6 +155,33 @@ function registerCompatibilityPasteDropCommands(): vscode.Disposable[] {
   ];
 }
 
+function shouldRegisterTestCommands(context: vscode.ExtensionContext): boolean {
+  return context.extensionMode === vscode.ExtensionMode.Test || process.env[ENABLE_TEST_COMMANDS_ENV_VAR] === '1';
+}
+
+function registerTestCommands(nativePasteDropState: NativePasteDropState): vscode.Disposable[] {
+  return [
+    vscode.commands.registerCommand(
+      'markdownMatrixInjector.__test.getPasteInsertTextFromDataTransfer',
+      (dataTransfer: vscode.DataTransfer) => getPasteInsertTextFromDataTransfer(dataTransfer),
+    ),
+    vscode.commands.registerCommand(
+      'markdownMatrixInjector.__test.getDropInsertTextFromDataTransfer',
+      (dataTransfer: vscode.DataTransfer) => getDropInsertTextFromDataTransfer(dataTransfer),
+    ),
+    vscode.commands.registerCommand('markdownMatrixInjector.__test.insertEmbedFromPaste', (args?: PasteDropCommandArgs) =>
+      insertEmbedIntoActiveEditor(getPasteInsertText(args)),
+    ),
+    vscode.commands.registerCommand('markdownMatrixInjector.__test.insertEmbedFromDrop', (args?: PasteDropCommandArgs) =>
+      insertEmbedIntoActiveEditor(getDropInsertText(args)),
+    ),
+    vscode.commands.registerCommand('markdownMatrixInjector.__test.getPasteDropIntegrationState', () => ({
+      ...createPasteDropIntegrationTestMetadata(),
+      ...nativePasteDropState,
+    })),
+  ];
+}
+
 function createCompatibilityPasteDropCommandHandler(
   getInsertText: (args?: PasteDropCommandArgs) => string | undefined,
 ): (
@@ -169,15 +190,22 @@ function createCompatibilityPasteDropCommandHandler(
   args?: PasteDropCommandArgs,
 ) => Promise<void> {
   return async (editor: vscode.TextEditor, _edit: vscode.TextEditorEdit, args?: PasteDropCommandArgs) => {
-    const insertText = getInsertText(args);
-    if (!insertText) {
-      return;
-    }
-
-    await editor.edit((editBuilder) => {
-      editBuilder.replace(editor.selection, insertText);
-    });
+    await insertEmbedIntoEditor(editor, getInsertText(args));
   };
+}
+
+async function insertEmbedIntoActiveEditor(insertText: string | undefined): Promise<void> {
+  await insertEmbedIntoEditor(vscode.window.activeTextEditor, insertText);
+}
+
+async function insertEmbedIntoEditor(editor: vscode.TextEditor | undefined, insertText: string | undefined): Promise<void> {
+  if (!editor || !insertText) {
+    return;
+  }
+
+  await editor.edit((editBuilder) => {
+    editBuilder.replace(editor.selection, insertText);
+  });
 }
 
 function registerNativePasteProvider(context: vscode.ExtensionContext, nativePasteDropState: NativePasteDropState): void {
