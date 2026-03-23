@@ -62,12 +62,26 @@ Markdown Matrix Injector では、Docker コンテナ内でも VSCode Extension 
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y xvfb
+sudo apt-get install -y \
+  xvfb \
+  libgtk-3-0 \
+  libnss3 \
+  libxss1 \
+  libasound2t64 \
+  libatk1.0-0 \
+  libatk-bridge2.0-0 \
+  libcups2t64 \
+  libgbm1 \
+  libxshmfence1 \
+  libx11-xcb1 \
+  libxcb-dri3-0
 xvfb-run --help
 ```
 
 - `xvfb-run --help` が成功したら、仮想ディスプレイ前提は満たされています。
 - ここで失敗する場合は、`npm run test:e2e` を実行せず、まず OS パッケージ導入を完了させてください。
+- 2026-03-23 の Linux container 再検証では、`xvfb` 導入後も `libatk-1.0.so.0` 欠落で Electron が起動できなかったため、上記ライブラリ群を追加導入してから E2E を再実行しました。
+- Debian / Ubuntu の世代差によっては `libasound2t64` / `libcups2t64` が `libasound2` / `libcups2` に読み替わる場合があります。
 
 ## Commands
 ```bash

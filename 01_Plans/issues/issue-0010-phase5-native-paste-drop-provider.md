@@ -16,10 +16,10 @@
 - 現在の command ベース入口を足場にしつつ、VSCode の native paste / drop provider API へ接続する。API の安定性や engine 制約を確認したうえで、command 経由フォールバックを残すかを判断する。
 
 ### Acceptance criteria (受入条件)
-- [ ] Paste / D&D が command 引数経由ではなく、VSCode の native provider surface から発火できること。
-- [ ] 既存の `pasteDrop.ts` を再利用し、HTML クリップボード解析や dropped file 解析を重複実装しないこと。
-- [ ] native provider が使えない環境では、command ベースのフォールバック方針がコードまたはドキュメントで明示されていること。
-- [ ] unit / E2E の双方で退行がないこと。
+- [x] Paste / D&D が command 引数経由ではなく、VSCode の native provider surface から発火できること。
+- [x] 既存の `pasteDrop.ts` を再利用し、HTML クリップボード解析や dropped file 解析を重複実装しないこと。
+- [x] native provider が使えない環境では、command ベースのフォールバック方針がコードまたはドキュメントで明示されていること。
+- [x] unit / E2E の双方で退行がないこと。
 
 ### Task breakdown (作業分解)
 - [x] VSCode engine / API 制約を整理し、paste/drop provider と command fallback の責務を決める。
