@@ -32,8 +32,23 @@ Phase 5 の VSCode 連携確認では、単なる `npm install` だけでなく�
 Debian / Ubuntu 系の例:
 ```bash
 sudo apt-get update
-sudo apt-get install -y xvfb libgtk-3-0 libnss3 libxss1 libasound2
+sudo apt-get install -y \
+  xvfb \
+  libgtk-3-0 \
+  libnss3 \
+  libxss1 \
+  libasound2t64 \
+  libatk1.0-0 \
+  libatk-bridge2.0-0 \
+  libcups2t64 \
+  libgbm1 \
+  libxshmfence1 \
+  libx11-xcb1 \
+  libxcb-dri3-0
 ```
+
+> 2026-03-23 の container 再検証では、`xvfb` だけでなく上記の Electron / VSCode 実行時ライブラリ群も導入してはじめて `cd 03_Implement && npm run test:e2e` が完走しました。
+> Debian / Ubuntu のパッケージ名は世代差分で `libasound2` / `libcups2` 系に揺れがあるため、利用 host のディストリビューションに合わせて読み替えてください。
 
 > `npm run test:e2e` は内部で VSCode Extension Host を起動します。GUI を持たない Linux / container 環境では、通常 `xvfb-run` が無いと開始地点に立てません。
 >
