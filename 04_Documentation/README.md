@@ -3,32 +3,58 @@
 このディレクトリは、利用者・導入担当者・運用担当者に公開する文書を格納する領域です。
 セットアップ手順、運用手順、ユーザー向けガイド、公開可能な検証手順などを配置します。
 
-## Gist publication policy
+## 公開文書の基本導線（Phase 6）
+Phase 6 の公開文書は、**Overview -> Tutorial -> Scenario -> Reference（概要→チュートリアル→活用シナリオ→詳細仕様）** の順で読む構成に統一します。
+
+1. Overview: `04_Documentation/overview.md`
+2. Tutorial: `04_Documentation/tutorial.md`
+3. Scenario: `04_Documentation/scenario-sier-design-docs.md`
+4. Reference: `04_Documentation/reference.md`
+
+## Gist 公開方針
 - `04_Documentation/` の文書は、**すべて Markdown 形式で体系立てて記述**し、Gist ページとして公開する前提で管理します。
 - README では「ローカル正本 (`04_Documentation/*.md`)」と「公開先 Gist」を 1 対 1 で対応付けます。
 - Gist URL は公開後に実 URL へ差し替えます（下表はプレースホルダ）。
 
-## Public documentation map (Local + Gist)
-| Category | Local canonical file | Public Gist page |
-|---|---|---|
-| Overview | `04_Documentation/overview.md` | [Gist: MMI Overview](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-overview) |
-| Tutorial | `04_Documentation/tutorial.md` | [Gist: MMI Tutorial](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-tutorial) |
-| Scenario guide | `04_Documentation/scenario-sier-design-docs.md` | [Gist: MMI SIer Scenario Guide](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-scenario-sier-design-docs) |
-| Reference | `04_Documentation/reference.md` | [Gist: MMI Reference](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-reference) |
-| Developer setup | `04_Documentation/developer-setup.md` | [Gist: MMI Developer Setup](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-developer-setup) |
-| VSCode E2E guide | `04_Documentation/vscode-e2e-testing.md` | [Gist: MMI VSCode E2E Guide](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-vscode-e2e-testing) |
+## 公開文書対応表（ローカル正本と Gist）
+| 導線順 | 区分 | ローカル正本 | 公開 Gist ページ |
+|---|---|---|---|
+| 1 | Overview（概要） | `04_Documentation/overview.md` | [Gist: MMI Overview](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-overview) |
+| 2 | Tutorial（チュートリアル） | `04_Documentation/tutorial.md` | [Gist: MMI Tutorial](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-tutorial) |
+| 3 | Scenario（活用シナリオ） | `04_Documentation/scenario-sier-design-docs.md` | [Gist: MMI SIer Scenario Guide](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-scenario-sier-design-docs) |
+| 4 | Reference（詳細仕様） | `04_Documentation/reference.md` | [Gist: MMI Reference](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-reference) |
+| - | 開発者セットアップ | `04_Documentation/developer-setup.md` | [Gist: MMI Developer Setup](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-developer-setup) |
+| - | VSCode E2E ガイド | `04_Documentation/vscode-e2e-testing.md` | [Gist: MMI VSCode E2E Guide](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-vscode-e2e-testing) |
+| - | 総合サンプル Markdown | `04_Documentation/samples/mmi-full-spec-sample.md` | [Gist: MMI Full Spec Sample Markdown](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-full-spec-sample-markdown) |
 
-| Full-spec sample markdown | `04_Documentation/samples/mmi-full-spec-sample.md` | [Gist: MMI Full Spec Sample Markdown](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-full-spec-sample-markdown) |
+## Phase 6 運用導線（テンプレート・統制）
+運用を一本化するため、docs audit / feedback loop / scorecard は次の導線で実施します。
 
-## Documentation policy reminder
+1. Governance / quality gate（正本）
+   - `02_Architecture/phase6-public-documentation-architecture.md`
+2. Feedback loop operations（issue）
+   - `01_Plans/issues/issue-0019-phase6-feedback-loop-operations.md`
+3. KPI scorecard operations（issue）
+   - `01_Plans/issues/issue-0020-phase6-value-kpi-and-audit-scorecard.md`
+4. 実運用テンプレート（実体ファイル）
+   - `01_Plans/templates/docs-audit-feedback-loop-template.md`
+   - `01_Plans/templates/docs-feedback-classification-template.md`
+   - `01_Plans/templates/docs-audit-log-template.md`
+   - `01_Plans/templates/phase6-kpi-scorecard.md`
+   - `01_Plans/templates/phase6-kpi-scorecard-sample.md`
+5. triage 可視化
+   - `python3 01_Plans/tools/planning_queue.py`
+
+## 文書運用ポリシー（再確認）
+- `04_Documentation/` 配下の公開文書は、英語交じりの文体を避け、標準的な日本の技術書に準じた章立て・用語・文体で記述する。
 - 公開文書だけに仕様差分を閉じ込めず、要件は `00_Prompt/requirements.md`、設計は `02_Architecture/`、計画は `01_Plans/` に戻します。
 - 各文書は少なくとも対象読者、前提条件、期待結果、関連文書、既知の制約を明示します。
 
-## Full-spec sample assets
-- Comprehensive sample markdown: `04_Documentation/samples/mmi-full-spec-sample.md`
-- Comprehensive sample Excel workbook (generated): `04_Documentation/samples/mmi-full-spec-sample.xlsx`
-- Excel generator script: `04_Documentation/samples/generate_mmi_full_spec_sample_xlsx.py`
+## 総合サンプル資産
+- 総合サンプル Markdown: `04_Documentation/samples/mmi-full-spec-sample.md`
+- 総合サンプル Excel（生成物）: `04_Documentation/samples/mmi-full-spec-sample.xlsx`
+- Excel 生成スクリプト: `04_Documentation/samples/generate_mmi_full_spec_sample_xlsx.py`
 
-この 2 つをセットで使うことで、Phase 1〜5 の主要仕様（基本記法、query 変換、印刷制御、Smart Fallback、Phase 5 手動確認観点）を通しで再現できます。
+この 2 つをセットで使うことで、Phase 1〜5 の主要仕様（基本記法、クエリ変換、印刷制御、Smart Fallback、Phase 5 手動確認観点）を通しで再現できます。
 
 > Codex/GitHub PR 制約（バイナリ非対応）により `.xlsx` はリポジトリへ含めず、上記 generator script で人手生成する運用とします。

@@ -22,11 +22,12 @@
 - [ ] planning_queue 実行時に関連ADR欠落が発生しないこと。
 
 ### Task breakdown (作業分解)
-- [ ] KPIの定義と判定基準をテンプレート化する。
-- [ ] scorecard サンプルを1件作成する。
-- [ ] 反映先リンク欄（requirements / architecture / tests / issue）を設ける。
-- [ ] triageコマンドで運用可能性を検証する。
+- [x] KPIの定義と判定基準を `01_Plans/templates/phase6-kpi-scorecard.md` に固定する。
+- [x] scorecard サンプル（`01_Plans/templates/phase6-kpi-scorecard-sample.md`）との接続を明文化する。
+- [x] 反映先リンク欄（requirements / architecture / tests / issue）を architecture / README / issue 導線で統合する。
+- [x] triageコマンド（`python3 01_Plans/tools/planning_queue.py`）で運用可能性を検証する。
 
 ### Validation plan (検証計画)
-- `rg -n "TFS|Decision Readiness|Support Deflection|Feedback Closure|scorecard" 01_Plans 04_Documentation/README.md 02_Architecture/phase6-public-documentation-architecture.md` で指標定義を確認する。
-- `python3 01_Plans/tools/planning_queue.py` で orphan がないことを確認する。
+- `rg -n "Overview|Tutorial|Scenario|Reference" 04_Documentation/README.md` で共通導線を確認する。
+- `rg -n "docs audit|feedback loop|scorecard|TFS|Decision Readiness|Support Deflection|Feedback Closure" 02_Architecture/phase6-public-documentation-architecture.md 01_Plans/issues/issue-0019-phase6-feedback-loop-operations.md 01_Plans/issues/issue-0020-phase6-value-kpi-and-audit-scorecard.md` で KPI / 監査運用の接続を確認する。
+- `python3 01_Plans/tools/planning_queue.py` で orphan / pending 可視性を確認する。
