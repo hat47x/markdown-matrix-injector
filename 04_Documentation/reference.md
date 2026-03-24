@@ -13,7 +13,28 @@
 - 埋め込み元として CSV / XLSX / XML Spreadsheet 2003 を利用すること
 
 ## Expected result
-この文書を読むと、埋め込み記法、主要パラメータ、Smart Fallback、印刷制御、入力支援機能の仕様を一覧で確認できます。
+この文書を読むと、埋め込み記法、主要パラメータ、Smart Fallback、印刷制御、Diagnostics、入力支援機能について、一次回答に必要な「正常系挙動 / 代表的失敗ケース / 制約 / 関連正本リンク」を確認できます。
+
+## issue-0018 受入条件（固定）
+
+### 正常系
+- Reference の主要機能ごとに「正常系挙動」「代表的失敗ケース」「制約」「関連正本リンク」を同一セクション内で示す。
+- サポート担当が問い合わせに対し、Reference へのリンクのみで一次回答できる粒度を維持する。
+
+### 失敗時
+- `filepath` 不在、`sheet` 不在、無効 XML、不正パラメータ指定などの失敗時に、利用者が次アクションを判断できる説明を記載する。
+- リポジトリ内の関連正本リンクが欠落している場合は、Reference を一次回答源として扱わない。
+
+### 制約
+- 本書は公開向けリファレンスのため、実装詳細はコード/テスト/設計正本を優先する。
+- UI の最終見た目（特に印刷結果）は環境依存のため、manual-e2e の確認を前提とする。
+
+### 関連正本リンク
+- 要件正本: `00_Prompt/requirements.md`
+- 実行計画: `01_Plans/issues/issue-0018-phase6-reference-trustworthiness.md`
+- 関連ADR:
+  - `01_Plans/adr/ADR-0002-phase6-documentation-feedback-loop.md`
+  - `01_Plans/adr/ADR-0003-phase6-user-value-maximization-roadmap.md`
 
 ## Embed syntax
 基本記法:
@@ -23,48 +44,172 @@
 ```
 
 主な意味:
-- `filepath`: 埋め込み元ファイル
-- `sheet_or_name`: シート名またはターゲット名
-- `range`: A1 形式の範囲
-- `params`: URL クエリ形式の追加パラメータ
+- `filepath`: 埋め込み元ファイル。
+  - 正常系挙動: Markdown ファイル基準の相対パスで対象ファイルを探索する。
+  - 代表的失敗ケース: ファイルが存在しない。
+  - 制約: 相対パス解決を優先し、必要時のみワークスペースルートへフォールバックする。
+  - 関連正本: `00_Prompt/requirements.md`, `03_Implement/src`
+- `sheet_or_name`: シート名またはターゲット名。
+  - 正常系挙動: 指定シートを対象に範囲・パラメータを評価する。
+  - 代表的失敗ケース: 指定シートが存在しない。
+  - 制約: データソース種別により指定可能な名前空間が異なる。
+  - 関連正本: `03_Implement/src`, `03_Implement/test`
+- `range`: A1 形式の範囲。
+  - 正常系挙動: 指定範囲のみを抽出して後段パラメータを適用する。
+  - 代表的失敗ケース: 範囲記法が不正。
+  - 制約: 範囲が巨大な場合は Smart Fallback が優先されることがある。
+  - 関連正本: `03_Implement/src`, `03_Implement/test`
+- `params`: URL クエリ形式の追加パラメータ。
+  - 正常系挙動: サポート済みキーのみ評価して表示を組み立てる。
+  - 代表的失敗ケース: 非サポートキー・値が指定される。
+  - 制約: パラメータ競合時は実装側の評価順に従う。
+  - 関連正本: `00_Prompt/requirements.md`, `03_Implement/src`
 
 ## Supported data sources
 - CSV
 - XLSX
 - XML Spreadsheet 2003
 
-制約:
-- 汎用 XML はサポート対象外で、エラー表示になります。
-- パス解決は Markdown ファイルからの相対パスを優先し、必要に応じてワークスペースルートへフォールバックします。
+### 正常系挙動
+- CSV/XLSX/XML Spreadsheet 2003 を入力として解析し、指定範囲またはシート全体を描画する。
 
-## Query parameters
-| Parameter | Purpose |
-|---|---|
-| `mode=card` / `mode=table` | カード表示または表表示を明示する |
-| `header=first` / `header=<number>` | ヘッダ行の扱いを指定する |
-| `columns=A,C,F` | 指定列だけを抽出する |
-| `transpose=true` | 行列を反転する |
-| `grep=<keyword>` | キーワードを含む行だけ残す |
-| `highlightColumn`, `highlightValue` | 一致する行をハイライトする |
-| `formatColumn=<selector>:json` | 指定列セルをコードブロック風に描画する |
-| `caption=<text>` | キャプションを付与する |
-| `id=<anchor>` | コンテナ ID を付与する |
-| `pageBreak=before|after|both` | 印刷時の改ページ制御を付ける |
-| `orientation=landscape|portrait` | 印刷向きのヒントを付ける |
+### 代表的失敗ケース
+- 汎用 XML（Spreadsheet 2003 でない XML）を渡すと、パースを中断してエラー表示になる。
+
+### 制約
+- XML は Spreadsheet 2003 のシグネチャ前提であり、汎用 XML 互換は対象外。
+- データ正本は外部ファイルであり、本拡張はビューアとして扱う（編集機能は持たない）。
+
+### 関連正本
+- `00_Prompt/requirements.md`
+- `02_Architecture/phase6-public-documentation-architecture.md`
+- `03_Implement/src`
+- `03_Implement/test`
+
+## Query parameters（主要機能）
+
+### mode
+- 正常系挙動:
+  - `mode=table`: Smart Fallback 条件に該当しても表展開を優先する。
+  - `mode=card`: カード表示を強制する。
+- 代表的失敗ケース:
+  - 未定義の値（例: `mode=list`）を指定すると期待表示にならない。
+- 制約:
+  - 既定値（未指定時）は Smart Fallback 判定に従う。
+- 関連正本:
+  - `00_Prompt/requirements.md`
+  - `03_Implement/src`
+  - `03_Implement/test`
+
+### header
+- 正常系挙動:
+  - `header=first` は範囲1行目をヘッダとして扱う。
+  - `header=<number>` は指定行をヘッダとして結合する。
+- 代表的失敗ケース:
+  - 範囲外の行番号を指定するとヘッダが期待通りに構成されない。
+- 制約:
+  - データ形状によってはヘッダ化後に列名重複が発生しうる。
+- 関連正本:
+  - `00_Prompt/requirements.md`
+  - `03_Implement/src`
+  - `03_Implement/test`
+
+### columns / transpose / grep
+- 正常系挙動:
+  - `columns=A,C,F` は指定列のみ抽出する。
+  - `transpose=true` は行列を反転する。
+  - `grep=<keyword>` はキーワード一致行だけを残す。
+- 代表的失敗ケース:
+  - 不正な列指定・空文字 grep により結果が空または期待外になる。
+- 制約:
+  - フィルタ後のデータ件数が 0 の場合でもエラーではなく空表示になりうる。
+- 関連正本:
+  - `00_Prompt/requirements.md`
+  - `03_Implement/src`
+  - `03_Implement/test`
+
+### highlightColumn / highlightValue / formatColumn
+- 正常系挙動:
+  - `highlightColumn` と `highlightValue` の一致行に強調クラスを付与する。
+  - `formatColumn=<selector>:json` は対象セルをコードブロック風表示にする。
+- 代表的失敗ケース:
+  - `highlightColumn` の列指定不整合、`formatColumn` のセレクタ不正で効果が出ない。
+- 制約:
+  - JSON風表示は見た目整形であり、データ型変換を保証しない。
+- 関連正本:
+  - `00_Prompt/requirements.md`
+  - `03_Implement/src`
+  - `03_Implement/test`
+
+### caption / id / pageBreak / orientation
+- 正常系挙動:
+  - `caption` は表題を付与し、`id` は相互参照アンカーとして利用できる。
+  - `pageBreak` は印刷時改ページクラスを付与する。
+  - `orientation` は印刷用 CSS と連携する向きヒントを付与する。
+- 代表的失敗ケース:
+  - 無効な `pageBreak`/`orientation` 値により期待した印刷制御が効かない。
+- 制約:
+  - 実際の改ページ・用紙向きは PDF 生成器や印刷環境の実装差分に依存する。
+- 関連正本:
+  - `00_Prompt/requirements.md`
+  - `02_Architecture/phase6-public-documentation-architecture.md`
+  - `03_Implement/src`
+  - `03_Implement/test`
 
 ## Smart Fallback
-カード化が起きる代表例:
-- `mode=card` を指定したとき
-- 列数が 10 を超える、またはセル数が 500 を超えるとき
-- シート指定なしでファイル全体を参照したとき
 
-目的:
-- 巨大表を本文へ無理に展開せず、可読性と印刷品質を守ること
+### 正常系挙動
+- 以下の条件でカード化（またはカード優先）される。
+  - `mode=card` 指定時
+  - 列数 > 10 またはセル数 > 500
+  - シート指定なしでファイル全体を参照
+
+### 代表的失敗ケース
+- `mode=table` 強制時に巨大表を展開し、表示や可読性が低下する（機能不全ではなく運用上の失敗）。
+
+### 制約
+- 画面（`@media screen`）と印刷（`@media print`）で表示形態が変わる。
+- 可読性を優先するため、常に全文展開はしない。
+
+### 関連正本
+- `00_Prompt/requirements.md`
+- `02_Architecture/phase6-public-documentation-architecture.md`
+- `03_Implement/src`
+- `03_Implement/test`
 
 ## Diagnostics and input assistance
-- Autocomplete は `![[` → filepath → `#` → sheet/range → `?` → parameter の順で候補を出します。
-- Diagnostics は、ファイル不在・シート不在・無効 XML を検知対象とします。
-- Paste / D&D は、HTML クリップボード情報や dropped files から埋め込み記法を提案します。
+
+### 正常系挙動
+- Autocomplete は `![[` → filepath → `#` → sheet/range → `?` → parameter の順で候補を提示する。
+- Diagnostics は「ファイル不在」「シート不在」「無効 XML」を検知し、問題位置を通知する。
+- Paste / D&D はクリップボード情報や dropped files から埋め込み記法を補助生成する。
+
+### 代表的失敗ケース
+- クリップボードメタデータ不足時は、Paste 補助が期待より限定的になる。
+- Diagnostics の対象外パターンは手動確認が必要になる。
+
+### 制約
+- 入力支援は編集効率向上の補助であり、最終的な妥当性保証はテスト/目視確認に依存する。
+- Diagnostics は静的観点中心で、印刷結果や運用ワークフロー全体までは保証しない。
+
+### 関連正本
+- `00_Prompt/requirements.md`
+- `01_Plans/issues/issue-0018-phase6-reference-trustworthiness.md`
+- `02_Architecture/phase6-public-documentation-architecture.md`
+- `03_Implement/src`
+- `03_Implement/test`
+
+## Cross-reference map（01_Plans / 02_Architecture / 03_Implement/test）
+- 要件正本: `00_Prompt/requirements.md`
+- 計画（Issue/ADR）:
+  - `01_Plans/issues/issue-0018-phase6-reference-trustworthiness.md`
+  - `01_Plans/adr/ADR-0002-phase6-documentation-feedback-loop.md`
+  - `01_Plans/adr/ADR-0003-phase6-user-value-maximization-roadmap.md`
+- 設計:
+  - `02_Architecture/phase6-public-documentation-architecture.md`
+- 実装/テスト:
+  - `03_Implement/src`
+  - `03_Implement/test`
 
 ## Related docs
 - 概要: `04_Documentation/overview.md`
@@ -73,5 +218,6 @@
 - E2E 運用: `04_Documentation/vscode-e2e-testing.md`
 
 ## Known limitations
-- Reference は公開文書向けに要点を整理したものであり、将来的に FAQ / troubleshooting / sample gallery へ分割する可能性があります。
-- 実機 UI の見た目確認は、manual E2E やスクリーンショット整備が別途必要です。
+- Reference は公開文書向けに要点を整理したものであり、将来的に FAQ / troubleshooting / sample gallery へ分割する可能性がある。
+- 実機 UI の見た目確認は、manual-e2e やスクリーンショット整備が別途必要。
+- 本書は一次回答源だが、最終判断は `00_Prompt/requirements.md` と実装・テスト正本（`03_Implement/src`, `03_Implement/test`）を優先する。
