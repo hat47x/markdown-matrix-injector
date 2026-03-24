@@ -1,5 +1,8 @@
 # Phase 6 ROI Proof サンプル
 
+<a id="roi-proof-index"></a>
+## ROI Proof Index
+
 ## 目的
 本ディレクトリは、`issue-0017-phase6-scenario-roi-proof` で要求される「利用前/利用後の比較観点」と「観測手順の裏付け」を、シナリオ本文から独立して再利用できる形で提供する。
 
@@ -16,6 +19,13 @@
 - 対象は SIer 設計書運用（レビュー、別紙参照、印刷/PDF納品）を持つプロジェクト。
 - 1スプリント以上、同一規模のドキュメント作成/改訂タスクで利用前/利用後を比較すること。
 - 計測者は同一ロール（例: 設計担当 or レビュー担当）を維持し、条件差を最小化すること。
+
+## 観測導線（Scenario 本文からの参照先）
+- 利用前観測: [`before-state.md#before-observation-method`](./before-state.md#before-observation-method)
+- 利用後観測: [`after-state.md#after-observation-method`](./after-state.md#after-observation-method)
+- 観測プロトコル: [`observation-protocol.md#observation-method`](./observation-protocol.md#observation-method)
+- 期待観測結果: [`observation-protocol.md#expected-observation-results`](./observation-protocol.md#expected-observation-results)
+- 制約: [`observation-protocol.md#constraints`](./observation-protocol.md#constraints)
 
 ## 期待結果
 - 利用前/利用後で、最低3観点（時間短縮・品質・監査容易性）の差分を説明可能になる。
