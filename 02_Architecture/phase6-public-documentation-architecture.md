@@ -1,7 +1,8 @@
 # Phase 6 Public Documentation Architecture
 
 ## Purpose
-この文書は、Phase 6 で整備する公開文書の情報アーキテクチャと、文書化から requirements / design / test へ知見を戻す feedback loop を固定するための設計文書です。
+この文書は、Phase 6 で整備する公開文書の情報アーキテクチャと、文書化から requirements / architecture / test へ知見を戻す feedback loop を固定するための設計文書です。
+本書は `issue-0018` / `issue-0019` / `issue-0020` の quality gate 要件を統合した、Phase 6 quality gate の正本として扱います。
 
 ## Documentation layers
 Phase 6 の公開文書は、次の 4 層を正本とします。
@@ -45,26 +46,79 @@ Phase 6 の公開文書は、次の 4 層を正本とします。
 4. **Trace note**
    - 公開文書の更新時に「どの知見をどこへ反映したか」を issue / ADR / commit で追跡できる状態にする。
 
-## Quality gate for every public document
-各公開文書には最低限、次の節を置きます。
+## Quality gate (authoritative)
+以下は `issue-0018` / `issue-0019` / `issue-0020` から統合した、公開文書全体に適用される gate です。
 
-- `## Target reader`
-- `## Prerequisites`
-- `## Expected result`
-- `## Related docs`
-- `## Known limitations`
+### Gate A: Baseline structure and consistency
+- 各公開文書は最低限、以下の節を持つ。
+  - `## Target reader`
+  - `## Prerequisites`
+  - `## Expected result`
+  - `## Related docs`
+  - `## Known limitations`
+- 手順書 / シナリオ文書は「入力例」「実行手順」「期待される観測結果」を含める。
+- Reference は「シンタックス」「主なパラメータ」「挙動」「制約」「関連正本リンク」を機能単位で保持する。
+- 公開文書間の導線は Overview → Tutorial → Scenario → Reference の順で到達可能とする。
 
-手順書やシナリオ文書では、これに加えて「入力例」「実行手順」「期待される観測結果」を書きます。Reference 文書では、少なくともシンタックス、主なパラメータ、挙動、制約、関連文書リンクを表形式または箇条書きで持ちます。
+### Gate B: Reference trustworthiness
+- 主要パラメータ群ごとに、少なくとも以下 1 セットを記載する。
+  - 正常系挙動
+  - 代表的な失敗ケース
+  - 制約
+  - 関連正本リンク（requirements / architecture / issue / test）
+- Smart Fallback / 印刷制御 / Diagnostics / Paste & D&D は、制約と失敗時挙動を明文化する。
+- repo 内リンク切れを許容しない（docs audit で検出し修正する）。
+- 目標状態は「サポート一次回答を Reference リンクのみで返せる粒度」とする。
 
-## Docs audit loop
-Phase 6 では docs audit を正式な検証トラックとして扱います。各イテレーションで次を確認します。
+### Gate C: Docs audit operations
+- docs audit は単発でなく定常運用とし、docs 更新イテレーションごとに実施する。
+- 監査時は次を入力とする。
+  - 対象文書差分
+  - 上流正本（requirements / architecture / issue / ADR）
+  - 直近の未解決フィードバック項目
+- 監査結果は次の分類を必須とし、未分類 0 件を完了条件とする。
+  - requirements
+  - architecture
+  - test
+  - product gap
+- 監査結果は issue / ADR / commit のいずれかへ反映し、反映先リンクを記録する。
+
+### Gate D: KPI scorecard measurement
+- Phase 6 KPI は以下の 4 指標を毎イテレーションで計測可能であること。
+  - **TFS**
+  - **Decision Readiness**
+  - **Support Deflection**
+  - **Feedback Closure**
+- scorecard には最低限、以下を保持する。
+  - 測定日
+  - 対象文書
+  - 判定
+  - 次アクション
+  - 反映先リンク（requirements / architecture / tests / issue）
+- issue-0016〜0019 成果を最低 1 回は scorecard で評価可能であること。
+
+### Gate E: Traceability and planning integrity
+- docs 変更コミットごとに「発見事項 → 分類 → 反映先」を追跡可能にする。
+- `01_Plans/tools/planning_queue.py` 実行時に orphan / pending 状態が観測できる運用を維持する。
+- quality gate の判定ログは、後続イテレーションが再利用できる粒度で残す。
+
+## Docs audit loop (operational checks)
+各イテレーションで次を確認します。
 
 - 文書群が Overview → Tutorial → Scenario → Reference の導線でつながっているか。
 - 文書が上流正本と矛盾していないか。
 - 文書化で見つかったギャップが issue / ADR / requirements のいずれかに反映されたか。
 - スクリーンショット、サンプル、FAQ の追加が有益かを毎回見直したか。
+- scorecard（TFS / Decision Readiness / Support Deflection / Feedback Closure）が更新されたか。
 
-## Deferred items for later iterations
+## Known limitations and deferred items
+### Known limitations (current)
+- docs lint / link check / scorecard 集計は現時点で手動運用を含む。
+- 実機スクリーンショット収集は体系化途上であり、Coverage に揺らぎがある。
+- FAQ / troubleshooting は独立文書として未分離で、導線改善余地がある。
+- サンプル集 / テンプレート配布は限定的で、業務別バリエーションが不足している。
+
+### Deferred items for later iterations
 - 実機スクリーンショットの体系的収集。
 - FAQ / troubleshooting 独立文書。
 - サンプル集やテンプレート配布。
