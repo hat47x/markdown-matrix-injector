@@ -32,15 +32,15 @@ Markdown Matrix Injector は、Excel / CSV / XML を **Single Source of Truth** 
 3. **納品品質まで見据えること**
    - Smart Fallback や印刷制御により、巨大表や PDF 出力時の崩れを扱いやすくします。
 
-## Reader-specific value（issue-0016 固定）
+## Reader-specific value（issue-0016 Acceptance criteria 対応）
 - **導入判断者の価値**
   - 正本保護（read-only）と印刷要件対応（Smart Fallback / pageBreak / orientation）を同時に評価でき、導入リスクを早期に見積もれます。
   - `Overview -> Tutorial -> Scenario -> Reference` の導線で、組織展開前に必要な説明責任の根拠を揃えられます。
 - **PoC担当の価値**
-  - `![[...]]` 記法を起点に、`columns` / `grep` / `header` など最小パラメータで「最初の成功」を短時間で再現できます。
+  - `![[...]]` 記法を起点に、`columns` / `grep` / `header` など最小パラメータで 30 分以内の「最初の成功」を再現できます。
   - 失敗時も関連文書へ即遷移できるため、検証ログを残しながら採用判定を進めやすくなります。
 - **運用担当の価値**
-  - 文書へ表を再貼り付けせず、正本データ参照に統一することで、改訂時の差分管理と整合確認を軽量化できます。
+  - 文書へ表を再貼り付けせず、正本データ参照に統一することで、改訂時の差分管理と整合確認（正本との突合）を軽量化できます。
   - 巨大表をカード化する運用により、日常編集と納品体裁（印刷）を両立できます。
 
 ## Core capabilities at a glance
