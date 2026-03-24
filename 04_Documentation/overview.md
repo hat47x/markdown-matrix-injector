@@ -5,17 +5,20 @@
 - Canonical source: `04_Documentation/overview.md`
 
 ## Target reader
-- Markdown ベースの設計書・仕様書を改善したいエンジニア
-- Excel / CSV / XML を正本のまま活かしたい SIer チーム
-- Word 中心の巨大文書から移行先を探している導入担当者
+- **導入判断者（マネージャー / テックリード）**: Word 中心運用から Markdown 中心運用へ移行する投資判断を行う人
+- **PoC担当（評価・検証担当エンジニア）**: 30 分以内に「埋め込み成功」を再現し、採用可否を見極める人
+- **運用担当（文書保守・納品担当）**: 正本データと納品文書の整合を日常運用で維持する人
 
 ## Prerequisites
 - Markdown を日常的に編集していること
 - 元データとして Excel / CSV / XML を保持していること
 - 「文書に表を貼り付ける」のではなく「正本データを必要な文脈だけ見せたい」という課題を持っていること
+- 追加評価を行う場合、`tutorial.md` と `reference.md` を参照できること
 
 ## Expected result
-この文書を読むと、Markdown Matrix Injector が解決する課題、主要機能、どのような利用者に価値があるかを短時間で説明できるようになります。
+この文書を読むと、次の 2 点を短時間で説明・判断できるようになります。
+1. Markdown Matrix Injector がどの課題を解き、どの読者にどんな価値を返すか。
+2. 次に読むべき文書（Tutorial / Scenario / Reference）と、導入初期に把握すべき制約。
 
 ## What this tool is
 Markdown Matrix Injector は、Excel / CSV / XML を **Single Source of Truth** のまま保持しつつ、Markdown 上には必要な範囲だけをインライン表示するためのツールです。
@@ -29,10 +32,16 @@ Markdown Matrix Injector は、Excel / CSV / XML を **Single Source of Truth** 
 3. **納品品質まで見据えること**
    - Smart Fallback や印刷制御により、巨大表や PDF 出力時の崩れを扱いやすくします。
 
-## Why users may care
-- **設計書作成者**: 巨大な Excel をそのまま貼り直さず、必要範囲だけ埋め込めます。
-- **レビュー担当者**: 正本とのズレを減らしつつ、文脈に必要な情報だけを読みやすく提示できます。
-- **導入担当者**: Word 中心のドキュメント運用から、差分管理しやすい Markdown ベースへ移行しやすくなります。
+## Reader-specific value（issue-0016 固定）
+- **導入判断者の価値**
+  - 正本保護（read-only）と印刷要件対応（Smart Fallback / pageBreak / orientation）を同時に評価でき、導入リスクを早期に見積もれます。
+  - `Overview -> Tutorial -> Scenario -> Reference` の導線で、組織展開前に必要な説明責任の根拠を揃えられます。
+- **PoC担当の価値**
+  - `![[...]]` 記法を起点に、`columns` / `grep` / `header` など最小パラメータで「最初の成功」を短時間で再現できます。
+  - 失敗時も関連文書へ即遷移できるため、検証ログを残しながら採用判定を進めやすくなります。
+- **運用担当の価値**
+  - 文書へ表を再貼り付けせず、正本データ参照に統一することで、改訂時の差分管理と整合確認を軽量化できます。
+  - 巨大表をカード化する運用により、日常編集と納品体裁（印刷）を両立できます。
 
 ## Core capabilities at a glance
 - `![[...]]` 記法で CSV / XLSX / XML Spreadsheet 2003 を埋め込む
@@ -42,10 +51,12 @@ Markdown Matrix Injector は、Excel / CSV / XML を **Single Source of Truth** 
 - Autocomplete / Diagnostics / Paste & D&D により記法入力を支援する
 
 ## Related docs
+- **Adoption fast path**: `Overview -> Tutorial -> Scenario -> Reference`
 - 最初に試す: `04_Documentation/tutorial.md`
 - 業務シナリオを見る: `04_Documentation/scenario-sier-design-docs.md`
 - 詳細仕様を引く: `04_Documentation/reference.md`
 
 ## Known limitations
-- 本リポジトリの公開文書は Phase 6 の初回イテレーションであり、FAQ やスクリーンショット集は今後拡張予定です。
+- 本リポジトリの公開文書は Phase 6 の初回イテレーションであり、FAQ・スクリーンショット集・README 導線の完全同期は継続対応です。
 - 実機 UI の最終確認には host 環境や VSCode バージョン差の影響があります。
+- 本書は `overview.md` 単体の価値訴求を優先しており、操作手順の詳細は `tutorial.md` を参照してください。
