@@ -26,11 +26,14 @@
 - [ ] planning_queue で orphan / pending 判定が追跡可能な状態を維持すること。
 
 ### Task breakdown (作業分解)
-- [ ] docs audit の運用フローを定義する。
-- [ ] 反映先ごとの分類テンプレートを作成する。
-- [ ] audit結果の記録様式（Markdown）を追加する。
-- [ ] triageコマンドで運用可能性を検証する。
+- [x] docs audit の運用フローを、`02_Architecture/phase6-public-documentation-architecture.md` と `04_Documentation/README.md` の共通導線（Overview -> Tutorial -> Scenario -> Reference）に揃える。
+- [x] 反映先ごとの分類テンプレート（`01_Plans/templates/docs-feedback-classification-template.md`）との接続を明文化する。
+- [x] audit結果の記録様式（`01_Plans/templates/docs-audit-feedback-loop-template.md` / `01_Plans/templates/docs-audit-log-template.md`）への導線を明文化する。
+- [x] triageコマンド（`python3 01_Plans/tools/planning_queue.py`）で orphan / pending 可視性を維持する。
+- [x] `04_Documentation/` 配下の文書を「標準的な日本の技術書に準じた文章構成」で記述する方針を README / architecture に反映する。
 
 ### Validation plan (検証計画)
-- `rg -n "docs audit|feedback loop|requirements|architecture|test|product gap|未分類" 01_Plans 02_Architecture/phase6-public-documentation-architecture.md 04_Documentation/README.md` で運用定義を確認する。
-- `python3 01_Plans/tools/planning_queue.py` で pending issue が新規計画として可視化されることを確認する。
+- `rg -n "Overview|Tutorial|Scenario|Reference" 04_Documentation/README.md` で導線統一を確認する。
+- `rg -n "docs audit|feedback loop|requirements|architecture|test|product gap|未分類" 01_Plans/issues/issue-0019-phase6-feedback-loop-operations.md 02_Architecture/phase6-public-documentation-architecture.md 04_Documentation/README.md` で運用定義を確認する。
+- `rg -n "日本の技術書|文章構成|英語交じり" 04_Documentation/README.md 02_Architecture/phase6-public-documentation-architecture.md` で文体方針が反映されたことを確認する。
+- `python3 01_Plans/tools/planning_queue.py` で orphan / pending 判定の可視化を確認する。
