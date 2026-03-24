@@ -1,5 +1,31 @@
 # Developer Setup
 
+## Publication
+- Public Gist: [https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-developer-setup](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-developer-setup)
+- Canonical source: `04_Documentation/developer-setup.md`
+
+## Target reader
+- ローカル開発者
+- CI maintainer
+- container 上で Extension Host E2E を再現する担当者
+
+## Prerequisites
+- Linux / container / CI でコマンド実行権限があること
+- `03_Implement` 配下の Node.js / npm ワークフローを使えること
+- VSCode Extension Host E2E の前提条件を整えたいこと
+
+## Expected result
+この文書を読むと、Extension Host E2E を始める前に必要な依存関係、`xvfb-run` 前提、実行入口の順序を判断できます。
+
+## Related docs
+- `02_Architecture/vscode-extension-host-e2e.md`
+- `04_Documentation/vscode-e2e-testing.md`
+
+## Known limitations
+- この文書は setup と entry condition だけを扱い、manual E2E の詳細手順や failure triage 全体は扱いません。
+- host OS やディストリビューション差で必要パッケージ名が変わる場合があります。
+
+
 ## 実装コードの場所
 - 実装本体: `03_Implement/src/`
 - テスト: `03_Implement/test/`
