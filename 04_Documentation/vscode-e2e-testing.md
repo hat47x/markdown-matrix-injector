@@ -1,5 +1,30 @@
 # VSCode Engine E2E Testing Guide
 
+## Publication
+- Public Gist: [https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-vscode-e2e-testing](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-vscode-e2e-testing)
+- Canonical source: `04_Documentation/vscode-e2e-testing.md`
+
+## Target reader
+- VSCode Extension Host E2E を再実行する開発者
+- manual E2E の観測結果を整理する QA / delivery 担当者
+
+## Prerequisites
+- `04_Documentation/developer-setup.md` の setup / headless prerequisite を満たしていること
+- `03_Implement` 配下で build と test:e2e を実行できること
+
+## Expected result
+この文書を読むと、automation と manual の境界、host class ごとの観測順、failure triage の手順を再現できます。
+
+## Related docs
+- `04_Documentation/developer-setup.md`
+- `02_Architecture/vscode-extension-host-e2e.md`
+- `01_Plans/issues/issue-0010-phase5-native-paste-drop-provider.md`
+
+## Known limitations
+- Preview DOM や OS ネイティブイベントの最終 UX は manual 観測に依存します。
+- `#` 補完には既知の不安定要因があり、Paste / D&D の退行と分離して評価する必要があります。
+
+
 ## Purpose and scope
 この文書は、issue-0010 の未完了条件に対して **manual E2E の運用正本** として使うものです。ここで扱う範囲は次の 3 点に限定します。
 
