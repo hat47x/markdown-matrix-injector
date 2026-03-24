@@ -61,13 +61,16 @@ Phase 6 の公開文書は、次の 4 層を正本とします。
 - 公開文書間の導線は Overview → Tutorial → Scenario → Reference の順で到達可能とする。
 
 ### Gate B: Reference trustworthiness
-- 主要パラメータ群ごとに、少なくとも以下 1 セットを記載する。
-  - 正常系挙動
-  - 代表的な失敗ケース
-  - 制約
+- 判定単位は「1 機能（または 1 パラメータ群）= 1 Reference Card」とし、各 Card は次の必須項目を欠落なく持つ。
+  - 正常系挙動（入力、期待結果、観測ポイント）
+  - 代表的な失敗ケース（再現条件、ユーザー影響）
+  - 制約（適用範囲、非対応条件、性能/表示上の注意）
+  - 失敗時の一次対応（回避策、切り分け手順、上流正本への導線）
   - 関連正本リンク（requirements / architecture / issue / test）
-- Smart Fallback / 印刷制御 / Diagnostics / Paste & D&D は、制約と失敗時挙動を明文化する。
-- repo 内リンク切れを許容しない（docs audit で検出し修正する）。
+- Smart Fallback / 印刷制御 / Diagnostics / Paste & D&D は、最低 2 件以上の失敗シナリオ（入力起因・環境起因）を持つ。
+- 制約は「仕様制約（must）」「運用制約（should）」「既知制約（known limitation）」に分類して記載する。
+- repo 内リンク切れを許容しない（docs audit で検出し修正する）。外部リンクは「到達不可時の代替導線」を併記する。
+- Gate B 判定は Pass / Conditional Pass / Fail の 3 値で記録し、Conditional Pass は期限付き是正タスクを必須化する。
 - 目標状態は「サポート一次回答を Reference リンクのみで返せる粒度」とする。
 
 ### Gate C: Docs audit operations
@@ -105,11 +108,32 @@ Phase 6 の公開文書は、次の 4 層を正本とします。
 ## Docs audit loop (operational checks)
 各イテレーションで次を確認します。
 
-- 文書群が Overview → Tutorial → Scenario → Reference の導線でつながっているか。
-- 文書が上流正本と矛盾していないか。
-- 文書化で見つかったギャップが issue / ADR / requirements のいずれかに反映されたか。
-- スクリーンショット、サンプル、FAQ の追加が有益かを毎回見直したか。
-- scorecard（TFS / Decision Readiness / Support Deflection / Feedback Closure）が更新されたか。
+1. 文書群が Overview → Tutorial → Scenario → Reference の導線でつながっているか。
+2. 文書が上流正本と矛盾していないか。
+3. 文書化で見つかったギャップが issue / ADR / requirements のいずれかに反映されたか。
+4. スクリーンショット、サンプル、FAQ の追加が有益かを毎回見直したか。
+5. scorecard（TFS / Decision Readiness / Support Deflection / Feedback Closure）が更新されたか。
+
+### Docs audit checklist (runnable)
+- **リンク監査（repo 内）**
+  - `[]()` / 相対パスリンク / アンカーリンクを対象に、リンク切れ 0 件を完了条件とする。
+  - リンク切れ検出時は、同一コミット内で「修正」または「一時無効化 + issue 起票」のどちらかを必須とする。
+- **制約明示監査（Reference）**
+  - 各 Reference Card に「仕様制約 / 運用制約 / 既知制約」が揃っているかを確認する。
+  - 失敗ケースごとに「失敗時の一次対応」および「関連正本リンク」があることを確認する。
+- **失敗時運用監査（監査プロセス自体）**
+  - docs audit が時間内に完了しない場合は `Blocked` として記録し、未監査範囲を明記する。
+  - 監査証跡（判定、未解決項目、次アクション、反映先リンク）を issue または scorecard に必ず残す。
+
+## Traceability: issue-0018 acceptance mapping
+`issue-0018-phase6-reference-trustworthiness.md` の受入条件に対して、本書の対応節を以下に固定する。
+
+| issue-0018 Acceptance criteria | Architecture mapping |
+|---|---|
+| 主要パラメータ群に「正常系挙動」「代表的な失敗ケース」「関連正本リンク」が記載されること | Gate B: Reference trustworthiness（Reference Card 必須項目） |
+| Smart Fallback / 印刷制御 / Diagnostics / Paste&D&D について制約が明文化されること | Gate B: Reference trustworthiness（対象機能の失敗シナリオ・制約分類） |
+| `phase6-public-documentation-architecture.md` の quality gate と矛盾しないこと | Gate A〜E（authoritative gate）全体 |
+| docs audit で参照リンク切れがないこと（少なくとも repo 内リンク） | Docs audit checklist (runnable) - リンク監査（repo 内） |
 
 ## Known limitations and deferred items
 ### Known limitations (current)
