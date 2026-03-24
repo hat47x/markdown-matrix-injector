@@ -59,6 +59,7 @@ Phase 6 の公開文書は、次の 4 層を正本とします。
 - 手順書 / シナリオ文書は「入力例」「実行手順」「期待される観測結果」を含める。
 - Reference は「シンタックス」「主なパラメータ」「挙動」「制約」「関連正本リンク」を機能単位で保持する。
 - 公開文書間の導線は Overview → Tutorial → Scenario → Reference の順で到達可能とする。
+- `04_Documentation/` 配下の公開文書本文は、英語交じりの文体を避け、標準的な日本の技術書に準じた文章構成を維持する。
 
 ### Gate B: Reference trustworthiness
 - 判定単位は「1 機能（または 1 パラメータ群）= 1 Reference Card」とし、各 Card は次の必須項目を欠落なく持つ。
@@ -124,6 +125,19 @@ Phase 6 の公開文書は、次の 4 層を正本とします。
 - **失敗時運用監査（監査プロセス自体）**
   - docs audit が時間内に完了しない場合は `Blocked` として記録し、未監査範囲を明記する。
   - 監査証跡（判定、未解決項目、次アクション、反映先リンク）を issue または scorecard に必ず残す。
+
+
+## Operations templates and single workflow entry
+Gate C（docs audit operations）と Gate D（KPI scorecard measurement）は、次のテンプレート実体へ接続して運用する。
+
+1. docs audit 実行テンプレート: `01_Plans/templates/docs-audit-feedback-loop-template.md`
+2. feedback loop 分類テンプレート: `01_Plans/templates/docs-feedback-classification-template.md`
+3. 監査ログテンプレート: `01_Plans/templates/docs-audit-log-template.md`
+4. KPI scorecard テンプレート: `01_Plans/templates/phase6-kpi-scorecard.md`
+5. KPI scorecard サンプル: `01_Plans/templates/phase6-kpi-scorecard-sample.md`
+6. 運用タスク管理: `01_Plans/issues/issue-0019-phase6-feedback-loop-operations.md`, `01_Plans/issues/issue-0020-phase6-value-kpi-and-audit-scorecard.md`
+
+運用順序は固定で、`Overview -> Tutorial -> Scenario -> Reference` の導線監査、docs audit、feedback loop 分類、scorecard 記録、`python3 01_Plans/tools/planning_queue.py` の順で実施する。
 
 ## Traceability: issue-0018 acceptance mapping
 `issue-0018-phase6-reference-trustworthiness.md` の受入条件に対して、本書の対応節を以下に固定する。
