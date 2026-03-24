@@ -1,53 +1,60 @@
 # Phase 6 KPI Scorecard Template
 
-## 1. KPI Definitions（issue-0020）
+issue-0020（Phase 6 Value KPI and Audit Scorecard）で定義された KPI を反復計測するためのテンプレート。
 
-### KPI-1: TFS (Time-to-First-Success)
-- **目的**: Tutorial 利用者が初回成功に到達するまでの時間を短縮する。
-- **測定方法**: 記録した開始時刻〜成功判定時刻の差分（分）。
+## 1) KPI定義（4項目）
+
+### KPI-1: TFS（Time-to-First-Success）
+- **目的**: 初見ユーザーが最初の成功体験に到達するまでの時間を短縮する。
+- **測定方法**: 開始時刻〜成功判定時刻の差分（分）。
 - **判定基準**:
   - Pass: 30分以内
   - Watch: 31〜45分
   - Fail: 46分以上
 
 ### KPI-2: Decision Readiness
-- **目的**: 導入判断者が採用可否を文書のみで判断できる状態を担保する。
-- **測定方法**: Scenario guide で「比較軸（利用前/利用後）・制約・適用条件」の3点が揃っているかを監査する。
+- **目的**: 導入判断者が文書のみで採用可否を判断できる状態を維持する。
+- **測定方法**: 対象シナリオに「利用前/利用後の比較」「適用条件」「制約」が揃っているかを監査する。
 - **判定基準**:
-  - Pass: 3/3 が明示
-  - Watch: 2/3 が明示
+  - Pass: 3/3
+  - Watch: 2/3
   - Fail: 0〜1/3
 
 ### KPI-3: Support Deflection
-- **目的**: 問い合わせ一次回答を公開文書で自己完結させる。
-- **測定方法**: 代表問い合わせに対し、Reference から「失敗時挙動・制約・関連正本リンク」へ到達できるかを確認する。
+- **目的**: 問い合わせの一次回答を公開文書のみで完結できる状態を高める。
+- **測定方法**: 代表問い合わせに対して、Reference だけで回答完結できた割合（%）を記録する。
 - **判定基準**:
-  - Pass: 代表問い合わせの 80%以上で文書内解決
+  - Pass: 80%以上
   - Watch: 50〜79%
   - Fail: 49%以下
 
 ### KPI-4: Feedback Closure
-- **目的**: docs audit 起点の論点を上流へ確実に還流する。
-- **測定方法**: 監査で抽出した論点数と、requirements / architecture / tests / issue へ分類・反映完了した件数を照合する。
+- **目的**: docs audit 起点の指摘を上流文書へ確実に還流する。
+- **測定方法**: 監査指摘件数に対する、反映済み件数（requirements / architecture / tests / issue）の比率（%）を記録する。
 - **判定基準**:
-  - Pass: 反映率 100%
+  - Pass: 100%
   - Watch: 80〜99%
   - Fail: 79%以下
 
 ---
 
-## 2. Scorecard Entry Template
+## 2) Scorecard記録テンプレート
 
-### Scorecard-<ID>
+以下を1計測につき1ブロック追加する。
+
+### Scorecard-<YYYYMMDD-SEQ>
 - **測定日**: YYYY-MM-DD
 - **対象文書**: `<path/to/doc.md>`
-- **KPI結果**:
-  - TFS: `<実測値と判定>`
-  - Decision Readiness: `<観測結果と判定>`
-  - Support Deflection: `<観測結果と判定>`
-  - Feedback Closure: `<観測結果と判定>`
+
+| KPI | 実測・観測結果 | 判定 (Pass/Watch/Fail) | 根拠メモ |
+|---|---|---|---|
+| TFS | `<例: 28分>` | `<Pass>` | `<開始・終了時刻や補足>` |
+| Decision Readiness | `<例: 2/3>` | `<Watch>` | `<不足要素>` |
+| Support Deflection | `<例: 82%>` | `<Pass>` | `<問い合わせ母数と内訳>` |
+| Feedback Closure | `<例: 100%>` | `<Pass>` | `<反映済み件数/総件数>` |
+
 - **判定**: `Pass | Watch | Fail`
-- **次アクション**: `<次イテレーションで実施する改善>`
+- **次アクション**: `<改善タスクを1〜3件>`
 - **反映先リンク**:
   - requirements: `<path or N/A>`
   - architecture: `<path or N/A>`
@@ -56,20 +63,12 @@
 
 ---
 
-## 3. Scorecard Sample (1 record)
+## 3) スコアカード運用手順（要約）
 
-### Scorecard-2026-03-24-001
-- **測定日**: 2026-03-24
-- **対象文書**: `04_Documentation/tutorial.md`
-- **KPI結果**:
-  - TFS: 27分（Pass）
-  - Decision Readiness: 2/3（Watch）
-  - Support Deflection: 83%（Pass）
-  - Feedback Closure: 100%（Pass）
-- **判定**: `Watch`
-- **次アクション**: Scenario guide に「利用前/利用後」の比較表を追加し、Decision Readiness を 3/3 へ引き上げる。
-- **反映先リンク**:
-  - requirements: `00_Prompt/requirements.md`
-  - architecture: `02_Architecture/phase6-public-documentation-architecture.md`
-  - tests: `03_Implement/test/phase6-doc-audit-checklist.md`
-  - issue: `01_Plans/issues/issue-0017-phase6-scenario-roi-proof.md`
+1. docs更新単位（例: issue完了時）で 1 件計測する。
+2. 対象文書を決め、4 KPI を同日に記録する。
+3. 判定が Watch/Fail の KPI について次アクションを必ず記載する。
+4. 反映先リンクへ requirements / architecture / tests / issue を紐付ける。
+5. 次回計測で前回の次アクション消化有無を確認し、継続改善を回す。
+
+> 実例は `01_Plans/templates/phase6-kpi-scorecard-sample.md` を参照。
