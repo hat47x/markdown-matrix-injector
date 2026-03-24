@@ -156,6 +156,33 @@
   - `03_Implement/src`
   - `03_Implement/test`
 
+## Print control（印刷制御）
+
+対象パラメータ: `caption` / `id` / `pageBreak` / `orientation`
+
+### 正常系挙動
+- `caption` を付けると、埋め込みブロックに表題が表示される。
+- `id` を付けると、Markdown 内のアンカー参照で当該ブロックを参照できる。
+- `pageBreak=before|after|both` を指定すると、印刷用クラスが付与され、PDF 生成時の改ページ制御に利用できる。
+- `orientation=landscape|portrait` を指定すると、印刷 CSS と連携する向きヒントクラスが付与される。
+
+### 代表的失敗ケース
+- `pageBreak` に未定義値（例: `middle`）を指定すると、期待する改ページ制御が有効にならない。
+- `orientation` に未定義値（例: `auto`）を指定すると、向き制御が適用されない。
+- `id` の重複を放置すると、参照リンクの解決先が不安定になる。
+
+### 制約
+- 改ページと用紙向きの最終結果は、Pandoc / Markdown PDF / ブラウザ印刷の実装差に依存する。
+- 画面表示で期待どおりでも、印刷結果は manual-e2e で都度確認する前提。
+- 本機能は印刷補助であり、外部ファイルの内容編集は行わない（ビューア専用）。
+
+### 関連正本
+- `00_Prompt/requirements.md`
+- `01_Plans/issues/issue-0006-phase3-caption-and-print-control.md`
+- `02_Architecture/phase6-public-documentation-architecture.md`
+- `03_Implement/src/core/renderEmbedFrame.ts`
+- `03_Implement/test/markdownMatrixPlugin.test.ts`
+
 ## Smart Fallback
 
 ### 正常系挙動
@@ -163,41 +190,85 @@
   - `mode=card` 指定時
   - 列数 > 10 またはセル数 > 500
   - シート指定なしでファイル全体を参照
+- `mode=table` 指定時は、閾値超過でもテーブル展開を優先する。
 
 ### 代表的失敗ケース
 - `mode=table` 強制時に巨大表を展開し、表示や可読性が低下する（機能不全ではなく運用上の失敗）。
+- シート未指定のまま巨大ファイルを参照し、意図せずカード化される。
 
 ### 制約
 - 画面（`@media screen`）と印刷（`@media print`）で表示形態が変わる。
 - 可読性を優先するため、常に全文展開はしない。
+- 発動閾値（列数・セル数）は実装基準に従うため、将来変更時は実装/テスト正本を優先する。
 
 ### 関連正本
 - `00_Prompt/requirements.md`
+- `01_Plans/issues/issue-0007-phase4-smart-fallback.md`
+- `01_Plans/issues/issue-0008-smart-fallback-short-circuit.md`
 - `02_Architecture/phase6-public-documentation-architecture.md`
-- `03_Implement/src`
-- `03_Implement/test`
+- `03_Implement/src/core/smartFallback.ts`
+- `03_Implement/test/smartFallback.test.ts`
 
-## Diagnostics and input assistance
+## Diagnostics（静的解析）
 
 ### 正常系挙動
-- Autocomplete は `![[` → filepath → `#` → sheet/range → `?` → parameter の順で候補を提示する。
 - Diagnostics は「ファイル不在」「シート不在」「無効 XML」を検知し、問題位置を通知する。
-- Paste / D&D はクリップボード情報や dropped files から埋め込み記法を補助生成する。
+- Problems パネルに Error レベルで報告され、対象記法位置の修正判断を支援する。
 
 ### 代表的失敗ケース
-- クリップボードメタデータ不足時は、Paste 補助が期待より限定的になる。
 - Diagnostics の対象外パターンは手動確認が必要になる。
+- ワークスペース外参照や曖昧な相対パス指定では、想定と異なる診断結果になる場合がある。
 
 ### 制約
-- 入力支援は編集効率向上の補助であり、最終的な妥当性保証はテスト/目視確認に依存する。
 - Diagnostics は静的観点中心で、印刷結果や運用ワークフロー全体までは保証しない。
+- 診断結果は「修正候補の提示」であり、正本データの整合性を自動修復する機能ではない。
 
 ### 関連正本
 - `00_Prompt/requirements.md`
-- `01_Plans/issues/issue-0018-phase6-reference-trustworthiness.md`
-- `02_Architecture/phase6-public-documentation-architecture.md`
-- `03_Implement/src`
-- `03_Implement/test`
+- `01_Plans/issues/issue-0010-phase5-native-paste-drop-provider.md`
+- `03_Implement/src/dx/diagnostics.ts`
+- `03_Implement/test/diagnostics.test.ts`
+
+## Paste & D&D（入力支援）
+
+### 正常系挙動
+- Paste はクリップボードの HTML メタデータ（Excel / Google Sheets 由来など）を解析し、埋め込み記法の候補を生成する。
+- D&D は dropped files を基に `![[...]]` 記法を生成し、執筆時の入力工数を削減する。
+- 補助生成後は、必要に応じて `sheet` / `range` / `params` を追記して精密化できる。
+
+### 代表的失敗ケース
+- クリップボードのメタデータが不足していると、Paste 補助が最小限（ファイルパスのみ等）になる。
+- D&D 対象が未サポート形式の場合、期待する記法展開にならない。
+- パス解決基準（編集中 Markdown 基準）と利用者の想定がずれると、挿入直後に diagnostics error となる。
+
+### 制約
+- Paste / D&D は「入力支援」であり、生成記法の正当性を100%保証しない。
+- 大規模ファイルや複雑なシート構造では、手動での補正が前提になる。
+- 実行環境（VS Code / 拡張ホスト）の差分で取得可能なメタデータが異なる。
+
+### 関連正本
+- `00_Prompt/requirements.md`
+- `01_Plans/issues/issue-0010-phase5-native-paste-drop-provider.md`
+- `03_Implement/src/dx/pasteDrop.ts`
+- `03_Implement/test/pasteDrop.test.ts`
+
+## Autocomplete（補完）
+
+### 正常系挙動
+- `![[` 入力後、`filepath` → `#` → `sheet/range` → `?` → `parameter` の順で候補を段階提示する。
+- 既存記法の途中編集でも、コンテキストに応じた候補に絞り込まれる。
+
+### 代表的失敗ケース
+- 候補算出に必要な情報（対象ファイルやシート情報）が不足すると、提案数が減る/空になる。
+
+### 制約
+- 補完は記述支援であり、確定後の正当性は Diagnostics とテストで確認する。
+- 補完候補の網羅性は実装バージョン依存のため、最終仕様は実装/テスト正本を優先する。
+
+### 関連正本
+- `00_Prompt/requirements.md`
+- `03_Implement/src/dx/autocompleteProvider.ts`
+- `03_Implement/test/autocompleteProvider.test.ts`
 
 ## Cross-reference map（01_Plans / 02_Architecture / 03_Implement/test）
 - 要件正本: `00_Prompt/requirements.md`
