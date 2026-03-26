@@ -26,3 +26,11 @@
     - `01_Plans/issues/issue-0017-phase6-scenario-roi-proof.md`
     - `01_Plans/issues/issue-0018-phase6-reference-trustworthiness.md`
     - `01_Plans/issues/issue-0019-phase6-feedback-loop-operations.md`
+
+#### 必須入力チェック（記入例）
+- [x] `測定日` を記入
+- [x] `対象文書` を記入
+- [x] 4 KPI を全件記録
+- [x] `判定` を記入
+- [x] `次アクション` を記入
+- [x] `反映先リンク` を記入
