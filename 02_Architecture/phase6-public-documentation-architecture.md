@@ -76,6 +76,7 @@ Phase 6 の公開文書は、次の 4 層を正本とします。
 
 ### Gate C: Docs audit operations
 - docs audit は単発でなく定常運用とし、docs 更新イテレーションごとに実施する。
+- Gate C は Gate A/B の導線・品質監査を前提入力として受け取る。
 - 監査時は次を入力とする。
   - 対象文書差分
   - 上流正本（requirements / architecture / issue / ADR）
@@ -93,6 +94,7 @@ Phase 6 の公開文書は、次の 4 層を正本とします。
   - **Decision Readiness**
   - **Support Deflection**
   - **Feedback Closure**
+- Gate D は Gate C の分類結果を入力として scorecard に記録する。
 - scorecard には最低限、以下を保持する。
   - 測定日
   - 対象文書
@@ -137,7 +139,15 @@ Gate C（docs audit operations）と Gate D（KPI scorecard measurement）は、
 5. KPI scorecard サンプル: `01_Plans/templates/phase6-kpi-scorecard-sample.md`
 6. 運用タスク管理: `01_Plans/issues/issue-0019-phase6-feedback-loop-operations.md`, `01_Plans/issues/issue-0020-phase6-value-kpi-and-audit-scorecard.md`
 
-運用順序は固定で、`Overview -> Tutorial -> Scenario -> Reference` の導線監査、docs audit、feedback loop 分類、scorecard 記録、`python3 01_Plans/tools/planning_queue.py` の順で実施する。
+運用順序は固定で、次の 7 ステップを必須とする。
+
+1. `Overview -> Tutorial -> Scenario -> Reference` の導線監査（Gate A）
+2. Reference Card の品質監査（Gate B）
+3. docs audit 実行（Gate C）
+4. feedback loop 分類テンプレートへ転記（Gate C）
+5. KPI scorecard 記録（Gate D）
+6. `python3 01_Plans/tools/planning_queue.py` 実行による orphan / pending 可視化（Gate E）
+7. issue-0019 / issue-0020 の Validation evidence 更新（Gate E の運用証跡）
 
 ## Traceability: issue-0018 acceptance mapping
 `issue-0018-phase6-reference-trustworthiness.md` の受入条件に対して、本書の対応節を以下に固定する。
