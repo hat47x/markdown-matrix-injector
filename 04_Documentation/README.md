@@ -4,12 +4,14 @@
 セットアップ手順、運用手順、ユーザー向けガイド、公開可能な検証手順などを配置します。
 
 ## 公開文書の基本導線（Phase 6）
-Phase 6 の公開文書は、**Overview -> Tutorial -> Scenario -> Reference（概要→チュートリアル→活用シナリオ→詳細仕様）** の順で読む構成に統一します。
+Phase 6 の公開文書は、**Overview -> Tutorial -> Scenario -> Reference（概要→チュートリアル→活用シナリオ→詳細仕様）** の順で読む構成に厳密統一します。
 
-1. Overview: `04_Documentation/overview.md`
-2. Tutorial: `04_Documentation/tutorial.md`
-3. Scenario: `04_Documentation/scenario-sier-design-docs.md`
-4. Reference: `04_Documentation/reference.md`
+1. **Overview**: `04_Documentation/overview.md`
+2. **Tutorial**: `04_Documentation/tutorial.md`
+3. **Scenario**: `04_Documentation/scenario-sier-design-docs.md`
+4. **Reference**: `04_Documentation/reference.md`
+
+> 上記 1〜4 は公開導線の正本であり、Phase 6 の docs audit でもこの順序を固定します。
 
 ## Gist 公開方針
 - `04_Documentation/` の文書は、**すべて Markdown 形式で体系立てて記述**し、Gist ページとして公開する前提で管理します。
@@ -28,10 +30,10 @@ Phase 6 の公開文書は、**Overview -> Tutorial -> Scenario -> Reference（�
 | - | 総合サンプル Markdown | `04_Documentation/samples/mmi-full-spec-sample.md` | [Gist: MMI Full Spec Sample Markdown](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-full-spec-sample-markdown) |
 
 ## Phase 6 運用導線（テンプレート・統制）
-運用を一本化するため、docs audit / feedback loop / scorecard は次の導線で実施します。
+運用を一本化するため、quality gate・docs audit・feedback loop・scorecard は次の正本に接続します。
 
 1. Governance / quality gate（正本）
-   - `02_Architecture/phase6-public-documentation-architecture.md`
+   - `02_Architecture/phase6-public-documentation-architecture.md`（Gate A〜E）
 2. Feedback loop operations（issue）
    - `01_Plans/issues/issue-0019-phase6-feedback-loop-operations.md`
 3. KPI scorecard operations（issue）
@@ -44,6 +46,13 @@ Phase 6 の公開文書は、**Overview -> Tutorial -> Scenario -> Reference（�
    - `01_Plans/templates/phase6-kpi-scorecard-sample.md`
 5. triage 可視化
    - `python3 01_Plans/tools/planning_queue.py`
+
+### 運用手順（固定順序）
+1. 公開導線監査（Overview -> Tutorial -> Scenario -> Reference）
+2. Gate A / B の差分監査（構成・Reference 信頼性）
+3. Gate C として docs audit を実施し、requirements / architecture / test / product gap へ分類
+4. Gate D として scorecard（TFS / Decision Readiness / Support Deflection / Feedback Closure）を更新
+5. Gate E として `python3 01_Plans/tools/planning_queue.py` を実行し、orphan / pending を確認
 
 ## 文書運用ポリシー（再確認）
 - `04_Documentation/` 配下の公開文書は、英語交じりの文体を避け、標準的な日本の技術書に準じた章立て・用語・文体で記述する。
