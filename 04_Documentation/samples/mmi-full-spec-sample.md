@@ -6,6 +6,24 @@
 
 このサンプルは `mmi-full-spec-sample.xlsx` を使って、Phase 1〜5 で定義された主要仕様を 1 つの Markdown で確認するためのものです。
 
+## Target reader
+- MMI の主要仕様（Phase 1〜5）を 1 ファイルで通し確認したい評価者。
+- 仕様デモを再現し、Scenario から参照可能な実例を探しているドキュメント担当。
+
+## Prerequisites
+- Python 3 実行環境。
+- `openpyxl` をインストールして `mmi-full-spec-sample.xlsx` を生成できること。
+- MMI 記法（`![[...]]`）をレンダリングできる環境。
+
+## Expected result
+- Phase 1〜5 の主要パラメータ挙動を、単一 Markdown サンプルで順に確認できる。
+- Scenario/Reference から参照する際に、章番号単位で説明しやすい具体例を得られる。
+
+## Known limitations
+- 本ファイルは手動確認用サンプルであり、自動テストの合否を保証しない。
+- 実行結果は利用中のレンダラ実装状況に依存する。
+
+
 ## 事前準備 (Excel 生成)
 `mmi-full-spec-sample.xlsx` は Git 管理しません。先に次のコマンドで人手生成してください。
 
