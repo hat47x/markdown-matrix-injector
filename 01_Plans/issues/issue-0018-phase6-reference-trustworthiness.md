@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Docs
-- Status: Open
+- Status: In Progress
 - Priority: Medium
 - Scope: `04_Documentation/reference.md`, `02_Architecture/phase6-public-documentation-architecture.md`
 - Expected verification level: docs-audit
@@ -35,3 +35,26 @@
 - `rg -n "失敗|制約|関連|正常系" 04_Documentation/reference.md` で追加観点を確認する。
 - `rg -n "02_Architecture|01_Plans|03_Implement/test" 04_Documentation/reference.md` で正本導線を確認する。
 - `rg -n "Quality gate|Known limitations" 02_Architecture/phase6-public-documentation-architecture.md 04_Documentation/reference.md` で整合性を確認する。
+- `python3 01_Plans/tools/planning_queue.py` で planning_queue の `issue_orphan` が 0 であることを確認する。
+- `rg -n "Validation plan|Status|Done|In Progress|Open" 01_Plans/issues/issue-0016-phase6-adoption-fast-path.md 01_Plans/issues/issue-0017-phase6-scenario-roi-proof.md 01_Plans/issues/issue-0018-phase6-reference-trustworthiness.md` で3Issueの運用表記を確認する。
+
+## Validation evidence (実行証跡)
+### Evidence log template
+- Run date (UTC): `YYYY-MM-DD`
+- Executor: `agent`
+- Commands:
+  - `python3 01_Plans/tools/planning_queue.py`
+  - `rg -n "Validation plan|Status|Done|In Progress|Open" 01_Plans/issues/issue-0016-phase6-adoption-fast-path.md 01_Plans/issues/issue-0017-phase6-scenario-roi-proof.md 01_Plans/issues/issue-0018-phase6-reference-trustworthiness.md`
+- Expected:
+  - `issue_pending`: `>= 0` (進捗に応じた件数)
+  - `issue_orphan`: `0`
+  - 対象3Issueの `Validation plan` / `Status` が追跡可能
+
+### 2026-03-26 (UTC) planning_queue observation
+- Command: `python3 01_Plans/tools/planning_queue.py`
+- Result summary:
+  - `issue_pending: 5`
+  - `issue_orphan: 0`
+- Interpretation:
+  - 本IssueはReference本文の信頼性追記が未完のため `In Progress` が妥当。
+  - orphan 未発生のため、関連 ADR 参照健全性は維持。

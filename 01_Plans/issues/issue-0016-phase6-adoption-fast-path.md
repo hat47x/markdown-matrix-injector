@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Docs
-- Status: Open
+- Status: In Progress
 - Priority: High
 - Scope: `04_Documentation/overview.md`, `04_Documentation/tutorial.md`, `04_Documentation/README.md`
 - Expected verification level: docs-audit
@@ -35,3 +35,25 @@
 - `rg -n "Overview|Tutorial|Scenario|Reference" 04_Documentation/README.md` で導線順を確認する。
 - `rg -n "30 分|30分|所要時間|成功判定|失敗時" 04_Documentation/tutorial.md 04_Documentation/overview.md` で成功導線と初動トラブルシュートを確認する。
 - `rg -n "^## Target reader|^## Prerequisites|^## Expected result|^## Related docs|^## Known limitations" 04_Documentation/overview.md 04_Documentation/tutorial.md` で必須セクションを確認する。
+- `python3 01_Plans/tools/planning_queue.py` で planning_queue 上の `issue_pending` / `issue_orphan` を確認する。
+
+## Validation evidence (実行証跡)
+### Evidence log template
+- Run date (UTC): `YYYY-MM-DD`
+- Executor: `agent`
+- Commands:
+  - `python3 01_Plans/tools/planning_queue.py`
+  - `rg -n "Validation plan|Status|Done|In Progress|Open" 01_Plans/issues/issue-0016-phase6-adoption-fast-path.md 01_Plans/issues/issue-0017-phase6-scenario-roi-proof.md 01_Plans/issues/issue-0018-phase6-reference-trustworthiness.md`
+- Expected:
+  - `issue_pending`: `>= 0` (進捗に応じた件数)
+  - `issue_orphan`: `0`
+  - 対象3Issueの `Validation plan` / `Status` が追跡可能
+
+### 2026-03-26 (UTC) planning_queue observation
+- Command: `python3 01_Plans/tools/planning_queue.py`
+- Result summary:
+  - `issue_pending: 5`
+  - `issue_orphan: 0`
+- Interpretation:
+  - 本Issueは未完了タスクが残るため `In Progress` が妥当。
+  - orphan 未発生のため、関連 ADR 参照整合は維持。

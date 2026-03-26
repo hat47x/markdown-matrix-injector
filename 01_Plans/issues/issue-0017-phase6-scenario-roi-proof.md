@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Docs
-- Status: Open
+- Status: In Progress
 - Priority: High
 - Scope: `04_Documentation/scenario-sier-design-docs.md`, `04_Documentation/samples/`
 - Expected verification level: docs-audit
@@ -35,3 +35,25 @@
 - `rg -n "利用前|利用後|比較|ROI|工数|期待結果|適用条件" 04_Documentation/scenario-sier-design-docs.md` で比較証拠の存在を確認する。
 - `rg -n "samples/" 04_Documentation/scenario-sier-design-docs.md` でサンプル導線を確認する。
 - `python3 01_Plans/tools/planning_queue.py` で起票漏れや orphan がないことを確認する。
+- `rg -n "Validation plan|Status|Done|In Progress|Open" 01_Plans/issues/issue-0016-phase6-adoption-fast-path.md 01_Plans/issues/issue-0017-phase6-scenario-roi-proof.md 01_Plans/issues/issue-0018-phase6-reference-trustworthiness.md` で3Issue横断の運用整合を確認する。
+
+## Validation evidence (実行証跡)
+### Evidence log template
+- Run date (UTC): `YYYY-MM-DD`
+- Executor: `agent`
+- Commands:
+  - `python3 01_Plans/tools/planning_queue.py`
+  - `rg -n "Validation plan|Status|Done|In Progress|Open" 01_Plans/issues/issue-0016-phase6-adoption-fast-path.md 01_Plans/issues/issue-0017-phase6-scenario-roi-proof.md 01_Plans/issues/issue-0018-phase6-reference-trustworthiness.md`
+- Expected:
+  - `issue_pending`: `>= 0` (進捗に応じた件数)
+  - `issue_orphan`: `0`
+  - 対象3Issueの `Validation plan` / `Status` が追跡可能
+
+### 2026-03-26 (UTC) planning_queue observation
+- Command: `python3 01_Plans/tools/planning_queue.py`
+- Result summary:
+  - `issue_pending: 5`
+  - `issue_orphan: 0`
+- Interpretation:
+  - 本IssueはROI観測証拠の本文追記が未完のため `In Progress` が妥当。
+  - orphan 未発生のため、起票・参照の追跡性は維持。
