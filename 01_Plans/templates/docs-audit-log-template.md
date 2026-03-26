@@ -24,9 +24,10 @@
 
 ## 2. Audit Metadata
 - Audit ID: `AUDIT-YYYYMMDD-XX`
-- Date: `YYYY-MM-DD`
+- 測定日: `YYYY-MM-DD`
 - Auditor: `(name/agent)`
 - Iteration/Phase: `(e.g., Phase 6 weekly close)`
+- 対象文書: `04_Documentation/...`
 - Related Issue: `01_Plans/issues/issue-0019-phase6-feedback-loop-operations.md`
 
 ## 3. Findings Log
@@ -36,7 +37,8 @@
 | F-002 | （記入） | （記入） | architecture | （記入） |
 | F-003 | （記入） | （記入） | test | （記入） |
 | F-004 | （記入） | （記入） | product gap | （記入） |
-| F-XXX | （記入） | （記入） | 未分類 | （記入） |
+
+> 運用ルール: `未分類` 行は監査中の一時メモに限定し、Closure 前に必ず `requirements / architecture / test / product gap` のいずれかへ再分類すること。
 
 ## 4. Classification & Reflection
 - 利用テンプレート: `01_Plans/templates/docs-feedback-classification-template.md`
@@ -49,11 +51,17 @@
 ## 5. Unclassified Gate
 - 未分類件数: `___ 件`
 - 判定: `PASS (0件) / FAIL (1件以上)`
+- 次アクション: `FAIL の場合、再分類担当者と期限（YYYY-MM-DD）を記載`
 - 対応メモ: `（未分類がある場合のみ記載）`
 
 ## 6. Closure
 - 完了判定: `Closed / Needs Follow-up`
 - 根拠: `Definition of Done の充足状況を記載`
+- 反映先リンク:
+  - requirements: `(path/url or N/A)`
+  - architecture: `(path/url or N/A)`
+  - test: `(path/url or N/A)`
+  - product gap: `(path/url or N/A)`
 
 ## 7. Quick Usage (Short)
 1. Input を埋める。

@@ -7,6 +7,19 @@
 - 1論点につき主分類を1つ選ぶ（必要なら備考に副次影響を記載）。
 - `未分類` は一時退避のみ許可し、同一監査サイクル内にゼロ化する。
 - すべての行に反映先リンク（ファイル・Issue・ADR・PR など）を設定する。
+- 監査クローズ時に `未分類 > 0` の状態を禁止する（`Closed` 判定不可）。
+
+## 1.1 Audit Summary（必須）
+- 測定日: `YYYY-MM-DD`
+- 対象文書: `04_Documentation/...`
+- 判定: `Closed / Needs Follow-up`
+- 次アクション:
+  1. `(記入)`
+- 反映先リンク（監査全体）:
+  - requirements: `(path/url or N/A)`
+  - architecture: `(path/url or N/A)`
+  - test: `(path/url or N/A)`
+  - product gap: `(path/url or N/A)`
 
 ## 2. Category Definition
 - **requirements**: 要件正本の不足・曖昧さ・矛盾に起因する論点。
@@ -29,3 +42,4 @@
 - 未分類件数: `___ 件`
 - 判定: `PASS (0件) / FAIL (1件以上)`
 - FAIL 時の是正期限: `YYYY-MM-DD`
+- FAIL 時の次アクション: `再分類担当者・再判定日を記載`
