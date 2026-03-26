@@ -14,16 +14,18 @@
 ## Execution Plan
 ### Proposed solution (解決策の概要)
 - docs audit を単発作業から定常プロセスへ移行し、各イテレーションで発見事項を requirements / architecture / test / issue へ確実に還流する運用テンプレートを整備する。
+- 運用順序は `Overview -> Tutorial -> Scenario -> Reference` 導線監査（Gate A）→ Reference品質監査（Gate B）→ docs audit（Gate C）→ feedback分類（Gate C）→ scorecard記録（Gate D）→ `planning_queue.py` 可視化（Gate E）で固定する。
+- 使用テンプレートは `docs-audit-feedback-loop-template.md` / `docs-feedback-classification-template.md` / `docs-audit-log-template.md` / `phase6-kpi-scorecard.md` を正本導線として明記する。
 
 ### Success metric (価値指標)
 - docs audit 結果の分類漏れ（未分類項目）が 0 件であること。
 - docs更新コミットごとに、上流反映先へのリンクが追跡できること。
 
 ### Acceptance criteria (受入条件)
-- [ ] docs audit の実施タイミング・入力・出力・完了条件が明文化されること。
-- [ ] フィードバック分類（requirements / architecture / test / product gap）が運用手順に組み込まれること。
+- [ ] docs audit の実施タイミング・入力・出力・完了条件が、Gate C として明文化されること。
+- [ ] フィードバック分類（requirements / architecture / test / product gap）が、テンプレート導線付きで運用手順に組み込まれること。
 - [ ] 少なくとも1回分の audit 記録テンプレート（またはサンプル）が追加されること。
-- [ ] planning_queue で orphan / pending 判定が追跡可能な状態を維持すること。
+- [ ] planning_queue で orphan / pending 判定が追跡可能な状態を維持し、Validation evidence に記録できること。
 
 ### Task breakdown (作業分解)
 - [x] docs audit の運用フローを、`02_Architecture/phase6-public-documentation-architecture.md` と `04_Documentation/README.md` の共通導線（Overview -> Tutorial -> Scenario -> Reference）に揃える。
@@ -34,6 +36,6 @@
 
 ### Validation plan (検証計画)
 - `rg -n "Overview|Tutorial|Scenario|Reference" 04_Documentation/README.md` で導線統一を確認する。
-- `rg -n "docs audit|feedback loop|requirements|architecture|test|product gap|未分類" 01_Plans/issues/issue-0019-phase6-feedback-loop-operations.md 02_Architecture/phase6-public-documentation-architecture.md 04_Documentation/README.md` で運用定義を確認する。
+- `rg -n "Gate A|Gate B|Gate C|Gate D|Gate E|docs audit|feedback loop|requirements|architecture|test|product gap|未分類|scorecard|planning_queue" 01_Plans/issues/issue-0019-phase6-feedback-loop-operations.md 02_Architecture/phase6-public-documentation-architecture.md 04_Documentation/README.md` で運用定義と gate 接続を確認する。
 - `rg -n "日本の技術書|文章構成|英語交じり" 04_Documentation/README.md 02_Architecture/phase6-public-documentation-architecture.md` で文体方針が反映されたことを確認する。
 - `python3 01_Plans/tools/planning_queue.py` で orphan / pending 判定の可視化を確認する。
