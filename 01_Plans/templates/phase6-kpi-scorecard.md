@@ -61,6 +61,14 @@ issue-0020（Phase 6 Value KPI and Audit Scorecard）で定義された KPI を�
   - tests: `<path or N/A>`
   - issue: `<path or N/A>`
 
+#### 必須入力チェック（記入漏れ防止）
+- [ ] `測定日` を記入した
+- [ ] `対象文書` を記入した
+- [ ] 4 KPI（TFS / Decision Readiness / Support Deflection / Feedback Closure）を全て記録した
+- [ ] `判定` を記入した
+- [ ] `次アクション` を記入した（Watch / Fail を含む場合は必須）
+- [ ] `反映先リンク`（requirements / architecture / tests / issue）を記入した（N/A 可）
+
 ---
 
 ## 3) スコアカード運用手順（要約）
