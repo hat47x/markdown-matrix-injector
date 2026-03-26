@@ -17,6 +17,13 @@
 
 ## issue-0018 受入条件（固定）
 
+| issue-0018 受入条件 | architecture gate 対応先 |
+|---|---|
+| 主要パラメータ群に「正常系挙動」「代表的な失敗ケース」「関連正本リンク」が記載されること | `02_Architecture/phase6-public-documentation-architecture.md` Gate B（Reference Card 必須項目） |
+| Smart Fallback / 印刷制御 / Diagnostics / Paste&D&D について制約が明文化されること | 同 Gate B（失敗シナリオ + 制約分類） |
+| quality gate と矛盾しないこと | Gate A〜E（authoritative gate） |
+| docs audit で repo 内リンク切れがないこと | Docs audit checklist（リンク監査） |
+
 ### 正常系
 - Reference の主要機能ごとに「正常系挙動」「代表的失敗ケース」「制約」「関連正本リンク」を同一セクション内で示す。
 - サポート担当が問い合わせに対し、Reference へのリンクのみで一次回答できる粒度を維持する。
@@ -32,6 +39,7 @@
 ### 関連正本リンク
 - 要件正本: `00_Prompt/requirements.md`
 - 実行計画: `01_Plans/issues/issue-0018-phase6-reference-trustworthiness.md`
+- architecture gate 正本: `02_Architecture/phase6-public-documentation-architecture.md`
 - 関連ADR:
   - `01_Plans/adr/ADR-0002-phase6-documentation-feedback-loop.md`
   - `01_Plans/adr/ADR-0003-phase6-user-value-maximization-roadmap.md`
@@ -96,6 +104,9 @@
   - 未定義の値（例: `mode=list`）を指定すると期待表示にならない。
 - 制約:
   - 既定値（未指定時）は Smart Fallback 判定に従う。
+- 一次対応:
+  - 想定と異なる表示時は `mode` 指定有無を確認し、意図した表示を `mode=table` / `mode=card` で明示する。
+  - 巨大表の可読性問題は Smart Fallback セクションの制約と回避策へ誘導する。
 - 関連正本:
   - `00_Prompt/requirements.md`
   - `03_Implement/src`
@@ -109,6 +120,9 @@
   - 範囲外の行番号を指定するとヘッダが期待通りに構成されない。
 - 制約:
   - データ形状によってはヘッダ化後に列名重複が発生しうる。
+- 一次対応:
+  - ヘッダ不整合時は `header=first` と `header=<number>` を切り替えて再確認する。
+  - 重複列名がある場合は元データ側の列名整備を優先し、Reference では運用回避として列選択（`columns`）を併用する。
 - 関連正本:
   - `00_Prompt/requirements.md`
   - `03_Implement/src`
@@ -123,6 +137,9 @@
   - 不正な列指定・空文字 grep により結果が空または期待外になる。
 - 制約:
   - フィルタ後のデータ件数が 0 の場合でもエラーではなく空表示になりうる。
+- 一次対応:
+  - 結果が空の場合は `columns` 指定・`grep` キーワード・`transpose` 指定の順で1つずつ外し、原因パラメータを切り分ける。
+  - 空表示が仕様内か不具合疑いかは `03_Implement/test` の該当テスト期待値で確認する。
 - 関連正本:
   - `00_Prompt/requirements.md`
   - `03_Implement/src`
@@ -136,6 +153,9 @@
   - `highlightColumn` の列指定不整合、`formatColumn` のセレクタ不正で効果が出ない。
 - 制約:
   - JSON風表示は見た目整形であり、データ型変換を保証しない。
+- 一次対応:
+  - 強調が効かない場合は列セレクタと比較値の大小文字・前後空白を見直す。
+  - `formatColumn` 不整合時は対象列を単独指定で再現確認し、複合パラメータとの競合を除去する。
 - 関連正本:
   - `00_Prompt/requirements.md`
   - `03_Implement/src`
@@ -150,6 +170,9 @@
   - 無効な `pageBreak`/`orientation` 値により期待した印刷制御が効かない。
 - 制約:
   - 実際の改ページ・用紙向きは PDF 生成器や印刷環境の実装差分に依存する。
+- 一次対応:
+  - 期待どおりに印刷制御できない場合は、まず画面表示でパラメータ解釈が成立しているかを確認する。
+  - その後に PDF 生成器差分（Pandoc / Markdown PDF / ブラウザ印刷）を切り分ける。
 - 関連正本:
   - `00_Prompt/requirements.md`
   - `02_Architecture/phase6-public-documentation-architecture.md`
@@ -172,9 +195,17 @@
 - `id` の重複を放置すると、参照リンクの解決先が不安定になる。
 
 ### 制約
-- 改ページと用紙向きの最終結果は、Pandoc / Markdown PDF / ブラウザ印刷の実装差に依存する。
-- 画面表示で期待どおりでも、印刷結果は manual-e2e で都度確認する前提。
-- 本機能は印刷補助であり、外部ファイルの内容編集は行わない（ビューア専用）。
+- 仕様制約（must）:
+  - 本機能は印刷補助であり、外部ファイルの内容編集は行わない（ビューア専用）。
+- 運用制約（should）:
+  - 画面表示で期待どおりでも、印刷結果は manual-e2e で都度確認する。
+- 既知制約（known limitation）:
+  - 改ページと用紙向きの最終結果は、Pandoc / Markdown PDF / ブラウザ印刷の実装差に依存する。
+
+### 一次対応
+- `pageBreak`/`orientation` が効かない場合は、値の妥当性（`before|after|both`, `landscape|portrait`）を先に確認する。
+- `id` 参照の不安定さは重複ID有無を調べ、重複排除を優先する。
+- 解決しない場合は `issue-0006-phase3-caption-and-print-control.md` を起点に既知課題を確認する。
 
 ### 関連正本
 - `00_Prompt/requirements.md`
@@ -197,9 +228,17 @@
 - シート未指定のまま巨大ファイルを参照し、意図せずカード化される。
 
 ### 制約
-- 画面（`@media screen`）と印刷（`@media print`）で表示形態が変わる。
-- 可読性を優先するため、常に全文展開はしない。
-- 発動閾値（列数・セル数）は実装基準に従うため、将来変更時は実装/テスト正本を優先する。
+- 仕様制約（must）:
+  - 可読性を優先するため、常に全文展開はしない。
+- 運用制約（should）:
+  - 画面（`@media screen`）と印刷（`@media print`）で表示形態が変わる点を、レビュー時に明示する。
+- 既知制約（known limitation）:
+  - 発動閾値（列数・セル数）は実装基準に従うため、将来変更時は実装/テスト正本を優先する。
+
+### 一次対応
+- 意図せずカード化された場合は `mode=table` を明示し、可読性と性能のトレードオフを利用者に説明する。
+- 巨大表で表示が重い場合は `range`/`columns`/`grep` で対象データを縮小する。
+- 閾値関連の問い合わせは `smartFallback.ts` と `smartFallback.test.ts` の現行仕様を一次根拠に案内する。
 
 ### 関連正本
 - `00_Prompt/requirements.md`
@@ -220,8 +259,17 @@
 - ワークスペース外参照や曖昧な相対パス指定では、想定と異なる診断結果になる場合がある。
 
 ### 制約
-- Diagnostics は静的観点中心で、印刷結果や運用ワークフロー全体までは保証しない。
-- 診断結果は「修正候補の提示」であり、正本データの整合性を自動修復する機能ではない。
+- 仕様制約（must）:
+  - 診断結果は「修正候補の提示」であり、正本データの整合性を自動修復しない。
+- 運用制約（should）:
+  - Diagnostics で解決しない表示問題は manual-e2e と実データ確認を併用して切り分ける。
+- 既知制約（known limitation）:
+  - Diagnostics は静的観点中心で、印刷結果や運用ワークフロー全体を保証しない。
+
+### 一次対応
+- エラー発生時は「ファイル存在確認 → シート存在確認 → XML形式確認」の順で切り分ける。
+- 相対パス起因の誤検知疑いは、Markdown 基準パスと workspace ルート基準の差分を確認する。
+- 対象外パターンは `diagnostics.test.ts` に再現テストがあるかを確認し、なければ issue 化を検討する。
 
 ### 関連正本
 - `00_Prompt/requirements.md`
@@ -242,9 +290,17 @@
 - パス解決基準（編集中 Markdown 基準）と利用者の想定がずれると、挿入直後に diagnostics error となる。
 
 ### 制約
-- Paste / D&D は「入力支援」であり、生成記法の正当性を100%保証しない。
-- 大規模ファイルや複雑なシート構造では、手動での補正が前提になる。
-- 実行環境（VS Code / 拡張ホスト）の差分で取得可能なメタデータが異なる。
+- 仕様制約（must）:
+  - Paste / D&D は「入力支援」であり、生成記法の正当性を100%保証しない。
+- 運用制約（should）:
+  - 大規模ファイルや複雑なシート構造では、手動での補正を前提とする。
+- 既知制約（known limitation）:
+  - 実行環境（VS Code / 拡張ホスト）の差分で取得可能なメタデータが異なる。
+
+### 一次対応
+- 期待する展開にならない場合は、生成直後の `![[...]]` を手動で補正し Diagnostics を再実行する。
+- メタデータ不足時はまずファイルパスのみで挿入し、`#sheet|range?params` を段階的に追加する。
+- 未サポート形式は D&D ではなく手入力 + Autocomplete に切り替える。
 
 ### 関連正本
 - `00_Prompt/requirements.md`
@@ -292,3 +348,15 @@
 - Reference は公開文書向けに要点を整理したものであり、将来的に FAQ / troubleshooting / sample gallery へ分割する可能性がある。
 - 実機 UI の見た目確認は、manual-e2e やスクリーンショット整備が別途必要。
 - 本書は一次回答源だが、最終判断は `00_Prompt/requirements.md` と実装・テスト正本（`03_Implement/src`, `03_Implement/test`）を優先する。
+
+## docs audit（repo 内リンク健全性の確認結果）
+- 実施内容: `04_Documentation/reference.md` 内の repo 相対パスを抽出し、実在ファイルと照合。
+- 結果: 参照した repo 相対パスはすべて解決可能（未解決は説明用トークン `sheet/range` のみで、リンク対象ではない）。
+- 備考: 継続運用時は docs 変更ごとに同監査を再実施する。
+
+## 結果要約（Stream E）
+- Task 1: issue-0018 と architecture gate の対応表を本書に固定した。
+- Task 2: 主要機能カードへ「一次対応」を追加し、一次回答導線を明確化した。
+- Task 3: Smart Fallback / 印刷制御 / Diagnostics / Paste&D&D の制約を `must/should/known limitation` に分類して強化した。
+- Task 4: repo 内リンク健全性チェック結果を記録した。
+- Task 5: 本節に結果要約を集約した。
