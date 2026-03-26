@@ -21,6 +21,7 @@
 - 本テンプレートに沿った監査記録（Audit Record）
 - 分類済みフィードバック一覧（未分類=0を目標）
 - 反映アクション（要件更新・設計更新・テスト追加・issue化）の追跡リンク
+- 監査サマリ（測定日 / 対象文書 / 判定 / 次アクション / 反映先リンク）
 
 ### 1.4 完了条件（Definition of Done）
 - [ ] 監査対象・観点・結果が記録されている
@@ -28,6 +29,7 @@
 - [ ] `未分類` 件数が 0
 - [ ] 各項目に反映先（ファイル/issue/ADR）または対応方針が紐づいている
 - [ ] triage 実行結果（planning_queue）を記録している
+- [ ] 監査サマリ（測定日 / 対象文書 / 判定 / 次アクション / 反映先リンク）を記録している
 
 ---
 
@@ -56,14 +58,25 @@
 
 ### 3.1 Audit Metadata
 - Audit ID: `AUDIT-YYYYMMDD-XX`
-- Date: `YYYY-MM-DD`
+- 測定日: `YYYY-MM-DD`
 - Auditor: `(name or agent)`
 - Iteration/Phase: `(e.g., Phase 6 / weekly close)`
-- Target Docs:
+- 対象文書:
   - `04_Documentation/...`
 - Related Issue/ADR:
   - `01_Plans/issues/issue-0019-phase6-feedback-loop-operations.md`
   - `01_Plans/adr/...`
+
+### 3.1.1 監査サマリ（必須）
+- 判定: `Closed / Needs Follow-up`
+- 次アクション:
+  1. `(記入)`
+  2. `(記入)`
+- 反映先リンク:
+  - requirements: `(path/url or N/A)`
+  - architecture: `(path/url or N/A)`
+  - test: `(path/url or N/A)`
+  - product gap: `(path/url or N/A)`
 
 ### 3.2 Checklist
 - [ ] 手順は前提条件・期待結果まで一貫している
@@ -94,6 +107,8 @@
 - 判定: `Closed / Needs Follow-up`
 - Reason:
   - `(完了条件を満たした根拠を記載)`
+
+> Gate: `未分類件数 > 0` の場合、`判定 = Closed` は不可（必ず `Needs Follow-up`）。
 
 ---
 
