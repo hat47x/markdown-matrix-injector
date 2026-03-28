@@ -56,4 +56,5 @@
 
 ## 5. Closure Rule
 - Gate C の最終判定は、`Unclassified Gate = PASS` かつ全行に反映先リンクがある場合のみ `Closed` を選択可能。
+- Closure 判定式: `未分類件数 = 0` かつ `全行に反映先リンクあり` のときのみ `Closed`。
 - それ以外は `Needs Follow-up` とし、再監査日を明記する。
