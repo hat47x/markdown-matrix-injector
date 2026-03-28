@@ -1,5 +1,12 @@
 # 利用前サンプル（従来運用）
 
+<a id="roi-before-flow"></a>
+## 0. 導線
+- 前段: [`README.md#0-導線`](./README.md#0-%E5%B0%8E%E7%B7%9A)
+- 本書（利用前）: `before-state.md`
+- 次段（利用後）: [`after-state.md#roi-after-prerequisites`](./after-state.md#roi-after-prerequisites)
+- 仕上げ（判定）: [`observation-protocol.md#roi-observation-prerequisites`](./observation-protocol.md#roi-observation-prerequisites)
+
 <a id="roi-before-prerequisites"></a>
 ## 1. 前提
 - 設計書本文は Word を使用する。

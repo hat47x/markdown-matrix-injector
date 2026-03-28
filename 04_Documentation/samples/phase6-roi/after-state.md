@@ -1,5 +1,12 @@
 # 利用後サンプル（MMI運用）
 
+<a id="roi-after-flow"></a>
+## 0. 導線
+- 前段（利用前）: [`before-state.md#roi-before-prerequisites`](./before-state.md#roi-before-prerequisites)
+- 本書（利用後）: `after-state.md`
+- 次段（判定）: [`observation-protocol.md#roi-observation-prerequisites`](./observation-protocol.md#roi-observation-prerequisites)
+- 記録先: [`roi-metrics-template.csv`](./roi-metrics-template.csv)
+
 <a id="roi-after-prerequisites"></a>
 ## 1. 前提
 - 設計書本文は Markdown を使用する。
