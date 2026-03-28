@@ -71,3 +71,23 @@
   - `planning_queue.py` 実行で `issue_pending: 5` / `issue_orphan: 0` を確認。
 - Interpretation:
   - 受入条件を Scenario本文スコープへ固定した運用で、比較証拠の自立性を満たす方向に進捗。
+
+### 2026-03-28 (UTC) Stream D: samples 側エビデンス追記
+- Scope:
+  - `04_Documentation/samples/phase6-roi/README.md`
+  - `04_Documentation/samples/phase6-roi/before-state.md`
+  - `04_Documentation/samples/phase6-roi/after-state.md`
+  - `04_Documentation/samples/phase6-roi/observation-protocol.md`
+  - `04_Documentation/samples/phase6-roi/roi-metrics-template.csv`
+- Command: `rg -n "前提|手順|期待結果|制約" 04_Documentation/samples/phase6-roi/*.md`
+- Result summary:
+  - 4 文書すべてで `前提 / 手順 / 期待結果 / 制約` 見出しを確認。
+  - `samples` 配下のみで再現導線（README → before/after → protocol → csv）が成立。
+- Command: `python3 01_Plans/tools/planning_queue.py`
+- Result summary:
+  - `issue_pending: 5`
+  - `issue_orphan: 0`
+- Interpretation:
+  - issue-0017 のうち「samples導線固定」「前提/操作手順/期待結果の統一」「アンカー命名整備」のサンプル側作業は完了。
+  - Scenario 本文側の比較記述完了までは、Status `In Progress` を維持する。
+
