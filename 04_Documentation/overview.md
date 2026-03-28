@@ -16,9 +16,10 @@
 - 追加評価を行う場合、`tutorial.md` と `reference.md` を参照できること
 
 ## Expected result
-この文書を読むと、次の 2 点を短時間で説明・判断できるようになります。
+この文書を読むと、次の 3 点を短時間で説明・判断できるようになります。
 1. Markdown Matrix Injector がどの課題を解き、どの読者にどんな価値を返すか。
-2. 次に読むべき文書（Tutorial / Scenario / Reference）と、導入初期に把握すべき制約。
+2. 導入判断者・PoC担当・運用担当それぞれの「意思決定ポイント」（投資判断 / 採用可否 / 継続運用可否）。
+3. 次に読むべき文書（Tutorial / Scenario / Reference）と、導入初期に把握すべき制約。
 
 ## What this tool is
 Markdown Matrix Injector は、Excel / CSV / XML を **Single Source of Truth** のまま保持しつつ、Markdown 上には必要な範囲だけをインライン表示するためのツールです。
@@ -32,14 +33,17 @@ Markdown Matrix Injector は、Excel / CSV / XML を **Single Source of Truth** 
 ### 導入判断者の価値
 - 正本保護（read-only）と印刷要件対応（Smart Fallback / `pageBreak` / `orientation`）を同時に評価でき、導入リスクを早期に見積もれます。
 - `Overview -> Tutorial -> Scenario -> Reference` の導線で、組織展開前に必要な説明責任の根拠を揃えられます。
+- **意思決定で得る成果**: 「Word 代替としての導入に足るか」を、セキュア運用（正本保護）と納品品質（印刷制御）の両軸で判断できます。
 
 ### PoC担当の価値
 - `![[...]]` 記法を起点に、`columns` / `grep` / `header` など最小パラメータで 30 分以内の「最初の成功」を再現できます。
 - 失敗時も関連文書へ即遷移できるため、検証ログを残しながら採用判定を進めやすくなります。
+- **意思決定で得る成果**: 「このチームで再現可能か」を、短時間で成功判定できる導線とトラブル初動の明確化で判断できます。
 
 ### 運用担当の価値
 - 文書へ表を再貼り付けせず、正本データ参照に統一することで、改訂時の差分管理と整合確認（正本との突合）を軽量化できます。
 - 巨大表をカード化する運用により、日常編集と納品体裁（印刷）を両立できます。
+- **意思決定で得る成果**: 「運用を回し続けられるか」を、日常更新コストと納品時品質の両立可否で判断できます。
 
 ## Core capabilities at a glance
 - `![[...]]` 記法で CSV / XLSX / XML Spreadsheet 2003 を埋め込む
