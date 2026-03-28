@@ -1,44 +1,32 @@
 # Phase 6 ROI Proof サンプル
 
-<a id="roi-proof-index"></a>
-## ROI Proof Index
+<a id="roi-samples-index"></a>
+## 0. samples導線（issue-0017 固定）
 
-## 目的
-本ディレクトリは、`issue-0017-phase6-scenario-roi-proof` で要求される「利用前/利用後の比較観点」と「観測手順の裏付け」を、シナリオ本文から独立して再利用できる形で提供する。
+このディレクトリは、`issue-0017-phase6-scenario-roi-proof` の「samples導線」を固定するための正本である。Scenario 本文がなくても、ここだけで再現観測を実施できる。
 
-## サンプル種別（Task 1 定義）
-1. **利用前サンプル**
-   - `before-state.md`: 従来運用（Word/Excel中心）での作業フローと観測対象。
-2. **利用後サンプル**
-   - `after-state.md`: MMI利用後（Markdown中心 + 外部データ正本）での同一観測対象。
-3. **観測手順の裏付け**
-   - `observation-protocol.md`: 観測の前提、計測手順、判定方法。
-   - `roi-metrics-template.csv`: 観測結果を記録するためのテンプレート。
+- 利用前サンプル: [`before-state.md#roi-before-prerequisites`](./before-state.md#roi-before-prerequisites)
+- 利用後サンプル: [`after-state.md#roi-after-prerequisites`](./after-state.md#roi-after-prerequisites)
+- 観測プロトコル: [`observation-protocol.md#roi-observation-prerequisites`](./observation-protocol.md#roi-observation-prerequisites)
+- 記録テンプレート: [`roi-metrics-template.csv`](./roi-metrics-template.csv)
 
-## 利用条件
-- 対象は SIer 設計書運用（レビュー、別紙参照、印刷/PDF納品）を持つプロジェクト。
-- 1スプリント以上、同一規模のドキュメント作成/改訂タスクで利用前/利用後を比較すること。
-- 計測者は同一ロール（例: 設計担当 or レビュー担当）を維持し、条件差を最小化すること。
+## 1. 前提
+- 対象プロジェクトは SIer 設計書運用（レビュー、別紙参照、印刷/PDF納品）を含むこと。
+- 同一規模・同種のドキュメント改訂タスクで、利用前/利用後を比較すること。
+- 計測者ロール（設計担当、レビュー担当など）は利用前/利用後で固定すること。
 
-## 観測導線（Scenario 本文からの参照先）
-- 利用前観測: [`before-state.md#before-observation-method`](./before-state.md#before-observation-method)
-- 利用後観測: [`after-state.md#after-observation-method`](./after-state.md#after-observation-method)
-- 観測プロトコル: [`observation-protocol.md#observation-method`](./observation-protocol.md#observation-method)
-- 期待観測結果: [`observation-protocol.md#expected-observation-results`](./observation-protocol.md#expected-observation-results)
-- 制約: [`observation-protocol.md#constraints`](./observation-protocol.md#constraints)
+## 2. 手順
+1. [`before-state.md#roi-before-procedure`](./before-state.md#roi-before-procedure) を実行し、利用前値を取得する。
+2. [`after-state.md#roi-after-procedure`](./after-state.md#roi-after-procedure) を実行し、利用後値を取得する。
+3. [`observation-protocol.md#roi-observation-procedure`](./observation-protocol.md#roi-observation-procedure) に従って差分を判定する。
+4. 結果を `roi-metrics-template.csv` に記録し、導入判断の証跡として保存する。
 
-## 期待結果
-- 利用前/利用後で、最低3観点（時間短縮・品質・監査容易性）の差分を説明可能になる。
-- `roi-metrics-template.csv` に測定値を記録することで、導入判断に必要な根拠が残る。
-- シナリオ本文が未読でも、本ディレクトリだけで比較実験を再実行できる。
+## 3. 期待結果
+- 最低3観点（時間短縮・品質・監査容易性）で、利用前/利用後の差分を説明できる。
+- `roi-metrics-template.csv` に定量値と補足メモが残り、意思決定に再利用できる。
+- `04_Documentation/samples/phase6-roi/` 配下のみで再現手順が完結する。
 
-## 制約
-- 本サンプルは評価用テンプレートであり、統計的有意性を保証しない。
-- 効果は文書規模、チーム習熟度、既存レビュー文化に依存する。
-- 金額換算（ROI%）は各組織の単価・間接コスト定義に合わせて別途算出する必要がある。
-
-## 使い方（最短手順）
-1. `before-state.md` で利用前の観測対象を確認する。
-2. `after-state.md` で同一観測対象の利用後手順を確認する。
-3. `observation-protocol.md` に従って観測を実施する。
-4. 観測値を `roi-metrics-template.csv` に記録し、差分を比較する。
+## 4. 制約
+- 本サンプルは意思決定用テンプレートであり、統計的有意性は保証しない。
+- 効果量は文書規模、チーム習熟度、既存レビュー文化に依存する。
+- 金額換算（ROI%）は組織ごとの単価・間接コスト定義で別途算出が必要。
