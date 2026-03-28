@@ -2,13 +2,22 @@
 
 ## 0. Purpose
 - docs audit の入力/出力/完了条件を毎回同一形式で記録し、feedback loop の追跡性を担保する。
+- Gate C（docs audit + feedback 分類）の実行ログとして利用し、Gate D/E に必要な判定情報も残す。
 
 ## 1. Audit Operation Definition
+
+### 1.0 Position in Gate Flow
+- Gate A: 導線監査
+- Gate B: Reference 品質監査
+- **Gate C: docs audit + feedback 分類（本ログ）**
+- Gate D: scorecard 記録
+- Gate E: `planning_queue.py` 可視化
 
 ### 1.1 Input
 - 監査対象ドキュメント: `04_Documentation/...`
 - 参照正本: `00_Prompt/requirements.md`, `02_Architecture/...`, `03_Implement/test/...`, `01_Plans/issues/...`
 - 直近 triage 情報: `python3 01_Plans/tools/planning_queue.py` の出力
+- 分類テンプレート: `01_Plans/templates/docs-feedback-classification-template.md`
 
 ### 1.2 Output
 - 本ログ（Audit Metadata / Findings / Classification / Closure）

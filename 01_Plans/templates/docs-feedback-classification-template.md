@@ -2,6 +2,7 @@
 
 ## 0. Purpose
 - docs audit で検出した論点を **requirements / architecture / test / product gap** に必ず分類し、未分類ゼロを維持するためのテンプレート。
+- Gate C（docs audit + feedback 分類）の分類パート専用テンプレートとして運用する。
 
 ## 1. Classification Rules
 - 1論点につき主分類を1つ選ぶ（必要なら備考に副次影響を記載）。
@@ -9,7 +10,16 @@
 - すべての行に反映先リンク（ファイル・Issue・ADR・PR など）を設定する。
 - 監査クローズ時に `未分類 > 0` の状態を禁止する（`Closed` 判定不可）。
 
-## 1.1 Audit Summary（必須）
+## 1.1 Gate C Inputs / Outputs
+- Input:
+  - docs audit の findings（`docs-audit-feedback-loop-template.md` の Findings）
+  - 正本参照（requirements / architecture / test / issue）
+- Output:
+  - 分類済みテーブル（`requirements / architecture / test / product gap`）
+  - 未分類ゲート判定（PASS/FAIL）
+  - 反映先リンク付きアクション一覧
+
+## 1.2 Audit Summary（必須）
 - 測定日: `YYYY-MM-DD`
 - 対象文書: `04_Documentation/...`
 - 判定: `Closed / Needs Follow-up`
@@ -43,3 +53,7 @@
 - 判定: `PASS (0件) / FAIL (1件以上)`
 - FAIL 時の是正期限: `YYYY-MM-DD`
 - FAIL 時の次アクション: `再分類担当者・再判定日を記載`
+
+## 5. Closure Rule
+- Gate C の最終判定は、`Unclassified Gate = PASS` かつ全行に反映先リンクがある場合のみ `Closed` を選択可能。
+- それ以外は `Needs Follow-up` とし、再監査日を明記する。
