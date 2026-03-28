@@ -1,5 +1,12 @@
 # 観測手順の裏付け（ROI Proof Protocol）
 
+<a id="roi-observation-flow"></a>
+## 0. 導線
+- 前段（利用前）: [`before-state.md#roi-before-prerequisites`](./before-state.md#roi-before-prerequisites)
+- 前段（利用後）: [`after-state.md#roi-after-prerequisites`](./after-state.md#roi-after-prerequisites)
+- 本書（観測プロトコル）: `observation-protocol.md`
+- 記録先: [`roi-metrics-template.csv`](./roi-metrics-template.csv)
+
 <a id="roi-observation-prerequisites"></a>
 ## 1. 前提
 - 比較単位は同種の設計書改訂タスク（利用前1件、利用後1件以上）とする。
