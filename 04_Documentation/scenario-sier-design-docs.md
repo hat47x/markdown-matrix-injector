@@ -126,15 +126,10 @@
 - レビュー観点に合わせた断面を、そのまま Markdown 文脈内へ差し込める。
 - レビュアーが元 Excel の全体を毎回開かなくてもよくなる。
 
-## Sample linkage（検証サンプル導線）
-- 参照サンプル一覧: `04_Documentation/samples/`
-- 推奨運用: シナリオ本文で観点を確認し、`04_Documentation/samples/` の実データ参照例で再現性を確認する。
-
 ## Decision Readiness Checklist
 - 比較観点（利用前/利用後）を3項目以上（時間短縮・品質・監査容易性）で明示した。
 - 各観点に、操作手順・期待結果・制約をセットで紐付けた。
 - 適用条件 / 適用しない条件を明示し、導入可否を本文単体で判断できる構成にした。
-- サンプル導線（`04_Documentation/samples/`）を本文に含め、再現確認ルートを確保した。
 
 ## Related docs
 - プロダクト概要: `04_Documentation/overview.md`
