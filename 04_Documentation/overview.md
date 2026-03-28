@@ -21,6 +21,10 @@
 2. 導入判断者・PoC担当・運用担当それぞれの「意思決定ポイント」（投資判断 / 採用可否 / 継続運用可否）。
 3. 次に読むべき文書（Tutorial / Scenario / Reference）と、導入初期に把握すべき制約。
 
+## Scope fixed from issue-0016 (overview対象)
+- 本書で充足する受入条件は **「overview.md に対象ユーザー別の価値（導入判断者 / PoC担当 / 運用担当）を明記すること」**。
+- Tutorial や README の受入条件は別ストリーム対象として扱い、本書では導線の参照のみを提供します。
+
 ## What this tool is
 Markdown Matrix Injector は、Excel / CSV / XML を **Single Source of Truth** のまま保持しつつ、Markdown 上には必要な範囲だけをインライン表示するためのツールです。
 
@@ -30,6 +34,8 @@ Markdown Matrix Injector は、Excel / CSV / XML を **Single Source of Truth** 
 3. **納品品質まで見据えること**: Smart Fallback や印刷制御により、巨大表や PDF 出力時の崩れを扱いやすくします。
 
 ## Reader-specific value
+本セクションは、導入判断者 / PoC担当 / 運用担当の 3 ロールそれぞれに対し、意思決定で使える価値訴求を固定するための要約です。
+
 ### 導入判断者の価値
 - 正本保護（read-only）と印刷要件対応（Smart Fallback / `pageBreak` / `orientation`）を同時に評価でき、導入リスクを早期に見積もれます。
 - `Overview -> Tutorial -> Scenario -> Reference` の導線で、組織展開前に必要な説明責任の根拠を揃えられます。
