@@ -15,14 +15,12 @@
 ## Expected result
 この文書を読むと、埋め込み記法、主要パラメータ、Smart Fallback、印刷制御、Diagnostics、入力支援機能について、一次回答に必要な「正常系挙動 / 代表的失敗ケース / 制約 / 関連正本リンク」を確認できます。
 
-## issue-0018 受入条件（固定）
+## issue-0018 受入条件（reference 本文対象に限定）
 
-| issue-0018 受入条件 | architecture gate 対応先 |
-|---|---|
-| 主要パラメータ群に「正常系挙動」「代表的な失敗ケース」「関連正本リンク」が記載されること | `02_Architecture/phase6-public-documentation-architecture.md` Gate B（Reference Card 必須項目） |
-| Smart Fallback / 印刷制御 / Diagnostics / Paste&D&D について制約が明文化されること | 同 Gate B（失敗シナリオ + 制約分類） |
-| quality gate と矛盾しないこと | Gate A〜E（authoritative gate） |
-| docs audit で repo 内リンク切れがないこと | Docs audit checklist（リンク監査） |
+- 主要パラメータ群に「正常系挙動」「代表的な失敗ケース」「制約」「関連正本リンク」が記載されること。
+- Smart Fallback / 印刷制御 / Diagnostics / Paste&D&D の制約が `must` / `should` / `known limitation` で明文化されること。
+- `reference.md` 単体で一次回答源として成立し、必要時に `00_Prompt` / `01_Plans` / `02_Architecture` / `03_Implement/test` へ遷移できること。
+- docs audit で repo 内リンク切れがないこと。
 
 ### 正常系
 - Reference の主要機能ごとに「正常系挙動」「代表的失敗ケース」「制約」「関連正本リンク」を同一セクション内で示す。
