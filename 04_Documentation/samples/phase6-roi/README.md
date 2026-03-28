@@ -1,14 +1,15 @@
 # Phase 6 ROI Proof サンプル
 
 <a id="roi-samples-index"></a>
-## 0. samples導線（issue-0017 固定）
+## 0. 導線
 
-このディレクトリは、`issue-0017-phase6-scenario-roi-proof` の「samples導線」を固定するための正本である。Scenario 本文がなくても、ここだけで再現観測を実施できる。
+このディレクトリは、`issue-0017-phase6-scenario-roi-proof` の「samples だけで再現可能な導線」を固定するための正本です。Scenario 本文を編集せず、以下の順序で観測を完結できます。
 
-- 利用前サンプル: [`before-state.md#roi-before-prerequisites`](./before-state.md#roi-before-prerequisites)
-- 利用後サンプル: [`after-state.md#roi-after-prerequisites`](./after-state.md#roi-after-prerequisites)
-- 観測プロトコル: [`observation-protocol.md#roi-observation-prerequisites`](./observation-protocol.md#roi-observation-prerequisites)
-- 記録テンプレート: [`roi-metrics-template.csv`](./roi-metrics-template.csv)
+1. README（本書）
+2. 利用前サンプル: [`before-state.md#roi-before-prerequisites`](./before-state.md#roi-before-prerequisites)
+3. 利用後サンプル: [`after-state.md#roi-after-prerequisites`](./after-state.md#roi-after-prerequisites)
+4. 観測プロトコル: [`observation-protocol.md#roi-observation-prerequisites`](./observation-protocol.md#roi-observation-prerequisites)
+5. 記録テンプレート: [`roi-metrics-template.csv`](./roi-metrics-template.csv)
 
 ## 1. 前提
 - 対象プロジェクトは SIer 設計書運用（レビュー、別紙参照、印刷/PDF納品）を含むこと。

@@ -1,3 +1,3 @@
 scenario_id,measurement_date,sample_anchor_before,sample_anchor_after,doc_scale_pages,before_review_prep_minutes,after_review_prep_minutes,before_reference_mismatch_count,after_reference_mismatch_count,before_audit_trace_minutes,after_audit_trace_minutes,expected_result,constraints,notes
-roi-proof-001,YYYY-MM-DD,roi-before-procedure,roi-after-procedure,0,0,0,0,0,0,0,利用前より利用後で工数低下・不整合減少・追跡短縮を期待,サンプル数不足や難易度差に注意,
-roi-proof-002,YYYY-MM-DD,roi-before-procedure,roi-after-procedure,0,0,0,0,0,0,0,同等条件で比較して改善傾向を確認,導入初期の学習コストを考慮,
+roi-proof-001,YYYY-MM-DD,roi-before-procedure,roi-after-procedure,0,0,0,0,0,0,0,利用前より利用後で工数低下・不整合減少・追跡短縮を期待,サンプル数不足や難易度差に注意,README→before/after→protocol→csv の順で記録
+roi-proof-002,YYYY-MM-DD,roi-before-procedure,roi-after-procedure,0,0,0,0,0,0,0,同等条件で比較して改善傾向を確認,導入初期の学習コストを考慮,観測メモは protocol の差分判定に準拠
