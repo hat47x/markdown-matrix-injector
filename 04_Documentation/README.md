@@ -5,6 +5,7 @@
 
 ## 公開文書の基本導線（Phase 6）
 Phase 6 の公開文書は、**Overview -> Tutorial -> Scenario -> Reference（概要→チュートリアル→活用シナリオ→詳細仕様）** の順で読む構成に厳密統一します。
+この順序は issue-0016 / issue-0019 の README 関連要求に基づく固定導線であり、README 単体で参照しても解釈がぶれないように運用します。
 
 1. **Overview**: `04_Documentation/overview.md`
 2. **Tutorial**: `04_Documentation/tutorial.md`
@@ -12,6 +13,25 @@ Phase 6 の公開文書は、**Overview -> Tutorial -> Scenario -> Reference（�
 4. **Reference**: `04_Documentation/reference.md`
 
 > 上記 1〜4 は公開導線の正本であり、Phase 6 の docs audit でもこの順序を固定します。
+> Gate A（公開導線監査）はこの 1〜4 の並びを唯一の判定基準とします。
+
+## README 利用ガイド（前提・期待結果・関連文書・制約）
+### 前提
+- 本 README は `04_Documentation/` 配下の公開文書群を案内するハブとして利用します。
+- 読者は最初に Overview から開始し、Tutorial / Scenario / Reference へ順送りで遷移します（逆順参照を標準導線にしません）。
+
+### 期待結果
+- 読者が次に読む文書を迷わず 1 ステップで特定できること。
+- docs audit 実行時に、導線順・Gate 表現・feedback loop 接続先を README 単体で確認できること。
+
+### 関連文書
+- `01_Plans/issues/issue-0016-phase6-adoption-fast-path.md`（導線順固定の受入条件）
+- `01_Plans/issues/issue-0019-phase6-feedback-loop-operations.md`（Gate A〜E / docs audit / feedback loop の運用要求）
+- `02_Architecture/phase6-public-documentation-architecture.md`（quality gate の正本）
+
+### 制約
+- この README は導線と運用導線の正本リンクを示すことに限定し、詳細手順の本文を重複記載しません。
+- 公開文書の記述ルール（対象読者・前提条件・期待結果・関連文書・既知の制約）は各文書本体で維持します。
 
 ## Gist 公開方針
 - `04_Documentation/` の文書は、**すべて Markdown 形式で体系立てて記述**し、Gist ページとして公開する前提で管理します。
@@ -48,9 +68,9 @@ Phase 6 の公開文書は、**Overview -> Tutorial -> Scenario -> Reference（�
    - `python3 01_Plans/tools/planning_queue.py`
 
 ### 運用手順（固定順序）
-1. 公開導線監査（Overview -> Tutorial -> Scenario -> Reference）
+1. Gate A: 公開導線監査（Overview -> Tutorial -> Scenario -> Reference）
 2. Gate A / B の差分監査（構成・Reference 信頼性）
-3. Gate C として docs audit を実施し、requirements / architecture / test / product gap へ分類
+3. Gate C: docs audit を実施し、requirements / architecture / test / product gap へ分類
 4. Gate D として scorecard（TFS / Decision Readiness / Support Deflection / Feedback Closure）を更新
 5. Gate E として `python3 01_Plans/tools/planning_queue.py` を実行し、orphan / pending を確認
 
