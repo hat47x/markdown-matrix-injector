@@ -21,15 +21,15 @@
 
 ### Acceptance criteria (受入条件)
 - [ ] `overview.md` に対象ユーザー別の価値（導入判断者/PoC担当/運用担当）が明記されること。
-- [ ] `tutorial.md` に「開始条件」「所要時間目安」「成功判定」「失敗時の最初の確認ポイント」が追加されること。
+- [x] `tutorial.md` に「開始条件」「所要時間目安」「成功判定」「失敗時の最初の確認ポイント」が追加されること（固定済み）。
 - [ ] `README.md` の導線が `Overview -> Tutorial -> Scenario -> Reference` の順で一貫すること。
-- [ ] docs audit で、必須セクション（Target reader / Prerequisites / Expected result / Related docs / Known limitations）が維持されること。
+- [x] docs audit で、必須セクション（Target reader / Prerequisites / Expected result / Related docs / Known limitations）が維持されること（tutorial対象で確認済み）。
 
 ### Task breakdown (作業分解)
 - [ ] Overview の価値訴求を読者別に再構成する。
-- [ ] Tutorial に time-boxed handrail（30分成功導線）を追加する。
+- [x] Tutorial に time-boxed handrail（30分成功導線）を追加する。
 - [ ] Documentation README の導線を見直し、読む順序を固定する。
-- [ ] docs audit 実行結果を issue に記録する。
+- [x] docs audit 実行結果を issue に記録する（tutorial対象）。
 
 ### Validation plan (検証計画)
 - `rg -n "Overview|Tutorial|Scenario|Reference" 04_Documentation/README.md` で導線順を確認する。
@@ -57,3 +57,26 @@
 - Interpretation:
   - 本Issueは未完了タスクが残るため `In Progress` が妥当。
   - orphan 未発生のため、関連 ADR 参照整合は維持。
+
+### 2026-03-28 (UTC) Stream B: Tutorial 30分成功導線 evidence
+- Scope:
+  - Edited: `04_Documentation/tutorial.md`
+  - Updated evidence: `01_Plans/issues/issue-0016-phase6-adoption-fast-path.md`
+  - Non-target files (`overview.md`, `04_Documentation/README.md`, `02_Architecture/**`) are untouched.
+- Task summary:
+  - Task 1 (tutorial 条件固定): `## TFS acceptance gate (issue-0016, fixed)` の文言を維持し、失敗時導線の起点を明示した。
+  - Task 2 (4要素追加): 「開始条件」「所要時間目安」「成功判定」「失敗時の最初の確認ポイント」が tutorial 上で明示されていることを確認した。
+  - Task 3 (必須セクション維持): `Target reader / Prerequisites / Expected result / Related docs / Known limitations` の全見出し維持を確認した。
+  - Task 4 (rg / planning_queue.py 検証): 指定コマンドを実行し、結果を記録した。
+  - Task 5 (evidence 追記・要約): 本セクションへ追記完了。
+- Commands and results:
+  - `rg -n "30 分|30分|所要時間|成功判定|失敗時" 04_Documentation/tutorial.md`
+    - `所要時間目安`, `成功判定`, `失敗時の最初の確認ポイント`, `30分` の出現を確認（該当行: 24, 26, 30, 34, 39, 41, 51, 53-55, 72）。
+  - `rg -n "^## Target reader|^## Prerequisites|^## Expected result|^## Related docs|^## Known limitations" 04_Documentation/tutorial.md`
+    - 必須セクション見出しの存在を確認（該当行: 7, 11, 16, 102, 108）。
+  - `python3 01_Plans/tools/planning_queue.py`
+    - 実行成功。`issue_pending: 5`, `issue_orphan: 0` を確認。
+    - queue 上で本 issue は `In Progress` として列挙され、Overview/README scope 未完了と整合。
+- Stream B conclusion:
+  - tutorial 単体の受入条件は充足。
+  - Issue 全体は未完了タスク（overview / README）が残るため `In Progress` を維持。
