@@ -57,3 +57,18 @@
 - Interpretation:
   - 本Issueは未完了タスクが残るため `In Progress` が妥当。
   - orphan 未発生のため、関連 ADR 参照整合は維持。
+
+### 2026-03-28 (UTC) Stream A overview validation
+- Scope note:
+  - Stream A は `overview.md` 担当範囲の受入条件（読者別価値明記 + 必須セクション維持）に限定して検証。
+- Commands:
+  - `rg -n "^## Target reader|^## Prerequisites|^## Expected result|^## Related docs|^## Known limitations" 04_Documentation/overview.md`
+  - `rg -n "導入判断者|PoC|運用" 04_Documentation/overview.md`
+  - `python3 01_Plans/tools/planning_queue.py`
+- Result summary:
+  - 必須セクション 5 件（Target reader / Prerequisites / Expected result / Related docs / Known limitations）を確認。
+  - `overview.md` 内で「導入判断者 / PoC / 運用」に関する価値記述を確認。
+  - planning queue は `issue_pending: 5`, `issue_orphan: 0` を確認。
+- Interpretation:
+  - Overview 単体の受入条件（対象ユーザー別価値 + quality gate 必須セクション維持）は充足。
+  - Tutorial / README 側の受入条件は別ストリームで継続。
