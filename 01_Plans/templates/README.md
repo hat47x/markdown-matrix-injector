@@ -29,3 +29,4 @@
   - 1回ごとの監査ログテンプレート（Findings / Classification / Closure）。
 - `docs-audit-log-sample-iteration-template.md`
   - 1回分サンプル記録の雛形（運用開始時のコピー元）。
+  - Gate C 単体運用チェック用。1回分の監査をこのファイルだけで起票・記録できる。
