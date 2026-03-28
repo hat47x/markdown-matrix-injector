@@ -4,6 +4,12 @@
 この文書は、Phase 6 で整備する公開文書の情報アーキテクチャと、文書化から requirements / architecture / test へ知見を戻す feedback loop を固定するための設計文書です。
 本書は `issue-0018` / `issue-0019` / `issue-0020` の quality gate 要件を統合した、Phase 6 quality gate の正本として扱います。
 
+## Architecture scope and operating boundary (issue-0019準拠)
+- 本書は「公開文書の運用定義そのもの」を扱うのではなく、Gate A〜E の**入力・責務・出力・還流先**を設計要素として規定する。
+- Gate運用のテンプレート実体（監査票・分類票・scorecard）は `01_Plans/templates/` を参照するが、運用判断の起点は常に本書の Gate 定義に置く。
+- docs audit / feedback loop / scorecard / planning_queue は、個別作業ではなく 1 本の追跡可能なパイプラインとして扱う。
+- 追跡単位は「1 docs iteration（1回の文書更新サイクル）」とし、各 iteration で Gate A→B→C→D→E を必ず完走させる。
+
 ## Documentation layers
 Phase 6 の公開文書は、次の 4 層を正本とします。
 
@@ -50,6 +56,9 @@ Phase 6 の公開文書は、次の 4 層を正本とします。
 以下は `issue-0018` / `issue-0019` / `issue-0020` から統合した、公開文書全体に適用される gate です。
 
 ### Gate A: Baseline structure and consistency
+- **Architecture objective**: 公開文書の情報導線を標準化し、読者の到達経路を固定する。
+- **Architecture input**: 4層文書（Overview / Tutorial / Scenario / Reference）の現行差分。
+- **Architecture output**: 導線監査結果（Pass/Fail）、欠落セクション一覧、修正要求。
 - 各公開文書は最低限、以下の節を持つ。
   - `## Target reader`
   - `## Prerequisites`
@@ -62,6 +71,9 @@ Phase 6 の公開文書は、次の 4 層を正本とします。
 - `04_Documentation/` 配下の公開文書本文は、英語交じりの文体を避け、標準的な日本の技術書に準じた文章構成を維持する。
 
 ### Gate B: Reference trustworthiness
+- **Architecture objective**: Reference を一次情報として再利用できる信頼粒度に固定する。
+- **Architecture input**: Gate A の導線監査結果、Reference Card 差分、既知制約一覧。
+- **Architecture output**: Card単位の判定（Pass/Conditional Pass/Fail）と是正要求。
 - 判定単位は「1 機能（または 1 パラメータ群）= 1 Reference Card」とし、各 Card は次の必須項目を欠落なく持つ。
   - 正常系挙動（入力、期待結果、観測ポイント）
   - 代表的な失敗ケース（再現条件、ユーザー影響）
@@ -75,6 +87,9 @@ Phase 6 の公開文書は、次の 4 層を正本とします。
 - 目標状態は「サポート一次回答を Reference リンクのみで返せる粒度」とする。
 
 ### Gate C: Docs audit operations
+- **Architecture objective**: docs audit を定常化し、feedback loop の分類漏れを防止する。
+- **Architecture input**: Gate A/B 判定結果、対象文書差分、上流正本（requirements / architecture / issue / ADR）、未解決項目。
+- **Architecture output**: 分類済みフィードバック一覧（未分類 0 件）、反映先リンク台帳。
 - docs audit は単発でなく定常運用とし、docs 更新イテレーションごとに実施する。
 - Gate C は Gate A/B の導線・品質監査を前提入力として受け取る。
 - 監査時は次を入力とする。
@@ -89,6 +104,9 @@ Phase 6 の公開文書は、次の 4 層を正本とします。
 - 監査結果は issue / ADR / commit のいずれかへ反映し、反映先リンクを記録する。
 
 ### Gate D: KPI scorecard measurement
+- **Architecture objective**: Gate C の結果を定量評価へ接続し、次 iteration の優先順位を決める材料を作る。
+- **Architecture input**: Gate C 分類結果、前回 scorecard、未完了是正タスク。
+- **Architecture output**: KPI scorecard 更新結果、次アクション候補、未完了事項。
 - Phase 6 KPI は以下の 4 指標を毎イテレーションで計測可能であること。
   - **TFS**
   - **Decision Readiness**
@@ -104,9 +122,35 @@ Phase 6 の公開文書は、次の 4 層を正本とします。
 - issue-0016〜0019 成果を最低 1 回は scorecard で評価可能であること。
 
 ### Gate E: Traceability and planning integrity
+- **Architecture objective**: Gate A〜D で得た知見を計画系へ還流し、次サイクルの実行可能性を保つ。
+- **Architecture input**: Gate D scorecard、未反映フィードバック、issue/ADR 状態。
+- **Architecture output**: planning_queue 観測結果、orphan/pending 対応方針、Validation evidence。
 - docs 変更コミットごとに「発見事項 → 分類 → 反映先」を追跡可能にする。
 - `01_Plans/tools/planning_queue.py` 実行時に orphan / pending 状態が観測できる運用を維持する。
 - quality gate の判定ログは、後続イテレーションが再利用できる粒度で残す。
+
+## Gate connection architecture (docs audit / feedback loop / scorecard / planning_queue)
+以下の接続を Phase 6 の固定アーキテクチャとする。
+
+1. **docs audit (Gate C)**
+   - Gate A/B の結果と文書差分を入力し、指摘事項を抽出する。
+2. **feedback loop 分類 (Gate C)**
+   - 指摘事項を `requirements / architecture / test / product gap` へ分類し、未分類を 0 件化する。
+3. **scorecard 記録 (Gate D)**
+   - 分類結果を KPI 指標（TFS / Decision Readiness / Support Deflection / Feedback Closure）へ写像する。
+4. **planning_queue 連携 (Gate E)**
+   - `python3 01_Plans/tools/planning_queue.py` で orphan / pending を可視化し、次の issue/ADR 起票要否を判断する。
+5. **上流還流**
+   - requirements: `00_Prompt/requirements.md`
+   - architecture: `02_Architecture/*.md` または ADR
+   - test: `01_Plans/issues/`（必要に応じ `03_Implement/test` 計画へ接続）
+   - product gap: feature / bugfix issue
+
+## Writing policy as architecture constraint
+- 公開文書は、**日本の技術書**で一般的な構成（目的→前提→手順→期待結果→制約→関連資料）を基準とする。
+- 文章構成は読者行動に従い、用語定義を先に置いてから操作手順へ進む。
+- architecture で定義した節順序（Target reader / Prerequisites / Expected result / Related docs / Known limitations）を文体規約の最小制約として扱う。
+- 「英語交じりの見出し乱立」「結論前の冗長な背景説明」「観測不能な期待結果」を禁止し、監査で検出対象とする。
 
 ## Docs audit loop (operational checks)
 各イテレーションで次を確認します。
