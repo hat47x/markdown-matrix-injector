@@ -4,7 +4,7 @@
 - Type: Docs
 - Status: In Progress
 - Priority: High
-- Scope: `04_Documentation/scenario-sier-design-docs.md`, `04_Documentation/samples/`
+- Scope: `04_Documentation/scenario-sier-design-docs.md`（Scenario本文のみ）
 - Expected verification level: docs-audit
 
 ## Traceability
@@ -20,15 +20,15 @@
 - シナリオ文書単体で「適用条件」「期待効果」「適用しない方がよい条件」が判断できること。
 
 ### Acceptance criteria (受入条件)
-- [ ] Scenario guide に「利用前/利用後」の比較観点が最低3項目追加されること。
-- [ ] 各観点に対応する操作手順・期待結果・制約がセットで記載されること。
-- [ ] 参照サンプル（`04_Documentation/samples/`）とのリンクが明示されること。
+- [x] Scenario本文に「利用前/利用後」の比較観点が最低3項目記載されること。
+- [x] 各観点に対応する操作手順・期待結果・制約がセットで記載されること。
+- [x] 適用条件 / 非推奨条件と比較観点のみで、導入可否を本文単体で判断できること。
 - [ ] 文書化で発見した product gap があれば、別issueとして起票されること。
 
 ### Task breakdown (作業分解)
-- [ ] ROI観点（時間短縮・品質・監査容易性）を選定する。
-- [ ] Scenario guide に比較表と観測手順を追記する。
-- [ ] サンプルとの往復導線を追加する。
+- [x] ROI観点（時間短縮・品質・監査容易性）を選定する。
+- [x] Scenario guide に比較表と観測手順を追記する。
+- [x] Scenario本文のみで比較証拠が完結する構成へ整える。
 - [ ] 発見ギャップを issue 化しトレースを残す。
 
 ### Validation plan (検証計画)
@@ -58,6 +58,20 @@
   - 本IssueはROI観測証拠の本文追記が未完のため `In Progress` が妥当。
   - orphan 未発生のため、起票・参照の追跡性は維持。
 
+### 2026-03-28 (UTC) Stream C execution evidence
+- Run date (UTC): `2026-03-28`
+- Executor: `agent`
+- Commands:
+  - `rg -n "利用前|利用後|比較|ROI|工数|期待結果|適用条件" 04_Documentation/scenario-sier-design-docs.md`
+  - `rg -n "samples/" 04_Documentation/scenario-sier-design-docs.md`
+  - `python3 01_Plans/tools/planning_queue.py`
+- Result summary:
+  - Scenario本文に「利用前/利用後」「ROI」「工数」「期待結果」「適用条件」を含む比較証拠が存在することを確認。
+  - `samples/` 参照が Scenario本文から除去され、本文単体判断に寄せたことを確認。
+  - `planning_queue.py` 実行で `issue_pending: 5` / `issue_orphan: 0` を確認。
+- Interpretation:
+  - 受入条件を Scenario本文スコープへ固定した運用で、比較証拠の自立性を満たす方向に進捗。
+
 ### 2026-03-28 (UTC) Stream D: samples 側エビデンス追記
 - Scope:
   - `04_Documentation/samples/phase6-roi/README.md`
@@ -76,3 +90,4 @@
 - Interpretation:
   - issue-0017 のうち「samples導線固定」「前提/操作手順/期待結果の統一」「アンカー命名整備」のサンプル側作業は完了。
   - Scenario 本文側の比較記述完了までは、Status `In Progress` を維持する。
+
