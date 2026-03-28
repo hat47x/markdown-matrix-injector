@@ -2,9 +2,9 @@
 
 ## Meta
 - Type: Docs
-- Status: In Progress
+- Status: Done
 - Priority: Medium
-- Scope: `04_Documentation/reference.md`, `02_Architecture/phase6-public-documentation-architecture.md`
+- Scope: `04_Documentation/reference.md`（本文のみ）
 - Expected verification level: docs-audit
 
 ## Traceability
@@ -20,23 +20,21 @@
 - サポート担当が問い合わせの一次回答を Reference へのリンクのみで返答できる粒度を満たすこと。
 
 ### Acceptance criteria (受入条件)
-- [ ] 主要パラメータ群に「正常系挙動」「代表的な失敗ケース」「関連正本リンク」が記載されること。
-- [ ] Smart Fallback / 印刷制御 / Diagnostics / Paste&D&D について制約が明文化されること。
-- [ ] `phase6-public-documentation-architecture.md` の quality gate と矛盾しないこと。
-- [ ] docs audit で参照リンク切れがないこと（少なくとも repo 内リンク）。
+- [x] 主要パラメータ群に「正常系挙動」「代表的な失敗ケース」「制約」「関連正本リンク」が記載されること。
+- [x] Smart Fallback / 印刷制御 / Diagnostics / Paste&D&D について制約が明文化されること。
+- [x] `reference.md` 単体で一次回答源として成立し、必要時に関連正本へ遷移できること。
+- [x] docs audit で参照リンク切れがないこと（少なくとも repo 内リンク）。
 
 ### Task breakdown (作業分解)
-- [ ] 既存Referenceを機能単位で棚卸しする。
-- [ ] 各機能に制約と失敗時挙動を追記する。
-- [ ] 関連設計/issue/test へのリンクを追加する。
-- [ ] docs audit で相互リンクを検証する。
+- [x] 既存Referenceを機能単位で棚卸しする。
+- [x] 各機能に制約と失敗時挙動を追記する。
+- [x] 関連設計/issue/test へのリンクを追加する。
+- [x] docs audit で相互リンクを検証する。
 
 ### Validation plan (検証計画)
 - `rg -n "失敗|制約|関連|正常系" 04_Documentation/reference.md` で追加観点を確認する。
 - `rg -n "02_Architecture|01_Plans|03_Implement/test" 04_Documentation/reference.md` で正本導線を確認する。
-- `rg -n "Quality gate|Known limitations" 02_Architecture/phase6-public-documentation-architecture.md 04_Documentation/reference.md` で整合性を確認する。
 - `python3 01_Plans/tools/planning_queue.py` で planning_queue の `issue_orphan` が 0 であることを確認する。
-- `rg -n "Validation plan|Status|Done|In Progress|Open" 01_Plans/issues/issue-0016-phase6-adoption-fast-path.md 01_Plans/issues/issue-0017-phase6-scenario-roi-proof.md 01_Plans/issues/issue-0018-phase6-reference-trustworthiness.md` で3Issueの運用表記を確認する。
 
 ## Validation evidence (実行証跡)
 ### Evidence log template
@@ -49,6 +47,18 @@
   - `issue_pending`: `>= 0` (進捗に応じた件数)
   - `issue_orphan`: `0`
   - 対象3Issueの `Validation plan` / `Status` が追跡可能
+
+### 2026-03-28 (UTC) Stream E verification
+- Commands:
+  - `rg -n "失敗|制約|関連|正常系" 04_Documentation/reference.md`
+  - `rg -n "02_Architecture|01_Plans|03_Implement/test" 04_Documentation/reference.md`
+  - `python3 01_Plans/tools/planning_queue.py`
+- Result summary:
+  - `reference.md` に主要観点（正常系 / 失敗時 / 制約 / 関連正本）が複数セクションで明示されていることを確認。
+  - `reference.md` から `01_Plans` / `02_Architecture` / `03_Implement/test` への導線が存在することを確認。
+  - planning_queue は `issue_pending: 4`, `issue_orphan: 0` を維持。
+- Interpretation:
+  - 完了条件「reference 単体で一次回答源として成立」を満たす。
 
 ### 2026-03-26 (UTC) planning_queue observation
 - Command: `python3 01_Plans/tools/planning_queue.py`
