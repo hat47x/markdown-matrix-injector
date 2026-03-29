@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Docs
-- Status: In Progress
+- Status: Done
 - Priority: High
 - Scope: `04_Documentation/overview.md`, `04_Documentation/tutorial.md`, `04_Documentation/README.md`
 - Expected verification level: docs-audit
@@ -20,15 +20,15 @@
 - 導入判断者/PoC担当/運用担当の3ペルソナが、それぞれ「次に読む文書」を1クリックで辿れること。
 
 ### Acceptance criteria (受入条件)
-- [ ] `overview.md` に対象ユーザー別の価値（導入判断者/PoC担当/運用担当）が明記されること。
+- [x] `overview.md` に対象ユーザー別の価値（導入判断者/PoC担当/運用担当）が明記されること。
 - [x] `tutorial.md` に「開始条件」「所要時間目安」「成功判定」「失敗時の最初の確認ポイント」が追加されること（固定済み）。
-- [ ] `README.md` の導線が `Overview -> Tutorial -> Scenario -> Reference` の順で一貫すること。
+- [x] `README.md` の導線が `Overview -> Tutorial -> Scenario -> Reference` の順で一貫すること。
 - [x] docs audit で、必須セクション（Target reader / Prerequisites / Expected result / Related docs / Known limitations）が維持されること（tutorial対象で確認済み）。
 
 ### Task breakdown (作業分解)
-- [ ] Overview の価値訴求を読者別に再構成する。
+- [x] Overview の価値訴求を読者別に再構成する。
 - [x] Tutorial に time-boxed handrail（30分成功導線）を追加する。
-- [ ] Documentation README の導線を見直し、読む順序を固定する。
+- [x] Documentation README の導線を見直し、読む順序を固定する。
 - [x] docs audit 実行結果を issue に記録する（tutorial対象）。
 
 ### Validation plan (検証計画)
@@ -96,3 +96,18 @@
   - tutorial 単体の受入条件は充足。
   - Issue 全体は未完了タスク（overview / README）が残るため `In Progress` を維持。
 
+
+### 2026-03-28 (UTC) Stream H: issue統合エビデンス更新
+- Run date (UTC): `2026-03-28`
+- Commands:
+  - `python3 01_Plans/tools/planning_queue.py`
+  - `rg -n "Status:|Acceptance criteria|Task breakdown|Validation evidence" 01_Plans/issues/issue-0016-phase6-adoption-fast-path.md 01_Plans/issues/issue-0017-phase6-scenario-roi-proof.md 01_Plans/issues/issue-0019-phase6-feedback-loop-operations.md`
+  - `rg -n "^## Target reader|^## Prerequisites|^## Expected result|^## Related docs|^## Known limitations" 04_Documentation/overview.md 04_Documentation/tutorial.md`
+  - `rg -n "導入判断者|PoC|運用|価値" 04_Documentation/overview.md`
+  - `rg -n "Overview|Tutorial|Scenario|Reference" 04_Documentation/README.md`
+- Result summary:
+  - overview の読者別価値（導入判断者 / PoC / 運用）と必須セクション5項目を確認。
+  - README で `Overview -> Tutorial -> Scenario -> Reference` の固定導線を確認。
+  - `planning_queue.py` は `issue_pending: 1`, `issue_orphan: 0`。
+- Status decision:
+  - 本Issueの Acceptance criteria / Task breakdown は全項目充足のため、`Status: Done` へ更新。

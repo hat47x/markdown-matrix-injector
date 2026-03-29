@@ -91,3 +91,17 @@
   - issue-0017 のうち「samples導線固定」「前提/操作手順/期待結果の統一」「アンカー命名整備」のサンプル側作業は完了。
   - Scenario 本文側の比較記述完了までは、Status `In Progress` を維持する。
 
+
+### 2026-03-28 (UTC) Stream H: issue統合エビデンス更新
+- Run date (UTC): `2026-03-28`
+- Commands:
+  - `python3 01_Plans/tools/planning_queue.py`
+  - `rg -n "Status:|Acceptance criteria|Task breakdown|Validation evidence" 01_Plans/issues/issue-0016-phase6-adoption-fast-path.md 01_Plans/issues/issue-0017-phase6-scenario-roi-proof.md 01_Plans/issues/issue-0019-phase6-feedback-loop-operations.md`
+  - `rg -n "利用前|利用後|比較|ROI|工数|期待結果|適用条件|非推奨" 04_Documentation/scenario-sier-design-docs.md`
+  - `rg -n "前提|手順|期待結果|制約" 04_Documentation/samples/phase6-roi/*.md`
+- Result summary:
+  - Scenario本文の比較証拠（利用前/利用後、ROI、工数、適用条件、非推奨）を確認。
+  - samples 側の再現導線（前提/手順/期待結果/制約）は4文書で確認。
+  - `planning_queue.py` は `issue_pending: 1`, `issue_orphan: 0`。
+- Status decision:
+  - ROI本文・samples 由来の主要受入条件は満たすが、`product gap issue化` の完了証跡が未記録のため `Status: In Progress` を維持。
