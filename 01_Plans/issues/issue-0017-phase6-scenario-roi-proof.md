@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Docs
-- Status: In Progress
+- Status: Done
 - Priority: High
 - Scope: `04_Documentation/scenario-sier-design-docs.md`（Scenario本文のみ）
 - Expected verification level: docs-audit
@@ -23,13 +23,13 @@
 - [x] Scenario本文に「利用前/利用後」の比較観点が最低3項目記載されること。
 - [x] 各観点に対応する操作手順・期待結果・制約がセットで記載されること。
 - [x] 適用条件 / 非推奨条件と比較観点のみで、導入可否を本文単体で判断できること。
-- [ ] 文書化で発見した product gap があれば、別issueとして起票されること。
+- [x] 文書化で発見した product gap があれば、別issueとして起票されること。
 
 ### Task breakdown (作業分解)
 - [x] ROI観点（時間短縮・品質・監査容易性）を選定する。
 - [x] Scenario guide に比較表と観測手順を追記する。
 - [x] Scenario本文のみで比較証拠が完結する構成へ整える。
-- [ ] 発見ギャップを issue 化しトレースを残す。
+- [x] 発見ギャップを issue 化しトレースを残す。
 
 ### Validation plan (検証計画)
 - `rg -n "利用前|利用後|比較|ROI|工数|期待結果|適用条件" 04_Documentation/scenario-sier-design-docs.md` で比較証拠の存在を確認する。
@@ -105,3 +105,16 @@
   - `planning_queue.py` は `issue_pending: 1`, `issue_orphan: 0`。
 - Status decision:
   - ROI本文・samples 由来の主要受入条件は満たすが、`product gap issue化` の完了証跡が未記録のため `Status: In Progress` を維持。
+
+### 2026-03-29 (UTC) Product gap issue 化と完了判定
+- Run date (UTC): `2026-03-29`
+- Executor: `agent`
+- Commands:
+  - `rg -n "ギャップ候補|product gap" 04_Documentation/scenario-sier-design-docs.md 01_Plans/issues/issue-0017-phase6-scenario-roi-proof.md`
+  - `python3 01_Plans/tools/planning_queue.py`
+- Result summary:
+  - Scenario本文の product gap 候補（観点別テンプレート自動挿入、抽出クエリ履歴のエビデンス出力）を再確認。
+  - `01_Plans/issues/issue-0021-phase6-scenario-product-gap-followup.md` を新規起票し、feature backlog としてトレース開始。
+  - `planning_queue.py` で `issue_orphan: 0` を維持。
+- Status decision:
+  - issue-0017 の受入条件「product gap issue化」を満たしたため、`Status: Done` に更新。
