@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Docs
-- Status: Open
+- Status: Done
 - Priority: Medium
 - Scope: `01_Plans/`, `02_Architecture/phase6-public-documentation-architecture.md`, `04_Documentation/README.md`
 - Expected verification level: docs-audit
@@ -60,3 +60,22 @@
 ### Result summary
 - テンプレート群だけで Gate C 実行に必要な入力/出力/判定/分類を完結可能。
 - 1回分サンプル記録雛形を templates 配下に追加済み。
+
+
+### 2026-03-28 (UTC) Stream H: issue統合エビデンス更新
+- Run date (UTC): `2026-03-28`
+- Commands:
+  - `python3 01_Plans/tools/planning_queue.py`
+  - `rg -n "Status:|Acceptance criteria|Task breakdown|Validation evidence" 01_Plans/issues/issue-0016-phase6-adoption-fast-path.md 01_Plans/issues/issue-0017-phase6-scenario-roi-proof.md 01_Plans/issues/issue-0019-phase6-feedback-loop-operations.md`
+  - `rg -n "Gate A|Gate B|Gate C|Gate D|Gate E|docs audit|feedback loop|requirements|architecture|test|product gap|未分類|scorecard|planning_queue" 01_Plans/issues/issue-0019-phase6-feedback-loop-operations.md 02_Architecture/phase6-public-documentation-architecture.md 04_Documentation/README.md`
+- Result summary:
+  - Gate A〜E / docs audit / feedback loop / scorecard / planning_queue 接続語彙を確認。
+  - `planning_queue.py` は `issue_pending: 1`, `issue_orphan: 0` を示し、orphan なしを維持。
+- Status decision:
+  - Acceptance criteria / Task breakdown が全件完了し、Validation evidence も追跡可能なため `Status: Done` へ更新。
+
+## 3Issue横断サマリー（2026-03-28 UTC, Stream H）
+- `issue-0016`: 導入ファストパス（overview/tutorial/README 導線）は受入条件と作業分解が全完了し、`Done`。
+- `issue-0017`: ROI比較証拠は充足したが、`product gap issue化` の証跡待ちで `In Progress`。
+- `issue-0019`: docs audit 運用定義（Gate A〜E、分類、planning_queue連携）が揃い `Done`。
+- queue整合: `issue_pending: 1`, `issue_orphan: 0` を確認し、3Issue間の状態遷移と証跡に矛盾なし。
