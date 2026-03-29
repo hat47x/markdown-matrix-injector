@@ -1,6 +1,7 @@
 import path from 'node:path';
 import { type AutocompleteCandidate } from './autocompleteProvider.js';
 import { validateEmbedDiagnostics, type EmbedDiagnostic, type XmlMode } from './diagnostics.js';
+import { extractEmbedQueries } from '../parser/embedSyntax.js';
 import {
   readTransferValuesFromDataTransfer,
   suggestEmbedFromTransferValues,
@@ -61,6 +62,15 @@ interface DiagnosticsDependencies {
 export interface DocumentDiagnosticItem {
   diagnostic: EmbedDiagnostic;
   range: RangeLike;
+}
+
+export interface QueryEvidenceRecord {
+  index: number;
+  filepath: string;
+  target: string;
+  range: string;
+  query: string;
+  raw: string;
 }
 
 export function getTextBeforePosition(documentText: string, positionCharacter: number): string {
@@ -200,6 +210,37 @@ export function resolveWorkbookPath(rawFilepath: string, markdownFilePath: strin
   return workspaceRoot ? relativeToDocument : relativeToDocument;
 }
 
+export function collectQueryEvidenceRecords(text: string): QueryEvidenceRecord[] {
+  return extractEmbedQueries(text).map((embed, index) => ({
+    index: index + 1,
+    filepath: embed.filepath,
+    target: embed.target ?? '',
+    range: embed.range ?? '',
+    query: embed.params.toString(),
+    raw: embed.raw,
+  }));
+}
+
+export function buildQueryEvidenceCsv(records: readonly QueryEvidenceRecord[]): string {
+  const header = ['index', 'filepath', 'target', 'range', 'query', 'raw'];
+  const rows = records.map((record) => [
+    record.index.toString(),
+    record.filepath,
+    record.target,
+    record.range,
+    record.query,
+    record.raw,
+  ]);
+
+  return [header, ...rows]
+    .map((columns) => columns.map((column) => escapeCsvColumn(column)).join(','))
+    .join('\n');
+}
+
+export function buildQueryEvidenceJson(records: readonly QueryEvidenceRecord[]): string {
+  return JSON.stringify(records, null, 2);
+}
+
 function* findEmbedMatches(text: string): Iterable<EmbedMatch> {
   for (const match of text.matchAll(EMBED_PATTERN)) {
     const raw = match[0];
@@ -263,4 +304,12 @@ function positionAt(text: string, offset: number): PositionLike {
     line: lines.length - 1,
     character: lines.at(-1)?.length ?? 0,
   };
+}
+
+function escapeCsvColumn(value: string): string {
+  if (!/[",\n]/.test(value)) {
+    return value;
+  }
+
+  return `"${value.replaceAll('"', '""')}"`;
 }
