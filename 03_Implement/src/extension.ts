@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import path from 'node:path';
 import process from 'node:process';
 import MarkdownIt from 'markdown-it';
 import * as vscode from 'vscode';
@@ -12,6 +13,9 @@ import {
 } from './dx/autocompleteProvider.js';
 import {
   buildCompletionItems,
+  buildQueryEvidenceCsv,
+  buildQueryEvidenceJson,
+  collectQueryEvidenceRecords,
   createDiagnosticsForDocument,
   getDropEditFromDataTransfer,
   getDropInsertText,
@@ -24,6 +28,7 @@ import {
   toRelativeSuggestion,
   type PasteDropCommandArgs,
 } from './dx/vscodeAdapters.js';
+import { getScenarioTemplateCandidates, SCENARIO_OBSERVATION_TEMPLATE } from './dx/scenarioTemplate.js';
 import { markdownMatrixPlugin } from './plugin/markdownMatrixPlugin.js';
 
 interface RenderEmbedForTestArgs {
@@ -44,6 +49,8 @@ const FALLBACK_COMMAND_IDS = [
 ] as const;
 const NATIVE_PASTE_DROP_COMMAND_NAME = 'Insert Markdown Matrix embed';
 const ENABLE_TEST_COMMANDS_ENV_VAR = 'MMI_ENABLE_TEST_COMMANDS';
+const DEV_INSERT_SCENARIO_TEMPLATE_COMMAND_ID = 'markdownMatrixInjector.__dev.insertScenarioObservationTemplate';
+const DEV_EXPORT_QUERY_EVIDENCE_COMMAND_ID = 'markdownMatrixInjector.__dev.exportQueryEvidence';
 
 interface PasteDropIntegrationTestMetadata {
   fallbackCommandIds: string[];
@@ -175,11 +182,43 @@ function registerTestCommands(nativePasteDropState: NativePasteDropState): vscod
     vscode.commands.registerCommand('markdownMatrixInjector.__test.insertEmbedFromDrop', (args?: PasteDropCommandArgs) =>
       insertEmbedIntoActiveEditor(getDropInsertText(args)),
     ),
+    vscode.commands.registerTextEditorCommand(DEV_EXPORT_QUERY_EVIDENCE_COMMAND_ID, exportQueryEvidenceForEditor),
+    vscode.commands.registerCommand(DEV_INSERT_SCENARIO_TEMPLATE_COMMAND_ID, () =>
+      insertEmbedIntoActiveEditor(SCENARIO_OBSERVATION_TEMPLATE),
+    ),
     vscode.commands.registerCommand('markdownMatrixInjector.__test.getPasteDropIntegrationState', () => ({
       ...createPasteDropIntegrationTestMetadata(),
       ...nativePasteDropState,
     })),
   ];
+}
+
+async function exportQueryEvidenceForEditor(editor: vscode.TextEditor): Promise<void> {
+  const document = editor.document;
+  if (document.isUntitled) {
+    void vscode.window.showWarningMessage('MMI: Save the Markdown file before exporting query evidence.');
+    return;
+  }
+
+  const records = collectQueryEvidenceRecords(document.getText());
+  const csvText = buildQueryEvidenceCsv(records);
+  const jsonText = buildQueryEvidenceJson(records);
+  const outputDirectory = path.dirname(document.uri.fsPath);
+  const csvOutputPath = path.join(outputDirectory, 'query-evidence.csv');
+  const jsonOutputPath = path.join(outputDirectory, 'query-evidence.json');
+
+  try {
+    await Promise.all([
+      fs.writeFile(csvOutputPath, `${csvText}\n`, 'utf8'),
+      fs.writeFile(jsonOutputPath, `${jsonText}\n`, 'utf8'),
+    ]);
+    void vscode.window.showInformationMessage(
+      `MMI: Exported query evidence (${records.length}) -> ${csvOutputPath}, ${jsonOutputPath}`,
+    );
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`MMI: Failed to export query evidence: ${reason}`);
+  }
 }
 
 function createCompatibilityPasteDropCommandHandler(
@@ -263,15 +302,25 @@ function createCompletionProvider(): vscode.CompletionItemProvider {
     async provideCompletionItems(document, position) {
       const linePrefix = getTextBeforePosition(document.lineAt(position.line).text, position.character);
 
-      if (!linePrefix.includes('![[')) {
+      if (linePrefix.includes('![[')) {
+        const candidateSets = await buildAutocompleteCandidateSets(document, linePrefix);
+        const candidates = buildCompletionItems(getAutocompleteCandidates(linePrefix, candidateSets));
+
+        return candidates.map((candidate) => {
+          const item = new vscode.CompletionItem(candidate.label, toCompletionKind(candidate.kind));
+          item.insertText = candidate.insertText;
+          return item;
+        });
+      }
+
+      const templateCandidates = getScenarioTemplateCandidates(document.getText(), linePrefix);
+
+      if (templateCandidates.length === 0) {
         return undefined;
       }
 
-      const candidateSets = await buildAutocompleteCandidateSets(document, linePrefix);
-      const candidates = buildCompletionItems(getAutocompleteCandidates(linePrefix, candidateSets));
-
-      return candidates.map((candidate) => {
-        const item = new vscode.CompletionItem(candidate.label, toCompletionKind(candidate.kind));
+      return templateCandidates.map((candidate) => {
+        const item = new vscode.CompletionItem(candidate.label, vscode.CompletionItemKind.Snippet);
         item.insertText = candidate.insertText;
         return item;
       });
