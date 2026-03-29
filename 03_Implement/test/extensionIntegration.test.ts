@@ -324,6 +324,17 @@ test('extension integration boundaries keep canonical native providers and compa
   assert.match(source, /function registerTestCommands\(nativePasteDropState: NativePasteDropState\): vscode\.Disposable\[] \{/);
   assert.match(source, /registerCommand\('markdownMatrixInjector\.__test\.insertEmbedFromPaste', \(args\?: PasteDropCommandArgs\) =>/s);
   assert.match(source, /registerCommand\('markdownMatrixInjector\.__test\.insertEmbedFromDrop', \(args\?: PasteDropCommandArgs\) =>/s);
+  assert.match(source, /const DEV_EXPORT_QUERY_EVIDENCE_COMMAND_ID = 'markdownMatrixInjector\.__dev\.exportQueryEvidence';/);
+  assert.match(source, /registerTextEditorCommand\(DEV_EXPORT_QUERY_EVIDENCE_COMMAND_ID, exportQueryEvidenceForEditor\),/);
+  assert.match(source, /async function exportQueryEvidenceForEditor\(editor: vscode\.TextEditor\): Promise<void> \{/);
+  assert.match(source, /if \(document\.isUntitled\) \{\s*void vscode\.window\.showWarningMessage\('MMI: Save the Markdown file before exporting query evidence\.'\);\s*return;\s*\}/s);
+  assert.match(source, /collectQueryEvidenceRecords\(document\.getText\(\)\)/);
+  assert.match(source, /buildQueryEvidenceCsv\(records\)/);
+  assert.match(source, /buildQueryEvidenceJson\(records\)/);
+  assert.match(source, /query-evidence\.json/);
+  assert.match(source, /catch \(error\) \{\s*const reason = error instanceof Error \? error\.message : String\(error\);\s*void vscode\.window\.showErrorMessage\(`MMI: Failed to export query evidence: \$\{reason\}`\);\s*\}/s);
+  assert.match(source, /const DEV_INSERT_SCENARIO_TEMPLATE_COMMAND_ID = 'markdownMatrixInjector\.__dev\.insertScenarioObservationTemplate';/);
+  assert.match(source, /registerCommand\(DEV_INSERT_SCENARIO_TEMPLATE_COMMAND_ID, \(\) =>\s*insertEmbedIntoActiveEditor\(SCENARIO_OBSERVATION_TEMPLATE\),/s);
   assert.match(
     source,
     /function createCompatibilityPasteDropCommandHandler\([^]*insertEmbedIntoEditor\(editor, getInsertText\(args\)\);/s,
