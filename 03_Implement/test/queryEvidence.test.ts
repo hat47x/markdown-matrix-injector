@@ -1,6 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildQueryEvidenceCsv, buildQueryEvidenceJson, collectQueryEvidenceRecords } from '../src/dx/vscodeAdapters.js';
+import { createHash } from 'node:crypto';
+import {
+  buildQueryEvidenceCsv,
+  buildQueryEvidenceJson,
+  buildQueryEvidenceMarkdown,
+  buildQueryEvidenceExportArtifacts,
+  buildQueryEvidenceOutputPaths,
+  collectQueryEvidenceRecords,
+} from '../src/dx/vscodeAdapters.js';
 
 test('collectQueryEvidenceRecords preserves document appearance order', () => {
   const markdown = [
@@ -19,6 +27,11 @@ test('collectQueryEvidenceRecords preserves document appearance order', () => {
       { index: 2, filepath: 'data/b.xlsx', target: 'Summary', range: 'C3:D9' },
     ],
   );
+});
+
+test('collectQueryEvidenceRecords returns empty array when markdown has no embeds', () => {
+  const records = collectQueryEvidenceRecords('# Title\nNo embed syntax in this document.');
+  assert.deepEqual(records, []);
 });
 
 test('buildQueryEvidenceCsv renders stable CSV header and escapes raw/query fields', () => {
@@ -79,4 +92,175 @@ test('buildQueryEvidenceJson renders a stable pretty JSON payload', () => {
       2,
     ),
   );
+});
+
+test('buildQueryEvidenceMarkdown renders a stable markdown table payload', () => {
+  const markdown = buildQueryEvidenceMarkdown([
+    {
+      index: 1,
+      filepath: 'data/a.csv',
+      target: 'Sheet1',
+      range: 'A1:B2',
+      query: 'mode=table&header=first',
+      raw: '![[data/a.csv#Sheet1|A1:B2?mode=table&header=first]]',
+    },
+    {
+      index: 2,
+      filepath: 'data/b.csv',
+      target: '',
+      range: '',
+      query: '',
+      raw: '![[data/b.csv]]',
+    },
+  ]);
+
+  assert.equal(
+    markdown,
+    [
+      '## Query Evidence Report',
+      '',
+      '- Total records: 2',
+      '',
+      '| index | filepath | target | range | query | raw |',
+      '| --- | --- | --- | --- | --- | --- |',
+      '| 1 | data/a.csv | Sheet1 | A1:B2 | mode=table&header=first | ![[data/a.csv#Sheet1\\|A1:B2?mode=table&header=first]] |',
+      '| 2 | data/b.csv | - | - | - | ![[data/b.csv]] |',
+    ].join('\n'),
+  );
+});
+
+test('buildQueryEvidenceMarkdown renders an explicit empty-state report', () => {
+  assert.equal(
+    buildQueryEvidenceMarkdown([]),
+    ['## Query Evidence Report', '', '- Total records: 0', '', '_No evidence records found._'].join('\n'),
+  );
+});
+
+test('buildQueryEvidenceMarkdown includes source metadata when requested', () => {
+  const markdown = buildQueryEvidenceMarkdown(
+    [{ index: 1, filepath: 'data/a.csv', target: '', range: '', query: '', raw: '![[data/a.csv]]' }],
+    { sourceName: 'spec' },
+  );
+  assert.match(markdown, /- Source: spec/);
+});
+
+test('buildQueryEvidenceOutputPaths scopes all output files by markdown basename', () => {
+  const outputs = buildQueryEvidenceOutputPaths('/workspace/docs/spec.md');
+  assert.deepEqual(outputs, {
+    csvOutputPath: '/workspace/docs/spec.query-evidence.csv',
+    jsonOutputPath: '/workspace/docs/spec.query-evidence.json',
+    markdownOutputPath: '/workspace/docs/spec.query-evidence.md',
+  });
+});
+
+test('buildQueryEvidenceOutputPaths sanitizes basename characters for stable filenames', () => {
+  const outputs = buildQueryEvidenceOutputPaths('/workspace/docs/My Spec (v1).md');
+  assert.deepEqual(outputs, {
+    csvOutputPath: '/workspace/docs/My-Spec-v1.query-evidence.csv',
+    jsonOutputPath: '/workspace/docs/My-Spec-v1.query-evidence.json',
+    markdownOutputPath: '/workspace/docs/My-Spec-v1.query-evidence.md',
+  });
+});
+
+test('buildQueryEvidenceOutputPaths falls back to markdown when basename sanitizes to empty', () => {
+  const outputs = buildQueryEvidenceOutputPaths('/workspace/docs/!!!.md');
+  assert.deepEqual(outputs, {
+    csvOutputPath: '/workspace/docs/markdown.query-evidence.csv',
+    jsonOutputPath: '/workspace/docs/markdown.query-evidence.json',
+    markdownOutputPath: '/workspace/docs/markdown.query-evidence.md',
+  });
+});
+
+test('buildQueryEvidenceOutputPaths preserves unicode letters and numbers in basename', () => {
+  const outputs = buildQueryEvidenceOutputPaths('/workspace/docs/設計書_2026版.md');
+  assert.deepEqual(outputs, {
+    csvOutputPath: '/workspace/docs/設計書_2026版.query-evidence.csv',
+    jsonOutputPath: '/workspace/docs/設計書_2026版.query-evidence.json',
+    markdownOutputPath: '/workspace/docs/設計書_2026版.query-evidence.md',
+  });
+});
+
+test('buildQueryEvidenceOutputPaths keeps unicode while normalizing symbols to hyphen', () => {
+  const outputs = buildQueryEvidenceOutputPaths('/workspace/docs/設計!書@2026?.md');
+  assert.deepEqual(outputs, {
+    csvOutputPath: '/workspace/docs/設計-書-2026.query-evidence.csv',
+    jsonOutputPath: '/workspace/docs/設計-書-2026.query-evidence.json',
+    markdownOutputPath: '/workspace/docs/設計-書-2026.query-evidence.md',
+  });
+});
+
+test('buildQueryEvidenceOutputPaths resolves basename for windows-style paths', () => {
+  const outputs = buildQueryEvidenceOutputPaths('C:\\workspace\\docs\\spec.md');
+  assert.deepEqual(outputs, {
+    csvOutputPath: 'C:\\workspace\\docs\\spec.query-evidence.csv',
+    jsonOutputPath: 'C:\\workspace\\docs\\spec.query-evidence.json',
+    markdownOutputPath: 'C:\\workspace\\docs\\spec.query-evidence.md',
+  });
+});
+
+
+test('buildQueryEvidenceOutputPaths avoids Windows reserved basenames', () => {
+  const outputs = buildQueryEvidenceOutputPaths('/workspace/docs/CON.md');
+  assert.deepEqual(outputs, {
+    csvOutputPath: '/workspace/docs/CON-file.query-evidence.csv',
+    jsonOutputPath: '/workspace/docs/CON-file.query-evidence.json',
+    markdownOutputPath: '/workspace/docs/CON-file.query-evidence.md',
+  });
+});
+
+test('buildQueryEvidenceOutputPaths avoids Windows reserved basenames even when fallback basename is used', () => {
+  const outputs = buildQueryEvidenceOutputPaths('/workspace/docs/!!!.md');
+  assert.doesNotMatch(outputs.csvOutputPath, /\/con\.query-evidence\.csv$/i);
+  assert.match(outputs.csvOutputPath, /\/markdown\.query-evidence\.csv$/);
+});
+
+test('buildQueryEvidenceOutputPaths caps sanitized basename length to 64 characters', () => {
+  const source = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890---extra';
+  const normalized = source.replaceAll(/[^\p{L}\p{N}_-]/gu, '-').replaceAll(/-+/g, '-').replaceAll(/^-|-$/g, '');
+  const hashSuffix = createHash('sha1').update(normalized).digest('hex').slice(0, 6);
+  const expectedPrefix = `${normalized.slice(0, 57).replace(/-$/g, '')}-${hashSuffix}`.replace(/^-|-$/g, '');
+  const outputs = buildQueryEvidenceOutputPaths(`/workspace/docs/${source}.md`);
+  assert.deepEqual(outputs, {
+    csvOutputPath: `/workspace/docs/${expectedPrefix}.query-evidence.csv`,
+    jsonOutputPath: `/workspace/docs/${expectedPrefix}.query-evidence.json`,
+    markdownOutputPath: `/workspace/docs/${expectedPrefix}.query-evidence.md`,
+  });
+  assert.equal(expectedPrefix.length <= 64, true);
+});
+
+test('buildQueryEvidenceOutputPaths uses hash suffix to avoid collisions for long similar basenames', () => {
+  const basePrefix = 'a'.repeat(57);
+  const first = buildQueryEvidenceOutputPaths(`/workspace/docs/${basePrefix}1111111111.md`);
+  const second = buildQueryEvidenceOutputPaths(`/workspace/docs/${basePrefix}2222222222.md`);
+
+  assert.notEqual(first.csvOutputPath, second.csvOutputPath);
+  assert.match(first.csvOutputPath, new RegExp(`/workspace/docs/${basePrefix}-[a-f0-9]{6}\\.query-evidence\\.csv$`));
+  assert.match(second.csvOutputPath, new RegExp(`/workspace/docs/${basePrefix}-[a-f0-9]{6}\\.query-evidence\\.csv$`));
+});
+
+test('buildQueryEvidenceExportArtifacts builds records, payloads, and scoped output paths together', () => {
+  const artifacts = buildQueryEvidenceExportArtifacts(
+    '![[data/a.csv#Sheet1|A1:B2?mode=table]]',
+    '/workspace/docs/spec.md',
+  );
+
+  assert.equal(artifacts.records.length, 1);
+  assert.equal(artifacts.sourceName, 'spec');
+  assert.equal(artifacts.csvOutputPath, '/workspace/docs/spec.query-evidence.csv');
+  assert.equal(artifacts.jsonOutputPath, '/workspace/docs/spec.query-evidence.json');
+  assert.equal(artifacts.markdownOutputPath, '/workspace/docs/spec.query-evidence.md');
+  assert.match(artifacts.csvText, /^index,filepath,target,range,query,raw/m);
+  assert.match(artifacts.jsonText, /"filepath": "data\/a\.csv"/);
+  assert.match(artifacts.markdownReportText, /## Query Evidence Report/);
+  assert.match(artifacts.markdownReportText, /- Source: spec/);
+});
+
+test('buildQueryEvidenceExportArtifacts keeps source metadata basename for windows-style paths', () => {
+  const artifacts = buildQueryEvidenceExportArtifacts(
+    '![[data/a.csv#Sheet1|A1:B2?mode=table]]',
+    'C:\\workspace\\docs\\spec.md',
+  );
+
+  assert.equal(artifacts.sourceName, 'spec');
+  assert.match(artifacts.markdownReportText, /- Source: spec/);
 });
