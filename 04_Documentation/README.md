@@ -15,6 +15,24 @@ Phase 6 の公開文書は、**Overview -> Tutorial -> Scenario -> Reference（�
 > 上記 1〜4 は公開導線の正本であり、Phase 6 の docs audit でもこの順序を固定します。
 > Gate A（公開導線監査）はこの 1〜4 の並びを唯一の判定基準とします。
 
+## FAQ / 視覚補助素材への導線（issue-0026）
+Phase 6 の quality gate（FAQ・スクリーンショット/比較表評価）に対応するため、公開導線 4 文書の該当セクションを以下で固定します。
+
+| 文書 | FAQ セクション | 視覚補助素材セクション |
+|---|---|---|
+| Overview | `## FAQ（Overview）` | `## 視覚補助素材（比較表）` |
+| Tutorial | `## FAQ（Tutorial）` | `## 視覚補助素材（比較表）` |
+| Scenario | `## FAQ（Scenario）` | `## ROI比較表（利用前 / 利用後）` |
+| Reference | `## FAQ（Reference）` | （必要時に比較表を追加。現時点はパラメータ別箇条書きを正本とする） |
+
+> スクリーンショットは manual-e2e の環境差異を受けやすいため、現時点では比較表を優先し、画像は安定した再現手順が確立した項目から段階追加する。
+
+### スクリーンショット資産（issue-0027）
+- 資産配置先: `04_Documentation/samples/screenshots/`
+- 通常埋め込み: `phase6-normal-embed-preview.svg`（overview）
+- Smart Fallback: `phase6-smart-fallback-card.svg`（tutorial）
+- 印刷制御: `phase6-print-control-preview.svg`（tutorial）
+
 ## README 利用ガイド（前提・期待結果・関連文書・制約）
 ### 前提
 - 本 README は `04_Documentation/` 配下の公開文書群を案内するハブとして利用します。

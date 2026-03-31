@@ -152,6 +152,21 @@
 - Smart Fallback の最終見え方や印刷時レイアウトは、利用するレンダラや CSS と組み合わせて調整が必要です。
 - 公開文書では一般的なシナリオに絞っており、組織固有テンプレートや社内ルールへの適用は別途設計が必要です。
 
+## FAQ（Scenario）
+### Q1. どのシナリオから試すべきですか？
+A1. まず Scenario 1（Markdown 本文 + Excel 正本分離）から開始し、次に Scenario 2（巨大表カード化）へ進むと移行コストを評価しやすくなります。
+
+### Q2. ROI 比較表の数値が小さい場合でも導入価値はありますか？
+A2. あります。時間短縮だけでなく、監査容易性・再現性の改善も判断軸に含め、3 観点合算で評価してください。
+
+### Q3. 組織固有ルールが多い場合は適用不可ですか？
+A3. 不可ではありません。共通テンプレートを基準にしつつ、例外条件を章ごとに明記する運用設計が前提になります。
+
+## スクリーンショット参照（導入判断補助）
+- 通常埋め込み: `04_Documentation/samples/screenshots/phase6-normal-embed-preview.svg`
+- Smart Fallback: `04_Documentation/samples/screenshots/phase6-smart-fallback-card.svg`
+- 印刷制御: `04_Documentation/samples/screenshots/phase6-print-control-preview.svg`
+
 ## Stream C 実施メモ（統合stream向け）
 - 変更点: issue-0017 の比較観点要件を「時間短縮・品質・監査容易性」の必須3軸として固定し、ROI比較表と観点別の手順/期待結果/制約を整備。
 - 検証結果: 指定キーワード検索で比較証拠・適用条件記述がヒットすることを確認。

@@ -1,5 +1,4 @@
 import fs from 'node:fs/promises';
-import path from 'node:path';
 import process from 'node:process';
 import MarkdownIt from 'markdown-it';
 import * as vscode from 'vscode';
@@ -13,9 +12,7 @@ import {
 } from './dx/autocompleteProvider.js';
 import {
   buildCompletionItems,
-  buildQueryEvidenceCsv,
-  buildQueryEvidenceJson,
-  collectQueryEvidenceRecords,
+  buildQueryEvidenceExportArtifacts,
   createDiagnosticsForDocument,
   getDropEditFromDataTransfer,
   getDropInsertText,
@@ -200,20 +197,29 @@ async function exportQueryEvidenceForEditor(editor: vscode.TextEditor): Promise<
     return;
   }
 
-  const records = collectQueryEvidenceRecords(document.getText());
-  const csvText = buildQueryEvidenceCsv(records);
-  const jsonText = buildQueryEvidenceJson(records);
-  const outputDirectory = path.dirname(document.uri.fsPath);
-  const csvOutputPath = path.join(outputDirectory, 'query-evidence.csv');
-  const jsonOutputPath = path.join(outputDirectory, 'query-evidence.json');
+  const {
+    sourceName,
+    records,
+    csvText,
+    jsonText,
+    markdownReportText,
+    csvOutputPath,
+    jsonOutputPath,
+    markdownOutputPath,
+  } = buildQueryEvidenceExportArtifacts(document.getText(), document.uri.fsPath);
+  if (records.length === 0) {
+    void vscode.window.showWarningMessage('MMI: No embed query evidence found in the current Markdown file.');
+    return;
+  }
 
   try {
     await Promise.all([
       fs.writeFile(csvOutputPath, `${csvText}\n`, 'utf8'),
       fs.writeFile(jsonOutputPath, `${jsonText}\n`, 'utf8'),
+      fs.writeFile(markdownOutputPath, `${markdownReportText}\n`, 'utf8'),
     ]);
     void vscode.window.showInformationMessage(
-      `MMI: Exported query evidence (${records.length}) -> ${csvOutputPath}, ${jsonOutputPath}`,
+      `MMI: Exported query evidence for ${sourceName} (${records.length}) -> ${csvOutputPath}, ${jsonOutputPath}, ${markdownOutputPath}`,
     );
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
