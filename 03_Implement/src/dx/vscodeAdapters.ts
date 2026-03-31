@@ -12,6 +12,8 @@ import {
 const EMBED_PATTERN = /!\[\[([^\]]+)\]\]/g;
 const XML_SPREADSHEET_SIGNATURES = ['<?mso-application progid="Excel.Sheet"?>', '<Workbook'];
 const WINDOWS_RESERVED_BASENAME_PATTERN = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+const SOURCE_METADATA_NEWLINE_BOUNDARY_PATTERN = /\s*\n\s*/g;
+const SOURCE_METADATA_MARKDOWN_ESCAPE_PATTERN = /([\\`*_{}\[\]])/g;
 export interface PasteDropCommandArgs {
   clipboardHtml?: string;
   droppedFiles?: readonly string[];
@@ -265,7 +267,8 @@ export function buildQueryEvidenceMarkdown(
   records: readonly QueryEvidenceRecord[],
   options?: { sourceName?: string },
 ): string {
-  const sourceLine = options?.sourceName ? `- Source: ${options.sourceName}` : undefined;
+  const hasSourceName = options !== undefined && Object.prototype.hasOwnProperty.call(options, 'sourceName');
+  const sourceLine = hasSourceName ? `- Source: ${formatSourceNameForMarkdownMetadata(String(options.sourceName ?? ''))}` : undefined;
   if (records.length === 0) {
     return ['## Query Evidence Report', '', ...(sourceLine ? [sourceLine] : []), '- Total records: 0', '', '_No evidence records found._'].join('\n');
   }
@@ -286,6 +289,26 @@ export function buildQueryEvidenceMarkdown(
     .join('\n');
 
   return ['## Query Evidence Report', '', ...(sourceLine ? [sourceLine] : []), `- Total records: ${records.length}`, '', table].join('\n');
+}
+
+function formatSourceNameForMarkdownMetadata(sourceName: string): string {
+  const normalized = sourceName
+    .replaceAll(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, ' ')
+    .replaceAll('\t', ' ')
+    .replaceAll(/\r\n/g, '\n')
+    .replaceAll(/\r/g, '\n')
+    .replaceAll(SOURCE_METADATA_NEWLINE_BOUNDARY_PATTERN, ' ')
+    .trim();
+  const nonEmpty = normalized.length > 0 ? normalized : 'unknown-source';
+  return escapeMarkdownMetadataText(nonEmpty);
+}
+
+function escapeMarkdownMetadataText(text: string): string {
+  return text
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll(SOURCE_METADATA_MARKDOWN_ESCAPE_PATTERN, '\\$1');
 }
 
 export function buildQueryEvidenceOutputPaths(markdownFilePath: string): {

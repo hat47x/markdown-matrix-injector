@@ -10,6 +10,10 @@ import {
   collectQueryEvidenceRecords,
 } from '../src/dx/vscodeAdapters.js';
 
+function getSourceMetadataLine(markdown: string): string | undefined {
+  return markdown.split('\n').find((line) => line.startsWith('- Source: '));
+}
+
 test('collectQueryEvidenceRecords preserves document appearance order', () => {
   const markdown = [
     'Intro',
@@ -136,12 +140,68 @@ test('buildQueryEvidenceMarkdown renders an explicit empty-state report', () => 
   );
 });
 
+test('buildQueryEvidenceMarkdown keeps source metadata in empty-state reports when explicitly provided', () => {
+  assert.equal(
+    buildQueryEvidenceMarkdown([], { sourceName: ' \n ' }),
+    ['## Query Evidence Report', '', '- Source: unknown-source', '- Total records: 0', '', '_No evidence records found._'].join('\n'),
+  );
+});
+
 test('buildQueryEvidenceMarkdown includes source metadata when requested', () => {
   const markdown = buildQueryEvidenceMarkdown(
     [{ index: 1, filepath: 'data/a.csv', target: '', range: '', query: '', raw: '![[data/a.csv]]' }],
     { sourceName: 'spec' },
   );
   assert.match(markdown, /- Source: spec/);
+});
+
+test('buildQueryEvidenceMarkdown normalizes and escapes source metadata variants', async (t) => {
+  const cases = [
+    { name: 'multiline normalization', sourceName: 'spec\r\nv2\nfinal', expected: '- Source: spec v2 final' },
+    { name: 'whitespace-only fallback', sourceName: ' \r\n\t ', expected: '- Source: unknown-source' },
+    { name: 'empty-string fallback', sourceName: '', expected: '- Source: unknown-source' },
+    { name: 'markdown escaping', sourceName: 'spec`v2` [x]', expected: '- Source: spec\\`v2\\` \\[x\\]' },
+    { name: 'plain punctuation readability', sourceName: 'spec-v2 (draft)+final!', expected: '- Source: spec-v2 (draft)+final!' },
+    { name: 'html escaping', sourceName: '<b>Spec & Plan</b>', expected: '- Source: &lt;b&gt;Spec &amp; Plan&lt;/b&gt;' },
+    { name: 'preserve intentional spaces', sourceName: 'spec  v2   final', expected: '- Source: spec  v2   final' },
+    { name: 'collapse newline boundaries', sourceName: 'spec   \n   v2', expected: '- Source: spec v2' },
+    { name: 'tab normalization', sourceName: 'spec\tv2\tfinal', expected: '- Source: spec v2 final' },
+    { name: 'control-character normalization', sourceName: 'spec\u0000v2\u0007final', expected: '- Source: spec v2 final' },
+  ] satisfies ReadonlyArray<{ name: string; sourceName: string; expected: string }>;
+
+  for (const scenario of cases) {
+    await t.test(scenario.name, () => {
+      const markdown = buildQueryEvidenceMarkdown(
+        [{ index: 1, filepath: 'data/a.csv', target: '', range: '', query: '', raw: '![[data/a.csv]]' }],
+        { sourceName: scenario.sourceName },
+      );
+      assert.equal(getSourceMetadataLine(markdown), scenario.expected);
+    });
+  }
+});
+
+test('buildQueryEvidenceMarkdown omits source metadata line when sourceName is not provided', () => {
+  const markdown = buildQueryEvidenceMarkdown(
+    [{ index: 1, filepath: 'data/a.csv', target: '', range: '', query: '', raw: '![[data/a.csv]]' }],
+    {},
+  );
+  assert.equal(markdown.includes('- Source:'), false);
+});
+
+test('buildQueryEvidenceMarkdown falls back to unknown-source when sourceName is explicitly undefined', () => {
+  const markdown = buildQueryEvidenceMarkdown(
+    [{ index: 1, filepath: 'data/a.csv', target: '', range: '', query: '', raw: '![[data/a.csv]]' }],
+    { sourceName: undefined },
+  );
+  assert.equal(getSourceMetadataLine(markdown), '- Source: unknown-source');
+});
+
+test('buildQueryEvidenceMarkdown safely stringifies non-string sourceName values at runtime', () => {
+  const markdown = buildQueryEvidenceMarkdown(
+    [{ index: 1, filepath: 'data/a.csv', target: '', range: '', query: '', raw: '![[data/a.csv]]' }],
+    { sourceName: 2026 as unknown as string },
+  );
+  assert.equal(getSourceMetadataLine(markdown), '- Source: 2026');
 });
 
 test('buildQueryEvidenceOutputPaths scopes all output files by markdown basename', () => {
