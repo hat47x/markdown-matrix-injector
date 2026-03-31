@@ -65,3 +65,18 @@
 ## Known limitations
 - 本インデックスは導線提供が目的であり、ROI 評価そのものの統計妥当性は `phase6-roi/observation-protocol.md` の制約に依存する。
 - 将来の Scenario 拡張時は、同じ命名/見出しポリシーに合わせた追記が必要。
+
+## 5. スクリーンショット運用ルール（issue-0027）
+### 5.1 保存先と命名
+- 保存先: `04_Documentation/samples/screenshots/`
+- 命名: `phase{n}-{topic}-{state}.svg` を基本とし、topic は `normal-embed` / `smart-fallback` / `print-control` のように機能を表す語を使う。
+
+### 5.2 撮影条件（再現性担保）
+- VSCode バージョン、テーマ、表示倍率（ズーム）を記録する。
+- 参照した埋め込み記法（`![[...]]`）を同一セクションへ明記する。
+- 画面で見えている「成功状態」が何か（例: 表表示、カード表示、印刷クラス反映）を1行で添える。
+
+### 5.3 再撮影トリガー
+- Smart Fallback 判定条件、印刷制御パラメータ仕様、UI 表示クラス名が変更されたとき。
+- major バージョン更新やテーマ変更で視認性が著しく変わったとき。
+- docs audit で「画像と本文の不整合」が指摘されたとき。

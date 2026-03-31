@@ -108,3 +108,31 @@
 ## Known limitations
 - Preview UI や native Paste / D&D の最終 UX は、host 環境と VSCode バージョンに影響されます。
 - XML は XML Spreadsheet 2003 のみが対象で、汎用 XML はエラー表示になります。
+
+## 視覚補助素材（比較表）
+初回導入時に「どこで失敗しやすいか」を短時間で把握できるよう、手順別チェックポイントを比較表で固定します。
+
+| ステップ | 成功状態 | 失敗の兆候 | 最初の復帰アクション |
+|---|---|---|---|
+| 1. 最小記法埋め込み | `A1:C4` が表で表示される | 表が表示されない | 相対パスとシート/範囲指定を再確認 |
+| 2. クエリ絞り込み | `header/columns/grep` が反映される | 列や行が期待どおりに絞られない | パラメータを 1 つずつ再追加して差分確認 |
+| 3. 印刷制御付与 | `caption/id/pageBreak/orientation` が反映される | 印刷結果のみ崩れる | 画面表示でパラメータ解釈を確認後、PDF 生成器差分を切り分け |
+
+## FAQ（Tutorial）
+### Q1. 30 分以内に終わらない場合、どこからやり直すべきですか？
+A1. 最小記法 `![[../data/sample.csv#Sheet1|A1:C4]]` に戻し、成功後に `header -> columns -> grep` の順で再追加します。
+
+### Q2. `grep` を追加すると結果が 0 件になるのは不具合ですか？
+A2. 多くは検索語の大小文字・空白差分・対象列の想定違いです。まず `grep` だけを外し、他パラメータの影響を切り分けてください。
+
+### Q3. 画面は正しいのに PDF だけ崩れる場合は？
+A3. 仕様上あり得ます。`pageBreak` / `orientation` 値の妥当性を確認した後、利用中の PDF 生成器ごとの差分として検証してください。
+
+## スクリーンショット（Smart Fallback / 印刷制御）
+比較表で示した失敗復帰導線を、実画面イメージで補強するための参照です。
+
+### Smart Fallback カード表示
+![Smart Fallback カード表示](./samples/screenshots/phase6-smart-fallback-card.svg)
+
+### 印刷制御パラメータ反映プレビュー
+![印刷制御プレビュー](./samples/screenshots/phase6-print-control-preview.svg)
