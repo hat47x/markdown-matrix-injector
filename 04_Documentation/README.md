@@ -66,6 +66,8 @@ Phase 6 の quality gate（FAQ・スクリーンショット/比較表評価）�
 | - | 開発者セットアップ | `04_Documentation/developer-setup.md` | [Gist: MMI Developer Setup](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-developer-setup) |
 | - | VSCode E2E ガイド | `04_Documentation/vscode-e2e-testing.md` | [Gist: MMI VSCode E2E Guide](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-vscode-e2e-testing) |
 | - | Phase 7 Release Readiness | `04_Documentation/phase7-release-readiness.md` | [Gist: MMI Phase7 Release Readiness](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-phase7-release-readiness) |
+| - | Phase 8 Operational Reliability | `04_Documentation/phase8-operational-reliability.md` | [Gist: MMI Phase8 Operational Reliability](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-phase8-operational-reliability) |
+| - | Phase 8 Drools Pattern Catalog | `04_Documentation/phase8-drools-inspired-table-patterns.md` | [Gist: MMI Phase8 Drools Pattern Catalog](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-phase8-drools-pattern-catalog) |
 | - | 総合サンプル Markdown | `04_Documentation/samples/mmi-full-spec-sample.md` | [Gist: MMI Full Spec Sample Markdown](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-full-spec-sample-markdown) |
 
 ## Phase 6 運用導線（テンプレート・統制）
@@ -105,6 +107,20 @@ Phase 7 では「実装追加」よりも「リリース判定と採用観測の
    - `01_Plans/issues/issue-0043-phase7-release-readiness-foundation.md`
 4. 自動ゲート確認（G1/G2）
    - `python3 01_Plans/tools/release_gate_check.py`
+5. triage 可視化
+   - `python3 01_Plans/tools/planning_queue.py`
+
+## Phase 8 運用導線（Operational Reliability & Supportability）
+Phase 8 では「障害を早く直せる運用」と「文書改善を製品品質に還流する仕組み」を正本導線として固定します。
+
+1. Triage / runbook / feedback 運用ガイド
+   - `04_Documentation/phase8-operational-reliability.md`
+2. Drools 参照の表パターン定義（文書/テストデータ）
+   - `04_Documentation/phase8-drools-inspired-table-patterns.md`
+3. Decision 正本（方針）
+   - `01_Plans/adr/ADR-0006-phase8-operational-reliability-and-supportability.md`
+4. Action 正本（実行）
+   - `01_Plans/issues/issue-0065-phase8-operational-reliability-foundation.md`
 5. triage 可視化
    - `python3 01_Plans/tools/planning_queue.py`
 
