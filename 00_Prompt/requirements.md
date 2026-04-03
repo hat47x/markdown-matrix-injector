@@ -26,6 +26,8 @@ AIエージェントは、以下のPhase順に実装とテストを完了させ�
     * 対象: オートコンプリート、リンク切れエラー検知（Diagnostics）、クリップボード解析を伴う Paste/D&D。
 * **Phase 6: 公開ドキュメント体系化と価値訴求 (Public Documentation & Adoption)**
     * 対象: 一般向け概要、導入チュートリアル、活用シナリオ、詳細仕様リファレンス、文書化による要件/設計/テストへのフィードバックループ。
+* **Phase 7: リリース運用品質と採用拡大 (Release Readiness & Adoption Scale)**
+    * 対象: リリースゲート自動化、query-evidence を使った採用KPI観測、docs audit から上流還流までのSLA運用。
 
 ---
 
@@ -72,6 +74,13 @@ Phase 5 までで整備した製品機能を、一般ユーザー・導入担当
 * **Documentation feedback loop**: 文書化の途中で見つかった曖昧仕様、操作導線の弱さ、検証不足は、`requirements.md` / `02_Architecture` / `03_Implement/test` / `01_Plans/issues` へ逆流させる。文書だけで抱え込まず、要件・設計・テストの正本を更新する。
 * **Progressive refinement**: 文書は一度で完成させず、対象読者ごとに価値仮説・つまずき・補足説明を繰り返し見直す。各イテレーションで、どの知見がどの上流文書へ反映されたか追跡可能であること。
 * **Documentation quality gate**: 公開文書は、想定読者、前提条件、手順、期待結果、関連正本リンク、既知の制約を必ず明記する。サンプル・スクリーンショット・FAQ・比較表など、理解を補助する素材の追加可否も毎回評価する。
+
+### 【Phase 7】 リリース運用品質と採用拡大 (Release Readiness & Adoption Scale)
+Phase 1〜6 の成果を継続運用可能な形へ昇華し、公開後の品質と採用拡大を両立させる。
+* **Release gate automation**: `docs-check` / `unit` / `integration` の合格条件を release 判定フローとして標準化し、Issueの Validation evidence へ追跡可能に記録する。
+* **Adoption observability**: query-evidence artifact を活用し、導入時間・リンク不整合検知率・印刷再現性の KPI を定点観測する。
+* **Feedback loop SLA**: docs audit で発見した課題を `requirements` / `02_Architecture` / `03_Implement/test` / `01_Plans/issues` へ還流する期限と責任分界を定義する。
+* **Safe evolution rule**: 不可逆な方針変更は ADR、実行改善は issue で管理し、機能追加は release gate を満たす範囲で実施する。
 
 ---
 **【Initial Action Request (AIへの初期指示)】**

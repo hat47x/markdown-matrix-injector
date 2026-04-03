@@ -65,6 +65,7 @@ Phase 6 の quality gate（FAQ・スクリーンショット/比較表評価）�
 | 4 | Reference（詳細仕様） | `04_Documentation/reference.md` | [Gist: MMI Reference](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-reference) |
 | - | 開発者セットアップ | `04_Documentation/developer-setup.md` | [Gist: MMI Developer Setup](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-developer-setup) |
 | - | VSCode E2E ガイド | `04_Documentation/vscode-e2e-testing.md` | [Gist: MMI VSCode E2E Guide](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-vscode-e2e-testing) |
+| - | Phase 7 Release Readiness | `04_Documentation/phase7-release-readiness.md` | [Gist: MMI Phase7 Release Readiness](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-phase7-release-readiness) |
 | - | 総合サンプル Markdown | `04_Documentation/samples/mmi-full-spec-sample.md` | [Gist: MMI Full Spec Sample Markdown](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-full-spec-sample-markdown) |
 
 ## Phase 6 運用導線（テンプレート・統制）
@@ -91,6 +92,21 @@ Phase 6 の quality gate（FAQ・スクリーンショット/比較表評価）�
 3. Gate C: docs audit を実施し、requirements / architecture / test / product gap へ分類
 4. Gate D として scorecard（TFS / Decision Readiness / Support Deflection / Feedback Closure）を更新
 5. Gate E として `python3 01_Plans/tools/planning_queue.py` を実行し、orphan / pending を確認
+
+
+## Phase 7 運用導線（Release Readiness）
+Phase 7 では「実装追加」よりも「リリース判定と採用観測の再現性」を優先し、以下を正本導線として固定します。
+
+1. Release gate / KPI / SLA 運用ガイド
+   - `04_Documentation/phase7-release-readiness.md`
+2. Decision 正本（方針）
+   - `01_Plans/adr/ADR-0005-phase7-release-readiness-and-adoption-scale.md`
+3. Action 正本（実行）
+   - `01_Plans/issues/issue-0043-phase7-release-readiness-foundation.md`
+4. 自動ゲート確認（G1/G2）
+   - `python3 01_Plans/tools/release_gate_check.py`
+5. triage 可視化
+   - `python3 01_Plans/tools/planning_queue.py`
 
 ## 文書運用ポリシー（再確認）
 - `04_Documentation/` 配下の公開文書は、英語交じりの文体を避け、標準的な日本の技術書に準じた章立て・用語・文体で記述する。
