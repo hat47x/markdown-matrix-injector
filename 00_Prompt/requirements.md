@@ -28,6 +28,10 @@ AIエージェントは、以下のPhase順に実装とテストを完了させ�
     * 対象: 一般向け概要、導入チュートリアル、活用シナリオ、詳細仕様リファレンス、文書化による要件/設計/テストへのフィードバックループ。
 * **Phase 7: リリース運用品質と採用拡大 (Release Readiness & Adoption Scale)**
     * 対象: リリースゲート自動化、query-evidence を使った採用KPI観測、docs audit から上流還流までのSLA運用。
+* **Phase 8: 運用信頼性とサポート性強化 (Operational Reliability & Supportability)**
+    * 対象: triage自動化、support runbook整備、障害パターンのcontract test化による回帰予防。
+* **Phase 9: ルールテーブル相互運用と設計資産化 (Rule Table Interoperability & Design Assetization)**
+    * 対象: Drools参照パターンの実データテンプレート化、相互運用検証、設計文書・テスト資産の双方向同期運用。
 
 ---
 
@@ -81,6 +85,24 @@ Phase 1〜6 の成果を継続運用可能な形へ昇華し、公開後の品�
 * **Adoption observability**: query-evidence artifact を活用し、導入時間・リンク不整合検知率・印刷再現性の KPI を定点観測する。
 * **Feedback loop SLA**: docs audit で発見した課題を `requirements` / `02_Architecture` / `03_Implement/test` / `01_Plans/issues` へ還流する期限と責任分界を定義する。
 * **Safe evolution rule**: 不可逆な方針変更は ADR、実行改善は issue で管理し、機能追加は release gate を満たす範囲で実施する。
+
+### 【Phase 8】 運用信頼性とサポート性強化 (Operational Reliability & Supportability)
+Phase 7 で整備した release gate を「障害時に早く直せる運用基盤」へ発展させ、採用拡大後のサポート品質を安定化する。
+* **Failure triage automation**: query-evidence / release-gate artifact から失敗分類（path, sheet, query, render, print）を自動要約し、一次切り分け時間を短縮する。
+* **Support playbook hardening**: FAQ・troubleshooting・検証コマンドを runbook として接続し、再現手順（入力・期待値・実際値）を標準化する。
+* **Regression prevention by contract tests**: 運用で多発する失敗シナリオを contract test に固定し、release gate で常時検知する。
+* **Persona-aware prioritization**: gate fail 時に影響読者（author/reviewer/delivery）を付与し、優先度判断を運用ルール化する。
+* **Documentation usability & coverage uplift**: 運用ドキュメントは「検索しやすさ（導線・索引）」「再現に必要な情報の網羅性（前提・入力・期待値・制約）」を品質指標として継続監査し、問い合わせ時の自己解決率を高める。
+* **Product quality feedback loop from support logs**: runbook運用・FAQ更新・問い合わせ分類で得た知見を `requirements` / `02_Architecture` / `03_Implement/test` へ定期還流し、文書改善をプロダクト品質改善に直結させる。
+* **Reference pattern ingestion from OSS table formats**: Drools の spreadsheet decision table（RuleSet/RuleTable 構造）等を参照し、システム設計文書向けの表パターンと test data パターンを抽出・標準化する。
+
+### 【Phase 9】 ルールテーブル相互運用と設計資産化 (Rule Table Interoperability & Design Assetization)
+Phase 8 で定義したパターンを「実運用で再利用できる資産」に昇格させ、設計文書と検証データの同期品質を継続的に担保する。
+* **Executable pattern templates**: Drools参照の表パターンを CSV/XLSX テンプレートとして整備し、設計文書でそのまま再利用できるひな形を提供する。
+* **Interoperability validation set**: RuleSet相当メタ情報、RuleTable相当条件/アクション、属性列（priority/effective/expires）を含む相互運用テストデータセットを管理する。
+* **Round-trip documentation flow**: 文書で使った表テンプレートを test fixture へ同期し、fixtureで見つかった不足を文書テンプレートへ逆反映する双方向運用を標準化する。
+* **Template quality gates**: テンプレートは「可読性（読者が意図を理解できる）」「検証性（grep/columns/headerで観測可能）」「追跡性（要件/ADR/issueへ紐付く）」の3軸で監査する。
+* **Adoption benchmark pack**: SIer設計文書で頻出する表（要件トレーサビリティ、状態遷移、障害切り分け、リリース判定）を最小ベンチマークセットとして定義し、採用時の初期評価時間を短縮する。
 
 ---
 **【Initial Action Request (AIへの初期指示)】**
