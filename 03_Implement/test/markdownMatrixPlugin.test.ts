@@ -63,6 +63,23 @@ test('markdownMatrixPlugin supports columns and grep query parameters', () => {
   assert.doesNotMatch(html, /Bob/);
 });
 
+test('markdownMatrixPlugin can slice drools-inspired system design table patterns', () => {
+  const fixture = createCsvFixture([
+    ['RuleName', 'DocScope', 'ConditionExpr', 'ActionExpr', 'Priority', 'EffectiveFrom', 'ExpiresAt'],
+    ['PRINT_LAYOUT_LANDSCAPE', 'PrintControl', 'pageBreak=before AND orientation=landscape', 'apply print css profile', '90', '2026-04-01', '2026-12-31'],
+    ['SUPPORT_TRIAGE_PRINT', 'Triage', 'print mismatch', 'classify as print failure', '75', '2026-04-01', '2026-12-31'],
+    ['QUERY_FILTER_AUTH', 'QuerySlice', 'grep=AUTH', 'filter matching rows', '70', '2026-04-01', '2026-12-31'],
+  ]);
+
+  const md = createMarkdownIt(fixture.markdownFilePath);
+  const html = md.render('![[./roles.csv#Sheet1|A1:G4?header=first&columns=A,C,D,E&grep=print]]');
+
+  assert.match(html, /<th>RuleName<\/th><th>ConditionExpr<\/th><th>ActionExpr<\/th><th>Priority<\/th>/);
+  assert.match(html, /PRINT_LAYOUT_LANDSCAPE/);
+  assert.match(html, /SUPPORT_TRIAGE_PRINT/);
+  assert.doesNotMatch(html, /QUERY_FILTER_AUTH/);
+});
+
 test('markdownMatrixPlugin supports transpose and numeric header rows', () => {
   const fixture = createCsvFixture([
     ['Metric', 'Q1', 'Q2'],
