@@ -103,6 +103,8 @@ Phase 8 で定義したパターンを「実運用で再利用できる資産」
 * **Round-trip documentation flow**: 文書で使った表テンプレートを test fixture へ同期し、fixtureで見つかった不足を文書テンプレートへ逆反映する双方向運用を標準化する。
 * **Template quality gates**: テンプレートは「可読性（読者が意図を理解できる）」「検証性（grep/columns/headerで観測可能）」「追跡性（要件/ADR/issueへ紐付く）」の3軸で監査する。
 * **Adoption benchmark pack**: SIer設計文書で頻出する表（要件トレーサビリティ、状態遷移、障害切り分け、リリース判定）を最小ベンチマークセットとして定義し、採用時の初期評価時間を短縮する。
+* **Test coverage uplift for template governance**: Phase 9 では sync checker / release gate / query observability の回帰テストを継続拡張し、正常系・異常系・境界値（空欄、重複、日付不正、行差分、I/O失敗）を最低1件以上含むことを必須化する。
+* **Test pattern expansion as reusable assets**: テストケースは単発修正に閉じず、再利用可能なパターン（table種別別、query種別別、運用失敗種別別）としてテンプレート化し、次イテレーションで追加しやすい構造へ維持する。
 
 ---
 **【Initial Action Request (AIへの初期指示)】**

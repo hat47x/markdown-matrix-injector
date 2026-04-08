@@ -29,7 +29,7 @@
 - `04_Documentation/README.md`（公開導線と運用導線）
 
 ## 既知の制約
-- 現時点で `npm run lint` は未定義のため、release gate は `release_gate_check.py`（G1/G2）とドキュメント導線レビュー（G3）を組み合わせて運用する。
+- 現時点で `npm run lint` は未定義のため、release gate は `release_gate_check.py`（G1/G2/G3:Phase9Sync）とドキュメント導線レビューを組み合わせて運用する。
 - 導入KPIの母集団は query-evidence export を実施した案件に限定される。
 
 ---
@@ -39,23 +39,26 @@
 | Gate | 必須チェック | 実行コマンド/証跡 | 合格条件 |
 |---|---|---|---|
 | G1: Planning Integrity | pending/orphan の整合 | `python3 01_Plans/tools/planning_queue.py` | orphan=0、対象issueが traceable |
-| G2: Test Integrity | unit test 回帰 | `cd 03_Implement && npm test` | fail=0 |
-| G3: Documentation Integrity | 公開導線と運用導線の整合 | `04_Documentation/README.md` の導線確認 | 導線リンク切れなし |
-| G4: Evidence Integrity | issue の Validation evidence 更新 | issue本文 | 実行日・コマンド・結果が記録済み |
-| G5: Decision Integrity | ADR/issue の責務分離 | ADR/issue 差分レビュー | 方針=ADR、実行=issue を維持 |
+| G2: Test Integrity | unit test 回帰 | `cd 03_Implement && npm run test:unit` | fail=0 |
+| G3: Phase9 Sync Integrity | docs/fixture の品質監査（機械判定） | `python3 01_Plans/tools/release_gate_check.py` | `G3:Phase9Sync` が PASS |
+| G4: Documentation Integrity | 公開導線と運用導線の整合 | `04_Documentation/README.md` の導線確認 | 導線リンク切れなし |
+| G5: Evidence Integrity | issue の Validation evidence 更新 | issue本文 | 実行日・コマンド・結果が記録済み |
+| G6: Decision Integrity | ADR/issue の責務分離 | ADR/issue 差分レビュー | 方針=ADR、実行=issue を維持 |
 
 ### 判定フロー
-1. まず `python3 01_Plans/tools/release_gate_check.py` を実行し、G1/G2 を自動判定する。
+1. まず `python3 01_Plans/tools/release_gate_check.py` を実行し、G1/G2/G3（Phase9Sync）を自動判定する。
    - `03_Implement` 配下では `npm run release:gate`（証跡保存時は `npm run release:gate:artifacts`、CSV まで含む場合は `npm run release:gate:full`）を利用できる。
    - release-gate tooling の unit test は `npm run test:release-gate-tools` で実行する。
    - 既存証跡を掃除する場合は `npm run release:gate:clean` を実行する。
    - JSON 出力が必要な場合は `--format json` を併用する。
+   - Phase9 の行順差分を許容したい場合は `--phase9-ignore-row-order` を併用する。
+   - `--skip-tests` と `--phase9-ignore-row-order` を同時指定した場合、G3 detail は `skipped by --skip-tests (ignore-row-order not evaluated)` となる。
    - 証跡を保存する場合は `--output-file artifacts/release-gate.json` を指定する。
    - 人手レビュー用には `--output-markdown-file artifacts/release-gate.md` を併用する。
    - 長時間実行を避ける必要がある場合は `--planning-timeout-sec` / `--npm-test-timeout-sec` を調整する。
-2. 続けて G3 → G4 → G5 を人手レビューで確認する。
+2. 続けて G4 → G5 → G6 を人手レビューで確認する。
    - docs-only の暫定確認では `--skip-tests` を使用できるが、最終release判定では禁止する。
-3. G1 → G5 の順序は固定とし、途中スキップを禁止する。
+3. G1 → G6 の順序は固定とし、途中スキップを禁止する。
 4. 開発中に pending issue を許容して確認したい場合のみ `--allow-pending-issues` を使う。
 5. 1つでも不合格があれば release 判定は `No-Go`。
 6. `No-Go` の原因は issue の Task breakdown へ逆流し、再実行時に再判定する。
@@ -114,4 +117,3 @@
 1. docs audit 実施日を Day 0 とし、SLA をカウントする。
 2. SLA 超過が発生した場合は、当該 issue の Priority を引き上げる。
 3. 複数区分に跨る課題は「最短SLA」を適用する。
-
