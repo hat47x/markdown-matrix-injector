@@ -73,11 +73,50 @@ def evaluate_test_gate(repo_root: Path, timeout_sec: int, skip_tests: bool) -> G
     if skip_tests:
         return GateResult("G2:Tests", True, "skipped by --skip-tests")
 
-    proc = run_command(["npm", "test"], cwd=repo_root / "03_Implement", timeout_sec=timeout_sec)
+    proc = run_command(["npm", "run", "test:unit"], cwd=repo_root / "03_Implement", timeout_sec=timeout_sec)
     if proc.returncode != 0:
         tail = (proc.stdout + "\n" + proc.stderr).strip().splitlines()[-10:]
         return GateResult("G2:Tests", False, " | ".join(tail))
-    return GateResult("G2:Tests", True, "npm test passed")
+    return GateResult("G2:Tests", True, "npm run test:unit passed")
+
+
+def evaluate_phase9_sync_gate(
+    repo_root: Path,
+    timeout_sec: int,
+    skip_tests: bool,
+    ignore_row_order: bool,
+) -> GateResult:
+    if skip_tests:
+        detail = "skipped by --skip-tests"
+        if ignore_row_order:
+            detail += " (ignore-row-order not evaluated)"
+        return GateResult("G3:Phase9Sync", True, detail)
+
+    command = ["python3", "01_Plans/tools/check_phase9_template_sync.py", "--format", "json"]
+    if ignore_row_order:
+        command.append("--ignore-row-order")
+
+    proc = run_command(
+        command,
+        cwd=repo_root,
+        timeout_sec=timeout_sec,
+    )
+    if proc.returncode != 0:
+        detail = (proc.stdout + "\n" + proc.stderr).strip().replace("\n", " | ")
+        return GateResult("G3:Phase9Sync", False, detail or "phase9 sync checker failed")
+
+    try:
+        payload = json.loads(proc.stdout)
+    except json.JSONDecodeError as exc:
+        return GateResult("G3:Phase9Sync", False, f"phase9 sync json parse failed: {exc.msg}")
+
+    status = str(payload.get("status", "")).lower()
+    if status != "ok":
+        return GateResult("G3:Phase9Sync", False, f"phase9 sync status is `{status or 'unknown'}`")
+    detail = "phase9 sync checker passed"
+    if ignore_row_order:
+        detail += " (ignore-row-order)"
+    return GateResult("G3:Phase9Sync", True, detail)
 
 
 def run_release_gates(
@@ -86,10 +125,12 @@ def run_release_gates(
     planning_timeout_sec: int,
     npm_test_timeout_sec: int,
     skip_tests: bool,
+    phase9_ignore_row_order: bool,
 ) -> list[GateResult]:
     return [
         evaluate_planning_gate(repo_root, allow_pending_issues, planning_timeout_sec),
         evaluate_test_gate(repo_root, npm_test_timeout_sec, skip_tests),
+        evaluate_phase9_sync_gate(repo_root, npm_test_timeout_sec, skip_tests, phase9_ignore_row_order),
     ]
 
 
@@ -129,6 +170,11 @@ def main() -> int:
     parser.add_argument("--npm-test-timeout-sec", type=int, default=900, help="Timeout for npm test command")
     parser.add_argument("--skip-tests", action="store_true", help="Skip running npm test (docs-only checks)")
     parser.add_argument(
+        "--phase9-ignore-row-order",
+        action="store_true",
+        help="Pass --ignore-row-order to the Phase9 sync checker gate",
+    )
+    parser.add_argument(
         "--format",
         choices=("text", "json"),
         default="text",
@@ -153,6 +199,7 @@ def main() -> int:
         planning_timeout_sec=args.planning_timeout_sec,
         npm_test_timeout_sec=args.npm_test_timeout_sec,
         skip_tests=args.skip_tests,
+        phase9_ignore_row_order=args.phase9_ignore_row_order,
     )
 
     has_failure = any(not result.passed for result in results)
