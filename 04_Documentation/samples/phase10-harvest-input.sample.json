@@ -1,0 +1,14 @@
+[
+  {
+    "source": "docs-check",
+    "gate": "docs-check",
+    "status": "pass"
+  },
+  {
+    "source": "integration",
+    "gate": "integration",
+    "status": "fail",
+    "failure_category": "render",
+    "impact_persona": "delivery"
+  }
+]
