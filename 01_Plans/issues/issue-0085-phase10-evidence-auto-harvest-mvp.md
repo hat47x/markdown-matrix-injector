@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Feature
-- Status: Open
+- Status: Proposed
 - Priority: High
 - Scope: `01_Plans/tools/`, `01_Plans/issues/`, `04_Documentation/`
 - Expected verification level: unit
