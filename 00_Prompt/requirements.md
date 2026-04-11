@@ -32,6 +32,8 @@ AIエージェントは、以下のPhase順に実装とテストを完了させ�
     * 対象: triage自動化、support runbook整備、障害パターンのcontract test化による回帰予防。
 * **Phase 9: ルールテーブル相互運用と設計資産化 (Rule Table Interoperability & Design Assetization)**
     * 対象: Drools参照パターンの実データテンプレート化、相互運用検証、設計文書・テスト資産の双方向同期運用。
+* **Phase 10: 採用運用ガバナンス自動化 (Adoption Operations Governance Automation)**
+    * 対象: query-evidence の継続収集自動化、docs/support 改善SLAの可視化、運用KPIの週次レポート化。
 
 ---
 
@@ -105,6 +107,14 @@ Phase 8 で定義したパターンを「実運用で再利用できる資産」
 * **Adoption benchmark pack**: SIer設計文書で頻出する表（要件トレーサビリティ、状態遷移、障害切り分け、リリース判定）を最小ベンチマークセットとして定義し、採用時の初期評価時間を短縮する。
 * **Test coverage uplift for template governance**: Phase 9 では sync checker / release gate / query observability の回帰テストを継続拡張し、正常系・異常系・境界値（空欄、重複、日付不正、行差分、I/O失敗）を最低1件以上含むことを必須化する。
 * **Test pattern expansion as reusable assets**: テストケースは単発修正に閉じず、再利用可能なパターン（table種別別、query種別別、運用失敗種別別）としてテンプレート化し、次イテレーションで追加しやすい構造へ維持する。
+
+### 【Phase 10】 採用運用ガバナンス自動化 (Adoption Operations Governance Automation)
+Phase 9 で整備したテンプレート資産・同期ゲート・観測導線を、継続運用で「改善速度」と「説明責任」を担保できる運用ガバナンスへ昇格させる。
+* **Evidence auto-harvest**: `docs-check` / `unit` / `integration` / sync gate の実行結果を query-evidence artifact として定期収集し、失敗分類と影響読者を紐付けて保存する。
+* **SLA dashboard seed**: docs audit と support runbook の更新SLA（例: triage 24h, workaround 72h, 恒久対策7日）を機械可読で保持し、期限超過を検知可能にする。
+* **Weekly governance report**: 導入時間、リンク不整合検知率、印刷再現性、問い合わせ自己解決率を週次で要約するレポート生成導線を整備する。
+* **Backlog auto-escalation rule**: 週次レポート上の閾値逸脱を `01_Plans/issues/` 起票候補として自動抽出し、Decisionが必要な事項のみ `01_Plans/adr/` へエスカレーションする。
+* **Auditability baseline**: 運用判断（優先度、延期理由、対応責任者）を追跡可能なメタデータとして残し、将来の採用監査・納品監査に耐える状態を標準化する。
 
 ---
 **【Initial Action Request (AIへの初期指示)】**

@@ -1,0 +1,36 @@
+{
+  "generatedAt": "2026-04-11T00:00:00Z",
+  "week": {
+    "label": "2026-W15",
+    "startDate": "2026-04-06",
+    "endDate": "2026-04-12"
+  },
+  "kpis": {
+    "adoptionLeadTimeHours": 20.25,
+    "linkIntegrityDetectionRate": 99.1,
+    "printReproducibilityRate": 98.0,
+    "selfResolutionRate": 65.0
+  },
+  "sla": {
+    "triageHours": 24,
+    "workaroundHours": 72,
+    "fixHours": 168,
+    "breaches": [
+      {
+        "ticketId": "SUP-120",
+        "stage": "workaround",
+        "elapsedHours": 81,
+        "owner": "docs-ops",
+        "note": "runbook update pending"
+      }
+    ]
+  },
+  "nextActions": [
+    {
+      "summary": "Publish workaround snippet for XML Spreadsheet signature mismatch",
+      "owner": "qa-delivery",
+      "dueDate": "2026-04-14",
+      "source": "weekly-governance"
+    }
+  ]
+}
