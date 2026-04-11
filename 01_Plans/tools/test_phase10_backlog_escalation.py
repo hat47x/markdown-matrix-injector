@@ -34,6 +34,7 @@ class Phase10BacklogEscalationTests(unittest.TestCase):
         markdown_path: Path | None = None,
         thresholds_path: Path | None = None,
     ) -> subprocess.CompletedProcess[str]:
+    def run_cli(input_path: Path, output_path: Path, markdown_path: Path | None = None) -> subprocess.CompletedProcess[str]:
         command = [
             sys.executable,
             str(Path(__file__).with_name("phase10_backlog_escalation.py")),
