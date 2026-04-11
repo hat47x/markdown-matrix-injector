@@ -178,8 +178,8 @@ def main() -> int:
     try:
         payload = governance_report.parse_input(Path(args.input))
         thresholds = load_thresholds(Path(args.thresholds) if args.thresholds else None)
-        candidates = evaluate_candidates(payload, thresholds)
-        output = build_output(payload, candidates, thresholds)
+        candidates = evaluate_candidates(payload, DEFAULT_THRESHOLDS)
+        output = build_output(payload, candidates, DEFAULT_THRESHOLDS)
     except (OSError, json.JSONDecodeError, governance_report.ValidationError, ValidationError) as exc:
         print(f"NG: {exc}")
         return 1
