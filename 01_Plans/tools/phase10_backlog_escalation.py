@@ -20,6 +20,8 @@ DEFAULT_THRESHOLDS = {
     "max_sla_breach_count": 0.0,
 }
 
+THRESHOLD_KEYS = tuple(DEFAULT_THRESHOLDS.keys())
+
 
 def _metric_payload(value: float, threshold: float, comparator: str) -> dict[str, object]:
     return {
@@ -105,6 +107,28 @@ def evaluate_candidates(payload: dict[str, object], thresholds: dict[str, float]
     return candidates
 
 
+def load_thresholds(path: Path | None) -> dict[str, float]:
+    if path is None:
+        return dict(DEFAULT_THRESHOLDS)
+
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValidationError(f"failed to read threshold json ({exc})") from exc
+    if not isinstance(payload, dict):
+        raise ValidationError("threshold json must be an object")
+
+    thresholds = dict(DEFAULT_THRESHOLDS)
+    for key in THRESHOLD_KEYS:
+        if key not in payload:
+            continue
+        value = payload[key]
+        if not isinstance(value, (int, float)):
+            raise ValidationError(f"threshold {key} must be numeric")
+        thresholds[key] = float(value)
+    return thresholds
+
+
 def build_output(payload: dict[str, object], candidates: list[dict[str, object]], thresholds: dict[str, float]) -> dict[str, object]:
     return {
         "schemaVersion": "phase10-backlog-escalation/v1",
@@ -148,10 +172,12 @@ def main() -> int:
     parser.add_argument("--input", required=True, help="Path to weekly governance input JSON")
     parser.add_argument("--output", required=True, help="Path to escalation candidates JSON")
     parser.add_argument("--markdown-output", help="Path to markdown summary output")
+    parser.add_argument("--thresholds", help="Optional path to threshold override JSON")
     args = parser.parse_args()
 
     try:
         payload = governance_report.parse_input(Path(args.input))
+        thresholds = load_thresholds(Path(args.thresholds) if args.thresholds else None)
         candidates = evaluate_candidates(payload, DEFAULT_THRESHOLDS)
         output = build_output(payload, candidates, DEFAULT_THRESHOLDS)
     except (OSError, json.JSONDecodeError, governance_report.ValidationError, ValidationError) as exc:

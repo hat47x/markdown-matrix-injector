@@ -28,6 +28,12 @@ def _valid_governance_payload() -> dict[str, object]:
 
 class Phase10BacklogEscalationTests(unittest.TestCase):
     @staticmethod
+    def run_cli(
+        input_path: Path,
+        output_path: Path,
+        markdown_path: Path | None = None,
+        thresholds_path: Path | None = None,
+    ) -> subprocess.CompletedProcess[str]:
     def run_cli(input_path: Path, output_path: Path, markdown_path: Path | None = None) -> subprocess.CompletedProcess[str]:
         command = [
             sys.executable,
@@ -39,6 +45,8 @@ class Phase10BacklogEscalationTests(unittest.TestCase):
         ]
         if markdown_path is not None:
             command.extend(["--markdown-output", str(markdown_path)])
+        if thresholds_path is not None:
+            command.extend(["--thresholds", str(thresholds_path)])
         return subprocess.run(command, check=False, capture_output=True, text=True)
 
     def test_evaluate_candidates_returns_empty_when_all_metrics_within_threshold(self) -> None:
@@ -101,6 +109,24 @@ class Phase10BacklogEscalationTests(unittest.TestCase):
             output = json.loads(output_path.read_text(encoding="utf-8"))
             self.assertGreaterEqual(output["candidateCount"], 1)
             self.assertIn("OK: wrote escalation candidates", completed.stdout)
+
+    def test_cli_applies_threshold_override(self) -> None:
+        payload = _valid_governance_payload()
+        payload["kpis"]["adoptionLeadTimeHours"] = 30.0
+
+        with tempfile.TemporaryDirectory() as tmp:
+            tmp_path = Path(tmp)
+            input_path = tmp_path / "input.json"
+            output_path = tmp_path / "candidates.json"
+            thresholds_path = tmp_path / "thresholds.json"
+            input_path.write_text(json.dumps(payload), encoding="utf-8")
+            thresholds_path.write_text(json.dumps({"max_adoption_lead_time_hours": 40.0}), encoding="utf-8")
+
+            completed = self.run_cli(input_path, output_path, thresholds_path=thresholds_path)
+            self.assertEqual(completed.returncode, 0, msg=completed.stderr)
+            output = json.loads(output_path.read_text(encoding="utf-8"))
+            signals = {candidate["signal"] for candidate in output["candidates"]}
+            self.assertNotIn("adoption_lead_time", signals)
 
 
 if __name__ == "__main__":
