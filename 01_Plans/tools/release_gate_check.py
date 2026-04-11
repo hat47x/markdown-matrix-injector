@@ -159,8 +159,13 @@ def write_output_file(path_value: str, payload: str, repo_root: Path) -> None:
 
 
 def main() -> int:
+    default_repo_root = Path(__file__).resolve().parents[2]
     parser = argparse.ArgumentParser(description="Run the Phase 7 minimum release gate checks.")
-    parser.add_argument("--repo-root", default=".", help="Repository root path")
+    parser.add_argument(
+        "--repo-root",
+        default=str(default_repo_root),
+        help="Repository root path (defaults to repository root derived from this script location)",
+    )
     parser.add_argument(
         "--allow-pending-issues",
         action="store_true",
