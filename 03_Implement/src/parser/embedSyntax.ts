@@ -21,16 +21,19 @@ export function extractEmbedQueries(input: string): EmbedQuery[] {
 }
 
 function parseEmbedBody(body: string, raw: string): EmbedQuery | null {
-  const [pathAndTarget, rangeAndParams = ''] = body.split('|', 2);
+  const [pathAndTarget, rangeAndParams] = body.split('|', 2);
   const [filepath, target] = pathAndTarget.split('#', 2);
-  const [range, queryString = ''] = rangeAndParams.split('?', 2);
+  const [range, queryString = ''] = rangeAndParams
+    ? rangeAndParams.split('?', 2)
+    : ['', pathAndTarget.split('?', 2)[1] ?? ''];
+  const normalizedFilepath = filepath.split('?', 2)[0] ?? '';
 
-  if (!filepath?.trim()) {
+  if (!normalizedFilepath.trim()) {
     return null;
   }
 
   return {
-    filepath: filepath.trim(),
+    filepath: normalizedFilepath.trim(),
     target: target?.trim() || undefined,
     range: range?.trim() || undefined,
     params: new URLSearchParams(queryString),
