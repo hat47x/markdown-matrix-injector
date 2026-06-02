@@ -30,6 +30,30 @@ function createCsvFixture(rows: string[][]): { markdownFilePath: string; filePat
   };
 }
 
+type Phase9BenchmarkRow = {
+  ruleId: string;
+  queryExample: string;
+};
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
+function loadPhase9BenchmarkRows(filePath: string): Phase9BenchmarkRow[] {
+  const lines = fs
+    .readFileSync(filePath, 'utf-8')
+    .split(/\r?\n/)
+    .filter((line) => line.trim().length > 0);
+  const dataLines = lines.slice(1);
+  return dataLines.map((line) => {
+    const columns = line.split(',');
+    // QueryExample can contain commas and is stored between fixed prefix/suffix columns.
+    const ruleId = columns[1] ?? '';
+    const queryExample = columns.slice(8, Math.max(9, columns.length - 4)).join(',');
+    return { ruleId, queryExample };
+  });
+}
+
 test('markdownMatrixPlugin renders csv embeds as html tables', () => {
   const fixture = createCsvFixture([
     ['Name', 'Role'],
@@ -61,6 +85,87 @@ test('markdownMatrixPlugin supports columns and grep query parameters', () => {
   assert.match(html, /<td class="mmi-table__cell">Alice<\/td><td class="mmi-table__cell">Admin<\/td>/);
   assert.match(html, /<td class="mmi-table__cell">Carol<\/td><td class="mmi-table__cell">Admin<\/td>/);
   assert.doesNotMatch(html, /Bob/);
+});
+
+test('markdownMatrixPlugin can slice drools-inspired system design table patterns', () => {
+  const fixture = createCsvFixture([
+    ['RuleName', 'DocScope', 'ConditionExpr', 'ActionExpr', 'Priority', 'EffectiveFrom', 'ExpiresAt'],
+    ['PRINT_LAYOUT_LANDSCAPE', 'PrintControl', 'pageBreak=before AND orientation=landscape', 'apply print css profile', '90', '2026-04-01', '2026-12-31'],
+    ['SUPPORT_TRIAGE_PRINT', 'Triage', 'print mismatch', 'classify as print failure', '75', '2026-04-01', '2026-12-31'],
+    ['QUERY_FILTER_AUTH', 'QuerySlice', 'grep=AUTH', 'filter matching rows', '70', '2026-04-01', '2026-12-31'],
+  ]);
+
+  const md = createMarkdownIt(fixture.markdownFilePath);
+  const html = md.render('![[./roles.csv#Sheet1|A1:G4?header=first&columns=A,C,D,E&grep=print]]');
+
+  assert.match(html, /<th>RuleName<\/th><th>ConditionExpr<\/th><th>ActionExpr<\/th><th>Priority<\/th>/);
+  assert.match(html, /PRINT_LAYOUT_LANDSCAPE/);
+  assert.match(html, /SUPPORT_TRIAGE_PRINT/);
+  assert.doesNotMatch(html, /QUERY_FILTER_AUTH/);
+});
+
+test('markdownMatrixPlugin supports phase9 benchmark pack queries with header, columns, and grep', () => {
+  const workspaceRoot = path.resolve('test/fixtures/workspace');
+  const markdownFilePath = path.join(workspaceRoot, 'docs/spec.md');
+  const md = createMarkdownIt(markdownFilePath, workspaceRoot);
+
+  const html = md.render(
+    '![[../data/phase9-rule-table-benchmark-pack.csv#Sheet1|A1:M6?mode=table&header=first&columns=A,B,D,E,J,K&grep=path]]',
+  );
+
+  assert.match(
+    html,
+    /<th>BenchmarkTable<\/th><th>RuleId<\/th><th>ConditionExpr<\/th><th>ActionExpr<\/th><th>RelatedRequirement<\/th><th>RelatedTest<\/th>/,
+  );
+  assert.match(html, /TRIAGE_PATH_UNRESOLVED/);
+  assert.doesNotMatch(html, /GATE_BLOCK_UNIT_FAIL/);
+});
+
+test('markdownMatrixPlugin keeps phase9 query observability across all benchmark tables', () => {
+  const workspaceRoot = path.resolve('test/fixtures/workspace');
+  const markdownFilePath = path.join(workspaceRoot, 'docs/spec.md');
+  const md = createMarkdownIt(markdownFilePath, workspaceRoot);
+
+  const requirementsHtml = md.render(
+    '![[../data/phase9-rule-table-benchmark-pack.csv#Sheet1|A1:M6?mode=table&header=first&columns=A,B,C&grep=ReqTrace]]',
+  );
+  assert.match(requirementsHtml, /RequirementsTraceability/);
+  assert.match(requirementsHtml, /REQ_TRACE_AUTH/);
+
+  const stateTransitionHtml = md.render(
+    '![[../data/phase9-rule-table-benchmark-pack.csv#Sheet1|A1:M6?mode=table&header=first&columns=A,B,D,E&grep=state=REVIEW]]',
+  );
+  assert.match(stateTransitionHtml, /StateTransition/);
+  assert.match(stateTransitionHtml, /STATE_REVIEW_TO_APPROVED/);
+
+  const triageHtml = md.render(
+    '![[../data/phase9-rule-table-benchmark-pack.csv#Sheet1|A1:M6?mode=table&header=first&columns=A,B,D,E&grep=path unresolved]]',
+  );
+  assert.match(triageHtml, /FailureTriage/);
+  assert.match(triageHtml, /TRIAGE_PATH_UNRESOLVED/);
+
+  const releaseGateHtml = md.render(
+    '![[../data/phase9-rule-table-benchmark-pack.csv#Sheet1|A1:M6?mode=table&header=first&columns=A,B,D,E&grep=unit test failed]]',
+  );
+  assert.match(releaseGateHtml, /ReleaseGateDecision/);
+  assert.match(releaseGateHtml, /GATE_BLOCK_UNIT_FAIL/);
+});
+
+test('markdownMatrixPlugin can execute all QueryExample contracts from phase9 benchmark rows', () => {
+  const workspaceRoot = path.resolve('test/fixtures/workspace');
+  const markdownFilePath = path.join(workspaceRoot, 'docs/spec.md');
+  const md = createMarkdownIt(markdownFilePath, workspaceRoot);
+  const benchmarkPath = path.join(workspaceRoot, 'data/phase9-rule-table-benchmark-pack.csv');
+  const rows = loadPhase9BenchmarkRows(benchmarkPath);
+
+  for (const row of rows) {
+    assert.notEqual(row.ruleId.trim(), '', 'RuleId must not be empty in phase9 benchmark rows');
+    assert.notEqual(row.queryExample.trim(), '', `QueryExample must not be empty for RuleId=${row.ruleId}`);
+    const html = md.render(
+      `![[../data/phase9-rule-table-benchmark-pack.csv#Sheet1|A1:M6?mode=table&${row.queryExample}]]`,
+    );
+    assert.match(html, new RegExp(escapeRegExp(row.ruleId)));
+  }
 });
 
 test('markdownMatrixPlugin supports transpose and numeric header rows', () => {

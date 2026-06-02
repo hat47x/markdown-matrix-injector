@@ -26,6 +26,14 @@ AIエージェントは、以下のPhase順に実装とテストを完了させ�
     * 対象: オートコンプリート、リンク切れエラー検知（Diagnostics）、クリップボード解析を伴う Paste/D&D。
 * **Phase 6: 公開ドキュメント体系化と価値訴求 (Public Documentation & Adoption)**
     * 対象: 一般向け概要、導入チュートリアル、活用シナリオ、詳細仕様リファレンス、文書化による要件/設計/テストへのフィードバックループ。
+* **Phase 7: リリース運用品質と採用拡大 (Release Readiness & Adoption Scale)**
+    * 対象: リリースゲート自動化、query-evidence を使った採用KPI観測、docs audit から上流還流までのSLA運用。
+* **Phase 8: 運用信頼性とサポート性強化 (Operational Reliability & Supportability)**
+    * 対象: triage自動化、support runbook整備、障害パターンのcontract test化による回帰予防。
+* **Phase 9: ルールテーブル相互運用と設計資産化 (Rule Table Interoperability & Design Assetization)**
+    * 対象: Drools参照パターンの実データテンプレート化、相互運用検証、設計文書・テスト資産の双方向同期運用。
+* **Phase 10: 採用運用ガバナンス自動化 (Adoption Operations Governance Automation)**
+    * 対象: query-evidence の継続収集自動化、docs/support 改善SLAの可視化、運用KPIの週次レポート化。
 
 ---
 
@@ -72,6 +80,41 @@ Phase 5 までで整備した製品機能を、一般ユーザー・導入担当
 * **Documentation feedback loop**: 文書化の途中で見つかった曖昧仕様、操作導線の弱さ、検証不足は、`requirements.md` / `02_Architecture` / `03_Implement/test` / `01_Plans/issues` へ逆流させる。文書だけで抱え込まず、要件・設計・テストの正本を更新する。
 * **Progressive refinement**: 文書は一度で完成させず、対象読者ごとに価値仮説・つまずき・補足説明を繰り返し見直す。各イテレーションで、どの知見がどの上流文書へ反映されたか追跡可能であること。
 * **Documentation quality gate**: 公開文書は、想定読者、前提条件、手順、期待結果、関連正本リンク、既知の制約を必ず明記する。サンプル・スクリーンショット・FAQ・比較表など、理解を補助する素材の追加可否も毎回評価する。
+
+### 【Phase 7】 リリース運用品質と採用拡大 (Release Readiness & Adoption Scale)
+Phase 1〜6 の成果を継続運用可能な形へ昇華し、公開後の品質と採用拡大を両立させる。
+* **Release gate automation**: `docs-check` / `unit` / `integration` の合格条件を release 判定フローとして標準化し、Issueの Validation evidence へ追跡可能に記録する。
+* **Adoption observability**: query-evidence artifact を活用し、導入時間・リンク不整合検知率・印刷再現性の KPI を定点観測する。
+* **Feedback loop SLA**: docs audit で発見した課題を `requirements` / `02_Architecture` / `03_Implement/test` / `01_Plans/issues` へ還流する期限と責任分界を定義する。
+* **Safe evolution rule**: 不可逆な方針変更は ADR、実行改善は issue で管理し、機能追加は release gate を満たす範囲で実施する。
+
+### 【Phase 8】 運用信頼性とサポート性強化 (Operational Reliability & Supportability)
+Phase 7 で整備した release gate を「障害時に早く直せる運用基盤」へ発展させ、採用拡大後のサポート品質を安定化する。
+* **Failure triage automation**: query-evidence / release-gate artifact から失敗分類（path, sheet, query, render, print）を自動要約し、一次切り分け時間を短縮する。
+* **Support playbook hardening**: FAQ・troubleshooting・検証コマンドを runbook として接続し、再現手順（入力・期待値・実際値）を標準化する。
+* **Regression prevention by contract tests**: 運用で多発する失敗シナリオを contract test に固定し、release gate で常時検知する。
+* **Persona-aware prioritization**: gate fail 時に影響読者（author/reviewer/delivery）を付与し、優先度判断を運用ルール化する。
+* **Documentation usability & coverage uplift**: 運用ドキュメントは「検索しやすさ（導線・索引）」「再現に必要な情報の網羅性（前提・入力・期待値・制約）」を品質指標として継続監査し、問い合わせ時の自己解決率を高める。
+* **Product quality feedback loop from support logs**: runbook運用・FAQ更新・問い合わせ分類で得た知見を `requirements` / `02_Architecture` / `03_Implement/test` へ定期還流し、文書改善をプロダクト品質改善に直結させる。
+* **Reference pattern ingestion from OSS table formats**: Drools の spreadsheet decision table（RuleSet/RuleTable 構造）等を参照し、システム設計文書向けの表パターンと test data パターンを抽出・標準化する。
+
+### 【Phase 9】 ルールテーブル相互運用と設計資産化 (Rule Table Interoperability & Design Assetization)
+Phase 8 で定義したパターンを「実運用で再利用できる資産」に昇格させ、設計文書と検証データの同期品質を継続的に担保する。
+* **Executable pattern templates**: Drools参照の表パターンを CSV/XLSX テンプレートとして整備し、設計文書でそのまま再利用できるひな形を提供する。
+* **Interoperability validation set**: RuleSet相当メタ情報、RuleTable相当条件/アクション、属性列（priority/effective/expires）を含む相互運用テストデータセットを管理する。
+* **Round-trip documentation flow**: 文書で使った表テンプレートを test fixture へ同期し、fixtureで見つかった不足を文書テンプレートへ逆反映する双方向運用を標準化する。
+* **Template quality gates**: テンプレートは「可読性（読者が意図を理解できる）」「検証性（grep/columns/headerで観測可能）」「追跡性（要件/ADR/issueへ紐付く）」の3軸で監査する。
+* **Adoption benchmark pack**: SIer設計文書で頻出する表（要件トレーサビリティ、状態遷移、障害切り分け、リリース判定）を最小ベンチマークセットとして定義し、採用時の初期評価時間を短縮する。
+* **Test coverage uplift for template governance**: Phase 9 では sync checker / release gate / query observability の回帰テストを継続拡張し、正常系・異常系・境界値（空欄、重複、日付不正、行差分、I/O失敗）を最低1件以上含むことを必須化する。
+* **Test pattern expansion as reusable assets**: テストケースは単発修正に閉じず、再利用可能なパターン（table種別別、query種別別、運用失敗種別別）としてテンプレート化し、次イテレーションで追加しやすい構造へ維持する。
+
+### 【Phase 10】 採用運用ガバナンス自動化 (Adoption Operations Governance Automation)
+Phase 9 で整備したテンプレート資産・同期ゲート・観測導線を、継続運用で「改善速度」と「説明責任」を担保できる運用ガバナンスへ昇格させる。
+* **Evidence auto-harvest**: `docs-check` / `unit` / `integration` / sync gate の実行結果を query-evidence artifact として定期収集し、失敗分類と影響読者を紐付けて保存する。
+* **SLA dashboard seed**: docs audit と support runbook の更新SLA（例: triage 24h, workaround 72h, 恒久対策7日）を機械可読で保持し、期限超過を検知可能にする。
+* **Weekly governance report**: 導入時間、リンク不整合検知率、印刷再現性、問い合わせ自己解決率を週次で要約するレポート生成導線を整備する。
+* **Backlog auto-escalation rule**: 週次レポート上の閾値逸脱を `01_Plans/issues/` 起票候補として自動抽出し、Decisionが必要な事項のみ `01_Plans/adr/` へエスカレーションする。
+* **Auditability baseline**: 運用判断（優先度、延期理由、対応責任者）を追跡可能なメタデータとして残し、将来の採用監査・納品監査に耐える状態を標準化する。
 
 ---
 **【Initial Action Request (AIへの初期指示)】**

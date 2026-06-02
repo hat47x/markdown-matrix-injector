@@ -68,6 +68,24 @@ test('createDiagnosticsForDocument maps missing file, invalid xml, and missing s
   );
 });
 
+
+test('createDiagnosticsForDocument falls back to workspace-root relative path when markdown-relative path is missing', async () => {
+  const text = '![[shared/data.xlsx#Sheet1|A1:B2]]';
+
+  const calls: string[] = [];
+  const items = await createDiagnosticsForDocument(text, '/workspace/docs/spec.md', '/workspace', {
+    fileExists: async (filepath) => {
+      calls.push(filepath);
+      return filepath === '/workspace/shared/data.xlsx';
+    },
+    readFile: async () => '<Workbook></Workbook>',
+    readWorkbookSheetNames: async () => ['Sheet1'],
+  });
+
+  assert.deepEqual(calls, ['/workspace/docs/shared/data.xlsx', '/workspace/shared/data.xlsx']);
+  assert.deepEqual(items, []);
+});
+
 test('getPasteInsertText and getDropInsertText reuse pasteDrop suggestions through command-friendly adapters', () => {
   assert.equal(
     getPasteInsertText({ clipboardHtml: '<div data-sheet="Summary">file:///tmp/report.xlsx</div><table><tr><td>A</td></tr></table>' }),
@@ -324,6 +342,19 @@ test('extension integration boundaries keep canonical native providers and compa
   assert.match(source, /function registerTestCommands\(nativePasteDropState: NativePasteDropState\): vscode\.Disposable\[] \{/);
   assert.match(source, /registerCommand\('markdownMatrixInjector\.__test\.insertEmbedFromPaste', \(args\?: PasteDropCommandArgs\) =>/s);
   assert.match(source, /registerCommand\('markdownMatrixInjector\.__test\.insertEmbedFromDrop', \(args\?: PasteDropCommandArgs\) =>/s);
+  assert.match(source, /const DEV_EXPORT_QUERY_EVIDENCE_COMMAND_ID = 'markdownMatrixInjector\.__dev\.exportQueryEvidence';/);
+  assert.match(source, /registerTextEditorCommand\(DEV_EXPORT_QUERY_EVIDENCE_COMMAND_ID, exportQueryEvidenceForEditor\),/);
+  assert.match(source, /async function exportQueryEvidenceForEditor\(editor: vscode\.TextEditor\): Promise<void> \{/);
+  assert.match(source, /if \(document\.isUntitled\) \{\s*void vscode\.window\.showWarningMessage\('MMI: Save the Markdown file before exporting query evidence\.'\);\s*return;\s*\}/s);
+  assert.match(source, /buildQueryEvidenceExportArtifacts\(document\.getText\(\), document\.uri\.fsPath\)/);
+  assert.match(source, /if \(records\.length === 0\) \{\s*void vscode\.window\.showWarningMessage\('MMI: No embed query evidence found in the current Markdown file\.'\);\s*return;\s*\}/s);
+  assert.match(source, /MMI: Exported query evidence for \$\{sourceName\} \(\$\{records\.length\}\) ->/);
+  assert.match(source, /csvText/);
+  assert.match(source, /jsonText/);
+  assert.match(source, /markdownReportText/);
+  assert.match(source, /catch \(error\) \{\s*const reason = error instanceof Error \? error\.message : String\(error\);\s*void vscode\.window\.showErrorMessage\(`MMI: Failed to export query evidence: \$\{reason\}`\);\s*\}/s);
+  assert.match(source, /const DEV_INSERT_SCENARIO_TEMPLATE_COMMAND_ID = 'markdownMatrixInjector\.__dev\.insertScenarioObservationTemplate';/);
+  assert.match(source, /registerCommand\(DEV_INSERT_SCENARIO_TEMPLATE_COMMAND_ID, \(\) =>\s*insertEmbedIntoActiveEditor\(SCENARIO_OBSERVATION_TEMPLATE\),/s);
   assert.match(
     source,
     /function createCompatibilityPasteDropCommandHandler\([^]*insertEmbedIntoEditor\(editor, getInsertText\(args\)\);/s,
