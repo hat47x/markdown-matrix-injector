@@ -429,3 +429,171 @@ test('markdownMatrixPlugin emits error html for unsupported xml', () => {
   assert.match(html, /class="mmi-error"/);
   assert.match(html, /Unsupported XML format/);
 });
+
+test('markdownMatrixPlugin resolves the document path from the markdown-it env (VS Code preview contract)', () => {
+  const fixture = createCsvFixture([
+    ['Name', 'Role'],
+    ['Alice', 'Admin'],
+    ['Bob', 'User'],
+  ]);
+
+  // Configured WITHOUT a static markdownFilePath: the path must come from env,
+  // exactly as VS Code's Markdown preview supplies env.currentDocument (a Uri).
+  const md = new MarkdownIt();
+  md.use(markdownMatrixPlugin, { cache: new WorkbookCache() });
+
+  const html = md.render('![[./roles.csv#Sheet1|A1:B3?header=first]]', {
+    currentDocument: { fsPath: fixture.markdownFilePath },
+  });
+
+  assert.match(html, /<table class="mmi-table">/);
+  assert.match(html, /<th>Name<\/th><th>Role<\/th>/);
+  assert.match(html, /<td class="mmi-table__cell">Alice<\/td><td class="mmi-table__cell">Admin<\/td>/);
+});
+
+test('markdownMatrixPlugin prefers env.currentDocument over the configured fallback path', () => {
+  const fixture = createCsvFixture([
+    ['Name', 'Role'],
+    ['Alice', 'Admin'],
+  ]);
+
+  // A bogus fallback path cannot resolve ./roles.csv; the env document must win.
+  const md = new MarkdownIt();
+  md.use(markdownMatrixPlugin, {
+    markdownFilePath: path.join(os.tmpdir(), 'mmi-does-not-exist', 'spec.md'),
+    cache: new WorkbookCache(),
+  });
+
+  const html = md.render('![[./roles.csv#Sheet1|A1:B2?header=first]]', {
+    currentDocument: { fsPath: fixture.markdownFilePath },
+  });
+
+  assert.match(html, /<table class="mmi-table">/);
+  assert.match(html, /<td class="mmi-table__cell">Alice<\/td><td class="mmi-table__cell">Admin<\/td>/);
+});
+
+test('markdownMatrixPlugin leaves embeds untouched when no document context is available', () => {
+  // Neither a configured path nor an env document: preserve the source text
+  // rather than emit a misleading error or a wrongly-resolved table.
+  const md = new MarkdownIt();
+  md.use(markdownMatrixPlugin, { cache: new WorkbookCache() });
+
+  const html = md.render('see ![[./roles.csv#Sheet1|A1:B3?header=first]] here');
+
+  assert.doesNotMatch(html, /mmi-table/);
+  assert.doesNotMatch(html, /mmi-error/);
+  assert.match(html, /roles\.csv/);
+});
+
+test('markdownMatrixPlugin renders a standalone embed as a block without a <p> wrapper', () => {
+  const fixture = createCsvFixture([
+    ['Name', 'Role'],
+    ['Alice', 'Admin'],
+  ]);
+
+  const md = createMarkdownIt(fixture.markdownFilePath);
+  const html = md.render('![[./roles.csv#Sheet1|A1:B2?header=first&caption=Roles&id=tbl-roles]]');
+
+  // The block-level <figure>/<table> must be emitted at the top level, not nested
+  // inside a paragraph (which the browser would split into an empty <p> + sibling).
+  assert.doesNotMatch(html, /<p>/);
+  assert.doesNotMatch(html, /<\/p>/);
+  assert.match(html, /^<figure class="mmi-embed" id="tbl-roles">/);
+  assert.match(html, /<table class="mmi-table">/);
+});
+
+test('markdownMatrixPlugin renders multiple standalone embeds on adjacent lines as blocks', () => {
+  const fixture = createCsvFixture([
+    ['Name', 'Role'],
+    ['Alice', 'Admin'],
+  ]);
+
+  const md = createMarkdownIt(fixture.markdownFilePath);
+  // Two embeds separated by a hard line break form a single paragraph in Markdown.
+  const html = md.render('![[./roles.csv#Sheet1|A1:B2?header=first&id=a]]\n![[./roles.csv#Sheet1|A1:B2?header=first&id=b]]');
+
+  assert.doesNotMatch(html, /<p>/);
+  assert.match(html, /<figure class="mmi-embed" id="a">/);
+  assert.match(html, /<figure class="mmi-embed" id="b">/);
+});
+
+test('markdownMatrixPlugin keeps an embed inline when mixed with surrounding prose', () => {
+  const fixture = createCsvFixture([
+    ['Name', 'Role'],
+    ['Alice', 'Admin'],
+  ]);
+
+  const md = createMarkdownIt(fixture.markdownFilePath);
+  const html = md.render('see ![[./roles.csv#Sheet1|A1:B2?header=first]] here');
+
+  // Mixed content stays within the paragraph so the surrounding prose is preserved.
+  assert.match(html, /<p>see /);
+  assert.match(html, / here<\/p>/);
+  assert.match(html, /<table class="mmi-table">/);
+});
+
+// --------------------------------------------------------------------------
+// Production preview entry path (extendMarkdownIt equivalent)
+//
+// extendMarkdownIt (extension.ts) uses markdownMatrixPlugin with a
+// resolveWorkspaceRoot callback that calls vscode.workspace.getWorkspaceFolder.
+// That vscode dependency makes it un-importable in unit tests.  We reproduce
+// the same wiring here by injecting an equivalent callback directly into the
+// plugin — same code path, no vscode module required.
+// --------------------------------------------------------------------------
+
+test('markdownMatrixPlugin (production preview wiring) resolves workspace root via callback and renders block HTML', () => {
+  const fixture = createCsvFixture([
+    ['Name', 'Role'],
+    ['Alice', 'Admin'],
+  ]);
+  const workspaceRoot = path.dirname(path.dirname(fixture.filePath)); // parent of docs/
+
+  const md = new MarkdownIt();
+  md.use(markdownMatrixPlugin, {
+    // No static markdownFilePath — document path must come from env, like the real preview.
+    cache: new WorkbookCache(),
+    resolveWorkspaceRoot: (_markdownFilePath: string) => workspaceRoot,
+  });
+
+  const html = md.render('![[./roles.csv#Sheet1|A1:B2?header=first&caption=Roles&id=tbl-roles]]', {
+    currentDocument: { fsPath: fixture.markdownFilePath },
+  });
+
+  // Structural correctness (G1: HTML structure survival check)
+  assert.match(html, /<figure class="mmi-embed" id="tbl-roles">/, 'production entry must emit the embed frame');
+  assert.match(html, /<table class="mmi-table">/, 'production entry must render the table');
+  assert.match(html, /<th>Name<\/th><th>Role<\/th>/);
+  assert.match(html, /<td class="mmi-table__cell">Alice<\/td>/);
+
+  // Block rendering: standalone embed must NOT be wrapped in a <p>
+  assert.doesNotMatch(html, /<p>/, 'standalone embed must not produce a <p> wrapper (block-in-paragraph nesting)');
+  assert.doesNotMatch(html, /<\/p>/);
+});
+
+test('markdownMatrixPlugin (production preview wiring) emits expected mmi-* classes and data-* attributes', () => {
+  const fixture = createCsvFixture([
+    ['ID', 'State'],
+    ['1', 'Draft'],
+  ]);
+
+  const md = new MarkdownIt();
+  md.use(markdownMatrixPlugin, {
+    cache: new WorkbookCache(),
+    resolveWorkspaceRoot: () => undefined,
+  });
+
+  const html = md.render(
+    '![[./roles.csv#Sheet1|A1:B2?header=first&caption=状態一覧&id=tbl-state&pageBreak=before&orientation=landscape&highlightColumn=State&highlightValue=Draft]]',
+    { currentDocument: { fsPath: fixture.markdownFilePath } },
+  );
+
+  // Frame attributes that CSS targets — these must survive DOMPurify defaults
+  assert.match(html, /class="mmi-embed"/, 'mmi-embed class must be present');
+  assert.match(html, /id="tbl-state"/, 'id attribute must be present');
+  assert.match(html, /data-page-break="before"/, 'data-page-break must be present');
+  assert.match(html, /data-orientation="landscape"/, 'data-orientation must be present');
+  assert.match(html, /<figcaption class="mmi-embed__caption">状態一覧<\/figcaption>/);
+  assert.match(html, /mmi-table__row--highlight/, 'highlight class must be applied');
+  assert.doesNotMatch(html, /<p>/, 'no <p> wrapper on standalone embed');
+});

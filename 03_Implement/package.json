@@ -40,6 +40,10 @@
     "onLanguage:markdown"
   ],
   "contributes": {
+    "markdown.markdownItPlugins": true,
+    "markdown.previewStyles": [
+      "./media/markdown-matrix.css"
+    ],
     "commands": [
       {
         "command": "markdownMatrixInjector.renderEmbedForTest",

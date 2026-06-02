@@ -1,6 +1,8 @@
 import assert from 'node:assert/strict';
 import path from 'node:path';
+import MarkdownIt from 'markdown-it';
 import * as vscode from 'vscode';
+import { extendMarkdownIt } from '../../../src/extension.js';
 
 const LOG_PREFIX = '[mmi:e2e:extension-host]';
 const PASTE_DROP_PROOF_TARGETS = [
@@ -34,6 +36,7 @@ export async function runIntegrationTests(): Promise<void> {
   const markdownFilePath = path.join(workspaceRoot, 'docs', 'spec.md');
 
   await runStage('render-command', () => verifyRenderEmbedForTestCommand(markdownFilePath, workspaceRoot));
+  await runStage('markdown-preview-entry', () => verifyMarkdownPreviewEntry(markdownFilePath));
   logStage('issue-0010-e2e-scope', {
     acceptanceCriteria: {
       providerRegistrationSurface: `${ISSUE_0010_ACCEPTANCE_TRACE.acceptance1}: Verify native paste/drop providers are exposed on the Extension Host registration surface when the host advertises the APIs.`,
@@ -90,6 +93,30 @@ async function verifyRenderEmbedForTestCommand(markdownFilePath: string, workspa
   assert.ok(cardHtml, 'Expected card HTML to be returned.');
   assert.match(cardHtml, /class="mmi-card"/);
   assert.doesNotMatch(cardHtml, /class="mmi-table"/);
+}
+
+/**
+ * Exercises the *production* Markdown preview entry point — `extendMarkdownIt`,
+ * the function VS Code calls via `contributes.markdown.markdownItPlugins`. This
+ * is the code path that actually injects `![[...]]` into the live preview, and
+ * (unlike the renderEmbedForTest command) was previously never covered by any
+ * test. It resolves the document path from `env.currentDocument` exactly as the
+ * real preview does, and must emit block-level <figure>/<table> HTML — never an
+ * embed nested inside a <p> wrapper (issue-0097 / ADR-0010 G1).
+ */
+async function verifyMarkdownPreviewEntry(markdownFilePath: string): Promise<void> {
+  const md = extendMarkdownIt(new MarkdownIt());
+  const html = md.render('![[../data/roles.csv#Sheet1|A1:B3?header=first&caption=Roles&id=tbl-roles]]', {
+    currentDocument: vscode.Uri.file(markdownFilePath),
+  });
+
+  logStage('markdown-preview-entry:rendered', { htmlLength: html.length });
+
+  assert.match(html, /<figure class="mmi-embed" id="tbl-roles">/, 'Expected the production preview entry to emit the embed frame.');
+  assert.match(html, /<table class="mmi-table">/, 'Expected the production preview entry to render the table.');
+  assert.match(html, /<th>Name<\/th><th>Role<\/th>/);
+  // Standalone embed must render as a top-level block, not wrapped in a paragraph.
+  assert.doesNotMatch(html, /<p>/, 'Standalone embed must not be wrapped in a <p> (invalid block-in-paragraph nesting).');
 }
 
 interface AutocompleteVerificationResult {

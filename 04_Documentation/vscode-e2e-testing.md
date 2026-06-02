@@ -139,7 +139,12 @@ issue-0010 の運用では、**automation scope の確認** と **manual scope �
 2. `scripts/run-vscode-e2e.sh` が `xvfb-run` の有無を確認し、不足時は `sudo apt-get update && sudo apt-get install -y xvfb` → `xvfb-run --help` → `cd 03_Implement && npm run test:e2e` の順で再実行する手順をエラーメッセージとして案内する。
 3. `runTest.ts` が fixture workspace を一時ディレクトリへ複製し、Diagnostics 用の `invalid.xml` を追加する。
 4. `@vscode/test-electron` が VSCode を取得し、開発中の拡張を読み込んだ Extension Host を立ち上げる。
-5. `test/e2e/suite/extensionHost.test.ts` が render / 補完 / Diagnostics / command fallback / native provider adapter の通し確認を実行する。
+5. `test/e2e/suite/extensionHost.test.ts` が次の通し確認を順に実行する。
+   - `render-command`: テストコマンド (`renderEmbedForTest`) による table/card 描画確認。
+   - **`markdown-preview-entry`** (ADR-0010 G1): 本番プレビュー入口 `extendMarkdownIt` を実ホスト上で呼び出し、`![[...]]` が `<figure class="mmi-embed">` / `<table class="mmi-table">` を含む block-level HTML を出力し、`<p>` ラッパーを生じないことを確認する。
+   - `paste-drop-observation` / `paste-drop-boundary`: native provider adapter / fallback command の確認。
+   - `autocomplete-boundary`: 補完候補の確認（既知不安定あり）。
+   - `diagnostics`: Diagnostics の確認。
 
 ## First triage when `npm run test:e2e` fails
 `npm run test:e2e` が失敗したら、**native/fallback の議論に入る前に** 次の順で切り分けてください。次エージェントはこの順番を崩さないでください。
@@ -172,6 +177,7 @@ issue-0010 の運用では、**automation scope の確認** と **manual scope �
 
 ## Automated coverage: what the current E2E actually proves
 ### Assertions covered by automation
+- **`markdown-preview-entry` (ADR-0010 G1)**: 本番プレビュー入口 `extendMarkdownIt` を Extension Host 上で呼び出し、`![[...]]` が `<figure class="mmi-embed">` / `<table class="mmi-table">` / mmi-* クラス / `data-page-break` / `data-orientation` を持つ block-level HTML を出力し、`<p>` ラッパーを生じないことを確認する。
 - `renderEmbedForTest` が table/card の既存レンダリングを返す。
 - `vscode.executeCompletionItemProvider` 経由で filepath / sheet / query parameter の候補が取得できる。
 - Markdown 文書上で `MMI_FILE_NOT_FOUND`, `MMI_INVALID_XML`, `MMI_SHEET_NOT_FOUND` が Diagnostics として取得できる。
@@ -182,11 +188,12 @@ issue-0010 の運用では、**automation scope の確認** と **manual scope �
 ### What automation does not prove
 自動 E2E が直接保証しない事項は、次のとおりです。
 
-- Preview / Webview DOM の見た目や崩れ。
+- Preview / Webview DOM の**視覚**（スクリーンショット。HTML 構造・クラス・属性は `markdown-preview-entry` stage で自動確認済み）。
 - Problems ビューの配置、視認性、クリック遷移の体験。
 - Suggest widget の表示位置や操作感。
 - OS ネイティブの clipboard event / drop event から editor edit までの最終経路。
 - host ごとに native path が本当に選択されたかどうかの UX レベルの観察結果。
+- PDF/印刷での改ページ・用紙向き・別紙参照の最終視覚確認（Checklist F / G2 参照）。
 
 ## Native provider and fallback policy
 この節が、issue-0010 に対する文書上の正本です。Paste / D&D の責務を **native path** と **fallback path** に分けて解釈してください。
@@ -789,6 +796,52 @@ rg -n "native|fallback|manual|xvfb|autocomplete" 04_Documentation/vscode-e2e-tes
 - `native` と `fallback` が architecture と runbook の両方で比較境界として現れているか。
 - `manual` と `autocomplete` が delegated manual scope / known unstable separation の文脈で残っているか。
 - `xvfb` が prerequisite / triage / handoff のいずれかで明示されているか。
+
+## Checklist F: Markdown Preview Rendering (G1 / ADR-0010)
+**Classification**: Manual（HTML 構造の正しさは automation 済み。視覚確認のみ手動）  
+**目的**: `extendMarkdownIt`（本番プレビュー入口）が実 VS Code のプレビュー画面で正しく描画されることを、スクリーンショットで実証する（G1 品質ゲートの最終確認）。
+
+> **前置き**: HTML 構造・クラス・属性・block 描画の正しさは unit test（167 件）と e2e `markdown-preview-entry` stage で自動確認済み。  
+> 本 Checklist が追加で確認するのは「実画面で見たときに視覚的に壊れていないか」のみ。
+
+### Steps
+1. Manual environment setup を完了し、Extension Development Host を起動する。
+2. `03_Implement/test/fixtures/workspace/docs/` に以下の内容で `phase11-preview-g1.md` を作成・保存する。
+   ```md
+   # G1 プレビュー描画確認
+
+   ## テーブル（カラム選択 + ハイライト）
+   ![[../data/roles.csv#Sheet1|A1:B3?header=first&caption=ロール一覧&id=tbl-roles&highlightColumn=Role&highlightValue=Admin]]
+
+   ## カード（Smart Fallback）
+   ![[../data/wide.csv#Sheet1|A1:K2]]
+
+   ## 改ページ + 横向き（印刷制御）
+   ![[../data/roles.csv#Sheet1|A1:B3?header=first&caption=印刷制御テスト&id=tbl-print&pageBreak=before&orientation=landscape]]
+   ```
+3. `Markdown: Open Preview to the Side` でプレビューを開く。
+4. 以下を目視確認しスクリーンショットを取得する（`04_Documentation/samples/screenshots/` へ保存）。
+
+### Observation points
+| 確認項目 | 期待する状態 | 失敗ヒント |
+|---|---|---|
+| テーブルが描画される | 2 列の `<table>` が見える（空白や `![[...]]` 生テキストではない） | 拡張が有効化されているか確認 |
+| caption が表示される | 「ロール一覧」が表の上に表示される | `mmi-embed__caption` CSS が適用されているか確認 |
+| ハイライト行がある | Admin 行が他行より目立つ背景色になっている | `mmi-table__row--highlight` CSS が適用されているか確認 |
+| カードが描画される | `wide.csv` がリンクカード UI として表示される（wide なため自動縮退） | smart fallback 条件を確認 |
+| 段落内に block 混入なし | テーブル/カードが `<p>` タグ内に埋め込まれてプレビューが崩れない | block 描画バグの兆候 |
+| スタイルが適用されている | テーブルに罫線・ハイライトが視認できる | `media/markdown-matrix.css` が preview styles として読み込まれているか確認 |
+
+### Expected results
+- すべての `![[...]]` がテキストではなく、表またはカード UI として描画される。
+- `caption` / `id` / `highlight` / `pageBreak` / `orientation` の視覚効果が確認できる。
+- `data-page-break="before"` / `data-orientation="landscape"` 指定の embed がプレビューで崩れない。
+- 実画面のスクリーンショット（`.png`）を `04_Documentation/samples/screenshots/phase11-g1-preview.png` として保存する。
+
+### G2 PDF 確認への接続
+印刷制御（`pageBreak` / `orientation`）の PDF 実証手順は `04_Documentation/samples/sier-design/README.md` の「G2: 実 PDF 生成」を参照してください。
+
+---
 
 ## Future Playwright candidates
 手動でしか確認しにくい項目のうち、将来 Playwright 化を検討する候補は次のとおりです。

@@ -1,0 +1,173 @@
+/*
+ * Markdown Matrix Injector — VS Code Markdown preview styles.
+ *
+ * Contributed via package.json `contributes.markdown.previewStyles`. This file
+ * styles every class/attribute emitted by the renderers in src/core/*:
+ *   - renderEmbedFrame.ts: .mmi-embed, .mmi-embed__caption,
+ *                          [data-page-break], [data-orientation]
+ *   - renderTable.ts:      .mmi-table, .mmi-table__row(.--highlight),
+ *                          .mmi-table__cell(.--formatted), .mmi-table__cell-code
+ *   - renderCard.ts:       .mmi-card, .mmi-card__title, .mmi-card__meta, [data-path]
+ *   - markdownMatrixPlugin.ts (error path): .mmi-error
+ *
+ * Colors use VS Code theme variables (--vscode-*) with safe fallbacks so the
+ * output adapts to light / dark / high-contrast themes.
+ */
+
+/* ---- Embed frame (figure) ---- */
+.mmi-embed {
+  margin: 1rem 0;
+}
+
+.mmi-embed__caption {
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  color: var(--vscode-descriptionForeground, inherit);
+}
+
+/* ---- Table ---- */
+.mmi-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.25rem 0;
+}
+
+.mmi-table th,
+.mmi-table .mmi-table__cell {
+  border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border, #c8c8c8));
+  padding: 0.3rem 0.55rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.mmi-table thead th {
+  background-color: var(--vscode-editorWidget-background, rgba(127, 127, 127, 0.12));
+  font-weight: 600;
+}
+
+.mmi-table__row--highlight {
+  background-color: var(--vscode-editor-findMatchHighlightBackground, rgba(255, 214, 0, 0.28));
+}
+
+.mmi-table__cell--formatted {
+  white-space: normal;
+}
+
+.mmi-table__cell-code {
+  margin: 0;
+  padding: 0.25rem 0.4rem;
+  background-color: var(--vscode-textCodeBlock-background, rgba(127, 127, 127, 0.12));
+  border-radius: 3px;
+  overflow-x: auto;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.92em;
+}
+
+.mmi-table__cell-code > code {
+  background: none;
+  padding: 0;
+}
+
+/* ---- Card (smart fallback / link card) ---- */
+.mmi-card {
+  display: inline-block;
+  min-width: 14rem;
+  max-width: 100%;
+  margin: 0.25rem 0;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border, #c8c8c8));
+  border-radius: 6px;
+  background-color: var(--vscode-editorWidget-background, rgba(127, 127, 127, 0.06));
+}
+
+.mmi-card__title {
+  font-weight: 600;
+  color: var(--vscode-textLink-foreground, inherit);
+  word-break: break-all;
+}
+
+.mmi-card__meta {
+  margin-top: 0.2rem;
+  font-size: 0.88em;
+  color: var(--vscode-descriptionForeground, #888);
+}
+
+/* ---- Error ---- */
+.mmi-error {
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--vscode-inputValidation-errorBorder, #be1100);
+  border-radius: 4px;
+  background-color: var(--vscode-inputValidation-errorBackground, rgba(190, 17, 0, 0.1));
+  color: var(--vscode-inputValidation-errorForeground, var(--vscode-editor-foreground, inherit));
+  font-size: 0.92em;
+}
+
+/* ---- Print / PDF (enterprise output: page break + orientation + 別紙参照) ----
+ * NOTE (G4 / honest scope): @page named-page orientation and page-break support
+ * varies by PDF engine. Validate per generator in issue-0098 and document limits.
+ */
+@media print {
+  @page landscape {
+    size: landscape;
+  }
+
+  @page portrait {
+    size: portrait;
+  }
+
+  .mmi-embed[data-page-break="before"] {
+    page-break-before: always;
+    break-before: page;
+  }
+
+  .mmi-embed[data-page-break="after"] {
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .mmi-embed[data-page-break="both"] {
+    page-break-before: always;
+    page-break-after: always;
+    break-before: page;
+    break-after: page;
+  }
+
+  /* Per-page orientation via named @page. */
+  .mmi-embed[data-orientation="landscape"] {
+    page: landscape;
+  }
+
+  .mmi-embed[data-orientation="portrait"] {
+    page: portrait;
+  }
+
+  /* Keep table rows intact across page boundaries; repeat header per page. */
+  .mmi-table__row {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .mmi-table thead {
+    display: table-header-group;
+  }
+
+  /* Cards degrade to a printable "別紙参照" (separate-attachment) reference block. */
+  .mmi-card {
+    display: block;
+    border: 1px solid #000;
+    background: none;
+  }
+
+  .mmi-card__title::before {
+    content: "別紙参照: ";
+    font-weight: 600;
+  }
+
+  .mmi-card[data-path]::after {
+    content: attr(data-path);
+    display: block;
+    margin-top: 0.2rem;
+    font-size: 0.85em;
+  }
+}

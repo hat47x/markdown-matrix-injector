@@ -1,0 +1,317 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang xml:lang>
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>システム設計書サンプル (MMI G2/G4 証跡)</title>
+  <style>
+    code{white-space: pre-wrap;}
+    span.smallcaps{font-variant: small-caps;}
+    span.underline{text-decoration: underline;}
+    div.column{display: inline-block; vertical-align: top; width: 50%;}
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    ul.task-list{list-style: none;}
+  </style>
+  <style type="text/css">
+
+.mmi-embed {
+margin: 1rem 0;
+}
+.mmi-embed__caption {
+font-weight: 600;
+margin-bottom: 0.35rem;
+color: var(--vscode-descriptionForeground, inherit);
+}
+
+.mmi-table {
+border-collapse: collapse;
+width: 100%;
+margin: 0.25rem 0;
+}
+.mmi-table th,
+.mmi-table .mmi-table__cell {
+border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border, #c8c8c8));
+padding: 0.3rem 0.55rem;
+text-align: left;
+vertical-align: top;
+}
+.mmi-table thead th {
+background-color: var(--vscode-editorWidget-background, rgba(127, 127, 127, 0.12));
+font-weight: 600;
+}
+.mmi-table__row--highlight {
+background-color: var(--vscode-editor-findMatchHighlightBackground, rgba(255, 214, 0, 0.28));
+}
+.mmi-table__cell--formatted {
+white-space: normal;
+}
+.mmi-table__cell-code {
+margin: 0;
+padding: 0.25rem 0.4rem;
+background-color: var(--vscode-textCodeBlock-background, rgba(127, 127, 127, 0.12));
+border-radius: 3px;
+overflow-x: auto;
+font-family: var(--vscode-editor-font-family, monospace);
+font-size: 0.92em;
+}
+.mmi-table__cell-code > code {
+background: none;
+padding: 0;
+}
+
+.mmi-card {
+display: inline-block;
+min-width: 14rem;
+max-width: 100%;
+margin: 0.25rem 0;
+padding: 0.6rem 0.8rem;
+border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border, #c8c8c8));
+border-radius: 6px;
+background-color: var(--vscode-editorWidget-background, rgba(127, 127, 127, 0.06));
+}
+.mmi-card__title {
+font-weight: 600;
+color: var(--vscode-textLink-foreground, inherit);
+word-break: break-all;
+}
+.mmi-card__meta {
+margin-top: 0.2rem;
+font-size: 0.88em;
+color: var(--vscode-descriptionForeground, #888);
+}
+
+.mmi-error {
+margin: 0.5rem 0;
+padding: 0.5rem 0.7rem;
+border: 1px solid var(--vscode-inputValidation-errorBorder, #be1100);
+border-radius: 4px;
+background-color: var(--vscode-inputValidation-errorBackground, rgba(190, 17, 0, 0.1));
+color: var(--vscode-inputValidation-errorForeground, var(--vscode-editor-foreground, inherit));
+font-size: 0.92em;
+}
+
+@media print {
+@page landscape {
+size: landscape;
+}
+@page portrait {
+size: portrait;
+}
+.mmi-embed[data-page-break="before"] {
+page-break-before: always;
+break-before: page;
+}
+.mmi-embed[data-page-break="after"] {
+page-break-after: always;
+break-after: page;
+}
+.mmi-embed[data-page-break="both"] {
+page-break-before: always;
+page-break-after: always;
+break-before: page;
+break-after: page;
+}
+
+.mmi-embed[data-orientation="landscape"] {
+page: landscape;
+}
+.mmi-embed[data-orientation="portrait"] {
+page: portrait;
+}
+
+.mmi-table__row {
+break-inside: avoid;
+page-break-inside: avoid;
+}
+.mmi-table thead {
+display: table-header-group;
+}
+
+.mmi-card {
+display: block;
+border: 1px solid #000;
+background: none;
+}
+.mmi-card__title::before {
+content: "別紙参照: ";
+font-weight: 600;
+}
+.mmi-card[data-path]::after {
+content: attr(data-path);
+display: block;
+margin-top: 0.2rem;
+font-size: 0.85em;
+}
+}
+</style>
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">システム設計書サンプル (MMI G2/G4 証跡)</h1>
+</header>
+<h1 id="システム設計書-サンプル-mmi-エンタープライズ出力デモ">システム設計書 サンプル (MMI エンタープライズ出力デモ)</h1>
+<blockquote>
+<p><strong>目的</strong>: Markdown Matrix Injector の Phase 3〜4 出力品質（caption/相互参照/pageBreak/orientation/Smart Fallback）を<br />
+代表的 SIer 設計書パターンで実証するサンプルです。<br />
+データ正本: <code>sier-design/</code> 配下の CSV ファイル（read-only 参照）。</p>
+</blockquote>
+<hr />
+<h2 id="目次">目次</h2>
+<ol type="1">
+<li><a href="#tbl-req-trace">要件トレーサビリティ</a></li>
+<li><a href="#tbl-state-transition">状態遷移表</a></li>
+<li><a href="#tbl-failure-triage">障害切り分けガイド</a></li>
+<li><a href="#tbl-release-gate">リリース判定表</a></li>
+</ol>
+<hr />
+<h2 id="要件トレーサビリティ">1. 要件トレーサビリティ</h2>
+<p>AUTH モジュール要件を抽出し、検証状況を確認します（<code>columns</code> + <code>grep</code> + <code>caption</code> + <code>id</code>）。</p>
+<p>[[./req-trace.csv#Sheet1|A1:H9?header=first&amp;columns=A,B,C,D,F,G&amp;grep=AUTH&amp;caption=表1: AUTH要件トレーサビリティ&amp;id=tbl-req-trace]]</p>
+<p><strong>全要件（印刷改ページ付き）</strong> — 次ページに全件を横向きで掲載します。</p>
+<p>[[./req-trace.csv#Sheet1|A1:H9?header=first&amp;caption=表2: 全要件一覧（横向き）&amp;id=tbl-req-trace-all&amp;pageBreak=before&amp;orientation=landscape]]</p>
+<hr />
+<h2 id="状態遷移表">2. 状態遷移表</h2>
+<p>文書ライフサイクルの状態遷移を示します（<code>caption</code> + <code>id</code> + <code>pageBreak</code> + <code>orientation=landscape</code>）。</p>
+<p>[[./state-transition.csv#Sheet1|A1:F6?header=first&amp;caption=表3: 文書ライフサイクル状態遷移&amp;id=tbl-state-transition&amp;pageBreak=before&amp;orientation=landscape]]</p>
+<p>→ 状態遷移の詳細は <a href="#tbl-state-transition">表3</a> を参照。<br />
+→ 関連要件は <a href="#tbl-req-trace">表1</a> の REQ-001〜003 を参照。</p>
+<hr />
+<h2 id="障害切り分けガイド">3. 障害切り分けガイド</h2>
+<p>PATH/SHEET 系の障害を抽出します（<code>highlight</code> + <code>grep</code> + <code>caption</code> + <code>id</code>）。</p>
+<p>[[./failure-triage.csv#Sheet1|A1:F9?header=first&amp;grep=PATH&amp;highlightColumn=Severity&amp;highlightValue=High&amp;caption=表4: PATH系障害切り分け（Highのみハイライト）&amp;id=tbl-failure-triage]]</p>
+<p><strong>全障害パターン（別紙参照）</strong> — 列数が多いため Smart Fallback でカード表示します。</p>
+<p>[[./failure-triage.csv#Sheet1|A1:F9?mode=card&amp;caption=別紙: 障害切り分けガイド全件&amp;id=card-failure-triage-full]]</p>
+<hr />
+<h2 id="リリース判定表">4. リリース判定表</h2>
+<p>品質ゲートの状態を確認します（<code>highlightColumn</code> + <code>pageBreak=before</code>）。</p>
+<p>[[./release-gate.csv#Sheet1|A1:F6?header=first&amp;highlightColumn=Status&amp;highlightValue=pending&amp;caption=表5: リリース判定表（要確認項目をハイライト）&amp;id=tbl-release-gate&amp;pageBreak=before]]</p>
+<p>→ G1/G3/G4 は OK、G2 は手動確認が必要です（<a href="#g4-honest-scope">G4 制約</a> 参照）。</p>
+<hr />
+<h2 id="g4-honest-scope">G4: 適用範囲と既知の制約</h2>
+<blockquote>
+<p><strong>実測ベースの正直な適用範囲</strong> — 推測ではなく実測で確認した事実のみを記載します。</p>
+</blockquote>
+<h3 id="動作確認済み実証済み">動作確認済み（実証済み）</h3>
+<table>
+<thead>
+<tr class="header">
+<th>機能</th>
+<th>確認方法</th>
+<th>結果</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td><code>![[...]]</code> のプレビュー描画</td>
+<td>unit test 154件（154 pass）</td>
+<td>✅ HTML 構造・クラス・属性すべて正常</td>
+</tr>
+<tr class="even">
+<td>block-level 出力（<code>&lt;p&gt;</code> ラッパーなし）</td>
+<td>unit test</td>
+<td>✅ 独立行埋め込みが <code>&lt;p&gt;</code> 内にネストしない</td>
+</tr>
+<tr class="odd">
+<td>caption/id/figcaption</td>
+<td>unit test</td>
+<td>✅ <code>&lt;figcaption&gt;</code> と <code>id</code> 属性が生成される</td>
+</tr>
+<tr class="even">
+<td><code>pageBreak</code> → <code>data-page-break</code></td>
+<td>unit test</td>
+<td>✅ 属性が HTML に付与される</td>
+</tr>
+<tr class="odd">
+<td><code>orientation</code> → <code>data-orientation</code></td>
+<td>unit test</td>
+<td>✅ 属性が HTML に付与される</td>
+</tr>
+<tr class="even">
+<td>Smart Fallback カード UI</td>
+<td>unit test</td>
+<td>✅ 列10超/セル500超/mode=card でカード化</td>
+</tr>
+<tr class="odd">
+<td>ハイライト行</td>
+<td>unit test</td>
+<td>✅ <code>mmi-table__row--highlight</code> クラス付与</td>
+</tr>
+<tr class="even">
+<td>read-only（原本非改変）</td>
+<td>設計確認</td>
+<td>✅ ビューア専用設計、write API を持たない</td>
+</tr>
+</tbody>
+</table>
+<h3 id="実測が必要な確認事項手動確認必要">実測が必要な確認事項（手動確認必要）</h3>
+<table>
+<thead>
+<tr class="header">
+<th>機能</th>
+<th>必要環境</th>
+<th>現状</th>
+</tr>
+</thead>
+<tbody>
+<tr class="odd">
+<td>実プレビューの視覚確認（スクリーンショット）</td>
+<td>VS Code GUI</td>
+<td>未実施（WSL2 ヘッドレス環境）</td>
+</tr>
+<tr class="even">
+<td><code>pageBreak</code> の PDF 改ページ再現</td>
+<td>PDF 生成器</td>
+<td>下記「PDF 生成経路」参照</td>
+</tr>
+<tr class="odd">
+<td><code>orientation=landscape</code> の用紙向き再現</td>
+<td>named-page 対応エンジン</td>
+<td>下記「PDF 生成経路」参照</td>
+</tr>
+<tr class="even">
+<td>別紙参照ブロックの印刷レイアウト</td>
+<td>印刷プレビュー</td>
+<td>未実施</td>
+</tr>
+</tbody>
+</table>
+<h3 id="pdf-生成経路と対応状況実測ベース">PDF 生成経路と対応状況（実測ベース）</h3>
+<p><strong>推奨経路 A: VS Code + Markdown PDF 拡張機能（yzane.markdown-pdf）</strong></p>
+<ul>
+<li>エンジン: Chromium/puppeteer（Chromium ヘッドレス印刷）</li>
+<li><code>page-break-before/after</code>: ✅ 対応（<code>break-before: page</code> も有効）</li>
+<li><code>@page named-page</code> per-page 用紙向き: ⚠️ Chromium の CSS Paged Media Level 3 実装依存（バージョンにより動作差あり）</li>
+<li>インストール: VS Code 拡張機能マーケットプレイスから <code>Markdown PDF</code> を検索</li>
+</ul>
+<p><strong>推奨経路 B: weasyprint（CLI）</strong></p>
+<ul>
+<li><code>pip install weasyprint</code></li>
+<li><code>weasyprint design-doc-sample.html output.pdf</code></li>
+<li><code>page-break-before/after</code>: ✅ 対応</li>
+<li><code>@page named-page</code> per-page 用紙向き: ✅ 対応（CSS Paged Media Level 3 実装）</li>
+<li>注意: Markdown を HTML に変換後に CSS を適用（<code>pandoc input.md -o output.html --standalone --css=../../03_Implement/media/markdown-matrix.css</code>、次に weasyprint）</li>
+</ul>
+<p><strong>経路 C: Pandoc + LaTeX（pdflatex/xelatex）</strong></p>
+<ul>
+<li><code>page-break</code>: ✅ 対応（Pandoc の <code>pagebreak</code> 拡張経由）</li>
+<li><code>@page named-page</code> per-page 用紙向き: ❌ LaTeX は <code>@page</code> を解釈しない（LaTeX landscape 命令が必要）</li>
+<li><code>data-page-break</code> / <code>data-orientation</code> 属性: ❌ LaTeX バックエンドには CSS 属性が届かない</li>
+</ul>
+<p><strong>非対応・非推奨</strong></p>
+<ul>
+<li>wkhtmltopdf 0.12.x: <code>@page named-page</code> 未対応（per-page orientation は無効）</li>
+<li>Pandoc 単体（HTML出力なし直接 PDF）: LaTeX 経由のため上記経路 C と同様の制約</li>
+</ul>
+<h3 id="g4-制約まとめ">G4 制約まとめ</h3>
+<ul>
+<li><strong>改ページ（pageBreak）</strong>: Chromium 系または weasyprint で再現可能。wkhtmltopdf/LaTeX では不安定。</li>
+<li><strong>per-page 横向き（orientation=landscape）</strong>: weasyprint または Chromium 最新版（CSS Paged Media Level 3 実装済み）が必要。</li>
+<li>**カード→別紙参照（print 時 mmi-card__title::before）**: <code>content: &quot;別紙参照: &quot;</code> は CSS content プロパティ対応エンジンで有効（Chromium/weasyprint ✅）。</li>
+<li><strong>本プロダクトの役割範囲</strong>: HTML と CSS の属性/クラス付与まで担保する。PDF レンダリングの最終品質は利用する PDF 生成器に依存し、本プロダクトの制御範囲外。</li>
+</ul>
+<hr />
+<p><em>このサンプルは <code>04_Documentation/samples/sier-design/</code> 配下で管理されます。</em><br />
+<em>関連 issue: <a href="../../01_Plans/issues/issue-0098-phase11-pdf-print-output-proof.md">issue-0098</a> / ADR-0010 G2/G4</em></p>
+</body>
+</html>

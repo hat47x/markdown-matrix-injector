@@ -1,11 +1,13 @@
 # VSCode Extension Host E2E Test Architecture
 
 ## 1. Goal
-- この文書は、Phase 5 の VSCode Extension Host E2E における**設計上の境界線**を固定する。
-- 対象は、DX ロジック本体・VSCode 統合層・E2E 検証レイヤ・manual E2E 補完領域の責務分離である。
+- この文書は、VSCode Extension Host E2E における**設計上の境界線**を固定する。
+- 対象は、DX ロジック本体・VSCode 統合層・Markdown Preview 結線・E2E 検証レイヤ・manual E2E 補完領域の責務分離である。
 - 本文書は architecture 境界の固定を目的とし、実装詳細・テスト実装詳細・manual runbook 手順は保証対象に含めない。
-- 特に issue-0010 の受入条件に対し、**native canonical path / fallback compatibility path / shared-logic boundary / known unstable separation** を architecture 上の責務として明文化する。
+- 特に issue-0010 の受入条件に対し **native canonical path / fallback compatibility path / shared-logic boundary / known unstable separation** を、ADR-0010 G1 品質ゲートに対し **Markdown Preview の中核描画を automation scope に含める** ことを、architecture 上の責務として明文化する。
 - 実行手順、チェックリスト、再現方法、失敗時オペレーションの詳細は `04_Documentation/vscode-e2e-testing.md` に委譲し、環境前提やセットアップ入口は `04_Documentation/developer-setup.md` に委譲する。
+
+**[2026-05-31 ADR-0010 改訂]** Phase 6 以前、Preview/Webview DOM の確認を「delegated manual scope」に恒久退避していた。しかし本プロダクトの中核価値（`![[...]]` 埋め込みをプレビューにインライン表示する）は Preview 描画が達成されて初めて実現される。「検証対象外」では G1 品質ゲートを満たせないため、**自動で取れる範囲（生成 HTML の構造・期待クラス/属性・ブロック描画・no-`<p>`-wrap）を automation scope へ引き上げる**。視覚の最終確認（スクリーンショット・印刷）のみ manual scope に残す。
 
 ## 2. Architecture decision summary
 1. **自動 E2E の主対象は Extension Host API レベルの統合確認**とする。
@@ -15,6 +17,7 @@
 5. OS ネイティブイベントから最終的に editor edit が反映される UX 確認は、設計上 **delegated manual scope** の責務とする。
 6. headless VSCode 1.112 系の autocomplete 不安定要因は、Paste / D&D 受入判定から切り離した **known risk** として扱う。
 7. architecture 文書は「何をどこまで保証対象に含めるか」を固定し、具体的な運用手順は documentation に委譲する。
+8. **[ADR-0010] Markdown Preview の中核描画（`extendMarkdownIt` による `![[...]]` の block-level 出力）は automation scope に含める**。具体的には: 生成 HTML の構造（`<figure>`/`<table>`/`mmi-*` クラス）、block 描画（`<p>` ラッパーを持たないこと）、`env.currentDocument` 経由のパス解決を Extension Host 上で確認する。視覚のスクリーンショット確認は delegated manual scope に残す。
 
 ## 3. Layered responsibility boundaries
 
@@ -59,21 +62,23 @@
   - verification boundary を issue-0010 の受入条件 1〜4 に対して trace 可能な最小線へ固定する。
   - Paste / D&D では、native provider が正規入口として登録され、同一解析ロジックへ委譲され、unsupported host では command fallback が互換経路として残ることを確認する。
   - issue-0010 の完了判定に必要な最小限の verification boundary を自動検証対象として保持する。
+  - **[ADR-0010 追加] Markdown Preview 中核描画の automation 検証**: `extendMarkdownIt`（本番プレビュー入口）経由で `![[...]]` を render し、生成 HTML の構造（`<figure class="mmi-embed">`/`<table class="mmi-table">`/`mmi-*` クラス/属性）と block 描画（`<p>` ラッパーを持たないこと）を Extension Host 上で確認する（`test/e2e/suite/extensionHost.test.ts`: `markdown-preview-entry` stage）。
 - 非責務:
-  - Preview DOM の視覚保証
+  - Preview DOM の**視覚**保証（スクリーンショット確認は delegated manual scope）
   - Problems パネル UI の視認性保証
   - OS ネイティブ paste / drop event の最終挙動保証
   - autocomplete 不安定時の運用判断や回避策策定
   - manual runbook に書くべき host 別操作順・再現手順・証跡採取手順の定義
 - 設計原則:
   - E2E は VSCode API から観測できる事実のみを automation scope に含める。
+  - **[ADR-0010] Preview 中核描画の HTML 構造確認を automation scope に含める。** 視覚微調整・スクリーンショット・印刷検証は delegated manual scope に委ねる。
   - native provider surface の存在確認と fallback 互換性確認を優先し、UI/OS 依存が強い経路は delegated manual scope に切り分ける。
   - 既知の非決定的要因は boundary 外として隔離し、Paste / D&D 受入判定と混線させない。
 
 ### 3.4 Delegated manual scope
 - 対象: `04_Documentation/vscode-e2e-testing.md` に記述される運用・確認手順
 - 責務:
-  - Preview / Webview DOM の見た目確認
+  - Preview / Webview DOM の**視覚**確認（スクリーンショット取得・実際の見た目確認。HTML 構造の正しさは automation scope で担う）
   - Problems パネル UI の確認
   - suggest widget の操作感確認
   - OS ネイティブ paste / drag-and-drop から editor edit が反映される最終経路の確認
@@ -168,9 +173,10 @@
 | Boundary | Automation scope | Delegated manual scope | Known risk / excluded concern |
 |---|---|---|---|
 | DXロジック本体 | 候補生成・診断判定・DataTransfer 解析結果・embed 生成ロジック再利用 | 実 UI 上の見え方 | headless 補完表示の非決定性 |
-| VSCode統合層 | provider / command の公開、native provider 優先、fallback 互換経路 | host ごとの体感差・運用導線 | unsupported host ごとの UI 差分 |
-| E2E検証レイヤ | Extension Host API から観測できる統合事実、native surface、fallback 成立 | Preview / Problems / suggest widget の視覚確認 | OS イベント最終反映、autocomplete known unstable |
-| Delegated manual scope | なし | OS ネイティブ event、Preview DOM、Problems UI、補完 UX | architecture 境界の再定義 |
+| VSCode統合層 | provider / command の公開、native provider 優先、fallback 互換経路、`extendMarkdownIt` export の存在 | host ごとの体感差・運用導線 | unsupported host ごとの UI 差分 |
+| **Markdown Preview 描画** [ADR-0010 追加] | `extendMarkdownIt` 経由の HTML 構造（`<figure>`/`<table>`/mmi-* クラス/属性）・block 描画（no-`<p>`-wrap）・`env.currentDocument` パス解決 | 実プレビューの視覚確認・スクリーンショット取得・印刷/PDF 確認 | DOMPurify 版差分による属性生存の微細変動 |
+| E2E検証レイヤ | Extension Host API から観測できる統合事実、native surface、fallback 成立、**Preview 中核描画の HTML 構造** | Preview の視覚・スクリーンショット、Problems / suggest widget の見た目確認 | OS イベント最終反映、autocomplete known unstable |
+| Delegated manual scope | なし | OS ネイティブ event、Preview **視覚**（HTML 構造は automation 側）、Problems UI、補完 UX | architecture 境界の再定義 |
 
 ## 9. Directory mapping
 - `03_Implement/src/dx/*`: DXロジック本体

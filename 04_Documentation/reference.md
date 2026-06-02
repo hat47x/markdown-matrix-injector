@@ -197,6 +197,12 @@
   - 本機能は印刷補助であり、外部ファイルの内容編集は行わない（ビューア専用）。
 - 運用制約（should）:
   - 画面表示で期待どおりでも、印刷結果は manual-e2e で都度確認する。
+  - HTML 出力の `data-page-break` / `data-orientation` 属性の付与は自動テストで実証済み。PDF への反映は利用する PDF 生成器に依存する。
+- known limitation:
+  - `@page named-page` per-page 横向き（`orientation=landscape`）は、weasyprint / Chromium 系では対応するが wkhtmltopdf 0.12.x / Pandoc+LaTeX では非対応。
+  - `pageBreak` は Chromium 系・weasyprint で対応。Pandoc+LaTeX バックエンドでは CSS `@media print` が解釈されない。
+  - 推奨 PDF 生成器: **VS Code Markdown PDF 拡張（Chromium ベース）** または **weasyprint**。
+  - 詳細な PDF 生成器別対応表: `04_Documentation/samples/sier-design/README.md`。
 - 既知制約（known limitation）:
   - 改ページと用紙向きの最終結果は、Pandoc / Markdown PDF / ブラウザ印刷の実装差に依存する。
 
@@ -316,6 +322,34 @@ A3. 本ツールは XML Spreadsheet 2003 のみ対象です。汎用 XML はフ�
 - `03_Implement/src/dx/pasteDrop.ts`
 - `03_Implement/test/pasteDrop.test.ts`
 
+## Preview Styles（プレビュースタイル）
+
+### 正常系挙動
+- VS Code Markdown プレビューは、`contributes.markdown.previewStyles` で宣言された `media/markdown-matrix.css` を自動読み込みする。
+- 表・カード・エラー表示・ハイライト・印刷制御（`@media print`）は、このスタイルシートによって適用される。
+
+### 適用されるクラス/属性の一覧
+| クラス / 属性 | 用途 |
+|---|---|
+| `.mmi-embed` / `[data-page-break]` / `[data-orientation]` | 埋め込みフレーム（改ページ・向き制御） |
+| `.mmi-embed__caption` | キャプション表示 |
+| `.mmi-table` / `.mmi-table__row--highlight` | テーブル・ハイライト行 |
+| `.mmi-table__cell--formatted` / `.mmi-table__cell-code` | コードブロック列 |
+| `.mmi-card` / `.mmi-card__title` / `.mmi-card__meta` | カード UI |
+| `.mmi-error` | エラー表示 |
+
+### 制約
+- 仕様制約（must）: スタイルは VS Code プレビュー内のみ適用される。他レンダラ（Obsidian等）は未対応。
+- known limitation: VS Code テーマ変数（`--vscode-*`）が未定義の環境ではフォールバック値が適用される。
+
+### 関連正本
+- `03_Implement/media/markdown-matrix.css`
+- `03_Implement/package.json` (`contributes.markdown.previewStyles`)
+- `03_Implement/test/previewStyles.test.ts`（CSS カバレッジ unit test）
+- ADR: `01_Plans/adr/ADR-0010-product-completion-gate.md`（G1 品質ゲート）
+
+---
+
 ## Autocomplete（補完）
 
 ### 正常系挙動
@@ -340,11 +374,16 @@ A3. 本ツールは XML Spreadsheet 2003 のみ対象です。汎用 XML はフ�
   - `01_Plans/issues/issue-0018-phase6-reference-trustworthiness.md`
   - `01_Plans/adr/ADR-0002-phase6-documentation-feedback-loop.md`
   - `01_Plans/adr/ADR-0003-phase6-user-value-maximization-roadmap.md`
+  - `01_Plans/adr/ADR-0010-product-completion-gate.md`（G1〜G4 品質ゲート）
 - 設計:
   - `02_Architecture/phase6-public-documentation-architecture.md`
+  - `02_Architecture/vscode-extension-host-e2e.md`（preview automation scope）
 - 実装/テスト:
   - `03_Implement/src`
   - `03_Implement/test`
+  - `03_Implement/media/markdown-matrix.css`（preview styles）
+- エンタープライズ出力サンプル（G2/G4 証跡）:
+  - `04_Documentation/samples/sier-design/README.md`
 
 ## Related docs
 - 概要: `04_Documentation/overview.md`

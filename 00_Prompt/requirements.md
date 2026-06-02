@@ -34,6 +34,8 @@ AIエージェントは、以下のPhase順に実装とテストを完了させ�
     * 対象: Drools参照パターンの実データテンプレート化、相互運用検証、設計文書・テスト資産の双方向同期運用。
 * **Phase 10: 採用運用ガバナンス自動化 (Adoption Operations Governance Automation)**
     * 対象: query-evidence の継続収集自動化、docs/support 改善SLAの可視化、運用KPIの週次レポート化。
+* **Phase 11: プロダクト完成度と公開品質 (Product Completeness & Release-Worthiness)**
+    * 対象: 本質価値（Markdown 中心・Excel 正本・エンタープライズ出力・データ完全性・DX）が実利用環境で end-to-end に達成・実証されているかを完成度の基準として問い直し、欠落を上流から順に閉じる。配布・採用施策は本基準（公開に足る品質ゲート）を満たすまで着手しない。
 
 ---
 
@@ -115,6 +117,26 @@ Phase 9 で整備したテンプレート資産・同期ゲート・観測導線
 * **Weekly governance report**: 導入時間、リンク不整合検知率、印刷再現性、問い合わせ自己解決率を週次で要約するレポート生成導線を整備する。
 * **Backlog auto-escalation rule**: 週次レポート上の閾値逸脱を `01_Plans/issues/` 起票候補として自動抽出し、Decisionが必要な事項のみ `01_Plans/adr/` へエスカレーションする。
 * **Auditability baseline**: 運用判断（優先度、延期理由、対応責任者）を追跡可能なメタデータとして残し、将来の採用監査・納品監査に耐える状態を標準化する。
+
+### 【Phase 11】 プロダクト完成度と公開品質 (Product Completeness & Release-Worthiness)
+Phase 1〜10 は機能領域ごとの実装と運用基盤を整えたが、**「モジュール単体が green であること」と「プロダクトが本質価値を実利用環境で提供できること」は別物**である。本フェーズは、配布より前に後者を完成度の基準として問い直し、満たすまで公開しないことを前提とする。詳細決定は `01_Plans/adr/ADR-0010-product-completion-gate.md`。
+
+**本質価値 (Essential Value) の再確認:**
+1. Markdown 中心の執筆 + Excel/CSV/XML を正本とした疎結合参照（二重管理・デシンクの排除）。
+2. クエリによる必要スライスのインライン表示。
+3. Word 代替に足るエンタープライズ出力（キャプション/相互参照/改ページ/用紙向き/巨大表の縮退/納品マニフェスト、PDF 品質）。
+4. 正本データの完全性（read-only ビューア、原本を破壊しない）。
+5. リンク切れ検知・補完・Paste/D&D の開発者体験。
+
+**公開に足る品質 (Definition of Release-Worthiness) — 完成度ゲート:**
+* **G1 End-to-end で動く**: 実 VS Code の Markdown プレビューで `![[...]]` が正しく描画される（サニタイズ後も生存・スタイル適用・キャッシュ動作・scroll sync 健全）。単体テストではなく実ホストの事実で確認する。
+* **G2 エンタープライズ出力が実証される**: 代表的な SIer 設計書サンプルで caption/相互参照/pageBreak/orientation/Smart Fallback が PDF 出力まで含めて意図どおり再現される（対応 PDF 生成器を最低 1 つ明示）。
+* **G3 データ完全性の保証**: 実 Excel/CSV/XML で原本が改変されないこと（read-only）を保証として確認する。
+* **G4 正直な適用範囲**: 動かない条件（PDF 生成器差分・XML 種別・host/version 制約・巨大ファイル限界）が推測でなく実測に基づき文書化される。
+* **判定主体**: G1〜G4 は manual-e2e を含む end-to-end エビデンスで判定し、requirements/ADR/issue へトレース可能にする。「issue が Done」「release gate が green」だけでは本ゲートを充足しない。
+
+**上流からの是正フロー（本フェーズの進め方）:**
+要件（本節）→ 設計（`ADR-0010`: end-to-end 検証ゲート、preview を manual scope へ恒久退避していた判断の見直し）→ 実装/テスト（preview 結線[済] → preview スタイル → block レベル描画・出力構造の健全性 → 実 e2e による描画生存の実証 → PDF/印刷検証 → 実データ fixture と正直な制約）→ 文書（主張と実測の整合）の順で閉じる。**配布・採用拡大（Marketplace 公開、コミュニティ整備、供給網運用）は本ゲート通過後の別フェーズ**として扱い、本フェーズでは着手しない。
 
 ---
 **【Initial Action Request (AIへの初期指示)】**
