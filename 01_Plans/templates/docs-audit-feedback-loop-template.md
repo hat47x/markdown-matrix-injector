@@ -2,6 +2,27 @@
 
 ## 0. Purpose
 - このテンプレートは、公開ドキュメント整備で発見した課題を **requirements / architecture / test / product gap** に分類し、正本へ確実に還流するための運用記録フォーマット。
+- 単独利用を前提とし、本ファイルだけで実施タイミング・入力・出力・完了条件・監査記録を完結できる。
+
+## 1. Operations Procedure（運用手順）
+
+### 1.1 実施タイミング
+以下のいずれかに該当した時点で docs audit を実施する。
+1. 公開ドキュメントの新規追加/大幅改訂を行った直後。
+2. イテレーション完了時（例: 週次クローズ、Phase内マイルストーン）
+3. 仕様不整合・導線不明瞭・再現不能手順を発見した直後。
+
+### 1.2 入力（Input）
+- 対象ドキュメント（変更対象の `04_Documentation/*` など）
+- 参照正本（`00_Prompt/requirements.md`、関連 `02_Architecture/*`、関連 `03_Implement/test/*`、関連 `01_Plans/issues/*`）
+- 直近の issue / ADR 状態（`python3 01_Plans/tools/planning_queue.py` 出力）
+
+### 1.3 出力（Output）
+- 本テンプレートに沿った監査記録（Audit Record）
+- 分類済みフィードバック一覧（未分類=0を目標）
+- 反映アクション（要件更新・設計更新・テスト追加・issue化）の追跡リンク
+
+### 1.4 完了条件（Definition of Done）
 - **Gate C（docs audit + feedback 分類）** を明示し、監査手順・分類手順・完了判定を単独で実施できる形に統一する。
 
 ## 1. Operations Procedure（運用手順）
@@ -69,10 +90,10 @@
 
 ### 3.1 Audit Metadata
 - Audit ID: `AUDIT-YYYYMMDD-XX`
-- 測定日: `YYYY-MM-DD`
+- Date: `YYYY-MM-DD`
 - Auditor: `(name or agent)`
 - Iteration/Phase: `(e.g., Phase 6 / weekly close)`
-- 対象文書:
+- Target Docs:
   - `04_Documentation/...`
 - Related Issue/ADR:
   - `01_Plans/issues/issue-0019-phase6-feedback-loop-operations.md`
