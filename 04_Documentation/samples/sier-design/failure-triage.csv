@@ -1,0 +1,9 @@
+Category,Symptom,FirstCheck,PossibleCause,Action,Severity
+PATH,ファイルが見つからない,相対パス確認,Markdownからの相対パス誤り,パスを修正して保存,High
+PATH,ワークスペース外参照エラー,フォルダ構成確認,ワークスペース未設定,VSCodeでフォルダを開く,High
+SHEET,シートが見つからない,シート名確認,シート名の誤字・空白,シート名をダブルクォートで確認,High
+XML,XMLパースエラー,ファイル先頭確認,汎用XMLを指定した,XML Spreadsheet 2003形式を確認,Medium
+RENDER,表が表示されない,プレビュー再起動,キャッシュ不整合,ファイルを一時保存して再開,Medium
+PRINT,改ページ未反映,PDF生成器確認,ブラウザ非対応CSS,Chrome系PDF生成器を使用,Medium
+PRINT,横向き未反映,@pageサポート確認,named-page非対応エンジン,weasyprint/Chromium headlessを使用,Medium
+DATA,データが更新されない,ファイル保存確認,mtimeキャッシュ期限内,ファイルを上書き保存,Low

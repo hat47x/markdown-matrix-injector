@@ -140,6 +140,23 @@ export async function renderEmbedForTest(args: RenderEmbedForTestArgs): Promise<
   return md.render(args.markdown);
 }
 
+/**
+ * Entry point invoked by VS Code's built-in Markdown preview when the extension
+ * contributes `markdown.markdownItPlugins`. This is what actually injects
+ * `![[...]]` embeds into the live preview. The Markdown file path is resolved
+ * per render from `env.currentDocument`, and a single cache is shared for the
+ * lifetime of the extension host so the mtime-keyed Workbook cache survives
+ * across preview re-renders.
+ */
+export function extendMarkdownIt(md: MarkdownIt): MarkdownIt {
+  const cache = new WorkbookCache<WorkbookData>();
+  return md.use(markdownMatrixPlugin, {
+    cache,
+    resolveWorkspaceRoot: (markdownFilePath: string) =>
+      vscode.workspace.getWorkspaceFolder(vscode.Uri.file(markdownFilePath))?.uri.fsPath,
+  });
+}
+
 function registerNativePasteDropProviders(context: vscode.ExtensionContext, nativePasteDropState: NativePasteDropState): void {
   registerNativePasteProvider(context, nativePasteDropState);
   registerNativeDropProvider(context, nativePasteDropState);

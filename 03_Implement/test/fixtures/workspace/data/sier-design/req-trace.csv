@@ -1,0 +1,9 @@
+RequirementId,Module,Requirement,Priority,VerificationMethod,TestId,Status,Notes
+REQ-001,AUTH,ログイン認証を実施すること,High,単体テスト,UT-001,Verified,パスワード強度制約含む
+REQ-002,AUTH,セッションタイムアウトを実装すること,High,結合テスト,IT-002,Verified,30分無操作で失効
+REQ-003,AUTH,ロールベースアクセス制御を提供すること,High,単体テスト,UT-003,Verified,管理者/一般/閲覧の3種
+REQ-004,PRINT,PDF出力で改ページを制御できること,Medium,手動確認,MT-004,In Review,pageBreak=before指定
+REQ-005,PRINT,横向き用紙ページを指定できること,Medium,手動確認,MT-005,In Review,orientation=landscape指定
+REQ-006,PRINT,巨大表を別紙参照ブロックへ縮退できること,Medium,単体テスト,UT-006,Verified,列10超またはセル500超
+REQ-007,DATA,外部CSVを読み取り専用で参照すること,High,単体テスト,UT-007,Verified,原本改変禁止
+REQ-008,DATA,mtimeキャッシュで再読込を最小化すること,Medium,単体テスト,UT-008,Verified,フリーズ防止

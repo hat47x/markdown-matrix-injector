@@ -1,0 +1,6 @@
+Gate,Check,Result,Threshold,Status,Notes
+G1,プレビュー描画確認,pass,全埋め込みが表またはカードで表示,OK,unit 154件 + production preview wiring 実証済み
+G2,PDF改ページ確認,pending,pageBreak指定箇所で改ページ再現,pending,Chromium/weasyprint系エンジンで手動確認必要
+G2,PDF横向き確認,pending,orientation=landscape指定ページが横向き,pending,named-page対応エンジン(weasyprint/Chrome headless)が必要
+G3,データ完全性確認,pass,原本CSV/XLSXが改変されない,OK,read-onlyビューア設計確認済み
+G4,適用範囲文書化,pass,非対応条件が実測ベースで明記,OK,04_Documentation/samples/sier-design/README.md参照

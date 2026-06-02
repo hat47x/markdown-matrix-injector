@@ -1,0 +1,6 @@
+FromState,Event,ToState,Guard,Action,Notes
+Draft,承認申請,UnderReview,申請者入力完了,レビュアーへ通知,初回申請
+UnderReview,承認,Approved,レビュアー確認済み,申請者へ承認通知,最終承認
+UnderReview,差戻し,Draft,要修正事項あり,申請者へ差戻し通知,修正後再申請
+Approved,発行,Published,承認済み確認,文書番号採番・発行,納品物として確定
+Published,改訂申請,UnderReview,改訂理由明記,版数インクリメント,改訂版として再審査
