@@ -1,0 +1,9 @@
+RuleName,DocScope,ConditionExpr,ActionExpr,Priority,EffectiveFrom,ExpiresAt,RelatedRequirement,RelatedTest,Notes
+PRINT_LAYOUT_LANDSCAPE,PrintControl,pageBreak=before AND orientation=landscape,apply print css profile,90,2026-04-01,2026-12-31,Phase3-PrintControl,markdownMatrixPlugin:metadata,印刷制御の最優先パターン
+SMART_FALLBACK_WIDE,SmartFallback,columnCount>10 OR cellCount>500,render card mode,80,2026-04-01,2026-12-31,Phase4-SmartFallback,smartFallback:auto-card,巨大表の縮退表示
+QUERY_FILTER_AUTH,QuerySlice,grep=AUTH,filter matching rows,70,2026-04-01,2026-12-31,Phase2-QueryParams,markdownMatrixPlugin:columns-grep,認可系の絞り込み
+SUPPORT_TRIAGE_PATH,Triage,path unresolved,classify as path failure,85,2026-04-01,2026-12-31,Phase8-Triage,phase8-runbook:path,一次切り分け用
+SUPPORT_TRIAGE_PRINT,Triage,print mismatch,classify as print failure,75,2026-04-01,2026-12-31,Phase8-Triage,phase8-runbook:print,印刷不整合の分類
+CONTRACT_REGRESSION_HEADER,ContractTest,header=first with columns select,assert stable header render,65,2026-04-01,2026-12-31,Phase8-ContractTest,markdownMatrixPlugin:header-columns,回帰防止の固定観点
+DOC_FEEDBACK_LOOP,FeedbackLoop,faq updated due to repeated incident,create issue and test task,60,2026-04-01,2026-12-31,Phase8-FeedbackLoop,planningQueue:trace,文書改善を上流還流
+RELEASE_GATE_TRACE,ReleaseReadiness,gate fail on unit test,block release and record evidence,95,2026-04-01,2026-12-31,Phase7-ReleaseGate,releaseGate:check,リリース判定の安全策

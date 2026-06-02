@@ -1,0 +1,6 @@
+BenchmarkTable,RuleId,RuleSet,ConditionExpr,ActionExpr,Priority,EffectiveFrom,ExpiresAt,QueryExample,RelatedRequirement,RelatedTest,Owner,Notes
+RequirementsTraceability,REQ_TRACE_AUTH,ReqTrace,module=AUTH AND doc=required,link requirement to verification row,90,2026-04-03,2026-12-31,header=first&columns=A,B,C,J,K,Phase9-Template,markdownMatrixPlugin:phase9-columns-header,author,要件トレースの基準行
+RequirementsTraceability,REQ_TRACE_PRINT,ReqTrace,module=PRINT AND control=pageBreak,attach print evidence reference,85,2026-04-03,2026-12-31,header=first&grep=PRINT,Phase9-Template,markdownMatrixPlugin:phase9-grep,reviewer,印刷制御の追跡行
+StateTransition,STATE_REVIEW_TO_APPROVED,StateFlow,state=REVIEW AND decision=APPROVE,move state to APPROVED,80,2026-04-03,2026-12-31,header=first&columns=A,B,D,E,Phase9-Template,markdownMatrixPlugin:phase9-columns-grep,author,状態遷移の正常系
+FailureTriage,TRIAGE_PATH_UNRESOLVED,Triage,path unresolved,classify incident as path failure,88,2026-04-03,2026-12-31,header=first&grep=path,Phase9-Template,markdownMatrixPlugin:phase9-grep,delivery,一次切り分けのパス失敗
+ReleaseGateDecision,GATE_BLOCK_UNIT_FAIL,ReleaseGate,unit test failed,block release and create action issue,95,2026-04-03,2026-12-31,header=first&columns=A,B,F&grep=block,Phase9-Template,markdownMatrixPlugin:phase9-release-gate,delivery,ゲート停止の標準ルール
