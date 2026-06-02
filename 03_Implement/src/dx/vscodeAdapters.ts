@@ -1,14 +1,19 @@
 import path from 'node:path';
+import { createHash } from 'node:crypto';
 import { type AutocompleteCandidate } from './autocompleteProvider.js';
 import { validateEmbedDiagnostics, type EmbedDiagnostic, type XmlMode } from './diagnostics.js';
+import { extractEmbedQueries } from '../parser/embedSyntax.js';
 import {
-  suggestEmbedFromDataTransfer,
-  suggestEmbedFromPasteDrop,
-  type PasteDropDataTransferItemLike,
+  readTransferValuesFromDataTransfer,
+  suggestEmbedFromTransferValues,
+  type PasteDropDataTransferLike,
 } from './pasteDrop.js';
 
 const EMBED_PATTERN = /!\[\[([^\]]+)\]\]/g;
 const XML_SPREADSHEET_SIGNATURES = ['<?mso-application progid="Excel.Sheet"?>', '<Workbook'];
+const WINDOWS_RESERVED_BASENAME_PATTERN = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i;
+const SOURCE_METADATA_NEWLINE_BOUNDARY_PATTERN = /\s*\n\s*/g;
+const SOURCE_METADATA_MARKDOWN_ESCAPE_PATTERN = /([\\`*_{}\[\]])/g;
 export interface PasteDropCommandArgs {
   clipboardHtml?: string;
   droppedFiles?: readonly string[];
@@ -63,6 +68,15 @@ export interface DocumentDiagnosticItem {
   range: RangeLike;
 }
 
+export interface QueryEvidenceRecord {
+  index: number;
+  filepath: string;
+  target: string;
+  range: string;
+  query: string;
+  raw: string;
+}
+
 export function getTextBeforePosition(documentText: string, positionCharacter: number): string {
   return documentText.slice(0, positionCharacter);
 }
@@ -112,8 +126,18 @@ export async function createDiagnosticsForDocument(
   const diagnostics: DocumentDiagnosticItem[] = [];
 
   for (const match of matches) {
-    const resolvedFilepath = resolveWorkbookPath(match.filepath, markdownFilePath, workspaceRoot);
-    const fileExists = await dependencies.fileExists(resolvedFilepath);
+    const resolvedCandidates = resolveWorkbookPathCandidates(match.filepath, markdownFilePath, workspaceRoot);
+    let resolvedFilepath = resolvedCandidates[0] ?? match.filepath;
+    let fileExists = false;
+
+    for (const candidate of resolvedCandidates) {
+      if (await dependencies.fileExists(candidate)) {
+        resolvedFilepath = candidate;
+        fileExists = true;
+        break;
+      }
+    }
+
     const xmlMode = fileExists ? await detectXmlMode(resolvedFilepath, dependencies) : 'none';
     const sheetExists = fileExists && match.target ? await hasSheet(resolvedFilepath, match.target, dependencies) : undefined;
     const embedDiagnostics = validateEmbedDiagnostics({
@@ -140,19 +164,39 @@ export async function createDiagnosticsForDocument(
 }
 
 export function getPasteInsertText(args?: PasteDropCommandArgs): string | undefined {
-  return args?.clipboardHtml ? suggestEmbedFromPasteDrop({ clipboardHtml: args.clipboardHtml })?.markdown : undefined;
+  if (!args?.clipboardHtml) {
+    return undefined;
+  }
+
+  return suggestEmbedFromTransferValues('paste', {
+    clipboardValues: { 'text/html': args.clipboardHtml },
+  })?.markdown;
 }
 
 export function getDropInsertText(args?: PasteDropCommandArgs): string | undefined {
-  return args?.droppedFiles ? suggestEmbedFromPasteDrop({ droppedFiles: args.droppedFiles })?.markdown : undefined;
+  if (!args?.droppedFiles) {
+    return undefined;
+  }
+
+  return suggestEmbedFromTransferValues('drop', {
+    droppedFiles: args.droppedFiles,
+  })?.markdown;
 }
 
 export async function getPasteInsertTextFromDataTransfer(dataTransfer: DataTransferLike): Promise<string | undefined> {
-  return (await suggestEmbedFromDataTransfer(toPasteDropDataTransfer(dataTransfer), 'paste'))?.markdown;
+  const pasteDropTransfer = toPasteDropDataTransfer(dataTransfer);
+  return suggestEmbedFromTransferValues(
+    'paste',
+    await readTransferValuesFromDataTransfer(pasteDropTransfer, 'paste'),
+  )?.markdown;
 }
 
 export async function getDropInsertTextFromDataTransfer(dataTransfer: DataTransferLike): Promise<string | undefined> {
-  return (await suggestEmbedFromDataTransfer(toPasteDropDataTransfer(dataTransfer), 'drop'))?.markdown;
+  const pasteDropTransfer = toPasteDropDataTransfer(dataTransfer);
+  return suggestEmbedFromTransferValues(
+    'drop',
+    await readTransferValuesFromDataTransfer(pasteDropTransfer, 'drop'),
+  )?.markdown;
 }
 
 export async function getPasteEditFromDataTransfer<T>(
@@ -172,12 +216,173 @@ export async function getDropEditFromDataTransfer<T>(
 }
 
 export function resolveWorkbookPath(rawFilepath: string, markdownFilePath: string, workspaceRoot?: string): string {
+  return resolveWorkbookPathCandidates(rawFilepath, markdownFilePath, workspaceRoot)[0] ?? rawFilepath;
+}
+
+function resolveWorkbookPathCandidates(rawFilepath: string, markdownFilePath: string, workspaceRoot?: string): string[] {
   if (path.isAbsolute(rawFilepath)) {
-    return rawFilepath;
+    return [rawFilepath];
   }
 
-  const relativeToDocument = path.resolve(path.dirname(markdownFilePath), rawFilepath);
-  return workspaceRoot ? relativeToDocument : relativeToDocument;
+  const candidates = [path.resolve(path.dirname(markdownFilePath), rawFilepath)];
+  if (workspaceRoot) {
+    candidates.push(path.resolve(workspaceRoot, rawFilepath));
+  }
+
+  return [...new Set(candidates)];
+}
+
+export function collectQueryEvidenceRecords(text: string): QueryEvidenceRecord[] {
+  return extractEmbedQueries(text).map((embed, index) => ({
+    index: index + 1,
+    filepath: embed.filepath,
+    target: embed.target ?? '',
+    range: embed.range ?? '',
+    query: embed.params.toString(),
+    raw: embed.raw,
+  }));
+}
+
+export function buildQueryEvidenceCsv(records: readonly QueryEvidenceRecord[]): string {
+  const header = ['index', 'filepath', 'target', 'range', 'query', 'raw'];
+  const rows = records.map((record) => [
+    record.index.toString(),
+    record.filepath,
+    record.target,
+    record.range,
+    record.query,
+    record.raw,
+  ]);
+
+  return [header, ...rows]
+    .map((columns) => columns.map((column) => escapeCsvColumn(column)).join(','))
+    .join('\n');
+}
+
+export function buildQueryEvidenceJson(records: readonly QueryEvidenceRecord[]): string {
+  return JSON.stringify(records, null, 2);
+}
+
+export function buildQueryEvidenceMarkdown(
+  records: readonly QueryEvidenceRecord[],
+  options?: { sourceName?: string },
+): string {
+  const hasSourceName = options !== undefined && Object.prototype.hasOwnProperty.call(options, 'sourceName');
+  const sourceLine = hasSourceName ? `- Source: ${formatSourceNameForMarkdownMetadata(String(options.sourceName ?? ''))}` : undefined;
+  if (records.length === 0) {
+    return ['## Query Evidence Report', '', ...(sourceLine ? [sourceLine] : []), '- Total records: 0', '', '_No evidence records found._'].join('\n');
+  }
+
+  const header = ['index', 'filepath', 'target', 'range', 'query', 'raw'];
+  const divider = ['---', '---', '---', '---', '---', '---'];
+  const rows = records.map((record) => [
+    record.index.toString(),
+    record.filepath,
+    record.target || '-',
+    record.range || '-',
+    record.query || '-',
+    record.raw,
+  ]);
+
+  const table = [header, divider, ...rows]
+    .map((columns) => `| ${columns.map((column) => escapeMarkdownTableColumn(column)).join(' | ')} |`)
+    .join('\n');
+
+  return ['## Query Evidence Report', '', ...(sourceLine ? [sourceLine] : []), `- Total records: ${records.length}`, '', table].join('\n');
+}
+
+function formatSourceNameForMarkdownMetadata(sourceName: string): string {
+  const normalized = sourceName
+    .replaceAll(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\u007F]/g, ' ')
+    .replaceAll('\t', ' ')
+    .replaceAll(/\r\n/g, '\n')
+    .replaceAll(/\r/g, '\n')
+    .replaceAll(SOURCE_METADATA_NEWLINE_BOUNDARY_PATTERN, ' ')
+    .trim();
+  const nonEmpty = normalized.length > 0 ? normalized : 'unknown-source';
+  return escapeMarkdownMetadataText(nonEmpty);
+}
+
+function escapeMarkdownMetadataText(text: string): string {
+  return text
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll(SOURCE_METADATA_MARKDOWN_ESCAPE_PATTERN, '\\$1');
+}
+
+export function buildQueryEvidenceOutputPaths(markdownFilePath: string): {
+  csvOutputPath: string;
+  jsonOutputPath: string;
+  markdownOutputPath: string;
+} {
+  const useWindowsPath = markdownFilePath.includes('\\');
+  const pathApi = useWindowsPath ? path.win32 : path;
+  const outputDirectory = getQueryEvidenceOutputDirectory(markdownFilePath);
+  const sourceBasename = getQueryEvidenceSourceBasename(markdownFilePath);
+  const safeBasename = normalizeQueryEvidenceBasename(sourceBasename);
+  const outputFilenamePrefix = `${safeBasename}.query-evidence`;
+
+  return {
+    csvOutputPath: pathApi.join(outputDirectory, `${outputFilenamePrefix}.csv`),
+    jsonOutputPath: pathApi.join(outputDirectory, `${outputFilenamePrefix}.json`),
+    markdownOutputPath: pathApi.join(outputDirectory, `${outputFilenamePrefix}.md`),
+  };
+}
+
+function normalizeQueryEvidenceBasename(sourceBasename: string): string {
+  const normalized = sourceBasename
+    .replaceAll(/[^\p{L}\p{N}_-]/gu, '-')
+    .replaceAll(/-+/g, '-')
+    .replaceAll(/^-|-$/g, '');
+  const nonEmpty = normalized.length > 0 ? normalized : 'markdown';
+  const reservedSafe = WINDOWS_RESERVED_BASENAME_PATTERN.test(nonEmpty) ? `${nonEmpty}-file` : nonEmpty;
+
+  if (reservedSafe.length <= 64) {
+    return reservedSafe;
+  }
+
+  const hashSuffix = createHash('sha1').update(reservedSafe).digest('hex').slice(0, 6);
+  const cappedPrefix = reservedSafe.slice(0, 57).replaceAll(/-$/g, '');
+  const capped = `${cappedPrefix}-${hashSuffix}`.replaceAll(/^-|-$/g, '');
+
+  return capped.length > 0 ? capped : 'markdown';
+}
+
+export function buildQueryEvidenceExportArtifacts(markdownText: string, markdownFilePath: string): {
+  sourceName: string;
+  records: QueryEvidenceRecord[];
+  csvText: string;
+  jsonText: string;
+  markdownReportText: string;
+  csvOutputPath: string;
+  jsonOutputPath: string;
+  markdownOutputPath: string;
+} {
+  const records = collectQueryEvidenceRecords(markdownText);
+  const sourceBasename = getQueryEvidenceSourceBasename(markdownFilePath);
+  const { csvOutputPath, jsonOutputPath, markdownOutputPath } = buildQueryEvidenceOutputPaths(markdownFilePath);
+
+  return {
+    sourceName: sourceBasename,
+    records,
+    csvText: buildQueryEvidenceCsv(records),
+    jsonText: buildQueryEvidenceJson(records),
+    markdownReportText: buildQueryEvidenceMarkdown(records, { sourceName: sourceBasename }),
+    csvOutputPath,
+    jsonOutputPath,
+    markdownOutputPath,
+  };
+}
+
+function getQueryEvidenceSourceBasename(markdownFilePath: string): string {
+  return markdownFilePath.includes('\\')
+    ? path.win32.basename(markdownFilePath, path.win32.extname(markdownFilePath))
+    : path.basename(markdownFilePath, path.extname(markdownFilePath));
+}
+
+function getQueryEvidenceOutputDirectory(markdownFilePath: string): string {
+  return markdownFilePath.includes('\\') ? path.win32.dirname(markdownFilePath) : path.dirname(markdownFilePath);
 }
 
 function* findEmbedMatches(text: string): Iterable<EmbedMatch> {
@@ -220,9 +425,9 @@ async function hasSheet(filepath: string, target: string, dependencies: Diagnost
   }
 }
 
-function toPasteDropDataTransfer(dataTransfer: DataTransferLike) {
+function toPasteDropDataTransfer(dataTransfer: DataTransferLike): PasteDropDataTransferLike {
   return {
-    get(mimeType: string): PasteDropDataTransferItemLike | undefined {
+    get(mimeType: string) {
       return dataTransfer.get(mimeType);
     },
   };
@@ -243,4 +448,16 @@ function positionAt(text: string, offset: number): PositionLike {
     line: lines.length - 1,
     character: lines.at(-1)?.length ?? 0,
   };
+}
+
+function escapeCsvColumn(value: string): string {
+  if (!/[",\n]/.test(value)) {
+    return value;
+  }
+
+  return `"${value.replaceAll('"', '""')}"`;
+}
+
+function escapeMarkdownTableColumn(value: string): string {
+  return value.replaceAll('|', '\\|').replaceAll('\n', '<br>');
 }

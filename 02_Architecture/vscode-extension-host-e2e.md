@@ -3,8 +3,9 @@
 ## 1. Goal
 - この文書は、Phase 5 の VSCode Extension Host E2E における**設計上の境界線**を固定する。
 - 対象は、DX ロジック本体・VSCode 統合層・E2E 検証レイヤ・manual E2E 補完領域の責務分離である。
-- 特に issue-0010 の受入条件に対し、**native provider surface / fallback 方針 / known unstable 分離**を architecture 上の責務として明文化する。
-- 実行手順、チェックリスト、再現方法、失敗時オペレーションの詳細は `04_Documentation/vscode-e2e-testing.md` に委譲する。
+- 本文書は architecture 境界の固定を目的とし、実装詳細・テスト実装詳細・manual runbook 手順は保証対象に含めない。
+- 特に issue-0010 の受入条件に対し、**native canonical path / fallback compatibility path / shared-logic boundary / known unstable separation** を architecture 上の責務として明文化する。
+- 実行手順、チェックリスト、再現方法、失敗時オペレーションの詳細は `04_Documentation/vscode-e2e-testing.md` に委譲し、環境前提やセットアップ入口は `04_Documentation/developer-setup.md` に委譲する。
 
 ## 2. Architecture decision summary
 1. **自動 E2E の主対象は Extension Host API レベルの統合確認**とする。
@@ -55,6 +56,7 @@
 - 責務:
   - 実際の VSCode Engine 上で、公開 surface の統合結果を検証する。
   - render / completion / diagnostics / native provider adapter / command fallback を API レベルで確認する。
+  - verification boundary を issue-0010 の受入条件 1〜4 に対して trace 可能な最小線へ固定する。
   - Paste / D&D では、native provider が正規入口として登録され、同一解析ロジックへ委譲され、unsupported host では command fallback が互換経路として残ることを確認する。
   - issue-0010 の完了判定に必要な最小限の verification boundary を自動検証対象として保持する。
 - 非責務:
@@ -62,6 +64,7 @@
   - Problems パネル UI の視認性保証
   - OS ネイティブ paste / drop event の最終挙動保証
   - autocomplete 不安定時の運用判断や回避策策定
+  - manual runbook に書くべき host 別操作順・再現手順・証跡採取手順の定義
 - 設計原則:
   - E2E は VSCode API から観測できる事実のみを automation scope に含める。
   - native provider surface の存在確認と fallback 互換性確認を優先し、UI/OS 依存が強い経路は delegated manual scope に切り分ける。
@@ -75,10 +78,12 @@
   - suggest widget の操作感確認
   - OS ネイティブ paste / drag-and-drop から editor edit が反映される最終経路の確認
   - native provider が editor UX として自然に機能するか、および fallback 導線が必要な host で運用上破綻しないかの最終確認
+  - automation boundary の外側にある host 別手順・観測順・比較順を manual runbook として保持すること
 - 非責務:
   - DX ロジックや統合層の仕様決定
   - 自動 E2E の代替となる詳細実装説明
   - architecture 境界そのものの再定義
+  - provider / fallback / shared logic の保証対象を拡張・縮小する判断
 - 設計原則:
   - manual E2E は、自動 E2E で保証しない UX/OS 依存領域の補完に限定する。
   - 運用上の詳細チェックリストは documentation に保持し、architecture 文書へ逆流させない。
@@ -89,18 +94,21 @@
 - Paste / D&D の正規入口は **native paste/drop provider** である。
 - この surface を canonical path と固定する理由は、VSCode が提供する native API surface に乗ることが editor 統合として最も自然であり、issue-0010 の「native provider surface から発火できること」を architecture 上の基準にできるためである。
 - ここでいう「発火できること」は、OS イベントの完全再現ではなく、**統合層から native provider surface が公開され、Extension Host から呼び出し可能な構造であること**を指す。
+- よって acceptance criteria 1 の architecture 上の裏付けは「native surface の可視性と接続性」であり、最終 UX の自然さは delegated manual scope に残す。
 
 ### 4.2 Compatibility path boundary
 - host に native provider API が無い、または安定して利用できない場合がある。
 - そのため **command fallback** を残し、native provider と同じ解析ロジックを通して embed 文字列を生成する。
 - command fallback は暫定実装ではなく、**unsupported host を支える compatibility path** として architecture に含める。
 - issue-0010 における「fallback 方針が明示されること」は、native provider を置き換えることではなく、host capability 不足時の互換入口を維持する方針を明示することを指す。
+- この compatibility path は、manual runbook の操作代替ではなく、統合層が保証対象として持つ API レベルの後方互換境界である。
 
 ### 4.3 Shared-logic boundary
 - native provider と command fallback は、入口は分かれていても **DataTransfer / dropped file 解析と embed 生成の仕様正本を共有**する。
 - したがって architecture 上の境界は「surface は複数でも、解釈ロジックは単一」である。
 - この shared logic boundary では、DX ロジック本体が唯一の解釈責務を持ち、VSCode 統合層と E2E 検証レイヤはその仕様正本を書き換えない。
 - issue-0010 における「既存 `pasteDrop.ts` を再利用し、重複実装しないこと」は、この shared-logic boundary に対応する。
+- shared logic は native / fallback の双方にまたがる仕様正本であり、テスト補助コードや manual runbook から新たな解釈を持ち込まない。
 
 ## 5. Verification boundary
 
@@ -112,6 +120,8 @@
   - unsupported host でも command fallback が compatibility path として成立すること
   - native provider と command fallback が別々の解析仕様へ分岐していないこと
 - したがって issue-0010 の受入条件における『native provider surface から発火できること』『既存ロジックを再利用すること』『fallback 方針が明示されること』は、自動 E2E の設計対象に含まれる。
+- ここでの automation boundary は **provider/fallback の仕様境界** に限定し、headless prerequisite の充足有無そのものは pass/fail の対象ではなく、後段の triage 前提として扱う。
+- acceptance criteria 4 に対しては、unit 詳細を architecture に持ち込まず、Extension Host E2E がどこまで退行検知を担うかという verification boundary の固定だけを本書の責務とする。
 
 ### 5.2 Delegated manual scope
 - 自動 E2E が保証しないもの:
@@ -120,9 +130,11 @@
   - host ごとのメニュー導線や権限差分を含む運用確認
   - Preview / Problems / suggest widget の視覚確認
 - これらは documentation に記述される manual E2E へ委譲する。
+- ただし委譲先は runbook の内容そのものではなく、『どの種類の確認を委譲するか』という delegated manual boundary の定義に限る。
 
 ### 5.3 Verification boundary rule
 - Paste / D&D の受入判定は、canonical path の公開、compatibility path の維持、shared logic の単一性までで閉じる。
+- headless prerequisite の欠落で Extension Host 自体を起動できない場合は、provider/fallback 仕様の失敗として解釈せず、**verification entry condition 未充足** として別系統で扱う。
 - autocomplete の安定性、visual UI、OS レベル最終挙動は、同一テストスイートに存在しても Paste / D&D の acceptance boundary に流入させない。
 - これにより、issue-0010 の automation boundary と delegated manual boundary を相互に独立した設計判断として維持する。
 
@@ -137,6 +149,10 @@
 - ただし headless 実行の成立は「E2E を実行可能にする環境前提」であり、手順や依存パッケージの詳細は運用文書へ委譲する。
 - architecture として固定するのは、**headless 実行でも API レベルの統合確認を先に成立させる**という方針である。
 - ここでいう API レベル統合確認には、native provider registration / fallback exposure / DX ロジック再利用の確認を含むが、UX の完全再現は含めない。
+- headless host では `xvfb-run` のような仮想ディスプレイ前提が欠けると、native/fallback 比較以前に VSCode 起動自体が成立しない。したがって architecture 上の first triage は **(1) headless prerequisite 充足確認 → (2) Extension Host 起動可否 → (3) native/fallback 境界の切り分け** の順とする。
+- ここでの `xvfb-run` 欠落は **verification entry condition の不足** を示すだけであり、provider/fallback 仕様の適否を直接示す証拠としては扱わない。
+- この headless triage boundary により、受入条件 1〜3 の仕様確認と、受入条件 4 の E2E 実行前提不足を別々に追跡できる。
+- この first triage 順により、環境起因の起動失敗と provider/fallback の仕様境界を混同しない。
 
 ## 7. Known risk isolation
 - **headless VSCode 1.112** 系では、autocomplete の sheet 候補取得が不安定になる既知リスクがある。
@@ -162,14 +178,56 @@
 - `03_Implement/test/e2e/**`: E2E検証レイヤ
 - `04_Documentation/vscode-e2e-testing.md`: delegated manual scope と実行運用
 
-## 10. issue-0010 acceptance trace summary
+## 10. issue-0010 acceptance mapping
+issue-0010 の acceptance criteria 1〜4 と Progress Notes に残っている未完了論点は、architecture 上では次の 4 類型へ正規化して読む。
+
+| Concern bucket | What remains open on the document side | Architecture decision | Boundary section | Handoff / note |
+|---|---|---|---|---|
+| native canonical path | native provider surface を Paste / D&D の canonical path として固定し、受入条件 1 の追跡点を明示する | native paste/drop provider を Paste / D&D の正規入口として固定する | `4.1 Canonical path boundary`, `5.1 Automation scope` | manual E2E は UX 最終到達だけを補完する |
+| fallback compatibility path | unsupported host でも fallback policy を acceptance criteria 3 として追跡できるようにする | command fallback を native 代替ではなく互換境界として維持する | `4.2 Compatibility path boundary`, `5.3 Verification boundary rule` | host capability 不足時でも受入条件 3 を追跡できる |
+| xvfb-run prerequisite | headless 実行前提不足を provider/fallback 仕様失敗と混同しない | headless prerequisite 未充足は verification entry condition として扱う | `5.3 Verification boundary rule`, `6. Headless execution boundary` | automation blocked と manual continuation を混線させない |
+| known unstable separation | autocomplete known unstable を Paste / D&D acceptance boundary から隔離する | `#` 補完不安定は Paste / D&D acceptance 境界から外す | `5.3 Verification boundary rule`, `7. Known risk isolation` | 同一 run で併発しても別トラックで記録する |
+
+補足として、acceptance criteria 2 の shared-logic reuse は上記 4 類型を横断する設計制約であり、native canonical path と fallback compatibility path の両方で `pasteDrop.ts` 再利用を守る前提条件として扱う。
+
+
+## 11. issue-0010 criteria-to-boundary table
+issue-0010 の acceptance criteria 1〜4 と Progress Notes を、architecture 単体で追えるように 1 行単位で正規化する。ここでは **何を固定するか** だけを記述し、実行手順や host 別操作順は再定義しない。
+
+| issue-0010 concern | Architectural proof point | Fixed in architecture | Explicitly delegated out of architecture |
+|---|---|---|---|
+| Acceptance 1: native provider surface から発火できること | native provider を canonical path として公開し、Extension Host API から呼び出し可能な構造であること | `4.1 Canonical path boundary`, `5.1 Automation scope` | OS event から editor edit までの最終 UX は manual scope / documentation |
+| Acceptance 2: `pasteDrop.ts` 再利用・重複実装禁止 | native / fallback が単一の DataTransfer・embed 生成ロジックへ収束すること | `3.1 DXロジック本体`, `4.3 Shared-logic boundary` | 実装詳細や helper 配置の説明は implementation 側 |
+| Acceptance 3: unsupported host での fallback 方針明示 | command fallback を compatibility path として残し、unsupported host を吸収すること | `3.2 VSCode統合層`, `4.2 Compatibility path boundary`, `5.3 Verification boundary rule` | host class ごとの first path / comparison path は runbook 側 |
+| Acceptance 4: unit / E2E の双方で退行がないこと | architecture は Extension Host E2E が担う verification boundary を固定し、unit の詳細は持ち込まないこと | `3.3 E2E検証レイヤ`, `5.1 Automation scope`, `6. Headless execution boundary` | unit test の詳細、CLI 実行順、再試行手順は setup / runbook 側 |
+| Progress note: native registration / shared parsing / fallback behavior を proof boundary にする | proof boundary を provider surface・shared logic・fallback compatibility に限定すること | `4.1`〜`4.3`, `5.1` | テストケース名や fixture 説明は implementation 側 |
+| Progress note: `xvfb-run` 未導入時は環境起因 | `xvfb-run` 欠落を verification entry condition 未充足として扱うこと | `5.3 Verification boundary rule`, `6. Headless execution boundary` | 導入手順や OS 依存セットアップは developer setup 側 |
+| Progress note: autocomplete `#` 補完不安定を分離 | Known unstable を Paste / D&D acceptance boundary から切り離すこと | `7. Known risk isolation` | 具体的な再現・観測・日次 triage は runbook 側 |
+
+## 12. Keyword traceability audit
+issue-0010 の受入条件 1〜4 を architecture 単体で追えることを確認するため、本書が固定すべきキーワードとその意味を次のように監査する。
+
+| Keyword | Architecture meaning | Why it stays here | Why details stay elsewhere |
+|---|---|---|---|
+| `native` | Paste / D&D の canonical path を指す | 正規入口の定義は architecture 判断だから | 実観測の操作順・証跡採取は runbook |
+| `fallback` | unsupported host 向け compatibility path を指す | 後方互換境界の有無は architecture 判断だから | host ごとの運用は runbook |
+| `DataTransfer` | native / fallback が共有する解釈責務の代表語 | shared-logic boundary の核だから | payload 実例や fixture は implementation / test |
+| `Paste / D&D` | canonical / compatibility の比較対象となる機能境界 | issue-0010 の受入条件に直結するから | 最終 UX 確認は manual documentation |
+| `autocomplete` | Paste / D&D と切り離す known unstable の代表語 | acceptance boundary を汚染しないため | 個別 triage は runbook |
+| `xvfb-run` | verification entry condition を示す headless prerequisite の代表語 | provider/fallback failure と分離する判断だから | インストール手順は developer setup |
+
+## 13. issue-0010 acceptance trace summary
 - Acceptance criteria 1「native provider surface から発火できること」には、`4.1 Canonical path boundary` と `5.1 Automation scope` が対応する。
 - Acceptance criteria 2「既存 `pasteDrop.ts` を再利用し重複実装しないこと」には、`4.3 Shared-logic boundary` が対応する。
 - Acceptance criteria 3「native provider が使えない環境での fallback 方針明示」には、`4.2 Compatibility path boundary` と `5.1 Automation scope` が対応する。
+- Progress note にある「native provider registration surface / shared parsing / fallback command behavior を proof boundary とする」整理は、`5.1 Automation scope` と `5.3 Verification boundary rule` に反映されている。
+- Progress note にある「`xvfb-run` 未導入時は環境起因で E2E 未完了」との扱いは、`6. Headless execution boundary` にて verification entry condition として分離している。
+- Progress note にある「manual E2E の比較順・failure triage は documentation 側に保持する」整理は、`3.4 Delegated manual scope` と `14. Documentation handoff rule` に反映されている。
 - Acceptance criteria 4「unit / E2E の双方で退行がないこと」のうち、本 architecture 文書が固定するのは **Extension Host E2E の verification boundary** までであり、unit の詳細や運用手順は実装層・documentation 層の責務とする。
-- 以上により、architecture 文書だけを読んでも、issue-0010 の automation boundary / delegated manual boundary / known unstable 分離方針を追跡できる。
+- 強化点として、acceptance criteria 4 を『E2E がどこまで退行検知を担い、どこから先を headless entry condition / delegated manual scope に分離するか』まで追跡可能にした。
+- 以上により、architecture 文書だけを読んでも、issue-0010 の automation boundary / delegated manual boundary / headless triage boundary を追跡できる。
 
-## 11. Documentation handoff rule
+## 14. Documentation handoff rule
 - この architecture 文書で固定するもの:
   - 各層の責務境界
   - native paste/drop provider を canonical path とする方針

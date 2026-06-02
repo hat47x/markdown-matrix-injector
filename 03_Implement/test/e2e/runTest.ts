@@ -9,6 +9,12 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const LOG_PREFIX = '[mmi:e2e:runner]';
+const FIRST_TRIAGE_ORDER = [
+  'environment-prerequisite',
+  'paste-drop-provider-*',
+  'autocomplete-known-unstable',
+  'unknown',
+] as const;
 const AUTOCOMPLETE_UNSTABLE_PATTERNS = [
   'Expected autocomplete suggestions after ![[.',
   'Expected sheet completion after #.',
@@ -61,34 +67,62 @@ const PROVIDER_CAPABILITY_PATTERNS = [
   'DocumentDropEditProvider',
 ] as const;
 const ENVIRONMENT_PATTERNS = [
-  'failed to launch',
-  'browser',
   'display',
   'headless',
   'xvfb',
-  'electron',
   'mmi_e2e_workspace is not set',
+  'enoent',
+] as const;
+const EXTENSION_HOST_BOOTSTRAP_PATTERNS = [
+  'failed to launch',
+  'browser',
   'extension host terminated unexpectedly',
   'econnrefused',
   'spawn',
-  'enoent',
   'timeout',
+  'failed to download vs code',
+  'failed to download and unzip vs code',
+  'getaddrinfo',
+  'error while loading shared libraries',
+  'cannot open display',
+] as const;
+const EXTENSION_HOST_ASSERTION_PATTERNS = [
+  'extensionhost.test.ts',
+  'issue-0010-acceptance1',
+  'issue-0010-acceptance2',
+  'issue-0010-acceptance3',
+  'issue-0010-acceptance4',
+  'paste-drop-proof-boundary',
+  'autocomplete-boundary',
+  'known flaky autocomplete gap isolated',
+  'expected supported host to register the native paste provider surface',
+  'expected supported host to register the native drop provider surface',
+  'expected command fallback verification metadata',
+  'expected command fallback compatibility path to insert paste embed',
+  'expected command fallback compatibility path to insert drop embed',
+  'expected native paste adapter to reuse shared parsing',
+  'expected native drop adapter to reuse shared parsing',
+  'expected autocomplete suggestions after ![[.',
+  'expected sheet completion after #.',
+  'expected parameter completion after ?.',
 ] as const;
 
 type FailureCategory =
-  | 'paste-drop-provider-capability'
-  | 'paste-drop-data-transfer'
-  | 'autocomplete-known-unstable'
   | 'environment-prerequisite'
-  | 'unclassified';
+  | 'paste-drop-provider-capability'
+  | 'paste-drop-provider-data-transfer'
+  | 'autocomplete-known-unstable'
+  | 'unknown';
 
 type FailureSignature = {
   category: FailureCategory;
   matchedSignals: string[];
   confidence: 'high' | 'medium' | 'low';
   likelyStream: 'autocomplete' | 'paste-drop-provider' | 'environment' | 'unknown';
+  triageStage: 'first-triage' | 'provider-triage' | 'known-unstable-isolation' | 'manual-log-review';
   nextAction: string;
   reasoning: string;
+  boundaryReminder: string;
 };
 
 type E2ERuntimeContext = {
@@ -114,6 +148,13 @@ type WorkspaceSnapshot = {
   hasWorkspaceFile: boolean;
 };
 
+type HeadlessEntryCondition = {
+  hasDisplayEnv: boolean;
+  underXvfbHarness: boolean;
+  xvfbRunInstalled: boolean;
+  recommendedRunner: string;
+};
+
 type LaunchMetadata = {
   executablePath?: string;
   requestedVersion?: string;
@@ -123,6 +164,7 @@ type LaunchMetadata = {
   ci: boolean;
   displayServer: 'wayland' | 'x11' | 'headless';
   envHints: string[];
+  headlessPrerequisiteState: HeadlessEntryCondition;
 };
 
 async function main(): Promise<void> {
@@ -151,6 +193,14 @@ async function main(): Promise<void> {
       launchArgs: runtime.launchArgs,
       extensionDevelopmentExists: fs.existsSync(runtime.extensionDevelopmentPath),
       extensionTestsExists: fs.existsSync(runtime.extensionTestsPath),
+      triageBoundary: {
+        runnerResponsibility: 'Classify and route only. The runner does not decide native-vs-fallback product policy.',
+        firstTriageOrder: FIRST_TRIAGE_ORDER,
+        environmentPrerequisite: 'Missing display/xvfb and Extension Host bootstrap failures are always classified first, before any provider or fallback conclusion is allowed.',
+        providerFailures: 'Only provider registration, fallback-compatibility, or DataTransfer assertions may classify as paste-drop-provider-* after environment triage is clear.',
+        autocompleteFailures: 'Known unstable autocomplete remains an independent category and never overrides a clean paste/drop provider result.',
+        unknownFailures: 'If no decisive signal matches, stop at unknown and inspect logs before entering native-fallback discussion.',
+      },
     });
     logSection('triage-hints', {
       knownUnstableAutocompleteSignals: AUTOCOMPLETE_UNSTABLE_PATTERNS,
@@ -158,15 +208,16 @@ async function main(): Promise<void> {
       dataTransferSignals: DATA_TRANSFER_PATTERNS,
       providerCapabilitySignals: PROVIDER_CAPABILITY_PATTERNS,
       environmentSignals: ENVIRONMENT_PATTERNS,
+      extensionHostBootstrapSignals: EXTENSION_HOST_BOOTSTRAP_PATTERNS,
       guidance: {
-        'autocomplete-known-unstable':
-          'Treat autocomplete as an independent headless instability first; do not regress paste/drop assertions until provider-specific signals appear.',
-        'paste-drop-provider-capability':
-          'Prioritize host capability probes, provider registration, and fallback routing. Compare capability=... payloads against integration state.',
-        'paste-drop-data-transfer':
-          'Prioritize DataTransfer payload shape, mime types, and adapter parsing before changing provider registration logic.',
         'environment-prerequisite':
-          'Prioritize missing display/headless launch prerequisites, workspace/bootstrap failures, or extension host startup issues before blaming test logic.',
+          'Finish environment triage first. Missing xvfb/display prerequisites or Extension Host bootstrap failures block any native/fallback discussion. If assertion-stage signals are absent, stop here and restore the entry condition before reading provider evidence.',
+        'paste-drop-provider-capability':
+          'After environment triage passes and assertion-stage signals are present, inspect host capability probes, provider registration, and fallback routing. Compare capability=... payloads against integration state.',
+        'paste-drop-provider-data-transfer':
+          'After environment triage passes and assertion-stage signals are present, inspect DataTransfer payload shape, mime types, and adapter parsing before changing provider registration logic.',
+        'autocomplete-known-unstable':
+          'Track autocomplete as an independent headless instability only when autocomplete-specific assertion-stage signals appear without provider failure evidence. Do not regress paste/drop assertions unless provider-specific signals also appear.',
       },
     });
     logSection('launch:start', { launchArgs: runtime.launchArgs });
@@ -228,22 +279,41 @@ function createRuntimeContext(): E2ERuntimeContext {
 }
 
 function assertHeadlessPrerequisites(runtime: E2ERuntimeContext): void {
+  const headlessEntryCondition = runtime.launchMetadata.headlessPrerequisiteState;
   if (process.platform !== 'linux') {
     return;
   }
 
-  if (process.env.DISPLAY || process.env.WAYLAND_DISPLAY || process.env.MMI_E2E_UNDER_XVFB === '1') {
+  if (headlessEntryCondition.hasDisplayEnv || headlessEntryCondition.underXvfbHarness) {
     return;
   }
 
   logSection('launch:precondition-failure', {
     reason: 'missing-virtual-display',
-    recommendation: 'Run through 03_Implement/scripts/run-vscode-e2e.sh so xvfb-run can provide a virtual display.',
+    failureCategory: 'environment-prerequisite',
+    separationFromSpec: 'Provider/fallback assertions were not executed; treat this as a headless prerequisite issue, not a paste/drop specification failure.',
+    recommendation: headlessEntryCondition.xvfbRunInstalled
+      ? 'Run through 03_Implement/scripts/run-vscode-e2e.sh so xvfb-run can provide a virtual display.'
+      : 'Install xvfb-run (for example via the xvfb package) or provide DISPLAY/WAYLAND_DISPLAY before rerunning the VSCode E2E harness.',
+    headlessEntryCondition,
     launchMetadata: runtime.launchMetadata,
   });
 
   throw new Error(
-    'Headless prerequisite missing: no DISPLAY/WAYLAND_DISPLAY detected. Re-run via 03_Implement/scripts/run-vscode-e2e.sh or `cd 03_Implement && npm run test:e2e`.',
+    headlessEntryCondition.xvfbRunInstalled
+      ? 'Headless prerequisite missing (environment-prerequisite): no DISPLAY/WAYLAND_DISPLAY detected, so provider/fallback assertions never started. Re-run via 03_Implement/scripts/run-vscode-e2e.sh or `cd 03_Implement && npm run test:e2e`.'
+      : 'Headless prerequisite missing (environment-prerequisite): no DISPLAY/WAYLAND_DISPLAY detected and xvfb-run is not installed, so provider/fallback assertions never started. Install xvfb-run or run with a display before attributing this to provider logic.',
+  );
+}
+
+function isCommandAvailable(commandName: string): boolean {
+  const pathEntries = (process.env.PATH ?? '').split(path.delimiter).filter(Boolean);
+  const executableExtensions = process.platform === 'win32'
+    ? (process.env.PATHEXT ?? '.EXE;.CMD;.BAT;.COM').split(';').filter(Boolean)
+    : [''];
+
+  return pathEntries.some((entry) =>
+    executableExtensions.some((extension) => fs.existsSync(path.join(entry, `${commandName}${extension}`))),
   );
 }
 
@@ -350,6 +420,12 @@ function collectLaunchMetadata(packageJson: Record<string, unknown>): LaunchMeta
     ci: process.env.CI === 'true',
     displayServer: detectDisplayServer(),
     envHints,
+    headlessPrerequisiteState: {
+      hasDisplayEnv: Boolean(process.env.DISPLAY || process.env.WAYLAND_DISPLAY),
+      underXvfbHarness: process.env.MMI_E2E_UNDER_XVFB === '1',
+      xvfbRunInstalled: isCommandAvailable('xvfb-run'),
+      recommendedRunner: 'cd 03_Implement && npm run test:e2e',
+    },
   };
 }
 
@@ -372,71 +448,97 @@ function classifyFailure(error: unknown, launchMetadata: LaunchMetadata): Failur
   const matchedDataTransferSignals = matchPatterns(normalized, DATA_TRANSFER_PATTERNS);
   const matchedCapabilitySignals = matchPatterns(normalized, PROVIDER_CAPABILITY_PATTERNS);
   const matchedEnvironmentSignals = matchPatterns(normalized, ENVIRONMENT_PATTERNS);
+  const matchedBootstrapSignals = matchPatterns(normalized, EXTENSION_HOST_BOOTSTRAP_PATTERNS);
+  const matchedAssertionSignals = matchPatterns(normalized, EXTENSION_HOST_ASSERTION_PATTERNS);
+  const reachedAssertionStage = matchedAssertionSignals.length > 0;
+  const environmentRisk = hasEnvironmentRisk(launchMetadata, normalized, reachedAssertionStage);
 
-  if (matchedCapabilitySignals.length > 0) {
-    return {
-      category: 'paste-drop-provider-capability',
-      matchedSignals: dedupe([...matchedProviderSignals, ...matchedCapabilitySignals]),
-      confidence: 'high',
-      likelyStream: 'paste-drop-provider',
-      nextAction:
-        'Inspect capability payloads, provider registration flags, and host API availability. Validate whether fallback commands should have been the proof point on this VSCode host.',
-      reasoning:
-        'Provider capability or registration markers were present in the failure, which usually indicates native API availability mismatches rather than autocomplete instability.',
-    };
-  }
-
-  if (matchedDataTransferSignals.length > 0) {
-    return {
-      category: 'paste-drop-data-transfer',
-      matchedSignals: dedupe([...matchedProviderSignals, ...matchedDataTransferSignals]),
-      confidence: 'high',
-      likelyStream: 'paste-drop-provider',
-      nextAction:
-        'Inspect DataTransfer contents, mime types, and adapter parsing output. Confirm whether HTML clipboard metadata or uri-list payloads were present before changing provider registration logic.',
-      reasoning:
-        'The failure references DataTransfer payloads or mime types, which points to paste/drop input parsing or adapter bridging rather than the autocomplete path.',
-    };
-  }
-
-  if (matchedAutocompleteSignals.length > 0) {
-    return {
-      category: 'autocomplete-known-unstable',
-      matchedSignals: matchedAutocompleteSignals,
-      confidence: launchMetadata.displayServer === 'headless' ? 'high' : 'medium',
-      likelyStream: 'autocomplete',
-      nextAction:
-        'Treat as likely headless VSCode completion instability first. Reproduce with the logged VSCode host version and display mode before blaming paste/drop provider work.',
-      reasoning:
-        'Only autocomplete-specific signals matched, and issue-0010 already records a known headless completion instability that is independent from paste/drop provider coverage.',
-    };
-  }
-
-  if (matchedEnvironmentSignals.length > 0 || hasEnvironmentRisk(launchMetadata, normalized)) {
+  if (matchedEnvironmentSignals.length > 0 || matchedBootstrapSignals.length > 0 || environmentRisk) {
     return {
       category: 'environment-prerequisite',
       matchedSignals: dedupe([
         ...matchedEnvironmentSignals,
-        ...(hasEnvironmentRisk(launchMetadata, normalized) ? [launchMetadata.displayServer === 'headless' ? 'headless-display' : 'display-server'] : []),
+        ...matchedBootstrapSignals,
+        ...(!reachedAssertionStage ? ['assertion-stage-not-reached'] : []),
+        ...(environmentRisk ? [launchMetadata.displayServer === 'headless' ? 'headless-display' : 'display-server'] : []),
       ]),
-      confidence: matchedEnvironmentSignals.length > 0 ? 'medium' : 'low',
+      confidence:
+        matchedEnvironmentSignals.length > 0 || matchedBootstrapSignals.length > 0 || !reachedAssertionStage
+          ? 'high'
+          : 'low',
       likelyStream: 'environment',
+      triageStage: 'first-triage',
       nextAction:
-        'Inspect launch-context and environment snapshot first. Confirm display/headless prerequisites, workspace bootstrap, and extension host startup before attributing the failure to provider logic.',
+        'Inspect launch-context and environment snapshot first. Confirm xvfb/display prerequisites, VSCode download/runtime dependencies, workspace bootstrap, and Extension Host startup before attributing the failure to provider logic. If issue-0010 assertion-stage markers never appeared, do not read this as a provider regression.',
       reasoning:
-        'The failure did not clearly point to a test assertion path and instead matched launch/bootstrap or host-environment signals.',
+        reachedAssertionStage
+          ? 'Headless prerequisite or Extension Host bootstrap signals were present, so provider/fallback assertions may not have executed cleanly. Treat this as an environment gating issue first.'
+          : 'The runner never observed issue-0010 assertion-stage markers, so the failure happened before provider/fallback proof could start. Treat this as an environment gating issue first.',
+      boundaryReminder:
+        'Runner scope ends at environment triage here. Do not enter native-vs-fallback product discussion until environment gating is cleared and issue-0010 assertion stages actually run.',
+    };
+  }
+
+  if (matchedCapabilitySignals.length > 0 && reachedAssertionStage) {
+    return {
+      category: 'paste-drop-provider-capability',
+      matchedSignals: dedupe([...matchedAssertionSignals, ...matchedProviderSignals, ...matchedCapabilitySignals]),
+      confidence: 'high',
+      likelyStream: 'paste-drop-provider',
+      triageStage: 'provider-triage',
+      nextAction:
+        'Inspect capability payloads, provider registration flags, and host API availability. Validate fallback compatibility evidence on this VSCode host before changing native-provider assumptions, and keep autocomplete evidence on a separate track.',
+      reasoning:
+        'Provider capability or registration markers were present after environment triage, which usually indicates native API availability mismatches rather than autocomplete instability.',
+      boundaryReminder:
+        'Runner scope ends at classification: compare host capability and fallback evidence first, and avoid expanding into native-fallback policy changes unless fallback assertions also fail.',
+    };
+  }
+
+  if (matchedDataTransferSignals.length > 0 && reachedAssertionStage) {
+    return {
+      category: 'paste-drop-provider-data-transfer',
+      matchedSignals: dedupe([...matchedAssertionSignals, ...matchedProviderSignals, ...matchedDataTransferSignals]),
+      confidence: 'high',
+      likelyStream: 'paste-drop-provider',
+      triageStage: 'provider-triage',
+      nextAction:
+        'Inspect DataTransfer contents, mime types, and adapter parsing output. Confirm whether HTML clipboard metadata or uri-list payloads were present before changing provider registration logic or fallback expectations, and keep autocomplete evidence on a separate track.',
+      reasoning:
+        'The failure references DataTransfer payloads or mime types after environment triage, which points to paste/drop input parsing or adapter bridging rather than the autocomplete path.',
+      boundaryReminder:
+        'Stay within parser/fixture triage first. Do not jump to native-fallback design discussion until command fallback evidence is compared.',
+    };
+  }
+
+  if (matchedAutocompleteSignals.length > 0 && reachedAssertionStage) {
+    return {
+      category: 'autocomplete-known-unstable',
+      matchedSignals: dedupe([...matchedAssertionSignals, ...matchedAutocompleteSignals]),
+      confidence: launchMetadata.displayServer === 'headless' ? 'high' : 'medium',
+      likelyStream: 'autocomplete',
+      triageStage: 'known-unstable-isolation',
+      nextAction:
+        'Treat as likely headless VSCode completion instability first. Reproduce with the logged VSCode host version and display mode before blaming paste/drop provider work, and keep provider/fallback acceptance tied to its own assertion signals.',
+      reasoning:
+        'Only autocomplete-specific signals matched, and issue-0010 already records a known headless completion instability that is independent from paste/drop provider coverage.',
+      boundaryReminder:
+        'Keep paste/drop provider acceptance isolated. This category is not evidence for or against native-fallback behavior.',
     };
   }
 
   return {
-    category: 'unclassified',
+    category: 'unknown',
     matchedSignals: dedupe([...matchedProviderSignals, ...matchedAutocompleteSignals]),
     confidence: 'low',
     likelyStream: 'unknown',
+    triageStage: 'manual-log-review',
     nextAction:
       'Inspect the error payload together with runtime-context, launch-context, and workspace-context logs to determine whether this is a launch problem, autocomplete gap, or paste/drop provider regression.',
     reasoning:
       'No decisive signature matched, so additional context from the runner snapshots is required to reproduce and triage the failure.',
+    boundaryReminder:
+      'Stop at unknown. Collect runner and suite logs before speculating about native provider fallback strategy.',
   };
 }
 
@@ -448,8 +550,18 @@ function dedupe(values: string[]): string[] {
   return [...new Set(values)];
 }
 
-function hasEnvironmentRisk(launchMetadata: LaunchMetadata, normalizedError: string): boolean {
-  return launchMetadata.displayServer === 'headless' && !normalizedError.includes('autocomplete') && !normalizedError.includes('datatransfer');
+function hasEnvironmentRisk(
+  launchMetadata: LaunchMetadata,
+  normalizedError: string,
+  reachedAssertionStage: boolean,
+): boolean {
+  return (
+    launchMetadata.displayServer === 'headless' &&
+    !reachedAssertionStage &&
+    !normalizedError.includes('autocomplete') &&
+    !normalizedError.includes('datatransfer') &&
+    !normalizedError.includes('provider registration')
+  );
 }
 
 function detectDisplayServer(): LaunchMetadata['displayServer'] {

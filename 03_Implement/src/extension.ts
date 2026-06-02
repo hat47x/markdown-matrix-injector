@@ -1,4 +1,5 @@
 import fs from 'node:fs/promises';
+import process from 'node:process';
 import MarkdownIt from 'markdown-it';
 import * as vscode from 'vscode';
 import * as XLSX from 'xlsx';
@@ -11,6 +12,7 @@ import {
 } from './dx/autocompleteProvider.js';
 import {
   buildCompletionItems,
+  buildQueryEvidenceExportArtifacts,
   createDiagnosticsForDocument,
   getDropEditFromDataTransfer,
   getDropInsertText,
@@ -23,6 +25,7 @@ import {
   toRelativeSuggestion,
   type PasteDropCommandArgs,
 } from './dx/vscodeAdapters.js';
+import { getScenarioTemplateCandidates, SCENARIO_OBSERVATION_TEMPLATE } from './dx/scenarioTemplate.js';
 import { markdownMatrixPlugin } from './plugin/markdownMatrixPlugin.js';
 
 interface RenderEmbedForTestArgs {
@@ -41,6 +44,17 @@ const FALLBACK_COMMAND_IDS = [
   'markdownMatrixInjector.insertEmbedFromPaste',
   'markdownMatrixInjector.insertEmbedFromDrop',
 ] as const;
+const NATIVE_PASTE_DROP_COMMAND_NAME = 'Insert Markdown Matrix embed';
+const ENABLE_TEST_COMMANDS_ENV_VAR = 'MMI_ENABLE_TEST_COMMANDS';
+const DEV_INSERT_SCENARIO_TEMPLATE_COMMAND_ID = 'markdownMatrixInjector.__dev.insertScenarioObservationTemplate';
+const DEV_EXPORT_QUERY_EVIDENCE_COMMAND_ID = 'markdownMatrixInjector.__dev.exportQueryEvidence';
+
+interface PasteDropIntegrationTestMetadata {
+  fallbackCommandIds: string[];
+  nativeEditKind: string;
+  pasteMimeTypes: string[];
+  dropMimeTypes: string[];
+}
 
 interface NativePasteDropState {
   hostSupportsPasteProvider: boolean;
@@ -72,6 +86,15 @@ function createNativeDropProviderOptions(): vscode.DocumentDropEditProviderMetad
   };
 }
 
+function createPasteDropIntegrationTestMetadata(): PasteDropIntegrationTestMetadata {
+  return {
+    fallbackCommandIds: [...FALLBACK_COMMAND_IDS],
+    nativeEditKind: NATIVE_PASTE_DROP_EDIT_KIND.value,
+    pasteMimeTypes: [...PASTE_MIME_TYPES],
+    dropMimeTypes: [...DROP_MIME_TYPES],
+  };
+}
+
 export function activate(context: vscode.ExtensionContext): void {
   const diagnostics = vscode.languages.createDiagnosticCollection('markdown-matrix-injector');
   const nativePasteDropState = createNativePasteDropState();
@@ -81,48 +104,7 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('markdownMatrixInjector.renderEmbedForTest', async (args: RenderEmbedForTestArgs) =>
       renderEmbedForTest(args),
     ),
-    // Compatibility path for older hosts or explicit command routing.
-    vscode.commands.registerTextEditorCommand(
-      'markdownMatrixInjector.insertEmbedFromPaste',
-      async (editor, _edit, args?: PasteDropCommandArgs) => {
-        const insertText = getPasteInsertText(args);
-        if (!insertText) {
-          return;
-        }
-
-        await editor.edit((editBuilder) => {
-          editBuilder.replace(editor.selection, insertText);
-        });
-      },
-    ),
-    vscode.commands.registerTextEditorCommand(
-      'markdownMatrixInjector.insertEmbedFromDrop',
-      async (editor, _edit, args?: PasteDropCommandArgs) => {
-        const insertText = getDropInsertText(args);
-        if (!insertText) {
-          return;
-        }
-
-        await editor.edit((editBuilder) => {
-          editBuilder.replace(editor.selection, insertText);
-        });
-      },
-    ),
-    vscode.commands.registerCommand(
-      'markdownMatrixInjector.__test.getPasteInsertTextFromDataTransfer',
-      (dataTransfer: vscode.DataTransfer) => getPasteInsertTextFromDataTransfer(dataTransfer),
-    ),
-    vscode.commands.registerCommand(
-      'markdownMatrixInjector.__test.getDropInsertTextFromDataTransfer',
-      (dataTransfer: vscode.DataTransfer) => getDropInsertTextFromDataTransfer(dataTransfer),
-    ),
-    vscode.commands.registerCommand('markdownMatrixInjector.__test.getPasteDropIntegrationState', () => ({
-      fallbackCommandIds: [...FALLBACK_COMMAND_IDS],
-      nativeEditKind: NATIVE_PASTE_DROP_EDIT_KIND.value,
-      pasteMimeTypes: [...PASTE_MIME_TYPES],
-      dropMimeTypes: [...DROP_MIME_TYPES],
-      ...nativePasteDropState,
-    })),
+    ...registerCompatibilityPasteDropCommands(),
     vscode.languages.registerCompletionItemProvider(
       MARKDOWN_SELECTOR,
       createCompletionProvider(),
@@ -133,6 +115,10 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.workspace.onDidSaveTextDocument((document) => refreshDiagnosticsForDocument(document, diagnostics)),
     vscode.workspace.onDidCloseTextDocument((document) => diagnostics.delete(document.uri)),
   );
+
+  if (shouldRegisterTestCommands(context)) {
+    context.subscriptions.push(...registerTestCommands(nativePasteDropState));
+  }
 
   registerNativePasteDropProviders(context, nativePasteDropState);
 
@@ -159,6 +145,114 @@ function registerNativePasteDropProviders(context: vscode.ExtensionContext, nati
   registerNativeDropProvider(context, nativePasteDropState);
 }
 
+function registerCompatibilityPasteDropCommands(): vscode.Disposable[] {
+  return [
+    // Compatibility path for older hosts or explicit command routing.
+    vscode.commands.registerTextEditorCommand(
+      FALLBACK_COMMAND_IDS[0],
+      createCompatibilityPasteDropCommandHandler(getPasteInsertText),
+    ),
+    vscode.commands.registerTextEditorCommand(
+      FALLBACK_COMMAND_IDS[1],
+      createCompatibilityPasteDropCommandHandler(getDropInsertText),
+    ),
+  ];
+}
+
+function shouldRegisterTestCommands(context: vscode.ExtensionContext): boolean {
+  return context.extensionMode === vscode.ExtensionMode.Test || process.env[ENABLE_TEST_COMMANDS_ENV_VAR] === '1';
+}
+
+function registerTestCommands(nativePasteDropState: NativePasteDropState): vscode.Disposable[] {
+  return [
+    vscode.commands.registerCommand(
+      'markdownMatrixInjector.__test.getPasteInsertTextFromDataTransfer',
+      (dataTransfer: vscode.DataTransfer) => getPasteInsertTextFromDataTransfer(dataTransfer),
+    ),
+    vscode.commands.registerCommand(
+      'markdownMatrixInjector.__test.getDropInsertTextFromDataTransfer',
+      (dataTransfer: vscode.DataTransfer) => getDropInsertTextFromDataTransfer(dataTransfer),
+    ),
+    vscode.commands.registerCommand('markdownMatrixInjector.__test.insertEmbedFromPaste', (args?: PasteDropCommandArgs) =>
+      insertEmbedIntoActiveEditor(getPasteInsertText(args)),
+    ),
+    vscode.commands.registerCommand('markdownMatrixInjector.__test.insertEmbedFromDrop', (args?: PasteDropCommandArgs) =>
+      insertEmbedIntoActiveEditor(getDropInsertText(args)),
+    ),
+    vscode.commands.registerTextEditorCommand(DEV_EXPORT_QUERY_EVIDENCE_COMMAND_ID, exportQueryEvidenceForEditor),
+    vscode.commands.registerCommand(DEV_INSERT_SCENARIO_TEMPLATE_COMMAND_ID, () =>
+      insertEmbedIntoActiveEditor(SCENARIO_OBSERVATION_TEMPLATE),
+    ),
+    vscode.commands.registerCommand('markdownMatrixInjector.__test.getPasteDropIntegrationState', () => ({
+      ...createPasteDropIntegrationTestMetadata(),
+      ...nativePasteDropState,
+    })),
+  ];
+}
+
+async function exportQueryEvidenceForEditor(editor: vscode.TextEditor): Promise<void> {
+  const document = editor.document;
+  if (document.isUntitled) {
+    void vscode.window.showWarningMessage('MMI: Save the Markdown file before exporting query evidence.');
+    return;
+  }
+
+  const {
+    sourceName,
+    records,
+    csvText,
+    jsonText,
+    markdownReportText,
+    csvOutputPath,
+    jsonOutputPath,
+    markdownOutputPath,
+  } = buildQueryEvidenceExportArtifacts(document.getText(), document.uri.fsPath);
+  if (records.length === 0) {
+    void vscode.window.showWarningMessage('MMI: No embed query evidence found in the current Markdown file.');
+    return;
+  }
+
+  try {
+    await Promise.all([
+      fs.writeFile(csvOutputPath, `${csvText}\n`, 'utf8'),
+      fs.writeFile(jsonOutputPath, `${jsonText}\n`, 'utf8'),
+      fs.writeFile(markdownOutputPath, `${markdownReportText}\n`, 'utf8'),
+    ]);
+    void vscode.window.showInformationMessage(
+      `MMI: Exported query evidence for ${sourceName} (${records.length}) -> ${csvOutputPath}, ${jsonOutputPath}, ${markdownOutputPath}`,
+    );
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`MMI: Failed to export query evidence: ${reason}`);
+  }
+}
+
+function createCompatibilityPasteDropCommandHandler(
+  getInsertText: (args?: PasteDropCommandArgs) => string | undefined,
+): (
+  editor: vscode.TextEditor,
+  edit: vscode.TextEditorEdit,
+  args?: PasteDropCommandArgs,
+) => Promise<void> {
+  return async (editor: vscode.TextEditor, _edit: vscode.TextEditorEdit, args?: PasteDropCommandArgs) => {
+    await insertEmbedIntoEditor(editor, getInsertText(args));
+  };
+}
+
+async function insertEmbedIntoActiveEditor(insertText: string | undefined): Promise<void> {
+  await insertEmbedIntoEditor(vscode.window.activeTextEditor, insertText);
+}
+
+async function insertEmbedIntoEditor(editor: vscode.TextEditor | undefined, insertText: string | undefined): Promise<void> {
+  if (!editor || !insertText) {
+    return;
+  }
+
+  await editor.edit((editBuilder) => {
+    editBuilder.replace(editor.selection, insertText);
+  });
+}
+
 function registerNativePasteProvider(context: vscode.ExtensionContext, nativePasteDropState: NativePasteDropState): void {
   // Canonical path for hosts that support native paste providers.
   if (typeof vscode.languages.registerDocumentPasteEditProvider !== 'function') {
@@ -174,7 +268,7 @@ function registerNativePasteProvider(context: vscode.ExtensionContext, nativePas
         async provideDocumentPasteEdits(_document, _ranges, dataTransfer, _context, _token) {
           const edit = await getPasteEditFromDataTransfer(dataTransfer, {
             createEdit: (insertText) =>
-              new vscode.DocumentPasteEdit(insertText, 'Insert Markdown Matrix embed', NATIVE_PASTE_DROP_EDIT_KIND),
+              new vscode.DocumentPasteEdit(insertText, NATIVE_PASTE_DROP_COMMAND_NAME, NATIVE_PASTE_DROP_EDIT_KIND),
           });
 
           return edit ? [edit] : [];
@@ -200,7 +294,7 @@ function registerNativeDropProvider(context: vscode.ExtensionContext, nativePast
         async provideDocumentDropEdits(_document, _position, dataTransfer, _token) {
           return getDropEditFromDataTransfer(dataTransfer, {
             createEdit: (insertText) =>
-              new vscode.DocumentDropEdit(insertText, 'Insert Markdown Matrix embed', NATIVE_PASTE_DROP_EDIT_KIND),
+              new vscode.DocumentDropEdit(insertText, NATIVE_PASTE_DROP_COMMAND_NAME, NATIVE_PASTE_DROP_EDIT_KIND),
           });
         },
       },
@@ -214,15 +308,25 @@ function createCompletionProvider(): vscode.CompletionItemProvider {
     async provideCompletionItems(document, position) {
       const linePrefix = getTextBeforePosition(document.lineAt(position.line).text, position.character);
 
-      if (!linePrefix.includes('![[')) {
+      if (linePrefix.includes('![[')) {
+        const candidateSets = await buildAutocompleteCandidateSets(document, linePrefix);
+        const candidates = buildCompletionItems(getAutocompleteCandidates(linePrefix, candidateSets));
+
+        return candidates.map((candidate) => {
+          const item = new vscode.CompletionItem(candidate.label, toCompletionKind(candidate.kind));
+          item.insertText = candidate.insertText;
+          return item;
+        });
+      }
+
+      const templateCandidates = getScenarioTemplateCandidates(document.getText(), linePrefix);
+
+      if (templateCandidates.length === 0) {
         return undefined;
       }
 
-      const candidateSets = await buildAutocompleteCandidateSets(document, linePrefix);
-      const candidates = buildCompletionItems(getAutocompleteCandidates(linePrefix, candidateSets));
-
-      return candidates.map((candidate) => {
-        const item = new vscode.CompletionItem(candidate.label, toCompletionKind(candidate.kind));
+      return templateCandidates.map((candidate) => {
+        const item = new vscode.CompletionItem(candidate.label, vscode.CompletionItemKind.Snippet);
         item.insertText = candidate.insertText;
         return item;
       });
