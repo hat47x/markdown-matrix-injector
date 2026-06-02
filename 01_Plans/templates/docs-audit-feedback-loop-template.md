@@ -23,11 +23,45 @@
 - 反映アクション（要件更新・設計更新・テスト追加・issue化）の追跡リンク
 
 ### 1.4 完了条件（Definition of Done）
+- **Gate C（docs audit + feedback 分類）** を明示し、監査手順・分類手順・完了判定を単独で実施できる形に統一する。
+
+## 1. Operations Procedure（運用手順）
+
+### 1.0 Gate Flow（固定順序）
+1. Gate A: Overview → Tutorial → Scenario → Reference の導線監査
+2. Gate B: Reference 品質監査
+3. **Gate C: docs audit 実施 + feedback 分類（本テンプレート範囲）**
+4. Gate D: scorecard 記録
+5. Gate E: `planning_queue.py` による triage 可視化
+
+> 本テンプレートは Gate C の実務正本。Gate D/E の参照情報（判定・triage要約）も同時に残す。
+
+### 1.1 Gate C 実施タイミング
+以下のいずれかに該当した時点で docs audit（Gate C）を実施する。
+1. 公開ドキュメントの新規追加/大幅改訂を行った直後。
+2. イテレーション完了時（例: 週次クローズ、Phase 内マイルストーン）。
+3. 仕様不整合・導線不明瞭・再現不能手順を発見した直後。
+
+### 1.2 Gate C 入力（Input）
+- 対象ドキュメント（変更対象の `04_Documentation/*` など）
+- 参照正本（`00_Prompt/requirements.md`、関連 `02_Architecture/*`、関連 `03_Implement/test/*`、関連 `01_Plans/issues/*`）
+- 直近の issue / ADR 状態（`python3 01_Plans/tools/planning_queue.py` 出力）
+- 分類テンプレート（`01_Plans/templates/docs-feedback-classification-template.md`）
+
+### 1.3 Gate C 出力（Output）
+- 本テンプレートに沿った監査記録（Audit Record）
+- 分類済みフィードバック一覧（`requirements / architecture / test / product gap`）
+- 反映アクション（要件更新・設計更新・テスト追加・issue 化）の追跡リンク
+- 監査サマリ（測定日 / 対象文書 / 判定 / 次アクション / 反映先リンク）
+
+### 1.4 Gate C 完了条件（Definition of Done）
 - [ ] 監査対象・観点・結果が記録されている
 - [ ] 全フィードバックが `requirements / architecture / test / product gap` のいずれかに分類済み
 - [ ] `未分類` 件数が 0
 - [ ] 各項目に反映先（ファイル/issue/ADR）または対応方針が紐づいている
 - [ ] triage 実行結果（planning_queue）を記録している
+- [ ] 監査サマリ（測定日 / 対象文書 / 判定 / 次アクション / 反映先リンク）を記録している
+- [ ] Closure Rule（未分類ゼロ + 反映先リンク完備）を満たしている
 
 ---
 
@@ -65,6 +99,17 @@
   - `01_Plans/issues/issue-0019-phase6-feedback-loop-operations.md`
   - `01_Plans/adr/...`
 
+### 3.1.1 監査サマリ（必須）
+- 判定: `Closed / Needs Follow-up`
+- 次アクション:
+  1. `(記入)`
+  2. `(記入)`
+- 反映先リンク:
+  - requirements: `(path/url or N/A)`
+  - architecture: `(path/url or N/A)`
+  - test: `(path/url or N/A)`
+  - product gap: `(path/url or N/A)`
+
 ### 3.2 Checklist
 - [ ] 手順は前提条件・期待結果まで一貫している
 - [ ] 要件/設計と記述矛盾がない
@@ -95,11 +140,14 @@
 - Reason:
   - `(完了条件を満たした根拠を記載)`
 
+> Gate C Rule: `未分類件数 > 0` の場合、`判定 = Closed` は不可（必ず `Needs Follow-up`）。
+> Closure Rule: `未分類件数 = 0` かつ全項目に反映先がある場合のみ `Closed`。
+
 ---
 
 ## 4. Operational Introduction Steps（運用導入手順）
 1. 本テンプレートを `01_Plans/templates/` からコピーし、監査単位ごとに新規記録を作成する。
-2. 監査対象ドキュメントと正本を突合し、Findingsを分類表へ記録する。
+2. 監査対象ドキュメントと正本を突合し、Findings を分類表へ記録する。
 3. `未分類` をゼロ化し、各項目へ反映先リンクを付与する。
 4. `python3 01_Plans/tools/planning_queue.py` を実行し、triage結果を `3.4` に記録する。
 5. 完了条件チェックを満たしたら Closure Note を `Closed` として確定する。
