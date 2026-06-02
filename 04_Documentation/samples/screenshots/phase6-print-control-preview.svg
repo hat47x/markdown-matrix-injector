@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="700" viewBox="0 0 1200 700">
+  <rect width="1200" height="700" fill="#1e1e1e"/>
+  <rect x="40" y="40" width="1120" height="620" rx="10" fill="#252526" stroke="#3c3c3c"/>
+  <text x="70" y="90" fill="#d4d4d4" font-size="28" font-family="Arial">MMI Preview Screenshot: Print Control</text>
+  <rect x="70" y="120" width="1060" height="60" fill="#0e639c"/>
+  <text x="90" y="160" fill="#ffffff" font-size="22" font-family="Arial">... ?caption=認可一覧&amp;id=tbl-auth&amp;pageBreak=before&amp;orientation=landscape</text>
+  <rect x="100" y="230" width="1000" height="330" fill="#ffffff" stroke="#333"/>
+  <text x="130" y="270" fill="#111" font-size="24" font-family="Arial">caption: 認可一覧</text>
+  <text x="130" y="310" fill="#111" font-size="22" font-family="Arial">id: tbl-auth</text>
+  <text x="130" y="350" fill="#111" font-size="22" font-family="Arial">class: mmi-page-break-before mmi-orientation-landscape</text>
+  <text x="130" y="400" fill="#111" font-size="22" font-family="Arial">print preview: page starts on new sheet (landscape hint)</text>
+  <text x="70" y="640" fill="#9cdcfe" font-size="20" font-family="Arial">Captured for Phase 6 docs visual aid (print-control parameter preview).</text>
+</svg>

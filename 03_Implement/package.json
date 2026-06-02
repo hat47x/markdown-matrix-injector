@@ -6,8 +6,16 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test:unit": "node --import tsx --test ./test/*.test.ts",
+    "test:phase9-sync": "python3 ../01_Plans/tools/check_phase9_template_sync.py",
     "test:e2e": "npm run build && bash ./scripts/run-vscode-e2e.sh",
-    "test": "npm run test:unit"
+    "test": "npm run test:unit && npm run test:phase9-sync",
+    "release:gate": "python3 ../01_Plans/tools/release_gate_check.py --repo-root .. --format json",
+    "release:gate:artifacts": "python3 ../01_Plans/tools/release_gate_check.py --repo-root .. --format json --output-file artifacts/release-gate.json --output-markdown-file artifacts/release-gate.md",
+    "release:gate:full": "npm run release:gate:clean && npm run release:gate:artifacts && python3 ../01_Plans/tools/release_gate_metrics.py --input-file ../artifacts/release-gate.json --output-file ../artifacts/release-gate-metrics.csv && npm run docs:phase7-rollup && npm run release:gate:assert",
+    "release:gate:clean": "python3 ../01_Plans/tools/release_gate_clean.py --repo-root ..",
+    "test:release-gate-tools": "python3 ../01_Plans/tools/test_release_gate_check.py && python3 ../01_Plans/tools/test_release_gate_metrics.py && python3 ../01_Plans/tools/test_release_gate_clean.py && python3 ../01_Plans/tools/test_phase7_issue_rollup.py && python3 ../01_Plans/tools/test_release_gate_assert_artifacts.py",
+    "docs:phase7-rollup": "python3 ../01_Plans/tools/phase7_issue_rollup.py --repo-root .. --output-file artifacts/phase7-issue-rollup.md",
+    "release:gate:assert": "python3 ../01_Plans/tools/release_gate_assert_artifacts.py --repo-root .."
   },
   "dependencies": {
     "markdown-it": "^14.1.0",
@@ -26,13 +34,24 @@
     "vscode": "^1.96.0"
   },
   "activationEvents": [
-    "onCommand:markdownMatrixInjector.renderEmbedForTest"
+    "onCommand:markdownMatrixInjector.renderEmbedForTest",
+    "onCommand:markdownMatrixInjector.insertEmbedFromPaste",
+    "onCommand:markdownMatrixInjector.insertEmbedFromDrop",
+    "onLanguage:markdown"
   ],
   "contributes": {
     "commands": [
       {
         "command": "markdownMatrixInjector.renderEmbedForTest",
         "title": "MMI: Render Embed For Test"
+      },
+      {
+        "command": "markdownMatrixInjector.insertEmbedFromPaste",
+        "title": "MMI: Insert Embed From Paste"
+      },
+      {
+        "command": "markdownMatrixInjector.insertEmbedFromDrop",
+        "title": "MMI: Insert Embed From Drop"
       }
     ]
   }
