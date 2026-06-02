@@ -56,8 +56,8 @@
 - 責務:
   - 実際の VSCode Engine 上で、公開 surface の統合結果を検証する。
   - render / completion / diagnostics / native provider adapter / command fallback を API レベルで確認する。
+  - Paste / D&D では、native provider が正規入口として登録され、同一解析ロジックへ委譲され、非対応 host では command fallback が互換経路として残ることを確認する。
   - verification boundary を issue-0010 の受入条件 1〜4 に対して trace 可能な最小線へ固定する。
-  - Paste / D&D では、native provider が正規入口として登録され、同一解析ロジックへ委譲され、unsupported host では command fallback が互換経路として残ることを確認する。
   - issue-0010 の完了判定に必要な最小限の verification boundary を自動検証対象として保持する。
 - 非責務:
   - Preview DOM の視覚保証
