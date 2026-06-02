@@ -12,7 +12,8 @@
 | `state-transition.csv` | 状態遷移表（正本データ） |
 | `failure-triage.csv` | 障害切り分けガイド（正本データ） |
 | `release-gate.csv` | リリース判定表（正本データ） |
-| `design-doc-sample-rendered.html` | Pandoc 生成 HTML（CSS 埋め込み済み、G2 証跡） |
+| `design-doc-sample-rendered.html` | **MMI パイプライン**生成 HTML（embeds 展開済み + CSS 埋め込み、G2 中間証跡）。`03_Implement/scripts/render-sample-html.ts` で再生成可能 |
+| `design-doc-sample.pdf` | 実 PDF（WeasyPrint、7 ページ、改ページ・横向き・別紙参照を再現。**G2 正式証跡**） |
 
 ## G2: 実証した機能と確認方法
 
@@ -42,18 +43,27 @@
    - 「表3: 文書ライフサイクル状態遷移」が横向きページで出力される
    - カード（`別紙: 障害切り分けガイド全件`）が「別紙参照:」プレフィックス付きのブロックで表示される
 
-### 経路 B: Pandoc + weasyprint
+### 経路 B（CI/ヘッドレス、実証済み）: MMI レンダリング HTML + weasyprint
+
+> ⚠️ **重要**: PDF 化する HTML は **MMI パイプラインで `![[...]]` を展開済み**のものを使うこと。
+> Pandoc 単体で生成した HTML は embeds が未展開（生テキスト）のままで、表・横向き・カードが一切出ません。
 
 ```bash
-# MMI プレビューで HTML をコピーするか、本サンプルの rendered.html を使用
-weasyprint design-doc-sample-rendered.html output.pdf
+# 1) 本サンプル同梱の rendered.html は MMI で展開済み（render-sample-html.ts 生成）。
+#    自分で再生成する場合:
+cd 03_Implement && node --import tsx scripts/render-sample-html.ts
+
+# 2) weasyprint で PDF 化
+weasyprint 04_Documentation/samples/sier-design/design-doc-sample-rendered.html output.pdf
 ```
 
-### 経路 C: Pandoc HTML → Chromium headless print
+2026-06-03 にこの経路で実証済み（`design-doc-sample.pdf`、7 ページ）。検証ログ: `04_Documentation/samples/manual-e2e-g1-g2-result-2026-06-03.md`。
+
+### 経路 C: MMI レンダリング HTML → Chromium headless print
 
 ```bash
-# Chromium/Chrome が必要
-chromium-browser --headless --print-to-pdf=output.pdf design-doc-sample-rendered.html
+# Chromium/Chrome が必要。HTML は経路 B 同様 MMI 展開済みのものを使う
+chromium-browser --headless --print-to-pdf=output.pdf 04_Documentation/samples/sier-design/design-doc-sample-rendered.html
 ```
 
 ## G4: 正直な適用範囲（実測ベース）
@@ -65,11 +75,19 @@ chromium-browser --headless --print-to-pdf=output.pdf design-doc-sample-rendered
 - `@media print` + `page-break-before/after` + `@page landscape/portrait` の CSS 定義: **CSS coverage unit で実証**
 - 原本データの非改変（read-only）: **unit で実証**
 
-### 手動確認が必要（GUI/CLI ツール依存）
+### 視覚確認（2026-06-03 CI/ヘッドレス経路で実施済み）
 
-- 実 VS Code プレビューでのスクリーンショット（GUI 必須）
-- PDF での改ページ再現（PDF 生成器必須）
-- PDF での per-page 横向き再現（named-page 対応エンジン必須）
+検証ログ: `04_Documentation/samples/manual-e2e-g1-g2-result-2026-06-03.md`
+
+- ✅ プレビュー描画（G1 Checklist F 全 6 観測点 Pass）: `screenshots/phase11-g1-preview.png`
+- ✅ PDF での改ページ再現（表2 の前で改ページ）: `screenshots/phase11-g2-page5-highlight-pagebreak.png`
+- ✅ PDF での per-page 横向き再現（p2/p3 が landscape、named `@page` 動作）: `screenshots/phase11-g2-page2-landscape.png` / `…page3-landscape-card.png`
+- ✅ カードの「別紙参照:」プレフィックス: 同上 page3 PNG
+
+### GUI 担当者向けに残る確認（必要時のみ）
+
+- 実 VS Code プレビュー webview の**実キャプチャ**（本確認は production パイプライン + 寄稿 CSS で同等描画を実証済みだが、webview そのものの画面取得は GUI 必須）
+- VS Code `Markdown PDF` 拡張（経路 A）での PDF 出力
 
 ### PDF 生成器の既知制約（実測）
 
