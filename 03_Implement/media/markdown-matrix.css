@@ -157,6 +157,9 @@
     display: block;
     border: 1px solid #000;
     background: none;
+    /* Keep the whole reference block (title + path) on one page. */
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   .mmi-card__title::before {

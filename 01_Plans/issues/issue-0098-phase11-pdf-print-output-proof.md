@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Test
-- Status: In Progress
+- Status: Done
 - Priority: High
 - Scope: 04_Documentation/samples (代表 SIer サンプル + PDF 手順), 03_Implement/media (print CSS), test/fixtures
 - Expected verification level: manual-e2e
@@ -32,7 +32,7 @@ G2 を代表サンプルで実証し、動かない条件を G4 として正直�
 - [x] Pandoc で自己完結 HTML（`design-doc-sample-rendered.html`）を生成済み — `@media print` / `page-break-before` ×4 / `@page` ×6 の埋め込みを確認（G2 中間エビデンス）。
 - [x] 対応 PDF 生成器（weasyprint / VS Code Markdown PDF / Chromium headless）と per-page orientation の制約を実測ベースで文書化（G4: `04_Documentation/samples/sier-design/README.md`）。
 - [x] 原本 CSV の非改変（G3）を unit test で実証。
-- [ ] 実 PDF の目視確認（GUI/CI 環境で実施 — 下記 G4 制約参照）。
+- [x] 実 PDF の目視確認（2026-06-03、CI/ヘッドレス経路 WeasyPrint で実施）: 7 ページ PDF（`design-doc-sample.pdf`）で改ページ・p2/p3 横向き（named `@page`）・別紙参照カードを確認。証跡 PNG: `screenshots/phase11-g2-page{2,3,5}-*.png`、ログ: `manual-e2e-g1-g2-result-2026-06-03.md`。
 
 ### Task breakdown
 - [x] 4 種 CSV fixture（req-trace/state-transition/failure-triage/release-gate）作成（samples + test fixtures）。

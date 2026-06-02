@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Test
-- Status: In Progress
+- Status: Done
 - Priority: High
 - Scope: 03_Implement/test/e2e/**, 03_Implement/scripts/run-vscode-e2e.sh, 02_Architecture/vscode-extension-host-e2e.md, 04_Documentation/vscode-e2e-testing.md
 - Expected verification level: integration + manual-e2e
@@ -33,7 +33,8 @@ issue-0093 で `extendMarkdownIt` を結線し unit で検証したが、**実 V
 - [x] 本番プレビュー入口（`extendMarkdownIt` 相当：`resolveWorkspaceRoot` コールバック + `env.currentDocument` 経由）が `<figure>`/`<table>`/mmi-* クラス/`data-*` 属性を持つ block-level HTML を出力し、`<p>` ラッパーを生じないことを unit で固定（`markdownMatrixPlugin.test.ts` +2 テスト、154 pass）。
 - [x] 実ホスト e2e ハーネスに `markdown-preview-entry` stage を追加（`test/e2e/suite/extensionHost.test.ts`）。xvfb-run は sudo パスワードなしでは WSL2 へインストール不可のため、実ホスト起動は G4 として正直に記録（sudo 要 / CI 環境前提）。
 - [x] `02_Architecture/vscode-extension-host-e2e.md` を ADR-0010 に従い更新：preview 描画 HTML 構造を automation scope へ引き上げ、視覚確認を delegated manual scope に明示。
-- [ ] manual-e2e runbook を実行し、実プレビューの実スクリーンショットをエビデンスとして保存（requires 実 VS Code GUI）。
+- [x] manual-e2e runbook（Checklist F）を CI/ヘッドレス経路で実行し、視覚スクリーンショットを取得（2026-06-03、全 6 観測点 Pass）。証跡: `04_Documentation/samples/screenshots/phase11-g1-preview.png`、ログ: `04_Documentation/samples/manual-e2e-g1-g2-result-2026-06-03.md`。
+- [ ] （GUI 担当者向け・必要時のみ）実 VS Code preview webview の実キャプチャ。
 
 ### Task breakdown
 - [x] block 描画化（standalone embed を html_block トークンへ）+ unit 回帰テスト +3。
