@@ -1,0 +1,40 @@
+name: Release Bundle
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+
+jobs:
+  bundle:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 03_Implement
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: 03_Implement/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Build extension
+        run: npm run build
+      - name: Run unit tests
+        run: npm test
+      - name: Create release bundle
+        working-directory: /workspace/markdown-matrix-injector
+        run: |
+          mkdir -p artifacts
+          tar -czf artifacts/markdown-matrix-injector-${GITHUB_REF_NAME:-manual}.tar.gz \
+            03_Implement/dist \
+            03_Implement/package.json \
+            README.md
+      - name: Upload release bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: markdown-matrix-injector-${{ github.ref_name }}
+          path: artifacts/*.tar.gz
