@@ -1,6 +1,17 @@
 const SUPPORTED_EXTENSIONS = ['.xlsx', '.xls', '.csv', '.xml'] as const;
+const FILES_MIME_TYPE = 'files';
+const MIME_PRIORITY_BY_SOURCE = {
+  paste: ['text/html', 'text/plain'],
+  drop: ['text/uri-list', 'text/html', 'text/plain'],
+} as const;
 
 type PasteDropSource = 'clipboard-html' | 'file-drop';
+export type PasteDropEntrySource = keyof typeof MIME_PRIORITY_BY_SOURCE;
+export type PasteDropMimeType = (typeof MIME_PRIORITY_BY_SOURCE)[PasteDropEntrySource][number];
+
+type PasteDropCandidate =
+  | { kind: 'clipboard'; value: string }
+  | { kind: 'files'; value: readonly string[] };
 
 export interface PasteDropSuggestion {
   source: PasteDropSource;
@@ -15,39 +26,72 @@ export interface PasteDropInput {
   droppedFiles?: readonly string[];
 }
 
+export interface PasteDropTransferValues {
+  clipboardValues?: Partial<Record<PasteDropMimeType, string>>;
+  droppedFiles?: readonly string[];
+}
+
+export interface PasteDropDataTransferItemLike {
+  asString(): PromiseLike<string>;
+  asFile?(): { uri?: { fsPath: string } } | undefined;
+}
+
+export interface PasteDropDataTransferLike {
+  get(mimeType: string): PasteDropDataTransferItemLike | undefined;
+}
+
+export interface PasteDropTransferReadResult extends PasteDropTransferValues {
+  clipboardValues: Partial<Record<PasteDropMimeType, string>>;
+}
+
 export function suggestEmbedFromPasteDrop(input: PasteDropInput): PasteDropSuggestion | null {
-  const clipboardSuggestion = input.clipboardHtml
-    ? suggestEmbedFromClipboardHtml(input.clipboardHtml)
-    : null;
+  return suggestEmbedFromTransferValues('paste', {
+    clipboardValues: input.clipboardHtml ? { 'text/html': input.clipboardHtml } : undefined,
+    droppedFiles: input.droppedFiles,
+  });
+}
 
-  if (clipboardSuggestion) {
-    return clipboardSuggestion;
-  }
+export function suggestEmbedFromTransferValues(
+  source: PasteDropEntrySource,
+  input: PasteDropTransferValues,
+): PasteDropSuggestion | null {
+  const candidates = MIME_PRIORITY_BY_SOURCE[source]
+    .map((mimeType) => toTransferCandidate(mimeType, input.clipboardValues?.[mimeType]))
+    .filter((candidate): candidate is PasteDropCandidate => candidate !== undefined);
 
-  return suggestEmbedFromDroppedFiles(input.droppedFiles ?? []);
+  return firstSuggestionFromCandidates([...candidates, toFilesCandidate(input.droppedFiles)]);
+}
+
+export async function suggestEmbedFromDataTransfer(
+  dataTransfer: PasteDropDataTransferLike,
+  source: PasteDropEntrySource,
+): Promise<PasteDropSuggestion | null> {
+  return suggestEmbedFromTransferValues(source, await readTransferValuesFromDataTransfer(dataTransfer, source));
 }
 
 export function suggestEmbedFromClipboardHtml(html: string): PasteDropSuggestion | null {
-  const filepath = extractSupportedFilepathFromHtml(html);
+  const normalizedHtml = html.trim();
+  if (!normalizedHtml) {
+    return null;
+  }
 
+  const filepath = extractSupportedFilepathFromHtml(normalizedHtml);
   if (!filepath) {
     return null;
   }
 
-  const sheet = extractSheetNameFromHtml(html);
-  const range = inferRangeFromHtmlTable(html);
-
+  const sheet = extractSheetNameFromHtml(normalizedHtml);
+  const range = inferRangeFromHtmlTable(normalizedHtml);
   return buildSuggestion('clipboard-html', filepath, sheet, range);
 }
 
 export function suggestEmbedFromDroppedFiles(files: readonly string[]): PasteDropSuggestion | null {
-  const filepath = files.find((file) => isSupportedWorkbookPath(file));
-
+  const filepath = firstSupportedPath(files);
   if (!filepath) {
     return null;
   }
 
-  return buildSuggestion('file-drop', normalizePath(filepath));
+  return buildSuggestion('file-drop', filepath);
 }
 
 export function isSupportedWorkbookPath(filepath: string): boolean {
@@ -57,7 +101,6 @@ export function isSupportedWorkbookPath(filepath: string): boolean {
 
 export function inferRangeFromHtmlTable(html: string): string | undefined {
   const rowMatches = [...html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)];
-
   if (rowMatches.length === 0) {
     return undefined;
   }
@@ -82,6 +125,62 @@ export function inferRangeFromHtmlTable(html: string): string | undefined {
   return `A1:${columnNumberToLabel(maxColumnCount)}${rowCount}`;
 }
 
+export async function readTransferValuesFromDataTransfer(
+  dataTransfer: PasteDropDataTransferLike,
+  source: PasteDropEntrySource,
+): Promise<PasteDropTransferReadResult> {
+  const clipboardValues: Partial<Record<PasteDropMimeType, string>> = {};
+
+  for (const mimeType of MIME_PRIORITY_BY_SOURCE[source]) {
+    const item = dataTransfer.get(mimeType);
+    const value = item ? (await item.asString()).trim() : '';
+    if (value) {
+      clipboardValues[mimeType] = value;
+    }
+  }
+
+  return {
+    clipboardValues,
+    droppedFiles: await readDroppedFiles(dataTransfer),
+  };
+}
+
+function toTransferCandidate(mimeType: PasteDropMimeType, value?: string): PasteDropCandidate | undefined {
+  const normalized = value?.trim();
+  if (!normalized) {
+    return undefined;
+  }
+
+  return mimeType === 'text/uri-list'
+    ? { kind: 'files', value: parseUriList(normalized) }
+    : { kind: 'clipboard', value: normalized };
+}
+
+function toFilesCandidate(value?: readonly string[]): PasteDropCandidate | undefined {
+  return value && value.length > 0 ? { kind: 'files', value } : undefined;
+}
+
+function firstSuggestionFromCandidates(candidates: readonly (PasteDropCandidate | undefined)[]): PasteDropSuggestion | null {
+  for (const candidate of candidates) {
+    const suggestion = suggestEmbedFromCandidate(candidate);
+    if (suggestion) {
+      return suggestion;
+    }
+  }
+
+  return null;
+}
+
+function suggestEmbedFromCandidate(candidate: PasteDropCandidate | undefined): PasteDropSuggestion | null {
+  if (!candidate) {
+    return null;
+  }
+
+  return candidate.kind === 'clipboard'
+    ? suggestEmbedFromClipboardHtml(candidate.value)
+    : suggestEmbedFromDroppedFiles(candidate.value);
+}
+
 function buildSuggestion(
   source: PasteDropSource,
   filepath: string,
@@ -102,14 +201,12 @@ function buildSuggestion(
 
 function extractSupportedFilepathFromHtml(html: string): string | undefined {
   const decodedHtml = decodeHtmlEntities(html);
-  const matches = decodedHtml.match(/(?:file:\/\/\/[^"'\s<>]+|[A-Za-z]:[\\/][^"'<>\s]+|\.\.?\/[^"]+?|\/[^"'<>\s]+?)(?:\.xlsx|\.xls|\.csv|\.xml)/gi);
-
+  const matches = decodedHtml.match(/(?:file:\/\/\/[^"'\s<>]+|[A-Za-z]:[\/][^"'<>\s]+|\.\.?\/[^"]+?|\/[^"'<>\s]+?)(?:\.xlsx|\.xls|\.csv|\.xml)/gi);
   if (!matches) {
     return undefined;
   }
 
-  const filepath = matches.find((candidate) => isSupportedWorkbookPath(candidate));
-  return filepath ? normalizePath(filepath) : undefined;
+  return firstSupportedPath(matches);
 }
 
 function extractSheetNameFromHtml(html: string): string | undefined {
@@ -123,13 +220,16 @@ function extractSheetNameFromHtml(html: string): string | undefined {
   for (const pattern of patterns) {
     const match = decodedHtml.match(pattern);
     const value = match?.[1] ?? match?.[2];
-
     if (value) {
       return value.trim();
     }
   }
 
   return undefined;
+}
+
+function firstSupportedPath(files: readonly string[]): string | undefined {
+  return files.map((file) => normalizePath(file)).find((file) => isSupportedWorkbookPath(file));
 }
 
 function columnNumberToLabel(columnNumber: number): string {
@@ -155,8 +255,30 @@ function decodeHtmlEntities(value: string): string {
 }
 
 function normalizePath(filepath: string): string {
-  const withoutFileScheme = filepath.replace(/^file:\/\//i, '');
-  const withForwardSlashes = withoutFileScheme.replace(/\\/g, '/');
-
+  const trimmed = filepath.trim();
+  const withoutFileScheme = trimmed.replace(/^file:\/\//i, '');
+  const decoded = decodeUriComponentSafely(withoutFileScheme);
+  const withForwardSlashes = decoded.replace(/\\/g, '/');
   return withForwardSlashes.replace(/^\/(?:[A-Za-z]:\/)/, (match) => match.slice(1));
+}
+
+function decodeUriComponentSafely(value: string): string {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
+
+async function readDroppedFiles(dataTransfer: PasteDropDataTransferLike): Promise<string[]> {
+  const filepath = dataTransfer.get(FILES_MIME_TYPE)?.asFile?.()?.uri?.fsPath;
+  return filepath ? [filepath] : [];
+}
+
+function parseUriList(value: string): string[] {
+  return value
+    .split(/\r?\n/)
+    .map((entry) => entry.trim())
+    .filter((entry) => entry.length > 0 && !entry.startsWith('#'))
+    .map((entry) => normalizePath(entry));
 }

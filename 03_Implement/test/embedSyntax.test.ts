@@ -20,6 +20,15 @@ test('extractEmbedQueries finds inline embeds inside a sentence', () => {
   assert.equal(parsed[0]?.filepath, 'docs/sample.csv');
 });
 
+test('parseEmbedSyntax supports query-only embeds without range delimiters', () => {
+  const parsed = parseEmbedSyntax('![[docs/sample.csv?grep=AUTH]]');
+
+  assert.ok(parsed);
+  assert.equal(parsed.filepath, 'docs/sample.csv');
+  assert.equal(parsed.range, undefined);
+  assert.equal(parsed.params.get('grep'), 'AUTH');
+});
+
 test('parseEmbedSyntax returns null for non-embed text', () => {
   assert.equal(parseEmbedSyntax('[link](example)'), null);
 });

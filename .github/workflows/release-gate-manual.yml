@@ -1,0 +1,104 @@
+name: Release Gate Manual
+
+on:
+  workflow_dispatch:
+    inputs:
+      allow_pending_issues:
+        description: 'Allow pending issues for G1 check'
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      skip_tests:
+        description: 'Skip G2 tests (not recommended for final release)'
+        required: true
+        default: 'false'
+        type: choice
+        options:
+          - 'false'
+          - 'true'
+      planning_timeout_sec:
+        description: 'Planning timeout (seconds)'
+        required: true
+        default: '60'
+        type: string
+      npm_test_timeout_sec:
+        description: 'npm test timeout (seconds)'
+        required: true
+        default: '900'
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-gate-manual-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  release-gate-manual:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: 03_Implement/package-lock.json
+      - name: Install dependencies
+        working-directory: 03_Implement
+        run: npm ci
+      - name: Run release-gate tool unit tests
+        working-directory: 03_Implement
+        run: npm run test:release-gate-tools
+      - name: Run release gate check (manual)
+        env:
+          ALLOW_PENDING_ISSUES: ${{ inputs.allow_pending_issues }}
+          SKIP_TESTS: ${{ inputs.skip_tests }}
+          PLANNING_TIMEOUT_SEC: ${{ inputs.planning_timeout_sec }}
+          NPM_TEST_TIMEOUT_SEC: ${{ inputs.npm_test_timeout_sec }}
+        working-directory: 03_Implement
+        run: |
+          set -euo pipefail
+          EXTRA_FLAGS=()
+
+          if [ "$ALLOW_PENDING_ISSUES" = "true" ]; then
+            EXTRA_FLAGS+=(--allow-pending-issues)
+          fi
+
+          if [ "$SKIP_TESTS" = "true" ]; then
+            EXTRA_FLAGS+=(--skip-tests)
+          fi
+
+          python3 ../01_Plans/tools/release_gate_check.py \
+            --repo-root .. \
+            --format json \
+            --output-file artifacts/release-gate.json \
+            --output-markdown-file artifacts/release-gate.md \
+            --planning-timeout-sec "$PLANNING_TIMEOUT_SEC" \
+            --npm-test-timeout-sec "$NPM_TEST_TIMEOUT_SEC" \
+            "${EXTRA_FLAGS[@]}"
+
+          python3 ../01_Plans/tools/release_gate_metrics.py \
+            --input-file ../artifacts/release-gate.json \
+            --output-file ../artifacts/release-gate-metrics.csv
+
+          python3 ../01_Plans/tools/phase7_issue_rollup.py \
+            --repo-root .. \
+            --output-file artifacts/phase7-issue-rollup.md
+
+          python3 ../01_Plans/tools/release_gate_assert_artifacts.py \
+            --repo-root ..
+      - name: Upload release gate artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-gate-manual-report
+          path: |
+            artifacts/release-gate.json
+            artifacts/release-gate.md
+            artifacts/release-gate-metrics.csv
