@@ -14,6 +14,7 @@
 | `release-gate.csv` | リリース判定表（正本データ） |
 | `design-doc-sample-rendered.html` | **MMI パイプライン**生成 HTML（embeds 展開済み + CSS 埋め込み、G2 中間証跡）。`03_Implement/scripts/render-sample-html.ts` で再生成可能 |
 | `design-doc-sample.pdf` | 実 PDF（WeasyPrint、7 ページ、改ページ・横向き・別紙参照を再現。**G2 正式証跡**） |
+| `design-doc-sample.delivery-manifest.csv` | `MMI: Generate Delivery Manifest` コマンドの出力例（別紙カード 1 件を抽出。要件 Phase 4） |
 
 ## G2: 実証した機能と確認方法
 

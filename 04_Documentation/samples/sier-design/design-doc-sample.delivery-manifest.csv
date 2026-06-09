@@ -1,0 +1,2 @@
+sourcePath,sheet,range,reason,caption,id
+./failure-triage.csv,Sheet1,A1:F9,mode=card 指定,別紙: 障害切り分けガイド全件,card-failure-triage-full
