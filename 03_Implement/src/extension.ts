@@ -1,10 +1,12 @@
 import fs from 'node:fs/promises';
+import path from 'node:path';
 import process from 'node:process';
 import MarkdownIt from 'markdown-it';
 import * as vscode from 'vscode';
 import * as XLSX from 'xlsx';
 import { WorkbookCache } from './cache/workbookCache.js';
 import type { WorkbookData } from './core/workbookLoader.js';
+import { buildDeliveryManifestCsv } from './manifest/collectDeliveryManifest.js';
 import {
   AUTOCOMPLETE_QUERY_PARAM_CANDIDATES,
   getAutocompleteCandidates,
@@ -104,6 +106,9 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerCommand('markdownMatrixInjector.renderEmbedForTest', async (args: RenderEmbedForTestArgs) =>
       renderEmbedForTest(args),
     ),
+    vscode.commands.registerTextEditorCommand('markdownMatrixInjector.generateDeliveryManifest', (editor) =>
+      generateDeliveryManifestForEditor(editor),
+    ),
     ...registerCompatibilityPasteDropCommands(),
     vscode.languages.registerCompletionItemProvider(
       MARKDOWN_SELECTOR,
@@ -155,6 +160,51 @@ export function extendMarkdownIt(md: MarkdownIt): MarkdownIt {
     resolveWorkspaceRoot: (markdownFilePath: string) =>
       vscode.workspace.getWorkspaceFolder(vscode.Uri.file(markdownFilePath))?.uri.fsPath,
   });
+}
+
+/**
+ * `MMI: Generate Delivery Manifest` (requirements Phase 4). Scans the active
+ * Markdown document for embeds that fall back to a card (i.e. become a delivery
+ * "別紙" attachment) and writes a CSV checklist next to the document.
+ */
+async function generateDeliveryManifestForEditor(editor: vscode.TextEditor): Promise<void> {
+  const document = editor.document;
+  if (document.isUntitled) {
+    void vscode.window.showWarningMessage('MMI: Save the Markdown file before generating a delivery manifest.');
+    return;
+  }
+
+  const workspaceRoot = vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath;
+  const { records, csvText } = buildDeliveryManifestCsv({
+    markdownText: document.getText(),
+    markdownFilePath: document.uri.fsPath,
+    workspaceRoot,
+    cache: new WorkbookCache<WorkbookData>(),
+  });
+
+  if (records.length === 0) {
+    void vscode.window.showInformationMessage(
+      'MMI: No attachment (card) embeds found in this document — delivery manifest not written.',
+    );
+    return;
+  }
+
+  const outputPath = buildDeliveryManifestOutputPath(document.uri.fsPath);
+  try {
+    await fs.writeFile(outputPath, `${csvText}\n`, 'utf8');
+    void vscode.window.showInformationMessage(
+      `MMI: Delivery manifest written (${records.length} attachment(s)) -> ${outputPath}`,
+    );
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`MMI: Failed to write delivery manifest: ${reason}`);
+  }
+}
+
+function buildDeliveryManifestOutputPath(markdownFilePath: string): string {
+  const directory = path.dirname(markdownFilePath);
+  const basename = path.basename(markdownFilePath, path.extname(markdownFilePath));
+  return path.join(directory, `${basename}.delivery-manifest.csv`);
 }
 
 function registerNativePasteDropProviders(context: vscode.ExtensionContext, nativePasteDropState: NativePasteDropState): void {

@@ -368,6 +368,23 @@ A3. 本ツールは XML Spreadsheet 2003 のみ対象です。汎用 XML はフ�
 - `03_Implement/src/dx/autocompleteProvider.ts`
 - `03_Implement/test/autocompleteProvider.test.ts`
 
+## Commands（コマンド）
+
+VS Code コマンドパレットから利用できる主要コマンド:
+
+| コマンド | ID | 用途 |
+|---|---|---|
+| MMI: Generate Delivery Manifest | `markdownMatrixInjector.generateDeliveryManifest` | 開いている Markdown 内で「別紙（カード）」として扱われる埋め込みを抽出し、納品チェックリスト CSV（`<filename>.delivery-manifest.csv`）を同じフォルダへ出力する（要件 Phase 4）。 |
+| MMI: Insert Embed From Paste | `markdownMatrixInjector.insertEmbedFromPaste` | クリップボードから埋め込み記法を生成・挿入する。 |
+| MMI: Insert Embed From Drop | `markdownMatrixInjector.insertEmbedFromDrop` | ドロップしたファイルから埋め込み記法を生成・挿入する。 |
+
+### Generate Delivery Manifest の挙動
+- 正常系挙動: `mode=card` 指定、列数 10 超、セル数 500 超、シート未指定（ファイル全体参照）で「別紙」となった埋め込みを 1 行ずつ CSV 化する（列: `sourcePath, sheet, range, reason, caption, id`）。
+- 代表的失敗ケース: 別紙対象が 0 件の場合は CSV を書かず通知のみ。未保存ファイルでは保存を促す。リンク切れ・シート不在の埋め込みは Diagnostics 対象であり、マニフェストには含めない。
+- 制約: 出力は read-only ビューアの補助であり、正本データは改変しない。
+- 関連正本: `03_Implement/src/manifest/collectDeliveryManifest.ts`, `03_Implement/src/manifest/generateDeliveryManifest.ts`, `03_Implement/test/collectDeliveryManifest.test.ts`
+- 出力例: `04_Documentation/samples/sier-design/design-doc-sample.delivery-manifest.csv`
+
 ## Cross-reference map（01_Plans / 02_Architecture / 03_Implement/test）
 - 要件正本: `00_Prompt/requirements.md`
 - 計画（Issue/ADR）:

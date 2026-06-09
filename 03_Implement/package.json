@@ -35,6 +35,7 @@
   },
   "activationEvents": [
     "onCommand:markdownMatrixInjector.renderEmbedForTest",
+    "onCommand:markdownMatrixInjector.generateDeliveryManifest",
     "onCommand:markdownMatrixInjector.insertEmbedFromPaste",
     "onCommand:markdownMatrixInjector.insertEmbedFromDrop",
     "onLanguage:markdown"
@@ -48,6 +49,10 @@
       {
         "command": "markdownMatrixInjector.renderEmbedForTest",
         "title": "MMI: Render Embed For Test"
+      },
+      {
+        "command": "markdownMatrixInjector.generateDeliveryManifest",
+        "title": "MMI: Generate Delivery Manifest"
       },
       {
         "command": "markdownMatrixInjector.insertEmbedFromPaste",

@@ -63,24 +63,40 @@ export function evaluateSmartFallback(input: SmartFallbackInput): SmartFallbackD
   return createDecision('table', ['within-table-threshold'], input);
 }
 
-export function shouldRenderAsCardImmediately(query: EmbedQuery): boolean {
+/**
+ * Smart Fallback decision that can be made WITHOUT loading the workbook
+ * (e.g. `mode=card`). Counts are zero here; only the mode is decisive.
+ */
+export function getImmediateSmartFallbackDecision(query: EmbedQuery): SmartFallbackDecision {
   return evaluateSmartFallback({
     mode: query.params.get('mode') ?? undefined,
     hasSheetTarget: true,
     rowCount: 0,
     columnCount: 0,
     cellCount: 0,
-  }).renderMode === 'card';
+  });
 }
 
-export function shouldRenderAsCardAfterLoad(query: EmbedQuery, workbook: WorkbookData): boolean {
+/**
+ * Smart Fallback decision once the workbook is loaded, using the real selection
+ * metrics (row/column/cell counts) and whether a sheet target was specified.
+ */
+export function getSmartFallbackDecisionAfterLoad(query: EmbedQuery, workbook: WorkbookData): SmartFallbackDecision {
   const metrics = getWorkbookSelectionMetrics(query, workbook);
 
   return evaluateSmartFallback({
     mode: query.params.get('mode') ?? undefined,
     hasSheetTarget: Boolean(query.target),
     ...metrics,
-  }).renderMode === 'card';
+  });
+}
+
+export function shouldRenderAsCardImmediately(query: EmbedQuery): boolean {
+  return getImmediateSmartFallbackDecision(query).renderMode === 'card';
+}
+
+export function shouldRenderAsCardAfterLoad(query: EmbedQuery, workbook: WorkbookData): boolean {
+  return getSmartFallbackDecisionAfterLoad(query, workbook).renderMode === 'card';
 }
 
 function getWorkbookSelectionMetrics(query: EmbedQuery, workbook: WorkbookData): Pick<SmartFallbackInput, 'rowCount' | 'columnCount' | 'cellCount'> {
