@@ -72,6 +72,17 @@ Phase 9 では次の 4 表を最小ベンチマークとして固定する。
 
 > 片側のみ更新した状態でのマージは禁止。
 
+### 2.0.1 [2026-07-09 追記, ADR-0013] Round-trip の3点化
+docs 用 CSV を更新した場合、以下を **同一コミット** で追加反映する（従来の docs/fixture 2 点ルールを拡張）。
+
+3. `04_Documentation/samples/phase9-rule-table-pattern-guide.md`（生成ガイド）を
+   `python3 01_Plans/tools/generate_phase9_pattern_guide.py` で再生成し、コミットに含める。
+
+再生成前に `python3 01_Plans/tools/generate_phase9_pattern_guide.py --check` を実行すると、
+コミット済みガイドが docs CSV に対して既に陳腐化していないかを確認できる（非ゼロ終了時は要再生成）。
+このガイドは `04_Documentation/samples/README.md` から MMI 非依存の読者向けに公開される
+（ADR-0012 D7 / ADR-0013 参照）。
+
 ### 2.1 監査NG時の一次対応
 `phase9 template sync: NG` が出力された場合、以下の順で修復する。
 
@@ -132,7 +143,8 @@ G3 は実行されない。JSON 出力では G3 detail が `skipped by --skip-te
 ## 5. 推奨実行シーケンス
 
 1. `python3 01_Plans/tools/check_phase9_template_sync.py`
-2. `cd 03_Implement && npm test`
-3. `python3 01_Plans/tools/planning_queue.py`
+2. `python3 01_Plans/tools/generate_phase9_pattern_guide.py --check`（ADR-0013、標準ガイドの陳腐化検知）
+3. `cd 03_Implement && npm test`
+4. `python3 01_Plans/tools/planning_queue.py`
 
-この順序を固定することで、テンプレート整合性 → 回帰検証 → planning 整合性を最短で確認できる。
+この順序を固定することで、テンプレート整合性 → 標準ガイド整合性 → 回帰検証 → planning 整合性を最短で確認できる。

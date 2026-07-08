@@ -17,6 +17,7 @@ AI エージェントがあらゆるファイルを編集できる時代、正�
 - **仕様書**: [`04_Documentation/spec/mmi-notation-v1.md`](04_Documentation/spec/mmi-notation-v1.md)（RFC 2119 規範・8 原則・劣化クラス）
 - **機械可読契約**: [`params.schema.json`](04_Documentation/spec/params.schema.json)（AI エージェント教示・実装検証用）
 - **conformance corpus**: [`03_Implement/test/conformance/`](03_Implement/test/conformance/cases.json)（他実装の準拠試験を兼ねる実行可能な規範例）
+- **表パターンガイド**: [`04_Documentation/samples/phase9-rule-table-pattern-guide.md`](04_Documentation/samples/phase9-rule-table-pattern-guide.md)（MMI 非依存で読める SIer 設計文書向け表パターン集）
 - **決定正本**: [`ADR-0012`](01_Plans/adr/ADR-0012-mission-redefinition-notation-as-governance-boundary.md)
 
 同梱の VS Code 拡張は、その最上位 L3（Delivery Profile: エンタープライズ印刷制御・納品マニフェスト）に準拠する参照実装です。

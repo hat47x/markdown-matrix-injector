@@ -69,6 +69,7 @@ Phase 6 の quality gate（FAQ・スクリーンショット/比較表評価）�
 | - | Phase 8 Operational Reliability | `04_Documentation/phase8-operational-reliability.md` | [Gist: MMI Phase8 Operational Reliability](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-phase8-operational-reliability) |
 | - | Phase 8 Drools Pattern Catalog | `04_Documentation/phase8-drools-inspired-table-patterns.md` | [Gist: MMI Phase8 Drools Pattern Catalog](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-phase8-drools-pattern-catalog) |
 | - | Phase 9 Rule Table Template Operations | `04_Documentation/phase9-rule-table-template-operations.md` | [Gist: MMI Phase9 Rule Table Template Operations](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-phase9-rule-table-template-operations) |
+| - | Phase 9 表パターンガイド（ツール非依存、ADR-0013） | `04_Documentation/samples/phase9-rule-table-pattern-guide.md` | [Gist: MMI Phase9 Pattern Guide](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-phase9-pattern-guide) |
 | - | 総合サンプル Markdown | `04_Documentation/samples/mmi-full-spec-sample.md` | [Gist: MMI Full Spec Sample Markdown](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-full-spec-sample-markdown) |
 
 ## Phase 6 運用導線（テンプレート・統制）
@@ -116,7 +117,8 @@ Phase 8 では「障害を早く直せる運用」と「文書改善を製品品
 
 1. Triage / runbook / feedback 運用ガイド
    - `04_Documentation/phase8-operational-reliability.md`
-2. Drools 参照の表パターン定義（文書/テストデータ）
+2. Drools 参照の表パターン定義（文書/テストデータ、**MMI 自身の内部機能を題材にしたケーススタディ**。
+   汎用テンプレートは Phase 9 の表パターンガイドを参照）
    - `04_Documentation/phase8-drools-inspired-table-patterns.md`
 3. Decision 正本（方針）
    - `01_Plans/adr/ADR-0006-phase8-operational-reliability-and-supportability.md`
@@ -144,6 +146,15 @@ Phase 9 では「テンプレート資産の再利用性」と「docs/fixture �
    - `--skip-tests` 併用時は G3 detail が `skipped by --skip-tests`（strict）または `skipped by --skip-tests (ignore-row-order not evaluated)`（relaxed指定時）となる
 7. triage 可視化
    - `python3 01_Plans/tools/planning_queue.py`
+
+### Phase 9 表パターンガイド（ツール非依存公開、ADR-0012 D7 / ADR-0013）
+- 標準ガイド（生成物）: `04_Documentation/samples/phase9-rule-table-pattern-guide.md`
+- 生成スクリプト: `python3 01_Plans/tools/generate_phase9_pattern_guide.py`
+- ドリフト検知: `python3 01_Plans/tools/generate_phase9_pattern_guide.py --check`
+- docs CSV 更新時は fixture CSV 同期に加え、本ガイドも同一コミットで再生成する（3点 round-trip、
+  `phase9-rule-table-template-operations.md` §2.0.1 参照）。
+- 既存の sync checker / release gate G3 / `markdownMatrixPlugin.test.ts` はこのガイド追加によって
+  一切変更しない（純粋加算）。
 
 ## 文書運用ポリシー（再確認）
 - `04_Documentation/` 配下の公開文書は、英語交じりの文体を避け、標準的な日本の技術書に準じた章立て・用語・文体で記述する。
