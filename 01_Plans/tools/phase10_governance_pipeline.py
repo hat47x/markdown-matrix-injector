@@ -28,6 +28,7 @@ def run_pipeline(
     decisions_path: Path,
     output_dir: Path,
     thresholds_path: Path | None = None,
+    manual_kpis_path: Path | None = None,
 ) -> dict[str, Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -36,7 +37,8 @@ def run_pipeline(
     harvest_path = output_dir / "phase10-evidence-harvest.json"
     harvest_path.write_text(json.dumps(artifact, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
-    governance_seed = harvest.build_governance_seed(artifact)
+    manual_kpis = harvest.load_manual_kpis(manual_kpis_path)
+    governance_seed = harvest.build_governance_seed(artifact, manual_kpis=manual_kpis)
     governance_seed_path = output_dir / "phase10-governance-seed.json"
     governance_seed_path.write_text(json.dumps(governance_seed, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
 
@@ -98,18 +100,25 @@ def main() -> int:
     parser.add_argument("--decisions", required=True, help="Decision JSON array for auditability logging")
     parser.add_argument("--output-dir", required=True, help="Directory for all generated artifacts")
     parser.add_argument("--thresholds", help="Optional escalation threshold override JSON")
+    parser.add_argument(
+        "--manual-kpis-file",
+        help="Optional path to a JSON object of manually recorded ADR-0012 D6 KPI values, "
+        "forwarded to the evidence-harvest governance seed step",
+    )
     args = parser.parse_args()
 
     gate_paths = [Path(raw) for raw in args.gate_inputs]
     decisions_path = Path(args.decisions)
     output_dir = Path(args.output_dir)
     thresholds_path = Path(args.thresholds) if args.thresholds else None
+    manual_kpis_path = Path(args.manual_kpis_file) if args.manual_kpis_file else None
     try:
         outputs = run_pipeline(
             gate_inputs=gate_paths,
             decisions_path=decisions_path,
             output_dir=output_dir,
             thresholds_path=thresholds_path,
+            manual_kpis_path=manual_kpis_path,
         )
     except (
         OSError,

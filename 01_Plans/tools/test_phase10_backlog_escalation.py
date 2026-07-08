@@ -9,17 +9,18 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 import phase10_backlog_escalation as escalation
+import phase10_governance_report as governance_report
 
 
 def _valid_governance_payload() -> dict[str, object]:
     return {
+        "schemaVersion": governance_report.SCHEMA_VERSION,
         "generatedAt": "2026-04-11T00:00:00Z",
         "week": {"label": "2026-W15", "startDate": "2026-04-06", "endDate": "2026-04-12"},
         "kpis": {
-            "adoptionLeadTimeHours": 20.0,
-            "linkIntegrityDetectionRate": 99.2,
-            "printReproducibilityRate": 98.5,
-            "selfResolutionRate": 75.0,
+            "displacedDuplicationCount": 4,
+            "canonDriftIncidentCount": 0,
+            "tableChangeReviewLeadTimeHours": 20.0,
         },
         "sla": {"triageHours": 24, "workaroundHours": 72, "fixHours": 168, "breaches": []},
         "nextActions": [],
@@ -34,7 +35,6 @@ class Phase10BacklogEscalationTests(unittest.TestCase):
         markdown_path: Path | None = None,
         thresholds_path: Path | None = None,
     ) -> subprocess.CompletedProcess[str]:
-    def run_cli(input_path: Path, output_path: Path, markdown_path: Path | None = None) -> subprocess.CompletedProcess[str]:
         command = [
             sys.executable,
             str(Path(__file__).with_name("phase10_backlog_escalation.py")),
@@ -54,10 +54,16 @@ class Phase10BacklogEscalationTests(unittest.TestCase):
         candidates = escalation.evaluate_candidates(payload, escalation.DEFAULT_THRESHOLDS)
         self.assertEqual(candidates, [])
 
-    def test_evaluate_candidates_detects_kpi_and_sla_deviation(self) -> None:
+    def test_evaluate_candidates_flags_displaced_duplication_stalled(self) -> None:
         payload = _valid_governance_payload()
-        payload["kpis"]["adoptionLeadTimeHours"] = 32.0
-        payload["kpis"]["printReproducibilityRate"] = 95.0
+        payload["kpis"]["displacedDuplicationCount"] = 0
+        candidates = escalation.evaluate_candidates(payload, escalation.DEFAULT_THRESHOLDS)
+        signals = {candidate["signal"] for candidate in candidates}
+        self.assertIn("displaced_duplication_stalled", signals)
+
+    def test_evaluate_candidates_flags_canon_drift_incident_exceeded(self) -> None:
+        payload = _valid_governance_payload()
+        payload["kpis"]["canonDriftIncidentCount"] = 2
         payload["sla"]["breaches"] = [
             {
                 "ticketId": "SUP-999",
@@ -69,9 +75,15 @@ class Phase10BacklogEscalationTests(unittest.TestCase):
         ]
         candidates = escalation.evaluate_candidates(payload, escalation.DEFAULT_THRESHOLDS)
         signals = {candidate["signal"] for candidate in candidates}
-        self.assertIn("adoption_lead_time", signals)
-        self.assertIn("print_reproducibility_rate", signals)
+        self.assertIn("canon_drift_incident_exceeded", signals)
         self.assertIn("sla_breach_count", signals)
+
+    def test_evaluate_candidates_flags_table_change_review_lead_time_exceeded(self) -> None:
+        payload = _valid_governance_payload()
+        payload["kpis"]["tableChangeReviewLeadTimeHours"] = 60.0
+        candidates = escalation.evaluate_candidates(payload, escalation.DEFAULT_THRESHOLDS)
+        signals = {candidate["signal"] for candidate in candidates}
+        self.assertIn("table_change_review_lead_time_exceeded", signals)
 
     def test_render_markdown_contains_candidate_lines(self) -> None:
         payload = _valid_governance_payload()
@@ -80,10 +92,10 @@ class Phase10BacklogEscalationTests(unittest.TestCase):
             [
                 {
                     "candidate_id": "2026-W15-01",
-                    "summary": "導入時間が閾値を超過",
-                    "metric": {"value": 30.0, "threshold": 24.0, "comparator": ">"},
-                    "suggested_owner": "author",
-                    "severity": "high",
+                    "summary": "表変更のレビュー所要時間が閾値を超過した",
+                    "metric": {"value": 60.0, "threshold": 48.0, "comparator": ">"},
+                    "suggested_owner": "delivery",
+                    "severity": "medium",
                 }
             ],
             escalation.DEFAULT_THRESHOLDS,
@@ -94,7 +106,7 @@ class Phase10BacklogEscalationTests(unittest.TestCase):
 
     def test_cli_writes_json_and_markdown(self) -> None:
         payload = _valid_governance_payload()
-        payload["kpis"]["selfResolutionRate"] = 60.0
+        payload["kpis"]["canonDriftIncidentCount"] = 3
 
         with tempfile.TemporaryDirectory() as tmp:
             input_path = Path(tmp) / "input.json"
@@ -112,7 +124,7 @@ class Phase10BacklogEscalationTests(unittest.TestCase):
 
     def test_cli_applies_threshold_override(self) -> None:
         payload = _valid_governance_payload()
-        payload["kpis"]["adoptionLeadTimeHours"] = 30.0
+        payload["kpis"]["tableChangeReviewLeadTimeHours"] = 60.0
 
         with tempfile.TemporaryDirectory() as tmp:
             tmp_path = Path(tmp)
@@ -120,13 +132,20 @@ class Phase10BacklogEscalationTests(unittest.TestCase):
             output_path = tmp_path / "candidates.json"
             thresholds_path = tmp_path / "thresholds.json"
             input_path.write_text(json.dumps(payload), encoding="utf-8")
-            thresholds_path.write_text(json.dumps({"max_adoption_lead_time_hours": 40.0}), encoding="utf-8")
+            thresholds_path.write_text(
+                json.dumps({"max_table_change_review_lead_time_hours": 96.0}), encoding="utf-8"
+            )
 
             completed = self.run_cli(input_path, output_path, thresholds_path=thresholds_path)
             self.assertEqual(completed.returncode, 0, msg=completed.stderr)
             output = json.loads(output_path.read_text(encoding="utf-8"))
             signals = {candidate["signal"] for candidate in output["candidates"]}
-            self.assertNotIn("adoption_lead_time", signals)
+            self.assertNotIn("table_change_review_lead_time_exceeded", signals)
+            # The override must actually reach evaluate_candidates()/build_output(),
+            # not just be parsed and discarded (regression guard for a prior bug
+            # where main() silently used DEFAULT_THRESHOLDS instead of the loaded
+            # override for both evaluation and the recorded thresholds field).
+            self.assertEqual(output["thresholds"]["max_table_change_review_lead_time_hours"], 96.0)
 
 
 if __name__ == "__main__":

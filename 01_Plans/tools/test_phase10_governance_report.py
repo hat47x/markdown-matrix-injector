@@ -11,6 +11,14 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import phase10_governance_report as report
 
 
+def _valid_kpis() -> dict[str, object]:
+    return {
+        "displacedDuplicationCount": 4,
+        "canonDriftIncidentCount": 0,
+        "tableChangeReviewLeadTimeHours": 18.0,
+    }
+
+
 class Phase10GovernanceReportTests(unittest.TestCase):
     @staticmethod
     def run_cli(input_path: Path, output_path: Path) -> subprocess.CompletedProcess[str]:
@@ -26,6 +34,7 @@ class Phase10GovernanceReportTests(unittest.TestCase):
 
     def test_parse_input_rejects_missing_required_key(self) -> None:
         payload = {
+            "schemaVersion": report.SCHEMA_VERSION,
             "generatedAt": "2026-04-11T00:00:00Z",
             "week": {"label": "2026-W15", "startDate": "2026-04-06", "endDate": "2026-04-12"},
             "sla": {"triageHours": 24, "workaroundHours": 72, "fixHours": 168, "breaches": []},
@@ -37,16 +46,61 @@ class Phase10GovernanceReportTests(unittest.TestCase):
             with self.assertRaisesRegex(report.ValidationError, r"root missing required key\(s\): kpis"):
                 report.parse_input(input_path)
 
-    def test_render_markdown_includes_kpi_and_sla_sections(self) -> None:
+    def test_parse_input_requires_schema_version(self) -> None:
         payload = {
             "generatedAt": "2026-04-11T00:00:00Z",
             "week": {"label": "2026-W15", "startDate": "2026-04-06", "endDate": "2026-04-12"},
+            "kpis": _valid_kpis(),
+            "sla": {"triageHours": 24, "workaroundHours": 72, "fixHours": 168, "breaches": []},
+            "nextActions": [],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            input_path = Path(tmp) / "no-schema-version.json"
+            input_path.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaisesRegex(report.ValidationError, r"root missing required key\(s\): schemaVersion"):
+                report.parse_input(input_path)
+
+    def test_parse_input_rejects_unsupported_schema_version(self) -> None:
+        payload = {
+            "schemaVersion": "phase10-governance-report/v1",
+            "generatedAt": "2026-04-11T00:00:00Z",
+            "week": {"label": "2026-W15", "startDate": "2026-04-06", "endDate": "2026-04-12"},
+            "kpis": _valid_kpis(),
+            "sla": {"triageHours": 24, "workaroundHours": 72, "fixHours": 168, "breaches": []},
+            "nextActions": [],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            input_path = Path(tmp) / "bad-schema-version.json"
+            input_path.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaisesRegex(report.ValidationError, r"unsupported schemaVersion"):
+                report.parse_input(input_path)
+
+    def test_parse_input_rejects_legacy_kpi_keys(self) -> None:
+        payload = {
+            "schemaVersion": report.SCHEMA_VERSION,
+            "generatedAt": "2026-04-11T00:00:00Z",
+            "week": {"label": "2026-W15", "startDate": "2026-04-06", "endDate": "2026-04-12"},
             "kpis": {
-                "adoptionLeadTimeHours": 18.0,
-                "linkIntegrityDetectionRate": 98.4,
-                "printReproducibilityRate": 97.9,
-                "selfResolutionRate": 63.5,
+                "adoptionLeadTimeHours": 20.25,
+                "linkIntegrityDetectionRate": 99.1,
+                "printReproducibilityRate": 98.0,
+                "selfResolutionRate": 65.0,
             },
+            "sla": {"triageHours": 24, "workaroundHours": 72, "fixHours": 168, "breaches": []},
+            "nextActions": [],
+        }
+        with tempfile.TemporaryDirectory() as tmp:
+            input_path = Path(tmp) / "legacy-kpis.json"
+            input_path.write_text(json.dumps(payload), encoding="utf-8")
+            with self.assertRaisesRegex(report.ValidationError, r"legacy field\(s\)"):
+                report.parse_input(input_path)
+
+    def test_render_markdown_includes_kpi_and_sla_sections(self) -> None:
+        payload = {
+            "schemaVersion": report.SCHEMA_VERSION,
+            "generatedAt": "2026-04-11T00:00:00Z",
+            "week": {"label": "2026-W15", "startDate": "2026-04-06", "endDate": "2026-04-12"},
+            "kpis": _valid_kpis(),
             "sla": {
                 "triageHours": 24,
                 "workaroundHours": 72,
@@ -72,19 +126,22 @@ class Phase10GovernanceReportTests(unittest.TestCase):
         }
         markdown = report.render_markdown(payload)
         self.assertIn("## KPI Summary", markdown)
+        self.assertIn("Displaced copy-paste duplication (count)", markdown)
+        self.assertIn("Canon-vs-document drift incidents (count)", markdown)
+        self.assertIn("Table-change review lead time (hours)", markdown)
         self.assertIn("## SLA Alerts", markdown)
         self.assertIn("SUP-120", markdown)
         self.assertIn("## Next Actions", markdown)
 
     def test_cli_generates_report_for_valid_input(self) -> None:
         payload = {
+            "schemaVersion": report.SCHEMA_VERSION,
             "generatedAt": "2026-04-11T00:00:00Z",
             "week": {"label": "2026-W15", "startDate": "2026-04-06", "endDate": "2026-04-12"},
             "kpis": {
-                "adoptionLeadTimeHours": 20.25,
-                "linkIntegrityDetectionRate": 99.1,
-                "printReproducibilityRate": 98.0,
-                "selfResolutionRate": 65.0,
+                "displacedDuplicationCount": 6,
+                "canonDriftIncidentCount": 1,
+                "tableChangeReviewLeadTimeHours": 20.25,
             },
             "sla": {"triageHours": 24, "workaroundHours": 72, "fixHours": 168, "breaches": []},
             "nextActions": [],
@@ -103,14 +160,10 @@ class Phase10GovernanceReportTests(unittest.TestCase):
 
     def test_cli_fails_for_missing_required_keys(self) -> None:
         payload = {
+            "schemaVersion": report.SCHEMA_VERSION,
             "generatedAt": "2026-04-11T00:00:00Z",
             "week": {"label": "2026-W15", "startDate": "2026-04-06", "endDate": "2026-04-12"},
-            "kpis": {
-                "adoptionLeadTimeHours": 20.25,
-                "linkIntegrityDetectionRate": 99.1,
-                "printReproducibilityRate": 98.0,
-                "selfResolutionRate": 65.0,
-            },
+            "kpis": _valid_kpis(),
             "sla": {"triageHours": 24, "workaroundHours": 72, "fixHours": 168, "breaches": []},
         }
 

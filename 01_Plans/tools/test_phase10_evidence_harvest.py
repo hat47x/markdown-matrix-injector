@@ -18,6 +18,7 @@ class Phase10EvidenceHarvestTests(unittest.TestCase):
         inputs: list[Path],
         output_path: Path | None = None,
         governance_output_path: Path | None = None,
+        manual_kpis_path: Path | None = None,
     ) -> subprocess.CompletedProcess[str]:
         command = [
             sys.executable,
@@ -29,6 +30,8 @@ class Phase10EvidenceHarvestTests(unittest.TestCase):
             command.extend(["--output", str(output_path)])
         if governance_output_path is not None:
             command.extend(["--governance-output", str(governance_output_path)])
+        if manual_kpis_path is not None:
+            command.extend(["--manual-kpis-file", str(manual_kpis_path)])
         return subprocess.run(command, check=False, capture_output=True, text=True)
 
     def test_parse_records_applies_default_failure_and_persona(self) -> None:
@@ -175,7 +178,89 @@ class Phase10EvidenceHarvestTests(unittest.TestCase):
             parsed = governance_report.parse_input(payload_path)
 
         self.assertEqual(parsed["week"]["label"], "auto-generated")
+        self.assertEqual(parsed["schemaVersion"], governance_report.SCHEMA_VERSION)
         self.assertIn("kpis", parsed)
+
+    def test_build_governance_seed_defaults_kpis_and_marks_provenance_unmeasured(self) -> None:
+        artifact = {"generatedAt": "2026-04-11T02:00:00Z", "recordCount": 0, "records": []}
+
+        seed = harvest.build_governance_seed(artifact)
+
+        self.assertEqual(
+            seed["kpis"],
+            {
+                "displacedDuplicationCount": 0,
+                "canonDriftIncidentCount": 0,
+                "tableChangeReviewLeadTimeHours": 0.0,
+            },
+        )
+        self.assertEqual(
+            seed["kpisProvenance"],
+            {
+                "displacedDuplicationCount": "unmeasured-default",
+                "canonDriftIncidentCount": "unmeasured-default",
+                "tableChangeReviewLeadTimeHours": "unmeasured-default",
+            },
+        )
+
+    def test_build_governance_seed_merges_manual_kpis_and_marks_provenance_manual(self) -> None:
+        artifact = {"generatedAt": "2026-04-11T02:00:00Z", "recordCount": 0, "records": []}
+
+        seed = harvest.build_governance_seed(
+            artifact,
+            manual_kpis={"displacedDuplicationCount": 6, "canonDriftIncidentCount": 1},
+        )
+
+        self.assertEqual(seed["kpis"]["displacedDuplicationCount"], 6)
+        self.assertEqual(seed["kpis"]["canonDriftIncidentCount"], 1)
+        self.assertEqual(seed["kpis"]["tableChangeReviewLeadTimeHours"], 0.0)
+        self.assertEqual(
+            seed["kpisProvenance"],
+            {
+                "displacedDuplicationCount": "manual",
+                "canonDriftIncidentCount": "manual",
+                "tableChangeReviewLeadTimeHours": "unmeasured-default",
+            },
+        )
+
+    def test_cli_merges_manual_kpis_file_into_governance_seed(self) -> None:
+        with tempfile.TemporaryDirectory() as tmp:
+            workdir = Path(tmp)
+            input_path = workdir / "unit.json"
+            harvest_output = workdir / "harvest.json"
+            governance_output = workdir / "governance-seed.json"
+            manual_kpis_path = workdir / "manual-kpis.json"
+            input_path.write_text(
+                json.dumps({"source": "unit", "gate": "unit", "status": "pass"}),
+                encoding="utf-8",
+            )
+            manual_kpis_path.write_text(
+                json.dumps(
+                    {
+                        "displacedDuplicationCount": 6,
+                        "canonDriftIncidentCount": 1,
+                        "tableChangeReviewLeadTimeHours": 20.25,
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            # Explicit --output keeps this test's writes confined to the tempdir;
+            # omitting it falls back to a real ./query-evidence/ path relative to
+            # whatever directory the test runner's cwd happens to be.
+            completed = self.run_cli(
+                [input_path],
+                output_path=harvest_output,
+                governance_output_path=governance_output,
+                manual_kpis_path=manual_kpis_path,
+            )
+
+            self.assertEqual(completed.returncode, 0, msg=completed.stderr)
+            seed = json.loads(governance_output.read_text(encoding="utf-8"))
+            self.assertEqual(seed["kpis"]["displacedDuplicationCount"], 6)
+            self.assertEqual(seed["kpis"]["canonDriftIncidentCount"], 1)
+            self.assertEqual(seed["kpis"]["tableChangeReviewLeadTimeHours"], 20.25)
+            self.assertEqual(seed["kpisProvenance"]["displacedDuplicationCount"], "manual")
 
 
 if __name__ == "__main__":
