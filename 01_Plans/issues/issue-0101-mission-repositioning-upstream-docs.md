@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Docs
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: 00_Prompt/requirements.md (§0, フェーズ定義追記), README.md, 04_Documentation/overview.md
 - Expected verification level: docs-check + planning_queue 整合
@@ -25,11 +25,11 @@ ADR-0012 により、プロダクトの使命は「Excel ビューア拡張」�
 4. `04_Documentation/overview.md` の Reader-specific value に「AI エージェント開発者」視点を追加し、KPI 記述を D6 へ整合。
 
 ### Acceptance criteria
-- [ ] requirements §0 が ADR-0012 D1 の使命文と一致し、read-only 原則が規範として残存する。
-- [ ] Phase 12 が定義され、issue-0102 の親フェーズとして機能する。
-- [ ] README / overview の第一声が「規約 + ガードレール」であり、旧「ビューア拡張」中心の記述が残らない。
-- [ ] planning_queue で orphan 0 を維持。
+- [x] requirements §0 が ADR-0012 D1 の使命文と一致し、read-only 原則が【恒久規範】として独立明記された（加えて【成果物の位置付け】3 層を新設: 規約 / 参照実装 / 表パターン資産）。
+- [x] Phase 12（規約仕様化と普及基盤）が §1 一覧と §2 詳細の両方に定義され、issue-0102 の親フェーズとして機能する。
+- [x] README の第一声が「コピーではなく、参照を。」＋規約/ガードレール定義になり、「なぜ規約なのか」節と提供価値 6 項目（正本完全性を先頭、AI 協働を追加）へ再構成。overview は 4 ペルソナ化（AI エージェント開発者を追加）し What this tool is を規約ベースへ更新。
+- [x] planning_queue orphan 0 維持（ADR 13 / issue 102）。旧使命文の残存なしを grep で確認。npm test 176 pass（回帰なし）。
 
-### Validation plan
-- docs-check 相当（リンク整合・用語整合の目視）
-- `python3 01_Plans/tools/planning_queue.py` で pending/orphan 確認
+### Validation plan（実績）
+- 誤字混入の全文走査（編集中に混入した 1 件を検出・即修正済み）
+- `grep 本プラグインのミッション` → 残存なし / `npm test` → 176 pass / `planning_queue.py` → orphan 0
