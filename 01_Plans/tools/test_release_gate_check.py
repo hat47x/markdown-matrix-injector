@@ -223,6 +223,9 @@ class ReleaseGateCheckTests(unittest.TestCase):
             sys.executable,
             str(Path(__file__).with_name("release_gate_check.py")),
             "--skip-tests",
+            # Decouple this phase9-flag plumbing test from live planning-queue
+            # state; pending issues are expected during active execution.
+            "--allow-pending-issues",
             "--phase9-ignore-row-order",
             "--format",
             "json",
@@ -244,6 +247,9 @@ class ReleaseGateCheckTests(unittest.TestCase):
             sys.executable,
             str(Path(__file__).with_name("release_gate_check.py")),
             "--skip-tests",
+            # Decouple this phase9-skip-detail test from live planning-queue
+            # state; pending issues are expected during active execution.
+            "--allow-pending-issues",
             "--format",
             "json",
         ]
