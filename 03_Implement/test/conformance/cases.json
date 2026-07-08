@@ -1,0 +1,183 @@
+[
+  {
+    "name": "csv-basic-header-first",
+    "level": "L1",
+    "spec": "§6 step 4",
+    "files": { "roles.csv": "Name,Role\nAlice,Admin\nBob,User" },
+    "markdown": "![[./roles.csv#Sheet1|A1:B3?header=first]]",
+    "expectContains": [
+      "<table class=\"mmi-table\">",
+      "<th>Name</th><th>Role</th>",
+      "<td class=\"mmi-table__cell\">Alice</td>"
+    ],
+    "expectNotContains": ["mmi-error"]
+  },
+  {
+    "name": "range-slice-no-header",
+    "level": "L1",
+    "spec": "§6 step 1",
+    "files": { "roles.csv": "Name,Role\nAlice,Admin\nBob,User" },
+    "markdown": "![[./roles.csv#Sheet1|A2:B3]]",
+    "expectContains": [
+      "<td class=\"mmi-table__cell\">Alice</td>",
+      "<td class=\"mmi-table__cell\">Bob</td>"
+    ],
+    "expectNotContains": ["<thead>", "mmi-error"]
+  },
+  {
+    "name": "columns-and-grep",
+    "level": "L1",
+    "spec": "§6 steps 2+5",
+    "files": { "roles.csv": "ID,Name,Role\n1,Alice,Admin\n2,Bob,User\n3,Carol,Admin" },
+    "markdown": "![[./roles.csv#Sheet1|A1:C4?header=first&columns=B,C&grep=Admin]]",
+    "expectContains": ["<th>Name</th><th>Role</th>", "Alice", "Carol"],
+    "expectNotContains": ["<th>ID</th>", "Bob"]
+  },
+  {
+    "name": "grep-empty-result-is-not-an-error",
+    "level": "L1",
+    "spec": "§6 step 5",
+    "files": { "roles.csv": "Name,Role\nAlice,Admin" },
+    "markdown": "![[./roles.csv#Sheet1|A1:B2?header=first&grep=zzz-no-match]]",
+    "expectContains": ["<tbody></tbody>"],
+    "expectNotContains": ["mmi-error", "Alice"]
+  },
+  {
+    "name": "unknown-params-ignored",
+    "level": "core",
+    "spec": "P5 / §11",
+    "files": { "roles.csv": "Name,Role\nAlice,Admin" },
+    "markdown": "![[./roles.csv#Sheet1|A1:B2?header=first&futureKey=1&x-experimental=on]]",
+    "expectContains": ["<table class=\"mmi-table\">", "Alice"],
+    "expectNotContains": ["mmi-error", "futureKey"]
+  },
+  {
+    "name": "transpose-with-numeric-header",
+    "level": "L2",
+    "spec": "§6 steps 3+4",
+    "files": { "metrics.csv": "Metric,Q1,Q2\nRevenue,10,20\nCost,5,8" },
+    "markdown": "![[./metrics.csv#Sheet1|A1:C3?transpose=true&header=2]]",
+    "expectContains": ["<th>Q1</th><th>10</th><th>5</th>", "<td class=\"mmi-table__cell\">Metric</td>"],
+    "expectNotContains": ["mmi-error"]
+  },
+  {
+    "name": "highlight-by-header-name",
+    "level": "L2",
+    "spec": "§6 decoration",
+    "files": { "roles.csv": "ID,Name,Role\n1,Alice,Admin\n2,Bob,User" },
+    "markdown": "![[./roles.csv#Sheet1|A1:C3?header=first&highlightColumn=Role&highlightValue=Admin]]",
+    "expectContains": ["mmi-table__row--highlight"],
+    "expectNotContains": ["mmi-error"]
+  },
+  {
+    "name": "format-column-multiple",
+    "level": "L2",
+    "spec": "§6 decoration",
+    "files": { "payload.csv": "Name,Payload,Metadata\nAlice,{\"role\":\"Admin\"},{\"team\":\"A\"}" },
+    "markdown": "![[./payload.csv#Sheet1|A1:C2?header=first&formatColumn=Payload:json&formatColumn=Metadata:json]]",
+    "expectContains": ["mmi-table__cell--formatted", "data-format=\"json\""],
+    "expectNotContains": ["mmi-error"]
+  },
+  {
+    "name": "fallback-wide-columns-to-card",
+    "level": "L2",
+    "spec": "§7 rule 4",
+    "files": { "wide.csv": "C1,C2,C3,C4,C5,C6,C7,C8,C9,C10,C11\n1,2,3,4,5,6,7,8,9,10,11" },
+    "markdown": "![[./wide.csv#Sheet1|A1:K2]]",
+    "expectContains": ["class=\"mmi-card\""],
+    "expectNotContains": ["class=\"mmi-table\"", "mmi-error"]
+  },
+  {
+    "name": "fallback-cell-count-to-card",
+    "level": "L2",
+    "spec": "§7 rule 4",
+    "files": { "cells.csv": "C1,C2,C3,C4,C5,C6,C7,C8,C9,C10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10\n1,2,3,4,5,6,7,8,9,10" },
+    "markdown": "![[./cells.csv#Sheet1|A1:J52]]",
+    "expectContains": ["class=\"mmi-card\""],
+    "expectNotContains": ["class=\"mmi-table\"", "mmi-error"]
+  },
+  {
+    "name": "fallback-no-sheet-target-to-card",
+    "level": "L2",
+    "spec": "§7 rule 3",
+    "files": { "roles.csv": "Name,Role\nAlice,Admin" },
+    "markdown": "![[./roles.csv]]",
+    "expectContains": ["class=\"mmi-card\""],
+    "expectNotContains": ["class=\"mmi-table\"", "mmi-error"]
+  },
+  {
+    "name": "mode-table-overrides-fallback",
+    "level": "L2",
+    "spec": "§7 rule 2",
+    "files": { "wide.csv": "C1,C2,C3,C4,C5,C6,C7,C8,C9,C10,C11\n1,2,3,4,5,6,7,8,9,10,11" },
+    "markdown": "![[./wide.csv#Sheet1|A1:K2?mode=table]]",
+    "expectContains": ["class=\"mmi-table\""],
+    "expectNotContains": ["class=\"mmi-card\"", "mmi-error"]
+  },
+  {
+    "name": "mode-card-with-machine-readable-path",
+    "level": "L2",
+    "spec": "§7 rule 1 + card contract",
+    "files": { "roles.csv": "Name,Role\nAlice,Admin" },
+    "markdown": "![[./roles.csv#Sheet1|A1:B2?mode=card]]",
+    "expectContains": ["class=\"mmi-card\"", "data-path=\"", "roles.csv", "Sheet1 / A1:B2"],
+    "expectNotContains": ["mmi-table", "mmi-error"]
+  },
+  {
+    "name": "delivery-profile-attributes",
+    "level": "L3",
+    "spec": "§8.1",
+    "files": { "state.csv": "ID,State\n1,Draft\n2,Done" },
+    "markdown": "![[./state.csv#Sheet1|A1:B3?header=first&caption=%E7%8A%B6%E6%85%8B%E4%B8%80%E8%A6%A7&id=tbl-state&pageBreak=before&orientation=landscape]]",
+    "expectContains": [
+      "<figure class=\"mmi-embed\" id=\"tbl-state\" data-page-break=\"before\" data-orientation=\"landscape\">",
+      "<figcaption class=\"mmi-embed__caption\">状態一覧</figcaption>"
+    ],
+    "expectNotContains": ["mmi-error"]
+  },
+  {
+    "name": "invalid-delivery-values-dropped-silently",
+    "level": "L3",
+    "spec": "§8.1 safe degradation",
+    "files": { "state.csv": "ID,State\n1,Draft" },
+    "markdown": "![[./state.csv#Sheet1|A1:B2?header=first&id=tbl-x&pageBreak=middle&orientation=sideways]]",
+    "expectContains": ["<figure class=\"mmi-embed\" id=\"tbl-x\">", "<table class=\"mmi-table\">"],
+    "expectNotContains": ["data-page-break", "data-orientation", "mmi-error"]
+  },
+  {
+    "name": "error-file-not-found-is-visible",
+    "level": "core",
+    "spec": "P2 / §9",
+    "files": {},
+    "markdown": "![[./missing.csv#Sheet1|A1:B2]]",
+    "expectContains": ["class=\"mmi-error\""],
+    "expectNotContains": ["mmi-table", "mmi-card"]
+  },
+  {
+    "name": "error-missing-sheet-is-visible",
+    "level": "core",
+    "spec": "P2 / §9",
+    "files": { "roles.csv": "Name,Role\nAlice,Admin" },
+    "markdown": "![[./roles.csv#NoSuchSheet|A1:B2]]",
+    "expectContains": ["class=\"mmi-error\""],
+    "expectNotContains": ["mmi-table"]
+  },
+  {
+    "name": "error-generic-xml-rejected",
+    "level": "L2",
+    "spec": "§5 XML signature",
+    "files": { "generic.xml": "<root><worksheet name=\"Sheet1\"></worksheet></root>" },
+    "markdown": "![[./generic.xml#Sheet1|A1:B2]]",
+    "expectContains": ["class=\"mmi-error\""],
+    "expectNotContains": ["mmi-table"]
+  },
+  {
+    "name": "standalone-reference-renders-as-block",
+    "level": "core",
+    "spec": "P2 + block rendering",
+    "files": { "roles.csv": "Name,Role\nAlice,Admin" },
+    "markdown": "![[./roles.csv#Sheet1|A1:B2?header=first&caption=Roles&id=tbl-roles]]",
+    "expectContains": ["<figure class=\"mmi-embed\" id=\"tbl-roles\">"],
+    "expectNotContains": ["<p>", "</p>"]
+  }
+]

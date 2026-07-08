@@ -12,7 +12,14 @@ AI エージェントがあらゆるファイルを編集できる時代、正�
 
 ## なぜ「規約」なのか
 
-ツールは世代交代しますが、記法とその保証性質（読み取り専用・決定論・可視な劣化）は残ります。MMI Notation は conformance levels（L0–L3）で部分実装を許し、特定エディタ・特定 AI ツールに依存せず存続します（仕様書は Phase 12 で公開予定、決定正本: `01_Plans/adr/ADR-0012`）。同梱の VS Code 拡張は、その最上位 L3（Delivery Profile: エンタープライズ印刷制御・納品マニフェスト）に準拠する参照実装です。
+ツールは世代交代しますが、記法とその保証性質（読み取り専用・決定論・可視な劣化）は残ります。MMI Notation は conformance levels（L0–L3）で部分実装を許し、特定エディタ・特定 AI ツールに依存せず存続します。
+
+- **仕様書**: [`04_Documentation/spec/mmi-notation-v1.md`](04_Documentation/spec/mmi-notation-v1.md)（RFC 2119 規範・8 原則・劣化クラス）
+- **機械可読契約**: [`params.schema.json`](04_Documentation/spec/params.schema.json)（AI エージェント教示・実装検証用）
+- **conformance corpus**: [`03_Implement/test/conformance/`](03_Implement/test/conformance/cases.json)（他実装の準拠試験を兼ねる実行可能な規範例）
+- **決定正本**: [`ADR-0012`](01_Plans/adr/ADR-0012-mission-redefinition-notation-as-governance-boundary.md)
+
+同梱の VS Code 拡張は、その最上位 L3（Delivery Profile: エンタープライズ印刷制御・納品マニフェスト）に準拠する参照実装です。
 
 ---
 

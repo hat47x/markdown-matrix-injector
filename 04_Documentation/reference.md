@@ -403,6 +403,8 @@ VS Code コマンドパレットから利用できる主要コマンド:
   - `04_Documentation/samples/sier-design/README.md`
 
 ## Related docs
+- **記法仕様（規範）**: `04_Documentation/spec/mmi-notation-v1.md` — 本 Reference の挙動記述の正本。齟齬がある場合は仕様書が優先する
+- 機械可読契約: `04_Documentation/spec/params.schema.json` / conformance corpus: `03_Implement/test/conformance/cases.json`
 - 概要: `04_Documentation/overview.md`
 - チュートリアル: `04_Documentation/tutorial.md`
 - 業務シナリオ: `04_Documentation/scenario-sier-design-docs.md`

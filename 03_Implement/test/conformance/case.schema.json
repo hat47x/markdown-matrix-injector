@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/hat47x/markdown-matrix-injector/blob/main/03_Implement/test/conformance/case.schema.json",
+  "title": "MMI Notation conformance case",
+  "description": "One executable example of MMI Notation v1 (mmi-notation-v1.md §12). A case declares input files, an input Markdown document, and substrings that MUST (expectContains) / MUST NOT (expectNotContains) appear in the rendered output of a conforming processor at the given level. Files are created relative to the Markdown document's directory.",
+  "type": "object",
+  "required": ["name", "level", "spec", "files", "markdown", "expectContains"],
+  "properties": {
+    "name": { "type": "string", "pattern": "^[a-z0-9-]+$" },
+    "level": { "type": "string", "enum": ["core", "L1", "L2", "L3"] },
+    "spec": { "type": "string", "description": "Clause reference in mmi-notation-v1.md, e.g. '§6 step 5'." },
+    "files": {
+      "type": "object",
+      "additionalProperties": { "type": "string" },
+      "description": "Relative path -> literal file content, created next to the Markdown document."
+    },
+    "markdown": { "type": "string" },
+    "expectContains": { "type": "array", "items": { "type": "string" }, "minItems": 1 },
+    "expectNotContains": { "type": "array", "items": { "type": "string" } }
+  },
+  "additionalProperties": false
+}
