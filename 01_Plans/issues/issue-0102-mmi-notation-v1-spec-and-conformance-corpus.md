@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Feature
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: 04_Documentation/spec/mmi-notation-v1.md (新規), 04_Documentation/spec/params.schema.json (新規), 03_Implement/test/conformance/** (新規)
 - Expected verification level: unit (corpus を参照実装で全件実行) + docs-check
@@ -31,12 +31,17 @@ ADR-0012 は記法を一級の公開仕様として独立させることを決�
 4. 既存 unit（176 件）から仕様例に昇格できるケースを corpus へ移植し、二重管理を避ける参照構造にする。
 
 ### Acceptance criteria
-- [ ] 仕様書が L0–L3・8 規範原則・degradation classes・診断コードを規範表現（MUST/SHOULD）で規定している。
-- [ ] JSON Schema が現行実装の全パラメータを網羅し、`previewStyles.test.ts` 同様のカバレッジ固定 unit を持つ。
-- [ ] conformance corpus が最低: 正常系（L1/L2 各機能）、劣化系（未知パラメータ無視・不正値の安全劣化）、境界系（空範囲・巨大表 fallback）を含む。
-- [ ] 参照実装が corpus 全件 pass（`npm test` に組み込み）。
-- [ ] 日本語固有概念（別紙・納品）が core 章に現れず Delivery Profile 章に隔離されている。
+- [x] 仕様書 `04_Documentation/spec/mmi-notation-v1.md`（1.0.0-draft.1）が L0–L3・8 規範原則（P1–P8）・劣化クラス（D0–D2）・診断コード（§9 安定 API）を RFC 2119 語彙で規定。パイプライン順序（slice→columns→transpose→header→grep）を実装事実どおり規範化し、テーブル内 `|` 非対応等の構文制約も §3.2 で正直に明記。
+- [x] `params.schema.json` が実装 12 パラメータを全網羅。カバレッジ固定 unit（`conformance.test.ts`: schema ⊇ `AUTOCOMPLETE_QUERY_PARAM_CANDIDATES`、`additionalProperties: true` を P5 として固定）を追加。
+- [x] conformance corpus 19 ケース（core 4 / L1 4 / L2 9 / L3 2）: 正常系（header/range/columns/grep/transpose/highlight/format）、劣化系（未知キー無視・`x-` 名前空間・不正 pageBreak/orientation の安全劣化）、境界系（grep 0 件・列 11・セル 520 fallback・シート未指定）、エラー可視性（file/sheet/generic-xml）、block 描画（no-`<p>`-wrap）。
+- [x] 参照実装が corpus 全 19 件 pass（`npm test` へ自動組込・**197 pass / 0 fail**、初回から全緑＝仕様と実装の無乖離を確認）。
+- [x] 別紙・納品・改ページ・向きは §8.1 Delivery Profile に隔離（core 章に出現しない）。
+- [x] 導線整備: README「なぜ規約なのか」から spec/schema/corpus/ADR-0012 へリンク、reference.md が仕様書を挙動記述の正本と宣言。
 
-### Validation plan
-- `npm run build` / `npm test` exit 0（corpus ランナー含む）
-- docs-check: spec 内リンク・用語が requirements / ADR-0012 と整合
+### 既存 unit との関係（二重管理の回避方針）
+既存 unit のうち仕様例に値する挙動（transpose+header 数値、columns+grep、fallback 閾値等）は corpus 側へ**規範例として再宣言**した。
+既存 unit は削除せず**実装回帰テスト**として存置し、挙動の正本は spec + corpus 側に置く（reference.md に優先順を明記）。
+
+### Validation plan（実績）
+- `npm run build` / `npm test` exit 0（corpus ランナー含む 197 pass）
+- docs-check: spec 内リンク・用語（conformance levels / 8 原則 / Delivery Profile）が requirements Phase 12・ADR-0012 と整合

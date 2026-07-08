@@ -1,0 +1,72 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/hat47x/markdown-matrix-injector/blob/main/04_Documentation/spec/params.schema.json",
+  "title": "MMI Notation v1 query parameters",
+  "description": "Machine-readable contract for the query-string parameters of MMI Notation v1 (see mmi-notation-v1.md §6-§8). Values arrive as strings because the notation is a URL query string; enums below define the recognized vocabulary. Per principle P5 (forward compatibility), unknown keys MUST be ignored by processors, hence additionalProperties is true — this schema validates the *known* vocabulary, it does not reject extensions.",
+  "type": "object",
+  "properties": {
+    "mode": {
+      "type": "string",
+      "enum": ["table", "card"],
+      "description": "Force table rendering or card (attachment) rendering. Absent = Smart Fallback decides (spec §7)."
+    },
+    "header": {
+      "type": "string",
+      "pattern": "^(none|first|[0-9]+)$",
+      "description": "Header mode: 'none' (default), 'first' (first row of the transformed slice), or a 1-based row number within the transformed slice (spec §6 step 4)."
+    },
+    "columns": {
+      "type": "string",
+      "pattern": "^[A-Za-z]+(\\s*,\\s*[A-Za-z]+)*$",
+      "description": "Comma-separated A1 column letters to keep, e.g. 'A,C,F'. Case-insensitive (spec §6 step 2)."
+    },
+    "transpose": {
+      "type": "string",
+      "enum": ["true"],
+      "description": "'true' transposes rows and columns (spec §6 step 3). Any other value has no effect."
+    },
+    "grep": {
+      "type": "string",
+      "minLength": 1,
+      "description": "Case-insensitive substring filter over body-row cells (spec §6 step 5). Empty result set is valid, not an error."
+    },
+    "highlightColumn": {
+      "type": "string",
+      "description": "Column selector for row highlighting: header name (case/whitespace-insensitive) first, else A1 column letters (spec §6, decoration)."
+    },
+    "highlightValue": {
+      "type": "string",
+      "description": "Value compared after trim+lowercase; matching rows receive the highlight class. Without this key no highlighting occurs."
+    },
+    "formatColumn": {
+      "type": "string",
+      "pattern": "^[^:]+:.+$",
+      "description": "'<selector>:<format>' — render matching cells as code blocks tagged with the lowercased format (e.g. 'E:json' or 'Payload:json'). Repeatable key. Invalid specs are ignored (spec §6, decoration)."
+    },
+    "caption": {
+      "type": "string",
+      "description": "Delivery Profile (L3): caption text attached to the embed block (spec §8.1)."
+    },
+    "id": {
+      "type": "string",
+      "description": "Delivery Profile (L3): cross-reference anchor id for the embed block (spec §8.1)."
+    },
+    "pageBreak": {
+      "type": "string",
+      "enum": ["before", "after", "both"],
+      "description": "Delivery Profile (L3): print page-break attribute. Invalid values MUST be dropped silently (safe degradation, spec §8.1)."
+    },
+    "orientation": {
+      "type": "string",
+      "enum": ["landscape", "portrait"],
+      "description": "Delivery Profile (L3): per-block paper orientation attribute. Invalid values MUST be dropped silently (spec §8.1)."
+    }
+  },
+  "patternProperties": {
+    "^x-": {
+      "type": "string",
+      "description": "Experimental namespace (spec §11). Processors MAY interpret, MUST NOT error."
+    }
+  },
+  "additionalProperties": true
+}
