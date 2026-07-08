@@ -1,5 +1,10 @@
 # Phase 8: Drools Excel テンプレート参照の表パターンカタログ
 
+> **本文書の位置付け（ADR-0013）**: 本カタログは **MMI 自身の内部機能**（印刷制御・Smart Fallback・query フィルタ等）
+> を題材にした Drools 参照パターンの適用ケーススタディです。汎用的な SIer 設計文書テンプレートではありません。
+> ツール非依存で使える汎用パターンをお探しの場合は、
+> [`samples/phase9-rule-table-pattern-guide.md`](./samples/phase9-rule-table-pattern-guide.md) を参照してください。
+
 ## 目的
 システム設計文書で使う表形式を、Drools の spreadsheet decision table で確立された構造を参照しながら、**文書パターン**と**テストデータパターン**として網羅的に整理する。
 

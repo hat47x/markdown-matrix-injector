@@ -101,7 +101,9 @@ VS Code 拡張は「プロダクト本体」から「**参照実装 (reference i
 - Related requirements: `00_Prompt/requirements.md` §0（issue-0101 で改訂）
 - Related ADR: ADR-0010（完成度ゲート — 参照実装の品質基準として継続）/ ADR-0011（カード開く操作）
 - Related issues: issue-0101, issue-0102, issue-0100
-- 資産: `04_Documentation/samples/phase9-rule-table-benchmark-pack.csv`（表パターン資産の独立公開候補）
+- 資産: `04_Documentation/samples/phase9-rule-table-benchmark-pack.csv`（正本 CSV）+
+  `04_Documentation/samples/phase9-rule-table-pattern-guide.md`（独立公開ガイド、生成物。実装は
+  `ADR-0013`/`issue-0104`）
 
 ## 議事録 (AI読込不要)
 
