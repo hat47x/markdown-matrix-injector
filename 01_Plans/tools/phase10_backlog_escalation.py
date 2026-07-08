@@ -12,11 +12,14 @@ class ValidationError(ValueError):
     """Raised when escalation input or threshold is invalid."""
 
 
+# ADR-0012 D6: thresholds redefined around the new KPI set. Polarity per
+# metric: displacedDuplicationCount is "higher is better" (a floor breach
+# means duplication elimination has stalled), the other two are "lower is
+# better" (a ceiling breach means drift/review-lag is excessive).
 DEFAULT_THRESHOLDS = {
-    "max_adoption_lead_time_hours": 24.0,
-    "min_link_integrity_rate": 99.0,
-    "min_print_reproducibility_rate": 98.0,
-    "min_self_resolution_rate": 70.0,
+    "min_displaced_duplication_count": 1.0,
+    "max_canon_drift_incident_count": 0.0,
+    "max_table_change_review_lead_time_hours": 48.0,
     "max_sla_breach_count": 0.0,
 }
 
@@ -37,55 +40,46 @@ def evaluate_candidates(payload: dict[str, object], thresholds: dict[str, float]
     week = payload["week"]
     candidates: list[dict[str, object]] = []
 
-    adoption = float(kpis["adoptionLeadTimeHours"])
-    if adoption > thresholds["max_adoption_lead_time_hours"]:
+    displaced_duplication = float(kpis["displacedDuplicationCount"])
+    if displaced_duplication < thresholds["min_displaced_duplication_count"]:
         candidates.append(
             {
                 "category": "kpi",
-                "signal": "adoption_lead_time",
-                "severity": "high",
-                "summary": "導入時間が閾値を超過",
-                "metric": _metric_payload(adoption, thresholds["max_adoption_lead_time_hours"], ">"),
+                "signal": "displaced_duplication_stalled",
+                "severity": "medium",
+                "summary": "駆逐されたコピー重複が閾値を下回った（重複解消が停滞）",
+                "metric": _metric_payload(
+                    displaced_duplication, thresholds["min_displaced_duplication_count"], "<"
+                ),
                 "suggested_owner": "author",
             }
         )
 
-    link_rate = float(kpis["linkIntegrityDetectionRate"])
-    if link_rate < thresholds["min_link_integrity_rate"]:
+    canon_drift = float(kpis["canonDriftIncidentCount"])
+    if canon_drift > thresholds["max_canon_drift_incident_count"]:
         candidates.append(
             {
                 "category": "kpi",
-                "signal": "link_integrity_detection_rate",
-                "severity": "medium",
-                "summary": "リンク不整合検知率が閾値を下回る",
-                "metric": _metric_payload(link_rate, thresholds["min_link_integrity_rate"], "<"),
-                "suggested_owner": "reviewer",
-            }
-        )
-
-    print_rate = float(kpis["printReproducibilityRate"])
-    if print_rate < thresholds["min_print_reproducibility_rate"]:
-        candidates.append(
-            {
-                "category": "kpi",
-                "signal": "print_reproducibility_rate",
+                "signal": "canon_drift_incident_exceeded",
                 "severity": "high",
-                "summary": "印刷再現性が閾値を下回る",
-                "metric": _metric_payload(print_rate, thresholds["min_print_reproducibility_rate"], "<"),
-                "suggested_owner": "delivery",
+                "summary": "正本と文書の乖離インシデントが閾値を超過した",
+                "metric": _metric_payload(canon_drift, thresholds["max_canon_drift_incident_count"], ">"),
+                "suggested_owner": "reviewer",
             }
         )
 
-    self_resolution = float(kpis["selfResolutionRate"])
-    if self_resolution < thresholds["min_self_resolution_rate"]:
+    review_lead_time = float(kpis["tableChangeReviewLeadTimeHours"])
+    if review_lead_time > thresholds["max_table_change_review_lead_time_hours"]:
         candidates.append(
             {
                 "category": "kpi",
-                "signal": "self_resolution_rate",
+                "signal": "table_change_review_lead_time_exceeded",
                 "severity": "medium",
-                "summary": "問い合わせ自己解決率が閾値を下回る",
-                "metric": _metric_payload(self_resolution, thresholds["min_self_resolution_rate"], "<"),
-                "suggested_owner": "reviewer",
+                "summary": "表変更のレビュー所要時間が閾値を超過した",
+                "metric": _metric_payload(
+                    review_lead_time, thresholds["max_table_change_review_lead_time_hours"], ">"
+                ),
+                "suggested_owner": "delivery",
             }
         )
 
@@ -178,8 +172,8 @@ def main() -> int:
     try:
         payload = governance_report.parse_input(Path(args.input))
         thresholds = load_thresholds(Path(args.thresholds) if args.thresholds else None)
-        candidates = evaluate_candidates(payload, DEFAULT_THRESHOLDS)
-        output = build_output(payload, candidates, DEFAULT_THRESHOLDS)
+        candidates = evaluate_candidates(payload, thresholds)
+        output = build_output(payload, candidates, thresholds)
     except (OSError, json.JSONDecodeError, governance_report.ValidationError, ValidationError) as exc:
         print(f"NG: {exc}")
         return 1

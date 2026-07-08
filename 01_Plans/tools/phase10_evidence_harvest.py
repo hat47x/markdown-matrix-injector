@@ -7,6 +7,8 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
+import phase10_governance_report as governance_report
+
 ALLOWED_FAILURE_CATEGORIES = {"path", "sheet", "query", "render", "print", "unknown"}
 ALLOWED_IMPACT_PERSONAS = {"author", "reviewer", "delivery"}
 ALLOWED_GATES = {"docs-check", "unit", "integration", "phase9-sync"}
@@ -94,40 +96,53 @@ def harvest(inputs: Iterable[Path], *, collected_at: str | None = None) -> dict[
     }
 
 
-def build_governance_seed(harvest_artifact: dict[str, object]) -> dict[str, object]:
+# ADR-0012 D6: the new KPI set (displacedDuplicationCount / canonDriftIncidentCount
+# / tableChangeReviewLeadTimeHours) has no automatic detector yet -- unlike the
+# old linkIntegrityDetectionRate/printReproducibilityRate, which were computed
+# here from generic CI gate pass/fail counts (a mislabeling: those numbers
+# described overall gate health, not the specific domain metrics they were
+# named after). Rather than repeat that mistake, manual_kpis carries real,
+# human-recorded weekly numbers; anything omitted defaults to an explicit
+# placeholder and is marked accordingly in kpisProvenance so downstream
+# consumers never mistake an unmeasured week for a real zero.
+KPI_DEFAULTS: dict[str, object] = {
+    "displacedDuplicationCount": 0,
+    "canonDriftIncidentCount": 0,
+    "tableChangeReviewLeadTimeHours": 0.0,
+}
+
+
+def build_governance_seed(
+    harvest_artifact: dict[str, object],
+    *,
+    manual_kpis: dict[str, object] | None = None,
+) -> dict[str, object]:
     records = harvest_artifact.get("records")
     if not isinstance(records, list):
         raise ValidationError("harvest artifact must include records[]")
 
-    total = len(records)
-    failures = 0
-    known_failure = 0
-    for record in records:
-        if isinstance(record, dict):
-            status = str(record.get("status", "")).lower()
-            category = str(record.get("failure_category", "unknown"))
-            if status != "pass":
-                failures += 1
-            if category != "unknown":
-                known_failure += 1
-
-    detection_rate = (known_failure / total * 100.0) if total else 100.0
-    reproducibility = ((total - failures) / total * 100.0) if total else 100.0
+    manual_kpis = manual_kpis or {}
+    kpis: dict[str, object] = {}
+    kpis_provenance: dict[str, str] = {}
+    for key, default in KPI_DEFAULTS.items():
+        if key in manual_kpis:
+            kpis[key] = manual_kpis[key]
+            kpis_provenance[key] = "manual"
+        else:
+            kpis[key] = default
+            kpis_provenance[key] = "unmeasured-default"
 
     generated_at = str(harvest_artifact.get("generatedAt") or _now_iso())
     return {
+        "schemaVersion": governance_report.SCHEMA_VERSION,
         "generatedAt": generated_at,
         "week": {
             "label": "auto-generated",
             "startDate": "1970-01-01",
             "endDate": "1970-01-07",
         },
-        "kpis": {
-            "adoptionLeadTimeHours": 0.0,
-            "linkIntegrityDetectionRate": round(detection_rate, 2),
-            "printReproducibilityRate": round(reproducibility, 2),
-            "selfResolutionRate": 0.0,
-        },
+        "kpis": kpis,
+        "kpisProvenance": kpis_provenance,
         "sla": {
             "triageHours": 24,
             "workaroundHours": 72,
@@ -138,6 +153,18 @@ def build_governance_seed(harvest_artifact: dict[str, object]) -> dict[str, obje
     }
 
 
+def load_manual_kpis(path: Path | None) -> dict[str, object] | None:
+    if path is None:
+        return None
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        raise ValidationError(f"failed to read manual-kpis json ({exc})") from exc
+    if not isinstance(payload, dict):
+        raise ValidationError("manual-kpis json must be an object")
+    return payload
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Normalize gate JSON outputs into a Phase 10 harvest artifact")
     parser.add_argument("--inputs", nargs="+", required=True, help="Input JSON file(s) from gate execution")
@@ -145,6 +172,12 @@ def main() -> int:
     parser.add_argument(
         "--governance-output",
         help="Optional path to output a governance-report-compatible seed JSON generated from the harvested artifact",
+    )
+    parser.add_argument(
+        "--manual-kpis-file",
+        help="Optional path to a JSON object of manually recorded ADR-0012 D6 KPI values "
+        "(displacedDuplicationCount / canonDriftIncidentCount / tableChangeReviewLeadTimeHours) "
+        "to merge into --governance-output; omitted fields default to an unmeasured placeholder",
     )
     args = parser.parse_args()
 
@@ -154,6 +187,7 @@ def main() -> int:
 
     try:
         artifact = harvest(input_paths, collected_at=timestamp)
+        manual_kpis = load_manual_kpis(Path(args.manual_kpis_file) if args.manual_kpis_file else None)
     except ValidationError as exc:
         print(f"NG: {exc}")
         return 1
@@ -164,7 +198,7 @@ def main() -> int:
 
     if args.governance_output:
         governance_output_path = Path(args.governance_output)
-        governance_seed = build_governance_seed(artifact)
+        governance_seed = build_governance_seed(artifact, manual_kpis=manual_kpis)
         governance_output_path.parent.mkdir(parents=True, exist_ok=True)
         governance_output_path.write_text(
             json.dumps(governance_seed, ensure_ascii=False, indent=2) + "\n",

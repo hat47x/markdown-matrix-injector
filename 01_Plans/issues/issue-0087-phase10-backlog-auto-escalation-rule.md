@@ -53,3 +53,8 @@
 - `python3 -m unittest 01_Plans.tools.test_phase10_backlog_escalation`
 - `python3 -m unittest 01_Plans.tools.test_phase10_governance_report`
 - `python3 01_Plans/tools/planning_queue.py`
+
+## Note (superseded)
+- 上記 Proposed solution / Acceptance criteria の "adoption lead time / link integrity / print reproducibility / self
+  resolution" の指標一覧は ADR-0012 D6 により置き換えられた。現行の閾値・シグナル定義は `issue-0103` を参照。
+  本 issue の Done 記録・実行証跡は当時の実装事実として変更しない。

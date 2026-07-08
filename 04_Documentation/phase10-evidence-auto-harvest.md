@@ -29,17 +29,28 @@ Phase 10 の運用ガバナンス自動化に向けて、`docs-check` / `unit` /
 python3 01_Plans/tools/phase10_evidence_harvest.py \
   --inputs 04_Documentation/samples/phase10-harvest-input.sample.json \
   --output artifacts/phase10-evidence-harvest.json \
-  --governance-output artifacts/phase10-governance-seed.json
+  --governance-output artifacts/phase10-governance-seed.json \
+  --manual-kpis-file 04_Documentation/samples/phase10-manual-kpis.sample.json
 ```
 
 `--output` を省略した場合は `query-evidence/phase10-evidence-harvest-<timestamp>.json` へ保存される。
+`--manual-kpis-file` は省略可能で、`--governance-output` を指定した場合のみ意味を持つ。
 
 期待結果:
 - 正常入力: `OK: wrote evidence harvest artifact -> ...` と表示して終了コード `0`
 - 必須キー不足/列挙値不正: `NG: ...` と表示して終了コード `1`
 
-## 3. Weekly Governance Input Contract との最小接続
+## 3. Weekly Governance Input Contract との最小接続（v2 / ADR-0012 D6）
 
-`build_governance_seed` ヘルパー（または `--governance-output`）により、収集済みartifactから issue-0084 で定義した週次レポート入力契約（`generatedAt`, `week`, `kpis`, `sla`, `nextActions`）を満たす最小JSONを生成できる。
+`build_governance_seed` ヘルパー（または `--governance-output`）により、収集済みartifactから
+`phase10-governance-report/v2` 契約（`schemaVersion`, `generatedAt`, `week`, `kpis`, `kpisProvenance`, `sla`, `nextActions`）
+を満たす最小JSONを生成できる。
+
+ADR-0012 D6 の 3 KPI（`displacedDuplicationCount` / `canonDriftIncidentCount` / `tableChangeReviewLeadTimeHours`）は、
+本ツールが自動計測する手段を持たない（週次で人手記録する運用を前提とする）。`--manual-kpis-file` に
+`04_Documentation/samples/phase10-manual-kpis.sample.json` のような JSON を渡すと、その値が `kpis` へマージされ、
+`kpisProvenance` に `manual` として記録される。ファイル指定または個別フィールド省略時は `0` / `0.0` の
+プレースホルダが入り、`kpisProvenance` に `unmeasured-default` として記録される — 「未計測」と「実測でゼロ」を
+混同しないための明示的な区別である。
 
 この接続は `01_Plans/tools/test_phase10_evidence_harvest.py` の最小統合テストで保証する。

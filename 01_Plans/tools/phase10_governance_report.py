@@ -5,7 +5,14 @@ import argparse
 import json
 from pathlib import Path
 
+# ADR-0012 D6: KPI set redefined from adoption/link/print/self-resolution
+# metrics to duplication-displacement / canon-drift / review-lead-time
+# metrics. schemaVersion is new in v2 (v1 had none) so future breaking
+# changes to this contract have a clean version to bump against.
+SCHEMA_VERSION = "phase10-governance-report/v2"
+
 REQUIRED_TOP_LEVEL_KEYS = (
+    "schemaVersion",
     "generatedAt",
     "week",
     "kpis",
@@ -15,6 +22,16 @@ REQUIRED_TOP_LEVEL_KEYS = (
 
 REQUIRED_WEEK_KEYS = ("label", "startDate", "endDate")
 REQUIRED_KPI_KEYS = (
+    "displacedDuplicationCount",
+    "canonDriftIncidentCount",
+    "tableChangeReviewLeadTimeHours",
+)
+# Pre-ADR-0012 KPI keys. Rejected explicitly (rather than silently accepted
+# or ignored) so a payload built from the old phase7-release-readiness.md
+# manual-entry habit fails loudly with a pointer to the new contract instead
+# of either erroring on an unrelated missing-key message or, worse, silently
+# producing a report with the wrong metrics.
+LEGACY_KPI_KEYS = (
     "adoptionLeadTimeHours",
     "linkIntegrityDetectionRate",
     "printReproducibilityRate",
@@ -57,6 +74,10 @@ def parse_input(path: Path) -> dict[str, object]:
 
     _require_keys("root", payload, REQUIRED_TOP_LEVEL_KEYS)
 
+    schema_version = payload["schemaVersion"]
+    if schema_version != SCHEMA_VERSION:
+        raise ValidationError(f"unsupported schemaVersion: {schema_version!r} (expected {SCHEMA_VERSION!r})")
+
     week = payload["week"]
     kpis = payload["kpis"]
     sla = payload["sla"]
@@ -70,6 +91,13 @@ def parse_input(path: Path) -> dict[str, object]:
         raise ValidationError("sla must be an object")
     if not isinstance(next_actions, list):
         raise ValidationError("nextActions must be an array")
+
+    legacy_present = sorted(key for key in LEGACY_KPI_KEYS if key in kpis)
+    if legacy_present:
+        raise ValidationError(
+            f"kpis contains legacy field(s) {legacy_present}; superseded by ADR-0012 D6, "
+            "see 04_Documentation/phase10-governance-reporting-foundation.md"
+        )
 
     _require_keys("week", week, REQUIRED_WEEK_KEYS)
     _require_keys("kpis", kpis, REQUIRED_KPI_KEYS)
@@ -125,10 +153,9 @@ def render_markdown(payload: dict[str, object]) -> str:
     lines.append("")
     lines.append("| KPI | Value |")
     lines.append("|---|---:|")
-    lines.append(f"| Adoption lead time (hours) | {kpis['adoptionLeadTimeHours']:.2f} |")
-    lines.append(f"| Link integrity detection rate (%) | {kpis['linkIntegrityDetectionRate']:.2f} |")
-    lines.append(f"| Print reproducibility rate (%) | {kpis['printReproducibilityRate']:.2f} |")
-    lines.append(f"| Self-resolution rate (%) | {kpis['selfResolutionRate']:.2f} |")
+    lines.append(f"| Displaced copy-paste duplication (count) | {int(kpis['displacedDuplicationCount'])} |")
+    lines.append(f"| Canon-vs-document drift incidents (count) | {int(kpis['canonDriftIncidentCount'])} |")
+    lines.append(f"| Table-change review lead time (hours) | {kpis['tableChangeReviewLeadTimeHours']:.1f} |")
     lines.append("")
     lines.append("## SLA Alerts")
     lines.append("")

@@ -1,4 +1,5 @@
 {
+  "schemaVersion": "phase10-governance-report/v2",
   "generatedAt": "2026-04-11T00:00:00Z",
   "week": {
     "label": "2026-W15",
@@ -6,10 +7,9 @@
     "endDate": "2026-04-12"
   },
   "kpis": {
-    "adoptionLeadTimeHours": 20.25,
-    "linkIntegrityDetectionRate": 99.1,
-    "printReproducibilityRate": 98.0,
-    "selfResolutionRate": 65.0
+    "displacedDuplicationCount": 6,
+    "canonDriftIncidentCount": 1,
+    "tableChangeReviewLeadTimeHours": 20.25
   },
   "sla": {
     "triageHours": 24,

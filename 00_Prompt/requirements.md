@@ -96,7 +96,7 @@ Phase 5 までで整備した製品機能を、一般ユーザー・導入担当
 ### 【Phase 7】 リリース運用品質と採用拡大 (Release Readiness & Adoption Scale)
 Phase 1〜6 の成果を継続運用可能な形へ昇華し、公開後の品質と採用拡大を両立させる。
 * **Release gate automation**: `docs-check` / `unit` / `integration` の合格条件を release 判定フローとして標準化し、Issueの Validation evidence へ追跡可能に記録する。
-* **Adoption observability**: query-evidence artifact を活用し、導入時間・リンク不整合検知率・印刷再現性の KPI を定点観測する。
+* **Adoption observability**: query-evidence artifact を活用し KPI を定点観測する。KPI 定義は Phase 12 / ADR-0012 D6 により「駆逐されたコピー重複・正本と文書の乖離インシデント・表変更のレビュー所要時間」へ再定義された（旧: 導入時間・リンク不整合検知率・印刷再現性）。
 * **Feedback loop SLA**: docs audit で発見した課題を `requirements` / `02_Architecture` / `03_Implement/test` / `01_Plans/issues` へ還流する期限と責任分界を定義する。
 * **Safe evolution rule**: 不可逆な方針変更は ADR、実行改善は issue で管理し、機能追加は release gate を満たす範囲で実施する。
 
@@ -124,7 +124,7 @@ Phase 8 で定義したパターンを「実運用で再利用できる資産」
 Phase 9 で整備したテンプレート資産・同期ゲート・観測導線を、継続運用で「改善速度」と「説明責任」を担保できる運用ガバナンスへ昇格させる。
 * **Evidence auto-harvest**: `docs-check` / `unit` / `integration` / sync gate の実行結果を query-evidence artifact として定期収集し、失敗分類と影響読者を紐付けて保存する。
 * **SLA dashboard seed**: docs audit と support runbook の更新SLA（例: triage 24h, workaround 72h, 恒久対策7日）を機械可読で保持し、期限超過を検知可能にする。
-* **Weekly governance report**: 導入時間、リンク不整合検知率、印刷再現性、問い合わせ自己解決率を週次で要約するレポート生成導線を整備する。
+* **Weekly governance report**: 週次KPIサマリのレポート生成導線を整備する。KPI 定義は Phase 12 / ADR-0012 D6 を正本とする（旧: 導入時間・リンク不整合検知率・印刷再現性・問い合わせ自己解決率）。
 * **Backlog auto-escalation rule**: 週次レポート上の閾値逸脱を `01_Plans/issues/` 起票候補として自動抽出し、Decisionが必要な事項のみ `01_Plans/adr/` へエスカレーションする。
 * **Auditability baseline**: 運用判断（優先度、延期理由、対応責任者）を追跡可能なメタデータとして残し、将来の採用監査・納品監査に耐える状態を標準化する。
 
