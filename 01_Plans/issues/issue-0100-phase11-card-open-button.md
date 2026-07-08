@@ -9,7 +9,7 @@
 
 ## Traceability
 - Related Backlog/Phase: requirements.md Phase 4「画面UI: 『ファイル名・範囲・開くボタン』を持つリッチなリンクカードUI（クリックで env.openExternal）」
-- Related ADR/Spec: ADR-0010 (Product Completion Gate)
+- Related ADR/Spec: ADR-0011 (Card Open Affordance — 実現方式決定済み) / ADR-0010 (Product Completion Gate)
 - 同種ギャップ: issue-0093 / issue-0099
 
 ## 背景
