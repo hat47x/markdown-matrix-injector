@@ -60,7 +60,19 @@ jobs:
         run: npm run test:release-gate-tools
       - name: Run release gate check
         working-directory: 03_Implement
-        run: npm run release:gate:full
+        run: |
+          npm run release:gate:clean
+          python3 ../01_Plans/tools/release_gate_check.py \
+            --repo-root .. \
+            --format json \
+            --output-file artifacts/release-gate.json \
+            --output-markdown-file artifacts/release-gate.md \
+            --allow-pending-issues
+          python3 ../01_Plans/tools/release_gate_metrics.py \
+            --input-file ../artifacts/release-gate.json \
+            --output-file ../artifacts/release-gate-metrics.csv
+          npm run docs:phase7-rollup
+          npm run release:gate:assert
       - name: Upload release gate artifact
         uses: actions/upload-artifact@v4
         with:
