@@ -54,9 +54,8 @@ categories, keywords, icon, repository, license, galleryBanner）が無く、`@v
 - [x] `vsce package` 検証、生成物の内容確認（2026-07-15、修理後に実施）。
 
 ### 残課題（Marketplace 磨き込み・human gate 前に推奨）
-- [ ] .vsix 内の readme が `03_Implement/README.md`（180 byte のスタブ）になっている。Marketplace の
-      掲載ページはこれを表示するため、公開前に利用者向け README（ルート README の抜粋 + インストール/
-      クイックスタート）へ差し替える。
+- [x] .vsix 内の readme が `03_Implement/README.md`（180 byte のスタブ）になっている。→ 2026-07-15 利用者向け
+      README（インストール・クイックスタート・機能一覧・開発コマンド）へ差し替え済み。
 
 ### Validation plan
 - `npx vsce package` が exit 0、`.vsix` の内容を `vsce ls` 相当で確認（不要ファイル混入なし）。

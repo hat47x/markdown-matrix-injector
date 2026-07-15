@@ -79,13 +79,15 @@ class ReleaseGateCheckTests(unittest.TestCase):
         self.assertTrue(result.passed)
         self.assertEqual(result.detail, "npm run test:unit passed")
 
+    @patch("release_gate_check.evaluate_phase9_guide_sync_gate")
     @patch("release_gate_check.evaluate_test_gate")
     @patch("release_gate_check.evaluate_phase9_sync_gate")
     @patch("release_gate_check.evaluate_planning_gate")
-    def test_run_release_gates_keeps_gate_order(self, planning_mock, phase9_mock, test_mock) -> None:
+    def test_run_release_gates_keeps_gate_order(self, planning_mock, phase9_mock, test_mock, guide_sync_mock) -> None:
         planning_mock.return_value = GateResult("G1:Planning", True, "ok")
         test_mock.return_value = GateResult("G2:Tests", True, "ok")
         phase9_mock.return_value = GateResult("G3:Phase9Sync", True, "ok")
+        guide_sync_mock.return_value = GateResult("G4:Phase9GuideSync", True, "ok")
 
         results = run_release_gates(
             Path("."),
@@ -96,15 +98,17 @@ class ReleaseGateCheckTests(unittest.TestCase):
             phase9_ignore_row_order=False,
         )
 
-        self.assertEqual([item.gate for item in results], ["G1:Planning", "G2:Tests", "G3:Phase9Sync"])
+        self.assertEqual([item.gate for item in results], ["G1:Planning", "G2:Tests", "G3:Phase9Sync", "G4:Phase9GuideSync"])
 
+    @patch("release_gate_check.evaluate_phase9_guide_sync_gate")
     @patch("release_gate_check.evaluate_test_gate")
     @patch("release_gate_check.evaluate_phase9_sync_gate")
     @patch("release_gate_check.evaluate_planning_gate")
-    def test_run_release_gates_forwards_ignore_row_order_flag(self, planning_mock, phase9_mock, test_mock) -> None:
+    def test_run_release_gates_forwards_ignore_row_order_flag(self, planning_mock, phase9_mock, test_mock, guide_sync_mock) -> None:
         planning_mock.return_value = GateResult("G1:Planning", True, "ok")
         test_mock.return_value = GateResult("G2:Tests", True, "ok")
         phase9_mock.return_value = GateResult("G3:Phase9Sync", True, "ok")
+        guide_sync_mock.return_value = GateResult("G4:Phase9GuideSync", True, "ok")
 
         run_release_gates(
             Path("."),
@@ -233,7 +237,7 @@ class ReleaseGateCheckTests(unittest.TestCase):
         completed = subprocess.run(command, check=False, capture_output=True, text=True)
         payload = json.loads(completed.stdout)
         self.assertEqual(completed.returncode, 0)
-        self.assertEqual([item["gate"] for item in payload], ["G1:Planning", "G2:Tests", "G3:Phase9Sync"])
+        self.assertEqual([item["gate"] for item in payload], ["G1:Planning", "G2:Tests", "G3:Phase9Sync", "G4:Phase9GuideSync"])
         phase9_gate = next(item for item in payload if item["gate"] == "G3:Phase9Sync")
         self.assertEqual(
             phase9_gate["detail"],

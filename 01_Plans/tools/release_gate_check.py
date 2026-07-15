@@ -119,6 +119,26 @@ def evaluate_phase9_sync_gate(
     return GateResult("G3:Phase9Sync", True, detail)
 
 
+def evaluate_phase9_guide_sync_gate(
+    repo_root: Path,
+    timeout_sec: int,
+    skip_tests: bool,
+) -> GateResult:
+    """Verify the standalone pattern guide has not drifted from the docs CSV (ADR-0013)."""
+    if skip_tests:
+        return GateResult("G4:Phase9GuideSync", True, "skipped by --skip-tests")
+
+    command = ["python3", "01_Plans/tools/generate_phase9_pattern_guide.py", "--check"]
+    proc = run_command(command, cwd=repo_root, timeout_sec=timeout_sec)
+    if proc.returncode != 0:
+        detail = (proc.stdout + "\n" + proc.stderr).strip().replace("\n", " | ")
+        return GateResult("G4:Phase9GuideSync", False, detail or "phase9 guide sync check failed")
+
+    # Success output: "OK: <path> is in sync with <csv>"
+    detail = proc.stdout.strip() or "phase9 guide sync check passed"
+    return GateResult("G4:Phase9GuideSync", True, detail)
+
+
 def run_release_gates(
     repo_root: Path,
     allow_pending_issues: bool,
@@ -131,6 +151,7 @@ def run_release_gates(
         evaluate_planning_gate(repo_root, allow_pending_issues, planning_timeout_sec),
         evaluate_test_gate(repo_root, npm_test_timeout_sec, skip_tests),
         evaluate_phase9_sync_gate(repo_root, npm_test_timeout_sec, skip_tests, phase9_ignore_row_order),
+        evaluate_phase9_guide_sync_gate(repo_root, npm_test_timeout_sec, skip_tests),
     ]
 
 

@@ -107,7 +107,7 @@ Phase 7 では「実装追加」よりも「リリース判定と採用観測の
    - `01_Plans/adr/ADR-0005-phase7-release-readiness-and-adoption-scale.md`
 3. Action 正本（実行）
    - `01_Plans/issues/issue-0043-phase7-release-readiness-foundation.md`
-4. 自動ゲート確認（G1/G2/G3）
+4. 自動ゲート確認（G1/G2/G3/G4、G4 は ADR-0013 で追加）
    - `python3 01_Plans/tools/release_gate_check.py`
 5. triage 可視化
    - `python3 01_Plans/tools/planning_queue.py`
@@ -140,10 +140,11 @@ Phase 9 では「テンプレート資産の再利用性」と「docs/fixture �
    - `python3 01_Plans/tools/check_phase9_template_sync.py`
 5. query 観測テスト
    - `cd 03_Implement && npm test`
-6. release gate（G1/G2/G3）
+6. release gate（G1/G2/G3/G4）
    - `python3 01_Plans/tools/release_gate_check.py`
    - 行順差分のみ許容する監査では `python3 01_Plans/tools/release_gate_check.py --phase9-ignore-row-order`
    - `--skip-tests` 併用時は G3 detail が `skipped by --skip-tests`（strict）または `skipped by --skip-tests (ignore-row-order not evaluated)`（relaxed指定時）となる
+   - G4（`G4:Phase9GuideSync`, ADR-0013）は標準ガイドの陳腐化を検知する。`--skip-tests` 時はスキップ扱い。
 7. triage 可視化
    - `python3 01_Plans/tools/planning_queue.py`
 

@@ -54,6 +54,9 @@
 
 ## Follow-up Actions
 - release gate への `--check` 統合（G4 相当）を別 issue で検討する。
+  **【2026-07-15 追記・解消済み】** `release_gate_check.py` に `G4:Phase9GuideSync` ゲートとして統合済み
+  （`evaluate_phase9_guide_sync_gate`、`--skip-tests` 時はスキップ扱い、`test_release_gate_check.py` 26件
+  で検証、`--allow-pending-issues` 実行で実際に PASS を確認）。
 - Phase 8 CSV/fixture の同期強制化（Phase 9 相当の quality gate）が必要になった場合は、別 ADR で検討する
   （本 ADR のスコープではない）。
 - **新規発見（本 issue 実装中に判明、要フォローアップ）**: `phase9-rule-table-benchmark-pack.csv` の
@@ -71,8 +74,12 @@
   **【2026-07-15 追記】** issue-0105 の検証中、この根本原因は Phase 9 CSV 固有ではなく **MMI 本体の
   CSV ローダー `src/core/workbookLoader.ts` の `parseCsv()` が RFC4180 クォートを一切未対応**という、
   より広範な製品コア機能の欠陥であると判明した（あらゆる利用者の実データ CSV に影響し得る）。
-  こちらは `issue-0106` として切り出し、パーサー自体は是正・実装済み（`Done`）。Phase 9 CSV データ
-  そのもののクォート付与は、issue-0106 でも同様の理由でなお別 issue のまま。
+  こちらは `issue-0106` として切り出し、パーサー自体を是正した。
+  **【同日追記2】** パーサー修正後に実データで検証したところ、本 CSV を実際に埋め込むとヘッダ13列に
+  対しデータ行17列に破損する実害を確認したため、コアパーサーが正しくなったことで安全に是正できる
+  ようになったデータ側のクォート付与（docs/fixture CSV・`markdownMatrixPlugin.test.ts` の独自パーサー
+  撤去・`generate_phase9_pattern_guide.py` の簡素化）も issue-0106 内で同日中に完了させた。
+  `check_phase9_template_sync.py` は無変更のまま `OK`。本 Follow-up 項目は解消済み。
 
 ## Traceability (関連情報)
 - Related requirements: `00_Prompt/requirements.md` Phase 9 / Phase 12（規約仕様化と普及基盤、資産独立公開）

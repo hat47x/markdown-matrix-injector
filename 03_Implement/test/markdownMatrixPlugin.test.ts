@@ -7,6 +7,7 @@ import MarkdownIt from 'markdown-it';
 import XLSX from 'xlsx';
 import { WorkbookCache } from '../src/cache/workbookCache.js';
 import { markdownMatrixPlugin } from '../src/plugin/markdownMatrixPlugin.js';
+import { parseCsv } from '../src/core/workbookLoader.js';
 
 function createMarkdownIt(markdownFilePath: string, workspaceRoot?: string): MarkdownIt {
   const md = new MarkdownIt();
@@ -40,18 +41,17 @@ function escapeRegExp(value: string): string {
 }
 
 function loadPhase9BenchmarkRows(filePath: string): Phase9BenchmarkRow[] {
-  const lines = fs
-    .readFileSync(filePath, 'utf-8')
-    .split(/\r?\n/)
-    .filter((line) => line.trim().length > 0);
-  const dataLines = lines.slice(1);
-  return dataLines.map((line) => {
-    const columns = line.split(',');
-    // QueryExample can contain commas and is stored between fixed prefix/suffix columns.
-    const ruleId = columns[1] ?? '';
-    const queryExample = columns.slice(8, Math.max(9, columns.length - 4)).join(',');
-    return { ruleId, queryExample };
-  });
+  // Uses the production RFC4180 parser (issue-0106) rather than a hand-rolled
+  // fixed-column reconstruction: now that QueryExample is properly CSV-quoted
+  // (issue-0106 follow-up), a standard quote-aware parser recovers it directly
+  // by header name -- no special-casing "columns 8..length-4" needed anymore.
+  const [header, ...dataRows] = parseCsv(fs.readFileSync(filePath, 'utf-8'));
+  const ruleIdIndex = header.indexOf('RuleId');
+  const queryExampleIndex = header.indexOf('QueryExample');
+  return dataRows.map((row) => ({
+    ruleId: row[ruleIdIndex] ?? '',
+    queryExample: row[queryExampleIndex] ?? '',
+  }));
 }
 
 test('markdownMatrixPlugin renders csv embeds as html tables', () => {
