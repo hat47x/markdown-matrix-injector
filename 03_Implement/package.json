@@ -1,8 +1,35 @@
 {
   "name": "markdown-matrix-injector",
+  "displayName": "Markdown Matrix Injector (MMI)",
+  "description": "Declarative, read-only table references from Markdown to Excel/CSV/XML — a governance boundary between source-of-truth data and text documents",
   "version": "0.1.0",
-  "private": true,
+  "publisher": "hat47x",
+  "license": "MIT",
   "type": "module",
+  "icon": "media/mmi-icon.png",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/hat47x/markdown-matrix-injector"
+  },
+  "bugs": {
+    "url": "https://github.com/hat47x/markdown-matrix-injector/issues"
+  },
+  "homepage": "https://github.com/hat47x/markdown-matrix-injector#readme",
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "markdown",
+    "excel",
+    "csv",
+    "table",
+    "embed",
+    "reference",
+    "read-only",
+    "governance",
+    "sier",
+    "documentation"
+  ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test:unit": "node --import tsx --test ./test/*.test.ts",
@@ -16,7 +43,9 @@
     "release:gate:clean": "python3 ../01_Plans/tools/release_gate_clean.py --repo-root ..",
     "test:release-gate-tools": "python3 ../01_Plans/tools/test_release_gate_check.py && python3 ../01_Plans/tools/test_release_gate_metrics.py && python3 ../01_Plans/tools/test_release_gate_clean.py && python3 ../01_Plans/tools/test_phase7_issue_rollup.py && python3 ../01_Plans/tools/test_release_gate_assert_artifacts.py",
     "docs:phase7-rollup": "python3 ../01_Plans/tools/phase7_issue_rollup.py --repo-root .. --output-file artifacts/phase7-issue-rollup.md",
-    "release:gate:assert": "python3 ../01_Plans/tools/release_gate_assert_artifacts.py --repo-root .."
+    "release:gate:assert": "python3 ../01_Plans/tools/release_gate_assert_artifacts.py --repo-root ..",
+    "package": "vsce package",
+    "publish": "vsce publish"
   },
   "dependencies": {
     "markdown-it": "^14.1.0",
@@ -28,7 +57,8 @@
     "typescript": "^5.9.2",
     "@types/node": "^24.3.0",
     "@vscode/test-electron": "^2.5.2",
-    "@types/vscode": "^1.96.0"
+    "@types/vscode": "^1.96.0",
+    "@vscode/vsce": "^3.6.2"
   },
   "main": "./dist/src/extension.js",
   "engines": {
@@ -37,6 +67,7 @@
   "activationEvents": [
     "onCommand:markdownMatrixInjector.renderEmbedForTest",
     "onCommand:markdownMatrixInjector.generateDeliveryManifest",
+    "onCommand:markdownMatrixInjector.openSource",
     "onCommand:markdownMatrixInjector.insertEmbedFromPaste",
     "onCommand:markdownMatrixInjector.insertEmbedFromDrop",
     "onLanguage:markdown"
@@ -54,6 +85,10 @@
       {
         "command": "markdownMatrixInjector.generateDeliveryManifest",
         "title": "MMI: Generate Delivery Manifest"
+      },
+      {
+        "command": "markdownMatrixInjector.openSource",
+        "title": "MMI: Open Embed Source"
       },
       {
         "command": "markdownMatrixInjector.insertEmbedFromPaste",

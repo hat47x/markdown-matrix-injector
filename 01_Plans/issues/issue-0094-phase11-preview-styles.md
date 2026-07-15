@@ -33,10 +33,10 @@ issue-0093 でプレビューへ注入結線したが、`markdown.previewStyles`
 - [ ] (manual-e2e) 実プレビューでテーブル/カード/ハイライトが視認でき、PDF 出力で改ページ・用紙向きが反映される。（issue-0098 で実証）
 
 ### Task breakdown
-- [ ] レンダラ出力クラス/属性の棚卸し（`src/core/renderTable.ts` / `renderCard.ts` / `renderEmbedFrame.ts`）。
-- [ ] `media/markdown-matrix.css` 作成（screen + print）。
-- [ ] `package.json` に previewStyles 追加。
-- [ ] build / test 検証、manual-e2e チェックリストへ追記（`04_Documentation/vscode-e2e-testing.md`）。
+- [x] レンダラ出力クラス/属性の棚卸し（`test/previewStyles.test.ts` の `REQUIRED_SELECTORS` で固定）。
+- [x] `media/markdown-matrix.css` 作成（screen + print、`previewStyles.test.ts` でカバレッジ検証）。
+- [x] `package.json` に previewStyles 追加（`previewStyles.test.ts` で検証）。
+- [x] build / test 検証、manual-e2e チェックリストへ追記（G1/G2 manual-e2e で実証済み）。
 
 ### Validation plan
 - `npm run build` / `npm test` が exit 0。

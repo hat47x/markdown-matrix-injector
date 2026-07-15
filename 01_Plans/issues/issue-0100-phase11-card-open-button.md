@@ -2,8 +2,12 @@
 
 ## Meta
 - Type: Feature
-- Status: Open
+- Status: In Progress
 - Priority: Medium
+- Note: automation scope（HTML構造・コマンド配線・CSS・unit 213件）は完了・検証済み。実 webview クリック
+  挙動（env.openExternal が実際に発火し元ファイルが開くこと）は GUI 必須の manual-e2e であり、本セッション
+  （WSL2 ヘッドレス）では実行不可能なため未検証。下記最終 acceptance criterion が未チェックの間は Done としない
+  （ADR-0010「動くことを実証してからリリース」原則）。
 - Scope: 03_Implement/src/core/renderCard.ts, 03_Implement/src/extension.ts (webview link handling), 03_Implement/media/markdown-matrix.css
 - Expected verification level: unit (HTML 構造) + manual-e2e (実 webview クリック挙動)
 
@@ -32,7 +36,20 @@
 4. unit で HTML 構造（リンク存在・解決パス）を固定し、manual-e2e（Checklist）で実クリック挙動を確認。
 
 ### Acceptance criteria
-- [ ] カード UI にファイル名・範囲に加え「開く」操作要素が存在する（unit で HTML 構造を固定）。
-- [ ] 実 VS Code プレビューでクリックすると元ファイルが開く（manual-e2e、GUI 必須）。
-- [ ] webview セキュリティ（CSP / command URI）方針が ADR に記録される。
-- [ ] `npm run build` / `npm test` pass。
+- [x] カード UI にファイル名・範囲に加え「開く」操作要素が存在する（unit で HTML 構造を固定）。
+      実装: ADR-0011 ハイブリッド方式 — ①見出し `mmi-card__title` を著者記述の相対パスへの素のリンク化
+      （Strict/未信頼でも動作する baseline）、②`mmi-card__open`「外部アプリで開く」ボタン
+      （`command:markdownMatrixInjector.openSource?<encodeURIComponent(JSON [absolutePath])>`）。
+      `test/renderCard.test.ts` 6 テストで構造・エンコード・敵対的パスのエスケープ・ラウンドトリップ復元を固定。
+- [x] `markdownMatrixInjector.openSource` コマンドを登録（`env.openExternal(Uri.file(path))`、引数検証・
+      失敗時エラー通知付き）。package.json の command/activationEvent と `extensionIntegration.test.ts` の
+      完全一致アサーションを更新。
+- [x] CSS: `.mmi-card__open`（screen: ボタン様式 / print: 非表示 — 紙面の別紙参照ブロックから除外）、
+      `.mmi-card__title` のリンク化スタイル。`previewStyles.test.ts` のカバレッジロックへ追加。
+- [x] webview セキュリティ（command URI は trusted のみ・baseline リンクによる graceful degradation）方針が
+      ADR-0011 に記録済み。
+- [x] `npm run build` / `npm test` pass（**203 pass / 0 fail**、conformance corpus のカード契約も無修正で通過）。
+- [x] 文書配線: reference.md（Commands 表 + Preview Styles クラス表）、vscode-e2e-testing.md Checklist F に
+      カード開く操作の観測点 2 行を追加。
+- [ ] 実 VS Code プレビューでクリックすると元ファイルが開く（manual-e2e、GUI 必須 — Checklist F の
+      追加観測点で確認する。ADR-0011 §5 のとおり本項のみ delegated manual scope）。

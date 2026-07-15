@@ -20,6 +20,7 @@ const REQUIRED_SELECTORS = [
   '.mmi-card',
   '.mmi-card__title',
   '.mmi-card__meta',
+  '.mmi-card__open',
   '.mmi-error',
   '[data-page-break="before"]',
   '[data-page-break="after"]',

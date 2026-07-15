@@ -109,6 +109,9 @@ export function activate(context: vscode.ExtensionContext): void {
     vscode.commands.registerTextEditorCommand('markdownMatrixInjector.generateDeliveryManifest', (editor) =>
       generateDeliveryManifestForEditor(editor),
     ),
+    vscode.commands.registerCommand('markdownMatrixInjector.openSource', (sourcePath?: unknown) =>
+      openEmbedSource(sourcePath),
+    ),
     ...registerCompatibilityPasteDropCommands(),
     vscode.languages.registerCompletionItemProvider(
       MARKDOWN_SELECTOR,
@@ -205,6 +208,27 @@ function buildDeliveryManifestOutputPath(markdownFilePath: string): string {
   const directory = path.dirname(markdownFilePath);
   const basename = path.basename(markdownFilePath, path.extname(markdownFilePath));
   return path.join(directory, `${basename}.delivery-manifest.csv`);
+}
+
+/**
+ * `MMI: Open Embed Source` — fired by the card's 「外部アプリで開く」 button via a
+ * `command:` URI (ADR-0011). Opens the referenced canonical file in its OS
+ * default application through env.openExternal (requirements Phase 4). The
+ * command: link only fires in trusted previews; untrusted environments fall
+ * back to the card title's plain relative link.
+ */
+async function openEmbedSource(sourcePath: unknown): Promise<void> {
+  if (typeof sourcePath !== 'string' || sourcePath.trim() === '') {
+    void vscode.window.showErrorMessage('MMI: Open Embed Source requires a file path argument.');
+    return;
+  }
+
+  try {
+    await vscode.env.openExternal(vscode.Uri.file(sourcePath));
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`MMI: Failed to open ${sourcePath}: ${reason}`);
+  }
 }
 
 function registerNativePasteDropProviders(context: vscode.ExtensionContext, nativePasteDropState: NativePasteDropState): void {

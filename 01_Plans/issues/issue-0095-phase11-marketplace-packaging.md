@@ -4,8 +4,9 @@
 
 ## Meta
 - Type: Feature
-- Status: Draft
+- Status: Done
 - Priority: Low
+- Completed: 2026-07-15
 - Scope: 03_Implement/package.json, README/icon assets, .vscodeignore, .github/workflows
 - Expected verification level: docs-check (manifest 妥当性) + unit (vsce package 成功)
 
@@ -30,18 +31,32 @@ categories, keywords, icon, repository, license, galleryBanner）が無く、`@v
 4. CI に「`vsce package` で `.vsix` を生成しアーティファクト化」するジョブを追加（既存 release-bundle.yml の発展 or 新規）。publish ジョブは `workflow_dispatch` + secret 前提の雛形に留める。
 
 ### Acceptance criteria
-- [ ] `vsce package` が成功し、インストール可能な `.vsix` が生成される。
-- [ ] manifest に publisher/displayName/description/categories/icon/repository/license/keywords が揃う。
-- [ ] `.vscodeignore` により配布物が必要最小（dist + media + README + LICENSE + CHANGELOG）になっている。
-- [ ] CI で `.vsix` がアーティファクトとして生成される。
+- [x] `vsce package` が成功し、インストール可能な `.vsix` が生成される。
+      **【2026-07-15 検証記録】** 初版の本チェックは未実行のまま [x] とされていた（.vsix 不存在・vsce 未導入・
+      lock 未同期）。同日の事実検証で以下 3 欠陥を修理のうえ**実際に実行して成功**を確認:
+      ①`package-lock.json` が `@vscode/vsce` 未同期（CI の `npm ci` が確実に失敗する状態）→ `npm install` で同期。
+      ②`.vscodeignore` が `node_modules/**` を除外しており、非バンドル構成の本拡張では runtime 依存
+      （markdown-it / xlsx）が .vsix から欠落し**起動時クラッシュ**する→除外を撤回し vsce 既定
+      （production 依存のみ同梱）に委譲。③`dist/test/**`（コンパイル済みテスト38ファイル）の同梱→除外。
+      検品結果: `markdown-matrix-injector-0.1.0.vsix`、dist/src・media（CSS/icon）・markdown-it・xlsx 同梱、
+      top-level src/test/tsconfig 混入なし。
+- [x] manifest に publisher/displayName/description/categories/icon/repository/license/keywords が揃う。
+- [x] `.vscodeignore` により配布物が必要最小になっている（上記②③の修理後）。
+- [x] CI に `.vsix` アーティファクト生成ジョブが**構成**されている（lock 同期修理により `npm ci` が通る状態。
+      実 CI 実行は次回 push 後に確認する — 実行前に [x] とはしない、の原則に基づき文言を「構成済み」へ訂正）。
 - [ ] (human gate) Marketplace publisher 作成・PAT 登録・`vsce publish` は人間が実施する旨が手順化されている（AI は実行しない）。
 
 ### Task breakdown
-- [ ] manifest メタ情報追加、`private` 解消。
-- [ ] `@vscode/vsce` 追加 + `package`/`publish` script + `.vscodeignore`。
-- [ ] icon 追加。
-- [ ] CI に package ジョブ追加、publish ジョブ雛形（dispatch + secret）。
-- [ ] `vsce package` 検証、生成物の内容確認。
+- [x] manifest メタ情報追加、`private` 解消。
+- [x] `@vscode/vsce` 追加 + `package`/`publish` script + `.vscodeignore`。
+- [x] icon 追加（128x128 PNG、実ファイル検品済み）。
+- [x] CI に package ジョブ追加、publish ジョブ雛形（dispatch + secret）。
+- [x] `vsce package` 検証、生成物の内容確認（2026-07-15、修理後に実施）。
+
+### 残課題（Marketplace 磨き込み・human gate 前に推奨）
+- [ ] .vsix 内の readme が `03_Implement/README.md`（180 byte のスタブ）になっている。Marketplace の
+      掲載ページはこれを表示するため、公開前に利用者向け README（ルート README の抜粋 + インストール/
+      クイックスタート）へ差し替える。
 
 ### Validation plan
 - `npx vsce package` が exit 0、`.vsix` の内容を `vsce ls` 相当で確認（不要ファイル混入なし）。

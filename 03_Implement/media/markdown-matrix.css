@@ -81,15 +81,38 @@
 }
 
 .mmi-card__title {
+  display: block;
   font-weight: 600;
   color: var(--vscode-textLink-foreground, inherit);
   word-break: break-all;
+  text-decoration: none;
+}
+
+.mmi-card__title:hover {
+  text-decoration: underline;
 }
 
 .mmi-card__meta {
   margin-top: 0.2rem;
   font-size: 0.88em;
   color: var(--vscode-descriptionForeground, #888);
+}
+
+/* ADR-0011: explicit env.openExternal affordance (command: URI). Fires only in
+ * trusted previews; the title's plain link above is the always-working baseline. */
+.mmi-card__open {
+  display: inline-block;
+  margin-top: 0.35rem;
+  font-size: 0.85em;
+  color: var(--vscode-textLink-foreground, #0066bf);
+  text-decoration: none;
+  border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border, #c8c8c8));
+  border-radius: 4px;
+  padding: 0.15rem 0.5rem;
+}
+
+.mmi-card__open:hover {
+  text-decoration: underline;
 }
 
 /* ---- Error ---- */
@@ -160,6 +183,11 @@
     /* Keep the whole reference block (title + path) on one page. */
     break-inside: avoid;
     page-break-inside: avoid;
+  }
+
+  /* Interactive open affordance is meaningless on paper — drop it from 別紙参照. */
+  .mmi-card__open {
+    display: none;
   }
 
   .mmi-card__title::before {

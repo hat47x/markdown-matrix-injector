@@ -11,6 +11,7 @@
  */
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
 import path from 'node:path';
 import MarkdownIt from 'markdown-it';
 import { WorkbookCache } from '../src/cache/workbookCache.js';
@@ -146,15 +147,18 @@ test('enterprise output: release gate table renders with pending rows highlighte
 // ── G3: data integrity — CSV files are not modified after rendering ────────
 
 test('enterprise output (G3): rendering does not modify source CSV files', () => {
-  import('node:fs').then((fs) => {
-    const csvPath = path.join(FIXTURE_ROOT, 'data/sier-design/req-trace.csv');
-    const before = fs.readFileSync(csvPath, 'utf-8');
+  // NOTE: this used to wrap the assertions in an unawaited dynamic
+  // `import('node:fs').then(...)` — the test body returned before the promise
+  // resolved, so assertion failures could never fail the test and the G3 gate
+  // evidence was citing a vacuous check. Synchronous now: the assertion is
+  // guaranteed to execute within the test.
+  const csvPath = path.join(FIXTURE_ROOT, 'data/sier-design/req-trace.csv');
+  const before = fs.readFileSync(csvPath, 'utf-8');
 
-    buildMd().render(`![[${SIER_DIR}/req-trace.csv#Sheet1|A1:H9?header=first]]`);
+  buildMd().render(`![[${SIER_DIR}/req-trace.csv#Sheet1|A1:H9?header=first]]`);
 
-    const after = fs.readFileSync(csvPath, 'utf-8');
-    assert.equal(after, before, 'source CSV must be identical before and after rendering (read-only guarantee)');
-  });
+  const after = fs.readFileSync(csvPath, 'utf-8');
+  assert.equal(after, before, 'source CSV must be identical before and after rendering (read-only guarantee)');
 });
 
 // ── G4: invalid / unsupported values are silently dropped (safe degradation) ─

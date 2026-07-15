@@ -1,6 +1,6 @@
 export type DiagnosticSeverity = 'error';
 export type XmlMode = 'none' | 'spreadsheet2003' | 'invalid';
-export type DiagnosticCode = 'MMI_FILE_NOT_FOUND' | 'MMI_INVALID_XML' | 'MMI_SHEET_NOT_FOUND';
+export type DiagnosticCode = 'MMI_FILE_NOT_FOUND' | 'MMI_INVALID_XML' | 'MMI_SHEET_NOT_FOUND' | 'MMI_PATH_OUTSIDE_BOUNDARY';
 
 export interface DiagnosticRange {
   start: number;
@@ -27,6 +27,8 @@ export interface ValidateEmbedDiagnosticsInput {
   fileExists: boolean;
   sheetExists?: boolean;
   xmlMode?: XmlMode;
+  /** false when file exists but resolves outside the workspace boundary (spec P4). */
+  containmentOk?: boolean;
   range?: DiagnosticRange;
 }
 
@@ -35,6 +37,7 @@ const DIAGNOSTIC_SOURCE = 'markdown-matrix-injector';
 
 const DIAGNOSTIC_PRIORITY: Record<DiagnosticCode, number> = {
   MMI_FILE_NOT_FOUND: 0,
+  MMI_PATH_OUTSIDE_BOUNDARY: 0,
   MMI_INVALID_XML: 1,
   MMI_SHEET_NOT_FOUND: 2,
 };
@@ -48,6 +51,19 @@ export function validateEmbedDiagnostics(input: ValidateEmbedDiagnosticsInput): 
       createDiagnostic(
         'MMI_FILE_NOT_FOUND',
         `Embedded file not found: ${input.query.filepath}`,
+        buildSubjectRange(input.query.raw, input.query.filepath, fallbackRange),
+      ),
+    );
+  }
+
+  // Emit containment diagnostic only when the file exists (it was found on disk)
+  // but lies outside the workspace boundary — spec P4 Containment MUST.
+  // When the file doesn't exist, MMI_FILE_NOT_FOUND already covers it.
+  if (input.fileExists && input.containmentOk === false) {
+    diagnostics.push(
+      createDiagnostic(
+        'MMI_PATH_OUTSIDE_BOUNDARY',
+        `Source file is outside workspace boundary: ${input.query.filepath}`,
         buildSubjectRange(input.query.raw, input.query.filepath, fallbackRange),
       ),
     );

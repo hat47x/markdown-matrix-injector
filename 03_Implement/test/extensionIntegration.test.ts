@@ -378,6 +378,7 @@ test('extension integration boundaries keep canonical native providers and compa
     [
       'onCommand:markdownMatrixInjector.renderEmbedForTest',
       'onCommand:markdownMatrixInjector.generateDeliveryManifest',
+      'onCommand:markdownMatrixInjector.openSource',
       'onCommand:markdownMatrixInjector.insertEmbedFromPaste',
       'onCommand:markdownMatrixInjector.insertEmbedFromDrop',
       'onLanguage:markdown',
@@ -388,6 +389,7 @@ test('extension integration boundaries keep canonical native providers and compa
     [
       'markdownMatrixInjector.renderEmbedForTest',
       'markdownMatrixInjector.generateDeliveryManifest',
+      'markdownMatrixInjector.openSource',
       'markdownMatrixInjector.insertEmbedFromPaste',
       'markdownMatrixInjector.insertEmbedFromDrop',
     ],
@@ -408,6 +410,10 @@ test('native provider metadata stays API-visible without collapsing command fall
       {
         command: 'markdownMatrixInjector.generateDeliveryManifest',
         title: 'MMI: Generate Delivery Manifest',
+      },
+      {
+        command: 'markdownMatrixInjector.openSource',
+        title: 'MMI: Open Embed Source',
       },
       {
         command: 'markdownMatrixInjector.insertEmbedFromPaste',
