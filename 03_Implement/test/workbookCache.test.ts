@@ -90,3 +90,71 @@ test('loadWorkbook rejects generic xml files', () => {
 
   assert.throws(() => loadWorkbook({ absolutePath: filePath }), /Unsupported XML format/);
 });
+
+// ── CSV: RFC4180 quoting (correctness fix — the naive line.split(',')
+// implementation this replaces silently misaligned every column after a
+// comma inside a quoted cell) ──────────────────────────────────────────────
+
+function loadCsv(contents: string): string[][] {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-csv-quote-'));
+  const filePath = path.join(tempDir, 'matrix.csv');
+  fs.writeFileSync(filePath, contents);
+  return loadWorkbook({ absolutePath: filePath }).sheets.Sheet1;
+}
+
+test('loadWorkbook keeps a comma inside a quoted cell as one field', () => {
+  const rows = loadCsv('Name,Notes\nAlice,"Smith, John contact"\nBob,plain note\n');
+
+  assert.deepEqual(rows, [
+    ['Name', 'Notes'],
+    ['Alice', 'Smith, John contact'],
+    ['Bob', 'plain note'],
+  ]);
+});
+
+test('loadWorkbook unescapes doubled quotes inside a quoted cell', () => {
+  const rows = loadCsv('A,B\n1,"say ""hi"""\n');
+
+  assert.deepEqual(rows, [
+    ['A', 'B'],
+    ['1', 'say "hi"'],
+  ]);
+});
+
+test('loadWorkbook keeps an embedded newline inside a quoted cell as one logical row', () => {
+  const rows = loadCsv('A,B\n1,"line1\nline2"\n2,plain\n');
+
+  assert.deepEqual(rows, [
+    ['A', 'B'],
+    ['1', 'line1\nline2'],
+    ['2', 'plain'],
+  ]);
+});
+
+test('loadWorkbook trims unquoted cells but preserves whitespace inside quoted cells', () => {
+  const rows = loadCsv('A,B\n" padded ", unquoted \n');
+
+  assert.deepEqual(rows, [
+    ['A', 'B'],
+    [' padded ', 'unquoted'],
+  ]);
+});
+
+test('loadWorkbook handles a quoted cell containing multiple commas and a trailing empty cell', () => {
+  const rows = loadCsv('RuleId,QueryExample,Owner\nR1,"header=first&columns=A,B,C,J,K",author\n');
+
+  assert.deepEqual(rows, [
+    ['RuleId', 'QueryExample', 'Owner'],
+    ['R1', 'header=first&columns=A,B,C,J,K', 'author'],
+  ]);
+});
+
+test('loadWorkbook still parses plain (unquoted) CSV exactly as before', () => {
+  const rows = loadCsv('Name,Role\nAlice,Admin\nBob,User\n');
+
+  assert.deepEqual(rows, [
+    ['Name', 'Role'],
+    ['Alice', 'Admin'],
+    ['Bob', 'User'],
+  ]);
+});

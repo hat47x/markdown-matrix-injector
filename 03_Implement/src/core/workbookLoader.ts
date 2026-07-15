@@ -72,9 +72,83 @@ function loadWorkbookUncached(absolutePath: string): WorkbookData {
   return { sheets };
 }
 
+/**
+ * RFC4180-aware CSV parser. Handles quoted fields (commas and embedded
+ * newlines inside quotes, `""` as an escaped literal quote) without a naive
+ * `split(',')`, which silently corrupts any real-world CSV cell containing a
+ * comma (e.g. `"Smith, John"`) into extra misaligned columns.
+ *
+ * Behavior preserved from the previous implementation: the whole file is
+ * trimmed once (stripping leading/trailing blank lines), CRLF and LF line
+ * endings are both accepted, and unquoted cells are trimmed. Quoted cells are
+ * NOT trimmed -- their content (including intentional leading/trailing
+ * whitespace) is preserved verbatim per RFC4180, since only the delimiters
+ * are structural, not the quoted payload.
+ */
 function parseCsv(contents: string): SheetMatrix {
-  return contents
-    .trim()
-    .split(/\r?\n/)
-    .map((line) => line.split(',').map((cell) => cell.trim()));
+  const text = contents.replace(/^﻿/, '').trim();
+  if (text.length === 0) {
+    return [];
+  }
+
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let fieldIsQuoted = false;
+  let inQuotes = false;
+
+  const flushField = (): void => {
+    row.push(fieldIsQuoted ? field : field.trim());
+    field = '';
+    fieldIsQuoted = false;
+  };
+  const flushRow = (): void => {
+    flushField();
+    rows.push(row);
+    row = [];
+  };
+
+  for (let i = 0; i < text.length; i += 1) {
+    const ch = text[i];
+
+    if (inQuotes) {
+      if (ch === '"') {
+        if (text[i + 1] === '"') {
+          field += '"';
+          i += 1;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += ch;
+      }
+      continue;
+    }
+
+    if (ch === '"' && field === '' && !fieldIsQuoted) {
+      inQuotes = true;
+      fieldIsQuoted = true;
+      continue;
+    }
+
+    if (ch === ',') {
+      flushField();
+      continue;
+    }
+
+    if (ch === '\r') {
+      continue;
+    }
+
+    if (ch === '\n') {
+      flushRow();
+      continue;
+    }
+
+    field += ch;
+  }
+
+  flushRow(); // final row -- `text` was trimmed, so it never ends on a bare newline
+
+  return rows;
 }
