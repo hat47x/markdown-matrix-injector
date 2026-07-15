@@ -68,6 +68,11 @@
   対応する TypeScript テストの手動パーサを標準 CSV パーサへ置換する）は、docs/fixture 両 CSV・
   `markdownMatrixPlugin.test.ts`・`check_phase9_template_sync.py` すべてに影響するため、本 ADR の
   「純粋加算」スコープには含めず、別 issue で扱う。
+  **【2026-07-15 追記】** issue-0105 の検証中、この根本原因は Phase 9 CSV 固有ではなく **MMI 本体の
+  CSV ローダー `src/core/workbookLoader.ts` の `parseCsv()` が RFC4180 クォートを一切未対応**という、
+  より広範な製品コア機能の欠陥であると判明した（あらゆる利用者の実データ CSV に影響し得る）。
+  こちらは `issue-0106` として切り出し、パーサー自体は是正・実装済み（`Done`）。Phase 9 CSV データ
+  そのもののクォート付与は、issue-0106 でも同様の理由でなお別 issue のまま。
 
 ## Traceability (関連情報)
 - Related requirements: `00_Prompt/requirements.md` Phase 9 / Phase 12（規約仕様化と普及基盤、資産独立公開）

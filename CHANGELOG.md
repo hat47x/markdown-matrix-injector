@@ -24,3 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Machine-readable contract: JSON Schema (`params.schema.json`)
 - Standalone pattern guide for SIer design document table patterns
 - Preview styles: `markdown.previewStyles` contribution with screen/print CSS
+- Card open affordance: title links to source (baseline), "外部アプリで開く" button fires `env.openExternal` in trusted previews (ADR-0011)
+- Path containment: embed source resolution now rejects `..` traversal outside the workspace boundary, with symlink-bypass defeat and a Problems-panel diagnostic (`MMI_PATH_OUTSIDE_BOUNDARY`)
+
+### Fixed
+- CSV loader now correctly handles RFC4180-quoted cells (commas, embedded newlines, and `""`-escaped quotes inside quoted fields) instead of naively splitting on every comma, which silently misaligned columns for any real-world CSV with a quoted comma (e.g. `"Smith, John"`)
