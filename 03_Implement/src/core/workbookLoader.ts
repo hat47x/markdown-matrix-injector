@@ -52,7 +52,15 @@ function loadWorkbookUncached(absolutePath: string): WorkbookData {
     }
   }
 
-  const workbook = XLSX.readFile(absolutePath, { dense: true });
+  // cellDates + dateNF forces genuinely date-typed cells to render as
+  // unambiguous ISO-8601 (YYYY-MM-DD) text. Without this, SheetJS's default
+  // stringification renders dates as locale-ambiguous short-form (e.g.
+  // "4/3/26"), which for a SIer design-document audience (EffectiveFrom /
+  // ExpiresAt columns are a recurring pattern -- see the Phase 9 benchmark
+  // pack) can misread as either April 3 or March 4, 2026. Text cells that
+  // merely look like dates, and non-date numeric cells, are unaffected --
+  // this only touches cells Excel itself has typed and formatted as dates.
+  const workbook = XLSX.readFile(absolutePath, { dense: true, cellDates: true, dateNF: 'yyyy-mm-dd' });
   const sheets = Object.fromEntries(
     workbook.SheetNames.map((sheetName) => {
       const worksheet = workbook.Sheets[sheetName];

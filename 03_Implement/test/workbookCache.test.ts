@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import XLSX from 'xlsx';
 import { WorkbookCache } from '../src/cache/workbookCache.js';
 import { resolveSourcePath } from '../src/core/pathResolver.js';
 import { loadWorkbook } from '../src/core/workbookLoader.js';
@@ -156,5 +157,47 @@ test('loadWorkbook still parses plain (unquoted) CSV exactly as before', () => {
     ['Name', 'Role'],
     ['Alice', 'Admin'],
     ['Bob', 'User'],
+  ]);
+});
+
+// ── XLSX: date cells render as unambiguous ISO-8601 (not locale-ambiguous
+// short-form like "4/3/26", which a SIer-design-document reader could misread
+// as either April 3 or March 4) ─────────────────────────────────────────────
+
+test('loadWorkbook renders a real (Excel-typed) date cell as YYYY-MM-DD, not locale-ambiguous short form', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-xlsx-date-'));
+  const filePath = path.join(tempDir, 'dates.xlsx');
+  const workbook = XLSX.utils.book_new();
+  const worksheet = XLSX.utils.aoa_to_sheet([
+    ['Name', 'EffectiveFrom'],
+    ['Alice', new Date(2026, 3, 3)], // month is 0-indexed: April 3, 2026
+  ]);
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
+  XLSX.writeFile(workbook, filePath);
+
+  const rows = loadWorkbook({ absolutePath: filePath }).sheets.Sheet1;
+
+  assert.deepEqual(rows, [
+    ['Name', 'EffectiveFrom'],
+    ['Alice', '2026-04-03'],
+  ]);
+});
+
+test('loadWorkbook leaves non-date numeric cells and date-like text cells untouched', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-xlsx-date-'));
+  const filePath = path.join(tempDir, 'mixed.xlsx');
+  const workbook = XLSX.utils.book_new();
+  const worksheet = XLSX.utils.aoa_to_sheet([
+    ['Price', 'Percent', 'Label'],
+    [1234.5, 0.15, '2026-04-03 as text'],
+  ]);
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
+  XLSX.writeFile(workbook, filePath);
+
+  const rows = loadWorkbook({ absolutePath: filePath }).sheets.Sheet1;
+
+  assert.deepEqual(rows, [
+    ['Price', 'Percent', 'Label'],
+    ['1234.5', '0.15', '2026-04-03 as text'],
   ]);
 });
