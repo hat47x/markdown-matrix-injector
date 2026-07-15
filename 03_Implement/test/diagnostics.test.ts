@@ -135,3 +135,59 @@ test('validateEmbedDiagnostics keeps root-cause priority stable when multiple er
     [0, 1, 2],
   );
 });
+
+// ── Containment diagnostics (spec P4 Containment MUST) ──────────────────
+
+test('validateEmbedDiagnostics reports boundary violation when containmentOk is explicitly false', () => {
+  const diags = validateEmbedDiagnostics({
+    query: baseQuery,
+    fileExists: true,
+    sheetExists: true,
+    xmlMode: 'spreadsheet2003',
+    containmentOk: false,
+  });
+
+  assert.deepEqual(
+    diags.map((d) => d.code),
+    ['MMI_PATH_OUTSIDE_BOUNDARY'],
+  );
+  assert.match(diags[0].message, /outside workspace boundary/);
+  assert.equal(diags[0].priority, 0);
+});
+
+test('validateEmbedDiagnostics does NOT report boundary violation when containmentOk is true', () => {
+  const diags = validateEmbedDiagnostics({
+    query: baseQuery,
+    fileExists: true,
+    sheetExists: true,
+    xmlMode: 'spreadsheet2003',
+    containmentOk: true,
+  });
+
+  assert.deepEqual(diags, []);
+});
+
+test('validateEmbedDiagnostics does NOT report boundary violation when file does not exist (MMI_FILE_NOT_FOUND already covers it)', () => {
+  const diags = validateEmbedDiagnostics({
+    query: baseQuery,
+    fileExists: false,
+    containmentOk: false,
+  });
+
+  assert.deepEqual(
+    diags.map((d) => d.code),
+    ['MMI_FILE_NOT_FOUND'],
+  );
+});
+
+test('validateEmbedDiagnostics does NOT report boundary violation when containmentOk is undefined (backward compat)', () => {
+  const diags = validateEmbedDiagnostics({
+    query: baseQuery,
+    fileExists: true,
+    sheetExists: true,
+    xmlMode: 'spreadsheet2003',
+    // containmentOk not set
+  });
+
+  assert.deepEqual(diags, []);
+});

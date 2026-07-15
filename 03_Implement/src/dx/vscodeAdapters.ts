@@ -1,8 +1,10 @@
 import path from 'node:path';
+import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import { type AutocompleteCandidate } from './autocompleteProvider.js';
 import { validateEmbedDiagnostics, type EmbedDiagnostic, type XmlMode } from './diagnostics.js';
 import { extractEmbedQueries } from '../parser/embedSyntax.js';
+import { isPathWithinBoundary } from '../core/pathResolver.js';
 import {
   readTransferValuesFromDataTransfer,
   suggestEmbedFromTransferValues,
@@ -138,6 +140,19 @@ export async function createDiagnosticsForDocument(
       }
     }
 
+    // Check containment (spec P4): file may exist on disk but lie outside the
+    // workspace boundary (e.g. ../../../../etc/hosts).  Report proactively in
+    // the Problems panel so the user sees it before opening the preview.
+    let containmentOk: boolean | undefined;
+    if (fileExists) {
+      const boundary = workspaceRoot
+        ? path.resolve(workspaceRoot)
+        : path.resolve(path.dirname(markdownFilePath));
+      let checkPath = resolvedFilepath;
+      try { checkPath = fs.realpathSync(resolvedFilepath); } catch { /* best-effort */ }
+      containmentOk = isPathWithinBoundary(checkPath, boundary);
+    }
+
     const xmlMode = fileExists ? await detectXmlMode(resolvedFilepath, dependencies) : 'none';
     const sheetExists = fileExists && match.target ? await hasSheet(resolvedFilepath, match.target, dependencies) : undefined;
     const embedDiagnostics = validateEmbedDiagnostics({
@@ -149,6 +164,7 @@ export async function createDiagnosticsForDocument(
       fileExists,
       sheetExists,
       xmlMode,
+      containmentOk,
       range: { start: 0, end: Math.max(match.raw.length - 1, 0) },
     });
 

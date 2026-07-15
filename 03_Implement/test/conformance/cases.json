@@ -179,5 +179,14 @@
     "markdown": "![[./roles.csv#Sheet1|A1:B2?header=first&caption=Roles&id=tbl-roles]]",
     "expectContains": ["<figure class=\"mmi-embed\" id=\"tbl-roles\">"],
     "expectNotContains": ["<p>", "</p>"]
+  },
+  {
+    "name": "containment-rejects-traversal-outside-boundary",
+    "level": "core",
+    "spec": "P4 / issue-0105",
+    "files": { "roles.csv": "Name,Role\nAlice,Admin" },
+    "markdown": "![[../../../../../../../etc/hosts#Sheet1|A1:B2]]",
+    "expectContains": ["class=\"mmi-error\"", "outside workspace boundary"],
+    "expectNotContains": ["mmi-table", "mmi-card"]
   }
 ]

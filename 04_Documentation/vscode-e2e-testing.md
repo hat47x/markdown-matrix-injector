@@ -831,6 +831,8 @@ rg -n "native|fallback|manual|xvfb|autocomplete" 04_Documentation/vscode-e2e-tes
 | カードが描画される | `wide.csv` がリンクカード UI として表示される（wide なため自動縮退） | smart fallback 条件を確認 |
 | 段落内に block 混入なし | テーブル/カードが `<p>` タグ内に埋め込まれてプレビューが崩れない | block 描画バグの兆候 |
 | スタイルが適用されている | テーブルに罫線・ハイライトが視認できる | `media/markdown-matrix.css` が preview styles として読み込まれているか確認 |
+| カード見出しがリンクである | カードのファイル名クリックで参照先ファイルへ遷移できる（Strict/未信頼でも動作） | 相対パスの解決先を確認（issue-0100 / ADR-0011 baseline） |
+| 「外部アプリで開く」が発火する | 信頼済みワークスペースでボタンクリックすると OS 既定アプリ（Excel 等）で正本が開く | 未信頼環境では発火しないのが正常（ADR-0011 の設計どおり）。Workspace Trust 状態を記録する |
 
 ### Expected results
 - すべての `![[...]]` がテキストではなく、表またはカード UI として描画される。

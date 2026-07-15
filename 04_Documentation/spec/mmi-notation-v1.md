@@ -125,6 +125,7 @@ params      = URL クエリ文字列（application/x-www-form-urlencoded）
 | `MMI_FILE_NOT_FOUND` | 解決不能な `target` | エラー該当箇所を利用者に可視化 |
 | `MMI_SHEET_NOT_FOUND` | 存在しない `sheet` | 同上 |
 | `MMI_INVALID_XML` | XML 2003 シグネチャ不一致 | パース中断・可視エラー（正本は読み込まない） |
+| `MMI_PATH_OUTSIDE_BOUNDARY` | `target` はファイルとして存在するが P4 の境界（ワークスペース境界）外 | プレビュー描画前に Problems パネルで検知、かつ描画時も可視エラー（issue-0105） |
 
 レンダリング時の失敗は**可視のエラー表示**（参照実装では `mmi-error` ブロック）としなければならない (MUST)。空白化・黙殺は P2 違反である。
 

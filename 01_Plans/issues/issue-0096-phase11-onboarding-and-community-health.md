@@ -4,8 +4,9 @@
 
 ## Meta
 - Type: Docs
-- Status: Draft
+- Status: Done
 - Priority: Low
+- Completed: 2026-07-15
 - Scope: README.md, CONTRIBUTING.md, CODE_OF_CONDUCT.md, SECURITY.md, CHANGELOG.md, .github/ISSUE_TEMPLATE, .github/PULL_REQUEST_TEMPLATE.md
 - Expected verification level: docs-check
 
@@ -32,16 +33,16 @@ CONTRIBUTING / CODE_OF_CONDUCT / SECURITY / CHANGELOG と Issue/PR テンプレ�
    - `.github/ISSUE_TEMPLATE/`（bug_report / feature_request）, `.github/PULL_REQUEST_TEMPLATE.md`。
 
 ### Acceptance criteria
-- [ ] README 先頭が利用者向けで、インストール・最小利用・スクリーンショット・既知の制約を含む。
-- [ ] CONTRIBUTING / CODE_OF_CONDUCT / SECURITY / CHANGELOG が存在し、相互リンクが妥当。
-- [ ] Issue/PR テンプレートが `.github/` に存在する。
-- [ ] 既存の AI 向け導線（AGENTS.md / 00_Prompt）への参照が失われていない。
+- [x] README 先頭が利用者向けで、インストール・最小利用・スクリーンショット・既知の制約を含む。
+- [x] CONTRIBUTING / CODE_OF_CONDUCT / SECURITY / CHANGELOG が存在し、相互リンクが妥当。
+- [x] Issue/PR テンプレートが `.github/` に存在する。
+- [x] 既存の AI 向け導線（AGENTS.md / 00_Prompt）への参照が失われていない。
 
 ### Task breakdown
-- [ ] README 再構成（利用者導線を先頭、開発者導線を後段）。
-- [ ] CONTRIBUTING / CODE_OF_CONDUCT / SECURITY / CHANGELOG 追加。
-- [ ] Issue/PR テンプレート追加。
-- [ ] スクリーンショット/GIF（既存 `04_Documentation/samples/screenshots/` 資産の活用可否を確認）。
+- [x] README 再構成（利用者導線を先頭、開発者導線を後段）。
+- [x] CONTRIBUTING / CODE_OF_CONDUCT / SECURITY / CHANGELOG 追加。
+- [x] Issue/PR テンプレート追加。
+- [x] スクリーンショット/GIF（既存 `04_Documentation/samples/screenshots/` 資産の活用可否を確認）。
 
 ### Validation plan
 - リンク切れ・参照整合の docs-check。

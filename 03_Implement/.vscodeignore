@@ -1,0 +1,43 @@
+# Exclude development-only directories
+01_Plans/**
+00_Prompt/**
+02_Architecture/**
+04_Documentation/**
+05_Marketing/**
+
+# Exclude source (keep compiled dist/)
+src/**
+test/**
+artifacts/**
+# Compiled tests are not needed at runtime either
+dist/test/**
+
+# Exclude CI/planning infrastructure
+.github/**
+.conform/**
+.husky/**
+
+# Exclude config files not needed at runtime
+tsconfig.json
+tsconfig.*.json
+.gitignore
+.gitattributes
+.editorconfig
+.vscode/**
+*.vsix
+# NOTE: node_modules は除外しない。この拡張はバンドラ（esbuild/webpack）を使っておらず、
+# dist/ が実行時に markdown-it / xlsx を require するため、vsce の既定動作
+# （production dependencies のみ同梱、devDependencies は自動除外）に任せる。
+# node_modules/** を除外すると .vsix は起動時に module not found でクラッシュする。
+
+# Exclude Python planning tools (not needed for extension runtime)
+**/*.py
+**/planning_queue.py
+**/release_gate_*.py
+**/phase*.py
+
+# Exclude dev scripts
+scripts/**
+
+# Exclude test fixtures (not needed at runtime)
+**/fixtures/**

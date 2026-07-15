@@ -335,7 +335,8 @@ A3. 本ツールは XML Spreadsheet 2003 のみ対象です。汎用 XML はフ�
 | `.mmi-embed__caption` | キャプション表示 |
 | `.mmi-table` / `.mmi-table__row--highlight` | テーブル・ハイライト行 |
 | `.mmi-table__cell--formatted` / `.mmi-table__cell-code` | コードブロック列 |
-| `.mmi-card` / `.mmi-card__title` / `.mmi-card__meta` | カード UI |
+| `.mmi-card` / `.mmi-card__title` / `.mmi-card__meta` | カード UI（見出しは正本への相対パスリンク） |
+| `.mmi-card__open` | カードの「外部アプリで開く」ボタン（`command:` URI、印刷時は非表示。ADR-0011） |
 | `.mmi-error` | エラー表示 |
 
 ### 制約
@@ -375,6 +376,7 @@ VS Code コマンドパレットから利用できる主要コマンド:
 | コマンド | ID | 用途 |
 |---|---|---|
 | MMI: Generate Delivery Manifest | `markdownMatrixInjector.generateDeliveryManifest` | 開いている Markdown 内で「別紙（カード）」として扱われる埋め込みを抽出し、納品チェックリスト CSV（`<filename>.delivery-manifest.csv`）を同じフォルダへ出力する（要件 Phase 4）。 |
+| MMI: Open Embed Source | `markdownMatrixInjector.openSource` | カードの「外部アプリで開く」ボタン（`command:` URI）から起動され、参照先の正本ファイルを OS 既定アプリ（Excel 等）で開く（`env.openExternal`、要件 Phase 4 / ADR-0011）。`command:` リンクは信頼済みプレビューでのみ発火し、未信頼環境ではカード見出しの相対パスリンクが代替導線になる。 |
 | MMI: Insert Embed From Paste | `markdownMatrixInjector.insertEmbedFromPaste` | クリップボードから埋め込み記法を生成・挿入する。 |
 | MMI: Insert Embed From Drop | `markdownMatrixInjector.insertEmbedFromDrop` | ドロップしたファイルから埋め込み記法を生成・挿入する。 |
 
