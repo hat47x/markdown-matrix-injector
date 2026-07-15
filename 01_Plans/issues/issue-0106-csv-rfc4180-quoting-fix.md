@@ -50,15 +50,22 @@
 - [x] 既存の全テスト（224件）が無修正で回帰しない。
 - [x] 新規 unit 6 件（基本互換・カンマ内包・エスケープ引用符・埋め込み改行・trim境界・複数カンマ+末尾セル）を追加。
 
-### 未対応（本 issue のスコープ外・別途整理が必要）
-- `phase9-rule-table-benchmark-pack.csv`（docs/fixture 両方）自体の `QueryExample` 列は、
-  本修正後もなお **CSV クォートされていない**（データそのものの欠陥）。本修正はパーサーの正しさを
-  回復したのみで、既存の未クォートデータを遡って修正するものではない。当該データを本番プレビューで
-  `![[phase9-rule-table-benchmark-pack.csv...]]` として埋め込むと、引き続き列がずれる
-  （`check_phase9_template_sync.py` の `csv.DictReader` および本修正後の `parseCsv()` は両方とも
-  RFC4180 準拠のため、同じ理由で同じようにずれる）。データ側の是正は `markdownMatrixPlugin.test.ts` の
-  独自パーサー・`check_phase9_template_sync.py`・`generate_phase9_pattern_guide.py` の同時更新を伴うため、
-  ADR-0013 が意図的に定めた「安定契約に触れない」制約の範囲外であり、別 issue として扱う。
+### 追記（同日中に解消）: Phase 9 CSV データ自体のクォート付与
+パーサー修正直後に実データで検証したところ、`phase9-rule-table-benchmark-pack.csv` を実際に
+`![[...]]` で埋め込むと（`loadWorkbook` 経由）ヘッダ13列に対しデータ行17列という**実際に再現する破損**を
+確認した（`columns=J,K` 等のクエリが完全に無関係なデータを指す）。ADR-0013 が「本 issue のスコープ外」と
+定めていた事項だが、コアパーサーが正しくなった今、データ側を是正する方が安全になったため、同日中に
+合わせて対応した:
+
+- docs/fixture 両 CSV の `QueryExample` 列をカンマを含む3値のみ `"..."` でクォート（値は不変）。
+- `markdownMatrixPlugin.test.ts` の `loadPhase9BenchmarkRows`: 独自の固定位置復元を撤去し、
+  `workbookLoader.ts` から export した本番 `parseCsv` をヘッダ名参照で再利用する形へ簡素化。
+- `generate_phase9_pattern_guide.py` の `read_rows()`: 同様に独自復元を撤去し標準 `csv.DictReader` へ簡素化。
+- `check_phase9_template_sync.py` は無変更（元々 `csv.DictReader` で標準準拠）で実行し `OK` を確認。
+- 生成ガイド（`phase9-rule-table-pattern-guide.md`）は内容無変化（両方式が同じ正しい値を復元していたため）。
+- 実 CSV 埋め込み再検証: ヘッダ13列・データ行13列で一致することを確認（修正前は17列に破損）。
+
+`ADR-0013` の Follow-up Actions にも本対応の完了を追記済み。
 
 ### Validation plan（実績）
 ```bash

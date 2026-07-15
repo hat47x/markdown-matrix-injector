@@ -85,7 +85,7 @@ function loadWorkbookUncached(absolutePath: string): WorkbookData {
  * whitespace) is preserved verbatim per RFC4180, since only the delimiters
  * are structural, not the quoted payload.
  */
-function parseCsv(contents: string): SheetMatrix {
+export function parseCsv(contents: string): SheetMatrix {
   const text = contents.replace(/^﻿/, '').trim();
   if (text.length === 0) {
     return [];

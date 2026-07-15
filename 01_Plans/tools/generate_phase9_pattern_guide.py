@@ -17,6 +17,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
+import csv
 import difflib
 from pathlib import Path
 
@@ -77,37 +78,16 @@ class UnknownBenchmarkTableError(ValueError):
 def read_rows(csv_path: Path) -> list[dict[str, str]]:
     """Reads the Phase 9 benchmark CSV.
 
-    IMPORTANT: `QueryExample` values legitimately contain unescaped commas
-    (e.g. "header=first&columns=A,B,C"), and this file is not quote-escaped
-    to protect them -- a standard `csv.DictReader` misparses every column
-    after `QueryExample` as a result. This is a pre-existing property of the
-    canonical data (predates this script), not something introduced here;
-    `03_Implement/test/markdownMatrixPlugin.test.ts`'s `loadPhase9BenchmarkRows`
-    already works around the identical issue with an equivalent fixed-column
-    reconstruction. This reader mirrors that approach: split each line on
-    ',', treat the columns before `QueryExample` and from `RelatedRequirement`
-    onward as fixed-width, and rejoin everything between as the QueryExample
-    value.
+    `QueryExample` values legitimately contain commas (e.g.
+    "header=first&columns=A,B,C") and are RFC4180-quoted in the canonical
+    data (issue-0106 follow-up) precisely so a standard CSV parser recovers
+    them correctly -- no fixed-column reconstruction workaround needed here
+    (the mirrored technique in 03_Implement/src/core/workbookLoader.ts and
+    03_Implement/test/markdownMatrixPlugin.test.ts's loadPhase9BenchmarkRows
+    was retired for the same reason once the data was properly quoted).
     """
     with csv_path.open("r", encoding="utf-8", newline="") as handle:
-        lines = [line for line in handle.read().splitlines() if line.strip()]
-
-    if not lines:
-        return []
-
-    header = lines[0].split(",")
-    query_example_index = header.index("QueryExample")
-    trailing_count = len(header) - header.index("RelatedRequirement")
-
-    rows: list[dict[str, str]] = []
-    for line in lines[1:]:
-        raw_fields = line.split(",")
-        leading = raw_fields[:query_example_index]
-        trailing = raw_fields[-trailing_count:]
-        query_example = ",".join(raw_fields[query_example_index : len(raw_fields) - trailing_count])
-        values = [*leading, query_example, *trailing]
-        rows.append(dict(zip(header, values)))
-    return rows
+        return list(csv.DictReader(handle))
 
 
 def group_by_benchmark_table(rows: list[dict[str, str]]) -> dict[str, list[dict[str, str]]]:

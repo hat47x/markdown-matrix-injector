@@ -109,6 +109,6 @@ G3 (read-only guarantee) and G4 (honest limitations) are **SATISFIED**（2026-07
   実装と不一致な記述（存在しないパス・containment 拒否・VS Code 最低バージョン）は本訂正で実測に揃えた
 - 追記（同日）: spec P4 Containment ギャップは `issue-0105` として起票・**同日中に是正・Done**。
   `pathResolver.ts` に境界検査を実装し、`test/pathResolver.test.ts`（10 tests）で固定済み
-  （213 tests 全体 pass）。詳細は上記項目 4 を参照。
+  （224 tests 全体 pass、2026-07-15 現在）。詳細は上記項目 4 を参照。
 
 The product completion gate (G1–G4) is now formally closed. Distribution-phase issues (0095, 0096) are unblocked per ADR-0010.

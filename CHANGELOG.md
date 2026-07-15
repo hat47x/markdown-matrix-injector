@@ -29,3 +29,5 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 - CSV loader now correctly handles RFC4180-quoted cells (commas, embedded newlines, and `""`-escaped quotes inside quoted fields) instead of naively splitting on every comma, which silently misaligned columns for any real-world CSV with a quoted comma (e.g. `"Smith, John"`)
+- Phase 9 benchmark CSV data: `QueryExample` values are now properly quoted, fixing a real column-misalignment (13 header columns vs. 17 parsed data columns) when the file is embedded via `![[...]]`; the standalone pattern guide generator and test loader were simplified to a standard CSV parser now that the underlying data is correctly quoted
+- Release gate: added `G4:Phase9GuideSync`, catching drift between the docs CSV and the generated standalone pattern guide before release
