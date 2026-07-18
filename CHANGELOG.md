@@ -19,7 +19,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Diagnostics (link check): missing file, missing sheet, invalid XML detection
 - Paste/drop provider: native VS Code paste and drag-drop embed insertion
 - Auto-completion for file paths, sheets, ranges, and query parameters
-- Conformance corpus: 19 executable cases
+- Conformance corpus: 20 executable cases
 - MMI Notation v1 specification (RFC 2119 normative, 8 principles, conformance levels L0–L3)
 - Machine-readable contract: JSON Schema (`params.schema.json`)
 - Standalone pattern guide for SIer design document table patterns

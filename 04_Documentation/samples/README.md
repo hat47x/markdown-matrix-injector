@@ -52,6 +52,9 @@
 - [phase8-drools-inspired-system-design-patterns.csv](./phase8-drools-inspired-system-design-patterns.csv)
 - 解説: [`../phase8-drools-inspired-table-patterns.md`](../phase8-drools-inspired-table-patterns.md)
 
+### 2.5 監査記録（品質保証）
+- [rendering-pipeline-audit-2026-07-15.md](./rendering-pipeline-audit-2026-07-15.md) — レンダリングパイプライン実データ横断監査（issue-0106/0107 の同種欠陥有無確認）
+
 ## 3. 最短利用手順（ROI Proof）
 1. [ROI index](./phase6-roi/README.md#roi-proof-index) を開き、観測範囲を確認する。
 2. [before-state](./phase6-roi/before-state.md#before-observation-method) で利用前観測を実施する。

@@ -89,7 +89,7 @@ npm test
 
 ### テストカバレッジ
 
-- 単体 + conformance corpus: 214 件（`npm test` の `test:unit` に集約、うち conformance corpus 20 ケース）
+- 単体 + conformance corpus: 226 件（`npm test` の `test:unit` に集約、うち conformance corpus 20 ケース）
 - E2E tests: Extension Host 上での描画検証（`npm run test:e2e`、GUI/CI 環境要）
 
 ## コミュニティ
