@@ -37,7 +37,7 @@ Excel / CSV / XML の表データを Markdown 文書から宣言的・読み取�
 ```bash
 npm ci
 npm run build
-npm test          # unit + conformance corpus + Phase 9 sync/guide-sync (224 tests)
+npm test          # unit + conformance corpus + Phase 9 sync/guide-sync (226 tests)
 npm run test:e2e  # VS Code Extension Host 上での描画検証
 ```
 

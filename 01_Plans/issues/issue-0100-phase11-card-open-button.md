@@ -48,7 +48,7 @@
       `.mmi-card__title` のリンク化スタイル。`previewStyles.test.ts` のカバレッジロックへ追加。
 - [x] webview セキュリティ（command URI は trusted のみ・baseline リンクによる graceful degradation）方針が
       ADR-0011 に記録済み。
-- [x] `npm run build` / `npm test` pass（**203 pass / 0 fail**、conformance corpus のカード契約も無修正で通過）。
+- [x] `npm run build` / `npm test` pass（**226 pass / 0 fail**、conformance corpus のカード契約も無修正で通過）。
 - [x] 文書配線: reference.md（Commands 表 + Preview Styles クラス表）、vscode-e2e-testing.md Checklist F に
       カード開く操作の観測点 2 行を追加。
 - [ ] 実 VS Code プレビューでクリックすると元ファイルが開く（manual-e2e、GUI 必須 — Checklist F の
