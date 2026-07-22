@@ -107,4 +107,4 @@ PDF レンダリングの最終品質は利用する PDF 生成器に依存し�
 
 ---
 
-**関連**: [issue-0098](../../01_Plans/issues/issue-0098-phase11-pdf-print-output-proof.md) / [ADR-0010](../../01_Plans/adr/ADR-0010-product-completion-gate.md)
+**関連**: [issue-0098](../../../01_Plans/issues/issue-0098-phase11-pdf-print-output-proof.md) / [ADR-0010](../../../01_Plans/adr/ADR-0010-product-completion-gate.md)

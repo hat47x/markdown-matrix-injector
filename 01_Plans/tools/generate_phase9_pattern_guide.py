@@ -166,7 +166,7 @@ def render_guide(rows: list[dict[str, str]]) -> str:
     lines.append("生データ（CSV）: [`phase9-rule-table-benchmark-pack.csv`](./phase9-rule-table-benchmark-pack.csv)  ")
     lines.append(
         "運用手順（MMI 利用者向け）: "
-        "[`phase9-rule-table-template-operations.md`](../phase9-rule-table-template-operations.md)"
+        "[`phase9-rule-table-template-operations.md`](../process/phase9-rule-table-template-operations.md)"
     )
     lines.append("")
 

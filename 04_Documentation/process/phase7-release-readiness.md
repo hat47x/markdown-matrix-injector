@@ -107,7 +107,7 @@
 > **注記**: 上記 2.1〜2.4 は Phase 7 時点の計測アプローチの歴史的記録として残す（書き換えない）。
 > Phase 10 の週次ガバナンスレポート運用は、以降 ADR-0012 D6 で再定義された 3 KPI
 > （駆逐されたコピー重複 / 正本と文書の乖離インシデント / 表変更のレビュー所要時間）を使用する。
-> 詳細な契約とサンプルは `04_Documentation/phase10-governance-reporting-foundation.md` を参照。
+> 詳細な契約とサンプルは `04_Documentation/process/phase10-governance-reporting-foundation.md` を参照。
 
 記録テンプレート（D6 KPI 版、2.4 と同型で拡張）:
 - 実行日 (UTC)
