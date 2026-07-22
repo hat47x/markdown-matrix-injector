@@ -28,9 +28,10 @@
 - 開発環境: [`developer-setup.md`](developer-setup.md) ／ E2E: [`vscode-e2e-testing.md`](vscode-e2e-testing.md)
 - 貢献ガイド: [`../CONTRIBUTING.md`](../CONTRIBUTING.md) ／ AI エージェント入口: [`../AGENTS.md`](../AGENTS.md)
 - 設計正本: [`../02_Architecture/README.md`](../02_Architecture/README.md) ／ 計画・ADR: [`../01_Plans/README.md`](../01_Plans/README.md)
+- 開発プロセス文書（Phase 7〜10）: [`process/`](process/) — リリース準備・運用信頼性・ルールテーブル運用・ガバナンス
 - リリース／品質ゲート・KPI・フェーズ運用: 本 README 下部の「Phase 6〜10 運用導線」を参照
 
-> トラック B の各フェーズ文書（`phase7-*` 〜 `phase10-*`）は**開発プロセスの記録**です。製品の挙動を理解する目的ではトラック A を先に読んでください。
+> トラック B の各フェーズ文書は `process/` に集約されています（`process/phase7-*` 〜 `process/phase10-*`）。**開発プロセスの記録**であり、製品の挙動を理解する目的ではトラック A を先に読んでください。
 
 ---
 
@@ -97,10 +98,10 @@ Phase 6 の quality gate（FAQ・スクリーンショット/比較表評価）�
 | - | How it works（動作の内部解説） | `04_Documentation/how-it-works.md` | [Gist: MMI How It Works](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-how-it-works) |
 | - | 開発者セットアップ | `04_Documentation/developer-setup.md` | [Gist: MMI Developer Setup](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-developer-setup) |
 | - | VSCode E2E ガイド | `04_Documentation/vscode-e2e-testing.md` | [Gist: MMI VSCode E2E Guide](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-vscode-e2e-testing) |
-| - | Phase 7 Release Readiness | `04_Documentation/phase7-release-readiness.md` | [Gist: MMI Phase7 Release Readiness](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-phase7-release-readiness) |
-| - | Phase 8 Operational Reliability | `04_Documentation/phase8-operational-reliability.md` | [Gist: MMI Phase8 Operational Reliability](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-phase8-operational-reliability) |
-| - | Phase 8 Drools Pattern Catalog | `04_Documentation/phase8-drools-inspired-table-patterns.md` | [Gist: MMI Phase8 Drools Pattern Catalog](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-phase8-drools-pattern-catalog) |
-| - | Phase 9 Rule Table Template Operations | `04_Documentation/phase9-rule-table-template-operations.md` | [Gist: MMI Phase9 Rule Table Template Operations](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-phase9-rule-table-template-operations) |
+| - | Phase 7 Release Readiness | `04_Documentation/process/phase7-release-readiness.md` | [Gist: MMI Phase7 Release Readiness](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-phase7-release-readiness) |
+| - | Phase 8 Operational Reliability | `04_Documentation/process/phase8-operational-reliability.md` | [Gist: MMI Phase8 Operational Reliability](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-phase8-operational-reliability) |
+| - | Phase 8 Drools Pattern Catalog | `04_Documentation/process/phase8-drools-inspired-table-patterns.md` | [Gist: MMI Phase8 Drools Pattern Catalog](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-phase8-drools-pattern-catalog) |
+| - | Phase 9 Rule Table Template Operations | `04_Documentation/process/phase9-rule-table-template-operations.md` | [Gist: MMI Phase9 Rule Table Template Operations](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-phase9-rule-table-template-operations) |
 | - | Phase 9 表パターンガイド（ツール非依存、ADR-0013） | `04_Documentation/samples/phase9-rule-table-pattern-guide.md` | [Gist: MMI Phase9 Pattern Guide](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-phase9-pattern-guide) |
 | - | 総合サンプル Markdown | `04_Documentation/samples/mmi-full-spec-sample.md` | [Gist: MMI Full Spec Sample Markdown](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-full-spec-sample-markdown) |
 
@@ -134,7 +135,7 @@ Phase 6 の quality gate（FAQ・スクリーンショット/比較表評価）�
 Phase 7 では「実装追加」よりも「リリース判定と採用観測の再現性」を優先し、以下を正本導線として固定します。
 
 1. Release gate / KPI / SLA 運用ガイド
-   - `04_Documentation/phase7-release-readiness.md`
+   - `04_Documentation/process/phase7-release-readiness.md`
 2. Decision 正本（方針）
    - `01_Plans/adr/ADR-0005-phase7-release-readiness-and-adoption-scale.md`
 3. Action 正本（実行）
@@ -148,10 +149,10 @@ Phase 7 では「実装追加」よりも「リリース判定と採用観測の
 Phase 8 では「障害を早く直せる運用」と「文書改善を製品品質に還流する仕組み」を正本導線として固定します。
 
 1. Triage / runbook / feedback 運用ガイド
-   - `04_Documentation/phase8-operational-reliability.md`
+   - `04_Documentation/process/phase8-operational-reliability.md`
 2. Drools 参照の表パターン定義（文書/テストデータ、**MMI 自身の内部機能を題材にしたケーススタディ**。
    汎用テンプレートは Phase 9 の表パターンガイドを参照）
-   - `04_Documentation/phase8-drools-inspired-table-patterns.md`
+   - `04_Documentation/process/phase8-drools-inspired-table-patterns.md`
 3. Decision 正本（方針）
    - `01_Plans/adr/ADR-0006-phase8-operational-reliability-and-supportability.md`
 4. Action 正本（実行）
@@ -163,7 +164,7 @@ Phase 8 では「障害を早く直せる運用」と「文書改善を製品品
 Phase 9 では「テンプレート資産の再利用性」と「docs/fixture 双方向同期」を同時に満たす運用を正本導線として固定します。
 
 1. テンプレート運用ガイド
-   - `04_Documentation/phase9-rule-table-template-operations.md`
+   - `04_Documentation/process/phase9-rule-table-template-operations.md`
 2. ベンチマークテンプレート（docs）
    - `04_Documentation/samples/phase9-rule-table-benchmark-pack.csv`
 3. ベンチマークテンプレート（test fixture）

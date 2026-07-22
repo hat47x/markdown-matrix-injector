@@ -46,11 +46,11 @@
 - [phase9-rule-table-pattern-guide.md](./phase9-rule-table-pattern-guide.md) — MMI 非依存で読める標準ガイド（生成物）
 - [phase9-rule-table-benchmark-pack.csv](./phase9-rule-table-benchmark-pack.csv) — 生成元 CSV（正本）
 - 生成スクリプト: `01_Plans/tools/generate_phase9_pattern_guide.py`（`--check` でドリフト検知）
-- 運用手順: [`../phase9-rule-table-template-operations.md`](../phase9-rule-table-template-operations.md)
+- 運用手順: [`../process/phase9-rule-table-template-operations.md`](../process/phase9-rule-table-template-operations.md)
 
 ### 2.4 Phase 8 Drools 参照パターン（MMI 内部機能のケーススタディ）
 - [phase8-drools-inspired-system-design-patterns.csv](./phase8-drools-inspired-system-design-patterns.csv)
-- 解説: [`../phase8-drools-inspired-table-patterns.md`](../phase8-drools-inspired-table-patterns.md)
+- 解説: [`../process/phase8-drools-inspired-table-patterns.md`](../process/phase8-drools-inspired-table-patterns.md)
 
 ### 2.5 監査記録（品質保証）
 - [rendering-pipeline-audit-2026-07-15.md](./rendering-pipeline-audit-2026-07-15.md) — レンダリングパイプライン実データ横断監査（issue-0106/0107 の同種欠陥有無確認）

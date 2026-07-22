@@ -8,7 +8,7 @@
 ## 前提条件
 - `00_Prompt/requirements.md` に Phase 8 が定義されていること。
 - `01_Plans/adr/ADR-0006-phase8-operational-reliability-and-supportability.md` が Accepted であること。
-- `04_Documentation/phase7-release-readiness.md` の release gate 運用を継続していること。
+- `04_Documentation/process/phase7-release-readiness.md` の release gate 運用を継続していること。
 
 ## 期待結果
 - 障害発生時に triage -> 再現 -> 一次回避 -> 恒久対応 までを同じ導線で実施できる。
@@ -19,8 +19,8 @@
 - `00_Prompt/requirements.md`（Phase 8 要件）
 - `01_Plans/adr/ADR-0006-phase8-operational-reliability-and-supportability.md`（運用方針）
 - `01_Plans/issues/issue-0065-phase8-operational-reliability-foundation.md`（初回実行タスク）
-- `04_Documentation/phase7-release-readiness.md`（release gate 基盤）
-- `04_Documentation/phase8-drools-inspired-table-patterns.md`（Drools Excel テーブル書式を参照した設計文書・テストデータパターン集）
+- `04_Documentation/process/phase7-release-readiness.md`（release gate 基盤）
+- `04_Documentation/process/phase8-drools-inspired-table-patterns.md`（Drools Excel テーブル書式を参照した設計文書・テストデータパターン集）
 - `01_Plans/tools/planning_queue.py`（orphan/pending 可視化）
 
 ## 既知の制約
@@ -82,6 +82,6 @@
 Phase 8 では、OSS BRMS の Drools が公開している spreadsheet decision table の構造（`RuleSet` 領域 + `RuleTable` 領域、行=ルール、列=条件/アクション/属性）を、システム設計文書で必要な表パターン抽出の参照モデルとして利用する。
 
 運用ルールは以下で固定する。
-1. パターン抽出・分類の正本は `04_Documentation/phase8-drools-inspired-table-patterns.md` とする。
+1. パターン抽出・分類の正本は `04_Documentation/process/phase8-drools-inspired-table-patterns.md` とする。
 2. 試験データは「条件列・結果列・属性列（優先度・有効期限など）」を分離した形で作成し、再現手順に使う。
 3. docs audit で不足パターンが見つかった場合、文書追記のみで終えず、必要に応じて `03_Implement/test` へ回帰観点を追加する。

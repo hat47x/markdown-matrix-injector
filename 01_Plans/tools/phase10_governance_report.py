@@ -96,7 +96,7 @@ def parse_input(path: Path) -> dict[str, object]:
     if legacy_present:
         raise ValidationError(
             f"kpis contains legacy field(s) {legacy_present}; superseded by ADR-0012 D6, "
-            "see 04_Documentation/phase10-governance-reporting-foundation.md"
+            "see 04_Documentation/process/phase10-governance-reporting-foundation.md"
         )
 
     _require_keys("week", week, REQUIRED_WEEK_KEYS)

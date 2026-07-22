@@ -65,4 +65,4 @@
 ---
 
 生データ（CSV）: [`phase9-rule-table-benchmark-pack.csv`](./phase9-rule-table-benchmark-pack.csv)  
-運用手順（MMI 利用者向け）: [`phase9-rule-table-template-operations.md`](../phase9-rule-table-template-operations.md)
+運用手順（MMI 利用者向け）: [`phase9-rule-table-template-operations.md`](../process/phase9-rule-table-template-operations.md)
