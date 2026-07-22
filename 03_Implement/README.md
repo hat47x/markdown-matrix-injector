@@ -14,6 +14,8 @@ Excel / CSV / XML の表データを Markdown 文書から宣言的・読み取�
 2. `Ctrl+Shift+V` でプレビューを開く → テーブルとして表示
 3. 詳細: [チュートリアル](../04_Documentation/tutorial.md)
 
+![プレビュー表示例](../04_Documentation/samples/screenshots/phase11-g1-preview.png)
+
 ## 主な機能
 
 - **正本保護（Read-only MUST）**: 参照経路から元データを改変できない構造的安全装置
