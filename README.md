@@ -49,6 +49,7 @@ Markdown ファイル（`.md`）を開き、次のように記述します：
 ### 3. 次の一歩
 
 - **チュートリアル**: [`04_Documentation/tutorial.md`](04_Documentation/tutorial.md) — 30 分で全機能を体験
+- **動作の内部解説（How it works）**: [`04_Documentation/how-it-works.md`](04_Documentation/how-it-works.md) — 記法 1 行が表になるまでの内部挙動を、判定順序・閾値・コード位置・図つきで一気通貫に理解
 - **業務シナリオ**: [`04_Documentation/scenario-sier-design-docs.md`](04_Documentation/scenario-sier-design-docs.md) — SIer 設計書での活用例
 - **リファレンス**: [`04_Documentation/reference.md`](04_Documentation/reference.md) — 全パラメータ・記法仕様
 

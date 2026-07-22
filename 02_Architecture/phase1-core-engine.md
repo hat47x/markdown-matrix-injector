@@ -1,5 +1,9 @@
 # Phase 1 Core Engine Architecture
 
+> **注記**: 本書は Phase 1〜2 時点のコアエンジン設計スナップショット（歴史的記録）です。
+> 拡張の現行のエンドツーエンド挙動・全モジュールの責務・図・コードマップは
+> [`../04_Documentation/how-it-works.md`](../04_Documentation/how-it-works.md) に集約しています。まずそちらを参照してください。
+
 ## Module map
 - `03_Implement/src/parser`: MMI 独自記法の抽出と分解。
 - `03_Implement/src/core/pathResolver.ts`: Markdown 基準 + ワークスペースルートのファイル解決。

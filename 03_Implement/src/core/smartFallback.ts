@@ -1,4 +1,5 @@
 import { type EmbedQuery } from '../parser/embedSyntax.js';
+import { sliceRange } from './tableGeometry.js';
 import { type WorkbookData } from './workbookLoader.js';
 
 const MAX_COLUMNS_BEFORE_CARD = 10;
@@ -131,28 +132,4 @@ function createDecision(
       cellCount: input.cellCount,
     },
   };
-}
-
-function sliceRange(rows: string[][], range: string): string[][] {
-  const [startRef, endRef = startRef] = range.split(':', 2);
-  const start = parseCellRef(startRef);
-  const end = parseCellRef(endRef);
-
-  return rows.slice(start.row, end.row + 1).map((row) => row.slice(start.col, end.col + 1));
-}
-
-function parseCellRef(cellRef: string): { row: number; col: number } {
-  const match = /^(?<col>[A-Z]+)(?<row>\d+)$/i.exec(cellRef.trim());
-  if (!match?.groups) {
-    throw new Error(`Invalid range reference: ${cellRef}`);
-  }
-
-  return {
-    col: columnToIndex(match.groups.col.toUpperCase()),
-    row: Number(match.groups.row) - 1,
-  };
-}
-
-function columnToIndex(column: string): number {
-  return [...column].reduce((result, char) => result * 26 + (char.charCodeAt(0) - 64), 0) - 1;
 }

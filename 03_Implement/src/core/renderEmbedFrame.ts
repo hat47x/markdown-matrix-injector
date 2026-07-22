@@ -1,4 +1,5 @@
 import { type EmbedQuery } from '../parser/embedSyntax.js';
+import { escapeHtml } from './html.js';
 
 const PAGE_BREAK_VALUES = new Set(['before', 'after', 'both']);
 const ORIENTATION_VALUES = new Set(['landscape', 'portrait']);
@@ -32,12 +33,4 @@ function normalizeValue(value: string | null, allowedValues: Set<string>): strin
 function sanitizeAttribute(value: string | null): string | null {
   const trimmed = value?.trim();
   return trimmed ? trimmed : null;
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
 }

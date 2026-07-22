@@ -1,5 +1,6 @@
 import type MarkdownIt from 'markdown-it';
 import { WorkbookCache } from '../cache/workbookCache.js';
+import { escapeHtml } from '../core/html.js';
 import { resolveSourcePath } from '../core/pathResolver.js';
 import { renderEmbedCard } from '../core/renderCard.js';
 import { renderEmbedFrame } from '../core/renderEmbedFrame.js';
@@ -152,12 +153,4 @@ function renderEmbed(embed: ReturnType<typeof extractEmbedQueries>[number], cont
 
 function getErrorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Unknown embed error';
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
 }

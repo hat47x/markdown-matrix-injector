@@ -1,5 +1,7 @@
 export * from './cache/workbookCache.js';
+export * from './core/html.js';
 export * from './core/pathResolver.js';
+export * from './core/tableGeometry.js';
 export * from './core/renderCard.js';
 export * from './core/renderEmbedFrame.js';
 export * from './core/renderTable.js';

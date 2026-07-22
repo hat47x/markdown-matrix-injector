@@ -3,6 +3,37 @@
 このディレクトリは、利用者・導入担当者・運用担当者に公開する文書を格納する領域です。
 セットアップ手順、運用手順、ユーザー向けガイド、公開可能な検証手順などを配置します。
 
+## ドキュメント地図（最短経路）
+
+文書は 2 つのトラックに分かれます。**まず「知りたいこと」でトラックを選んでください。**
+フェーズ番号（Phase 6〜10）は開発プロセスの索引であって、製品を理解するための索引ではありません。
+製品の挙動を知りたいときはトラック A だけを読めば足ります。
+
+### トラック A — 製品を理解する（挙動を最小コストで深く知る）
+
+| 順 | 文書 | 目的 |
+|---|---|---|
+| 1 | [`overview.md`](overview.md) | 価値と全体像（何を解くツールか） |
+| 2 | [`tutorial.md`](tutorial.md) | 30 分で最初の埋め込みを成功させる |
+| 3 | [`scenario-sier-design-docs.md`](scenario-sier-design-docs.md) | SIer 設計書での実運用像 |
+| 4 | [`how-it-works.md`](how-it-works.md) | **記法 1 行が表になるまでの内部挙動を一気通貫で解説（深く理解したい人の中核）** |
+| 5 | [`reference.md`](reference.md) | パラメータ・制約の逆引き |
+| 6 | [`spec/mmi-notation-v1.md`](spec/mmi-notation-v1.md) | RFC 2119 準拠の記法仕様（挙動の正本） |
+
+> 「まず動かす」なら 1 → 2、「なぜそう動くか」を追うなら 4（How it works）→ 6（Spec）。
+> 4 と 5 の記述に齟齬があれば 6（Spec）が優先します。
+
+### トラック B — プロジェクトを運用・貢献する（開発プロセス・ガバナンス）
+
+- 開発環境: [`developer-setup.md`](developer-setup.md) ／ E2E: [`vscode-e2e-testing.md`](vscode-e2e-testing.md)
+- 貢献ガイド: [`../CONTRIBUTING.md`](../CONTRIBUTING.md) ／ AI エージェント入口: [`../AGENTS.md`](../AGENTS.md)
+- 設計正本: [`../02_Architecture/README.md`](../02_Architecture/README.md) ／ 計画・ADR: [`../01_Plans/README.md`](../01_Plans/README.md)
+- リリース／品質ゲート・KPI・フェーズ運用: 本 README 下部の「Phase 6〜10 運用導線」を参照
+
+> トラック B の各フェーズ文書（`phase7-*` 〜 `phase10-*`）は**開発プロセスの記録**です。製品の挙動を理解する目的ではトラック A を先に読んでください。
+
+---
+
 ## 公開文書の基本導線（Phase 6）
 Phase 6 の公開文書は、**Overview -> Tutorial -> Scenario -> Reference（概要→チュートリアル→活用シナリオ→詳細仕様）** の順で読む構成に厳密統一します。
 この順序は issue-0016 / issue-0019 の README 関連要求に基づく固定導線であり、README 単体で参照しても解釈がぶれないように運用します。
@@ -63,6 +94,7 @@ Phase 6 の quality gate（FAQ・スクリーンショット/比較表評価）�
 | 2 | Tutorial（チュートリアル） | `04_Documentation/tutorial.md` | [Gist: MMI Tutorial](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-tutorial) |
 | 3 | Scenario（活用シナリオ） | `04_Documentation/scenario-sier-design-docs.md` | [Gist: MMI SIer Scenario Guide](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-scenario-sier-design-docs) |
 | 4 | Reference（詳細仕様） | `04_Documentation/reference.md` | [Gist: MMI Reference](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-reference) |
+| - | How it works（動作の内部解説） | `04_Documentation/how-it-works.md` | [Gist: MMI How It Works](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-how-it-works) |
 | - | 開発者セットアップ | `04_Documentation/developer-setup.md` | [Gist: MMI Developer Setup](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-developer-setup) |
 | - | VSCode E2E ガイド | `04_Documentation/vscode-e2e-testing.md` | [Gist: MMI VSCode E2E Guide](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-vscode-e2e-testing) |
 | - | Phase 7 Release Readiness | `04_Documentation/phase7-release-readiness.md` | [Gist: MMI Phase7 Release Readiness](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-phase7-release-readiness) |
