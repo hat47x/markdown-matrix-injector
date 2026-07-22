@@ -227,16 +227,6 @@
 - 以下の条件でカード化（またはカード優先）される。
   - `mode=card` 指定時
   - 列数 > 10 またはセル数 > 500
-
-## FAQ（Reference）
-### Q1. どのパラメータから確認すれば切り分けが早いですか？
-A1. まず `filepath / sheet / range` の存在確認を行い、その後 `header`、`columns`、`grep`、最後に `highlight/format` の順で確認すると切り分けが速くなります。
-
-### Q2. `orientation=landscape` を指定しても横向きになりません。
-A2. パラメータ解釈が成功していても、最終的な向きは PDF 生成器依存です。画面でクラス付与を確認し、生成器側の印刷設定差分を調査してください。
-
-### Q3. XML が常に失敗するのはなぜですか？
-A3. 本ツールは XML Spreadsheet 2003 のみ対象です。汎用 XML はフェイルセーフでエラー表示になります。
   - シート指定なしでファイル全体を参照
 - `mode=table` 指定時は、閾値超過でもテーブル展開を優先する。
 
@@ -414,6 +404,16 @@ VS Code コマンドパレットから利用できる主要コマンド:
 - チュートリアル: `04_Documentation/tutorial.md`
 - 業務シナリオ: `04_Documentation/scenario-sier-design-docs.md`
 - E2E 運用: `04_Documentation/vscode-e2e-testing.md`
+
+## FAQ（Reference）
+### Q1. どのパラメータから確認すれば切り分けが早いですか？
+A1. まず `filepath / sheet / range` の存在確認を行い、その後 `header`、`columns`、`grep`、最後に `highlight/format` の順で確認すると切り分けが速くなります。
+
+### Q2. `orientation=landscape` を指定しても横向きになりません。
+A2. パラメータ解釈が成功していても、最終的な向きは PDF 生成器依存です。画面でクラス付与を確認し、生成器側の印刷設定差分を調査してください。
+
+### Q3. XML が常に失敗するのはなぜですか？
+A3. 本ツールは XML Spreadsheet 2003 のみ対象です。汎用 XML はフェイルセーフでエラー表示になります。
 
 ## Known limitations
 - Reference は公開文書向けに要点を整理したものであり、将来的に FAQ / troubleshooting / sample gallery へ分割する可能性がある。

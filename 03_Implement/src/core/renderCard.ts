@@ -1,5 +1,6 @@
 import path from 'node:path';
 import { type EmbedQuery } from '../parser/embedSyntax.js';
+import { escapeHtml } from './html.js';
 
 export function renderEmbedCard(query: EmbedQuery, absolutePath: string): string {
   const label = path.basename(absolutePath);
@@ -23,12 +24,4 @@ export function renderEmbedCard(query: EmbedQuery, absolutePath: string): string
     `<a class="mmi-card__open" href="${escapeHtml(commandUri)}">外部アプリで開く</a>`,
     '</div>',
   ].join('');
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
 }

@@ -1,4 +1,6 @@
 import { type EmbedQuery } from '../parser/embedSyntax.js';
+import { escapeHtml } from './html.js';
+import { columnToIndex, sliceRange } from './tableGeometry.js';
 import { type WorkbookData } from './workbookLoader.js';
 
 export function renderEmbedTable(query: EmbedQuery, workbook: WorkbookData): string {
@@ -95,30 +97,6 @@ function splitHeaderRows(rows: string[][], headerMode: string | null): { headers
 function transposeRows(rows: string[][]): string[][] {
   const width = rows.reduce((max, row) => Math.max(max, row.length), 0);
   return Array.from({ length: width }, (_, columnIndex) => rows.map((row) => row[columnIndex] ?? ''));
-}
-
-function sliceRange(rows: string[][], range: string): string[][] {
-  const [startRef, endRef = startRef] = range.split(':', 2);
-  const start = parseCellRef(startRef);
-  const end = parseCellRef(endRef);
-
-  return rows.slice(start.row, end.row + 1).map((row) => row.slice(start.col, end.col + 1));
-}
-
-function parseCellRef(cellRef: string): { row: number; col: number } {
-  const match = /^(?<col>[A-Z]+)(?<row>\d+)$/i.exec(cellRef.trim());
-  if (!match?.groups) {
-    throw new Error(`Invalid range reference: ${cellRef}`);
-  }
-
-  return {
-    col: columnToIndex(match.groups.col.toUpperCase()),
-    row: Number(match.groups.row) - 1,
-  };
-}
-
-function columnToIndex(column: string): number {
-  return [...column].reduce((result, char) => result * 26 + (char.charCodeAt(0) - 64), 0) - 1;
 }
 
 function resolveColumnSelector(column: string | null, headers?: string[]): number | undefined {
@@ -236,12 +214,4 @@ function renderCellContent(
 
 function normalizeComparableValue(value: string): string {
   return value.trim().toLowerCase();
-}
-
-function escapeHtml(value: string): string {
-  return value
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;');
 }
