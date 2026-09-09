@@ -1,7 +1,7 @@
 # Markdown Matrix Injector Overview
 
 ## Publication
-- Public Gist: [https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-overview](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-overview)
+- 利用者向けの入口: [チュートリアル](tutorial.md) / [利用マニュアル](user-manual.md) / [実務サンプル](samples/practical/README.md)
 - Canonical source: `04_Documentation/overview.md`
 
 ## Target reader
@@ -74,7 +74,7 @@ Markdown Matrix Injector は、Excel / CSV / XML を **Single Source of Truth** 
 
 ## Known limitations
 - **プレビュー描画（G1）**: HTML 構造・クラス・属性は自動テスト（unit 167 件）で実証済み。実 VS Code プレビューの視覚スクリーンショットは GUI 環境での manual-e2e で確認してください（`04_Documentation/vscode-e2e-testing.md` の Checklist F 参照）。
-- **PDF/印刷（G2）**: `pageBreak` / `orientation` のHTML 属性付与は実証済み。PDF への反映は利用する PDF 生成器に依存します。推奨は VS Code Markdown PDF 拡張（Chromium 系）または weasyprint。詳細は `04_Documentation/samples/sier-design/README.md`。
+- **PDF/印刷（G2）**: `pageBreak` / `orientation` のPDFへの反映は生成器に依存します。今回確認した経路はMMIで展開済みのHTMLからWeasyPrint 69.0への変換です。手順は [利用マニュアル](user-manual.md#pdfを作る) を参照してください。Markdown PDF拡張からの直接出力は未検証です。
 - **XML**: XML Spreadsheet 2003 のみ対応。汎用 XML はエラー表示になります。
 - 実機 UI の最終確認には host 環境や VSCode バージョン差の影響があります。
 - 本書は `overview.md` 単体の価値訴求を優先しており、操作手順の詳細は `tutorial.md` を参照してください。

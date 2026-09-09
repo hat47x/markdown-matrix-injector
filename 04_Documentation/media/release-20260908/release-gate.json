@@ -1,0 +1,22 @@
+[
+  {
+    "gate": "G1:Planning",
+    "passed": true,
+    "detail": "orphan=0, pending=0"
+  },
+  {
+    "gate": "G2:Tests",
+    "passed": true,
+    "detail": "npm run test:unit passed"
+  },
+  {
+    "gate": "G3:Phase9Sync",
+    "passed": true,
+    "detail": "phase9 sync checker passed"
+  },
+  {
+    "gate": "G4:Phase9GuideSync",
+    "passed": true,
+    "detail": "OK: /mnt/c/GIT/markdown-matrix-injector/04_Documentation/samples/phase9-rule-table-pattern-guide.md is in sync with /mnt/c/GIT/markdown-matrix-injector/04_Documentation/samples/phase9-rule-table-benchmark-pack.csv"
+  }
+]

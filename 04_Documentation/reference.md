@@ -1,8 +1,8 @@
 # Markdown Matrix Injector Reference
 
-## Publication
-- Public Gist: [https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-reference](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-reference)
-- Canonical source: `04_Documentation/reference.md`
+## この資料の使い方
+初めて使う方は [チュートリアル](tutorial.md)、操作を調べる方は [利用マニュアル](user-manual.md) を参照してください。本書は記法の詳細を扱います。
+最新の実機確認範囲は [検証記録](release-validation-2026-09-08.md) を正とします。
 
 ## Target reader
 - 記法やクエリ仕様を正確に参照したい利用者
@@ -204,7 +204,7 @@
 - known limitation:
   - `@page named-page` per-page 横向き（`orientation=landscape`）は、weasyprint / Chromium 系では対応するが wkhtmltopdf 0.12.x / Pandoc+LaTeX では非対応。
   - `pageBreak` は Chromium 系・weasyprint で対応。Pandoc+LaTeX バックエンドでは CSS `@media print` が解釈されない。
-  - 推奨 PDF 生成器: **VS Code Markdown PDF 拡張（Chromium ベース）** または **weasyprint**。
+  - 今回の確認済み経路: **MMIで展開済みのHTML → WeasyPrint 69.0**。VS Code Markdown PDF拡張による直接出力は未検証であり、プレビューが表示できるだけではPDFへの展開を保証しない。
   - 詳細な PDF 生成器別対応表: `04_Documentation/samples/sier-design/README.md`。
 - 既知制約（known limitation）:
   - 改ページと用紙向きの最終結果は、Pandoc / Markdown PDF / ブラウザ印刷の実装差に依存する。
@@ -329,7 +329,7 @@
 | `.mmi-table` / `.mmi-table__row--highlight` | テーブル・ハイライト行 |
 | `.mmi-table__cell--formatted` / `.mmi-table__cell-code` | コードブロック列 |
 | `.mmi-card` / `.mmi-card__title` / `.mmi-card__meta` | カード UI（見出しは正本への相対パスリンク） |
-| `.mmi-card__open` | カードの「外部アプリで開く」ボタン（`command:` URI、印刷時は非表示。ADR-0011） |
+| `.mmi-card__open` | カードの「外部アプリで開く」ボタン（拡張URI、印刷時は非表示。ADR-0015。実機検証範囲は検証記録を参照） |
 | `.mmi-error` | エラー表示 |
 
 ### 制約
@@ -369,7 +369,7 @@ VS Code コマンドパレットから利用できる主要コマンド:
 | コマンド | ID | 用途 |
 |---|---|---|
 | MMI: Generate Delivery Manifest | `markdownMatrixInjector.generateDeliveryManifest` | 開いている Markdown 内で「別紙（カード）」として扱われる埋め込みを抽出し、納品チェックリスト CSV（`<filename>.delivery-manifest.csv`）を同じフォルダへ出力する（要件 Phase 4）。 |
-| MMI: Open Embed Source | `markdownMatrixInjector.openSource` | カードの「外部アプリで開く」ボタン（`command:` URI）から起動され、参照先の正本ファイルを OS 既定アプリ（Excel 等）で開く（`env.openExternal`、要件 Phase 4 / ADR-0011）。`command:` リンクは信頼済みプレビューでのみ発火し、未信頼環境ではカード見出しの相対パスリンクが代替導線になる。 |
+| MMI: Open Embed Source | `markdownMatrixInjector.openSource` | 表データの絶対パスを引数として受け取り、OS既定アプリへ渡す。カードはADR-0015の拡張URIハンドラーから同じ処理を呼ぶ。信頼済みローカルワークスペース内の対応形式のみ許可し、realpathで境界を確認する。引数なしのパレット実行は対象を選ぶ操作ではない。 |
 | MMI: Insert Embed From Paste | `markdownMatrixInjector.insertEmbedFromPaste` | クリップボードから埋め込み記法を生成・挿入する。 |
 | MMI: Insert Embed From Drop | `markdownMatrixInjector.insertEmbedFromDrop` | ドロップしたファイルから埋め込み記法を生成・挿入する。 |
 

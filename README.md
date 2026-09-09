@@ -1,159 +1,116 @@
-# Markdown Matrix Injector (MMI)
+# Markdown Matrix Injector（MMI）
 
-**コピーではなく、参照を。**
+**ExcelやCSVの表を、Markdownから参照するVS Code拡張です。**
 
-[![CI](https://github.com/hat47x/markdown-matrix-injector/actions/workflows/ci.yml/badge.svg)](https://github.com/hat47x/markdown-matrix-injector/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
+要件一覧、権限表、試験結果を元ファイルで管理しながら、設計書には必要な行と列だけを表示できます。
+表を文書へコピーし直す手間を減らし、元データを読み取り専用で参照します。
 
-**Markdown Matrix Injector (MMI)** は、正本表データ（Excel / CSV / XML）をテキスト文書から**宣言的・読み取り専用・検証可能**に参照するための公開規約 **MMI Notation** と、その参照実装（VS Code 拡張）です。
+![VS CodeでCSVの要件を表示](04_Documentation/media/release-20260908/01-first-table.png)
 
-```md
-![[./設計データ.xlsx#状態遷移|A1:F20?header=first&caption=状態遷移表&id=tbl-state]]
-```
+[チュートリアル](04_Documentation/tutorial.md) · [利用マニュアル](04_Documentation/user-manual.md) · [実務サンプル12本](04_Documentation/samples/practical/README.md) · [操作動画](04_Documentation/media/release-20260908/mmi-live-walkthrough.mp4)
 
-AI エージェントがあらゆるファイルを編集できる時代、正本と文書内コピーの乖離（ドリフト）は人間の手作業時代より速く・大量に発生します。MMI はコピーを**参照**へ置き換え、構造的に書き込めない境界（Read-only MUST）で正本を守る——**人間と AI エージェントが共存する文書運用のガードレール**です。
+## どんなときに使える？
 
----
+| 仕事 | MMIでできること |
+|---|---|
+| 要件レビュー | 24件の要件から、担当領域や「要確認」の行を表示 |
+| 業務設計 | Excelの状態遷移や役割別の権限を設計書へ参照 |
+| API設計 | 応答例のJSONを読みやすいコード表示にする |
+| 試験確認・運用引継ぎ | 未実施の試験や担当別の障害対応手順を抜き出す |
+| 納品準備 | 大きな表を別紙にし、同梱するファイルの一覧を作る |
 
 ## インストール
 
-### VS Code Marketplace（推奨）
+公開準備中の検証版は、受け取った `.vsix` ファイルからインストールしてください。
+VS Codeで `Ctrl+Shift+P` → `Extensions: Install from VSIX...` を選び、MMIのVSIXを指定します。
+更新後はウィンドウを再読み込みします。拡張を使うだけならNode.jsの導入は不要です。
 
-VS Code Marketplace で `Markdown Matrix Injector` を検索してインストールしてください。
-（Marketplace 公開は準備中です。公開までは下記の `.vsix` 手動インストールをご利用ください。）
+最低対応バージョンはVS Code 1.96.0です。今回の実機検証はWindowsのVS Code 1.136.1で行っています。
+MarketplaceやGitHub Releasesに配布物が公開済みであることは、この手順の前提にしていません。
 
-### .vsix から手動インストール
+## まず4件の要件を表示する
 
-1. [Releases](https://github.com/hat47x/markdown-matrix-injector/releases) から最新の `.vsix` をダウンロードします。
-2. VS Code で `Ctrl+Shift+P` → `Extensions: Install from VSIX...` を実行します。
-3. ダウンロードした `.vsix` ファイルを選択します。
+1. [実務サンプル](04_Documentation/samples/practical/README.md) をフォルダーごと用意します。`data`も一緒に置きます。
+2. VS Codeで `01-first-table.md` を開きます。
+3. `Ctrl+Shift+V` でプレビューを開きます。
 
----
-
-## クイックスタート（5 分）
-
-### 1. 最初の埋め込み
-
-Markdown ファイル（`.md`）を開き、次のように記述します：
+REQ-001〜REQ-004の4件が表として表示されます。サンプルに書かれているのは次の1行です。
 
 ```md
-![[./data/sample.csv#Sheet1|A1:D10?header=first&caption=サンプル表]]
+![[./data/requirements.csv#Sheet1|A1:G5?header=first&columns=A,C,D,G&caption=表1　認証・権限の要件]]
 ```
 
-### 2. プレビューを開く
+`./data/requirements.csv`の`A1:G5`を読み、先頭行を見出しにして、4列だけを表示しています。
+手順と画面の見方は [やさしいチュートリアル](04_Documentation/tutorial.md) で説明しています。
 
-`Ctrl+Shift+V`（または `Cmd+Shift+V`）で Markdown プレビューを開きます。`![[...]]` が実際のテーブルに置き換わって表示されます。
+## 実務の流れで試す
 
-![プレビュー表示例](04_Documentation/samples/screenshots/phase11-g1-preview.png)
+[申請・承認システムのサンプル集](04_Documentation/samples/practical/README.md) には、12本の文書と、9つのCSV（計172件）、3シートのExcel、XML、TSVを収録しました。
+すべて架空のデータです。要件→設計→試験→運用→リリース判定をたどれます。
 
-### 3. 次の一歩
+![別紙のカード表示](04_Documentation/media/release-20260908/03-attachment-cards.png)
 
-- **チュートリアル**: [`04_Documentation/tutorial.md`](04_Documentation/tutorial.md) — 30 分で全機能を体験
-- **動作の内部解説（How it works）**: [`04_Documentation/how-it-works.md`](04_Documentation/how-it-works.md) — 記法 1 行が表になるまでの内部挙動を、判定順序・閾値・コード位置・図つきで一気通貫に理解
-- **業務シナリオ**: [`04_Documentation/scenario-sier-design-docs.md`](04_Documentation/scenario-sier-design-docs.md) — SIer 設計書での活用例
-- **リファレンス**: [`04_Documentation/reference.md`](04_Documentation/reference.md) — 全パラメータ・記法仕様
+大きな表はカードとして参照できます。ファイル名はVS Code内で開くリンク、「外部アプリで開く」はOSの既定アプリを開く操作です。
+カードになったファイルをチェックリストへ出力する `MMI: Generate Delivery Manifest` も用意しています。
 
----
+## できることと対応範囲
 
-## 主な機能
+- Excel・CSV・TSV・XML Spreadsheet 2003のセル値を読み取って表示。
+- 行・列の絞り込み、縦横反転、強調表示、JSONなどのコード表示。
+- 表題・相互参照・別紙カードと、納品一覧のCSV出力。
+- ファイルやシートの補完、参照先の誤りを「問題」パネルへ表示。
+- MMIで展開済みのHTMLから、別の生成器を使ってPDF化。
 
-1. **正本の完全性（恒久規範）**: 参照経路からは正本を改変できない（Read-only MUST）。構造的な安全装置。
-2. **クエリエンジン**: 記法 `![[ファイル#シート|範囲?パラメータ]]` による宣言的な断面参照。巨大な正本から必要なスライスだけを抽出。
-3. **Smart Fallback**: 巨大表を自動検出し、リンクカード UI へ縮退。別紙の納品マニフェスト出力に対応。
-4. **エンタープライズ印刷制御**: キャプション・相互参照・PDF 改ページ・横向き（Landscape）指定（実 PDF 再現実証済み）。
-5. **AI エージェント協働**: リンク切れ検知（Diagnostics）は機械検証可能。query-evidence は「エージェントが書いた文書と正本の一致検証」の根拠。
-6. **開発者体験 (DX)**: オートコンプリートと静的解析による執筆支援。
+**元データはMMIから変更しません。** ただし、外部アプリで開いた後の編集・保存は通常の操作です。
+数式の再計算、画像・図形・マクロ、Excelの配色や結合セルの再現は対象外です。
+`grep`は部分一致検索であり、集計や業務ルールの実行機能ではありません。
 
----
+## PDFについて
 
-## サポート形式
+[設計書PDFの例](04_Documentation/samples/practical/10-print.pdf) は縦・横・縦の3ページです。
+今回確認した経路は **MMIで展開したHTML → WeasyPrint 69.0** です。
+一般のMarkdown変換だけでは参照記法が表になりません。VS CodeのMarkdown PDF拡張からの直接出力は、今回の検証済み経路ではありません。
+手順は [利用マニュアル](04_Documentation/user-manual.md#pdfを作る) にあります。
 
-| 形式 | 拡張子 | 備考 |
-|---|---|---|
-| Excel Workbook | `.xlsx` | シート・セル範囲指定 |
-| CSV / TSV | `.csv` `.tsv` | ヘッダ行・列選択 |
-| XML Spreadsheet 2003 | `.xml` | Office 2003 XML 形式のみ |
+## 制約と検証状況
 
----
+CSVはUTF-8を使います。一般的なXML、外部URL、ワークスペース外のファイルは参照できません。
+外部アプリの起動は、信頼済みのローカルワークスペース内の表データが対象です。
+貼り付け・ドラッグ＆ドロップは元アプリが渡す情報に依存し、セルのコピーから常に元ファイルを特定できるわけではありません。
 
-## 既知の制約
+環境、実機確認、テスト結果、未確認事項は [リリース準備の検証記録](04_Documentation/release-validation-2026-09-08.md) にまとめています。
+この文書整備・ローカル検証と、Marketplace公開・正式リリースの判定は別の作業です。
 
-- **PDF 生成器依存**: `pageBreak` / `orientation` の PDF 反映は利用する PDF 生成器に依存します。推奨: VS Code Markdown PDF 拡張（Chromium 系）または WeasyPrint。
-- **XML 形式**: XML Spreadsheet 2003 のみ対応。汎用 XML はエラー表示になります。
-- **文字エンコーディング**: ソースファイルは UTF-8 前提です。Shift-JIS 等の自動検出は未対応。
-- **ネットワークソース**: ファイルパスは VS Code ワークスペース境界内に限定されます。リモートソースの直接参照は非対応です。
-- **VS Code バージョン**: VS Code ≥1.96.0 が必要です。
-- 詳細な制約一覧は [`04_Documentation/samples/manual-e2e-g3-g4-result-2026-07-15.md`](04_Documentation/samples/manual-e2e-g3-g4-result-2026-07-15.md) を参照してください。
+## 詳しい資料
 
----
+| 資料 | 内容 |
+|---|---|
+| [チュートリアル](04_Documentation/tutorial.md) | インストールから最初の表まで |
+| [利用マニュアル](04_Documentation/user-manual.md) | 日々の操作、別紙、納品一覧、PDF、困ったとき |
+| [リファレンス](04_Documentation/reference.md) | 記法とパラメータの詳細 |
+| [動画と画像](04_Documentation/media/release-20260908/README.md) | 実画面で操作を確認 |
+| [内部の仕組み](04_Documentation/how-it-works.md) | 読み込み・キャッシュ・描画の流れ |
+| [MMI Notation v1](04_Documentation/spec/mmi-notation-v1.md) | 読み取り専用の参照規約 |
+| [パラメータSchema](04_Documentation/spec/params.schema.json) | ツール向けの機械可読定義 |
 
-## なぜ「規約」なのか
+MMIはVS Code拡張に加えて、`![[...]]`の公開規約と適合試験を管理しています。
+特定のエディターだけに閉じず、同じ表参照を扱える実装を増やすための仕様です。
 
-ツールは世代交代しますが、記法とその保証性質（読み取り専用・決定論・可視な劣化）は残ります。MMI Notation は conformance levels（L0–L3）で部分実装を許し、特定エディタ・特定 AI ツールに依存せず存続します。
+## 開発に参加する
 
-- **仕様書**: [`04_Documentation/spec/mmi-notation-v1.md`](04_Documentation/spec/mmi-notation-v1.md)（RFC 2119 規範・8 原則・劣化クラス）
-- **機械可読契約**: [`params.schema.json`](04_Documentation/spec/params.schema.json)（AI エージェント教示・実装検証用）
-- **conformance corpus**: [`03_Implement/test/conformance/`](03_Implement/test/conformance/)（他実装の準拠試験を兼ねる実行可能な規範例）
-- **表パターンガイド**: [`04_Documentation/samples/phase9-rule-table-pattern-guide.md`](04_Documentation/samples/phase9-rule-table-pattern-guide.md)（MMI 非依存で読める SIer 設計文書向け表パターン集）
-- **決定正本**: [`ADR-0012`](01_Plans/adr/ADR-0012-mission-redefinition-notation-as-governance-boundary.md)
-
-同梱の VS Code 拡張は、最上位 L3（Delivery Profile: エンタープライズ印刷制御・納品マニフェスト）に準拠する参照実装です。
-
----
-
-## コントリビューション
-
-MMI への貢献を歓迎します。以下の手順で参加してください。
-
-### 開発環境のセットアップ
+Node.js 22以上とnpmを使います。
 
 ```bash
-git clone https://github.com/hat47x/markdown-matrix-injector.git
-cd markdown-matrix-injector/03_Implement
+cd 03_Implement
 npm ci
 npm run build
 npm test
+npm run test:e2e
 ```
 
-**要件**: Node.js 22+, npm 10+
+[CONTRIBUTING.md](CONTRIBUTING.md) と [AGENTS.md](AGENTS.md) を参照してください。
+要件は [00_Prompt/requirements.md](00_Prompt/requirements.md)、方針と実行計画は [01_Plans](01_Plans/README.md) にあります。
 
-### 開発の流れ
+## ライセンス
 
-1. 新規開発・修正を行う前に、`01_Plans/issues/TEMPLATE.md` を用いて Issue Memo を起票してください。
-2. AI エージェント（Claude Code 等）を使用する場合は、必ず作業前に [`AGENTS.md`](AGENTS.md) を一読させてください。
-3. 詳細なコントリビューション手順は [`CONTRIBUTING.md`](CONTRIBUTING.md) を参照してください。
-
-### AI エージェント向け導線
-
-このリポジトリは AI エージェントとの協働を前提に設計されています。
-
-- **AI エージェント入口**: [`AGENTS.md`](AGENTS.md) — ゴールデンルールと Project Map
-- **プロジェクト憲法**: [`00_Prompt/system_prompt.md`](00_Prompt/system_prompt.md) — 絶対遵守ルール
-- **要件定義**: [`00_Prompt/requirements.md`](00_Prompt/requirements.md) — 設計思想と機能要件
-- **計画ハブ**: [`01_Plans/README.md`](01_Plans/README.md) — ADR と Issue Memo のインデックス
-
----
-
-## CI/CD
-
-| ワークフロー | 内容 |
-|---|---|
-| CI | push / PR ごとに build + unit test + release gate + VSIX packaging |
-| Release Bundle | タグ push で配布用 tar.gz を生成 |
-| Release Gate Manual | 手動実行のリリースゲート確認 |
-
----
-
-## プロジェクト構造
-
-```
-markdown-matrix-injector/
-├── 00_Prompt/          # 憲法・要件定義・AI プロトコル
-├── 01_Plans/           # ADR・Issue Memo（計画と決定）
-├── 02_Architecture/    # 技術設計・インターフェース
-├── 03_Implement/       # 実装本体（VS Code 拡張）
-├── 04_Documentation/   # 仕様書・チュートリアル・運用マニュアル
-├── AGENTS.md           # AI エージェント向け入口
-├── CONTRIBUTING.md     # コントリビューションガイド
-└── LICENSE             # MIT
-```
+[MIT](LICENSE)

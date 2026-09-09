@@ -1,52 +1,65 @@
-# Markdown Matrix Injector (MMI)
+# Markdown Matrix Injector（MMI）
 
-**コピーではなく、参照を。**
+Excel・CSV・XMLの表をMarkdownから読み取り専用で参照する拡張です。
+要件、権限、試験結果などを元データで管理し、文書には必要な行と列だけを表示できます。
 
-Excel / CSV / XML の表データを Markdown 文書から宣言的・読み取り専用に参照する VS Code 拡張です。
+![実際のVS Codeで表示した要件表](media/preview-example.png)
+
+## 最初の表を表示する
+
+1. Markdownと、参照するCSVまたはExcelを同じ作業フォルダーへ置きます。
+2. Markdownへ次のような参照を書きます。
+3. `Ctrl+Shift+V` でプレビューを開きます。
 
 ```md
-![[./設計データ.xlsx#状態遷移|A1:F20?header=first&caption=状態遷移表&id=tbl-state]]
+![[./data.csv#Sheet1|A1:C5?header=first&caption=確認する項目]]
 ```
 
-## クイックスタート
+CSVのA〜C列、1〜5行目を読み、先頭行を見出しにします。
+参照をコードブロックで囲まず、本文の独立した行に書いてください。
+この例の `data.csv` は自分のファイル名へ置き換えます。
 
-1. Markdown ファイル（`.md`）に `![[./data.csv#Sheet1|A1:D10?header=first]]` と記述
-2. `Ctrl+Shift+V` でプレビューを開く → テーブルとして表示
-3. 詳細: [チュートリアル](../04_Documentation/tutorial.md)
+## 表の見せ方
 
-![プレビュー表示例](../04_Documentation/samples/screenshots/phase11-g1-preview.png)
+- `columns=A,C`：列を選びます。
+- `grep=要確認`：文字を含む行だけを表示します。
+- `highlightColumn=状況&highlightValue=要確認`：一致する行を強調します。
+- `transpose=true`：縦横を反転します。
+- `caption=確認対象`：表題を付けます。
+- `mode=card`：別紙カードにします。
 
-## 主な機能
+大きい範囲は自動でカードになります。列を絞って表として表示するときは `mode=table` も指定します。
+ファイル名リンクはVS Code内、「外部アプリで開く」はOSの既定アプリで開く操作です。
+外部オープンは信頼済みのローカルワークスペース内の表データを対象にします。
 
-- **正本保護（Read-only MUST）**: 参照経路から元データを改変できない構造的安全装置
-- **クエリエンジン**: 宣言的記法 `![[...]]` で必要な断面だけを抽出
-- **Smart Fallback**: 巨大表の自動カード縮退＋「外部アプリで開く」ボタン
-- **エンタープライズ印刷制御**: caption / pageBreak / orientation の実 PDF 再現実証済み
-- **Delivery Manifest**: 別紙一覧の CSV 自動生成
-- **Diagnostics**: リンク切れ・シート不在のリアルタイム検知
-- **DX**: オートコンプリート（ファイルパス・シート・範囲・クエリキー）、ペースト/ドロップ挿入
+## 納品一覧
 
-## サポート形式
+Markdownのソースを開き、コマンドパレットから `MMI: Generate Delivery Manifest` を実行します。
+隣に `.delivery-manifest.csv` が作成されます。カード扱いの参照を記録するチェックリストであり、元データのコピーは行いません。
+同名の一覧は再実行時に上書きされます。
 
-| 形式 | 拡張子 |
-|---|---|
-| Excel Workbook | `.xlsx` |
-| CSV / TSV | `.csv` `.tsv` |
-| XML Spreadsheet 2003 | `.xml` |
+## 対応範囲
 
-## 開発
+Excel（XLSX/XLS）、UTF-8のCSV、TSV、XML Spreadsheet 2003を表示します。
+画像・図形・マクロ・Excelの配色や結合セルの再現、数式の再計算は対象外です。
+ファイルの補完・シート補完・参照先の診断を備えています。貼り付けは元アプリが渡す情報に依存します。
 
-```bash
-npm ci
-npm run build
-npm test          # unit + conformance corpus + Phase 9 sync/guide-sync (226 tests)
-npm run test:e2e  # VS Code Extension Host 上での描画検証
-```
+MMIは元データを書き換えません。外部アプリを開いた後に編集・保存した場合は、通常どおり変更されます。
 
-- **AI エージェント向け入口**: [AGENTS.md](../AGENTS.md)
-- **要件定義**: [requirements.md](../00_Prompt/requirements.md)
-- **ADR と Issue**: [01_Plans/](../01_Plans/)
+## PDFを作るには
+
+MMIで表を展開したHTMLを別のPDF生成器へ渡します。
+確認済みの例はWeasyPrint 69.0です。一般のMarkdown変換や別のPDF拡張で同じように動くとは限りません。
+
+## 詳しい説明とサンプル
+
+本VSIXは公開準備用の検証版です。配布セットには、日本語チュートリアル・利用マニュアル・12本の実務サンプル・画面資料を含みます。
+配布セットの `04_Documentation/tutorial.md` を開いてください。
+
+プロジェクトの公開情報は [GitHubリポジトリ](https://github.com/hat47x/markdown-matrix-injector) を参照してください。検証版の最新文書は同梱セットを正とします。
+
+最低対応はVS Code 1.96.0。今回の実機確認はWindowsのVS Code 1.136.1です。
 
 ## ライセンス
 
-MIT — [LICENSE](../LICENSE)
+MIT
