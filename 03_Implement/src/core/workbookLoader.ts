@@ -40,7 +40,7 @@ function loadWorkbookUncached(absolutePath: string): WorkbookData {
   if (extension === '.csv') {
     return {
       sheets: {
-        Sheet1: parseCsv(fs.readFileSync(absolutePath, 'utf8')),
+        Sheet1: parseCsv(decodeCsv(fs.readFileSync(absolutePath))),
       },
     };
   }
@@ -82,6 +82,24 @@ function loadWorkbookUncached(absolutePath: string): WorkbookData {
   );
 
   return { sheets };
+}
+
+function decodeCsv(bytes: Uint8Array): string {
+  const hasUtf8Bom = bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
+  if ((bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0xfe && bytes[1] === 0xff)) {
+    throw new Error('CSVはUTF-8またはCP932で保存してください。UTF-16には対応していません。');
+  }
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    if (hasUtf8Bom) throw new Error('CSVのUTF-8データが不正です。');
+  }
+  try {
+    // WHATWG shift_jis includes the Windows-31J extensions used by Excel.
+    return new TextDecoder('shift_jis', { fatal: true }).decode(bytes);
+  } catch {
+    throw new Error('CSVをUTF-8またはCP932として読み込めません。文字コードを確認してください。');
+  }
 }
 
 /**
