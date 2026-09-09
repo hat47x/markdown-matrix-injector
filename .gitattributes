@@ -1,1 +1,4 @@
 *.sh text eol=lf
+
+# Preserve CP932 bytes and Excel-style CRLF in this sample.
+04_Documentation/samples/practical/data/excel-cp932.csv -text -diff

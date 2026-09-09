@@ -151,3 +151,9 @@ conformance corpus（`03_Implement/test/conformance/cases.json`）は本仕様�
 各ケースは「入力 Markdown + ソースファイル群 + 期待される出力断片/診断」を機械可読に宣言する。
 実装は自レベルの全ケースに合格することで準拠を主張できる。corpus は同時に
 AI エージェントへの記法教示データとして利用できる（P8）。
+
+## 参照実装のCSV文字コード（非規範）
+
+VS Code参照実装はUTF-8（BOM有無）を優先し、UTF-8として不正な場合にWindows-31J（CP932）を試す。BOMでUTF-8と明示された不正データは別の文字コードへ切り替えない。UTF-16 BOMと、両方式で復号できないデータは読込みエラーとする。自動判定は推定であり、両方式で有効なバイト列はUTF-8として解釈する。この方針は新しい記法パラメータや他処理系への準拠要件を追加しない。
+
+復号はNodeのTextDecoderを用いる。[対応文字コードとICU要件](https://nodejs.org/api/util.html#whatwg-supported-encodings)を参照。実機互換性は配布するVSIXの対象宿主で確認する。

@@ -51,3 +51,7 @@ XMLは移行確認8件、TSVは設定4件です。MMIは表データを読み取
 - 記法の正本は [MMI Notation v1](../../spec/mmi-notation-v1.md)、パラメータは [リファレンス](../../reference.md) を参照してください。
 
 実機で作った [納品一覧CSV](08-release.delivery-manifest.csv) も同梱しています。自分の文書で作成する際は、ソースを開いて同じコマンドを実行してください。
+
+## CP932のCSV
+
+[CP932の日本語CSV例](13-cp932.md)では、Windows拡張文字・引用内カンマ・セル内改行を確認できます。

@@ -146,7 +146,7 @@ VS Codeの「Markdown PDF」拡張からの直接出力は、今回の検証済�
 
 ## 対応範囲
 
-表示対象はExcel（XLSX/XLS）、UTF-8のCSV、TSV、XML Spreadsheet 2003です。補完や貼り付けの対象形式は表示対象より狭い場合があります。
+表示対象はExcel（XLSX/XLS）、UTF-8（BOM有無）またはCP932のCSV、TSV、XML Spreadsheet 2003です。補完や貼り付けの対象形式は表示対象より狭い場合があります。
 数式を再計算する機能ではなく、保存済みの値を使います。数式は元アプリで再計算・保存してから参照してください。
 画像・図形・マクロ・Excelの詳細レイアウトは再現しません。
 
@@ -171,3 +171,7 @@ VS Codeの「Markdown PDF」拡張からの直接出力は、今回の検証済�
 ![別紙から開いたExcel](media/release-20260908/07-excel-opened.png)
 
 [納品一覧とシート補完の実操作動画](media/release-20260908/mmi-live-walkthrough.mp4)
+
+### CSVの文字コード
+
+ソースコードのCSV読込みはUTF-8を優先し、UTF-8として不正な場合はCP932を試します。UTF-8 BOM付きの不正データや、どちらでも解釈できないデータはエラーにします。UTF-16は対象外です。両方で有効なデータはUTF-8が選ばれるため、完全な自動判定ではありません。必要な場合は原本を残してUTF-8 BOM付きの別ファイルを用意してください。[CP932の例](samples/practical/13-cp932.md)。既配布VSIXには更新が必要です。
