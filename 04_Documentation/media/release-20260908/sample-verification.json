@@ -1,0 +1,129 @@
+{
+  "date": "2026-09-09T08:32:04.655Z",
+  "results": [
+    {
+      "file": "01-first-table.md",
+      "rows": [
+        4
+      ],
+      "cards": 0,
+      "errors": 0
+    },
+    {
+      "file": "02-requirements.md",
+      "rows": [
+        4,
+        5,
+        24
+      ],
+      "cards": 0,
+      "errors": 0
+    },
+    {
+      "file": "03-workflow.md",
+      "rows": [
+        12,
+        5
+      ],
+      "cards": 0,
+      "errors": 0
+    },
+    {
+      "file": "04-permissions.md",
+      "rows": [
+        12,
+        12,
+        4
+      ],
+      "cards": 0,
+      "errors": 0
+    },
+    {
+      "file": "05-api.md",
+      "rows": [
+        4,
+        1
+      ],
+      "cards": 0,
+      "errors": 0
+    },
+    {
+      "file": "06-testing.md",
+      "rows": [
+        5,
+        4
+      ],
+      "cards": 0,
+      "errors": 0
+    },
+    {
+      "file": "07-operations.md",
+      "rows": [
+        2,
+        5,
+        8
+      ],
+      "cards": 0,
+      "errors": 0
+    },
+    {
+      "file": "08-release.md",
+      "rows": [
+        3,
+        10
+      ],
+      "cards": 2,
+      "errors": 0
+    },
+    {
+      "file": "09-large-table.md",
+      "rows": [
+        15,
+        4
+      ],
+      "cards": 1,
+      "errors": 0
+    },
+    {
+      "file": "10-print.md",
+      "rows": [
+        3,
+        12
+      ],
+      "cards": 1,
+      "errors": 0
+    },
+    {
+      "file": "11-diagnostics.md",
+      "rows": [],
+      "cards": 0,
+      "errors": 3
+    },
+    {
+      "file": "12-tsv.md",
+      "rows": [
+        4
+      ],
+      "cards": 0,
+      "errors": 0
+    }
+  ],
+  "manifestRecords": 2,
+  "sourceHashes": {
+    "api.csv": "d82e2147cf9e4cde508786417991e3c9c943c3fc09348c9044d38af4717738ee",
+    "applications-wide.csv": "f7b2a68beb61eccc018b7cd5a18c70f2ecb7efc8fe0200288417c2af256458d6",
+    "catalog.json": "1d97c9526cd10761e5871345367e542a208e60e67749b3556de23acb5a148765",
+    "design.xlsx": "8be8fb31fb3660d93de887c473c5c8a6744d2f045f95e2006e957b5485f8210e",
+    "migration.csv": "3bc5f95d964a04a77dc0de19cf00fed6c7b855fca471892199f7a57aed40a90e",
+    "migration.xml": "2f90955742e44326002532bda6fbdadedea92e0cc0d2323a71a51be6b42f2aa2",
+    "not-spreadsheet.xml": "d01d923c8ca1873258f816f259b995185758b51d7ab0022caced534f42213842",
+    "permissions.csv": "dc9374a9803d63ca92ff7a366517c6d93cabb0e6a52ae959ed2f34a2c3ba8134",
+    "release.csv": "267a011bf91146266f011d8943533b6d5a76994c86596f6dc96b38baa0563d8f",
+    "requirements.csv": "b7a251dfcd3d1d68b522a935dd3de5548575af2efdebbedba9790514a5c08b36",
+    "settings.tsv": "5614adc66e0dba365ed234fe45b9f7ff7406defc607aa2921e517439f921a325",
+    "states.csv": "0766c195f7993a134c6e0ffeee2e6afa300a880c0c556ca812e9a1793199df0e",
+    "tests.csv": "1c56f3d0fbeb8cdd5c2b3703cdbb2690fa08cbedabeda6132747a017c658ec84",
+    "triage.csv": "55fcb3ef0627ad437b07df03d8b92360601cd7305d473bce9cbe993e76186ccf"
+  },
+  "sourceUnchanged": true
+}

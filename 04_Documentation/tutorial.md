@@ -1,138 +1,148 @@
-# Markdown Matrix Injector Tutorial
+# はじめてのMMI：ExcelやCSVの表をMarkdownで読む
 
-## Publication
-- Public Gist: [https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-tutorial](https://gist.github.com/<YOUR_GITHUB_ACCOUNT>/mmi-tutorial)
-- Canonical source: `04_Documentation/tutorial.md`
+ExcelやCSVで管理している表を、設計書へ何度も貼り付けていませんか。
+MMIでは「どのファイルの、どの部分を見せるか」をMarkdownに1行書くと、プレビューに表が表示されます。
+ここでは、同梱の申請・承認システムのサンプルを使って試します。元データはすべて架空です。
 
-## Target reader
-- はじめて Markdown Matrix Injector を試す利用者
-- 最小構成で「まず 1 回成功したい」PoC 担当者
+## 用意するもの
 
-## Prerequisites
-- `03_Implement` 配下で依存導入とビルドができること
-- 手元に CSV もしくは XLSX のサンプルがあること
-- Markdown ファイルから相対パスでデータファイルを参照できること
+- デスクトップ版のVS Code。拡張の最低対応バージョンは1.96.0です。
+- MMIのVSIXファイル。今回の検証版は0.1.0です。
+- [実務サンプル](samples/practical/README.md) のフォルダー一式。Markdownだけでなく`data`も必要です。
 
-## Expected result
-このチュートリアルを終えると、Markdown 内に外部表データを 1 件埋め込み、クエリパラメータで見せ方を変える基本操作を再現できます。
+拡張を使うだけなら、Node.jsや開発用のビルドは不要です。
+このチュートリアルはWindowsでの操作を説明します。目安は15〜30分です。
 
-## TFS acceptance gate (issue-0016, fixed)
-- 開始条件:
-  - `03_Implement` 配下で依存導入・ビルド済みであること。
-  - Markdown とデータファイル（CSV / XLSX）が同一ワークスペースにあり、相対パスが解決できること。
-  - プレビュー更新（再描画）が可能なエディタ状態であること。
-- 所要時間目安（固定）:
-  - 30 分以内（Time-to-First-Success の目標、超過時は「失敗時の最初の確認ポイント」へ移行）。
-- 成功判定:
-  - `![[...]]` で指定した範囲がプレビューに表として表示される。
-  - `header`, `columns`, `grep` の少なくとも 1 つが期待どおりに反映される。
-  - 元ファイル（CSV / XLSX）が編集されていないことを確認できる。
-- 失敗時の最初の確認ポイント:
-  - 最初の確認ポイントは「参照パスとシート/範囲指定が実在するか」。
-  - まず `![[../data/sample.csv#Sheet1|A1:C4]]` の最小記法に戻し、表示成功後に `header` → `columns` → `grep` の順で段階的にパラメータを再追加する。
+## 1. MMIをインストールする
 
-## 30分以内の手順導線（time-boxed handrail, TFS最短順）
-- 0〜5 分: 開始条件チェック（ワークスペース、相対パス、サンプルデータの存在確認）。
-- 5〜12 分: 最小埋め込み（`![[../data/sample.csv#Sheet1|A1:C4]]`）で表示確認。
-- 12〜20 分: `header=first&columns=A,C,E&grep=AUTH` を追加し、結果差分を確認。
-- 20〜27 分: `caption`, `id`, `pageBreak`, `orientation` を追加し文書制御を確認。
-- 27〜30 分: 成功判定を満たしているか確認し、未達の場合は「失敗時の最初の確認ポイント」を起点に即時復帰する。
+1. VS Codeで `Ctrl+Shift+P` を押します。
+2. `Extensions: Install from VSIX...`（VSIXからのインストール）を検索します。
+3. 手元のMMIの `.vsix` ファイルを選びます。
+4. 更新後に再読み込みを求められたら、ウィンドウを再読み込みします。
 
-## 失敗時の最初の確認ポイントと復帰導線
-- 最初の確認ポイント:
-  - Markdown ファイル基準での相対パスが正しいか（例: `../data/sample.csv`）。
-  - `#Sheet1` と `A1:C4` が実データ上に存在するか。
-  - プレビューが最新内容に再描画されているか。
-- 初回利用者の復帰導線（3ステップ）:
-  1. 最小記法 `![[../data/sample.csv#Sheet1|A1:C4]]` に戻して、表が出る状態を再確立する。
-  2. `header=first` のみ追加して確認し、次に `columns`、最後に `grep` を1つずつ追加する。
-  3. どの追加で崩れたかを特定したら、そのパラメータだけを見直して再実行する。
+左の拡張機能一覧で `Markdown Matrix Injector (MMI)` を確認します。
+公開準備中の配布物は、受け取ったVSIXを使ってください。Marketplaceから取得できることを前提とした手順ではありません。
 
-## Completion checklist (30分TFS)
-- [ ] 開始条件3点（ビルド済み / 相対パス解決 / プレビュー再描画）を満たした。
-- [ ] 30 分以内に最小記法の描画成功を確認した。
-- [ ] 成功判定3点（表示成功 / パラメータ反映 / 元ファイル非改変）を確認した。
-- [ ] 失敗時は最初の確認ポイントから3ステップ復帰導線を実行できた。
+## 2. サンプルをフォルダーごと開く
 
-## Quickstart flow
-### 1. 準備する
-- Markdown ファイルと、同じワークスペース内の CSV または XLSX を用意します。
-- 例として `docs/spec.md` から `../data/sample.csv` を参照する前提にします。
+VS Codeの「ファイル」→「フォルダーを開く」で `practical` を開きます。
+リポジトリを取得済みの場合は `04_Documentation/samples/practical` にあります。
 
-### 2. 最初の埋め込みを書く
-次のような埋め込みを Markdown に記述します。
-
-```md
-![[../data/sample.csv#Sheet1|A1:C4]]
+```text
+practical/
+  01-first-table.md
+  02-requirements.md
+  ...
+  data/
+    requirements.csv
+    design.xlsx
+    ...
 ```
 
-期待する結果:
-- `A1:C4` の範囲が HTML テーブルとしてプレビューに表示される。
-- 元の CSV / XLSX は編集されない。
-- 失敗時の最初の確認ポイント:
-  - `../data/sample.csv` が Markdown ファイル基準の相対パスとして正しいか。
-  - `#Sheet1` と `A1:C4` が実データに存在するか。
+ファイルを移動する場合も、この位置関係を保ちます。
+`./data/requirements.csv` は「このMarkdownと同じフォルダーにあるdataの中」という意味です。
 
-### 3. 表示を絞り込む
-次のようにクエリパラメータを付けます。
+## 3. 最初の表を表示する
+
+`01-first-table.md` を開き、`Ctrl+Shift+V` を押してください。
+「認証・権限の要件」という表題の下に、REQ-001〜REQ-004の4行が表示されれば成功です。
+
+![VS Codeで表示した最初の4要件](media/release-20260908/01-first-table.png)
+
+この表を表示しているのは、次の1行です。
 
 ```md
-![[../data/sample.csv#Sheet1|A1:F10?header=first&columns=A,C,E&grep=AUTH]]
+![[./data/requirements.csv#Sheet1|A1:G5?header=first&columns=A,C,D,G&caption=表1　認証・権限の要件]]
 ```
 
-期待する結果:
-- 1 行目がヘッダとして扱われる。
-- A, C, E 列だけが残る。
-- `AUTH` を含む行だけが表示される。
+| 部分 | 意味 |
+|---|---|
+| `./data/requirements.csv` | 読み取るファイル |
+| `#Sheet1` | CSVのシート名。CSVではこの名前を使います |
+| `A1:G5` | A列からG列、1行目から5行目まで |
+| `header=first` | 選んだ範囲の先頭行を見出しにする |
+| `columns=A,C,D,G` | 範囲内のA・C・D・G列だけを見せる |
+| `caption=...` | 表題を付ける |
 
-### 4. 文書向けの装飾を試す
+見出し1行とデータ4行なので、指定する範囲は5行です。
+記法は本文中に単独の行として書き、前後に空行を入れておくと読みやすくなります。
+バッククォートで囲んだコード例は表に変換されません。
+
+## 4. 表題を変えてみる
+
+プレビュー右上の「ソース ファイルとして再度開く」でMarkdownへ戻ります。
+`caption=表1　認証・権限の要件` を `caption=次回のレビュー対象` に変え、保存してください。
+もう一度プレビューを開くと、表題が変わります。CSVの値を編集する操作ではありません。
+
+## 5. 必要な行だけを読む
+
+`02-requirements.md` を開きます。24件の中から「要確認」の5件だけを取り出す例です。
+
 ```md
-![[../data/sample.csv#Sheet1|A1:F10?header=first&caption=認可一覧&id=tbl-auth&pageBreak=before&orientation=landscape]]
+![[./data/requirements.csv#Sheet1|A1:G25?header=first&columns=A,C,F,G&grep=要確認&highlightColumn=状況&highlightValue=要確認&caption=次回レビューの対象]]
 ```
 
-期待する結果:
-- 埋め込みにキャプションと ID が付き、印刷制御用の属性も加わる。
-- 大きい表では、設定やサイズ条件に応じて Smart Fallback が働くことがある。
+REQ-003、REQ-008、REQ-010、REQ-016、REQ-024が表示されます。
+`grep`は行内の文字を部分一致で探します。列を絞ったあとの値を探すので、検索したい列も`columns`に残してください。
 
-### 5. 入力支援を使う
-- `![[` を入力し始めたら候補を確認する。
-- ファイルパス、`#` 後のシート、`?` 後のパラメータ候補が段階的に出ることを確認する。
-- ファイル不在や無効 XML では Diagnostics が出ることを確認する。
 
-## Related docs
-- 価値や全体像: `04_Documentation/overview.md`
-- 業務適用イメージ: `04_Documentation/scenario-sier-design-docs.md`
-- パラメータ詳細: `04_Documentation/reference.md`
-- 開発環境セットアップ: `04_Documentation/developer-setup.md`
+上の画像は `08-release.md` のリリース会議例です。同じ絞り込みと強調表示を判定台帳にも使えます。
 
-## Known limitations
-- Preview UI や native Paste / D&D の最終 UX は、host 環境と VSCode バージョンに影響されます。
-- XML は XML Spreadsheet 2003 のみが対象で、汎用 XML はエラー表示になります。
+## 6. Excelのシートを参照する
 
-## 視覚補助素材（比較表）
-初回導入時に「どこで失敗しやすいか」を短時間で把握できるよう、手順別チェックポイントを比較表で固定します。
+`03-workflow.md` では、Excelの「状態遷移」シートを参照します。
 
-| ステップ | 成功状態 | 失敗の兆候 | 最初の復帰アクション |
-|---|---|---|---|
-| 1. 最小記法埋め込み | `A1:C4` が表で表示される | 表が表示されない | 相対パスとシート/範囲指定を再確認 |
-| 2. クエリ絞り込み | `header/columns/grep` が反映される | 列や行が期待どおりに絞られない | パラメータを 1 つずつ再追加して差分確認 |
-| 3. 印刷制御付与 | `caption/id/pageBreak/orientation` が反映される | 印刷結果のみ崩れる | 画面表示でパラメータ解釈を確認後、PDF 生成器差分を切り分け |
+```md
+![[./data/design.xlsx#状態遷移|A1:F13?header=first&caption=状態遷移]]
+```
 
-## FAQ（Tutorial）
-### Q1. 30 分以内に終わらない場合、どこからやり直すべきですか？
-A1. 最小記法 `![[../data/sample.csv#Sheet1|A1:C4]]` に戻し、成功後に `header -> columns -> grep` の順で再追加します。
+12通りの状態遷移が表示されます。Excelの配色や結合セルを写すのではなく、セルの値をMMIの表として表示します。
+元のExcelは、MMIを使っても変更されません。
 
-### Q2. `grep` を追加すると結果が 0 件になるのは不具合ですか？
-A2. 多くは検索語の大小文字・空白差分・対象列の想定違いです。まず `grep` だけを外し、他パラメータの影響を切り分けてください。
+## 7. 大きな表は別紙にする
 
-### Q3. 画面は正しいのに PDF だけ崩れる場合は？
-A3. 仕様上あり得ます。`pageBreak` / `orientation` 値の妥当性を確認した後、利用中の PDF 生成器ごとの差分として検証してください。
+`09-large-table.md` には60件・11列の申請一覧があります。大きい範囲はカードで表示されます。
 
-## スクリーンショット（Smart Fallback / 印刷制御）
-比較表で示した失敗復帰導線を、実画面イメージで補強するための参照です。
+![元データを参照する別紙カード](media/release-20260908/03-attachment-cards.png)
 
-### Smart Fallback カード表示
-![Smart Fallback カード表示](./samples/screenshots/phase6-smart-fallback-card.svg)
+カードのファイル名はVS Code内で開くリンクです。「外部アプリで開く」は、その形式に関連付けられたアプリで開きます。
+別紙を渡すときは、元のExcelやCSVも忘れずに同梱します。
 
-### 印刷制御パラメータ反映プレビュー
-![印刷制御プレビュー](./samples/screenshots/phase6-print-control-preview.svg)
+必要な行と列を表で見たいときは、`mode=table`も付けます。
+
+```md
+![[./data/applications-wide.csv#Sheet1|A1:K61?mode=table&header=first&columns=A,B,C,E&grep=承認待ち]]
+```
+
+承認待ちの15件が表示されます。カード化の判定は列の絞り込みより先なので、`columns`だけでは表表示に戻りません。
+
+## 動画で表示例を見る
+
+[表・別紙カード・PDFの解説動画](media/release-20260908/mmi-visual-guide.mp4) で表示例を確認できます。採取済みの実画面とPDFの静止画をつないだ36秒の動画です。[納品一覧とシート補完の実操作動画](media/release-20260908/mmi-live-walkthrough.mp4) も用意しました。こちらは実際の操作を2倍速にした60秒の録画です。
+動画の内容と確認ポイントは [動画ガイド](media/release-20260908/README.md) にまとめています。
+
+## 表が出ないとき
+
+1. 拡張機能一覧にMMIがあるか確認します。更新した直後ならウィンドウを再読み込みします。
+2. Markdownを保存し、参照先ファイルが同じ作業フォルダー内にあるか確認します。
+3. ファイル名、シート名、範囲を見直します。CSVのシート名は`Sheet1`です。
+4. 追加したパラメータを減らしてから、1つずつ戻します。
+
+`11-diagnostics.md` は、わざと間違った参照を3件含む練習用ファイルです。
+`Ctrl+Shift+M` で「問題」パネルを開き、表示された理由と正しい記法を見比べてください。
+
+## ここまでできれば大丈夫
+
+- [ ] CSVの4件を表として表示できた。
+- [ ] 表題を変えるか、必要な行を絞り込めた。
+- [ ] 表示のために元データを変更する必要がないことを確認した。
+
+次は [実務サンプルの一覧](samples/practical/README.md) から、自分の仕事に近い文書を選んでください。
+納品一覧・PDF・困ったときの対処は [利用マニュアル](user-manual.md)、詳しい記法は [リファレンス](reference.md) にあります。
+対応範囲の正本は [MMI Notation v1](spec/mmi-notation-v1.md)、今回の環境と実測結果は [検証記録](release-validation-2026-09-08.md) で確認できます。
+
+![要確認の3件を強調した実画面](media/release-20260908/02-release-review.png)
+
+シート名を覚えていなくても、`#` の後で `Ctrl+Space` を押すと候補を選べます。
+
+![Excelのシート補完](media/release-20260908/08-sheet-completion.png)

@@ -5,6 +5,20 @@ All notable changes to Markdown Matrix Injector (MMI) will be documented in this
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+- Return the preview API from activation and resolve source paths during rendering, matching VS Code's separate parse/render lifecycle.
+- Exclude query parameters from file/sheet names in diagnostics for card and whole-sheet references.
+- Replace the non-working Markdown command link with a workspace-validated extension URI for external opening (ADR-0015; see the release validation record for GUI status).
+- Updated Markdown parsing dependencies and moved SheetJS to the official 0.20.3 distribution.
+- Read workbook bytes explicitly for SheetJS ESM compatibility while keeping source access read-only.
+- Enforced LF for shell scripts used from Windows checkouts in WSL.
+
+### Added
+- Twelve Japanese practical examples with 172 CSV records, a three-sheet Excel workbook, SpreadsheetML and TSV data.
+- Japanese tutorial, user manual, real preview captures and a three-page PDF sample; source-integrity and sample-row verification.
+
 ## [0.1.0] - 2026-07-15
 
 ### Added

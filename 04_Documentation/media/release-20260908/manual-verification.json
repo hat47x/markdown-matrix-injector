@@ -1,0 +1,18 @@
+{
+  "date": "2026-09-09",
+  "vscode": "1.136.1",
+  "extension": "0.1.0",
+  "installedVsixSha256": "0b0b044b21e6f5ba4cd850e2621a700fd442c4621fc89f9e6eeea817f74c1f06",
+  "windowsPreview": true,
+  "externalExcelOpened": true,
+  "uriPermission": "confirmed by user",
+  "deliveryManifestRecords": 2,
+  "diagnostics": 3,
+  "sheetCompletion": [
+    "API",
+    "権限",
+    "状態遷移"
+  ],
+  "sourceHashComparison": "all baseline data files unchanged after GUI verification",
+  "sourceFileCount": 14
+}

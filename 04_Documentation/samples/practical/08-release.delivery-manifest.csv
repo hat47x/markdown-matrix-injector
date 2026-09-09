@@ -1,0 +1,3 @@
+sourcePath,sheet,range,reason,caption,id
+./data/design.xlsx,,,mode=card 指定,別紙1　状態遷移・権限・API,
+./data/applications-wide.csv,Sheet1,A1:K61,列数が閾値(10)超過 / セル数が閾値(500)超過,別紙2　申請一覧,

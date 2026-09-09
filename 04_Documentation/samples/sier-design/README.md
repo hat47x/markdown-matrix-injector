@@ -1,5 +1,7 @@
 # SIer Design Document Sample — G2/G4 Evidence Pack
 
+> この資料は過去の検証記録です。最新の導入手順は [実務サンプル](../practical/README.md)、実機・PDFの確認範囲は [2026-09-08以降の検証記録](../../release-validation-2026-09-08.md) を参照してください。下記の経路Aは未検証であり、推奨経路とは扱いません。
+
 **目的**: ADR-0010 の公開に足る品質ゲート G2（エンタープライズ出力実証）と G4（正直な適用範囲）を  
 代表的 SIer 設計書パターンで実証するサンプルセットです。
 
@@ -34,7 +36,7 @@
 
 以下は WSL2 ヘッドレス環境では実施不可のため、GUI 環境またはCI で確認してください。
 
-### 経路 A（推奨）: VS Code + Markdown PDF 拡張機能
+### 経路 A（未検証）: VS Code + Markdown PDF 拡張機能
 
 1. VS Code で `design-doc-sample.md` を開く
 2. MMI 拡張機能が有効になっていること（`![[...]]` がプレビューに展開される）
@@ -94,7 +96,7 @@ chromium-browser --headless --print-to-pdf=output.pdf 04_Documentation/samples/s
 
 | エンジン | pageBreak 対応 | per-page orientation 対応 | 備考 |
 |---|---|---|---|
-| VS Code Markdown PDF (Chromium) | ✅ | ⚠️ CSS Paged Media L3 実装依存 | バージョンにより差あり |
+| VS Code Markdown PDF (Chromium) | 未検証 | 未検証 | MMI記法が展開されるかを含めて検証が必要 |
 | weasyprint | ✅ | ✅ | `pip install weasyprint` |
 | Chromium headless | ✅ | ⚠️ CSS Paged Media L3 実装依存 | バージョン確認要 |
 | wkhtmltopdf 0.12.x | ✅ | ❌ `@page named-page` 未対応 | per-page 向きは無効 |

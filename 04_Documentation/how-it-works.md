@@ -178,7 +178,7 @@ flowchart TD
 ### 3.6 変換と描画 — `core/renderTable.ts` / `renderCard.ts` / `renderEmbedFrame.ts`
 
 - **表**: §5 のパイプラインで論理表を作り、`<table class="mmi-table">`（`<thead>`/`<tbody>`、ハイライト行・整形セル付き）を生成。
-- **カード**: `<div class="mmi-card" data-path="絶対パス">` にファイル名リンク・シート/範囲メタ・「外部アプリで開く」ボタン（`command:` URI, ADR-0011）を出力。絶対パスは機械可読属性 `data-path` に保持。
+- **カード**: `<div class="mmi-card" data-path="絶対パス">` にファイル名リンク・シート/範囲メタ・「外部アプリで開く」ボタン（拡張URI, ADR-0015）を出力。絶対パスは機械可読属性 `data-path` に保持。
 - **フレーム**: 表・カードのどちらも最後に `renderEmbedFrame()` が `<figure class="mmi-embed">` で包み、
   `caption` → `<figcaption>`、`id` → `id` 属性、`pageBreak`（`before`/`after`/`both`）→ `data-page-break`、
   `orientation`（`landscape`/`portrait`）→ `data-orientation` を付与。**規定外の値は黙って無効化**（安全な劣化）。
@@ -188,17 +188,14 @@ flowchart TD
 
 ### 3.7 markdown-it への統合とブロック / インライン判定 — `plugin/markdownMatrixPlugin.ts`
 
-markdown-it の core ルールとして動作し、`inline` トークンを走査します。
+パース時と描画時を分けて処理します。VS Codeの標準Markdown拡張は、パース後の描画時に文書URIを渡すためです。
 
-- **独立段落**（前後が `paragraph_open`/`paragraph_close` で、埋め込み以外に中身が無い）→
-  `paragraph_open / inline / paragraph_close` の 3 トークンを **1 個の `html_block`** に置換。
-  これは、`<figure>`/`<table>` はブロック要素なので `<p>` の中に入れると
-  `<p><figure>…</figure></p>` という不正な入れ子になり、ブラウザが `<p>` を分割して
-  レイアウトとスクロール同期を壊すのを防ぐため。
-- **文中混在**（`本文 ![[...]] 本文`）→ 該当テキスト子ノードだけを `html_inline` にし、周囲の散文を保持。
-- Markdown のパスは VS Code プレビューでは `env.currentDocument.fsPath`、テストや `renderEmbedForTest` では
-  静的に渡した `markdownFilePath` を使用。**どちらも無いときは何もしない**（相対パスを安全に解決できないため、誤ったエラーを出さない）。
-- 例外は握りつぶさず `<div class="mmi-error">` として描画（P2）。
+- coreルールは独立段落を `mmi_embed_block`、文中の記法を `mmi_embed_inline` トークンに変換します。元の記法と行情報を保持します。
+- rendererルールが描画時の `env.currentDocument.fsPath` または設定された `markdownFilePath` から参照先を解決し、表・カード・エラーを出力します。
+- 文書パスがない場合は、元の記法をエスケープして表示します。パース済みトークンを別文書で再利用しても、描画時の文書を基準にします。
+- 独立段落では段落タグを外し、表を段落内に入れません。文中混在では周囲の文章をエスケープして保持します。
+- `activate()` は `{ extendMarkdownIt }` を返します。この公開APIを標準Markdown拡張が取得します。Extension Hostのテストも、この実際の公開APIを通して検証します。
+- 参照の読込エラーは `<div class="mmi-error">` として描画します。
 
 ---
 
@@ -291,7 +288,7 @@ VS Code への接続点はすべて `extension.ts`。プレビュー本体は `e
 | コマンド ID | 表示名 | 動作 |
 |---|---|---|
 | `markdownMatrixInjector.generateDeliveryManifest` | MMI: Generate Delivery Manifest | カード化される埋め込みを抽出し `<名前>.delivery-manifest.csv`（列: `sourcePath, sheet, range, reason, caption, id`）を隣に出力。**リンク切れ・シート不在は含めない**（それらは Diagnostics 対象）。対象 0 件なら書かず通知のみ、未保存なら保存を促す。 |
-| `markdownMatrixInjector.openSource` | MMI: Open Embed Source | カードの「外部アプリで開く」から `command:` URI 経由で `env.openExternal`。**信頼済みプレビューでのみ発火**し、未信頼環境ではカード見出しの相対リンクが代替導線（ADR-0011）。 |
+| `markdownMatrixInjector.openSource` | MMI: Open Embed Source | カードの拡張URIハンドラーから共通処理で`env.openExternal`へ渡す。信頼済みのローカルワークスペース内の表データに限定する。元のcommand URI方式は標準プレビューで動作せずADR-0015で更新した。 |
 | `markdownMatrixInjector.insertEmbedFromPaste` / `…FromDrop` | Paste / D&D 挿入 | クリップボードの HTML／ドロップファイルから `![[...]]` を生成挿入。ネイティブ provider 非対応の旧ホスト向け互換経路。 |
 
 - **Autocomplete**: `![[` 入力後に `filepath` → `#sheet` → `range` → `?param` を段階提示（`dx/autocompleteProvider.ts`）。
