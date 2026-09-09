@@ -2,7 +2,6 @@ import assert from 'node:assert/strict';
 import path from 'node:path';
 import MarkdownIt from 'markdown-it';
 import * as vscode from 'vscode';
-import { extendMarkdownIt } from '../../../src/extension.js';
 
 const LOG_PREFIX = '[mmi:e2e:extension-host]';
 const PASTE_DROP_PROOF_TARGETS = [
@@ -105,8 +104,13 @@ async function verifyRenderEmbedForTestCommand(markdownFilePath: string, workspa
  * embed nested inside a <p> wrapper (issue-0097 / ADR-0010 G1).
  */
 async function verifyMarkdownPreviewEntry(markdownFilePath: string): Promise<void> {
-  const md = extendMarkdownIt(new MarkdownIt());
-  const html = md.render('![[../data/roles.csv#Sheet1|A1:B3?header=first&caption=Roles&id=tbl-roles]]', {
+  const extension = vscode.extensions.getExtension('hat47x.markdown-matrix-injector');
+  assert.ok(extension, 'Expected the installed extension to be discoverable.');
+  const api = await extension.activate();
+  assert.equal(typeof api?.extendMarkdownIt, 'function', 'Markdown preview requires extendMarkdownIt on the activation API.');
+  const md = api.extendMarkdownIt(new MarkdownIt());
+  const tokens = md.parse('![[../data/roles.csv#Sheet1|A1:B3?header=first&caption=Roles&id=tbl-roles]]', {});
+  const html = md.renderer.render(tokens, md.options, {
     currentDocument: vscode.Uri.file(markdownFilePath),
   });
 

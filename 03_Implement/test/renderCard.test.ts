@@ -5,8 +5,7 @@
  *  - baseline: title anchor whose href is the author-written relative path
  *    (plain link — survives Strict preview sanitization, works untrusted);
  *  - trusted: an explicit "外部アプリで開く" anchor firing
- *    command:markdownMatrixInjector.openSource with the absolute path as a
- *    JSON-array command argument (env.openExternal path, requirements Phase 4).
+ *    extension URI with an encoded source path (ADR-0015).
  *
  * The actual click behavior (OS app launching) is webview/GUI-scoped and
  * belongs to manual e2e; these tests freeze the HTML structure the preview
@@ -29,14 +28,14 @@ test('renderEmbedCard renders the title as a plain relative link to the source (
   assert.match(html, /<a class="mmi-card__title" href="\.\/data\/roles\.csv">roles\.csv<\/a>/);
 });
 
-test('renderEmbedCard renders the openExternal button as a command: URI with the absolute path as JSON args', () => {
+test('renderEmbedCard routes the open button to the extension URI handler', () => {
   const absolutePath = '/ws/docs/data/roles.csv';
   const html = renderEmbedCard(embed('![[./data/roles.csv#Sheet1|A1:B3?mode=card]]'), absolutePath);
 
-  const expectedArgs = encodeURIComponent(JSON.stringify([absolutePath]));
+  const expectedArgs = encodeURIComponent(absolutePath);
   assert.ok(
-    html.includes(`href="command:markdownMatrixInjector.openSource?${expectedArgs}"`),
-    `command URI must carry the absolute path as an encoded JSON array\n--- rendered ---\n${html}`,
+    html.includes(`href="vscode://hat47x.markdown-matrix-injector/open?source=${expectedArgs}"`),
+    `extension URI must carry the encoded absolute path\n--- rendered ---\n${html}`,
   );
   assert.match(html, /<a class="mmi-card__open" [^>]+>外部アプリで開く<\/a>/);
 });
@@ -63,10 +62,10 @@ test('renderEmbedCard HTML-escapes hostile paths in both href and data-path', ()
   assert.ok(html.includes('data-path="/ws/a&quot;onmouseover=&quot;x&amp;&lt;b&gt;.csv"'));
   // The command URI arguments are URI-encoded before HTML-escaping, so the
   // hostile characters never appear raw inside the href either.
-  const commandHref = html.match(/href="(command:[^"]+)"/)?.[1] ?? '';
+  const commandHref = html.match(/href="(vscode:[^"]+)"/)?.[1] ?? '';
   assert.ok(!commandHref.includes('"'), 'command href must contain no raw quotes');
-  const decoded = JSON.parse(decodeURIComponent(commandHref.split('?')[1])) as string[];
-  assert.deepEqual(decoded, [hostile], 'round-trip decode must recover the exact path');
+  const decoded = new URL(commandHref).searchParams.get('source');
+  assert.equal(decoded, hostile, 'round-trip decode must recover the exact path');
 });
 
 test('renderEmbedCard escapes the author-written relative path used in the baseline link', () => {

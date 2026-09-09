@@ -1,5 +1,7 @@
 # ADR-0011: カード「開く」操作の webview 実現方式 (Card Open Affordance)
 
+> 2026-09-09更新: 外部アプリを開くリンク方式は [ADR-0015](ADR-0015-preview-open-uri.md) に置き換えました。以下は旧command方式を選択した時点の判断記録です。
+
 - Status: Accepted
 - Date: 2026-06-10
 - Deciders: MMI Lead Agent

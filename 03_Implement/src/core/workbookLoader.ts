@@ -60,7 +60,11 @@ function loadWorkbookUncached(absolutePath: string): WorkbookData {
   // pack) can misread as either April 3 or March 4, 2026. Text cells that
   // merely look like dates, and non-date numeric cells, are unaffected --
   // this only touches cells Excel itself has typed and formatted as dates.
-  const workbook = XLSX.readFile(absolutePath, { dense: true, cellDates: true, dateNF: 'yyyy-mm-dd' });
+  // Read bytes ourselves: the SheetJS ESM build does not bind Node's fs.
+  // This also keeps the production integration explicitly read-only.
+  const workbook = XLSX.read(fs.readFileSync(absolutePath), {
+    type: 'buffer', dense: true, cellDates: true, dateNF: 'yyyy-mm-dd',
+  });
   const sheets = Object.fromEntries(
     workbook.SheetNames.map((sheetName) => {
       const worksheet = workbook.Sheets[sheetName];

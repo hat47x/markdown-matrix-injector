@@ -98,8 +98,8 @@
   color: var(--vscode-descriptionForeground, #888);
 }
 
-/* ADR-0011: explicit env.openExternal affordance (command: URI). Fires only in
- * trusted previews; the title's plain link above is the always-working baseline. */
+/* ADR-0015: extension URI routed to validated env.openExternal handling.
+ * The title's plain relative link remains the baseline. */
 .mmi-card__open {
   display: inline-block;
   margin-top: 0.35rem;

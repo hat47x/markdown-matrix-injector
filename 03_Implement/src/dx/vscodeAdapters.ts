@@ -405,7 +405,7 @@ function* findEmbedMatches(text: string): Iterable<EmbedMatch> {
   for (const match of text.matchAll(EMBED_PATTERN)) {
     const raw = match[0];
     const rawBody = match[1] ?? '';
-    const [fileAndTarget] = rawBody.split('|', 1);
+    const [fileAndTarget] = rawBody.split('?', 1)[0].split('|', 1);
     const [filepath, target] = fileAndTarget.split('#', 2);
 
     yield {

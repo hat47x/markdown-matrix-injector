@@ -40,6 +40,20 @@ test('buildCompletionItems preserves candidate labels and insert text for VS Cod
   );
 });
 
+test('card and whole-sheet diagnostics exclude query parameters from file and sheet names', async () => {
+  const paths: string[] = [];
+  const diagnostics = await createDiagnosticsForDocument(
+    '![[./design.xlsx?mode=card&caption=設計]]\n![[./design.xlsx#状態遷移?mode=table]]',
+    '/workspace/spec.md', '/workspace', {
+      fileExists: async (filepath) => { paths.push(filepath); return true; },
+      readFile: async () => '',
+      readWorkbookSheetNames: async () => ['状態遷移'],
+    },
+  );
+  assert.deepEqual(diagnostics, []);
+  assert.ok(paths.every(p => p.endsWith('design.xlsx')));
+});
+
 test('createDiagnosticsForDocument maps missing file, invalid xml, and missing sheet into line-aware ranges', async () => {
   const text = [
     'Before',
@@ -376,6 +390,7 @@ test('extension integration boundaries keep canonical native providers and compa
   assert.deepEqual(
     packageJson.activationEvents,
     [
+      'onUri',
       'onCommand:markdownMatrixInjector.renderEmbedForTest',
       'onCommand:markdownMatrixInjector.generateDeliveryManifest',
       'onCommand:markdownMatrixInjector.openSource',
