@@ -62,3 +62,7 @@ python3 01_Plans/tools/planning_queue.py
 
 - ツールは `01_Plans/adr/` と `01_Plans/issues/` の**先頭メタ情報だけ**を走査し、pending ADR / pending issue / orphan issue を一覧化する。
 - 詳細運用は `01_Plans/planning-triage.md` を参照する。
+
+## 入力支援の企画（2026-09-09）
+
+[MMI入力支援企画](input-assistance-proposal.md): 既定文法の補完、参照の作成・編集、追加API費用を必要としないAI支援の比較。ADR-0016はProposed、issue-0110〜0113はDraft。新機能は未実装。
