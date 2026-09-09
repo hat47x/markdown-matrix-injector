@@ -407,7 +407,7 @@ test('markdownMatrixPlugin resolves workspace fallback paths and xlsx sheets', (
     ['2', 'Done'],
   ]);
   XLSX.utils.book_append_sheet(workbook, worksheet, 'States');
-  XLSX.writeFile(workbook, path.join(workspaceDir, 'states.xlsx'));
+  fs.writeFileSync(path.join(workspaceDir, 'states.xlsx'), XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }));
 
   const md = createMarkdownIt(path.join(docsDir, 'spec.md'), workspaceDir);
   const html = md.render('prefix ![[states.xlsx#States|A1:B3?header=first]] suffix');
@@ -483,6 +483,33 @@ test('markdownMatrixPlugin leaves embeds untouched when no document context is a
   assert.doesNotMatch(html, /mmi-table/);
   assert.doesNotMatch(html, /mmi-error/);
   assert.match(html, /roles\.csv/);
+});
+
+test('preview resolves references at render time and reuses parsed tokens across documents', () => {
+  const first = createCsvFixture([['Name'], ['First']]);
+  const second = createCsvFixture([['Name'], ['Second']]);
+  const md = new MarkdownIt().use(markdownMatrixPlugin, { cache: new WorkbookCache() });
+  const tokens = md.parse('![[./roles.csv#Sheet1|A1:A2?header=first]]', {});
+  const firstHtml = md.renderer.render(tokens, md.options, { currentDocument: { fsPath: first.markdownFilePath } });
+  const secondHtml = md.renderer.render(tokens, md.options, { currentDocument: { fsPath: second.markdownFilePath } });
+  assert.match(firstHtml, />First</);
+  assert.match(secondHtml, />Second</);
+  assert.doesNotMatch(secondHtml, />First</);
+  assert.deepEqual(tokens[0].map, [0, 1], 'Preserve source lines for preview scroll synchronization.');
+});
+
+test('render-time inline embeds escape surrounding text and preserve code examples', () => {
+  const fixture = createCsvFixture([['Name'], ['Alice']]);
+  const md = new MarkdownIt().use(markdownMatrixPlugin, {});
+  const source = '<img src=x onerror=alert(1)> ![[./roles.csv#Sheet1|A1:A2]] & after';
+  const tokens = md.parse(source, {});
+  const html = md.renderer.render(tokens, md.options, { currentDocument: { fsPath: fixture.markdownFilePath } });
+  assert.match(html, /&lt;img/);
+  assert.match(html, /&amp; after/);
+  assert.match(html, /mmi-table/);
+  assert.doesNotMatch(html, /<img/);
+  const code = md.render('`![[./roles.csv#Sheet1|A1:A2]]`');
+  assert.doesNotMatch(code, /mmi-table/);
 });
 
 test('markdownMatrixPlugin renders a standalone embed as a block without a <p> wrapper', () => {

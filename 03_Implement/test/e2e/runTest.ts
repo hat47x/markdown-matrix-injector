@@ -223,6 +223,7 @@ async function main(): Promise<void> {
     logSection('launch:start', { launchArgs: runtime.launchArgs });
 
     await runTests({
+      vscodeExecutablePath: runtime.launchMetadata.executablePath,
       extensionDevelopmentPath: runtime.extensionDevelopmentPath,
       extensionTestsPath: runtime.extensionTestsPath,
       launchArgs: runtime.launchArgs,

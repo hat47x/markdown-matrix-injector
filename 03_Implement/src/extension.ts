@@ -5,6 +5,7 @@ import MarkdownIt from 'markdown-it';
 import * as vscode from 'vscode';
 import * as XLSX from 'xlsx';
 import { WorkbookCache } from './cache/workbookCache.js';
+import { validateOpenSourcePath } from './core/openSourcePath.js';
 import type { WorkbookData } from './core/workbookLoader.js';
 import { buildDeliveryManifestCsv } from './manifest/collectDeliveryManifest.js';
 import {
@@ -97,12 +98,17 @@ function createPasteDropIntegrationTestMetadata(): PasteDropIntegrationTestMetad
   };
 }
 
-export function activate(context: vscode.ExtensionContext): void {
+export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: typeof extendMarkdownIt } {
   const diagnostics = vscode.languages.createDiagnosticCollection('markdown-matrix-injector');
   const nativePasteDropState = createNativePasteDropState();
 
   context.subscriptions.push(
     diagnostics,
+    vscode.window.registerUriHandler({
+      handleUri: async (uri) => {
+        if (uri.path === '/open') await openEmbedSource(new URLSearchParams(uri.query).get('source'));
+      },
+    }),
     vscode.commands.registerCommand('markdownMatrixInjector.renderEmbedForTest', async (args: RenderEmbedForTestArgs) =>
       renderEmbedForTest(args),
     ),
@@ -133,6 +139,10 @@ export function activate(context: vscode.ExtensionContext): void {
   for (const document of vscode.workspace.textDocuments) {
     refreshDiagnosticsForDocument(document, diagnostics);
   }
+
+  // The built-in Markdown extension reads Extension.exports, which is the
+  // activation result, rather than this module's named ES exports.
+  return { extendMarkdownIt };
 }
 
 export function deactivate(): void {}
@@ -160,6 +170,7 @@ export function extendMarkdownIt(md: MarkdownIt): MarkdownIt {
   const cache = new WorkbookCache<WorkbookData>();
   return md.use(markdownMatrixPlugin, {
     cache,
+    uriScheme: vscode.env.uriScheme,
     resolveWorkspaceRoot: (markdownFilePath: string) =>
       vscode.workspace.getWorkspaceFolder(vscode.Uri.file(markdownFilePath))?.uri.fsPath,
   });
@@ -212,10 +223,9 @@ function buildDeliveryManifestOutputPath(markdownFilePath: string): string {
 
 /**
  * `MMI: Open Embed Source` — fired by the card's 「外部アプリで開く」 button via a
- * `command:` URI (ADR-0011). Opens the referenced canonical file in its OS
+ * extension URI (ADR-0015). Opens the referenced canonical file in its OS
  * default application through env.openExternal (requirements Phase 4). The
- * command: link only fires in trusted previews; untrusted environments fall
- * back to the card title's plain relative link.
+ * handler validates trust, supported format, and real workspace containment.
  */
 async function openEmbedSource(sourcePath: unknown): Promise<void> {
   if (typeof sourcePath !== 'string' || sourcePath.trim() === '') {
@@ -224,7 +234,12 @@ async function openEmbedSource(sourcePath: unknown): Promise<void> {
   }
 
   try {
-    await vscode.env.openExternal(vscode.Uri.file(sourcePath));
+    if (!vscode.workspace.isTrusted || vscode.env.remoteName) {
+      throw new Error('外部アプリで開く操作は、信頼済みのローカルワークスペースで利用してください。');
+    }
+    const roots = (vscode.workspace.workspaceFolders ?? []).filter(folder => folder.uri.scheme === 'file').map(folder => folder.uri.fsPath);
+    const safePath = await validateOpenSourcePath(sourcePath, roots);
+    if (!await vscode.env.openExternal(vscode.Uri.file(safePath))) throw new Error('既定のアプリで開けませんでした。');
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     void vscode.window.showErrorMessage(`MMI: Failed to open ${sourcePath}: ${reason}`);
@@ -454,7 +469,7 @@ async function readWorkbookMetadata(
   resolvedFilepath: string,
 ): Promise<{ sheets: string[]; ranges: string[] } | undefined> {
   try {
-    const workbook = XLSX.readFile(resolvedFilepath, { dense: true });
+    const workbook = XLSX.read(await fs.readFile(resolvedFilepath), { type: 'buffer', dense: true });
     const sheets = [...workbook.SheetNames];
     const ranges = sheets
       .map((sheetName) => workbook.Sheets[sheetName]?.['!ref'])
@@ -488,7 +503,7 @@ async function refreshDiagnosticsForDocument(
     },
     readFile: (filepath) => fs.readFile(filepath),
     readWorkbookSheetNames: async (filepath) => {
-      const workbook = XLSX.readFile(filepath, { dense: true, bookSheets: true });
+      const workbook = XLSX.read(await fs.readFile(filepath), { type: 'buffer', dense: true, bookSheets: true });
       return [...workbook.SheetNames];
     },
   });

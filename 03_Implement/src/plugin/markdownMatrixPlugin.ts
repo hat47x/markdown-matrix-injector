@@ -18,6 +18,7 @@ export interface MarkdownMatrixPluginOptions {
   markdownFilePath?: string;
   workspaceRoot?: string;
   cache?: WorkbookCache<WorkbookData>;
+  uriScheme?: string;
   /**
    * Resolves the workspace root for a given Markdown file path at render time.
    * Injected by the VS Code integration layer so the plugin stays free of any
@@ -30,23 +31,43 @@ interface EmbedRenderContext {
   markdownFilePath: string;
   workspaceRoot?: string;
   cache?: WorkbookCache<WorkbookData>;
+  uriScheme?: string;
 }
 
 export function markdownMatrixPlugin(md: MarkdownIt, options: MarkdownMatrixPluginOptions): void {
-  md.core.ruler.push('markdown-matrix-injector', (state) => {
-    // VS Code's Markdown preview passes the active document via `env.currentDocument`
-    // (a vscode.Uri). Fall back to the statically configured path for the test
-    // command and unit tests, which render without an env document.
-    const markdownFilePath = getDocumentPathFromEnv(state.env) ?? options.markdownFilePath;
+  const resolveContext = (env: unknown): EmbedRenderContext | undefined => {
+    const markdownFilePath = getDocumentPathFromEnv(env) ?? options.markdownFilePath;
     if (markdownFilePath === undefined) {
-      // No document context: relative embed paths cannot be resolved safely, so
-      // leave the source text untouched rather than emitting misleading errors.
       return;
     }
-
     const workspaceRoot = options.resolveWorkspaceRoot?.(markdownFilePath) ?? options.workspaceRoot;
-    const context: EmbedRenderContext = { markdownFilePath, workspaceRoot, cache: options.cache };
+    return { markdownFilePath, workspaceRoot, cache: options.cache, uriScheme: options.uriScheme };
+  };
 
+  // VS Code caches parsed tokens without a document URI, then supplies the URI
+  // only to renderer.render. Keep references as tokens until that render step.
+  md.renderer.rules.mmi_embed_block = (tokens, index, _settings, env) => {
+    const context = resolveContext(env);
+    const content = tokens[index].content;
+    return context
+      ? extractEmbedQueries(content).map((embed) => renderEmbed(embed, context)).join('\n')
+      : `<p>${escapeHtml(content)}</p>\n`;
+  };
+  md.renderer.rules.mmi_embed_inline = (tokens, index, _settings, env) => {
+    const content = tokens[index].content;
+    const context = resolveContext(env);
+    if (!context) return escapeHtml(content);
+    let remaining = content;
+    let html = '';
+    for (const embed of extractEmbedQueries(content)) {
+      const offset = remaining.indexOf(embed.raw);
+      html += escapeHtml(remaining.slice(0, offset)) + renderEmbed(embed, context);
+      remaining = remaining.slice(offset + embed.raw.length);
+    }
+    return html + escapeHtml(remaining);
+  };
+
+  md.core.ruler.push('markdown-matrix-injector', (state) => {
     const tokens = state.tokens;
     for (let index = 0; index < tokens.length; index += 1) {
       const token = tokens[index];
@@ -70,10 +91,10 @@ export function markdownMatrixPlugin(md: MarkdownIt, options: MarkdownMatrixPlug
         stripEmbeds(token.content, embeds).trim() === '';
 
       if (isStandaloneEmbedParagraph) {
-        const htmlBlock = new state.Token('html_block', '', 0);
+        const htmlBlock = new state.Token('mmi_embed_block', '', 0);
         htmlBlock.block = true;
         htmlBlock.map = tokens[index - 1].map ?? token.map;
-        htmlBlock.content = embeds.map((embed) => renderEmbed(embed, context)).join('\n');
+        htmlBlock.content = token.content;
         // Replace the paragraph_open / inline / paragraph_close triplet with the
         // single block token so no <p> wrapper is emitted.
         tokens.splice(index - 1, 3, htmlBlock);
@@ -93,12 +114,8 @@ export function markdownMatrixPlugin(md: MarkdownIt, options: MarkdownMatrixPlug
           continue;
         }
 
-        child.type = 'html_inline';
+        child.type = 'mmi_embed_inline';
         child.tag = '';
-        child.content = childEmbeds.reduce((html, embed) => {
-          const rendered = renderEmbed(embed, context);
-          return html.replace(embed.raw, rendered);
-        }, child.content);
       }
     }
   });
@@ -137,12 +154,12 @@ function renderEmbed(embed: ReturnType<typeof extractEmbedQueries>[number], cont
       workspaceRoot: context.workspaceRoot,
     });
     if (shouldRenderAsCardImmediately(embed)) {
-      return renderEmbedFrame(embed, renderEmbedCard(embed, absolutePath));
+      return renderEmbedFrame(embed, renderEmbedCard(embed, absolutePath, context.uriScheme));
     }
 
     const workbook = loadWorkbook({ absolutePath, cache: context.cache });
     if (shouldRenderAsCardAfterLoad(embed, workbook)) {
-      return renderEmbedFrame(embed, renderEmbedCard(embed, absolutePath));
+      return renderEmbedFrame(embed, renderEmbedCard(embed, absolutePath, context.uriScheme));
     }
 
     return renderEmbedFrame(embed, renderEmbedTable(embed, workbook));

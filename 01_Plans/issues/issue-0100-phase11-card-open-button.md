@@ -2,12 +2,9 @@
 
 ## Meta
 - Type: Feature
-- Status: In Progress
+- Status: Done
 - Priority: Medium
-- Note: automation scope（HTML構造・コマンド配線・CSS・unit 213件）は完了・検証済み。実 webview クリック
-  挙動（env.openExternal が実際に発火し元ファイルが開くこと）は GUI 必須の manual-e2e であり、本セッション
-  （WSL2 ヘッドレス）では実行不可能なため未検証。下記最終 acceptance criterion が未チェックの間は Done としない
-  （ADR-0010「動くことを実証してからリリース」原則）。
+- Note: 2026-09-09、Windows VS CodeでURIボタンをクリックし、許可画面をユーザーが操作した後にExcelで原本が開くことを確認。以下の旧方式の記述は履歴であり、現行方式はADR-0015。
 - Scope: 03_Implement/src/core/renderCard.ts, 03_Implement/src/extension.ts (webview link handling), 03_Implement/media/markdown-matrix.css
 - Expected verification level: unit (HTML 構造) + manual-e2e (実 webview クリック挙動)
 
@@ -51,5 +48,13 @@
 - [x] `npm run build` / `npm test` pass（**226 pass / 0 fail**、conformance corpus のカード契約も無修正で通過）。
 - [x] 文書配線: reference.md（Commands 表 + Preview Styles クラス表）、vscode-e2e-testing.md Checklist F に
       カード開く操作の観測点 2 行を追加。
-- [ ] 実 VS Code プレビューでクリックすると元ファイルが開く（manual-e2e、GUI 必須 — Checklist F の
+- [x] 実 VS Code プレビューでクリックすると元ファイルが開く（manual-e2e、GUI 必須 — Checklist F の
       追加観測点で確認する。ADR-0011 §5 のとおり本項のみ delegated manual scope）。
+
+### 2026-09-09 実機確認での更新
+
+Windows VS Code 1.136.1で旧commandリンクをクリックしたが外部アプリは起動しなかった。ADR-0015で拡張URI方式に変更し、実装と単体・Extension Host検査は成功。上記ADR-0011のリンク方式は現在の実装を表さない。Windowsロックのため修正後のクリックは未確認であり、最終Acceptanceは未完了のまま維持する。詳細はissue-0109とリリース検証記録を参照。
+
+### 最終確認（2026-09-09）
+
+ユーザーのURI許可後にdesign.xlsxがExcelで開き、状態遷移シートを表示。画像07-excel-opened.pngを保存。原本14ファイルのSHA-256は検証前と一致。単体231件とExtension Hostも成功。最終Acceptanceを満たしたためDoneとする。詳細は04_Documentation/release-validation-2026-09-08.md。

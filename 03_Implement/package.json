@@ -49,22 +49,23 @@
   },
   "dependencies": {
     "markdown-it": "^14.1.0",
-    "xlsx": "^0.18.5"
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
     "@types/markdown-it": "^14.1.2",
-    "tsx": "^4.20.5",
-    "typescript": "^5.9.2",
     "@types/node": "^24.3.0",
-    "@vscode/test-electron": "^2.5.2",
     "@types/vscode": "^1.96.0",
-    "@vscode/vsce": "^3.6.2"
+    "@vscode/test-electron": "^2.5.2",
+    "@vscode/vsce": "^3.6.2",
+    "tsx": "^4.20.5",
+    "typescript": "^5.9.2"
   },
   "main": "./dist/src/extension.js",
   "engines": {
     "vscode": "^1.96.0"
   },
   "activationEvents": [
+    "onUri",
     "onCommand:markdownMatrixInjector.renderEmbedForTest",
     "onCommand:markdownMatrixInjector.generateDeliveryManifest",
     "onCommand:markdownMatrixInjector.openSource",

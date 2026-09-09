@@ -173,7 +173,7 @@ test('loadWorkbook renders a real (Excel-typed) date cell as YYYY-MM-DD, not loc
     ['Alice', new Date(2026, 3, 3)], // month is 0-indexed: April 3, 2026
   ]);
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
-  XLSX.writeFile(workbook, filePath);
+  fs.writeFileSync(filePath, XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }));
 
   const rows = loadWorkbook({ absolutePath: filePath }).sheets.Sheet1;
 
@@ -192,7 +192,7 @@ test('loadWorkbook leaves non-date numeric cells and date-like text cells untouc
     [1234.5, 0.15, '2026-04-03 as text'],
   ]);
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
-  XLSX.writeFile(workbook, filePath);
+  fs.writeFileSync(filePath, XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }));
 
   const rows = loadWorkbook({ absolutePath: filePath }).sheets.Sheet1;
 
