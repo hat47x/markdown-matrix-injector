@@ -60,8 +60,13 @@ export function extractWorksheetFormatFeatures(
     .map((cell) => cell.column)
     .sort((left, right) => left - right);
   const features: string[] = ['region:table', 'header:row'];
+  const headerStart = headerColumns[0];
 
-  if (hasTitleRow(cells, merges, header.row, headerColumns)) features.push('region:title-row');
+  const titleSpan = titleMergeSpan(cells, merges, header.row, headerColumns);
+  if (titleSpan !== undefined) {
+    features.push('region:title-row');
+    features.push(`layout:title-span:${titleSpan}`);
+  }
 
   const fillTone = dominantValue(header.cells.map((cell) => cell.fillTone).filter(isMeaningfulFillTone));
   if (fillTone) {
@@ -71,7 +76,10 @@ export function extractWorksheetFormatFeatures(
 
   for (const cell of header.cells) {
     const label = normalizedText(cell.text);
-    if (label !== '') features.push(`column:${label}`);
+    if (label !== '') {
+      features.push(`column:${label}`);
+      features.push(`column-position:${cell.column - headerStart}:${label}`);
+    }
   }
 
   const borderKind = dominantValue(
@@ -84,6 +92,7 @@ export function extractWorksheetFormatFeatures(
   if (headerColumns.length >= 2) {
     const span = headerColumns[headerColumns.length - 1] - headerColumns[0] + 1;
     features.push(`layout:${span}-columns`);
+    features.push(headerColumns.length === span ? 'layout:header-contiguous' : 'layout:header-gapped');
   }
 
   return { features: normalizeFormatFeatures(features), headerRow: header.row, headerColumns };
@@ -135,22 +144,28 @@ function selectHeaderRow(cells: readonly WorksheetFormatCell[], maxRows: number)
   return candidates.sort((left, right) => right.score - left.score || left.row - right.row)[0];
 }
 
-function hasTitleRow(
-  cells: readonly WorksheetFormatCell[], merges: readonly WorksheetFormatMerge[],
-  headerRow: number, headerColumns: readonly number[],
-): boolean {
-  if (headerColumns.length < 2) return false;
+function titleMergeSpan(
+  cells: readonly WorksheetFormatCell[],
+  merges: readonly WorksheetFormatMerge[],
+  headerRow: number,
+  headerColumns: readonly number[],
+): number | undefined {
+  if (headerColumns.length < 2) return undefined;
   const headerStart = headerColumns[0];
   const headerEnd = headerColumns[headerColumns.length - 1];
-  return merges.some((merge) => {
-    if (merge.startRow >= headerRow || merge.startRow !== merge.endRow) return false;
-    const overlapStart = Math.max(merge.startColumn, headerStart);
-    const overlapEnd = Math.min(merge.endColumn, headerEnd);
-    if (overlapEnd - overlapStart + 1 < 2) return false;
-    return cells.some((cell) => cell.row === merge.startRow
-      && cell.column >= merge.startColumn && cell.column <= merge.endColumn
-      && normalizedText(cell.text) !== '');
-  });
+  const spans = merges
+    .filter((merge) => merge.startRow < headerRow && merge.startRow === merge.endRow)
+    .filter((merge) => {
+      const overlapStart = Math.max(merge.startColumn, headerStart);
+      const overlapEnd = Math.min(merge.endColumn, headerEnd);
+      if (overlapEnd - overlapStart + 1 < 2) return false;
+      return cells.some((cell) => cell.row === merge.startRow
+        && cell.column >= merge.startColumn && cell.column <= merge.endColumn
+        && normalizedText(cell.text) !== '');
+    })
+    .map((merge) => Math.min(merge.endColumn, headerEnd) - Math.max(merge.startColumn, headerStart) + 1)
+    .sort((left, right) => right - left);
+  return spans[0];
 }
 
 function normalizedText(value: string | undefined): string {
