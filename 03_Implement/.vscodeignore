@@ -11,6 +11,8 @@ test/**
 artifacts/**
 # Compiled tests are not needed at runtime either
 dist/test/**
+# Experimental research code is compiled/tested but is not shipped until an adoption gate approves it.
+dist/src/experimental/**
 
 # Exclude CI/planning infrastructure
 .github/**
