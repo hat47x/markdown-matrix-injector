@@ -10,7 +10,7 @@ import {
   type WorksheetFormatSnapshot,
 } from './worksheetFormatFeatureAdapter.js';
 
-export const WORKSHEET_FORMAT_FEATURE_VERSION = 'worksheet-format-v1' as const;
+export const WORKSHEET_FORMAT_FEATURE_VERSION = 'worksheet-format-v2' as const;
 
 export type WorksheetFormatEvidenceKind = 'structure' | 'fill' | 'border';
 
@@ -114,7 +114,12 @@ function filterFeaturesByEvidence(
   const enabled = new Set(evidence);
   return features.filter((feature) => {
     if (feature.startsWith('border:')) return enabled.has('border');
-    if (feature.startsWith('header:') && feature.endsWith('-fill')) return enabled.has('fill');
+    if (
+      feature === 'header:fill-present'
+      || (feature.startsWith('header:') && feature.endsWith('-fill'))
+    ) {
+      return enabled.has('fill');
+    }
     return enabled.has('structure');
   });
 }
