@@ -10,7 +10,7 @@ import {
   type WorksheetFormatSnapshot,
 } from './worksheetFormatFeatureAdapter.js';
 
-export const WORKSHEET_FORMAT_FEATURE_VERSION = 'worksheet-format-v2' as const;
+export const WORKSHEET_FORMAT_FEATURE_VERSION = 'worksheet-format-v3' as const;
 
 export type WorksheetFormatEvidenceKind = 'structure' | 'fill' | 'border';
 
@@ -19,11 +19,6 @@ export interface WorksheetFormatSourceProfile {
   evidence: readonly WorksheetFormatEvidenceKind[];
 }
 
-/**
- * Conservative profile for XLSX parsed by SheetJS CE 0.20.3.
- * Structural data and fill evidence are part of the comparison contract;
- * border evidence is deliberately excluded until runtime evidence proves it.
- */
 export const SHEETJS_CE_XLSX_0203_SOURCE_PROFILE: WorksheetFormatSourceProfile = Object.freeze({
   id: 'sheetjs-ce-xlsx-0.20.3-fill-v1',
   evidence: Object.freeze(['structure', 'fill'] as const),
@@ -44,11 +39,6 @@ export interface WorksheetFormatSnapshotMatch {
   match: FormatMatchResult;
 }
 
-/**
- * Creates a prototype from the exact same feature adapter used for observations.
- * A prototype must never be hand-trimmed to a few convenient features because
- * asymmetric feature sets distort Jaccard-based deviation scores.
- */
 export function createWorksheetFormatPrototype(
   id: string,
   snapshot: WorksheetFormatSnapshot,
@@ -73,11 +63,6 @@ export function createWorksheetFormatPrototype(
   };
 }
 
-/**
- * Matches only prototypes produced by the same adapter version and source
- * profile. Mixing SheetJS CE XLSX observations with synthetic/full-style
- * prototypes is rejected rather than silently inflating deviation scores.
- */
 export function matchWorksheetFormatSnapshot(
   snapshot: WorksheetFormatSnapshot,
   prototypes: readonly WorksheetFormatPrototype[],
