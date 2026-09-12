@@ -1,0 +1,135 @@
+{
+  "options": {
+    "minConfidence": 0.7,
+    "minWinnerMargin": 0.05
+  },
+  "prototypes": [
+    {
+      "id": "release-checklist",
+      "features": [
+        "region:title-row",
+        "header:dark-fill",
+        "column:判定",
+        "column:確認者",
+        "border:grid",
+        "layout:6-columns"
+      ]
+    },
+    {
+      "id": "release-checklist-alt",
+      "features": [
+        "region:title-row",
+        "header:dark-fill",
+        "column:判定",
+        "column:承認者",
+        "border:grid",
+        "layout:6-columns"
+      ]
+    },
+    {
+      "id": "interface-definition",
+      "features": [
+        "region:title-row",
+        "header:light-fill",
+        "column:項目名",
+        "column:型",
+        "column:桁数",
+        "border:thin",
+        "layout:8-columns"
+      ]
+    },
+    {
+      "id": "code-list",
+      "features": [
+        "region:title-row",
+        "header:dark-fill",
+        "column:コード",
+        "column:名称",
+        "border:grid",
+        "layout:4-columns"
+      ]
+    }
+  ],
+  "cases": [
+    {
+      "id": "release-exact",
+      "class": "known",
+      "features": ["region:title-row", "header:dark-fill", "column:判定", "column:確認者", "border:grid", "layout:6-columns"],
+      "expectedStatus": "matched",
+      "expectedWinner": "release-checklist"
+    },
+    {
+      "id": "release-missing-fill",
+      "class": "known",
+      "features": ["region:title-row", "column:判定", "column:確認者", "border:grid", "layout:6-columns"],
+      "expectedStatus": "matched",
+      "expectedWinner": "release-checklist"
+    },
+    {
+      "id": "release-fill-drift",
+      "class": "known",
+      "features": ["region:title-row", "header:gray-fill", "column:判定", "column:確認者", "border:grid", "layout:6-columns"],
+      "expectedStatus": "matched",
+      "expectedWinner": "release-checklist"
+    },
+    {
+      "id": "release-discriminator-missing",
+      "class": "ambiguous",
+      "features": ["region:title-row", "header:dark-fill", "column:判定", "border:grid", "layout:6-columns"],
+      "expectedStatus": "ambiguous"
+    },
+    {
+      "id": "release-alt-exact",
+      "class": "known",
+      "features": ["region:title-row", "header:dark-fill", "column:判定", "column:承認者", "border:grid", "layout:6-columns"],
+      "expectedStatus": "matched",
+      "expectedWinner": "release-checklist-alt"
+    },
+    {
+      "id": "interface-exact",
+      "class": "known",
+      "features": ["region:title-row", "header:light-fill", "column:項目名", "column:型", "column:桁数", "border:thin", "layout:8-columns"],
+      "expectedStatus": "matched",
+      "expectedWinner": "interface-definition"
+    },
+    {
+      "id": "interface-extra-footer",
+      "class": "known",
+      "features": ["region:title-row", "header:light-fill", "column:項目名", "column:型", "column:桁数", "border:thin", "layout:8-columns", "note:footer"],
+      "expectedStatus": "matched",
+      "expectedWinner": "interface-definition"
+    },
+    {
+      "id": "code-list-exact",
+      "class": "known",
+      "features": ["region:title-row", "header:dark-fill", "column:コード", "column:名称", "border:grid", "layout:4-columns"],
+      "expectedStatus": "matched",
+      "expectedWinner": "code-list"
+    },
+    {
+      "id": "code-list-missing-fill",
+      "class": "known",
+      "features": ["region:title-row", "column:コード", "column:名称", "border:grid", "layout:4-columns"],
+      "expectedStatus": "matched",
+      "expectedWinner": "code-list"
+    },
+    {
+      "id": "near-incomplete-release",
+      "class": "novel",
+      "features": ["region:title-row", "header:dark-fill", "border:grid"],
+      "expectedStatus": "novel"
+    },
+    {
+      "id": "free-form-diagram",
+      "class": "novel",
+      "features": ["region:diagram", "shape:arrow", "shape:rounded-box", "layout:free-form"],
+      "expectedStatus": "novel"
+    },
+    {
+      "id": "free-form-notes",
+      "class": "novel",
+      "features": ["region:notes", "text:long-paragraph", "layout:free-form"],
+      "expectedStatus": "novel"
+    }
+  ]
+}
