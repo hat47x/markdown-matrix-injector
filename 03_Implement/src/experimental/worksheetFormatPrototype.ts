@@ -40,6 +40,7 @@ export interface WorksheetFormatSnapshotMatch {
   sourceProfileId: string;
   sourceEvidence: readonly WorksheetFormatEvidenceKind[];
   observation: WorksheetFormatFeatureObservation;
+  comparedFeatures: readonly string[];
   match: FormatMatchResult;
 }
 
@@ -58,13 +59,14 @@ export function createWorksheetFormatPrototype(
   if (!normalizedId) throw new Error('Worksheet format prototype id must not be empty.');
 
   const observation = extractWorksheetFormatFeatures(snapshot);
-  if (observation.features.length === 0) {
+  const comparedFeatures = filterFeaturesByEvidence(observation.features, profile.evidence);
+  if (comparedFeatures.length === 0) {
     throw new Error(`Worksheet format prototype "${normalizedId}" has no observable format features.`);
   }
 
   return {
     id: normalizedId,
-    features: [...observation.features],
+    features: comparedFeatures,
     featureVersion: WORKSHEET_FORMAT_FEATURE_VERSION,
     sourceProfileId: profile.id,
     sourceEvidence: profile.evidence,
@@ -94,13 +96,27 @@ export function matchWorksheetFormatSnapshot(
   }
 
   const observation = extractWorksheetFormatFeatures(snapshot);
+  const comparedFeatures = filterFeaturesByEvidence(observation.features, profile.evidence);
   return {
     featureVersion: WORKSHEET_FORMAT_FEATURE_VERSION,
     sourceProfileId: profile.id,
     sourceEvidence: profile.evidence,
     observation,
-    match: matchFormatObservation(observation.features, prototypes, options),
+    comparedFeatures,
+    match: matchFormatObservation(comparedFeatures, prototypes, options),
   };
+}
+
+function filterFeaturesByEvidence(
+  features: readonly string[],
+  evidence: readonly WorksheetFormatEvidenceKind[],
+): string[] {
+  const enabled = new Set(evidence);
+  return features.filter((feature) => {
+    if (feature.startsWith('border:')) return enabled.has('border');
+    if (feature.startsWith('header:') && feature.endsWith('-fill')) return enabled.has('fill');
+    return enabled.has('structure');
+  });
 }
 
 function normalizeSourceProfile(sourceProfile: WorksheetFormatSourceProfile): {
