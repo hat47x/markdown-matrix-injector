@@ -59,12 +59,15 @@ export function extractWorksheetFormatFeatures(
     .filter((cell) => normalizedText(cell.text) !== '')
     .map((cell) => cell.column)
     .sort((left, right) => left - right);
-  const features: string[] = [];
+  const features: string[] = ['region:table', 'header:row'];
 
   if (hasTitleRow(cells, merges, header.row, headerColumns)) features.push('region:title-row');
 
   const fillTone = dominantValue(header.cells.map((cell) => cell.fillTone).filter(isMeaningfulFillTone));
-  if (fillTone) features.push(`header:${fillTone}-fill`);
+  if (fillTone) {
+    features.push('header:fill-present');
+    features.push(`header:${fillTone}-fill`);
+  }
 
   for (const cell of header.cells) {
     const label = normalizedText(cell.text);
