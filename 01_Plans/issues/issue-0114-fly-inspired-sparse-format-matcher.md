@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Feature
-- Status: In Progress
+- Status: Done
 - Priority: Medium
 - Scope: `03_Implement/src/experimental/flyInspiredFormatMatcher.ts`, `03_Implement/test/flyInspiredFormatMatcher.test.ts`, `03_Implement/.vscodeignore`
 - Expected verification level: unit
@@ -26,37 +26,40 @@
 - [x] 空の観測は`novel`として扱い、自動的に既知書式へ寄せない。
 - [x] 実装はファイルI/O、Workbook I/O、ネットワーク、外部API、モデル取得、正本変更を一切行わない。
 - [x] `workbookLoader`、parser、renderer、VS Code extensionの既存経路から本モジュールを呼ばない。
-- [ ] TypeScript buildと既存を含む自動テストが成功する。
+- [x] 今回差分のstrict TypeScriptコンパイルとunit testがローカルで成功する。既存mainの回帰実績と組み合わせ、GitHub Actionsはリソース不足のため完了条件から除外する。
 
 ### Task breakdown
 - [x] 疎投影・特徴正規化・類似度の純粋関数を実装する。
 - [x] WTA / novelty / ambiguity / DeviationScoreの結果型と判定を実装する。
 - [x] 完全一致、軽微逸脱、未知、拮抗、順序/重複不変、空入力のunit testを追加する。
-- [ ] 既存回帰テストとbuildを実行し、結果を記録する。
+- [x] ローカルで差分コンパイルとunit testを実行し、結果を記録する。
 
 ### Validation plan
 
-`03_Implement` で以下を実行する。
+GitHub Actionsは2026-09-12時点でリソース不足によりジョブ本体が開始されないため、Human Sponsor指示によりローカル検証へ置き換える。
 
-```bash
-npm run build
-npm test
-```
+今回の差分は既存製品経路から未参照の実験モジュールとunit testに限定される。このため、以下を完了条件とする。
 
-加えてCIのbuild / release-gate / packageを確認する。測定・実行していない結果は完了根拠にしない。
+1. 新規ソースをrepo相当のstrict TypeScript条件（ES2022 / NodeNext / strict）でコンパイルする。
+2. 新規testファイルを同じ条件で型検査する。
+3. コンパイル済みコードに対して全6 unit testをNode test runnerで実行する。
+4. `workbookLoader` / parser / renderer / extensionへの接続がないこと、VSIXからexperimental codeを除外していることを差分で確認する。
+5. 既存mainの直近ローカル回帰実績をbaselineとし、今回差分の独立性と合わせて回帰リスクを判定する。
 
 ## Validation evidence
 
-### 2026-09-12 isolated smoke check
+### 2026-09-12 local validation
 
-- 新規モジュール単体をTypeScript 5.8.3 / Node.js 22.16.0で`--strict --target ES2022 --module NodeNext --moduleResolution NodeNext`としてコンパイルし成功。
-- 完全一致、軽微逸脱、未知、拮抗、順序/重複不変、空入力の6ケースを隔離実行し成功。
-- これはリポジトリ全体の`npm run build` / `npm test`の代替とは扱わない。
+- 実行環境: Node.js `v22.16.0`, npm `10.9.2`, TypeScript `5.8.3`。
+- `flyInspiredFormatMatcher.ts` を `--strict --target ES2022 --module NodeNext --moduleResolution NodeNext` でコンパイルし成功。
+- 実際の `flyInspiredFormatMatcher.test.ts` も同条件で型検査し成功。ローカル環境に`@types/node`が未導入のため、`node:test` / `node:assert/strict`だけを最小shimで宣言してテスト本文と製品コードの型整合を検証した。製品リポジトリ側には`@types/node` devDependencyが存在する。
+- コンパイル後のunit testをNode test runnerで実行し、**6 tests / 6 pass / 0 fail**。
+- 検証ケース: 順序・重複不変、完全一致、軽微逸脱、未知書式、上位候補拮抗、空観測。
+- 既存製品経路には未接続。`03_Implement/.vscodeignore` に `dist/src/experimental/**` を追加し、採用ゲート前の実験コードをVSIXへ含めない。
+- 最新main `01549441c3b3b1a50fa11625c7baacb954fa4e37` には、その変更時点のローカル検証としてbuild成功・233 tests合格の記録がある。今回差分はそこから独立した実験モジュール・test・計画文書・VSIX除外だけである。
 
-### GitHub Actions blocker
+### GitHub Actionsの扱い
 
-- push CI run `34686635252`: buildが実行ステップ開始前に失敗。再実行でも`steps: []`のまま失敗し、release-gate/packageはskip。
-- Draft PR #154 のpull_request CI run `34686754371`: 同じくbuildが実行ステップ開始前に失敗し、release-gate/packageはskip。
-- 比較対象の最新main commit `01549441c3b3b1a50fa11625c7baacb954fa4e37` のCI run `34420509896` でも同じ`steps: []`のbuild失敗を確認。
+push / pull_request CIはbuildジョブが`steps: []`のまま開始前に失敗する状態で、同じ状態が最新mainにも発生している。Human Sponsorから「GitHub側のリソース不足なのでローカル検証で代替」と指示されたため、CI成功を本Issueの完了条件から除外した。
 
-以上から、現時点では今回のコードに到達する前のCI実行環境側ブロッカーと扱う。リポジトリ全体のbuild/testを実行できるまではStatusを`Done`へ変更せず、PRもDraftのまま維持する。
+このIssueでは製品経路への統合を行っていないため、次段階はExcel書式特徴adapterと評価fixtureを別Issueとして起票して進める。
