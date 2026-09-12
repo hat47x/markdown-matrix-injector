@@ -2,9 +2,9 @@
 
 ## Meta
 - Type: Feature
-- Status: Open
+- Status: In Progress
 - Priority: Medium
-- Scope: `03_Implement/src/experimental/flyInspiredFormatMatcher.ts`, `03_Implement/test/flyInspiredFormatMatcher.test.ts`
+- Scope: `03_Implement/src/experimental/flyInspiredFormatMatcher.ts`, `03_Implement/test/flyInspiredFormatMatcher.test.ts`, `03_Implement/.vscodeignore`
 - Expected verification level: unit
 
 ## Traceability
@@ -29,9 +29,9 @@
 - [ ] TypeScript buildと既存を含む自動テストが成功する。
 
 ### Task breakdown
-- [ ] 疎投影・特徴正規化・類似度の純粋関数を実装する。
-- [ ] WTA / novelty / ambiguity / DeviationScoreの結果型と判定を実装する。
-- [ ] 完全一致、軽微逸脱、未知、拮抗、順序/重複不変、空入力のunit testを追加する。
+- [x] 疎投影・特徴正規化・類似度の純粋関数を実装する。
+- [x] WTA / novelty / ambiguity / DeviationScoreの結果型と判定を実装する。
+- [x] 完全一致、軽微逸脱、未知、拮抗、順序/重複不変、空入力のunit testを追加する。
 - [ ] 既存回帰テストとbuildを実行し、結果を記録する。
 
 ### Validation plan
