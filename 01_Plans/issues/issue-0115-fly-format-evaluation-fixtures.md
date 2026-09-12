@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Test
-- Status: In Progress
+- Status: Done
 - Priority: Medium
 - Scope: `03_Implement/test/fixtures/fly-format-evaluation.json`, `03_Implement/test/flyInspiredFormatEvaluation.test.ts`
 - Expected verification level: unit
@@ -20,19 +20,33 @@
 fixtureは現実のExcelバイナリではなく、将来のExcel style adapterが出力すべき抽象特徴トークンを表す。これによりmatcher自体の性能と、style抽出性能を分離して評価できる。
 
 ### Acceptance criteria
-- [ ] 少なくとも4種類のprototypeと、known / ambiguous / novelを含む12ケースをfixture化する。
-- [ ] known 8ケースすべてで`matched`かつ期待winnerが一致する。
-- [ ] novel 3ケースで誤った`matched`が0件である。
-- [ ] 識別特徴が欠けて近接prototypeが拮抗する1ケースで`ambiguous`となりwinnerを返さない。
-- [ ] 反復実行で結果が変化しない。
-- [ ] fixtureは将来のstyle adapterから独立し、Workbook I/Oや製品経路を追加しない。
-- [ ] ローカルstrict TypeScript検証とunit testが成功する。
+- [x] 少なくとも4種類のprototypeと、known / ambiguous / novelを含む12ケースをfixture化する。
+- [x] known 8ケースすべてで`matched`かつ期待winnerが一致する。
+- [x] novel 3ケースで誤った`matched`が0件である。
+- [x] 識別特徴が欠けて近接prototypeが拮抗する1ケースで`ambiguous`となりwinnerを返さない。
+- [x] 反復実行で結果が変化しない。
+- [x] fixtureは将来のstyle adapterから独立し、Workbook I/Oや製品経路を追加しない。
+- [x] ローカルstrict TypeScript検証とunit testが成功する。
 
 ### Task breakdown
 - [x] prototypeと評価ケースをJSON fixtureへ定義する。
 - [x] 集計指標と個別期待値を検証するunit testを追加する。
-- [ ] ローカルで型検査・unit testを実行する。
+- [x] ローカルで型検査・unit testを実行する。
 
 ### Validation plan
 
 GitHub Actionsはリソース不足のため完了条件に含めない。ローカルで対象差分をstrict TypeScript条件で型検査し、コンパイル後のテストをNode test runnerで実行する。
+
+## Validation evidence
+
+### 2026-09-12 local validation
+
+- 実行環境: Node.js `v22.16.0`, npm `10.9.2`, TypeScript `5.8.3`。
+- `flyInspiredFormatMatcher.ts` と `flyInspiredFormatEvaluation.test.ts` を `--strict --target ES2022 --module NodeNext --moduleResolution NodeNext` で型検査・コンパイルし成功。
+- bare環境に`@types/node`がないため、`node:test` / `node:assert/strict` / `node:fs`だけ最小shimを用いた。製品リポジトリには`@types/node` devDependencyが存在する。
+- コンパイル後の評価testをNode test runnerで実行し、**5 tests / 5 pass / 0 fail**。
+- fixture内訳: prototype 4、case 12（known 8 / ambiguous 1 / novel 3）。
+- known 8/8で期待winner一致、novel 3/3で誤accept 0、ambiguous 1/1でwinnerなし。
+- 全ケースを10回反復して結果JSONが完全一致し、決定性を確認。
+
+このfixtureを次段階のExcel style feature adapterの受入ゲートとして再利用する。
