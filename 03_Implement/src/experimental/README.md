@@ -85,6 +85,8 @@ matched / ambiguous / novel
 - headerから最初の本文候補行までの行間隔
 - 最初の本文候補行がheader列をfullに埋めるかpartialか
 - 本文先頭側の複数行で、各header列が過半数の行に出現するか
+- headerの横方向mergeが、どの隣接列境界を接続するか
+- 本文先頭側で繰り返される横方向mergeの相対shape
 
 style evidenceとしてfill / borderも受け取れますが、実際に比較へ使えるかはsource profileが決めます。
 
@@ -118,7 +120,7 @@ headerと最初の本文候補行の間に何行あるかを表します。
 
 ## 5. v5の body majority occupancy
 
-`worksheet-format-v5`では、最初の本文行だけでなく、複数本文行に繰り返される**列の埋まり方**を1つのstructure featureへ圧縮します。
+`worksheet-format-v5`では、最初の本文行だけでなく、複数本文行に繰り返される**列の埋まり方**を1つのstructure featureへ圧縮しました。
 
 ```text
 layout:body-majority-occupancy:<bits>
@@ -162,23 +164,82 @@ headerより下で、headerの水平範囲内に非空セルを持つ本文候�
 
 このため、同じ列が埋まっている1行表と3行表は、行数の違いだけでは別書式になりません。
 
-### なぜ最大4行なのか
+## 6. v6の horizontal merge shape
 
-目的はデータ解析ではなく、表の先頭側に現れる書式傾向の補助観測です。
+`worksheet-format-v6`では、横方向mergeを**表内の隣接列境界の接続パターン**として扱います。
 
-全行を走査すると、大きなworksheetで不要なコストが増え、footerや別領域まで書式evidenceへ混ぜる危険も高まります。現段階では4行を上限とし、変更が必要なら独立Issueで評価します。
+4列の表には列間境界が3つあります。
 
-## 6. なぜ絶対行列番号を使わないのか
+```text
+A | B | C | D
+  0   1   2
+```
+
+B:Cだけが横方向mergeなら、具体shapeは次です。
+
+```text
+layout:header-horizontal-merge-links:010
+```
+
+このbitはExcel全体のB列・C列を意味しません。表の左端から見た相対境界です。したがって同じ表をA:DからH:Kへ移動してもmaskは変わりません。
+
+### headerのfeature
+
+header rowに横方向mergeがある場合、2段階のfeatureを出します。
+
+```text
+merge:header-horizontal-present
+layout:header-horizontal-merge-links:<bits>
+```
+
+前者は「headerに横mergeがある」という粗い特徴、後者は「どの境界がつながっているか」という細かい特徴です。
+
+### bodyのfeature
+
+本文は単発のmergeをformat identityへ入れません。v5と同じ先頭最大4本文行を使い、各境界が**厳格過半数**の行でmergeされている場合だけ recurring shape とします。
+
+```text
+merge:body-horizontal-recurring
+layout:body-majority-horizontal-merge-links:<bits>
+```
+
+たとえば4列表のA:Bが3本文行中2行でmergeされている場合は次です。
+
+```text
+layout:body-majority-horizontal-merge-links:100
+```
+
+3行中1行だけならfeature自体を出しません。偶発的な装飾を基準書式へ固定しないためです。
+
+### なぜmerge個数を数えないのか
+
+「本文にmergeが3個ある」のように数えると、同じ行shapeを持つデータが1行から3行へ増えただけで書式差になってしまいます。
+
+v6では行数を数えず、繰り返し現れる**相対shape**だけを残します。1本文行しか観測できず、その行がmergeされている場合は、その1行から同じmaskを作れます。
+
+### なぜ `merge:none` を作らないのか
+
+mergeが無い表すべてへ共通featureを追加すると、無関係な表同士の類似度を機械的に押し上げます。
+
+そのため、v6では実際に採用対象となる横mergeが観測できた場合だけmerge featureを追加します。
+
+### なぜ縦方向mergeを含めないのか
+
+v6のfeatureは「同一行の隣接列境界が横方向に接続される」という1つの意味へ限定します。
+
+`startRow !== endRow` の縦方向・矩形mergeは除外します。必要性が確認できれば、別Issueで独立したfeatureとして設計します。
+
+## 7. なぜ絶対行列番号を使わないのか
 
 同じ書式がA列開始でもE列開始でも、通常は同じ表です。
 
 そのため列位置は表左端からの相対位置を使います。また、title/bodyの行位置も絶対行番号ではなくheaderとの距離を使います。
 
-body majority occupancyもExcel上の絶対列番号ではなく、**headerで実際に使われている列の順番**をbit位置として使います。
+body majority occupancyはheader列順、horizontal merge shapeは表内の列境界順をbit位置として使います。
 
 水平・垂直に表全体が移動しただけで書式identityを変えないためです。
 
-## 7. Source profile
+## 8. Source profile
 
 source profileは、入力経路ごとに「どのevidenceを比較契約へ含めてよいか」を決めます。
 
@@ -190,17 +251,17 @@ fill:      yes
 border:    no
 ```
 
-`layout:body-majority-occupancy:*`はセル文字列の有無と位置だけから得られるため、`structure` evidenceとして扱います。
+body occupancyとmerge shapeはセル位置・merge rangeだけから得られるため、`structure` evidenceとして扱います。
 
 adapterが値を受け取れることと、実入力経路がその値を安定して供給することは別です。後者を確認できない情報は比較契約へ入れません。
 
-## 8. Feature contract version
+## 9. Feature contract version
 
 `WORKSHEET_FORMAT_FEATURE_VERSION`は表示用ではありません。
 
 featureの種類や意味が変わると、旧prototypeと新observationのDeviationScoreを同じ尺度として扱えなくなるため、version不一致は比較前に拒否します。
 
-v5ではbody majority occupancyが加わったため、v4 prototypeとv5 observationは比較しません。
+v6ではhorizontal merge shapeが加わったため、v5 prototypeとv6 observationは比較しません。
 
 featureを変更した場合は、少なくとも次を同じ変更単位で確認してください。
 
@@ -211,7 +272,7 @@ featureを変更した場合は、少なくとも次を同じ変更単位で確�
 5. boundary evaluation
 6. このREADMEと関連Issue
 
-## 9. matcherの既定境界
+## 10. matcherの既定境界
 
 ```text
 minConfidence = 0.7
@@ -233,59 +294,53 @@ otherwise
 
 疎hashではbucket衝突のため、意味上対称な2候補でもconfidenceが完全同値とは限りません。したがってambiguousの契約は「同点」ではなく**上位差が `minWinnerMargin` 未満**であることです。
 
-## 10. 現在分かっている境界
+## 11. 現在分かっている境界
 
 ### 2列表の列名1件変更
 
-基準:
-
-```text
-項目 | 値
------+----
-timeout | 30
-```
-
-観測:
-
-```text
-項目 | 内容
------+-----
-timeout | 30
-```
-
-v5では、`structure only`でもtable skeletonとoccupancyが一致するため、ローカル境界評価では confidence `0.768627` で候補として残ります。
+merge差がない通常表では、v5から引き継いだtable skeletonとoccupancyにより、`structure only`でも候補として残る。
 
 ### 単発の空欄
 
-3本文行のうち1行だけ同じ列が空欄でも、残る2行で埋まっていればmajority maskは変わりません。偶発的な空欄に過敏にならないためです。
+3本文行のうち1行だけ同じ列が空欄でも、残る2行で埋まっていればmajority occupancyは変わりません。
 
 ### 継続するoccupancy差
 
-2列表で、2列目が3行中2行以上欠け、同時に列名も1件変わるケースでは、structure-onlyのconfidenceはローカル評価で `0.671930` となり `novel` を維持します。
+列名変更に加えて同じ列の欠損が多数派になる場合は、既知書式へ無理に寄せず `novel` へ落ちる境界を維持します。
 
-また、両列名が異なる別表は `0.597571` で `novel` のままです。
+### merge shape差だけの場合
 
-つまりv5は、共有evidenceを増やして何でも既知へ寄せるのではなく、**繰り返し観測できる配置傾向が一致するときだけ追加の支持材料にする**設計です。
+同じラベル・同じoccupancyで、recurring horizontal mergeだけが消えたり位置を変えたりするケースは、merge差をDeviationとして残しつつ、それだけで直ちに別書式とはしません。
 
-## 11. テストを読む順番
+merge shapeは分類を単独支配するfeatureではなく、他の構造証拠を補助する位置づけです。
+
+### merge shape差と列名変更が重なる場合
+
+2列表のstructure-only評価では、recurring mergeの消失と列名1件変更が同時に起きるケースを `novel` とすることを専用回帰で固定しています。
+
+つまりv6は「mergeが違うから即別書式」でも「mergeは無視」でもなく、**複数の独立した差異が重なったときに安全側の判断を強める**設計です。
+
+## 12. テストを読む順番
 
 初めて参画する場合は次の順を推奨します。
 
 1. `worksheetFormatFeatureAdapter.test.ts` — snapshotから基本featureがどう作られるか
 2. `worksheetFormatStructuralFeatures.test.ts` — 相対位置、gap、title/body skeleton
 3. `worksheetFormatBodyOccupancy.test.ts` — 複数本文行のoccupancyをどう粗くまとめるか
-4. `worksheetFormatHierarchy.test.ts` — 粗いfeatureと細かいfeatureをなぜ重ねるか
-5. `worksheetFormatPrototype.test.ts` — source profileとversion gate
-6. `worksheetFormatBoundaryEvaluation.test.ts` — 何を吸収し、どこで止まるか
-7. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
+4. `worksheetFormatMergeShape.test.ts` — 横方向mergeを相対shapeへどう圧縮するか
+5. `worksheetFormatHierarchy.test.ts` — 粗いfeatureと細かいfeatureをなぜ重ねるか
+6. `worksheetFormatPrototype.test.ts` — source profileとversion gate
+7. `worksheetFormatBoundaryEvaluation.test.ts` — 何を吸収し、どこで止まるか
+8. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
 
-## 12. 安全に変更するためのチェックリスト
+## 13. 安全に変更するためのチェックリスト
 
 - 変更はreader / adapter / profile / matcherのどの層かを明示したか
 - 別層の責務を持ち込んでいないか
 - 同じ入力から同じfeatureが得られるか
 - 絶対行列位置へ不必要に依存していないか
 - データ件数そのものをformat identityへ混入させていないか
+- 単発のmergeや空欄を繰り返し構造として過大評価していないか
 - prototypeとobservationが同じadapterを通るか
 - 観測できないevidenceを補完・推測していないか
 - `novel` / `ambiguous`を閾値緩和で安易に`matched`へしていないか
@@ -295,7 +350,7 @@ v5では、`structure only`でもtable skeletonとoccupancyが一致するため
 - 専門用語を通常の実装用語でも説明したか
 - GitHub Actionsが使えない場合、ローカルstrict compileと関連testを記録したか
 
-## 13. この層が行わないこと
+## 14. この層が行わないこと
 
 - Excelを書き換える
 - format definitionを書き換える
@@ -304,16 +359,18 @@ v5では、`structure only`でもtable skeletonとoccupancyが一致するため
 - LLMや外部APIへデータを送る
 - 実行ごとに学習して挙動を変える
 - セル値の業務上の意味を推論する
+- 縦方向mergeの意味を推論する
 
 この非責務が変わる場合は、実装Issueではなくアーキテクチャ変更として扱ってください。
 
-## 14. 次に改善する場合
+## 15. 次に改善する場合
 
-v5の次候補も、まず意味推論を伴わないstructure evidenceです。
+v3〜v6で、意味推論を伴わず観測できる主要なstructure evidenceはかなり揃ってきました。次はfeature種類を増やし続ける前に、既存feature群の相対的な効き方を評価する段階です。
 
-1. merge配置の粗いshape
-2. title/header/body以外の明確な区切り構造
-3. それでも不足する場合のみ、値の粗い型パターン
-4. 十分なfixtureが揃った後にproduction接続可否を別ADR/Issueで検討
+1. 実務fixtureを増やし、semantic labels / relative positions / skeleton / occupancy / merge shape / fill の各familyがconfidenceへ与える寄与を測る
+2. 特定familyのfeature数が多いだけで実質的に過重になるケースがあるか確認する
+3. 偏りが観測された場合のみ、family weightingや階層比較を独立Issueとして設計する
+4. それでも識別材料が不足する場合のみ、値の粗い型パターンを検討する
+5. 十分なfixtureと安全境界が揃った後にproduction接続可否を別ADR/Issueで判断する
 
-値の型を扱う場合も、「書式の形」を補助する範囲に留め、決定論的format parserの責務と混同しないことが前提です。
+featureを追加すること自体を目的化せず、既存evidenceがどのように判断へ寄与しているか説明できる状態を維持することを優先します。
