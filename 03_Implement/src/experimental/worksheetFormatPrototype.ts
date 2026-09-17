@@ -10,7 +10,7 @@ import {
   type WorksheetFormatSnapshot,
 } from './worksheetFormatFeatureAdapter.js';
 
-export const WORKSHEET_FORMAT_FEATURE_VERSION = 'worksheet-format-v5' as const;
+export const WORKSHEET_FORMAT_FEATURE_VERSION = 'worksheet-format-v6' as const;
 
 export type WorksheetFormatEvidenceKind = 'structure' | 'fill' | 'border';
 
