@@ -1,26 +1,26 @@
 # Fly-inspired worksheet format recognition
 
-このディレクトリの書式認識コードは、Excel設計書の「どの書式に近いか」を補助的に判定するための**実験層**です。
+このディレクトリは、Excel設計書の書式候補を**読み取り専用で補助判定する実験層**です。
 
-Markdown Matrix Injector本体の決定論的な読み込み・変換・Markdown生成経路とは分離されています。ここでの判定結果が、そのままsource-of-truthやMarkdownを変更することはありません。
+Markdown Matrix Injector本体の決定論的な読み込み・変換・Markdown生成経路とは分離されています。ここで得た候補が、Excel、format definition、Markdownを自動変更することはありません。
 
-このREADMEは、ハエ脳・FlyHash・SheetJS内部実装に詳しくない参画者でも、通常のTypeScriptとExcel処理の知識から追えることを目的にしています。
+このREADMEは、ハエ脳、FlyHash、SheetJS内部実装を事前に知らなくても、通常のTypeScriptとExcelデータ処理の知識から安全に参画できることを目的にしています。
 
-## まず押さえるべきこと
+## 1. 最初に理解すること
 
-この仕組みが行うのは、次の問いへの補助回答です。
+この実験層が答える問いは1つです。
 
-> 今回読み込んだ表は、既知のどの書式に近いか。あるいは、既知書式へ安全に分類できないか。
+> 今回のworksheetは、既知のどの書式に近いか。あるいは、安全に既知書式へ分類できないか。
 
-最終結果は3種類です。
+結果は次の3種類です。
 
-- `matched`: 既知書式の1候補へ十分近く、他候補との差も十分ある
-- `ambiguous`: 既知書式として扱えるが、複数候補が近すぎて安全に1つへ決められない
-- `novel`: 既知書式のどれかだと言えるだけの証拠が足りない
+- `matched`: 1つの既知書式へ十分近く、他候補との差も十分ある
+- `ambiguous`: 既知候補としては十分近いが、上位候補の差が小さく1つへ決められない
+- `novel`: 既知書式と呼べるだけの証拠が足りない
 
-`novel`や`ambiguous`は失敗ではありません。誤って自動分類するよりも「分からない」と止まるための安全機構です。
+`novel`と`ambiguous`は異常ではありません。誤認識を避けるためのfail-closed結果です。
 
-## 全体のデータフロー
+## 2. データフロー
 
 ```text
 XLSX
@@ -30,236 +30,228 @@ SheetJS read-only reader
   |
   v
 WorksheetFormatSnapshot
-  |
+  |  cell text / row / column / merge / optional style
   v
 worksheetFormatFeatureAdapter
-  |
-  v
-abstract format features
-  |
+  |  書式を表す抽象featureへ変換
   v
 source profile filter
-  |
-  +---------------------+
-  |                     |
-  v                     v
-known prototype      observation
-  |                     |
-  +----------+----------+
-             |
-             v
+  |  入力経路で保証されるevidenceだけ残す
+  +-----------------------+
+  |                       |
+  v                       v
+known prototype       observation
+  |                       |
+  +-----------+-----------+
+              |
+              v
 flyInspiredFormatMatcher
-             |
-             v
+  |  deterministic sparse projection + similarity + gates
+  v
 matched / ambiguous / novel
 ```
 
-各層の責務を混ぜないことが、最も重要な設計ルールです。
+各層の責務を混ぜないことが最重要ルールです。
 
-## ファイルごとの役割
+## 3. ファイルごとの役割
 
 ### `flyInspiredFormatMatcher.ts`
 
-既に抽象化されたfeature文字列だけを扱います。
+抽象feature文字列だけを扱います。Excel、セル、SheetJS、styleを知りません。
 
-Excel、セル、SheetJS、styleを知りません。
+処理は通常の計算機科学用語で説明できます。
 
-入力例:
+1. featureを正規化する
+2. 安定hashで固定次元へ複数投影する
+3. activationの強いbucketだけを残す
+4. feature集合と疎signatureのJaccard類似度を計算する
+5. confidence / DeviationScoreを作る
+6. `minConfidence` と `minWinnerMargin` で3状態へ分類する
 
-```text
-column:項目
-column-position:0:項目
-column:値
-column-position:1:値
-layout:2-columns
-layout:header-contiguous
-region:table
-```
-
-主な処理:
-
-1. feature文字列を正規化する
-2. 各featureを安定hashで固定次元へ投影する
-3. activationの強いbucketだけを残し、疎なsignatureを作る
-4. prototypeとのfeature類似度・sparse signature類似度を計算する
-5. confidenceとDeviationScoreを求める
-6. 閾値に応じて`matched` / `ambiguous` / `novel`へ分類する
-
-### 「Fly-inspired」とは何か
-
-ハエの嗅覚系やFlyHash研究から、**高次元入力を疎な表現へ写像し、強い反応だけを残して近い候補を探す**という計算上の着想を借りています。
-
-生物学的な神経回路を再現しているわけではありません。SNN、connectome simulation、学習済みモデルも使いません。
-
-実装としては、通常の決定論的なhash、集合類似度、ランキングです。
-
-この区別を保つことで、生物学に詳しくなくてもコードをレビューできます。
+「Fly-inspired」は着想元です。SNN、connectome simulation、学習済みモデルを実行しているわけではありません。
 
 ### `worksheetFormatFeatureAdapter.ts`
 
-`WorksheetFormatSnapshot`から、matcherへ渡せる抽象featureを作ります。
+`WorksheetFormatSnapshot`をmatcher向けfeatureへ変換します。
 
-現在扱う主な情報:
+現在の主なstructure feature:
 
-- headerの列ラベル
-- 表内部での相対列位置
-- headerが連続しているか、途中に空き列があるか
-- title mergeがheaderへ何列重なっているか
-- headerの代表fill tone
-- border evidence（ただしsource profileによっては比較から除外）
+- header列ラベル
+- 表左端からの相対列位置
+- headerが連続かgappedか
+- title mergeのheader重なり幅
+- titleとheaderの行間隔
+- 最初の本文候補行が存在するか
+- headerから最初の本文候補行までの行間隔
+- 最初の本文候補行がheader列をfullに埋めるかpartialか
 
-### なぜ絶対列番号をfeatureにしないのか
-
-同じ表がA列開始でもE列開始でも、通常は同じ書式だからです。
-
-そのため`column-position`はExcel全体の列番号ではなく、**表の左端から何列目か**を記録します。
+style evidenceとしてfill / borderも受け取れますが、実際に比較へ使えるかはsource profileが決めます。
 
 ### `worksheetFormatPrototype.ts`
 
-prototype作成とsource profile境界を担当します。
+prototype作成、feature contract version、source profile境界を担当します。
 
-prototypeは手書きfeature一覧ではありません。必ず通常のsnapshotを同じfeature adapterへ通して作ります。
+prototypeは手書きfeature一覧にしません。必ず観測と同じadapterへbaseline snapshotを通して作ります。
 
-これは重要です。prototype側だけfeatureを間引くと、観測側とのJaccard集合サイズが非対称になり、DeviationScoreが不自然になります。
+## 4. v4の table skeleton evidence
 
-## Source profileとは
+`worksheet-format-v4`では、2列表のように列ラベルだけでは情報量が少ないケースを支えるため、**表の意味ではなく、タイトル→ヘッダー→本文という配置骨格**を追加しました。
 
-入力経路ごとに、**どの種類のevidenceを比較に使ってよいか**を定義する契約です。
+### `layout:title-header-gap:<n>`
 
-例:
+title mergeとheaderの間に何行あるかを表します。隣接していれば0です。
+
+### `body:present`
+
+headerより下、かつ表の水平範囲内に非空セルがあることを表します。
+
+### `layout:first-body-gap:<n>`
+
+headerと最初の本文候補行の間に何行あるかを表します。
+
+### `layout:first-body-coverage:full|partial`
+
+最初の本文候補行が、headerで実際に使われている列をすべて埋めているかを表します。
+
+これは値の意味を推論するfeatureではありません。`30`が数値かコードか、`01`がIDか数値かは判断しません。
+
+## 5. なぜ絶対行列番号を使わないのか
+
+同じ書式がA列開始でもE列開始でも、通常は同じ表です。
+
+そのため列位置は表左端からの相対位置を使います。また、title/bodyの行位置も絶対行番号ではなくheaderとの距離を使います。
+
+水平・垂直に表全体が移動しただけで書式identityを変えないためです。
+
+## 6. Source profile
+
+source profileは、入力経路ごとに「どのevidenceを比較契約へ含めてよいか」を決めます。
+
+現在の保守的なSheetJS CE XLSX 0.20.3 profile:
 
 ```text
-SheetJS CE XLSX 0.20.3
-  structure: yes
-  fill:      yes
-  border:    no
+structure: yes
+fill:      yes
+border:    no
 ```
 
-「adapterがborderを受け取れる」ことと、「SheetJS CE XLSX parserがborderを安定して供給する」ことは別です。
+adapterが値を受け取れることと、実入力経路がその値を安定して供給することは別です。後者を確認できない情報は比較契約へ入れません。
 
-このような外部ライブラリ由来の不確実性を、matcherへ漏らさないためにsource profileがあります。
+## 7. Feature contract version
 
-## Feature contract version
+`WORKSHEET_FORMAT_FEATURE_VERSION`は表示用ではありません。
 
-`WORKSHEET_FORMAT_FEATURE_VERSION`は表示用versionではありません。
+featureの種類や意味が変わると、旧prototypeと新observationのDeviationScoreを同じ尺度として扱えなくなるため、version不一致は比較前に拒否します。
 
-featureの種類や意味が変わると、旧prototypeと新観測を比較したDeviationScoreは意味を失う場合があります。そのためversionが一致しなければ比較を拒否します。
+featureを変更した場合は、少なくとも次を同じ変更単位で確認してください。
 
-featureを追加・削除・意味変更した場合は、少なくとも次を確認してください。
-
-1. adapterのfeature出力
+1. adapterの出力
 2. `WORKSHEET_FORMAT_FEATURE_VERSION`
 3. prototypeのversion gate
-4. versionを固定確認している既存回帰テスト
-5. 境界評価fixture
+4. version固定値を持つ既存回帰
+5. boundary evaluation
+6. このREADMEと関連Issue
 
-## 現在の既定matcher境界
+## 8. matcherの既定境界
 
 ```text
 minConfidence = 0.7
 minWinnerMargin = 0.05
 ```
 
-判定順序は概念的に次の通りです。
+概念的な判定順序:
 
 ```text
-best candidate confidence < 0.7
+best confidence < 0.7
     -> novel
 
-best candidate is viable,
-but top two confidence gap < 0.05
+bestは0.7以上だが、secondとの差 < 0.05
     -> ambiguous
 
 otherwise
     -> matched
 ```
 
-重要なのは、**同点だから必ずambiguousではない**ことです。
+疎hashではbucket衝突のため、意味上対称な2候補でもconfidenceが完全同値とは限りません。したがってambiguousの契約は「同点」ではなく**上位差が `minWinnerMargin` 未満**であることです。
 
-両候補ともconfidence 0.7未満なら、「候補同士は同程度だが、そもそも既知書式として扱う証拠が弱い」ため`novel`になります。
+## 9. 現在分かっている境界
 
-## 現在分かっている境界
+### 2列表の列名1件変更
 
-### 3列以上の表
-
-現行v3 featureでは、styleが使えない`structure only`でも、列名1件程度の変更なら既知候補として残せるケースがあります。
-
-### 2列表
-
-feature総数が少ないため、1列名の変更が全体類似度へ与える影響が大きくなります。
-
-実測例:
+基準:
 
 ```text
-項目 / 値
-   ↓
-項目 / 内容
+項目 | 値
+-----+----
+timeout | 30
 ```
 
-- `structure + fill`: matched（confidence 約0.705）
-- `structure only`: novel（confidence 約0.672）
+観測:
 
-現段階では閾値を下げません。
+```text
+項目 | 内容
+-----+-----
+timeout | 30
+```
 
-情報が少ない場合に`novel`へ落ちることは、誤認識を防ぐための安全側の挙動と考えています。
+v4では、`structure only`でもtable skeletonが一致するため confidence `0.758333` で候補として回復します。
 
-## テストを読む順番
+ただし次は引き続き `novel` です。
 
-新しく参画する場合は、次の順で読むと追いやすくなります。
+- 両方の列名が異なる
+- 本文開始位置が大きくずれる
+- 最初の本文行のcoverageが変わる
+- 本文evidence自体を観測できない
 
-1. `worksheetFormatFeatureAdapter.test.ts`
-   - snapshotから何がfeatureになるか
-2. `worksheetFormatHierarchy.test.ts`
-   - 粗い特徴と細かい特徴をなぜ重ねるか
-3. `worksheetFormatStructuralFeatures.test.ts`
-   - 相対位置・gap・title span
-4. `worksheetFormatPrototype.test.ts`
-   - source profileとversion gate
-5. `worksheetFormatBoundaryEvaluation.test.ts`
-   - 現実的な揺れに対して、どこまで吸収しどこで止まるか
-6. `flyInspiredFormatMatcher.test.ts`
-   - matcherそのものの一般的な判定規則
+つまり「情報が少なくても何とか既知へ押し込む」のではなく、実際に共通する骨格がある場合だけ追加evidenceとして使います。
 
-ファイル名が異なる場合は、`worksheetFormat` / `flyInspiredFormat`を含むテストを同じ目的で探してください。
+### 3列以上
 
-## 変更時のチェックリスト
+列名1件程度の揺れは、structure onlyでも既知候補として残せるケースがあります。header gap等の大きな構造差は `novel` を維持します。
 
-featureやmatcherを変更する前に、次を確認してください。
+## 10. テストを読む順番
 
-- この変更はExcel読取層、feature抽出層、matcher層のどこに属するか
+初めて参画する場合は次の順を推奨します。
+
+1. `worksheetFormatFeatureAdapter.test.ts` — snapshotから基本featureがどう作られるか
+2. `worksheetFormatStructuralFeatures.test.ts` — 相対位置、gap、title/body skeleton
+3. `worksheetFormatHierarchy.test.ts` — 粗いfeatureと細かいfeatureをなぜ重ねるか
+4. `worksheetFormatPrototype.test.ts` — source profileとversion gate
+5. `worksheetFormatBoundaryEvaluation.test.ts` — 何を吸収し、どこで止まるか
+6. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
+
+## 11. 安全に変更するためのチェックリスト
+
+- 変更はreader / adapter / profile / matcherのどの層かを明示したか
 - 別層の責務を持ち込んでいないか
-- 同じ入力なら必ず同じ出力になるか
-- prototypeとobservationで同じfeature生成経路を使っているか
-- evidence不足をDeviationとして誤計上していないか
-- `novel` / `ambiguous`を無理に`matched`へ変えていないか
-- source-of-truthを変更していないか
-- production経路へ接続する変更なら、別途ADR/Issueで明示されているか
-- 新しい専門用語を、通常の実装用語でも説明しているか
-- 境界条件を含むローカルテストを実行したか
+- 同じ入力から同じfeatureが得られるか
+- 絶対行列位置へ不必要に依存していないか
+- prototypeとobservationが同じadapterを通るか
+- 観測できないevidenceを補完・推測していないか
+- `novel` / `ambiguous`を閾値緩和で安易に`matched`へしていないか
+- feature意味変更時にversionを上げたか
+- 既存version固定テストを更新したか
+- 境界テストに「似ている例」と「似ていない例」の両方があるか
+- 専門用語を通常の実装用語でも説明したか
+- GitHub Actionsが使えない場合、ローカルstrict compileと関連testを記録したか
 
-## この層が行わないこと
-
-現在の実験層は次を行いません。
+## 12. この層が行わないこと
 
 - Excelを書き換える
 - format definitionを書き換える
 - Markdownを書き換える
-- 書式候補を自動採用してproduction処理を進める
+- 候補を自動採用してproduction処理を進める
 - LLMや外部APIへデータを送る
-- 学習によって実行ごとに挙動を変える
+- 実行ごとに学習して挙動を変える
 
-この非責務が崩れる変更は、単なるリファクタリングではなくアーキテクチャ変更として扱ってください。
+この非責務が変わる場合は、実装Issueではなくアーキテクチャ変更として扱ってください。
 
-## 次に改善しやすい領域
+## 13. 次に改善する場合
 
-2列表やstyle情報が薄い表に対して、閾値を緩める前に追加evidenceを検討できます。
+v4の次候補は、まず意味推論を伴わないstructure evidenceです。
 
-候補:
+1. 複数本文行のoccupancy pattern
+2. merge配置の粗いshape
+3. それでも不足する場合のみ、値の粗い型パターン
 
-- データ行の大まかな型パターン
-- 空白セルの配置
-- titleとheaderの距離
-- header直下の繰り返し構造
-- merge配置の粗い形
-
-ただし、セル値の意味理解を深く行いすぎると、決定論的format parserと認知補助層の境界が曖昧になります。追加featureは「書式の形」を表すことを基本とします。
+値の型を扱う場合も、「書式の形」を補助する範囲に留め、決定論的format parserの責務と混同しないことが前提です。

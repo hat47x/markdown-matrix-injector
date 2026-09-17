@@ -10,7 +10,7 @@ import {
   type WorksheetFormatSnapshot,
 } from './worksheetFormatFeatureAdapter.js';
 
-export const WORKSHEET_FORMAT_FEATURE_VERSION = 'worksheet-format-v3' as const;
+export const WORKSHEET_FORMAT_FEATURE_VERSION = 'worksheet-format-v4' as const;
 
 export type WorksheetFormatEvidenceKind = 'structure' | 'fill' | 'border';
 
@@ -19,6 +19,11 @@ export interface WorksheetFormatSourceProfile {
   evidence: readonly WorksheetFormatEvidenceKind[];
 }
 
+/**
+ * Conservative profile for XLSX parsed by SheetJS CE 0.20.3.
+ * Structure and fill are comparison evidence; border remains excluded until
+ * runtime behavior proves that the parser supplies it as a stable contract.
+ */
 export const SHEETJS_CE_XLSX_0203_SOURCE_PROFILE: WorksheetFormatSourceProfile = Object.freeze({
   id: 'sheetjs-ce-xlsx-0.20.3-fill-v1',
   evidence: Object.freeze(['structure', 'fill'] as const),
@@ -126,7 +131,10 @@ function normalizeSourceProfile(sourceProfile: WorksheetFormatSourceProfile): {
   return { id, evidence: evidence.sort() };
 }
 
-function sameEvidence(left: readonly WorksheetFormatEvidenceKind[], right: readonly WorksheetFormatEvidenceKind[]): boolean {
+function sameEvidence(
+  left: readonly WorksheetFormatEvidenceKind[],
+  right: readonly WorksheetFormatEvidenceKind[],
+): boolean {
   if (left.length !== right.length) return false;
   const normalizedLeft = [...left].sort();
   const normalizedRight = [...right].sort();
