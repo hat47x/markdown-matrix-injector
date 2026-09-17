@@ -61,8 +61,8 @@ function feature(snapshot: WorksheetFormatSnapshot, prefix: string): string | un
   return extractWorksheetFormatFeatures(snapshot).features.find((value) => value.startsWith(prefix));
 }
 
-test('feature contract is versioned as worksheet-format-v5', () => {
-  assert.equal(WORKSHEET_FORMAT_FEATURE_VERSION, 'worksheet-format-v5');
+test('feature contract is versioned as worksheet-format-v6', () => {
+  assert.equal(WORKSHEET_FORMAT_FEATURE_VERSION, 'worksheet-format-v6');
 });
 
 test('majority occupancy summarizes repeated body rows without inspecting value meaning', () => {
@@ -217,7 +217,7 @@ test('missing body evidence does not invent a majority occupancy feature', () =>
   assert.equal(feature(snapshot, 'layout:body-majority-occupancy:'), undefined);
 });
 
-test('near-tied viable candidates remain ambiguous after v5 evidence', () => {
+test('near-tied viable candidates remain ambiguous after v6 evidence', () => {
   const candidates = [
     createWorksheetFormatPrototype(
       'value',

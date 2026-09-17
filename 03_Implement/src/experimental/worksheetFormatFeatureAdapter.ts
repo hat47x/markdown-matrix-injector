@@ -114,6 +114,12 @@ export function extractWorksheetFormatFeatures(
     features.push(headerColumns.length === span ? 'layout:header-contiguous' : 'layout:header-gapped');
   }
 
+  const headerMergeMask = horizontalMergeLinkMask(merges, header.row, headerStart, headerEnd);
+  if (headerMergeMask) {
+    features.push('merge:header-horizontal-present');
+    features.push(`layout:header-horizontal-merge-links:${headerMergeMask}`);
+  }
+
   const bodyRows = selectBodyRows(cells, header.row, headerStart, headerEnd);
   const firstBodyRow = bodyRows[0];
   if (firstBodyRow) {
@@ -128,10 +134,6 @@ export function extractWorksheetFormatFeatures(
         : 'layout:first-body-coverage:partial',
     );
 
-    // Use a bounded sample of body rows to capture repeated column occupancy
-    // without turning the number of data rows into part of the format identity.
-    // A single observed row is still sufficient to produce the same mask as a
-    // multi-row sample when their column occupancy agrees.
     const sampledBodyRows = bodyRows.slice(0, maxBodyOccupancyRows);
     const majorityMask = headerColumns.map((column) => {
       const occupiedCount = sampledBodyRows.filter((row) =>
@@ -140,9 +142,79 @@ export function extractWorksheetFormatFeatures(
       return occupiedCount > sampledBodyRows.length / 2 ? '1' : '0';
     }).join('');
     features.push(`layout:body-majority-occupancy:${majorityMask}`);
+
+    const bodyMergeMask = majorityHorizontalMergeLinkMask(
+      merges,
+      sampledBodyRows,
+      headerStart,
+      headerEnd,
+    );
+    if (bodyMergeMask) {
+      features.push('merge:body-horizontal-recurring');
+      features.push(`layout:body-majority-horizontal-merge-links:${bodyMergeMask}`);
+    }
   }
 
   return { features: normalizeFormatFeatures(features), headerRow: header.row, headerColumns };
+}
+
+/**
+ * Encodes which adjacent physical column boundaries are crossed by a
+ * horizontal merge on one row. Absolute worksheet columns are discarded: a
+ * four-column table always produces a three-bit mask relative to its own span.
+ *
+ * Rectangular/vertical merges are intentionally excluded in v6 so one feature
+ * has one clear meaning. A row with no horizontal merge returns undefined and
+ * therefore does not gain artificial "no merge" evidence.
+ */
+function horizontalMergeLinkMask(
+  merges: readonly WorksheetFormatMerge[],
+  row: number,
+  startColumn: number,
+  endColumn: number,
+): string | undefined {
+  if (endColumn <= startColumn) return undefined;
+  const links = new Array<boolean>(endColumn - startColumn).fill(false);
+
+  for (const merge of merges) {
+    if (merge.startRow !== row || merge.endRow !== row) continue;
+    const overlapStart = Math.max(merge.startColumn, startColumn);
+    const overlapEnd = Math.min(merge.endColumn, endColumn);
+    for (let column = overlapStart; column < overlapEnd; column += 1) {
+      links[column - startColumn] = true;
+    }
+  }
+
+  return links.some(Boolean) ? links.map((linked) => linked ? '1' : '0').join('') : undefined;
+}
+
+/**
+ * Applies the same strict-majority rule as body occupancy to merge links. A
+ * boundary becomes structural evidence only when the horizontal merge recurs
+ * in more than half of the bounded body-row sample. One-off presentation
+ * merges therefore do not become part of the format identity.
+ */
+function majorityHorizontalMergeLinkMask(
+  merges: readonly WorksheetFormatMerge[],
+  bodyRows: readonly BodyRowEvidence[],
+  startColumn: number,
+  endColumn: number,
+): string | undefined {
+  if (bodyRows.length === 0 || endColumn <= startColumn) return undefined;
+  const counts = new Array<number>(endColumn - startColumn).fill(0);
+
+  for (const bodyRow of bodyRows) {
+    const mask = horizontalMergeLinkMask(merges, bodyRow.row, startColumn, endColumn);
+    if (!mask) continue;
+    [...mask].forEach((bit, index) => {
+      if (bit === '1') counts[index] += 1;
+    });
+  }
+
+  const majority = counts.map((count) => count > bodyRows.length / 2);
+  return majority.some(Boolean)
+    ? majority.map((linked) => linked ? '1' : '0').join('')
+    : undefined;
 }
 
 function validateAndCanonicalizeCells(input: readonly WorksheetFormatCell[]): WorksheetFormatCell[] {
