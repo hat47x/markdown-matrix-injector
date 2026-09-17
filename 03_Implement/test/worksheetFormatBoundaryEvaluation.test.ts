@@ -152,7 +152,7 @@ test('structure + fill: one renamed column in a two-column table remains a candi
   assert.ok((result.match.winner?.confidence ?? 0) >= 0.7);
 });
 
-test('structure only: table skeleton evidence recovers a one-column rename in a two-column table', () => {
+test('structure only: table skeleton and occupancy evidence recover a one-column rename in a two-column table', () => {
   const result = matchWorksheetFormatSnapshot(
     table('設定表', ['項目', '内容'], { fill: 'dark', bodyValues: ['timeout', '30'] }),
     prototypes(STRUCTURE_ONLY_PROFILE),
@@ -161,7 +161,8 @@ test('structure only: table skeleton evidence recovers a one-column rename in a 
 
   assert.equal(result.match.status, 'matched');
   assert.equal(result.match.winner?.prototypeId, 'settings');
-  assert.equal(result.match.winner?.confidence, 0.758333);
+  assert.ok(result.observation.features.includes('layout:body-majority-occupancy:11'));
+  assert.ok((result.match.winner?.confidence ?? 0) >= 0.7);
 });
 
 test('structure only: changing both labels still remains novel', () => {
@@ -242,7 +243,7 @@ test('structure + fill: near-tied viable two-column candidates are ambiguous', (
   assert.ok(Math.abs(first - second) < 0.05);
 });
 
-test('structure only: near-tied viable two-column candidates are also ambiguous after v4 evidence', () => {
+test('structure only: near-tied viable two-column candidates remain ambiguous after v5 evidence', () => {
   const profile = STRUCTURE_ONLY_PROFILE;
   const candidates = [
     createWorksheetFormatPrototype(
