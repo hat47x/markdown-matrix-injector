@@ -40,8 +40,8 @@ function threeColumnSnapshot(
   };
 }
 
-test('feature contract is versioned as worksheet-format-v4', () => {
-  assert.equal(WORKSHEET_FORMAT_FEATURE_VERSION, 'worksheet-format-v4');
+test('feature contract is versioned as worksheet-format-v5', () => {
+  assert.equal(WORKSHEET_FORMAT_FEATURE_VERSION, 'worksheet-format-v5');
 });
 
 test('column-position features are relative to the table start', () => {
@@ -93,7 +93,7 @@ test('title merge overlap span and title-header gap are retained as structural f
   assert.ok(delayedHeader.features.includes('layout:title-header-gap:1'));
 });
 
-test('first body row presence, gap, and coverage are structural evidence', () => {
+test('first body row presence, gap, coverage, and majority occupancy are structural evidence', () => {
   const full = extractWorksheetFormatFeatures(threeColumnSnapshot());
   const delayed = extractWorksheetFormatFeatures(
     threeColumnSnapshot(['ID', '項目', '値'], [2, 3, 4], 4, 1, 4, [2, 3, 4]),
@@ -105,6 +105,8 @@ test('first body row presence, gap, and coverage are structural evidence', () =>
   assert.ok(full.features.includes('body:present'));
   assert.ok(full.features.includes('layout:first-body-gap:0'));
   assert.ok(full.features.includes('layout:first-body-coverage:full'));
+  assert.ok(full.features.includes('layout:body-majority-occupancy:111'));
   assert.ok(delayed.features.includes('layout:first-body-gap:2'));
   assert.ok(partial.features.includes('layout:first-body-coverage:partial'));
+  assert.ok(partial.features.includes('layout:body-majority-occupancy:110'));
 });
