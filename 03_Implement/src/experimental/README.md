@@ -84,6 +84,7 @@ matched / ambiguous / novel
 - 最初の本文候補行が存在するか
 - headerから最初の本文候補行までの行間隔
 - 最初の本文候補行がheader列をfullに埋めるかpartialか
+- 本文先頭側の複数行で、各header列が過半数の行に出現するか
 
 style evidenceとしてfill / borderも受け取れますが、実際に比較へ使えるかはsource profileが決めます。
 
@@ -93,9 +94,9 @@ prototype作成、feature contract version、source profile境界を担当しま
 
 prototypeは手書きfeature一覧にしません。必ず観測と同じadapterへbaseline snapshotを通して作ります。
 
-## 4. v4の table skeleton evidence
+## 4. v4までの table skeleton evidence
 
-`worksheet-format-v4`では、2列表のように列ラベルだけでは情報量が少ないケースを支えるため、**表の意味ではなく、タイトル→ヘッダー→本文という配置骨格**を追加しました。
+v4では、2列表のように列ラベルだけでは情報量が少ないケースを支えるため、**表の意味ではなく、タイトル→ヘッダー→本文という配置骨格**を追加しました。
 
 ### `layout:title-header-gap:<n>`
 
@@ -113,17 +114,71 @@ headerと最初の本文候補行の間に何行あるかを表します。
 
 最初の本文候補行が、headerで実際に使われている列をすべて埋めているかを表します。
 
-これは値の意味を推論するfeatureではありません。`30`が数値かコードか、`01`がIDか数値かは判断しません。
+これらは値の意味を推論するfeatureではありません。`30`が数値かコードか、`01`がIDか数値かは判断しません。
 
-## 5. なぜ絶対行列番号を使わないのか
+## 5. v5の body majority occupancy
+
+`worksheet-format-v5`では、最初の本文行だけでなく、複数本文行に繰り返される**列の埋まり方**を1つのstructure featureへ圧縮します。
+
+```text
+layout:body-majority-occupancy:<bits>
+```
+
+2列表なら、たとえば次のようになります。
+
+```text
+項目 | 値
+-----+----
+a    | 1
+b    |
+c    | 3
+```
+
+2列目は3行中2行で埋まっているので、majority occupancyは次です。
+
+```text
+layout:body-majority-occupancy:11
+```
+
+一方、2列目が3行中1行しか埋まっていなければ次になります。
+
+```text
+layout:body-majority-occupancy:10
+```
+
+### 判定規則
+
+headerより下で、headerの水平範囲内に非空セルを持つ本文候補行を上から最大4行まで観測します。
+
+各header列について、観測行の**過半数**に非空セルがあれば `1`、それ以外なら `0` とします。
+
+偶数行でちょうど半数の場合は `0` です。曖昧な証拠を強く見積もらないための保守的な扱いです。
+
+### なぜ本文行数をfeatureにしないのか
+
+同じ書式でも、あるファイルでは3件、別のファイルでは1件しかデータがないことがあります。
+
+そこで、`body:rows:3`のようなfeatureは作りません。1行しか観測できない場合も、その1行から同じmajority maskを作ります。
+
+このため、同じ列が埋まっている1行表と3行表は、行数の違いだけでは別書式になりません。
+
+### なぜ最大4行なのか
+
+目的はデータ解析ではなく、表の先頭側に現れる書式傾向の補助観測です。
+
+全行を走査すると、大きなworksheetで不要なコストが増え、footerや別領域まで書式evidenceへ混ぜる危険も高まります。現段階では4行を上限とし、変更が必要なら独立Issueで評価します。
+
+## 6. なぜ絶対行列番号を使わないのか
 
 同じ書式がA列開始でもE列開始でも、通常は同じ表です。
 
 そのため列位置は表左端からの相対位置を使います。また、title/bodyの行位置も絶対行番号ではなくheaderとの距離を使います。
 
+body majority occupancyもExcel上の絶対列番号ではなく、**headerで実際に使われている列の順番**をbit位置として使います。
+
 水平・垂直に表全体が移動しただけで書式identityを変えないためです。
 
-## 6. Source profile
+## 7. Source profile
 
 source profileは、入力経路ごとに「どのevidenceを比較契約へ含めてよいか」を決めます。
 
@@ -135,13 +190,17 @@ fill:      yes
 border:    no
 ```
 
+`layout:body-majority-occupancy:*`はセル文字列の有無と位置だけから得られるため、`structure` evidenceとして扱います。
+
 adapterが値を受け取れることと、実入力経路がその値を安定して供給することは別です。後者を確認できない情報は比較契約へ入れません。
 
-## 7. Feature contract version
+## 8. Feature contract version
 
 `WORKSHEET_FORMAT_FEATURE_VERSION`は表示用ではありません。
 
 featureの種類や意味が変わると、旧prototypeと新observationのDeviationScoreを同じ尺度として扱えなくなるため、version不一致は比較前に拒否します。
+
+v5ではbody majority occupancyが加わったため、v4 prototypeとv5 observationは比較しません。
 
 featureを変更した場合は、少なくとも次を同じ変更単位で確認してください。
 
@@ -152,7 +211,7 @@ featureを変更した場合は、少なくとも次を同じ変更単位で確�
 5. boundary evaluation
 6. このREADMEと関連Issue
 
-## 8. matcherの既定境界
+## 9. matcherの既定境界
 
 ```text
 minConfidence = 0.7
@@ -174,7 +233,7 @@ otherwise
 
 疎hashではbucket衝突のため、意味上対称な2候補でもconfidenceが完全同値とは限りません。したがってambiguousの契約は「同点」ではなく**上位差が `minWinnerMargin` 未満**であることです。
 
-## 9. 現在分かっている境界
+## 10. 現在分かっている境界
 
 ### 2列表の列名1件変更
 
@@ -194,38 +253,39 @@ timeout | 30
 timeout | 30
 ```
 
-v4では、`structure only`でもtable skeletonが一致するため confidence `0.758333` で候補として回復します。
+v5では、`structure only`でもtable skeletonとoccupancyが一致するため、ローカル境界評価では confidence `0.768627` で候補として残ります。
 
-ただし次は引き続き `novel` です。
+### 単発の空欄
 
-- 両方の列名が異なる
-- 本文開始位置が大きくずれる
-- 最初の本文行のcoverageが変わる
-- 本文evidence自体を観測できない
+3本文行のうち1行だけ同じ列が空欄でも、残る2行で埋まっていればmajority maskは変わりません。偶発的な空欄に過敏にならないためです。
 
-つまり「情報が少なくても何とか既知へ押し込む」のではなく、実際に共通する骨格がある場合だけ追加evidenceとして使います。
+### 継続するoccupancy差
 
-### 3列以上
+2列表で、2列目が3行中2行以上欠け、同時に列名も1件変わるケースでは、structure-onlyのconfidenceはローカル評価で `0.671930` となり `novel` を維持します。
 
-列名1件程度の揺れは、structure onlyでも既知候補として残せるケースがあります。header gap等の大きな構造差は `novel` を維持します。
+また、両列名が異なる別表は `0.597571` で `novel` のままです。
 
-## 10. テストを読む順番
+つまりv5は、共有evidenceを増やして何でも既知へ寄せるのではなく、**繰り返し観測できる配置傾向が一致するときだけ追加の支持材料にする**設計です。
+
+## 11. テストを読む順番
 
 初めて参画する場合は次の順を推奨します。
 
 1. `worksheetFormatFeatureAdapter.test.ts` — snapshotから基本featureがどう作られるか
 2. `worksheetFormatStructuralFeatures.test.ts` — 相対位置、gap、title/body skeleton
-3. `worksheetFormatHierarchy.test.ts` — 粗いfeatureと細かいfeatureをなぜ重ねるか
-4. `worksheetFormatPrototype.test.ts` — source profileとversion gate
-5. `worksheetFormatBoundaryEvaluation.test.ts` — 何を吸収し、どこで止まるか
-6. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
+3. `worksheetFormatBodyOccupancy.test.ts` — 複数本文行のoccupancyをどう粗くまとめるか
+4. `worksheetFormatHierarchy.test.ts` — 粗いfeatureと細かいfeatureをなぜ重ねるか
+5. `worksheetFormatPrototype.test.ts` — source profileとversion gate
+6. `worksheetFormatBoundaryEvaluation.test.ts` — 何を吸収し、どこで止まるか
+7. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
 
-## 11. 安全に変更するためのチェックリスト
+## 12. 安全に変更するためのチェックリスト
 
 - 変更はreader / adapter / profile / matcherのどの層かを明示したか
 - 別層の責務を持ち込んでいないか
 - 同じ入力から同じfeatureが得られるか
 - 絶対行列位置へ不必要に依存していないか
+- データ件数そのものをformat identityへ混入させていないか
 - prototypeとobservationが同じadapterを通るか
 - 観測できないevidenceを補完・推測していないか
 - `novel` / `ambiguous`を閾値緩和で安易に`matched`へしていないか
@@ -235,7 +295,7 @@ v4では、`structure only`でもtable skeletonが一致するため confidence 
 - 専門用語を通常の実装用語でも説明したか
 - GitHub Actionsが使えない場合、ローカルstrict compileと関連testを記録したか
 
-## 12. この層が行わないこと
+## 13. この層が行わないこと
 
 - Excelを書き換える
 - format definitionを書き換える
@@ -243,15 +303,17 @@ v4では、`structure only`でもtable skeletonが一致するため confidence 
 - 候補を自動採用してproduction処理を進める
 - LLMや外部APIへデータを送る
 - 実行ごとに学習して挙動を変える
+- セル値の業務上の意味を推論する
 
 この非責務が変わる場合は、実装Issueではなくアーキテクチャ変更として扱ってください。
 
-## 13. 次に改善する場合
+## 14. 次に改善する場合
 
-v4の次候補は、まず意味推論を伴わないstructure evidenceです。
+v5の次候補も、まず意味推論を伴わないstructure evidenceです。
 
-1. 複数本文行のoccupancy pattern
-2. merge配置の粗いshape
+1. merge配置の粗いshape
+2. title/header/body以外の明確な区切り構造
 3. それでも不足する場合のみ、値の粗い型パターン
+4. 十分なfixtureが揃った後にproduction接続可否を別ADR/Issueで検討
 
 値の型を扱う場合も、「書式の形」を補助する範囲に留め、決定論的format parserの責務と混同しないことが前提です。

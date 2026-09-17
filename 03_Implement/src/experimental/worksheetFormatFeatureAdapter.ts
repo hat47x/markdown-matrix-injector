@@ -25,6 +25,7 @@ export interface WorksheetFormatSnapshot {
 
 export interface WorksheetFormatFeatureOptions {
   maxHeaderScanRows?: number;
+  maxBodyOccupancyRows?: number;
 }
 
 export interface WorksheetFormatFeatureObservation {
@@ -44,15 +45,25 @@ interface TitleMergeEvidence {
   row: number;
 }
 
+interface BodyRowEvidence {
+  row: number;
+  cells: WorksheetFormatCell[];
+}
+
 const DEFAULT_MAX_HEADER_SCAN_ROWS = 20;
+const DEFAULT_MAX_BODY_OCCUPANCY_ROWS = 4;
 
 export function extractWorksheetFormatFeatures(
   snapshot: WorksheetFormatSnapshot,
   options: WorksheetFormatFeatureOptions = {},
 ): WorksheetFormatFeatureObservation {
   const maxHeaderScanRows = options.maxHeaderScanRows ?? DEFAULT_MAX_HEADER_SCAN_ROWS;
+  const maxBodyOccupancyRows = options.maxBodyOccupancyRows ?? DEFAULT_MAX_BODY_OCCUPANCY_ROWS;
   if (!Number.isInteger(maxHeaderScanRows) || maxHeaderScanRows <= 0) {
     throw new Error('maxHeaderScanRows must be a positive integer.');
+  }
+  if (!Number.isInteger(maxBodyOccupancyRows) || maxBodyOccupancyRows <= 0) {
+    throw new Error('maxBodyOccupancyRows must be a positive integer.');
   }
 
   const cells = validateAndCanonicalizeCells(snapshot.cells);
@@ -103,7 +114,8 @@ export function extractWorksheetFormatFeatures(
     features.push(headerColumns.length === span ? 'layout:header-contiguous' : 'layout:header-gapped');
   }
 
-  const firstBodyRow = selectFirstBodyRow(cells, header.row, headerStart, headerEnd);
+  const bodyRows = selectBodyRows(cells, header.row, headerStart, headerEnd);
+  const firstBodyRow = bodyRows[0];
   if (firstBodyRow) {
     features.push('body:present');
     features.push(`layout:first-body-gap:${firstBodyRow.row - header.row - 1}`);
@@ -115,6 +127,19 @@ export function extractWorksheetFormatFeatures(
         ? 'layout:first-body-coverage:full'
         : 'layout:first-body-coverage:partial',
     );
+
+    // Use a bounded sample of body rows to capture repeated column occupancy
+    // without turning the number of data rows into part of the format identity.
+    // A single observed row is still sufficient to produce the same mask as a
+    // multi-row sample when their column occupancy agrees.
+    const sampledBodyRows = bodyRows.slice(0, maxBodyOccupancyRows);
+    const majorityMask = headerColumns.map((column) => {
+      const occupiedCount = sampledBodyRows.filter((row) =>
+        row.cells.some((cell) => cell.column === column),
+      ).length;
+      return occupiedCount > sampledBodyRows.length / 2 ? '1' : '0';
+    }).join('');
+    features.push(`layout:body-majority-occupancy:${majorityMask}`);
   }
 
   return { features: normalizeFormatFeatures(features), headerRow: header.row, headerColumns };
@@ -194,12 +219,12 @@ function selectTitleMergeEvidence(
     .sort((left, right) => right.span - left.span || right.row - left.row)[0];
 }
 
-function selectFirstBodyRow(
+function selectBodyRows(
   cells: readonly WorksheetFormatCell[],
   headerRow: number,
   startColumn: number,
   endColumn: number,
-): { row: number; cells: WorksheetFormatCell[] } | undefined {
+): BodyRowEvidence[] {
   const byRow = new Map<number, WorksheetFormatCell[]>();
   for (const cell of cells) {
     if (
@@ -215,9 +240,12 @@ function selectFirstBodyRow(
     byRow.set(cell.row, row);
   }
 
-  const firstRow = [...byRow.keys()].sort((left, right) => left - right)[0];
-  if (firstRow === undefined) return undefined;
-  return { row: firstRow, cells: (byRow.get(firstRow) ?? []).sort((a, b) => a.column - b.column) };
+  return [...byRow.entries()]
+    .sort(([leftRow], [rightRow]) => leftRow - rightRow)
+    .map(([row, rowCells]) => ({
+      row,
+      cells: [...rowCells].sort((left, right) => left.column - right.column),
+    }));
 }
 
 function normalizedText(value: string | undefined): string {
