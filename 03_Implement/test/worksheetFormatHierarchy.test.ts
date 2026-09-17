@@ -39,10 +39,11 @@ test('adapter emits coarse and fine-grained hierarchical features together', () 
   assert.ok(observation.features.includes('column:値'));
   assert.ok(observation.features.includes('layout:2-columns'));
   assert.ok(observation.features.includes('body:present'));
+  assert.ok(observation.features.includes('layout:body-majority-occupancy:11'));
 });
 
-test('feature contract is versioned as worksheet-format-v4', () => {
-  assert.equal(WORKSHEET_FORMAT_FEATURE_VERSION, 'worksheet-format-v4');
+test('feature contract is versioned as worksheet-format-v5', () => {
+  assert.equal(WORKSHEET_FORMAT_FEATURE_VERSION, 'worksheet-format-v5');
 });
 
 test('two-column fill tone drift remains a candidate at the default threshold', () => {
@@ -127,7 +128,7 @@ test('near-tied viable two-column prototypes remain ambiguous', () => {
   assert.ok(Math.abs(first - second) < 0.05);
 });
 
-test('structure-only profile excludes fill features but keeps table skeleton evidence', () => {
+test('structure-only profile excludes fill features but keeps structural occupancy evidence', () => {
   const profile = { id: 'structure-only-v1', evidence: ['structure'] as const };
   const prototype = createWorksheetFormatPrototype(
     'settings',
@@ -141,4 +142,5 @@ test('structure-only profile excludes fill features but keeps table skeleton evi
   assert.ok(prototype.features.includes('region:table'));
   assert.ok(prototype.features.includes('body:present'));
   assert.ok(prototype.features.includes('layout:first-body-gap:0'));
+  assert.ok(prototype.features.includes('layout:body-majority-occupancy:11'));
 });
