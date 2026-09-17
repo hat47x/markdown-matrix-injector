@@ -40,8 +40,8 @@ function threeColumnSnapshot(
   };
 }
 
-test('feature contract is versioned as worksheet-format-v5', () => {
-  assert.equal(WORKSHEET_FORMAT_FEATURE_VERSION, 'worksheet-format-v5');
+test('feature contract is versioned as worksheet-format-v6', () => {
+  assert.equal(WORKSHEET_FORMAT_FEATURE_VERSION, 'worksheet-format-v6');
 });
 
 test('column-position features are relative to the table start', () => {
