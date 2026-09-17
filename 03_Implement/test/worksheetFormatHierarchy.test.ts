@@ -42,8 +42,8 @@ test('adapter emits coarse and fine-grained hierarchical features together', () 
   assert.ok(observation.features.includes('layout:body-majority-occupancy:11'));
 });
 
-test('feature contract is versioned as worksheet-format-v5', () => {
-  assert.equal(WORKSHEET_FORMAT_FEATURE_VERSION, 'worksheet-format-v5');
+test('feature contract is versioned as worksheet-format-v6', () => {
+  assert.equal(WORKSHEET_FORMAT_FEATURE_VERSION, 'worksheet-format-v6');
 });
 
 test('two-column fill tone drift remains a candidate at the default threshold', () => {
