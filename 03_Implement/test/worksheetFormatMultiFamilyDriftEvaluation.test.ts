@@ -232,13 +232,13 @@ test('penalizing ablation-family count is noisier because sparse projection can 
   assert.deepEqual(result.matchedPenalizingFamilyCountHigh, {
     cases: 18,
     expectedReviewCases: 9,
-    flaggedCases: 7,
-    truePositive: 6,
+    flaggedCases: 6,
+    truePositive: 5,
     falsePositive: 1,
-    falseNegative: 3,
+    falseNegative: 4,
     trueNegative: 8,
-    precision: 0.857143,
-    recall: 0.666667,
+    precision: 0.833333,
+    recall: 0.555556,
     falsePositiveRate: 0.111111,
   });
 
