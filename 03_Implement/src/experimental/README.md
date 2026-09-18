@@ -335,7 +335,10 @@ merge shapeは分類を単独支配するfeatureではなく、他の構造証�
 9. `worksheetFormatScoringStrategyComparison.test.ts` — scoring候補をproduction変更なしでどう比較するか
 10. `worksheetFormatBalanceWarningEvaluation.test.ts` — warningのprecision / recallと役割差をどう評価するか
 11. `worksheetFormatMultiFamilyDriftEvaluation.test.ts` — held-out fixtureでmulti-family drift signalをどう比較するか
-12. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
+12. `xlsxFormatSnapshotReader.test.ts` — reader option / error handlingをfake readerでどう固定するか
+13. `sheetJsWorksheetFormatBridge.test.ts` — SheetJS worksheet objectからsnapshotへの変換規則
+14. `xlsxFormatSnapshotRealRuntime.test.ts` — 実XLSX bytesをSheetJS 0.20.3へ通したruntime境界
+15. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
 
 ## 13. 安全に変更するためのチェックリスト
 
@@ -388,19 +391,32 @@ issue-0129では、issue-0128とは独立した5 / 7 / 9列のheld-out fixture�
 - penalizing ablation-family countは疎signatureの再構成に影響され、review detectorとしてはraw family differenceより不安定
 - boundary + deviation + different-family countは18ケースでは全review対象を拾ったが、fixture数が少なくsyntheticなためproduction ruleにはしない
 
-次に進む場合は、**feature文字列を直接組むfixtureから、adapterを通したWorksheetFormatSnapshot fixtureへ移す**段階です。
+issue-0130ではadapterを通すsnapshot-level fixtureへ進み、issue-0131ではさらにSheetJS CE 0.20.3自身が生成した**実XLSX bytes**をreaderへ戻すruntime boundary testを追加しました。
+
+現在確認対象として固定している境界:
+
+- merge rangeは `!merges` からsnapshotへ保持する
+- mergeに覆われた従属cellをbridge側でinventしない
+- blank positionを通常cellとしてinventしない
+- metadata preambleでheader identityを変えない
+- titleなし表へtitle evidenceを補わない
+- gapped headerの物理gapをrelative structureとして残す
+- 実XLSX snapshotからprototype / matcherへ進んでもmulti-family drift identityを保持する
+- fillはCE writer capabilityとinput reader contractを混同せず、runtime-generated fixtureでは強い保証へ昇格させない
+
+次に進む場合は、**SheetJS自身ではなくExcel / LibreOffice等の外部アプリが生成したsmall XLSX fixture**でstyle evidenceを確認する段階です。
 
 優先項目:
 
-1. title / header gap
-2. first body gap
-3. partial body coverage
-4. majority occupancy
-5. recurring merge
-6. fill有無
-7. multiple prototypes
-8. structure-only / structure+fillの対応ケース
+1. explicit RGB fill
+2. theme fill
+3. merged subordinate cells
+4. intentionally blank cells
+5. titleなし
+6. metadata preamble
+7. gapped header
+8. source-profile filtering後のmatcher結果
 
-詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、issue-0128、issue-0129 を参照してください。
+詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、issue-0128〜0131 を参照してください。
 
-十分なsnapshot-level fixtureと安全境界が揃うまでは、warningやreview signalを自動accept / reject条件へ昇格させず、production接続可否も別ADR/Issueで判断します。
+十分な外部生成fixtureと安全境界が揃うまでは、warningやreview signalを自動accept / reject条件へ昇格させず、production接続可否も別ADR/Issueで判断します。
