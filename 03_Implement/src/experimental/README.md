@@ -334,7 +334,8 @@ merge shapeは分類を単独支配するfeatureではなく、他の構造証�
 8. `worksheetFormatFeatureFamilyEvaluation.test.ts` — feature familyの件数偏りをどう測るか
 9. `worksheetFormatScoringStrategyComparison.test.ts` — scoring候補をproduction変更なしでどう比較するか
 10. `worksheetFormatBalanceWarningEvaluation.test.ts` — warningのprecision / recallと役割差をどう評価するか
-11. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
+11. `worksheetFormatMultiFamilyDriftEvaluation.test.ts` — held-out fixtureでmulti-family drift signalをどう比較するか
+12. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
 
 ## 13. 安全に変更するためのチェックリスト
 
@@ -378,16 +379,28 @@ v3〜v6で主要なstructure evidenceを追加した後、issue-0126〜0128で�
 - composition warningは個別workbook判定ではなくdesign telemetryとして読む
 - warningなしでも、label + occupancyのようなmulti-family driftを取り逃す場合がある
 
-次に進む場合は、今回の16ケースへthresholdを合わせ込まず、**独立したheld-out fixture**でmulti-family drift signalを評価します。
+issue-0129では、issue-0128とは独立した5 / 7 / 9列のheld-out fixtureでmulti-family drift signalを比較しました。
 
-優先候補:
+分かったこと:
 
-1. matched candidateのDeviationScore帯
-2. penalty方向へ働くfamily ablationの数
-3. observation / prototype間で差異を持つfamily数
-4. boundary warningとの組み合わせ
-5. structure-only / structure+fill双方での再現性
+- boundary warningは引き続き高precision / low recall
+- matched DeviationScoreとraw different-family countはそれぞれ異なる種類のdriftを補完的に拾う
+- penalizing ablation-family countは疎signatureの再構成に影響され、review detectorとしてはraw family differenceより不安定
+- boundary + deviation + different-family countは18ケースでは全review対象を拾ったが、fixture数が少なくsyntheticなためproduction ruleにはしない
 
-詳細は `balance-warning-evaluation.md` と issue-0128 を参照してください。
+次に進む場合は、**feature文字列を直接組むfixtureから、adapterを通したWorksheetFormatSnapshot fixtureへ移す**段階です。
 
-十分なfixture母集団と安全境界が揃うまでは、warningを自動accept / reject条件へ昇格させず、production接続可否も別ADR/Issueで判断します。
+優先項目:
+
+1. title / header gap
+2. first body gap
+3. partial body coverage
+4. majority occupancy
+5. recurring merge
+6. fill有無
+7. multiple prototypes
+8. structure-only / structure+fillの対応ケース
+
+詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、issue-0128、issue-0129 を参照してください。
+
+十分なsnapshot-level fixtureと安全境界が揃うまでは、warningやreview signalを自動accept / reject条件へ昇格させず、production接続可否も別ADR/Issueで判断します。
