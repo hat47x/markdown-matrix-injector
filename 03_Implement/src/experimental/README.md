@@ -253,6 +253,10 @@ border:    no
 
 body occupancyとmerge shapeはセル位置・merge rangeだけから得られるため、`structure` evidenceとして扱います。
 
+`fill: yes` は「Excelのあらゆる色指定を必ず解決できる」という意味ではありません。issue-0132ではLibreOfficeが最終保存したXLSX fixtureを使い、direct RGB solid fill（`FF202020` / `FF404040`）が既存reader・bridgeを通って `header:fill-present` / `header:dark-fill` となり、このsource profileの比較evidenceへ残ることを契約テスト化しました。
+
+一方、theme indexだけで指定された色はまだ同じ保証へ含めません。RGBへ直接解決できないstyleはbridge側で保守的に `other` とし、adapterはmeaningful fill evidenceへ採用しません。theme解決は別fixtureで必要性を確認してから設計します。
+
 adapterが値を受け取れることと、実入力経路がその値を安定して供給することは別です。後者を確認できない情報は比較契約へ入れません。
 
 ## 9. Feature contract version
@@ -337,8 +341,10 @@ merge shapeは分類を単独支配するfeatureではなく、他の構造証�
 11. `worksheetFormatMultiFamilyDriftEvaluation.test.ts` — held-out fixtureでmulti-family drift signalをどう比較するか
 12. `xlsxFormatSnapshotReader.test.ts` — reader option / error handlingをfake readerでどう固定するか
 13. `sheetJsWorksheetFormatBridge.test.ts` — SheetJS worksheet objectからsnapshotへの変換規則
-14. `xlsxFormatSnapshotRealRuntime.test.ts` — 実XLSX bytesをSheetJS 0.20.3へ通したruntime境界
-15. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
+14. `xlsxFormatSnapshotRealRuntime.test.ts` — SheetJS自身が生成した実XLSX bytesを通すruntime境界
+15. `xlsxFormatSnapshotLibreOfficeFixture.test.ts` — LibreOffice最終保存XLSXでdirect RGB fillと構造境界を確認
+16. `test/fixtures/README.md` — 外部生成fixtureのprovenanceとSHA-256
+17. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
 
 ## 13. 安全に変更するためのチェックリスト
 
@@ -391,7 +397,7 @@ issue-0129では、issue-0128とは独立した5 / 7 / 9列のheld-out fixture�
 - penalizing ablation-family countは疎signatureの再構成に影響され、review detectorとしてはraw family differenceより不安定
 - boundary + deviation + different-family countは18ケースでは全review対象を拾ったが、fixture数が少なくsyntheticなためproduction ruleにはしない
 
-issue-0130ではadapterを通すsnapshot-level fixtureへ進み、issue-0131ではさらにSheetJS CE 0.20.3自身が生成した**実XLSX bytes**をreaderへ戻すruntime boundary testを追加しました。
+issue-0130ではadapterを通すsnapshot-level fixtureへ進み、issue-0131ではSheetJS CE 0.20.3自身が生成した実XLSX bytesをreaderへ戻すruntime boundary testを追加しました。issue-0132ではさらに、**LibreOffice Calcが最終保存した外部生成XLSX**をbase64 fixtureとして固定し、direct RGB fillをsource-profile evidenceとして読める境界を追加しました。
 
 現在確認対象として固定している境界:
 
@@ -402,21 +408,19 @@ issue-0130ではadapterを通すsnapshot-level fixtureへ進み、issue-0131で�
 - titleなし表へtitle evidenceを補わない
 - gapped headerの物理gapをrelative structureとして残す
 - 実XLSX snapshotからprototype / matcherへ進んでもmulti-family drift identityを保持する
-- fillはCE writer capabilityとinput reader contractを混同せず、runtime-generated fixtureでは強い保証へ昇格させない
+- LibreOffice最終保存のdirect RGB solid fillは `header:fill-present` / `header:dark-fill` として比較evidenceへ残す
+- theme-only colorはまだ同じ保証へ含めず、RGBへ解決できない場合は保守的に意味あるfill evidenceから外す
 
-次に進む場合は、**SheetJS自身ではなくExcel / LibreOffice等の外部アプリが生成したsmall XLSX fixture**でstyle evidenceを確認する段階です。
+次に進む場合は、**theme-indexed fillを外部生成fixtureで評価する段階**です。
 
 優先項目:
 
-1. explicit RGB fill
-2. theme fill
-3. merged subordinate cells
-4. intentionally blank cells
-5. titleなし
-6. metadata preamble
-7. gapped header
-8. source-profile filtering後のmatcher結果
+1. theme index / tintがSheetJS CE 0.20.3の `.s` へどう残るか
+2. current bridgeが実runtimeでも `other` とするか
+3. workbook theme XMLからRGBへ解決する必要性
+4. theme解決を追加した場合のsource-profile / feature-version影響
+5. 実務fixtureにおけるtheme-only fillの頻度
 
-詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、issue-0128〜0131 を参照してください。
+詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`test/fixtures/README.md`、issue-0128〜0132 を参照してください。
 
 十分な外部生成fixtureと安全境界が揃うまでは、warningやreview signalを自動accept / reject条件へ昇格させず、production接続可否も別ADR/Issueで判断します。
