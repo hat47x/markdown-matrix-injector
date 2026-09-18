@@ -184,7 +184,7 @@ test('runtime-generated XLSX does not strengthen the fill contract beyond what t
   ]);
   worksheet['!merges'] = [XLSX.utils.decode_range('A1:B1')];
 
-  const headerCell = worksheet.A2;
+  const headerCell = worksheet.A2 as ({ s?: unknown } | undefined);
   if (headerCell) {
     headerCell.s = {
       fill: {
@@ -192,7 +192,7 @@ test('runtime-generated XLSX does not strengthen the fill contract beyond what t
         fgColor: { rgb: 'FF202020' },
         bgColor: { rgb: 'FF202020' },
       },
-    } as unknown as typeof headerCell.s;
+    };
   }
 
   const snapshot = parseRealWorkbook(worksheet);
