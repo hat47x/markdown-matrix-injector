@@ -331,7 +331,10 @@ merge shapeは分類を単独支配するfeatureではなく、他の構造証�
 5. `worksheetFormatHierarchy.test.ts` — 粗いfeatureと細かいfeatureをなぜ重ねるか
 6. `worksheetFormatPrototype.test.ts` — source profileとversion gate
 7. `worksheetFormatBoundaryEvaluation.test.ts` — 何を吸収し、どこで止まるか
-8. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
+8. `worksheetFormatFeatureFamilyEvaluation.test.ts` — feature familyの件数偏りをどう測るか
+9. `worksheetFormatScoringStrategyComparison.test.ts` — scoring候補をproduction変更なしでどう比較するか
+10. `worksheetFormatBalanceWarningEvaluation.test.ts` — warningのprecision / recallと役割差をどう評価するか
+11. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
 
 ## 13. 安全に変更するためのチェックリスト
 
@@ -365,12 +368,26 @@ merge shapeは分類を単独支配するfeatureではなく、他の構造証�
 
 ## 15. 次に改善する場合
 
-v3〜v6で、意味推論を伴わず観測できる主要なstructure evidenceはかなり揃ってきました。次はfeature種類を増やし続ける前に、既存feature群の相対的な効き方を評価する段階です。
+v3〜v6で主要なstructure evidenceを追加した後、issue-0126〜0128では「featureを増やす」より先に、既存evidenceとwarningの効き方を測っています。
 
-1. 実務fixtureを増やし、semantic labels / relative positions / skeleton / occupancy / merge shape / fill の各familyがconfidenceへ与える寄与を測る
-2. 特定familyのfeature数が多いだけで実質的に過重になるケースがあるか確認する
-3. 偏りが観測された場合のみ、family weightingや階層比較を独立Issueとして設計する
-4. それでも識別材料が不足する場合のみ、値の粗い型パターンを検討する
-5. 十分なfixtureと安全境界が揃った後にproduction接続可否を別ADR/Issueで判断する
+現在分かっていること:
 
-featureを追加すること自体を目的化せず、既存evidenceがどのように判断へ寄与しているか説明できる状態を維持することを優先します。
+- family cardinalityには表幅依存がある
+- family-normalized / column-family-capped scoringは既存のfail-closed境界を後退させるため採用しない
+- boundary warningは高precisionだがlow recall
+- composition warningは個別workbook判定ではなくdesign telemetryとして読む
+- warningなしでも、label + occupancyのようなmulti-family driftを取り逃す場合がある
+
+次に進む場合は、今回の16ケースへthresholdを合わせ込まず、**独立したheld-out fixture**でmulti-family drift signalを評価します。
+
+優先候補:
+
+1. matched candidateのDeviationScore帯
+2. penalty方向へ働くfamily ablationの数
+3. observation / prototype間で差異を持つfamily数
+4. boundary warningとの組み合わせ
+5. structure-only / structure+fill双方での再現性
+
+詳細は `balance-warning-evaluation.md` と issue-0128 を参照してください。
+
+十分なfixture母集団と安全境界が揃うまでは、warningを自動accept / reject条件へ昇格させず、production接続可否も別ADR/Issueで判断します。
