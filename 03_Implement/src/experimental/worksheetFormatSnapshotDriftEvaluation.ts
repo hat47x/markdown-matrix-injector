@@ -100,8 +100,8 @@ export function evaluateWorksheetFormatSnapshotDriftSignals(
       expectedReview: entry.expectedReview,
       observationFeatures: snapshotMatch.comparedFeatures,
       prototypes,
-      matchOptions: entry.matchOptions,
-      gateOptions: entry.gateOptions,
+      ...(entry.matchOptions ? { matchOptions: entry.matchOptions } : {}),
+      ...(entry.gateOptions ? { gateOptions: entry.gateOptions } : {}),
     });
   }
 
