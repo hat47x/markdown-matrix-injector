@@ -13,6 +13,19 @@ import {
   extractWorksheetFormatFeatures,
   type WorksheetFormatSnapshot,
 } from '../src/experimental/worksheetFormatFeatureAdapter.js';
+import {
+  createWorksheetFormatPrototype,
+  matchWorksheetFormatSnapshot,
+  type WorksheetFormatSourceProfile,
+} from '../src/experimental/worksheetFormatPrototype.js';
+import {
+  countWorksheetFormatDifferentFamilies,
+} from '../src/experimental/worksheetFormatMultiFamilyDriftEvaluation.js';
+
+const REAL_RUNTIME_STRUCTURE_ONLY_PROFILE: WorksheetFormatSourceProfile = {
+  id: 'real-xlsx-structure-only-v1',
+  evidence: ['structure'],
+};
 
 function workbookBytes(
   worksheets: readonly { name: string; worksheet: ReturnType<typeof XLSX.utils.aoa_to_sheet> }[],
@@ -190,5 +203,51 @@ test('runtime-generated XLSX does not strengthen the fill contract beyond what t
   assert.ok(
     fillTone === undefined || fillTone === 'dark',
     `unexpected runtime fill classification: ${String(fillTone)}`,
+  );
+});
+
+
+test('real XLSX snapshots preserve multi-family drift through prototype and matcher boundaries', () => {
+  const baselineWorksheet = XLSX.utils.aoa_to_sheet([
+    ['Baseline', undefined, undefined, undefined, undefined, undefined, undefined],
+    ['ID', 'Item', 'Type', 'Required', 'Decision', 'Reviewer', 'Note'],
+    ['1', 'alpha', 'string', 'yes', 'ready', 'A', 'memo'],
+    ['2', 'beta', 'string', 'no', 'ready', 'B', 'memo'],
+    ['3', 'gamma', 'number', 'yes', 'ready', 'C', 'memo'],
+  ]);
+  baselineWorksheet['!merges'] = [XLSX.utils.decode_range('A1:G1')];
+
+  const observationWorksheet = XLSX.utils.aoa_to_sheet([
+    ['Baseline', undefined, undefined, undefined, undefined, undefined, undefined],
+    ['ID', 'Item', 'Type', 'Required', 'State', 'Reviewer', 'Note'],
+    [undefined, undefined, undefined, undefined, undefined, undefined, undefined],
+    ['1', 'alpha', 'string', 'yes', 'ready', 'A', 'memo'],
+    ['2', 'beta', 'string', 'no', 'ready', 'B', 'memo'],
+    ['3', 'gamma', 'number', 'yes', 'ready', 'C', 'memo'],
+  ]);
+  observationWorksheet['!merges'] = [XLSX.utils.decode_range('A1:G1')];
+
+  const baselineSnapshot = parseRealWorkbook(baselineWorksheet);
+  const observationSnapshot = parseRealWorkbook(observationWorksheet);
+  const prototype = createWorksheetFormatPrototype(
+    'baseline',
+    baselineSnapshot,
+    REAL_RUNTIME_STRUCTURE_ONLY_PROFILE,
+  );
+  const result = matchWorksheetFormatSnapshot(
+    observationSnapshot,
+    [prototype],
+    REAL_RUNTIME_STRUCTURE_ONLY_PROFILE,
+  );
+
+  assert.equal(result.match.status, 'matched');
+  assert.equal(result.match.winner?.prototypeId, 'baseline');
+  assert.ok(result.comparedFeatures.includes('layout:first-body-gap:1'));
+  assert.equal(
+    countWorksheetFormatDifferentFamilies(
+      result.comparedFeatures,
+      prototype.features,
+    ),
+    3,
   );
 });
