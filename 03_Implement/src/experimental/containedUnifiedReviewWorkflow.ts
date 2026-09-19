@@ -11,12 +11,18 @@ import {
   createContainedCognitiveObservation,
   type ContainedCognitiveObservationInput,
 } from './cognitiveSourceObservation.js';
-import type {
-  CognitiveObservation,
+import {
+  assertCognitiveObservation,
+  type CognitiveObservation,
 } from './cognitiveContract.js';
 import type {
   ClosedChoiceJudgmentOutcome,
+  ClosedChoiceQuestion,
 } from './closedChoiceJudgment.js';
+import {
+  runClosedChoiceJudgmentProvider,
+  type ClosedChoiceJudgmentProvider,
+} from './closedChoiceJudgmentProvider.js';
 import {
   prepareExecutableProposalDeterministicReviewWithDefaultLoader,
   prepareExecutableProposalDeterministicReviewWithLoader,
@@ -41,16 +47,21 @@ import {
   WORKSHEET_FORMAT_FEATURE_VERSION,
 } from './worksheetFormatPrototype.js';
 
+export const WORKSHEET_FORMAT_REVIEW_ROUTE_OBSERVATION_SCHEMA_VERSION =
+  'worksheet-format-review-route-v1' as const;
+
 export type ContainedUnifiedReviewSnapshotReader = (
   absolutePath: string,
   sheetName?: string,
 ) => XlsxFormatSnapshotResult;
 
+export interface WorksheetFormatSourceObservationPayload {
+  kind: 'worksheet-format';
+  sheetName: string;
+}
+
 export interface ContainedUnifiedReviewJudgmentContext {
-  observation: CognitiveObservation<{
-    kind: 'worksheet-format';
-    sheetName: string;
-  }>;
+  observation: CognitiveObservation<WorksheetFormatSourceObservationPayload>;
   perception: FlyWorksheetFormatPerceptionOutcome;
 }
 
@@ -76,6 +87,32 @@ export interface ContainedUnifiedReviewInput<
   judgmentFactory?: ContainedUnifiedReviewJudgmentFactory<TChoice>;
 }
 
+export interface WorksheetFormatReviewRoutePayload {
+  kind: 'worksheet-format-review-route';
+  sheetName: string;
+  classification: 'matched' | 'ambiguous' | 'novel';
+  candidateIds: readonly string[];
+  winnerPrototypeId?: string;
+  noveltyScore: number;
+}
+
+export type ContainedUnifiedReviewProviderInput<
+  TChoice extends string = string,
+> = Omit<
+  ContainedUnifiedReviewInput<TChoice>,
+  'judgmentFactory'
+> & {
+  judgmentProvider: ClosedChoiceJudgmentProvider<TChoice>;
+  judgmentQuestion: ClosedChoiceQuestion<TChoice>;
+  allowExternalJudgment?: boolean;
+};
+
+interface PreparedContainedPerception {
+  observation: CognitiveObservation<WorksheetFormatSourceObservationPayload>;
+  perception: FlyWorksheetFormatPerceptionOutcome;
+  snapshot: XlsxFormatSnapshotResult['snapshot'];
+}
+
 interface PreparedContainedReview<TChoice extends string> {
   envelope: ReturnType<typeof createCognitiveReviewEnvelope<TChoice>>;
   snapshot: XlsxFormatSnapshotResult['snapshot'];
@@ -91,22 +128,11 @@ export function prepareContainedUnifiedReviewWithReaderAndLoader<
   const prepared = prepareContainedReview(input, snapshotReader);
 
   return prepareExecutableProposalDeterministicReviewWithLoader(
-    {
-      envelope: prepared.envelope,
-      rawNotation: input.rawNotation,
-      markdownFilePath: input.markdownFilePath,
-      ...(input.workspaceRoot === undefined
-        ? {}
-        : { workspaceRoot: input.workspaceRoot }),
-      issuer: { ...input.issuer },
-      ...(input.uriScheme === undefined
-        ? {}
-        : { uriScheme: input.uriScheme }),
-      deterministicReview: {
-        observationSnapshot: prepared.snapshot,
-        approvedProfiles: input.approvedProfiles,
-      },
-    },
+    toDeterministicWorkflowInput(
+      input,
+      prepared.envelope,
+      prepared.snapshot,
+    ),
     workbookLoader,
   );
 }
@@ -129,28 +155,199 @@ export async function prepareContainedUnifiedReviewWithDefaultReaders<
       }),
   );
 
-  return prepareExecutableProposalDeterministicReviewWithDefaultLoader({
-    envelope: prepared.envelope,
-    rawNotation: input.rawNotation,
-    markdownFilePath: input.markdownFilePath,
-    ...(input.workspaceRoot === undefined
-      ? {}
-      : { workspaceRoot: input.workspaceRoot }),
-    issuer: { ...input.issuer },
-    ...(input.uriScheme === undefined
-      ? {}
-      : { uriScheme: input.uriScheme }),
-    deterministicReview: {
-      observationSnapshot: prepared.snapshot,
-      approvedProfiles: input.approvedProfiles,
+  return prepareExecutableProposalDeterministicReviewWithDefaultLoader(
+    toDeterministicWorkflowInput(
+      input,
+      prepared.envelope,
+      prepared.snapshot,
+    ),
+  );
+}
+
+export async function prepareContainedUnifiedReviewWithProviderReaderAndLoader<
+  TChoice extends string,
+>(
+  input: ContainedUnifiedReviewProviderInput<TChoice>,
+  snapshotReader: ContainedUnifiedReviewSnapshotReader,
+  workbookLoader: AuthorityWorkbookLoader,
+): Promise<UnifiedHumanReviewViewModelV1<TChoice>> {
+  const prepared = prepareContainedPerception(
+    input,
+    snapshotReader,
+  );
+  const judgmentObservation =
+    createWorksheetFormatReviewRouteObservation(
+      prepared.observation,
+      prepared.perception,
+    );
+
+  const judgment = await runClosedChoiceJudgmentProvider(
+    input.judgmentProvider,
+    judgmentObservation,
+    input.judgmentQuestion,
+    {
+      ...(input.allowExternalJudgment === undefined
+        ? {}
+        : { allowExternal: input.allowExternalJudgment }),
     },
-  });
+  );
+
+  const envelope = createEnvelope(
+    prepared,
+    input.approvedProfiles,
+    judgment,
+  );
+
+  return prepareExecutableProposalDeterministicReviewWithLoader(
+    toDeterministicWorkflowInput(
+      input,
+      envelope,
+      prepared.snapshot,
+    ),
+    workbookLoader,
+  );
+}
+
+export async function prepareContainedUnifiedReviewWithProviderAndDefaultReaders<
+  TChoice extends string,
+>(
+  input: ContainedUnifiedReviewProviderInput<TChoice>,
+): Promise<UnifiedHumanReviewViewModelV1<TChoice>> {
+  const { readXlsxFormatSnapshot } = await import(
+    './xlsxFormatSnapshotReader.js'
+  );
+
+  const prepared = prepareContainedPerception(
+    input,
+    (absolutePath, sheetName) =>
+      readXlsxFormatSnapshot({
+        absolutePath,
+        ...(sheetName === undefined ? {} : { sheetName }),
+      }),
+  );
+  const judgmentObservation =
+    createWorksheetFormatReviewRouteObservation(
+      prepared.observation,
+      prepared.perception,
+    );
+
+  const judgment = await runClosedChoiceJudgmentProvider(
+    input.judgmentProvider,
+    judgmentObservation,
+    input.judgmentQuestion,
+    {
+      ...(input.allowExternalJudgment === undefined
+        ? {}
+        : { allowExternal: input.allowExternalJudgment }),
+    },
+  );
+
+  const envelope = createEnvelope(
+    prepared,
+    input.approvedProfiles,
+    judgment,
+  );
+
+  return prepareExecutableProposalDeterministicReviewWithDefaultLoader(
+    toDeterministicWorkflowInput(
+      input,
+      envelope,
+      prepared.snapshot,
+    ),
+  );
+}
+
+export function createWorksheetFormatReviewRouteObservation(
+  observation: CognitiveObservation<WorksheetFormatSourceObservationPayload>,
+  perception: FlyWorksheetFormatPerceptionOutcome,
+): CognitiveObservation<WorksheetFormatReviewRoutePayload> {
+  const payload = perception.signal.payload;
+
+  const derived: CognitiveObservation<WorksheetFormatReviewRoutePayload> = {
+    id: `${observation.id}:review-route`,
+    kind: 'worksheet-format-review-route',
+    schemaVersion:
+      WORKSHEET_FORMAT_REVIEW_ROUTE_OBSERVATION_SCHEMA_VERSION,
+    payload: {
+      kind: 'worksheet-format-review-route',
+      sheetName: observation.payload.sheetName,
+      classification: payload.classification,
+      candidateIds: payload.candidates.map(
+        (candidate) => candidate.prototypeId,
+      ),
+      ...(payload.winnerPrototypeId === undefined
+        ? {}
+        : { winnerPrototypeId: payload.winnerPrototypeId }),
+      noveltyScore: payload.noveltyScore,
+    },
+    provenance: {
+      sourceKind: observation.provenance.sourceKind,
+      sourceDigest: observation.provenance.sourceDigest,
+      ...(observation.provenance.featureVersion === undefined
+        ? {}
+        : {
+            featureVersion:
+              observation.provenance.featureVersion,
+          }),
+      ...(observation.provenance.sourceProfileId === undefined
+        ? {}
+        : {
+            sourceProfileId:
+              observation.provenance.sourceProfileId,
+          }),
+    },
+  };
+
+  assertCognitiveObservation(derived);
+  if (
+    derived.provenance.sourceDigest !==
+    perception.observation.sourceDigest
+  ) {
+    throw new Error(
+      'Review-route Observation source digest does not match Perception.',
+    );
+  }
+
+  return derived;
 }
 
 function prepareContainedReview<TChoice extends string>(
   input: ContainedUnifiedReviewInput<TChoice>,
   snapshotReader: ContainedUnifiedReviewSnapshotReader,
 ): PreparedContainedReview<TChoice> {
+  const prepared = prepareContainedPerception(
+    input,
+    snapshotReader,
+  );
+
+  const judgment = input.judgmentFactory?.({
+    observation: prepared.observation,
+    perception: prepared.perception,
+  });
+
+  return {
+    envelope: createEnvelope(
+      prepared,
+      input.approvedProfiles,
+      judgment,
+    ),
+    snapshot: prepared.snapshot,
+  };
+}
+
+function prepareContainedPerception(
+  input: Pick<
+    ContainedUnifiedReviewInput,
+    | 'observationId'
+    | 'sourceKind'
+    | 'markdownFilePath'
+    | 'sourcePath'
+    | 'workspaceRoot'
+    | 'sheetName'
+    | 'approvedProfiles'
+  >,
+  snapshotReader: ContainedUnifiedReviewSnapshotReader,
+): PreparedContainedPerception {
   const prototypes = input.approvedProfiles.map((profile) =>
     formatProfileToWorksheetPrototype(
       profile,
@@ -176,14 +373,14 @@ function prepareContainedReview<TChoice extends string>(
 
   const observed = createContainedCognitiveObservation(
     observationInput,
-    (resolvedPath) => {
+    (resolvedPath): WorksheetFormatSourceObservationPayload => {
       snapshotResult = snapshotReader(
         resolvedPath,
         input.sheetName,
       );
       assertSnapshotResult(snapshotResult);
       return {
-        kind: 'worksheet-format' as const,
+        kind: 'worksheet-format',
         sheetName: snapshotResult.sheetName,
       };
     },
@@ -205,21 +402,54 @@ function prepareContainedReview<TChoice extends string>(
     match,
   );
 
-  const judgment = input.judgmentFactory?.({
+  return {
     observation: observed.observation,
     perception,
-  });
+    snapshot: snapshotResult.snapshot,
+  };
+}
 
-  const envelope = createCognitiveReviewEnvelope({
-    perception,
-    approvedProfiles: input.approvedProfiles,
+function createEnvelope<TChoice extends string>(
+  prepared: PreparedContainedPerception,
+  approvedProfiles: readonly FormatProfileV1[],
+  judgment?: ClosedChoiceJudgmentOutcome<TChoice>,
+): ReturnType<typeof createCognitiveReviewEnvelope<TChoice>> {
+  return createCognitiveReviewEnvelope({
+    perception: prepared.perception,
+    approvedProfiles,
     sourceProfile: SHEETJS_CE_XLSX_0203_SOURCE_PROFILE,
     ...(judgment === undefined ? {} : { judgment }),
   });
+}
 
+function toDeterministicWorkflowInput<TChoice extends string>(
+  input: Pick<
+    ContainedUnifiedReviewInput<TChoice>,
+    | 'rawNotation'
+    | 'markdownFilePath'
+    | 'workspaceRoot'
+    | 'issuer'
+    | 'uriScheme'
+    | 'approvedProfiles'
+  >,
+  envelope: ReturnType<typeof createCognitiveReviewEnvelope<TChoice>>,
+  snapshot: XlsxFormatSnapshotResult['snapshot'],
+) {
   return {
     envelope,
-    snapshot: snapshotResult.snapshot,
+    rawNotation: input.rawNotation,
+    markdownFilePath: input.markdownFilePath,
+    ...(input.workspaceRoot === undefined
+      ? {}
+      : { workspaceRoot: input.workspaceRoot }),
+    issuer: { ...input.issuer },
+    ...(input.uriScheme === undefined
+      ? {}
+      : { uriScheme: input.uriScheme }),
+    deterministicReview: {
+      observationSnapshot: snapshot,
+      approvedProfiles: input.approvedProfiles,
+    },
   };
 }
 
@@ -268,3 +498,17 @@ type _NoSourceProfile =
     : true;
 const _noSourceProfile: _NoSourceProfile = true;
 void _noSourceProfile;
+
+type _NoProviderSnapshotInjection =
+  'observationSnapshot' extends keyof ContainedUnifiedReviewProviderInput
+    ? never
+    : true;
+const _noProviderSnapshotInjection: _NoProviderSnapshotInjection = true;
+void _noProviderSnapshotInjection;
+
+type _NoProviderFactoryInjection =
+  'judgmentFactory' extends keyof ContainedUnifiedReviewProviderInput
+    ? never
+    : true;
+const _noProviderFactoryInjection: _NoProviderFactoryInjection = true;
+void _noProviderFactoryInjection;
