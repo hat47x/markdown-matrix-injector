@@ -413,6 +413,11 @@ test('does not mutate caller inputs and final serialization excludes transient d
   assert.equal(serialized.includes(f.sourcePath), false);
   assert.equal(serialized.includes('"cells"'), false);
   assert.equal(serialized.includes('"features"'), false);
+  assert.equal(serialized.includes('observationIdentity'), false);
+  assert.equal(
+    serialized.includes('worksheet-format-observation-identity'),
+    false,
+  );
   assert.equal(serialized.includes('"sheets"'), false);
   assert.equal(serialized.includes('expectedReview'), false);
   assert.equal(serialized.includes('overallScore'), false);

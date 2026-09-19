@@ -392,7 +392,7 @@ test('rejects an approved Profile whose provenance no longer matches the Envelop
   assert.equal(loaderCalls, 0);
 });
 
-test('rejects an observation whose Profile-backed matcher result does not match Perception before loader invocation', () => {
+test('rejects an observation whose derived format identity does not match Perception before loader invocation', () => {
   const f = fixture();
   let loaderCalls = 0;
 
@@ -410,7 +410,46 @@ test('rejects an observation whose Profile-backed matcher result does not match 
         return f.workbook;
       },
     ),
-    /does not match Perception/,
+    /observation identity does not match/,
+  );
+  assert.equal(loaderCalls, 0);
+});
+
+test('rejects a tampered Perception observation identity before loader invocation', () => {
+  const f = fixture();
+  let loaderCalls = 0;
+  const currentIdentity =
+    f.envelope.perception.signal.payload.observationIdentity;
+
+  const tamperedEnvelope = {
+    ...f.envelope,
+    perception: {
+      ...f.envelope.perception,
+      signal: {
+        ...f.envelope.perception.signal,
+        payload: {
+          ...f.envelope.perception.signal.payload,
+          observationIdentity: {
+            ...currentIdentity,
+            digest: `sha256:${'0'.repeat(64)}`,
+          },
+        },
+      },
+    },
+  };
+
+  assert.throws(
+    () => prepareExecutableProposalDeterministicReviewWithLoader(
+      {
+        ...f.input,
+        envelope: tamperedEnvelope,
+      },
+      () => {
+        loaderCalls += 1;
+        return f.workbook;
+      },
+    ),
+    /observation identity does not match/,
   );
   assert.equal(loaderCalls, 0);
 });

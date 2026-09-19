@@ -141,6 +141,23 @@ test('creates matched Fly Perception from a stable contained source', () => {
     kind: 'worksheet-format',
     sheetName: 'Sheet1',
   });
+  assert.equal(
+    result.perception.signal.payload.observationIdentity.sourceDigest,
+    result.observation.provenance.sourceDigest,
+  );
+  assert.equal(
+    result.perception.signal.payload.observationIdentity.sourceProfileId,
+    SHEETJS_CE_XLSX_0203_SOURCE_PROFILE.id,
+  );
+  assert.match(
+    result.perception.signal.payload.observationIdentity.digest,
+    /^sha256:[0-9a-f]{64}$/u,
+  );
+  assert.equal(
+    JSON.stringify(result.perception.signal.payload.observationIdentity)
+      .includes('"features"'),
+    false,
+  );
 });
 
 test('preserves ambiguous classification from identical approved Profiles', () => {
