@@ -487,7 +487,7 @@ issue-0146では、同じlayout familyを持つLibreOffice最終保存XLSXを追
 
 この7-case corpusはreason codeを意図的に再現する**coverage evidence**であり、held-out population上のprecision benchmarkではありません。decision-impact precision/recallが1.0でもproduction gate採用根拠にはしません。
 
-issue-0152では、external XLSXまで確認したdeterministic review reasonをCognitive / Authorityへ混ぜずにhuman-review surfaceへ露出する最小contractを追加しました。
+issue-0153では、external XLSXまで確認したdeterministic review reasonをCognitive / Authorityへ混ぜずにhuman-review surfaceへ露出する最小contractを追加しました。
 
 新しい構造:
 
@@ -513,6 +513,6 @@ DeterministicReviewEvidenceSurfaceV1
 
 次に進む場合は、issue-0148/0149のexact proposal identity + Authority verified surfaceへこのdeterministic evidence wrapperを実際に合成し、**proposal / Authority / deterministic reason / Cognitive Perception / Judgment / provenanceをUI-neutral view modelで同時表示しても意味が混ざらないか**をfocused compositionで確認します。
 
-詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`external-xlsx-fill-telemetry.md`、`external-fill-impact-family.md`、`../../02_Architecture/deterministic-review-evidence-overlay-v1.md`、`test/fixtures/README.md`、issue-0128〜0152 を参照してください。
+詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`external-xlsx-fill-telemetry.md`、`external-fill-impact-family.md`、`../../02_Architecture/deterministic-review-evidence-overlay-v1.md`、`test/fixtures/README.md`、issue-0128〜0153 を参照してください。
 
 十分な外部生成fixtureと安全境界が揃うまでは、warningやreview signalを自動accept / reject条件へ昇格させず、production接続可否も別ADR/Issueで判断します。
