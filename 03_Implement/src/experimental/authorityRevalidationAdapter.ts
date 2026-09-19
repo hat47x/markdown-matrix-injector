@@ -17,6 +17,9 @@ import {
   type EmbedQuery,
 } from '../parser/embedSyntax.js';
 import {
+  validateKnownEmbedQueryParameters,
+} from '../parser/parameterContract.js';
+import {
   AUTHORITY_REVALIDATION_RECEIPT_SCHEMA_VERSION,
   type AuthorityRevalidationCheckResult,
   type AuthorityRevalidationIssuer,
@@ -92,13 +95,14 @@ export function runExecutableProposalAuthorityRevalidation<
   }
 
   if (query) {
-    const parameterFailure = validateKnownParameters(query);
-    if (parameterFailure) {
+    const parameterIssue =
+      validateKnownEmbedQueryParameters(query.params)[0];
+    if (parameterIssue) {
       setFailed(
         results,
         'parameter-schema',
         'PARAMETER_VOCABULARY_REJECTED',
-        parameterFailure,
+        parameterIssue.message,
       );
     } else {
       setPassed(
@@ -488,61 +492,6 @@ function profileContractMatches<TChoice extends string>(
   const winner = payload.winnerPrototypeId;
   return winner === undefined
     || candidates.some((candidate) => candidate.prototypeId === winner);
-}
-
-function validateKnownParameters(query: EmbedQuery): string | undefined {
-  for (const [key, value] of query.params.entries()) {
-    switch (key) {
-      case 'mode':
-        if (!['table', 'card'].includes(value)) {
-          return `mode must be table or card: ${value}`;
-        }
-        break;
-      case 'header':
-        if (!/^(none|first|[0-9]+)$/u.test(value)) {
-          return `header has invalid value: ${value}`;
-        }
-        break;
-      case 'columns':
-        if (!/^[A-Za-z]+(\s*,\s*[A-Za-z]+)*$/u.test(value)) {
-          return `columns has invalid A1 column list: ${value}`;
-        }
-        break;
-      case 'transpose':
-        if (value !== 'true') {
-          return `transpose only accepts true: ${value}`;
-        }
-        break;
-      case 'grep':
-        if (value.length === 0) {
-          return 'grep must not be empty.';
-        }
-        break;
-      case 'formatColumn':
-        if (!/^[^:]+:.+$/u.test(value)) {
-          return `formatColumn has invalid selector/format pair: ${value}`;
-        }
-        break;
-      case 'pageBreak':
-        if (!['before', 'after', 'both'].includes(value)) {
-          return `pageBreak has invalid value: ${value}`;
-        }
-        break;
-      case 'orientation':
-        if (!['landscape', 'portrait'].includes(value)) {
-          return `orientation has invalid value: ${value}`;
-        }
-        break;
-      case 'highlightColumn':
-      case 'highlightValue':
-      case 'caption':
-      case 'id':
-        break;
-      default:
-        // Notation v1 P5: unknown keys, including x-*, are forward-compatible.
-        break;
-    }
-  }
 }
 
 function digestFile(filePath: string): string {
