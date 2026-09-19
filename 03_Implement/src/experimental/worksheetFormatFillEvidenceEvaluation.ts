@@ -9,6 +9,7 @@ import {
   createWorksheetFormatPrototype,
   matchWorksheetFormatSnapshot,
   SHEETJS_CE_XLSX_0203_SOURCE_PROFILE,
+  WORKSHEET_FORMAT_STRUCTURE_ONLY_SOURCE_PROFILE,
   type WorksheetFormatSourceProfile,
 } from './worksheetFormatPrototype.js';
 
@@ -46,10 +47,8 @@ export interface WorksheetFormatFillEvidenceEvaluation {
 }
 
 export const WORKSHEET_FORMAT_FILL_EVALUATION_STRUCTURE_ONLY_PROFILE:
-  WorksheetFormatSourceProfile = Object.freeze({
-    id: 'worksheet-fill-eval-structure-only-v1',
-    evidence: Object.freeze(['structure'] as const),
-  });
+  WorksheetFormatSourceProfile =
+    WORKSHEET_FORMAT_STRUCTURE_ONLY_SOURCE_PROFILE;
 
 /**
  * Replays the same snapshots twice:
@@ -57,10 +56,9 @@ export const WORKSHEET_FORMAT_FILL_EVALUATION_STRUCTURE_ONLY_PROFILE:
  * 1. with the conservative SheetJS structure+fill profile
  * 2. with structure-only evidence
  *
- * This paired-analysis helper is used by offline evaluation and experimental
- * human-review evidence. It does not permit cross-profile prototype comparison
- * and does not change production matcher behavior. Each path creates its own
- * prototypes through the ordinary adapter/profile boundary.
+ * This is an evaluation helper. It does not permit cross-profile prototype
+ * comparison and does not change runtime matching behavior. Each path creates
+ * its own prototypes through the ordinary adapter/profile boundary.
  */
 export function evaluateWorksheetFormatFillEvidence(
   cases: readonly WorksheetFormatFillEvidenceCase[],

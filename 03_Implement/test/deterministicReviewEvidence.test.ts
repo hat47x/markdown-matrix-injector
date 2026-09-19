@@ -37,6 +37,9 @@ import type {
   WorksheetFormatSnapshot,
 } from '../src/experimental/worksheetFormatFeatureAdapter.js';
 import {
+  analyzeWorksheetFormatFillReview,
+} from '../src/experimental/worksheetFormatFillReviewAnalysis.js';
+import {
   evaluateWorksheetFormatFillReviewTelemetry,
   type WorksheetFormatFillReviewCase,
 } from '../src/experimental/worksheetFormatFillReviewTelemetry.js';
@@ -201,6 +204,40 @@ function evaluateCase(
   assert.ok(first);
   return first;
 }
+
+test('creates deterministic evidence directly from label-free analysis', () => {
+  const base = snapshot(
+    ['ID', 'Item', 'Type', 'Required', 'Decision', 'Reviewer'],
+    'dark',
+  );
+  const drift = snapshot(
+    ['Code', 'Item', 'Name', 'Required', 'Decision', 'Reviewer'],
+    'dark',
+  );
+  const analysis = analyzeWorksheetFormatFillReview([{
+    id: 'label-free-evidence',
+    observationSnapshot: drift,
+    prototypeSnapshots: [{ id: 'base', snapshot: base }],
+  }]).cases[0];
+  assert.ok(analysis);
+  assert.equal('expectedReview' in analysis, false);
+
+  const { envelope } = artifacts(drift, [{
+    id: 'base',
+    label: 'Base Format',
+    snapshot: base,
+  }]);
+  const evidence = createWorksheetFormatDeterministicReviewEvidence(
+    envelope,
+    analysis,
+  );
+
+  assert.deepEqual(
+    evidence.reasons.map((reason) => reason.code),
+    ['fill-supported-acceptance'],
+  );
+  assert.equal(JSON.stringify(evidence).includes('expectedReview'), false);
+});
 
 test('projects decision-impact as deterministic review evidence beside Cognitive and Authority artifacts', () => {
   const base = snapshot(

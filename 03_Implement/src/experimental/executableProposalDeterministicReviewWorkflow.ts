@@ -16,22 +16,14 @@ import {
 } from './deterministicReviewEvidence.js';
 import {
   assertFormatProfile,
-  formatProfileToWorksheetPrototype,
   type FormatProfileV1,
 } from './formatProfile.js';
 import type {
   WorksheetFormatSnapshot,
 } from './worksheetFormatFeatureAdapter.js';
-import type {
-  WorksheetFormatFillEvidencePrototype,
-} from './worksheetFormatFillEvidenceEvaluation.js';
 import {
-  createWorksheetFormatPrototype,
-  SHEETJS_CE_XLSX_0203_SOURCE_PROFILE,
-} from './worksheetFormatPrototype.js';
-import {
-  analyzeWorksheetFormatFillReviewCase,
-} from './worksheetFormatFillReviewTelemetry.js';
+  analyzeWorksheetFormatFillReviewFromProfiles,
+} from './worksheetFormatProfileReviewAnalysis.js';
 import {
   createUnifiedHumanReviewViewModel,
   type UnifiedHumanReviewViewModelV1,
@@ -39,7 +31,6 @@ import {
 
 export interface ExecutableProposalDeterministicReviewInput {
   observationSnapshot: WorksheetFormatSnapshot;
-  prototypeSnapshots: readonly WorksheetFormatFillEvidencePrototype[];
   approvedProfiles: readonly FormatProfileV1[];
 }
 
@@ -60,7 +51,7 @@ export function prepareExecutableProposalDeterministicReviewWithLoader<
     baseWorkflowInput(input),
     workbookLoader,
   );
-  return composeSurface(input, verified, evidence);
+  return composeViewModel(input, verified, evidence);
 }
 
 export async function prepareExecutableProposalDeterministicReviewWithDefaultLoader<
@@ -72,20 +63,25 @@ export async function prepareExecutableProposalDeterministicReviewWithDefaultLoa
   const verified = await prepareExecutableProposalVerifiedReviewWithDefaultLoader(
     baseWorkflowInput(input),
   );
-  return composeSurface(input, verified, evidence);
+  return composeViewModel(input, verified, evidence);
 }
 
 function createEvidence<TChoice extends string>(
   input: ExecutableProposalDeterministicReviewWorkflowInput<TChoice>,
 ): DeterministicReviewEvidenceV1 {
-  assertPrototypePoolMatchesEnvelope(input);
-  assertPrototypeSnapshotsMatchApprovedProfiles(input);
+  assertApprovedProfilesMatchEnvelope(input);
 
-  const analysis = analyzeWorksheetFormatFillReviewCase({
+  const analysis = analyzeWorksheetFormatFillReviewFromProfiles([{
     id: 'executable-proposal-deterministic-review',
     observationSnapshot: input.deterministicReview.observationSnapshot,
-    prototypeSnapshots: input.deterministicReview.prototypeSnapshots,
-  });
+    approvedProfiles: input.deterministicReview.approvedProfiles,
+  }]).cases[0];
+
+  if (!analysis) {
+    throw new Error(
+      'Profile-backed deterministic review analysis returned no case result.',
+    );
+  }
 
   return createWorksheetFormatDeterministicReviewEvidence(
     input.envelope,
@@ -93,7 +89,7 @@ function createEvidence<TChoice extends string>(
   );
 }
 
-function composeSurface<TChoice extends string>(
+function composeViewModel<TChoice extends string>(
   input: ExecutableProposalDeterministicReviewWorkflowInput<TChoice>,
   verified: ExecutableProposalVerifiedReviewSurfaceV1<TChoice>,
   evidence: DeterministicReviewEvidenceV1,
@@ -110,30 +106,7 @@ function composeSurface<TChoice extends string>(
   );
 }
 
-function assertPrototypePoolMatchesEnvelope<TChoice extends string>(
-  input: ExecutableProposalDeterministicReviewWorkflowInput<TChoice>,
-): void {
-  const actual = input.deterministicReview.prototypeSnapshots
-    .map((prototype) => prototype.id)
-    .sort();
-  const expected = input.envelope.profiles
-    .map((profile) => profile.id)
-    .sort();
-
-  if (
-    new Set(actual).size !== actual.length
-    || actual.length !== expected.length
-    || !actual.every((id, index) => id === expected[index])
-  ) {
-    throw new Error(
-      'Deterministic review prototype pool does not match the Cognitive Review Envelope profiles.',
-    );
-  }
-}
-
-function assertPrototypeSnapshotsMatchApprovedProfiles<
-  TChoice extends string,
->(
+function assertApprovedProfilesMatchEnvelope<TChoice extends string>(
   input: ExecutableProposalDeterministicReviewWorkflowInput<TChoice>,
 ): void {
   const profiles = new Map(
@@ -176,31 +149,6 @@ function assertPrototypeSnapshotsMatchApprovedProfiles<
       );
     }
   }
-
-  for (const entry of input.deterministicReview.prototypeSnapshots) {
-    const profile = profiles.get(entry.id);
-    if (profile === undefined) {
-      throw new Error(
-        `Missing approved Format Profile for deterministic prototype: ${entry.id}.`,
-      );
-    }
-
-    const derived = createWorksheetFormatPrototype(
-      entry.id,
-      entry.snapshot,
-      SHEETJS_CE_XLSX_0203_SOURCE_PROFILE,
-    );
-    const approved = formatProfileToWorksheetPrototype(
-      profile,
-      SHEETJS_CE_XLSX_0203_SOURCE_PROFILE,
-    );
-
-    if (!sameStrings(derived.features, approved.features)) {
-      throw new Error(
-        `Deterministic prototype snapshot does not match approved Profile features: ${entry.id}.`,
-      );
-    }
-  }
 }
 
 function sameStrings(
@@ -218,8 +166,8 @@ function baseWorkflowInput<TChoice extends string>(
   return base;
 }
 
-// Compile-time guard: this orchestration entrypoint accepts source snapshots,
-// not caller-prepared review artifacts or matcher options.
+// Compile-time guards: orchestration accepts source observation + approved
+// Profiles, never caller-prepared review/evaluation artifacts.
 type _NoPreparedDeterministicEvidence =
   'deterministicReviewEvidence'
     extends keyof ExecutableProposalDeterministicReviewWorkflowInput
@@ -235,14 +183,6 @@ type _NoPresentationInjection =
 const _noPresentationInjection: _NoPresentationInjection = true;
 void _noPresentationInjection;
 
-type _NoDeterministicMatchOptions =
-  'matchOptions' extends keyof ExecutableProposalDeterministicReviewInput
-    ? never
-    : true;
-const _noDeterministicMatchOptions: _NoDeterministicMatchOptions = true;
-void _noDeterministicMatchOptions;
-
-
 type _NoExpectedReviewLabel =
   'expectedReview' extends keyof ExecutableProposalDeterministicReviewInput
     ? never
@@ -256,3 +196,17 @@ type _NoPreparedTelemetry =
     : true;
 const _noPreparedTelemetry: _NoPreparedTelemetry = true;
 void _noPreparedTelemetry;
+
+type _NoMatcherOptions =
+  'matchOptions' extends keyof ExecutableProposalDeterministicReviewInput
+    ? never
+    : true;
+const _noMatcherOptions: _NoMatcherOptions = true;
+void _noMatcherOptions;
+
+type _NoPrototypeSnapshots =
+  'prototypeSnapshots' extends keyof ExecutableProposalDeterministicReviewInput
+    ? never
+    : true;
+const _noPrototypeSnapshots: _NoPrototypeSnapshots = true;
+void _noPrototypeSnapshots;

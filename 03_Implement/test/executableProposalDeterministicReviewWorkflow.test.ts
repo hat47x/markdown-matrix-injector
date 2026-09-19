@@ -226,10 +226,6 @@ function fixture() {
     },
     deterministicReview: {
       observationSnapshot,
-      prototypeSnapshots: [{
-        id: 'release-table',
-        snapshot: baseSnapshot,
-      }],
       approvedProfiles: [profile],
     },
   };
@@ -240,55 +236,55 @@ function fixture() {
     workbook,
     envelope,
     input,
-    baseSnapshot,
+    profile,
     observationSnapshot,
   };
 }
 
-test('composes proposal, Authority, Cognitive review, Judgment, provenance, and deterministic reason as distinct siblings', () => {
+test('returns the unified four-domain review model from one safe orchestration entrypoint', () => {
   const f = fixture();
-  const surface = prepareExecutableProposalDeterministicReviewWithLoader(
+  const model = prepareExecutableProposalDeterministicReviewWithLoader(
     f.input,
     () => f.workbook,
   );
 
   assert.equal(
-    surface.schemaVersion,
+    model.schemaVersion,
     UNIFIED_HUMAN_REVIEW_VIEW_MODEL_SCHEMA_VERSION,
   );
-  assert.equal(surface.audience, 'human-review');
+  assert.equal(model.audience, 'human-review');
 
-  assert.equal(surface.proposalIdentity.role, 'proposal-identity');
-  assert.match(surface.proposalIdentity.digest, /^sha256:[0-9a-f]{64}$/u);
+  assert.equal(model.proposalIdentity.role, 'proposal-identity');
+  assert.match(model.proposalIdentity.digest, /^sha256:[0-9a-f]{64}$/u);
 
   assert.equal(
-    surface.authority.verification.verificationStatus,
+    model.authority.verification.verificationStatus,
     'satisfied',
   );
-  assert.equal(surface.authority.boundary.disposition, 'review-only');
-  assert.equal(surface.authority.boundary.writeAuthority, 'none');
-  assert.equal(surface.authority.boundary.applyStatus, 'not-authorized');
+  assert.equal(model.authority.boundary.disposition, 'review-only');
+  assert.equal(model.authority.boundary.writeAuthority, 'none');
+  assert.equal(model.authority.boundary.applyStatus, 'not-authorized');
 
-  assert.equal(surface.cognitive.perception.classification, 'matched');
+  assert.equal(model.cognitive.perception.classification, 'matched');
   assert.equal(
-    surface.cognitive.perception.winnerPrototypeId,
+    model.cognitive.perception.winnerPrototypeId,
     'release-table',
   );
 
-  assert.equal(surface.cognitive.judgment.state, 'proposal');
-  if (surface.cognitive.judgment.state === 'proposal') {
-    assert.equal(surface.cognitive.judgment.choice, 'inspect');
-    assert.equal(surface.cognitive.judgment.disposition, 'proposal-only');
+  assert.equal(model.cognitive.judgment.state, 'proposal');
+  if (model.cognitive.judgment.state === 'proposal') {
+    assert.equal(model.cognitive.judgment.choice, 'inspect');
+    assert.equal(model.cognitive.judgment.disposition, 'proposal-only');
   }
 
-  assert.equal(surface.cognitive.provenance.role, 'provenance');
+  assert.equal(model.cognitive.provenance.role, 'provenance');
   assert.equal(
-    surface.cognitive.provenance.sourceDigest,
+    model.cognitive.provenance.sourceDigest,
     f.envelope.sourceDigest,
   );
 
   assert.deepEqual(
-    surface.deterministic.evidence.reasons,
+    model.deterministic.evidence.reasons,
     [{
       code: 'fill-supported-acceptance',
       category: 'decision-impact',
@@ -296,22 +292,26 @@ test('composes proposal, Authority, Cognitive review, Judgment, provenance, and 
     }],
   );
   assert.equal(
-    surface.deterministic.evidence.sourceDigest,
+    model.deterministic.evidence.sourceDigest,
     f.envelope.sourceDigest,
   );
   assert.equal(
-    surface.deterministic.evidence.comparison.control.status,
+    model.deterministic.evidence.comparison.control.status,
     'novel',
   );
   assert.equal(
-    surface.deterministic.evidence.comparison.primary.status,
+    model.deterministic.evidence.comparison.primary.status,
     'matched',
   );
+
+  assert.equal('overallStatus' in model, false);
+  assert.equal('overallScore' in model, false);
+  assert.equal('approved' in model, false);
 });
 
-test('Authority can be blocked while deterministic and Cognitive evidence remain descriptive and unchanged', () => {
+test('Authority can be blocked while deterministic and Cognitive sections remain descriptive and unchanged', () => {
   const f = fixture();
-  const surface = prepareExecutableProposalDeterministicReviewWithLoader(
+  const model = prepareExecutableProposalDeterministicReviewWithLoader(
     {
       ...f.input,
       rawNotation:
@@ -321,23 +321,27 @@ test('Authority can be blocked while deterministic and Cognitive evidence remain
   );
 
   assert.equal(
-    surface.authority.verification.verificationStatus,
+    model.authority.verification.verificationStatus,
     'blocked',
   );
   assert.ok(
-    surface.authority.verification.failedChecks.includes('parameter-schema'),
+    model.authority.verification.failedChecks.includes('parameter-schema'),
   );
-  assert.equal(surface.cognitive.perception.classification, 'matched');
+  assert.equal(model.cognitive.perception.classification, 'matched');
   assert.deepEqual(
-    surface.deterministic.evidence.reasons.map((reason) => reason.code),
+    model.deterministic.evidence.reasons.map((reason) => reason.code),
     ['fill-supported-acceptance'],
   );
-  assert.equal(surface.authority.boundary.applyStatus, 'not-authorized');
+  assert.equal(model.authority.boundary.applyStatus, 'not-authorized');
 });
 
-test('rejects a deterministic prototype pool that does not match visible Envelope profiles before loader invocation', () => {
+test('rejects an approved Profile pool that does not match visible Envelope refs before loader invocation', () => {
   const f = fixture();
   let loaderCalls = 0;
+  const otherProfile = {
+    ...f.profile,
+    id: 'other-profile',
+  };
 
   assert.throws(
     () => prepareExecutableProposalDeterministicReviewWithLoader(
@@ -345,10 +349,7 @@ test('rejects a deterministic prototype pool that does not match visible Envelop
         ...f.input,
         deterministicReview: {
           ...f.input.deterministicReview,
-          prototypeSnapshots: [{
-            id: 'other-profile',
-            snapshot: f.baseSnapshot,
-          }],
+          approvedProfiles: [otherProfile],
         },
       },
       () => {
@@ -356,14 +357,21 @@ test('rejects a deterministic prototype pool that does not match visible Envelop
         return f.workbook;
       },
     ),
-    /prototype pool does not match/,
+    /approved Profile does not match Envelope ref/,
   );
   assert.equal(loaderCalls, 0);
 });
 
-test('rejects a same-id prototype snapshot whose features do not match the approved Profile before loader invocation', () => {
+test('rejects an approved Profile whose provenance no longer matches the Envelope ref before loader invocation', () => {
   const f = fixture();
   let loaderCalls = 0;
+  const changedProfile = {
+    ...f.profile,
+    provenance: {
+      ...f.profile.provenance,
+      sourceDigest: 'sha256:changed-baseline',
+    },
+  };
 
   assert.throws(
     () => prepareExecutableProposalDeterministicReviewWithLoader(
@@ -371,17 +379,7 @@ test('rejects a same-id prototype snapshot whose features do not match the appro
         ...f.input,
         deterministicReview: {
           ...f.input.deterministicReview,
-          prototypeSnapshots: [{
-            id: 'release-table',
-            snapshot: snapshot([
-              'ID',
-              'Item',
-              'Type',
-              'Required',
-              'Decision',
-              'Memo',
-            ]),
-          }],
+          approvedProfiles: [changedProfile],
         },
       },
       () => {
@@ -389,12 +387,12 @@ test('rejects a same-id prototype snapshot whose features do not match the appro
         return f.workbook;
       },
     ),
-    /does not match approved Profile features/,
+    /approved Profile does not match Envelope ref/,
   );
   assert.equal(loaderCalls, 0);
 });
 
-test('rejects a deterministic observation whose recomputed matcher result does not match Perception before loader invocation', () => {
+test('rejects an observation whose Profile-backed matcher result does not match Perception before loader invocation', () => {
   const f = fixture();
   let loaderCalls = 0;
 
@@ -404,7 +402,7 @@ test('rejects a deterministic observation whose recomputed matcher result does n
         ...f.input,
         deterministicReview: {
           ...f.input.deterministicReview,
-          observationSnapshot: f.baseSnapshot,
+          observationSnapshot: snapshot(BASE_HEADERS),
         },
       },
       () => {
@@ -417,11 +415,11 @@ test('rejects a deterministic observation whose recomputed matcher result does n
   assert.equal(loaderCalls, 0);
 });
 
-test('does not mutate the Envelope or deterministic snapshots', () => {
+test('does not mutate the Envelope, approved Profile, or observation snapshot', () => {
   const f = fixture();
   const envelopeBefore = structuredClone(f.envelope);
+  const profileBefore = structuredClone(f.profile);
   const observationBefore = structuredClone(f.observationSnapshot);
-  const prototypeBefore = structuredClone(f.baseSnapshot);
 
   prepareExecutableProposalDeterministicReviewWithLoader(
     f.input,
@@ -429,47 +427,54 @@ test('does not mutate the Envelope or deterministic snapshots', () => {
   );
 
   assert.deepEqual(f.envelope, envelopeBefore);
+  assert.deepEqual(f.profile, profileBefore);
   assert.deepEqual(f.observationSnapshot, observationBefore);
-  assert.deepEqual(f.baseSnapshot, prototypeBefore);
 });
 
-test('serialized UI-neutral surface excludes raw proposal, worksheet snapshots, evaluation labels, and apply semantics', () => {
+test('serialized unified model excludes raw proposal, worksheet snapshot, evaluation labels, and apply semantics', () => {
   const f = fixture();
-  const surface = prepareExecutableProposalDeterministicReviewWithLoader(
+  const model = prepareExecutableProposalDeterministicReviewWithLoader(
     f.input,
     () => f.workbook,
   );
-  const serialized = JSON.stringify(surface);
+  const serialized = JSON.stringify(model);
 
   assert.equal(serialized.includes(TABLE), false);
   assert.equal(serialized.includes('../data/release.csv'), false);
   assert.equal(serialized.includes('"cells"'), false);
   assert.equal(serialized.includes('"features"'), false);
   assert.equal(serialized.includes('expectedReview'), false);
+  assert.equal(serialized.includes('overallScore'), false);
+  assert.equal(serialized.includes('combinedScore'), false);
   assert.equal(serialized.includes('"apply":'), false);
   assert.equal(serialized.includes('auto-apply'), false);
-  assert.equal(serialized.includes('accepted'), false);
+  assert.equal(serialized.includes('"accepted"'), false);
+  assert.equal(serialized.includes('"approved"'), false);
 
   assert.equal(
     serialized.includes('fill-supported-acceptance'),
     true,
   );
-  assert.equal(serialized.includes(surface.proposalIdentity.digest), true);
+  assert.equal(serialized.includes(model.proposalIdentity.digest), true);
 });
 
-test('default-loader composition preserves deterministic evidence in a normal dependency environment', async () => {
+test('default-loader orchestration returns the same unified review contract in a normal dependency environment', async () => {
   const f = fixture();
-  const surface =
+  const model =
     await prepareExecutableProposalDeterministicReviewWithDefaultLoader(
       f.input,
     );
 
   assert.equal(
-    surface.authority.verification.verificationStatus,
+    model.schemaVersion,
+    UNIFIED_HUMAN_REVIEW_VIEW_MODEL_SCHEMA_VERSION,
+  );
+  assert.equal(
+    model.authority.verification.verificationStatus,
     'satisfied',
   );
   assert.deepEqual(
-    surface.deterministic.evidence.reasons.map((reason) => reason.code),
+    model.deterministic.evidence.reasons.map((reason) => reason.code),
     ['fill-supported-acceptance'],
   );
 });

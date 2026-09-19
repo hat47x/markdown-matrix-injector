@@ -18,7 +18,7 @@ import {
 import type {
   WorksheetFormatFillReviewAnalysisResult,
   WorksheetFormatFillReviewTelemetryCode,
-} from './worksheetFormatFillReviewTelemetry.js';
+} from './worksheetFormatFillReviewAnalysis.js';
 
 export const DETERMINISTIC_REVIEW_EVIDENCE_SCHEMA_VERSION =
   'mmi-deterministic-review-evidence-v1' as const;
