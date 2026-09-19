@@ -7,6 +7,7 @@ import {
   createWorksheetFormatObservationIdentityFromMatch,
   createWorksheetFormatObservationIdentityFromSnapshot,
   assertWorksheetFormatObservationIdentityMatchesSnapshot,
+  assertWorksheetFormatObservationIdentityProvenance,
   WORKSHEET_FORMAT_OBSERVATION_IDENTITY_REPRESENTATION,
 } from '../src/experimental/worksheetFormatObservationIdentity.js';
 import {
@@ -126,6 +127,39 @@ test('source identity participates in the derived-state digest', () => {
 
   assert.notEqual(left.digest, right.digest);
   assert.notEqual(left.sourceDigest, right.sourceDigest);
+});
+
+test('provenance assertion binds source/profile/version/evidence without exposing features', () => {
+  const identity = createWorksheetFormatObservationIdentityFromSnapshot(
+    'sha256:source-a',
+    snapshot(['ID', 'State', 'Note']),
+    SHEETJS_CE_XLSX_0203_SOURCE_PROFILE,
+  );
+
+  assert.doesNotThrow(
+    () => assertWorksheetFormatObservationIdentityProvenance(
+      identity,
+      {
+        sourceDigest: 'sha256:source-a',
+        featureVersion: identity.featureVersion,
+        sourceProfileId: SHEETJS_CE_XLSX_0203_SOURCE_PROFILE.id,
+        sourceEvidence: ['fill', 'structure'],
+      },
+    ),
+  );
+
+  assert.throws(
+    () => assertWorksheetFormatObservationIdentityProvenance(
+      identity,
+      {
+        sourceDigest: 'sha256:source-a',
+        featureVersion: identity.featureVersion,
+        sourceProfileId: 'other-profile',
+        sourceEvidence: ['fill', 'structure'],
+      },
+    ),
+    /provenance does not match Perception/,
+  );
 });
 
 test('assertion rejects a snapshot that does not match the Perception identity', () => {
