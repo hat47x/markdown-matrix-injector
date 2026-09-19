@@ -203,3 +203,19 @@ reviewに必要な要約だけを持つ。
 が確立してからproducerを追加する。
 
 surface contractはproducer-neutralへ拡張可能だが、reason semanticsまで早期に一般化しない。
+
+
+## 11. Source identityとの責務分離
+
+issue-0152の`source-file-bytes-v1`がsource identityのcanonical primitiveである。
+
+本overlayは:
+
+- bytesをhashしない
+- pathをresolveしない
+- containmentを判定しない
+- byteLengthを再計算しない
+
+Envelope / verified surfaceへ既にbindingされた`sourceDigest`を比較するだけとする。
+
+将来Cognitive Observation builderがissue-0152 primitiveを直接利用するようになっても、このoverlayの責務は変えない。
