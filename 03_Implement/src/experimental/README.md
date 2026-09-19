@@ -261,7 +261,7 @@ MMI bridgeはtheme XMLを自力で解決しません。resolved RGBが無いthem
 
 issue-0134ではさらに、同じsnapshot群を `structure + fill` / `structure only` で対比較し、fill evidenceの**識別価値と副作用**を評価しました。fill-onlyでしか区別できないprototypeをdisambiguateできる一方、共通fillが構造差を薄めて `novel -> matched` を起こすケースもあります。そのためfillは補助証拠として維持しますが、weightを強めません。
 
-issue-0135では、fillの有無やtone差を一律warningにせず、fillが実際にstatus/winnerを変えた `decision-impact` と、構造的に同一なfill-only候補群なのにfillが欠けた `essential-unavailable` をreview telemetryとして分離しました。広い `fill-unavailable` / tone disagreementはdiagnostic factに留めます。
+issue-0139では、fillの有無やtone差を一律warningにせず、fillが実際にstatus/winnerを変えた `decision-impact` と、構造的に同一なfill-only候補群なのにfillが欠けた `essential-unavailable` をreview telemetryとして分離しました。広い `fill-unavailable` / tone disagreementはdiagnostic factに留めます。
 
 adapterが値を受け取れることと、実入力経路がその値を安定して供給することは別です。後者を確認できない情報は比較契約へ入れません。
 
@@ -429,7 +429,7 @@ issue-0130ではadapterを通すsnapshot-level fixtureへ進み、issue-0131で�
 - 同一構造dark/light prototypeはfill込みでmargin `0.098930` を得てdisambiguateできる
 - correct structureとfill一致candidateが競合すると、fillがwinner marginを狭めてambiguousへ安全停止させる場合がある
 
-issue-0135ではfill availability / disagreementを6列・8列の20ケースでheld-out評価しました。
+issue-0139ではfill availability / disagreementを6列・8列の20ケースでheld-out評価しました。
 
 分かったこと:
 
@@ -451,6 +451,6 @@ issue-0135ではfill availability / disagreementを6列・8列の20ケースでh
 6. metadata preamble / gapped header
 7. その後にCognitive Contractへobservationとして露出する必要性を別レーンと調整
 
-詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`test/fixtures/README.md`、issue-0128〜0135 を参照してください。
+詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`test/fixtures/README.md`、issue-0128〜0134、issue-0139 を参照してください。
 
 十分な外部生成fixtureと安全境界が揃うまでは、warningやreview signalを自動accept / reject条件へ昇格させず、production接続可否も別ADR/Issueで判断します。
