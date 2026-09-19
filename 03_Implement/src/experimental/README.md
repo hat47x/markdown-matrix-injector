@@ -522,7 +522,9 @@ issue-0156では、fill review reason生成を `expectedReview` などの評価�
 
 issue-0157では、approved Format Profileのcanonical featuresからfill-aware / structure-only prototypeを再構成できるようにし、runtime reviewでbaseline worksheet snapshotを保持しなくてよいProfile-backed analysisを追加しました。
 
-issue-0158では、これら既存contractを再実装せず、安全な単一orchestrationへまとめます。
+issue-0158では、contained sourceのstable read window内でWorksheet snapshotを読み、canonical source identity付きObservationとFly Perceptionを生成するworkflowを追加しました。raw cells/featuresはObservationへ保持しません。
+
+issue-0159では、これら既存contractを再実装せず、安全な単一orchestrationへまとめます。
 
 ```text
 observation snapshot
@@ -555,6 +557,6 @@ issue-0155 UnifiedHumanReviewViewModelV1
 
 次に進む場合もproduction wiringへ直結せず、observation snapshot identityの必要性や、human-review UIへ接続する前のpresentation orderingを別Issueで検討します。auto accept / auto reject / apply authorityは引き続き導入しません。
 
-詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`external-xlsx-fill-telemetry.md`、`external-fill-impact-family.md`、`../../02_Architecture/deterministic-review-evidence-overlay-v1.md`、`../../02_Architecture/unified-human-review-view-model-v1.md`、`../../02_Architecture/executable-proposal-deterministic-review-workflow-v1.md`、`test/fixtures/README.md`、issue-0128〜0158 を参照してください。
+詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`external-xlsx-fill-telemetry.md`、`external-fill-impact-family.md`、`../../02_Architecture/deterministic-review-evidence-overlay-v1.md`、`../../02_Architecture/unified-human-review-view-model-v1.md`、`../../02_Architecture/executable-proposal-deterministic-review-workflow-v1.md`、`test/fixtures/README.md`、issue-0128〜0159 を参照してください。
 
 十分な外部生成fixtureと安全境界が揃うまでは、warningやreview signalを自動accept / reject条件へ昇格させず、production接続可否も別ADR/Issueで判断します。
