@@ -563,7 +563,9 @@ issue-0160では、contained sourceのstable read window内でsnapshot readerを
 
 並行してissue-0161 / 0162ではclosed-choice Judgment provider portとJev Choice transport adapterを整備しています。これはJudgment実行境界のレーンであり、worksheet-format Perception / observation identityとは責務を分離しています。
 
-issue-0163では、上記safe pathを置き換えず、低レベルissue-0159 APIと監査性を補強する `WorksheetFormatObservationIdentityV1` を追加しました。
+issue-0163では、issue-0160のstable Perceptionからreview-route専用の派生Observationを作り、provider-neutralなclosed-choice Judgmentをasyncに接続するprovider-backed pathを追加しました。raw worksheet / featuresはprovider Observationへ渡さず、external providerはexplicit opt-inを維持します。
+
+issue-0164では、上記safe pathを置き換えず、低レベルissue-0159 APIと監査性を補強する `WorksheetFormatObservationIdentityV1` を追加しました。
 
 identityはsource file hashでもexact snapshot hashでもなく、current source profileでmatcherが実際に比較したnormalized format featuresのSHA-256 bindingです。
 
