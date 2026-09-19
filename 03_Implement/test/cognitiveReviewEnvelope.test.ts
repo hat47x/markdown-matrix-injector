@@ -237,6 +237,37 @@ test('binds every visible ambiguous candidate to an approved profile', () => {
   );
 });
 
+test('rejects Perception whose observation identity provenance was tampered', () => {
+  const profile = approvedProfile('release-table', ['ID', 'State', 'Note']);
+  const perception = matchedPerception(
+    [profile],
+    ['ID', 'State', 'Note'],
+  );
+
+  const tampered = {
+    ...perception,
+    signal: {
+      ...perception.signal,
+      payload: {
+        ...perception.signal.payload,
+        observationIdentity: {
+          ...perception.signal.payload.observationIdentity,
+          sourceDigest: 'sha256:other-source',
+        },
+      },
+    },
+  };
+
+  assert.throws(
+    () => createCognitiveReviewEnvelope({
+      perception: tampered,
+      approvedProfiles: [profile],
+      sourceProfile: SHEETJS_CE_XLSX_0203_SOURCE_PROFILE,
+    }),
+    /observation identity provenance does not match Perception/,
+  );
+});
+
 test('rejects a candidate Format Profile before review binding', () => {
   const prototype = createRawPrototype(
     'candidate-only',
