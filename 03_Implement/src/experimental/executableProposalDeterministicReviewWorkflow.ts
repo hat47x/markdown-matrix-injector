@@ -169,8 +169,8 @@ function baseWorkflowInput<TChoice extends string>(
 // Compile-time guards: orchestration accepts source observation + approved
 // Profiles, never caller-prepared review/evaluation artifacts.
 type _NoPreparedDeterministicEvidence =
-  'deterministicReviewEvidence'
-    extends keyof ExecutableProposalDeterministicReviewWorkflowInput
+  'deterministicReviewEvidence' extends
+    keyof ExecutableProposalDeterministicReviewWorkflowInput
       ? never
       : true;
 const _noPreparedDeterministicEvidence: _NoPreparedDeterministicEvidence = true;
