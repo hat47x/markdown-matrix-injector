@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Feature / Provider execution boundary
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: async provider-neutral closed-choice invocation, external opt-in, input isolation, existing adapter reuse
 - Expected verification level: unit + focused integration
@@ -57,20 +57,20 @@ validate Observation
 
 ## Acceptance criteria
 
-- [ ] async provider-neutral interfaceを追加する。
-- [ ] provider category=`judgment` / capability=`closed-choice` をcall前に検証する。
-- [ ] Observation / Questionをcall前に検証する。
-- [ ] `external-opt-in` providerは明示 `allowExternal=true` がない限りcallしない。
-- [ ] local providerはopt-in不要。
-- [ ] providerへcaller-owned Observation / Questionそのものを渡さずcloneを渡す。
-- [ ] providerがcloneをmutateしてもcaller inputを変えない。
-- [ ] provider descriptorをcall前にsnapshotし、call中のdescriptor mutationを結果provenanceへ反映しない。
-- [ ] provider responseは既存 `adaptClosedChoiceResponse` を必ず通す。
-- [ ] malformed response / undeclared choice / bad distributionは既存adapterでfail-closed。
-- [ ] abstained / unsupported / unavailableを正常なnon-decisionとして保持する。
-- [ ] provider exceptionをJudgmentへ自動変換せず上位へ伝播する。
-- [ ] live Jev SDK / network / credentialを追加しない。
-- [ ] production runtime / Notation conformanceを変更しない。
+- [x] async provider-neutral interfaceを追加する。
+- [x] provider category=`judgment` / capability=`closed-choice` をcall前に検証する。
+- [x] Observation / Questionをcall前に検証する。
+- [x] `external-opt-in` providerは明示 `allowExternal=true` がない限りcallしない。
+- [x] local providerはopt-in不要。
+- [x] providerへcaller-owned Observation / Questionそのものを渡さずcloneを渡す。
+- [x] providerがcloneをmutateしてもcaller inputを変えない。
+- [x] provider descriptorをcall前にsnapshotし、call中のdescriptor mutationを結果provenanceへ反映しない。
+- [x] provider responseは既存 `adaptClosedChoiceResponse` を必ず通す。
+- [x] malformed response / undeclared choice / bad distributionは既存adapterでfail-closed。
+- [x] abstained / unsupported / unavailableを正常なnon-decisionとして保持する。
+- [x] provider exceptionをJudgmentへ自動変換せず上位へ伝播する。
+- [x] live Jev SDK / network / credentialを追加しない。
+- [x] production runtime / Notation conformanceを変更しない。
 
 ## Validation plan
 
@@ -84,3 +84,32 @@ validate Observation
 - malformed provider responseをfail-closed。
 - provider exceptionを伝播。
 - strict compile。
+
+
+## Validation evidence
+
+### 2026-09-20 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- provider port + existing closed-choice adapter境界を
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime harness: **12 checks / 12 pass / 0 fail**。
+- 確認内容:
+  - local provider decision -> `proposal-only` Judgment。
+  - explicit abstentionをnon-decisionとして保持。
+  - `external-opt-in` providerはopt-inなしではcall前に拒否。
+  - `allowExternal=true` の場合だけexternal providerを呼ぶ。
+  - wrong category / missing capabilityをprovider call前に拒否。
+  - providerへ渡すObservation / Question cloneのmutationがcaller inputへ漏れない。
+  - provider自身がcall中にdescriptorを変更してもOutcomeはcall前descriptor snapshotを保持。
+  - malformed distributionを既存adapterでfail-closed。
+  - provider throw/rejectを `unavailable` へ誤変換せず上位へ伝播。
+- implementation時の静的照合でQuestion validator定義だけ旧 `assertQuestion` 名が残る不整合を検出し、
+  `assertClosedChoiceQuestion` としてexportへ修正済み。
+- existing `adaptClosedChoiceResponse` のvalidation semanticsは変更せず、provider / question validatorの可視性だけを上げた。
+- live Jev SDK / API key / network / retry / provider account /課金経路は追加していない。
+- production runtime / Notation conformance / source write / apply authorityは変更していない。
+- 現ローカル環境にはrepository dependency treeがないためrepository全test suite成功は主張しない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
