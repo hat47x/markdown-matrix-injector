@@ -22,6 +22,13 @@ export const WORKSHEET_FORMAT_OBSERVATION_IDENTITY_ALGORITHM =
 export const WORKSHEET_FORMAT_OBSERVATION_IDENTITY_REPRESENTATION =
   'worksheet-format-compared-features-v1' as const;
 
+export interface WorksheetFormatObservationIdentityProvenance {
+  sourceDigest: string;
+  featureVersion: string;
+  sourceProfileId: string;
+  sourceEvidence: readonly string[];
+}
+
 export interface WorksheetFormatObservationIdentityV1 {
   schemaVersion:
     typeof WORKSHEET_FORMAT_OBSERVATION_IDENTITY_SCHEMA_VERSION;
@@ -80,6 +87,27 @@ export function createWorksheetFormatObservationIdentityFromSnapshot(
     sourceProfile.evidence,
     comparedFeatures,
   );
+}
+
+export function assertWorksheetFormatObservationIdentityProvenance(
+  identity: WorksheetFormatObservationIdentityV1,
+  expected: WorksheetFormatObservationIdentityProvenance,
+): void {
+  assertIdentityShape(identity);
+
+  if (
+    identity.sourceDigest !== expected.sourceDigest
+    || identity.featureVersion !== expected.featureVersion
+    || identity.sourceProfileId !== expected.sourceProfileId
+    || !sameStrings(
+      identity.sourceEvidence,
+      normalizeStrings(expected.sourceEvidence),
+    )
+  ) {
+    throw new Error(
+      'Worksheet format observation identity provenance does not match Perception.',
+    );
+  }
 }
 
 export function assertWorksheetFormatObservationIdentityMatchesSnapshot(
@@ -153,6 +181,7 @@ function sameIdentity(
   left: WorksheetFormatObservationIdentityV1,
   right: WorksheetFormatObservationIdentityV1,
 ): boolean {
+  assertIdentityShape(left);
   return left.schemaVersion === right.schemaVersion
     && left.role === right.role
     && left.algorithm === right.algorithm
@@ -162,6 +191,39 @@ function sameIdentity(
     && left.featureVersion === right.featureVersion
     && left.sourceProfileId === right.sourceProfileId
     && sameStrings(left.sourceEvidence, right.sourceEvidence);
+}
+
+function assertIdentityShape(
+  identity: WorksheetFormatObservationIdentityV1,
+): void {
+  if (
+    identity.schemaVersion !==
+      WORKSHEET_FORMAT_OBSERVATION_IDENTITY_SCHEMA_VERSION
+    || identity.role !== 'worksheet-format-observation-identity'
+    || identity.algorithm !==
+      WORKSHEET_FORMAT_OBSERVATION_IDENTITY_ALGORITHM
+    || identity.representation !==
+      WORKSHEET_FORMAT_OBSERVATION_IDENTITY_REPRESENTATION
+    || !/^sha256:[0-9a-f]{64}$/u.test(identity.digest)
+  ) {
+    throw new Error(
+      'Invalid worksheet format observation identity schema.',
+    );
+  }
+
+  assertNonEmpty('source digest', identity.sourceDigest);
+  assertNonEmpty('feature version', identity.featureVersion);
+  assertNonEmpty('source profile id', identity.sourceProfileId);
+
+  const normalizedEvidence = normalizeStrings(identity.sourceEvidence);
+  if (
+    normalizedEvidence.length === 0
+    || !sameStrings(identity.sourceEvidence, normalizedEvidence)
+  ) {
+    throw new Error(
+      'Invalid worksheet format observation identity source evidence.',
+    );
+  }
 }
 
 function normalizeStrings(values: readonly string[]): string[] {
