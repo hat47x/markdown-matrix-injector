@@ -2,13 +2,15 @@ import type {
   AuthorityRevalidationRequirement,
   CognitiveReviewEnvelope,
 } from './cognitiveReviewEnvelope.js';
-import type {
-  CognitiveReviewJudgmentPresentation,
-  CognitiveReviewPerceptionPresentation,
-  CognitiveReviewProvenancePresentation,
+import {
+  COGNITIVE_REVIEW_PRESENTATION_SCHEMA_VERSION,
+  type CognitiveReviewJudgmentPresentation,
+  type CognitiveReviewPerceptionPresentation,
+  type CognitiveReviewProvenancePresentation,
 } from './cognitiveReviewPresentation.js';
-import type {
-  AuthorityVerificationOverlayV1,
+import {
+  AUTHORITY_VERIFICATION_OVERLAY_SCHEMA_VERSION,
+  type AuthorityVerificationOverlayV1,
 } from './authorityVerificationOverlay.js';
 import {
   createDeterministicReviewEvidenceSurface,
@@ -89,6 +91,11 @@ export function createUnifiedHumanReviewViewModel<
       `Unsupported deterministic review surface schema: ${String(input.schemaVersion)}.`,
     );
   }
+  if (input.audience !== 'human-review') {
+    throw new Error(
+      'Unified human review requires a human-review deterministic evidence surface.',
+    );
+  }
 
   const rebound = createDeterministicReviewEvidenceSurface(
     envelope,
@@ -153,6 +160,16 @@ function assertExecutableSurface<TChoice extends string>(
     || surface.proposal.role !== 'executable-proposal-identity'
   ) {
     throw new Error('Invalid executable proposal review surface role.');
+  }
+  if (
+    surface.review.schemaVersion !==
+      COGNITIVE_REVIEW_PRESENTATION_SCHEMA_VERSION
+    || surface.authorityVerification.schemaVersion !==
+      AUTHORITY_VERIFICATION_OVERLAY_SCHEMA_VERSION
+  ) {
+    throw new Error(
+      'Unified human review contains an incompatible review or Authority schema.',
+    );
   }
   if (
     surface.proposal.algorithm !== 'sha256'
