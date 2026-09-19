@@ -49,7 +49,6 @@ function envelope(): CognitiveReviewEnvelope {
       },
       observation: {
         id: 'obs',
-        kind: 'worksheet-format',
         schemaVersion: 'worksheet-format-observation-v1',
         sourceDigest: SOURCE,
       },
@@ -259,6 +258,30 @@ test('blocked Authority remains a reviewable separate section', () => {
   );
   assert.equal(model.cognitive.perception.classification, 'novel');
   assert.equal(model.authority.boundary.applyStatus, 'not-authorized');
+});
+
+test('rejects incompatible wrapper, review, and Authority schemas', () => {
+  const wrongAudience = input();
+  wrongAudience.audience = 'machine' as never;
+  assert.throws(
+    () => createUnifiedHumanReviewViewModel(envelope(), wrongAudience),
+    /human-review deterministic evidence surface/,
+  );
+
+  const wrongReview = input();
+  wrongReview.surface.review.schemaVersion = 'other-review' as never;
+  assert.throws(
+    () => createUnifiedHumanReviewViewModel(envelope(), wrongReview),
+    /incompatible review or Authority schema/,
+  );
+
+  const wrongAuthority = input();
+  wrongAuthority.surface.authorityVerification.schemaVersion =
+    'other-authority' as never;
+  assert.throws(
+    () => createUnifiedHumanReviewViewModel(envelope(), wrongAuthority),
+    /incompatible review or Authority schema/,
+  );
 });
 
 test('rejects proposal source identity tampering', () => {
