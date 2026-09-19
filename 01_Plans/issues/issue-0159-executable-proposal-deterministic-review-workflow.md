@@ -304,3 +304,28 @@ issue-0158はcontained sourceからstable Observation + Fly Perceptionまでを1
 issue-0158はraw WorksheetFormatSnapshotをreturn artifactへ保持しないため、本IssueのProfile-backed deterministic analysisには引き続きobservation snapshot入力が必要である。
 
 このsnapshotはissue-0154のfull Perception result bindingで照合する。snapshot自体へ新しいcanonical digestを追加することは本Issueのscope外とする。
+
+
+## Validation evidence
+
+### 2026-09-20 reconciliation validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- issue-0150 / 0154 / 0155 / 0157の公開APIとinterface-compatibleな境界でworkflow本体を
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime harness: **9 checks / 9 pass / 0 fail**。
+- 確認内容:
+  - valid Profile-backed deterministic inputからAuthority loaderを1回だけ呼び、satisfied 4-domain modelを生成。
+  - Authority blockedでもCognitive / deterministic domainを保持。
+  - Envelopeと異なるapproved Profile poolをloader呼出前にfail-closed。
+  - observation再matchがPerceptionと異なる場合をloader呼出前にfail-closed。
+  - input Envelope / Profile / observation snapshotをmutateしない。
+  - deterministic reasonを独立domainとして保持し、overall verdictを生成しない。
+- reconciliation時のstrict compileで、先行branchにあったconditional type guardの改行構文がTypeScript 5.8.3でparse errorになることを検出し、`'deterministicReviewEvidence' extends ...` 形式へ修正済み。
+- baseline prototype snapshot / `expectedReview` / telemetry / matcher options / prepared evidenceをruntime inputへ戻していない。
+- issue-0158 Contained Worksheet Format Perceptionがmainへ先行統合されたため、本Issueは0159へ改番し、両者の責務境界を文書化。
+- production runtime / matcher / provider / Authority semantics / UIは変更していない。
+- 現ローカル環境にはrepository dependency treeがないためrepository全test suite成功は主張しない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
