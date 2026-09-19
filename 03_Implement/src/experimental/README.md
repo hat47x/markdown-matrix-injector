@@ -255,7 +255,9 @@ body occupancyとmerge shapeはセル位置・merge rangeだけから得られ�
 
 `fill: yes` は「Excelのあらゆる色指定を必ず解決できる」という意味ではありません。issue-0132ではLibreOfficeが最終保存したXLSX fixtureを使い、direct RGB solid fill（`FF202020` / `FF404040`）が既存reader・bridgeを通って `header:fill-present` / `header:dark-fill` となり、このsource profileの比較evidenceへ残ることを契約テスト化しました。
 
-一方、theme indexだけで指定された色はまだ同じ保証へ含めません。RGBへ直接解決できないstyleはbridge側で保守的に `other` とし、adapterはmeaningful fill evidenceへ採用しません。theme解決は別fixtureで必要性を確認してから設計します。
+issue-0133ではLibreOffice最終保存のtheme-indexed fixtureを追加し、SheetJS CE 0.20.3がtheme color schemeとtintをRGBへ解決してからbridgeへ渡す境界を固定しました。theme 3 / dark2は `1F497D -> dark`、theme 3 + tint 0.8は `C6D9F1 -> light` として既存fill evidenceへ入ります。
+
+MMI bridgeはtheme XMLを自力で解決しません。resolved RGBが無いtheme styleは引き続き保守的に `other` とし、adapterはmeaningful fill evidenceへ採用しません。
 
 adapterが値を受け取れることと、実入力経路がその値を安定して供給することは別です。後者を確認できない情報は比較契約へ入れません。
 
@@ -343,8 +345,10 @@ merge shapeは分類を単独支配するfeatureではなく、他の構造証�
 13. `sheetJsWorksheetFormatBridge.test.ts` — SheetJS worksheet objectからsnapshotへの変換規則
 14. `xlsxFormatSnapshotRealRuntime.test.ts` — SheetJS自身が生成した実XLSX bytesを通すruntime境界
 15. `xlsxFormatSnapshotLibreOfficeFixture.test.ts` — LibreOffice最終保存XLSXでdirect RGB fillと構造境界を確認
-16. `test/fixtures/README.md` — 外部生成fixtureのprovenanceとSHA-256
-17. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
+16. `xlsxFormatSnapshotThemeFixture.test.ts` — 外部theme/tint fillがSheetJSでRGB解決される境界を確認
+17. `theme-fill-boundary.md` — parser / bridge / adapterのtheme責務分離
+18. `test/fixtures/README.md` — 外部生成fixtureのprovenanceとSHA-256
+19. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
 
 ## 13. 安全に変更するためのチェックリスト
 
@@ -409,18 +413,20 @@ issue-0130ではadapterを通すsnapshot-level fixtureへ進み、issue-0131で�
 - gapped headerの物理gapをrelative structureとして残す
 - 実XLSX snapshotからprototype / matcherへ進んでもmulti-family drift identityを保持する
 - LibreOffice最終保存のdirect RGB solid fillは `header:fill-present` / `header:dark-fill` として比較evidenceへ残す
-- theme-only colorはまだ同じ保証へ含めず、RGBへ解決できない場合は保守的に意味あるfill evidenceから外す
+- LibreOffice最終保存のtheme/tint fillも、SheetJSがRGBへ解決できる場合は同じfill evidenceへ正規化する
+- theme indexだけがありresolved RGBが無い場合はbridgeで `other` とし、推測で補わない
+- theme XML / tint algorithmをMMI側へ重複実装しない
 
-次に進む場合は、**theme-indexed fillを外部生成fixtureで評価する段階**です。
+次に進む場合は、style解析機能をさらに増やす前に、**実務fixtureでfill evidenceの出現率と識別価値を測る段階**です。
 
 優先項目:
 
-1. theme index / tintがSheetJS CE 0.20.3の `.s` へどう残るか
-2. current bridgeが実runtimeでも `other` とするか
-3. workbook theme XMLからRGBへ解決する必要性
-4. theme解決を追加した場合のsource-profile / feature-version影響
-5. 実務fixtureにおけるtheme-only fillの頻度
+1. direct RGB / theme / no-fillの実務分布
+2. fill差だけがformat identityへ寄与するケース
+3. fill evidence有無がfalse match / false novelへ与える影響
+4. structure-only sourceとのcross-profile方針
+5. border evidenceを保証対象へ進める必要性
 
-詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`test/fixtures/README.md`、issue-0128〜0132 を参照してください。
+詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`test/fixtures/README.md`、issue-0128〜0133 を参照してください。
 
 十分な外部生成fixtureと安全境界が揃うまでは、warningやreview signalを自動accept / reject条件へ昇格させず、production接続可否も別ADR/Issueで判断します。

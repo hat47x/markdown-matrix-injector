@@ -44,11 +44,29 @@ test('missing !ref is treated as an empty worksheet', () => {
   assert.deepEqual(sheetJsWorksheetToFormatSnapshot({ A1: { v: 'ignored' } }), { cells: [], merges: [] });
 });
 
-test('fill classification is conservative for rgb and unresolved theme colors', () => {
+test('fill classification uses resolved rgb while unresolved theme colors remain conservative', () => {
   assert.equal(classifySheetJsFillTone({ fill: { fgColor: { rgb: 'FF202020' } } }), 'dark');
   assert.equal(classifySheetJsFillTone({ fill: { fgColor: { rgb: 'FF999999' } } }), 'gray');
   assert.equal(classifySheetJsFillTone({ fill: { fgColor: { rgb: 'FFF2F2F2' } } }), 'light');
-  assert.equal(classifySheetJsFillTone({ fill: { fgColor: { theme: 4 } } }), 'other');
+
+  // The bridge does not resolve workbook themes by itself.
+  assert.equal(classifySheetJsFillTone({ fill: { fgColor: { theme: 3 } } }), 'other');
+
+  // SheetJS resolves theme/tint to rgb when cellStyles is enabled. Once rgb is
+  // present, the bridge intentionally ignores how the color was originally
+  // encoded and applies the same coarse tone classification as direct RGB.
+  assert.equal(
+    classifySheetJsFillTone({
+      fill: { fgColor: { theme: 3, rgb: '1F497D' } },
+    }),
+    'dark',
+  );
+  assert.equal(
+    classifySheetJsFillTone({
+      fill: { fgColor: { theme: 3, tint: 0.8, rgb: 'C6D9F1' } },
+    }),
+    'light',
+  );
   assert.equal(classifySheetJsFillTone({}), undefined);
 });
 
