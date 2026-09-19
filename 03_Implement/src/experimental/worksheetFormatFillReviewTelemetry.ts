@@ -31,15 +31,19 @@ export interface WorksheetFormatFillReviewCase
   expectedReview: boolean;
 }
 
-export interface WorksheetFormatFillReviewCaseResult
+export interface WorksheetFormatFillReviewAnalysisResult
   extends WorksheetFormatFillEvidenceCaseResult {
-  expectedReview: boolean;
   telemetry: readonly WorksheetFormatFillReviewTelemetryCode[];
   decisionImpact: boolean;
   essentialUnavailable: boolean;
   highImpactReviewTelemetry: boolean;
   broadFillUnavailable: boolean;
   broadFillDisagreement: boolean;
+}
+
+export interface WorksheetFormatFillReviewCaseResult
+  extends WorksheetFormatFillReviewAnalysisResult {
+  expectedReview: boolean;
 }
 
 export interface WorksheetFormatFillReviewMetrics {
@@ -85,33 +89,38 @@ const DECISION_IMPACT_CODES = new Set<WorksheetFormatFillReviewTelemetryCode>([
  * - broad availability/disagreement facts, which are useful diagnostics but can
  *   be noisy when interpreted as per-case review requirements
  */
+export function analyzeWorksheetFormatFillReviewCase(
+  source: WorksheetFormatFillEvidenceCase,
+): WorksheetFormatFillReviewAnalysisResult {
+  const entry = evaluateWorksheetFormatFillEvidence([source]).cases[0];
+  if (!entry || entry.id !== source.id) {
+    throw new Error('Fill review analysis case ordering changed unexpectedly.');
+  }
+
+  const telemetry = classifyTelemetry(source, entry);
+  const decisionImpact = telemetry.some((code) => DECISION_IMPACT_CODES.has(code));
+  const essentialUnavailable = telemetry.includes('fill-unavailable-for-discrimination');
+  const broadFillUnavailable = telemetry.includes('fill-unavailable');
+  const broadFillDisagreement = telemetry.includes('fill-tone-disagreement');
+
+  return {
+    ...entry,
+    telemetry,
+    decisionImpact,
+    essentialUnavailable,
+    highImpactReviewTelemetry: decisionImpact || essentialUnavailable,
+    broadFillUnavailable,
+    broadFillDisagreement,
+  };
+}
+
 export function evaluateWorksheetFormatFillReviewTelemetry(
   cases: readonly WorksheetFormatFillReviewCase[],
 ): WorksheetFormatFillReviewEvaluation {
-  const paired = evaluateWorksheetFormatFillEvidence(cases);
-  const results = paired.cases.map((entry, index) => {
-    const source = cases[index];
-    if (!source || source.id !== entry.id) {
-      throw new Error('Fill review evaluation case ordering changed unexpectedly.');
-    }
-
-    const telemetry = classifyTelemetry(source, entry);
-    const decisionImpact = telemetry.some((code) => DECISION_IMPACT_CODES.has(code));
-    const essentialUnavailable = telemetry.includes('fill-unavailable-for-discrimination');
-    const broadFillUnavailable = telemetry.includes('fill-unavailable');
-    const broadFillDisagreement = telemetry.includes('fill-tone-disagreement');
-
-    return {
-      ...entry,
-      expectedReview: source.expectedReview,
-      telemetry,
-      decisionImpact,
-      essentialUnavailable,
-      highImpactReviewTelemetry: decisionImpact || essentialUnavailable,
-      broadFillUnavailable,
-      broadFillDisagreement,
-    } satisfies WorksheetFormatFillReviewCaseResult;
-  });
+  const results = cases.map((source) => ({
+    ...analyzeWorksheetFormatFillReviewCase(source),
+    expectedReview: source.expectedReview,
+  } satisfies WorksheetFormatFillReviewCaseResult));
 
   return {
     cases: results,
