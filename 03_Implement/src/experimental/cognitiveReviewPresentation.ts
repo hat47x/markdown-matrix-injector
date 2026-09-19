@@ -362,9 +362,9 @@ function toJudgmentPresentation<TChoice extends string>(
     };
   }
 
-  if (!['abstained', 'unsupported', 'unavailable'].includes(judgment.status)) {
+  if (judgment.status === 'error') {
     throw new Error(
-      `Unsupported cognitive review Judgment state: ${judgment.status}.`,
+      'Unsupported cognitive review Judgment state: error.',
     );
   }
 
