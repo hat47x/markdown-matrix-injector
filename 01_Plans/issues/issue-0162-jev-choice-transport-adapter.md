@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Feature / External provider adapter
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: Jev Choice request/response mapping, explicit state projection, option criteria, transport injection
 - Expected verification level: unit + focused integration
@@ -63,23 +63,23 @@ adapter固定:
 
 ## Acceptance criteria
 
-- [ ] issue-0161 `ClosedChoiceJudgmentProvider` を実装する。
-- [ ] provider descriptorは `external-opt-in`。
-- [ ] state projectorを必須とし、Observation全体を暗黙送信しない。
-- [ ] choice criteria projectorを必須とする。
-- [ ] Jev request shapeを公式Choice HTTP contractへ固定する。
-- [ ] default modelは `jev-latest`。
-- [ ] explicit model pinを許容する。
-- [ ] Choice 2〜255 optionsをadapter境界で検証する。
-- [ ] stateをJSON-compatible string/object/arrayへ限定する。
-- [ ] cyclic / undefined / function / symbol / non-finite numberを拒否する。
-- [ ] response answer id=`decision`を必須とする。
-- [ ] answer `type=choice` を必須とする。
-- [ ] choice/probabilities/confidenceをgeneric provider responseへ変換する。
-- [ ] probabilitiesの意味検証は既存closed-choice adapterへ委譲する。
-- [ ] transport errorを握り潰さない。
-- [ ] API key / Authorization header / fetch / retryをadapterへ含めない。
-- [ ] live network testを実施しない。
+- [x] issue-0161 `ClosedChoiceJudgmentProvider` を実装する。
+- [x] provider descriptorは `external-opt-in`。
+- [x] state projectorを必須とし、Observation全体を暗黙送信しない。
+- [x] choice criteria projectorを必須とする。
+- [x] Jev request shapeを公式Choice HTTP contractへ固定する。
+- [x] default modelは `jev-latest`。
+- [x] explicit model pinを許容する。
+- [x] Choice 2〜255 optionsをadapter境界で検証する。
+- [x] stateをJSON-compatible string/object/arrayへ限定する。
+- [x] cyclic / undefined / function / symbol / non-finite numberを拒否する。
+- [x] response answer id=`decision`を必須とする。
+- [x] answer `type=choice` を必須とする。
+- [x] choice/probabilities/confidenceをgeneric provider responseへ変換する。
+- [x] probabilitiesの意味検証は既存closed-choice adapterへ委譲する。
+- [x] transport errorを握り潰さない。
+- [x] API key / Authorization header / fetch / retryをadapterへ含めない。
+- [x] live network testを実施しない。
 
 ## Validation plan
 
@@ -94,3 +94,35 @@ adapter固定:
 - external opt-in gateとtransport未呼出。
 - transport exception伝播。
 - strict compile。
+
+
+## Validation evidence
+
+### 2026-09-20 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- issue-0161 provider portとのinterface-compatible境界で
+  `jevChoiceJudgmentProvider.ts` を
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime harness: **17 checks / 17 pass / 0 fail**。
+- 確認内容:
+  - default `jev-latest` model request。
+  - explicit versioned model idをrequest/provider provenanceへ保持。
+  - official Choice request shape:
+    `state / model / questions.decision.type=choice / instructions / criteria`。
+  - state projectorによりObservation全体を暗黙送信しない。
+  - `external-opt-in` gateでtransport未呼出。
+  - 255 optionsを受理し、256 optionsをtransport前に拒否。
+  - non-finite number / cyclic stateをtransport前に拒否。
+  - malformed non-choice answerを拒否。
+  - invalid probability distributionはissue-0138 adapterへ委譲してfail-closed。
+  - transport exceptionをretry/unavailableへ自動変換せず伝播。
+- API key / Authorization header / fetch / retry / environment variable / live networkは実装していない。
+- provider descriptor `version` はrequestしたmodel id。
+  floating aliasをexact model versionとは扱わず、再現性が必要な評価はversioned model id指定を前提とする。
+- live Jev呼出は実施していない。
+- production runtime / Notation conformance / source write / apply authorityは変更していない。
+- 現ローカル環境にはrepository dependency treeがないためrepository全test suite成功は主張しない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
