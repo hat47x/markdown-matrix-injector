@@ -561,7 +561,7 @@ issue-0155 UnifiedHumanReviewViewModelV1
 
 issue-0160では、contained sourceのstable read window内でsnapshot readerを1回だけ呼び、その**同一snapshot object**をFly PerceptionとProfile-backed deterministic analysisへ内部供給するsafe orchestrationを追加しました。callerへsnapshotやprepared Envelopeを返さないため、通常の上位経路ではsnapshot取り違えを構造的に防ぎます。
 
-issue-0161では、上記safe pathを置き換えず、低レベルissue-0159 APIと監査性を補強する `WorksheetFormatObservationIdentityV1` を追加しました。
+issue-0163では、上記safe pathを置き換えず、低レベルissue-0159 APIと監査性を補強する `WorksheetFormatObservationIdentityV1` を追加しました。
 
 identityはsource file hashでもexact snapshot hashでもなく、current source profileでmatcherが実際に比較したnormalized format featuresのSHA-256 bindingです。
 
@@ -576,6 +576,6 @@ identityはsource file hashでもexact snapshot hashでもなく、current sourc
 
 次に進む場合もproduction wiringへ直結せず、human-review UIへ接続する前のpresentation ordering / progressive disclosureを別Issueで評価します。auto accept / auto reject / apply authorityは引き続き導入しません。
 
-詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`external-xlsx-fill-telemetry.md`、`external-fill-impact-family.md`、`../../02_Architecture/deterministic-review-evidence-overlay-v1.md`、`../../02_Architecture/unified-human-review-view-model-v1.md`、`../../02_Architecture/executable-proposal-deterministic-review-workflow-v1.md`、`../../02_Architecture/contained-unified-review-workflow-v1.md`、`../../02_Architecture/worksheet-format-observation-identity-v1.md`、`test/fixtures/README.md`、issue-0128〜0161 を参照してください。
+詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`external-xlsx-fill-telemetry.md`、`external-fill-impact-family.md`、`../../02_Architecture/deterministic-review-evidence-overlay-v1.md`、`../../02_Architecture/unified-human-review-view-model-v1.md`、`../../02_Architecture/executable-proposal-deterministic-review-workflow-v1.md`、`../../02_Architecture/contained-unified-review-workflow-v1.md`、`../../02_Architecture/worksheet-format-observation-identity-v1.md`、`test/fixtures/README.md`、issue-0128〜0163 を参照してください。
 
 十分な外部生成fixtureと安全境界が揃うまでは、warningやreview signalを自動accept / reject条件へ昇格させず、production接続可否も別ADR/Issueで判断します。
