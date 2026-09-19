@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Feature / Async provider orchestration
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: stable Perception -> derived review-route Observation -> closed-choice provider -> Envelope -> Authority/deterministic unified review
 - Expected verification level: unit + focused composition
@@ -44,22 +44,22 @@ issue-0160はsync `judgmentFactory` を持つが、Jev等のproviderはasyncで�
 
 ## Acceptance criteria
 
-- [ ] 既存sync judgmentFactory APIを維持する。
-- [ ] async provider entrypointを追加する。
-- [ ] providerへraw worksheet snapshot/cells/featuresを渡さない。
-- [ ] providerへ元のsource Observationではなくreview-route派生Observationを渡す。
-- [ ] 派生Observation sourceDigestはsource Observationと一致する。
-- [ ] 派生Observationはcandidate scoreのうち必要最小限だけを保持し、raw feature vectorを含めない。
-- [ ] external-opt-in gateはissue-0161を再利用する。
-- [ ] opt-in拒否時provider未呼出・Authority loader未呼出。
-- [ ] provider failure時Authority loader未呼出。
-- [ ] malformed provider response時Authority loader未呼出。
-- [ ] provider non-decisionも既存Envelope contractで保持可能。
-- [ ] provider decisionはproposal-onlyのまま。
-- [ ] sourceがprovider待機中に変化した場合、後段Authority source-identityでblockedとなる。
-- [ ] same transient snapshotをPerceptionとdeterministic analysisへ利用する。
-- [ ] final modelへprovider state/raw Observation/raw snapshotを保持しない。
-- [ ] live network / provider SDK / production wiringを追加しない。
+- [x] 既存sync judgmentFactory APIを維持する。
+- [x] async provider entrypointを追加する。
+- [x] providerへraw worksheet snapshot/cells/featuresを渡さない。
+- [x] providerへ元のsource Observationではなくreview-route派生Observationを渡す。
+- [x] 派生Observation sourceDigestはsource Observationと一致する。
+- [x] 派生Observationはcandidate scoreのうち必要最小限だけを保持し、raw feature vectorを含めない。
+- [x] external-opt-in gateはissue-0161を再利用する。
+- [x] opt-in拒否時provider未呼出・Authority loader未呼出。
+- [x] provider failure時Authority loader未呼出。
+- [x] malformed provider response時Authority loader未呼出。
+- [x] provider non-decisionも既存Envelope contractで保持可能。
+- [x] provider decisionはproposal-onlyのまま。
+- [x] sourceがprovider待機中に変化した場合、後段Authority source-identityでblockedとなる。
+- [x] same transient snapshotをPerceptionとdeterministic analysisへ利用する。
+- [x] final modelへprovider state/raw Observation/raw snapshotを保持しない。
+- [x] live network / provider SDK / production wiringを追加しない。
 
 ## Validation plan
 
@@ -73,3 +73,34 @@ issue-0160はsync `judgmentFactory` を持つが、Jev等のproviderはasyncで�
 - provider待機中source mutation -> Authority blocked。
 - sync 0160 APIの既存動作維持。
 - strict compile。
+
+
+## Validation evidence
+
+### 2026-09-20 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- provider-backed追加境界をissue-0160 / 0161のinterface-compatible型で
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime harness: **6 tests / 6 pass / 0 fail**。
+- 確認内容:
+  - source Observation + Fly Perceptionからreview-route派生Observationを生成。
+  - derived Observationはsource digestを維持し、cells/featuresを含めない。
+  - local provider decisionをJudgmentとして取得。
+  - external-opt-in providerは明示許可なしでprovider call前に拒否。
+  - explicit opt-in時のみprovider call。
+  - provider abstentionをnon-decisionとして保持。
+  - malformed distributionを既存closed-choice validationでfail-closed。
+  - Perceptionとderived Observationのsource digest不一致を拒否。
+- repository focused test sourceにはさらに:
+  - provider request Observationにraw worksheet / features / absolute pathが無いこと。
+  - external opt-in拒否、provider exception、malformed responseでAuthority loader未呼出。
+  - provider待機中source mutationを後段Authority source-identityでblocked。
+  - final modelにderived provider Observation / raw snapshot / raw Notationを保持しない。
+- 既存sync `judgmentFactory` entrypointは削除せず、stable Perception準備helperを共有する形へrefactor。
+- provider-specific state projectionはissue-0162等のprovider adapter側に残し、本workflowはprovider-neutral。
+- live network / provider SDK / API key / retry / production UIは追加していない。
+- 現ローカル環境にはrepository dependency treeがないためrepository全test suite成功は主張しない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
