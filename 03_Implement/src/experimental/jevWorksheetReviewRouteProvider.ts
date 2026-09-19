@@ -63,12 +63,12 @@ export interface JevWorksheetReviewRouteProviderOptions {
   providerId?: string;
 }
 
-export interface JevWorksheetReviewRouteState {
+export type JevWorksheetReviewRouteState = Readonly<{
   classification: 'matched' | 'ambiguous' | 'novel';
   candidateCount: number;
   hasWinner: boolean;
   noveltyScore: number;
-}
+}>;
 
 export function createJevWorksheetReviewRouteProvider(
   transport: JevSystemOneTransport,
@@ -108,7 +108,7 @@ export function projectWorksheetReviewRouteState(
   const payload =
     observation.payload as WorksheetFormatReviewRoutePayload;
 
-  const state: JevWorksheetReviewRouteState = {
+  const state: JevState = {
     classification: payload.classification,
     candidateCount: payload.candidateIds.length,
     hasWinner: payload.winnerPrototypeId !== undefined,
