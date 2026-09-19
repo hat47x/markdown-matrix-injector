@@ -561,6 +561,8 @@ issue-0155 UnifiedHumanReviewViewModelV1
 
 issue-0160では、contained sourceのstable read window内でsnapshot readerを1回だけ呼び、その**同一snapshot object**をFly PerceptionとProfile-backed deterministic analysisへ内部供給するsafe orchestrationを追加しました。callerへsnapshotやprepared Envelopeを返さないため、通常の上位経路ではsnapshot取り違えを構造的に防ぎます。
 
+並行してissue-0161 / 0162ではclosed-choice Judgment provider portとJev Choice transport adapterを整備しています。これはJudgment実行境界のレーンであり、worksheet-format Perception / observation identityとは責務を分離しています。
+
 issue-0163では、上記safe pathを置き換えず、低レベルissue-0159 APIと監査性を補強する `WorksheetFormatObservationIdentityV1` を追加しました。
 
 identityはsource file hashでもexact snapshot hashでもなく、current source profileでmatcherが実際に比較したnormalized format featuresのSHA-256 bindingです。
