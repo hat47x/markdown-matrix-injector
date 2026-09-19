@@ -126,19 +126,28 @@ export function runExecutableProposalAuthorityRevalidation<
   applyResolutionChecks(results, context);
 
   if (context.resolvedPath) {
-    const actualDigest = digestFile(context.resolvedPath);
-    if (actualDigest === input.envelope.sourceDigest) {
-      setPassed(
-        results,
-        'source-identity',
-        'SOURCE_DIGEST_MATCHED',
-      );
-    } else {
+    try {
+      const actualDigest = digestFile(context.resolvedPath);
+      if (actualDigest === input.envelope.sourceDigest) {
+        setPassed(
+          results,
+          'source-identity',
+          'SOURCE_DIGEST_MATCHED',
+        );
+      } else {
+        setFailed(
+          results,
+          'source-identity',
+          'SOURCE_DIGEST_MISMATCH',
+          `Resolved source digest ${actualDigest} does not match Envelope digest.`,
+        );
+      }
+    } catch (error) {
       setFailed(
         results,
         'source-identity',
-        'SOURCE_DIGEST_MISMATCH',
-        `Resolved source digest ${actualDigest} does not match Envelope digest.`,
+        'SOURCE_DIGEST_READ_FAILED',
+        errorMessage(error),
       );
     }
   } else {
