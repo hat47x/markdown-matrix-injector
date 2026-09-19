@@ -258,7 +258,7 @@ test('composes proposal, Authority, Cognitive review, Judgment, provenance, and 
   );
   assert.equal(surface.audience, 'human-review');
 
-  assert.equal(surface.proposalIdentity.role, 'executable-proposal-identity');
+  assert.equal(surface.proposalIdentity.role, 'proposal-identity');
   assert.match(surface.proposalIdentity.digest, /^sha256:[0-9a-f]{64}$/u);
 
   assert.equal(
