@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Feature / Provenance integrity
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: contained source identity -> CognitiveObservation provenance, stable source read window
 - Expected verification level: unit + focused integration
@@ -35,18 +35,18 @@ Authority側はissue-0152のcanonical source-file-bytes SHA-256を利用する�
 
 ## Acceptance criteria
 
-- [ ] callerがsourceDigestを渡さないinput型を定義する。
-- [ ] sourceDigestはissue-0152 canonical identityからのみ生成する。
-- [ ] workspace containmentを既存resolverで強制する。
-- [ ] source payload readerへcontained resolved pathだけを渡す。
-- [ ] payload read前後でdigestとbyteLengthを比較する。
-- [ ] source変化時にObservationを返さずfail-closedする。
-- [ ] featureVersion / sourceProfileId optional metadataを保持する。
-- [ ] `assertCognitiveObservation` を生成後に通す。
-- [ ] reader例外を握り潰さない。
-- [ ] traversal / outside symlink時はreaderを呼ばない。
-- [ ] source bytesやabsolute pathをObservation provenanceへ保存しない。
-- [ ] production runtime / provider / matcher / fill telemetryを変更しない。
+- [x] callerがsourceDigestを渡さないinput型を定義する。
+- [x] sourceDigestはissue-0152 canonical identityからのみ生成する。
+- [x] workspace containmentを既存resolverで強制する。
+- [x] source payload readerへcontained resolved pathだけを渡す。
+- [x] payload read前後でdigestとbyteLengthを比較する。
+- [x] source変化時にObservationを返さずfail-closedする。
+- [x] featureVersion / sourceProfileId optional metadataを保持する。
+- [x] `assertCognitiveObservation` を生成後に通す。
+- [x] reader例外を握り潰さない。
+- [x] traversal / outside symlink時はreaderを呼ばない。
+- [x] source bytesやabsolute pathをObservation provenanceへ保存しない。
+- [x] production runtime / provider / matcher / fill telemetryを変更しない。
 
 ## Validation plan
 
@@ -59,3 +59,28 @@ Authority側はissue-0152のcanonical source-file-bytes SHA-256を利用する�
 - required observation metadataの空値を拒否。
 - returned Observationにresolved absolute path / raw bytesが含まれないことを確認。
 - GitHub Actionsの既知runner/resource不足は完了条件にしない。
+
+
+## Validation evidence
+
+### 2026-09-20 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- existing `pathResolver` + issue-0152 source identity + Cognitive Contract + new builderを
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- real temporary filesを用いたfocused runtime harness: **8/8 pass**。
+- 確認内容:
+  - stable sourceからObservationを生成し、canonical source identity digestと一致。
+  - payload readerへcontained resolved pathだけを渡す。
+  - featureVersion / sourceProfileIdを保持。
+  - workspace外traversalでreader未呼出。
+  - workspace内symlinkからworkspace外targetへの参照でreader未呼出。
+  - payload read中のsource mutationを `SourceChangedDuringCognitiveObservationError` でfail-closed。
+  - payload reader例外を握り潰さず伝播。
+  -生成後に既存 `assertCognitiveObservation` を通し、空required metadataを拒否。
+  - serialized Observationにはabsolute source path / raw source bytesを含めず、sourceDigestだけをprovenanceへ保持。
+- caller input型には `sourceDigest` fieldを持たせず、issue-0152 canonical identityからのみ生成。
+- production Workbook loader / plugin / matcher / provider invocation / fill telemetry / external-XLSX評価コードは変更していない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
