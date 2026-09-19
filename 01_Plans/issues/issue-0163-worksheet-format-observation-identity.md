@@ -233,3 +233,34 @@ issue-0160経由でもFly Perceptionにidentityは付与され、Envelope検証�
 GitHub Actionsの既知runner/resource不足は完了条件にしない。
 
 repository dependency treeが無い場合はrepository全test passを主張せず、strict compile / focused harness / source-level contract inspectionを記録する。
+
+
+## Validation evidence
+
+### 2026-09-20 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- `WorksheetFormatObservationIdentityV1` 本体を、実公開型とinterface-compatibleな最小stubsで
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime harness: **4 checks / 4 pass / 0 fail**。
+  - match由来identityとsnapshot再計算identityが同一digest。
+  - source/profile/version/evidence provenance一致を受理。
+  - 同一snapshotとのidentity照合を受理。
+  - format feature stateが異なるsnapshotをreject。
+- source profile idはtrim、evidenceはdedupe/sortしてからidentity化し、matcher側canonicalizationとの不要な差を抑制。
+- repository test sourceへ以下を追加・更新:
+  - body valueのみ変更ではidentity不変。
+  - header / fill変更でidentity変化。
+  - sourceDigest変更でidentity変化。
+  - artifact serializationにraw feature vector / header labelを含めない。
+  - Fly Perception payloadへidentityを保持。
+  - Review Envelopeでtampered provenanceをreject。
+  - issue-0159でsnapshot/identity mismatchをAuthority loader前にreject。
+  - issue-0158 contained Perceptionでcanonical sourceDigestとのbindingを確認。
+  - issue-0160 final Unified modelにidentity / raw featuresを既定表示しない。
+- issue-0160のsame-snapshot orchestrationはそのまま維持し、本identityを代替安全策にはしていない。
+- matcher score / threshold / feature version / source profile semantics / Authority / production UIは変更していない。
+- repository dependency treeは現環境に無いため、repository全test suite成功は主張しない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
