@@ -99,3 +99,67 @@ This makes the fixture diagnostic:
 - correct theme + tint resolution becomes `light`
 
 The fixture therefore tests more than the presence of a theme index; it tests that the parser supplies the resolved RGB expected by the existing bridge.
+
+## libreoffice-fill-impact-family.xlsx
+
+Purpose:
+
+- reproduce the four remaining high-impact fill telemetry reasons using external XLSX sheets rather than synthetic snapshots
+- keep each case inside one small related template family with fixed title merge, contiguous headers, and three body rows
+- distinguish structural drift from fill support/conflict using actual LibreOffice-finalized workbook bytes
+
+Decoded / stored XLSX SHA-256:
+
+```text
+aeeb605c4bcd88a02df6ecf09a83db962141d6f6c90bd96375d67feeeb937973
+```
+
+Generation environment:
+
+```text
+LibreOffice 25.2.3.2 520(Build:2)
+OpenPyXL 3.1.5
+```
+
+Generation process:
+
+1. Build one workbook family with OpenPyXL.
+2. Use the same title-row + header-row + three-body-row layout for every sheet.
+3. Vary only the header labels and direct RGB header fill needed for each telemetry boundary.
+4. Re-open and re-save the workbook with LibreOffice Calc's Office Open XML exporter.
+5. Independently read the final XLSX with OpenPyXL.
+6. Verify every header, fill, and merge after the LibreOffice save.
+7. Store the final binary XLSX byte-for-byte in the repository using the Git data API.
+
+Independent final-file checks:
+
+| Sheet | Headers / role | Header fill | Merge |
+|---|---|---|---|
+| W6 Base Dark | ID, Item, Type, Required, Decision, Reviewer | FF202020 | A1:F1 |
+| W6 Two Drift Dark | Code, Item, Name, Required, Decision, Reviewer | FF202020 | A1:F1 |
+| W6 Base No Fill | same as W6 Base Dark | none | A1:F1 |
+| W6 Wrong Dark | ID, Item, Type, Required, Decision, Memo | FF202020 | A1:F1 |
+| W8 Base Dark | ID, Item, Type, Required, Decision, Reviewer, Note, Owner | FF202020 | A1:H1 |
+| W8 Two Drift Dark | Status, Item, Type, Required, Decision, Role, Note, Owner | FF202020 | A1:H1 |
+| W3 Base Dark | ID, State, Note | FF202020 | A1:C1 |
+| W3 A Code Dark | Code, State, Note | FF202020 | A1:C1 |
+| W3 B Category Light | ID, Category, Note | FFF2F2F2 | A1:C1 |
+
+Telemetry coverage:
+
+- W6 Two Drift Dark vs W6 Base Dark:
+  `fill-supported-acceptance`
+- W6 Base Dark vs W6 Base No Fill / W6 Wrong Dark:
+  `fill-induced-ambiguity`
+- W8 Two Drift Dark vs W8 Base Dark:
+  `fill-induced-rejection`
+- W3 Base Dark vs W3 A Code Dark / W3 B Category Light:
+  `fill-changed-winner`
+  together with `fill-supported-disambiguation` and the broad diagnostic
+  `fill-tone-disagreement`
+
+Why this fixture is stored as a binary XLSX while the earlier fixtures are base64 text:
+
+The earlier external fixtures were created through the GitHub Contents API, which is text-oriented in this workflow. For this fixture the Git data API was used directly, so the byte-exact XLSX can be stored without an intermediate base64 repository file.
+
+The SHA-256 check remains mandatory in the test so the storage form does not weaken provenance.
