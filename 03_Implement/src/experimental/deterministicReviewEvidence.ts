@@ -306,6 +306,8 @@ function assertSurfaceBinding<
   surface: TSurface,
   evidence: DeterministicReviewEvidenceV1,
 ): void {
+  assertEvidenceShape(evidence);
+
   if (surface.audience !== 'human-review') {
     throw new Error(
       'Deterministic review evidence requires a human-review surface.',
@@ -345,6 +347,93 @@ function assertSurfaceBinding<
   ) {
     throw new Error(
       'Deterministic review evidence requires an unchanged review-only/no-write boundary.',
+    );
+  }
+
+  assertPrimaryComparisonMatchesPerception(
+    envelope,
+    evidence.comparison.primary,
+  );
+}
+
+function assertEvidenceShape(
+  evidence: DeterministicReviewEvidenceV1,
+): void {
+  if (
+    evidence.schemaVersion !== DETERMINISTIC_REVIEW_EVIDENCE_SCHEMA_VERSION
+    || evidence.role !== 'deterministic-review-evidence'
+  ) {
+    throw new Error('Unsupported deterministic review evidence schema.');
+  }
+  if (
+    evidence.producer.kind !== 'deterministic-analysis'
+    || evidence.producer.componentId !==
+      'mmi.experimental.worksheet-format-fill-review'
+    || evidence.producer.componentVersion !== '1'
+    || evidence.producer.executionBoundary !== 'local'
+  ) {
+    throw new Error('Invalid deterministic review evidence producer.');
+  }
+  if (evidence.featureVersion !== WORKSHEET_FORMAT_FEATURE_VERSION) {
+    throw new Error('Invalid deterministic review evidence feature version.');
+  }
+  if (
+    evidence.sourceDigest.trim().length === 0
+    || evidence.sourceProfileId.trim().length === 0
+    || evidence.comparison.kind !==
+      'worksheet-format-fill-vs-structure-only'
+    || evidence.comparison.primary.sourceProfileId !==
+      evidence.sourceProfileId
+    || evidence.comparison.control.sourceProfileId.trim().length === 0
+  ) {
+    throw new Error('Invalid deterministic review evidence provenance.');
+  }
+
+  const seen = new Set<WorksheetFormatFillReviewTelemetryCode>();
+  let reviewRelevant = 0;
+  let diagnostic = 0;
+  for (const reason of evidence.reasons) {
+    if (seen.has(reason.code)) {
+      throw new Error(
+        `Duplicate deterministic review reason: ${reason.code}.`,
+      );
+    }
+    seen.add(reason.code);
+    const expected = toReason(reason.code);
+    if (
+      reason.category !== expected.category
+      || reason.reviewRole !== expected.reviewRole
+    ) {
+      throw new Error(
+        `Invalid deterministic review reason classification: ${reason.code}.`,
+      );
+    }
+    if (reason.reviewRole === 'review-relevant') reviewRelevant += 1;
+    else diagnostic += 1;
+  }
+
+  if (
+    evidence.reviewRelevantReasonCount !== reviewRelevant
+    || evidence.diagnosticReasonCount !== diagnostic
+  ) {
+    throw new Error('Deterministic review reason counts are inconsistent.');
+  }
+}
+
+function assertPrimaryComparisonMatchesPerception<TChoice extends string>(
+  envelope: CognitiveReviewEnvelope<TChoice>,
+  primary: DeterministicReviewComparisonPathV1,
+): void {
+  const payload = envelope.perception.signal.payload;
+  if (
+    primary.status !== payload.classification
+    || primary.winnerPrototypeId !== payload.winnerPrototypeId
+    || primary.noveltyScore !== payload.noveltyScore
+    || primary.topPrototypeId !== payload.candidates[0]?.prototypeId
+    || primary.topConfidence !== payload.candidates[0]?.confidence
+  ) {
+    throw new Error(
+      'Deterministic review primary comparison does not match Perception.',
     );
   }
 }
