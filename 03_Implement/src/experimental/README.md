@@ -261,6 +261,8 @@ MMI bridgeはtheme XMLを自力で解決しません。resolved RGBが無いthem
 
 issue-0134ではさらに、同じsnapshot群を `structure + fill` / `structure only` で対比較し、fill evidenceの**識別価値と副作用**を評価しました。fill-onlyでしか区別できないprototypeをdisambiguateできる一方、共通fillが構造差を薄めて `novel -> matched` を起こすケースもあります。そのためfillは補助証拠として維持しますが、weightを強めません。
 
+issue-0135では、fillの有無やtone差を一律warningにせず、fillが実際にstatus/winnerを変えた `decision-impact` と、構造的に同一なfill-only候補群なのにfillが欠けた `essential-unavailable` をreview telemetryとして分離しました。広い `fill-unavailable` / tone disagreementはdiagnostic factに留めます。
+
 adapterが値を受け取れることと、実入力経路がその値を安定して供給することは別です。後者を確認できない情報は比較契約へ入れません。
 
 ## 9. Feature contract version
@@ -351,8 +353,10 @@ merge shapeは分類を単独支配するfeatureではなく、他の構造証�
 17. `theme-fill-boundary.md` — parser / bridge / adapterのtheme責務分離
 18. `worksheetFormatFillEvidenceEvaluation.test.ts` — fillあり/なしを同じsnapshotで対比較し、識別価値と境界反転を確認
 19. `fill-evidence-value.md` — fillが候補confidence / winner marginへ与える影響
-20. `test/fixtures/README.md` — 外部生成fixtureのprovenanceとSHA-256
-21. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
+20. `worksheetFormatFillReviewTelemetry.test.ts` — fill impact reason codeを6/8列held-out corpusで評価
+21. `fill-review-telemetry.md` — availability / disagreement / decision-impactの意味分離
+22. `test/fixtures/README.md` — 外部生成fixtureのprovenanceとSHA-256
+23. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
 
 ## 13. 安全に変更するためのチェックリスト
 
@@ -425,17 +429,28 @@ issue-0130ではadapterを通すsnapshot-level fixtureへ進み、issue-0131で�
 - 同一構造dark/light prototypeはfill込みでmargin `0.098930` を得てdisambiguateできる
 - correct structureとfill一致candidateが競合すると、fillがwinner marginを狭めてambiguousへ安全停止させる場合がある
 
-次に進む場合は、fillのweight変更ではなく、**fill availability / fill disagreementをreview telemetryとしてheld-out評価する段階**です。
+issue-0135ではfill availability / disagreementを6列・8列の20ケースでheld-out評価しました。
+
+分かったこと:
+
+- status/winnerを実際に変えたdecision-impactはprecision 1.0 / recall 0.75
+- structurally equivalentなfill-only候補群でfillが欠けたessential-unavailableを加えると、このcorpusではprecision / recall 1.0
+- broad `fill-unavailable` はprecision 0.333333
+- tone disagreement単独はreview precision 0
+- すべてのfill factを1つのwarningへ潰すとfalse-positive rate 0.5
+
+したがって次に進む場合は、**high-impact reason codeをexternal-XLSX / adapter由来の実務寄りcorpusで再評価する段階**です。
 
 優先項目:
 
-1. structure near-gate + fill support
-2. prototypeにfillがあるがobservationで欠落するケース
-3. fill-only discrimination
-4. structureとfillが別candidateを支持するケース
-5. direct RGB / theme / no-fillを混ぜた実務寄りcorpus
-6. その後にborder evidenceを保証対象へ進める必要性
+1. LibreOffice direct RGB fixture由来snapshot
+2. LibreOffice theme/tint fixture由来snapshot
+3. no-fill / partial-fill
+4. multiple prototypes
+5. structure near-gate
+6. metadata preamble / gapped header
+7. その後にCognitive Contractへobservationとして露出する必要性を別レーンと調整
 
-詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`test/fixtures/README.md`、issue-0128〜0134 を参照してください。
+詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`test/fixtures/README.md`、issue-0128〜0135 を参照してください。
 
 十分な外部生成fixtureと安全境界が揃うまでは、warningやreview signalを自動accept / reject条件へ昇格させず、production接続可否も別ADR/Issueで判断します。
