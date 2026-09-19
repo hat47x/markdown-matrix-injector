@@ -11,6 +11,9 @@ import type {
   WorksheetFormatSnapshot,
 } from '../src/experimental/worksheetFormatFeatureAdapter.js';
 import {
+  createWorksheetFormatObservationIdentityFromMatch,
+} from '../src/experimental/worksheetFormatObservationIdentity.js';
+import {
   createWorksheetFormatPrototype,
   matchWorksheetFormatSnapshot,
   SHEETJS_CE_XLSX_0203_SOURCE_PROFILE,
@@ -96,6 +99,13 @@ test('adapts matched result without changing winner, ranking, or scores', () => 
     result.match.candidates.map((candidate) => candidate.confidence),
   );
   assert.equal(adapted.signal.payload.noveltyScore, result.match.noveltyScore);
+  assert.deepEqual(
+    adapted.signal.payload.observationIdentity,
+    createWorksheetFormatObservationIdentityFromMatch(
+      observation('matched').provenance.sourceDigest,
+      result,
+    ),
+  );
 });
 
 test('keeps ambiguous candidates visible and does not invent a winner', () => {
@@ -178,6 +188,28 @@ test('preserves feature/source profile provenance and Fly-specific score semanti
     adapted.signal.payload.sourceEvidence,
     result.sourceEvidence,
   );
+  assert.equal(
+    adapted.signal.payload.observationIdentity.sourceDigest,
+    observation('provenance').provenance.sourceDigest,
+  );
+  assert.equal(
+    adapted.signal.payload.observationIdentity.featureVersion,
+    WORKSHEET_FORMAT_FEATURE_VERSION,
+  );
+  assert.equal(
+    adapted.signal.payload.observationIdentity.sourceProfileId,
+    SHEETJS_CE_XLSX_0203_SOURCE_PROFILE.id,
+  );
+  assert.match(
+    adapted.signal.payload.observationIdentity.digest,
+    /^sha256:[0-9a-f]{64}$/u,
+  );
+
+  const serializedIdentity = JSON.stringify(
+    adapted.signal.payload.observationIdentity,
+  );
+  assert.equal(serializedIdentity.includes('"features"'), false);
+  assert.equal(serializedIdentity.includes('ID'), false);
 
   const scores = adapted.signal.scores ?? [];
   assert.ok(scores.length >= 3);

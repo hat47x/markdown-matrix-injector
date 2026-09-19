@@ -11,6 +11,10 @@ import type {
   FormatCandidate,
   FormatMatchStatus,
 } from './flyInspiredFormatMatcher.js';
+import {
+  createWorksheetFormatObservationIdentityFromMatch,
+  type WorksheetFormatObservationIdentityV1,
+} from './worksheetFormatObservationIdentity.js';
 import type {
   WorksheetFormatSnapshotMatch,
 } from './worksheetFormatPrototype.js';
@@ -43,6 +47,7 @@ export interface FlyWorksheetFormatPerceptionPayload {
   featureVersion: string;
   sourceProfileId: string;
   sourceEvidence: readonly string[];
+  observationIdentity: WorksheetFormatObservationIdentityV1;
 }
 
 export type FlyWorksheetFormatPerceptionOutcome =
@@ -106,6 +111,10 @@ export function adaptWorksheetFormatMatchToCognitiveOutcome(
     featureVersion: result.featureVersion,
     sourceProfileId: result.sourceProfileId,
     sourceEvidence: [...result.sourceEvidence],
+    observationIdentity: createWorksheetFormatObservationIdentityFromMatch(
+      observation.provenance.sourceDigest,
+      result,
+    ),
   };
 
   const outcome: FlyWorksheetFormatPerceptionOutcome = {
