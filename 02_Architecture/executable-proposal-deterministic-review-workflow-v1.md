@@ -2,71 +2,53 @@
 
 ## 1. 目的
 
-Executable Proposal reviewに、deterministic worksheet-format review evidenceを安全に加える。
-
-既存の3つの系統を統合するが、意味は統合しない。
+既存の安全境界を再実装せず、1つのentrypointで次をつなぐ。
 
 ```text
-Proposal identity
-Authority verification
-Cognitive review
-Deterministic review evidence
+issue-0157 Profile-backed Fill Review Analysis
+issue-0154 Deterministic Review Evidence
+issue-0150 Executable Proposal Verified Review Workflow
+issue-0155 Unified Human Review View Model
 ```
 
-## 2. Entry point
+このworkflow自身は新しい認知・Authority・表示意味を作らない。
 
-### with loader
+## 2. Entry points
 
 ```text
 prepareExecutableProposalDeterministicReviewWithLoader
-```
-
-### default loader
-
-```text
 prepareExecutableProposalDeterministicReviewWithDefaultLoader
 ```
 
-callerは完成済みPresentation / Receipt / Evidenceを渡せない。
-
 ## 3. Deterministic input
-
-入力:
 
 ```text
 observationSnapshot
-prototypeSnapshots
 approvedProfiles
 ```
 
-入力しない:
+持たないもの:
 
 ```text
+prototypeSnapshots
 expectedReview
 telemetry
-DeterministicReviewEvidence
 matchOptions
+prepared evidence
+prepared presentation
+prepared receipt
 ```
 
 ## 4. Internal flow
 
 ```text
-deterministicReview input
+approved Profiles
         |
         v
-assert prototype IDs == Envelope profile IDs
+assert Profiles == Envelope profile refs
         |
         v
-assert approved Profiles == Envelope refs
-        |
-        v
-derive prototype features from snapshots
-        |
-        v
-assert derived features == approved Profile features
-        |
-        v
-analyzeWorksheetFormatFillReviewCase
+analyzeWorksheetFormatFillReviewFromProfiles
         |
         v
 createWorksheetFormatDeterministicReviewEvidence
@@ -80,134 +62,90 @@ prepareExecutableProposalVerifiedReview*
 createDeterministicReviewEvidenceSurface
         |
         v
-flatten into UI-neutral sibling model
+createUnifiedHumanReviewViewModel
 ```
 
-## 5. なぜProfile objectまで要求するか
+## 5. なぜbaseline snapshotを要求しないか
 
-Envelopeはreview向けrefだけを保持し、canonical feature vector自体は持たない。
+approved Format Profileはcanonical feature vectorを保持する。
 
-prototype snapshotをIDだけで受け取ると:
+issue-0157はそのfeaturesから:
+
+- fill-aware prototype
+- structure-only control prototype
+
+を決定論的に構成できる。
+
+そのためruntime reviewのためにprototype baseline worksheetを再読込しない。
+
+## 6. Profile binding
+
+Profile-backed analysisへ渡す前に、approved Profile objectをEnvelope refへ照合する。
+
+照合対象:
+
+- id / count / duplicate
+- label
+- featureVersion
+- sourceProfileId
+- sourceEvidence
+- baselineSourceDigest
+- approvalReference
+- approved status
+
+Envelope refはreview surface用の軽量identity、Format Profile本体はcanonical featuresを持つ資産である。
+
+両者を一致させてからanalysisする。
+
+## 7. Observation binding
+
+Profile-backed analysisはobservation snapshotからfill-aware resultを再計算する。
+
+issue-0154 evidence builderが、そのresultをEnvelope Perceptionへcandidate単位でbindingする。
+
+したがってworkflow自身に2つ目のmatcher consistencyロジックを持たない。
+
+## 8. Authorityとの順序
+
+deterministic input validationはWorkbook loaderより前。
+
+不正Profileやobservationのためにsource/workbookを読む必要はない。
+
+Authority workflowはdeterministic evidenceがEnvelopeへbindingできた後に呼ぶ。
+
+## 9. Final model
+
+新規surface schemaは作らない。
+
+最終出力はissue-0155:
 
 ```text
-id = release-table
-snapshot = unrelated format
+UnifiedHumanReviewViewModelV1
+├─ proposalIdentity
+├─ authority
+├─ cognitive
+└─ deterministic
 ```
 
-のような入力を十分早く検出できない。
+各domainは独立した意味を保つ。
 
-そこでapproved Format Profile本体を要求し:
+## 10. Status semantics
 
-```text
-snapshot -> derived prototype features
-approved profile -> canonical features
-```
+- Authority satisfied ≠ human approved
+- Authority blocked ≠ Cognitive result invalid
+- Perception matched ≠ proposal executable
+- Judgment proposal-only ≠ apply authority
+- deterministic review-relevant ≠ auto reject
 
-を完全一致させる。
+overall verdict / combined scoreは作らない。
 
-これはProfile approvalをやり直す処理ではない。
+## 11. Serialization boundary
 
-既存approval artifactとsnapshotのfeature identityを確認するだけ。
-
-## 6. Observation binding
-
-observation snapshotについては、fill-aware matcherを再実行してEnvelope Perceptionと完全bindingする。
-
-比較:
-
-- status
-- winner
-- novelty
-- candidate count
-- order
-- confidence
-- deviation
-- sparse similarity
-- feature similarity
-
-これによりdeterministic reasonは、少なくとも同じPerception decision surfaceへ結び付く。
-
-## 7. Result model
-
-```text
-ExecutableProposalDeterministicReviewSurfaceV1
-```
-
-fields:
-
-```text
-schemaVersion
-audience = human-review
-proposal
-review
-authorityVerification
-deterministicReviewEvidence
-```
-
-### proposal
-
-exact executable proposal identity。
-
-### review
-
-既存CognitiveReviewPresentationV1。
-
-内部に:
-
-- review-only Authority boundary presentation
-- Perception
-- optional Judgment
-- provenance
-
-を持つ。
-
-### authorityVerification
-
-deterministic Authority receipt projection。
-
-### deterministicReviewEvidence
-
-fill-aware vs structure-only比較由来のreason。
-
-## 8. 意味を混ぜない
-
-### Authority satisfied
-
-deterministic reasonの消去や承認を意味しない。
-
-### Authority blocked
-
-Perception/Reasonが誤りという意味ではない。
-
-### Perception matched
-
-proposalが実行可能という意味ではない。
-
-### Judgment proposal
-
-apply authorityを持たない。
-
-### deterministic review-relevant
-
-auto rejectを意味しない。
-
-## 9. Fail-closed order
-
-deterministic input validationをAuthority loaderより先に行う。
-
-理由:
-
-- mismatched profile snapshotのためにsource/workbookを読む必要がない
-- caller-prepared evidence injectionを許さない
-- invalid analysis inputを早期に止める
-
-## 10. Serialization boundary
-
-surfaceへ保持しない:
+保持しない:
 
 - raw Notation
 - raw worksheet cells
-- raw feature vectors
+- raw Format Profile feature arrays
 - expectedReview
 - WorkbookData
 - resolved absolute path
@@ -218,39 +156,32 @@ surfaceへ保持しない:
 - proposal digest
 - source digest
 - Profile refs
-- Cognitive metrics
 - Authority evidence codes
-- deterministic reason codes
-- comparison summary
+- Cognitive presentation
+- deterministic reason / comparison summary
 
-## 11. Source identity
+## 12. Source identity
 
-source identity生成はissue-0152/0153の責務。
+source identityはissue-0152/0153の責務。
 
-本workflowは:
+本workflowはhash / containment / stable readを再実装しない。
 
-- hashしない
-- resolveしない
-- Observation sourceDigestを任意生成しない
+## 13. 残存制約
 
-既存EnvelopeとAuthority workflowのbindingを利用する。
+observation snapshot自体にはcanonical digestがない。
 
-## 12. 残存制約
+現在はsource identity + Profile identity + full Perception result bindingを利用する。
 
-approved prototype snapshotsはfeature vectorまでProfileへbindingされる。
+新しいsnapshot identityをCognitive/Authority schemaへ追加する判断は別Issueとする。
 
-observation snapshotには独立snapshot digestがないため、Perception result bindingが現在の主要整合性check。
-
-これは意図的なscope boundaryであり、snapshot identityを新設する場合は別contractとする。
-
-## 13. 非責務
+## 14. 非責務
 
 - production UI
 - plugin wiring
-- automatic decision
-- source write
-- Markdown write
+- source / Markdown write
+- automatic approval
+- apply command
 - model invocation
 - profile approval
-- threshold tuning
-- source snapshot identity新設
+- matcher/scoring変更
+- fill taxonomy変更
