@@ -60,10 +60,8 @@ test('resolves contained source before generating identity', () => {
   });
 
   assert.equal(result.resolvedPath, source);
-  assert.equal(
-    result.identity,
-    undefined,
-  );
+  assert.equal(result.identity.algorithm, 'sha256');
+  assert.equal(result.identity.representation, 'source-file-bytes-v1');
   assert.match(result.identity.digest, /^sha256:[0-9a-f]{64}$/u);
 });
 
