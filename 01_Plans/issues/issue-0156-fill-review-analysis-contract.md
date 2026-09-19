@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Refactor / Runtime evidence contract
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: label-free deterministic fill review analysis, telemetry evaluator reuse, deterministic evidence input
 - Expected verification level: unit + focused integration
@@ -28,16 +28,16 @@
 
 ## Acceptance criteria
 
-- [ ] label-free analysis APIを追加する。
-- [ ] analysis resultに `expectedReview` が存在しない。
-- [ ] telemetry code taxonomyを変更しない。
-- [ ] decisionImpact / essentialUnavailable / broad diagnostics semanticsを変更しない。
-- [ ] existing evaluation metricsを変更しない。
-- [ ] telemetry module API互換性を維持する。
-- [ ] deterministic evidence inputをanalysis resultへ変更する。
-- [ ] deterministic evidence生成経路で `expectedReview` を要求しない。
-- [ ] matcher / feature extraction / source profilesを変更しない。
-- [ ] production runtime / provider / UIを変更しない。
+- [x] label-free analysis APIを追加する。
+- [x] analysis resultに `expectedReview` が存在しない。
+- [x] telemetry code taxonomyを変更しない。
+- [x] decisionImpact / essentialUnavailable / broad diagnostics semanticsを変更しない。
+- [x] existing evaluation metricsを変更しない。
+- [x] telemetry module API互換性を維持する。
+- [x] deterministic evidence inputをanalysis resultへ変更する。
+- [x] deterministic evidence生成経路で `expectedReview` を要求しない。
+- [x] matcher / feature extraction / source profilesを変更しない。
+- [x] production runtime / provider / UIを変更しない。
 
 ## Validation plan
 
@@ -48,3 +48,29 @@
 - deterministic evidenceをlabel-free analysis resultから生成可能。
 - existing telemetry code setを維持。
 - GitHub Actionsの既知runner/resource不足は完了条件にしない。
+
+
+## Validation evidence
+
+### 2026-09-20 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- 新規 `worksheetFormatFillReviewAnalysis.ts` と既存evaluation wrapperの公開型境界を
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime harness: **5 tests / 5 pass / 0 fail**。
+- 確認内容:
+  - decision-impact `fill-supported-acceptance` をlabel-free analysisで再現。
+  - `fill-unavailable` と `fill-unavailable-for-discrimination` を分離。
+  - `fill-tone-disagreement` をdiagnostic-only相当の低impactとして維持。
+  - evaluation wrapperがanalysis telemetryをそのまま再利用し、`expectedReview`だけを後付け。
+  - serialized analysis resultに `expectedReview` が存在しない。
+- refactor中に `evaluateWorksheetFormatFillReviewTelemetry` 本体までhelper移動範囲へ巻き込まれて削除されていたことを検出し、analysis wrapperとして復元済み。公開API互換性を維持。
+- deterministic evidenceは `WorksheetFormatFillReviewAnalysisResult` を直接受けるよう変更し、evaluation result型への依存を除去。
+- deterministic evidence focused testへ、`expectedReview`を持たないanalysis resultから直接evidenceを生成するケースを追加。
+- telemetry code taxonomyは新analysis moduleを正本とし、旧telemetry moduleからtype re-exportして既存import互換を維持。
+- matcher / threshold / feature extraction / source profile / external-XLSX reader behaviorは変更していない。
+- production runtime / provider / UIは変更していない。
+- 現ローカル環境にはrepository dependency treeがないためrepository全test suite成功は主張しない。0156固有のstrict API整合とruntime classification境界をfocusedに検証。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
