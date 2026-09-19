@@ -148,7 +148,7 @@ export function assertClosedChoiceJudgmentProvider(provider: CognitiveProviderDe
   }
 }
 
-function assertQuestion<TChoice extends string>(
+export function assertClosedChoiceQuestion<TChoice extends string>(
   question: ClosedChoiceQuestion<TChoice>,
 ): void {
   assertNonEmpty('question.id', question.id);
