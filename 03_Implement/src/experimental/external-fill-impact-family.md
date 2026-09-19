@@ -15,7 +15,7 @@ fill-changed-winner
 
 issue-0139ではsynthetic snapshotで確認しました。
 
-issue-0145ではLibreOffice最終保存XLSXをreaderへ通して確認します。
+issue-0146ではLibreOffice最終保存XLSXをreaderへ通して確認します。
 
 ## 2. 1 workbook / 1 family
 
