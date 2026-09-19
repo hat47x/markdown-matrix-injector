@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Feature / Review UX contract
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: final UI-neutral projection for proposal-bound deterministic review evidence
 - Expected verification level: unit + focused composition
@@ -49,20 +49,20 @@ sections:
 
 ## Acceptance criteria
 
-- [ ] `UnifiedHumanReviewViewModelV1` をpure TypeScriptで定義する。
-- [ ] top-levelにoverall verdict / combined score / approval stateを持たない。
-- [ ] proposalIdentityはsource digest / algorithm / representation / digestのみ。
-- [ ] authorityはreview boundaryとAuthority verificationを保持する。
-- [ ] cognitiveはPerception / Judgment / provenanceを保持し、Authorityを含めない。
-- [ ] deterministicはproducer / reason / comparisonを保持し、Cognitive provider metadataを付与しない。
-- [ ] issue-0154 attachment validationを投影時に再利用する。
-- [ ] executable proposal surface schema / role / digest formatを再検証する。
-- [ ] 4 sectionのsource identityを一致させる。
-- [ ] Authority satisfiedでもCognitive/Deterministicをapproved/acceptedへ昇格しない。
-- [ ] Authority blockedでもview modelを生成できる。
-- [ ] input artifactsをmutateしない。
-- [ ] raw Notation / cells / full feature arrays / workbook bytesを保持しない。
-- [ ] production UI / provider / matcher / fill telemetry生成処理を変更しない。
+- [x] `UnifiedHumanReviewViewModelV1` をpure TypeScriptで定義する。
+- [x] top-levelにoverall verdict / combined score / approval stateを持たない。
+- [x] proposalIdentityはsource digest / algorithm / representation / digestのみ。
+- [x] authorityはreview boundaryとAuthority verificationを保持する。
+- [x] cognitiveはPerception / Judgment / provenanceを保持し、Authorityを含めない。
+- [x] deterministicはproducer / reason / comparisonを保持し、Cognitive provider metadataを付与しない。
+- [x] issue-0154 attachment validationを投影時に再利用する。
+- [x] executable proposal surface schema / role / digest formatを再検証する。
+- [x] 4 sectionのsource identityを一致させる。
+- [x] Authority satisfiedでもCognitive/Deterministicをapproved/acceptedへ昇格しない。
+- [x] Authority blockedでもview modelを生成できる。
+- [x] input artifactsをmutateしない。
+- [x] raw Notation / cells / full feature arrays / workbook bytesを保持しない。
+- [x] production UI / provider / matcher / fill telemetry生成処理を変更しない。
 
 ## Validation plan
 
@@ -74,3 +74,32 @@ sections:
 - input不変を確認。
 - serialized modelにraw Notation / cells / features / overallScore / combinedScore / apply / acceptedを含めない。
 - GitHub Actionsの既知runner/resource不足は完了条件にしない。
+
+
+## Validation evidence
+
+### 2026-09-20 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- GitHub正本のissue-0148 / 0154公開型・schema constantsを再取得して0155の依存境界を照合。
+- `unifiedHumanReviewViewModel.ts` をinterface-compatibleな依存境界で
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime harness: **9 checks / 9 pass / 0 fail**。
+- 確認内容:
+  - Proposal Identity / Authority / Cognitive / Deterministicの4領域へ分離。
+  - Authority `satisfied` を独立sectionとして保持し、overall verdictを生成しない。
+  - Authority `blocked` でもCognitive classificationを変更せずreview可能。
+  - proposal source identity改変をfail-closed。
+  - deterministic evidence source identity改変をissue-0154再validationでfail-closed。
+  - review-only/no-write boundary改変をfail-closed。
+  - deterministic wrapper audience改変を拒否。
+  - Cognitive Presentation schema / Authority Overlay schema改変を拒否。
+  - input artifactsをmutateしない。
+  - serialized modelにraw `cells / features`、raw Notation相当、`overallScore / combinedScore / accepted / approved / apply / canApply` を含めない。
+- 初回fixture照合で `CognitiveObservationRef` に存在しない余剰 `kind` fieldを検出し、test fixtureのみ修正。
+- issue-0154 `createDeterministicReviewEvidenceSurface` をprojection時に再実行し、既存deterministic attachment validationを複製せず再利用。
+- production UI / provider invocation / matcher / fill telemetry生成処理 / external-XLSX評価コードは変更していない。
+- 現ローカル最小環境にはrepository dependency treeがないため、repository全test suite成功は主張しない。0155固有moduleのstrict API整合とruntime projection境界をfocusedに検証。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
