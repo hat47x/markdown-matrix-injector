@@ -10,10 +10,13 @@ export type CognitiveOutcomeStatus =
   | 'unavailable'
   | 'error';
 
+export type CognitiveExecutionBoundary = 'local' | 'external-opt-in';
+
 export interface CognitiveProviderDescriptor {
   id: string;
   version: string;
   category: CognitiveProviderCategory;
+  executionBoundary: CognitiveExecutionBoundary;
   capabilities: readonly string[];
 }
 
@@ -107,6 +110,12 @@ export function assertCognitiveProviderDescriptor(
   if (!['perception', 'judgment', 'reasoning-generation'].includes(provider.category)) {
     throw new Error(`Unsupported cognitive provider category: ${String(provider.category)}.`);
   }
+  if (!['local', 'external-opt-in'].includes(provider.executionBoundary)) {
+    throw new Error(`Unsupported cognitive execution boundary: ${String(provider.executionBoundary)}.`);
+  }
+  if (provider.capabilities.length === 0) {
+    throw new Error('Cognitive provider must declare at least one capability.');
+  }
 
   const seen = new Set<string>();
   for (const capability of provider.capabilities) {
@@ -158,6 +167,9 @@ export function assertCognitiveScore(score: CognitiveScore): void {
 export function assertCognitiveOutcome(
   outcome: CognitiveOutcome,
 ): void {
+  if (!['signal', 'abstained', 'unsupported', 'unavailable', 'error'].includes(outcome.status)) {
+    throw new Error(`Unsupported cognitive outcome status: ${String(outcome.status)}.`);
+  }
   assertCognitiveProviderDescriptor(outcome.provider);
   assertNonEmpty('outcome.observation.id', outcome.observation.id);
   assertNonEmpty('outcome.observation.sourceDigest', outcome.observation.sourceDigest);
