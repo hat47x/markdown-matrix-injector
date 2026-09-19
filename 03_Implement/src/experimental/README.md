@@ -363,8 +363,13 @@ merge shapeは分類を単独支配するfeatureではなく、他の構造証�
 25. `external-fill-impact-family.md` — supported acceptance / ambiguity / rejection / changed winnerの読み方
 26. `deterministicReviewEvidence.test.ts` — deterministic reasonをCognitive/Authorityと分離してreview surfaceへ合成
 27. `../../02_Architecture/deterministic-review-evidence-overlay-v1.md` — reason provenance / binding / non-authority境界
-28. `test/fixtures/README.md` — 外部生成fixtureのprovenanceとSHA-256
-29. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
+28. `unifiedHumanReviewViewModel.test.ts` — Proposal / Authority / Cognitive / Deterministicを4領域へ分離
+29. `worksheetFormatFillReviewAnalysis.test.ts` — evaluation labelに依存しないfill review analysis
+30. `worksheetFormatProfileReviewAnalysis.test.ts` — approved Format Profileからbaseline snapshotなしでfill reviewを再構成
+31. `executableProposalDeterministicReviewWorkflow.test.ts` — Profile-backed analysisからUnifiedHumanReviewViewModelまでを単一workflowで合成
+32. `../../02_Architecture/executable-proposal-deterministic-review-workflow-v1.md` — orchestrationのbinding / fail-closed順序
+33. `test/fixtures/README.md` — 外部生成fixtureのprovenanceとSHA-256
+34. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
 
 ## 13. 安全に変更するためのチェックリスト
 
@@ -511,8 +516,47 @@ DeterministicReviewEvidenceSurfaceV1
 - reasonがなくてもauto acceptしない
 - existing review-only / no-write / not-authorized境界を変更しない
 
-次に進む場合は、issue-0148/0149のexact proposal identity + Authority verified surfaceへこのdeterministic evidence wrapperを実際に合成し、**proposal / Authority / deterministic reason / Cognitive Perception / Judgment / provenanceをUI-neutral view modelで同時表示しても意味が混ざらないか**をfocused compositionで確認します。
+issue-0155では、Proposal Identity / Authority / Cognitive / Deterministicを混ぜずに表示する `UnifiedHumanReviewViewModelV1` を追加しました。overall verdictやcombined scoreは持ちません。
 
-詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`external-xlsx-fill-telemetry.md`、`external-fill-impact-family.md`、`../../02_Architecture/deterministic-review-evidence-overlay-v1.md`、`test/fixtures/README.md`、issue-0128〜0154 を参照してください。
+issue-0156では、fill review reason生成を `expectedReview` などの評価ラベルから分離し、label-freeなanalysis contractへ切り出しました。
+
+issue-0157では、approved Format Profileのcanonical featuresからfill-aware / structure-only prototypeを再構成できるようにし、runtime reviewでbaseline worksheet snapshotを保持しなくてよいProfile-backed analysisを追加しました。
+
+issue-0158では、contained sourceのstable read window内でWorksheet snapshotを読み、canonical source identity付きObservationとFly Perceptionを生成するworkflowを追加しました。raw cells/featuresはObservationへ保持しません。
+
+issue-0159では、これら既存contractを再実装せず、安全な単一orchestrationへまとめます。
+
+```text
+observation snapshot
+ + approved Format Profiles
+ + Cognitive Review Envelope
+ + executable proposal
+        |
+        v
+issue-0157 Profile-backed analysis
+        |
+        v
+issue-0154 DeterministicReviewEvidence
+        |
+        v
+issue-0150 proposal / Authority workflow
+        |
+        v
+issue-0155 UnifiedHumanReviewViewModelV1
+```
+
+追加した境界:
+
+- baseline prototype snapshotをruntime inputから除外
+- `expectedReview` / telemetry / prepared evidence / matcher optionsをinputへ持ち込まない
+- approved Profile objectをEnvelope Profile refへ照合
+- Profile-backed再match結果をissue-0154でFly Perceptionへcandidate単位でbinding
+- deterministic input不一致時はWorkbook loaderを呼ぶ前にfail-closed
+- AuthorityがblockedでもCognitive / deterministic domainを改変しない
+- 最終出力は新schemaを作らずissue-0155 view modelをそのまま利用
+
+次に進む場合もproduction wiringへ直結せず、observation snapshot identityの必要性や、human-review UIへ接続する前のpresentation orderingを別Issueで検討します。auto accept / auto reject / apply authorityは引き続き導入しません。
+
+詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`external-xlsx-fill-telemetry.md`、`external-fill-impact-family.md`、`../../02_Architecture/deterministic-review-evidence-overlay-v1.md`、`../../02_Architecture/unified-human-review-view-model-v1.md`、`../../02_Architecture/executable-proposal-deterministic-review-workflow-v1.md`、`test/fixtures/README.md`、issue-0128〜0159 を参照してください。
 
 十分な外部生成fixtureと安全境界が揃うまでは、warningやreview signalを自動accept / reject条件へ昇格させず、production接続可否も別ADR/Issueで判断します。
