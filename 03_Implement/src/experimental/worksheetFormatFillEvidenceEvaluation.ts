@@ -57,9 +57,10 @@ export const WORKSHEET_FORMAT_FILL_EVALUATION_STRUCTURE_ONLY_PROFILE:
  * 1. with the conservative SheetJS structure+fill profile
  * 2. with structure-only evidence
  *
- * This is an evaluation helper. It does not permit cross-profile prototype
- * comparison and does not change runtime matching behavior. Each path creates
- * its own prototypes through the ordinary adapter/profile boundary.
+ * This paired-analysis helper is used by offline evaluation and experimental
+ * human-review evidence. It does not permit cross-profile prototype comparison
+ * and does not change production matcher behavior. Each path creates its own
+ * prototypes through the ordinary adapter/profile boundary.
  */
 export function evaluateWorksheetFormatFillEvidence(
   cases: readonly WorksheetFormatFillEvidenceCase[],
