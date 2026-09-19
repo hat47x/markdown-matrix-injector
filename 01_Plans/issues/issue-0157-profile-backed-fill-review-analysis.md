@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Feature / Runtime analysis boundary
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: approved Format Profile -> fill-aware/control matcher comparison -> label-free review analysis
 - Expected verification level: unit + focused integration
@@ -31,17 +31,17 @@ runtime reviewのために元baseline snapshotを別途保持・再読込する�
 
 ## Acceptance criteria
 
-- [ ] approved Profileだけを入力とするlabel-free analysis APIを追加する。
-- [ ] baseline snapshotをProfile側入力として要求しない。
-- [ ] candidate Profileは拒否する。
-- [ ] source profile / feature version不一致を拒否する。
-- [ ] structure-only control prototypeはapproved Profile featuresからfill/border evidenceを除いて生成する。
-- [ ] observation側も同じevidence filterでstructure-only比較する。
-- [ ] issue-0156と同じtelemetry taxonomy / impact flagsを利用する。
-- [ ] decision-impact / essential-unavailable / diagnostic-onlyを再現する。
-- [ ] Profile canonical featuresや入力snapshotをmutateしない。
-- [ ] matcher thresholdsを変更しない。
-- [ ] production runtime / XLSX reader / provider / UIを変更しない。
+- [x] approved Profileだけを入力とするlabel-free analysis APIを追加する。
+- [x] baseline snapshotをProfile側入力として要求しない。
+- [x] candidate Profileは拒否する。
+- [x] source profile / feature version不一致を拒否する。
+- [x] structure-only control prototypeはapproved Profile featuresからfill/border evidenceを除いて生成する。
+- [x] observation側も同じevidence filterでstructure-only比較する。
+- [x] issue-0156と同じtelemetry taxonomy / impact flagsを利用する。
+- [x] decision-impact / essential-unavailable / diagnostic-onlyを再現する。
+- [x] Profile canonical featuresや入力snapshotをmutateしない。
+- [x] matcher thresholdsを変更しない。
+- [x] production runtime / XLSX reader / provider / UIを変更しない。
 
 ## Validation plan
 
@@ -52,3 +52,30 @@ runtime reviewのために元baseline snapshotを別途保持・再読込する�
 - Profile source profile改変拒否。
 - 入力不変を確認。
 - GitHub Actionsの既知runner/resource不足は完了条件にしない。
+
+
+## Validation evidence
+
+### 2026-09-20 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- Profile-backed moduleと共有classifier/filter境界を
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime harness: **6 tests / 6 pass / 0 fail**。
+- 確認内容:
+  - approved Profileのcanonical featuresだけからstructure-only control prototypeを導出。
+  - decision-impact transitionを再現。
+  - fill-unavailable + fill-unavailable-for-discriminationをProfile fill factsだけで再現。
+  - fill-tone-disagreementをdiagnostic扱いのまま再現。
+  - candidate状態のProfileを既存 `formatProfileToWorksheetPrototype` 境界で拒否。
+  - source profile改変を既存Format Profile compatibility境界で拒否。
+  - approved Profile / observation snapshotをmutateしない。
+- repository test sourceでは同一fixtureをsnapshot-based 0156 analysisとProfile-backed analysisへ通し、telemetry / impact flags一致を比較する。
+- worksheet feature evidence filterを `filterWorksheetFormatFeaturesByEvidence` として共有化し、既存Prototype生成/matchも同じ関数を利用。
+- structure-only source profileをWorksheetFormatPrototype moduleへ共有化し、既存evaluation aliasのID/意味を維持。
+- issue-0156のreason classifier / impact projectionを共有し、Profile-backed専用taxonomyは作っていない。
+- matcher thresholds / feature extraction / external-XLSX reader / production runtime / provider / UIは変更していない。
+- 現ローカル環境にはrepository dependency treeがないためrepository全test suite成功は主張しない。0157固有のstrict API整合とruntime orchestration境界をfocusedに検証。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
