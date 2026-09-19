@@ -16,7 +16,6 @@ import {
   createContainedCognitiveObservation,
 } from '../src/experimental/cognitiveSourceObservation.js';
 import {
-  EXECUTABLE_PROPOSAL_DETERMINISTIC_REVIEW_SURFACE_SCHEMA_VERSION,
   prepareExecutableProposalDeterministicReviewWithDefaultLoader,
   prepareExecutableProposalDeterministicReviewWithLoader,
 } from '../src/experimental/executableProposalDeterministicReviewWorkflow.js';
@@ -31,6 +30,9 @@ import {
 import type {
   WorksheetFormatSnapshot,
 } from '../src/experimental/worksheetFormatFeatureAdapter.js';
+import {
+  UNIFIED_HUMAN_REVIEW_VIEW_MODEL_SCHEMA_VERSION,
+} from '../src/experimental/unifiedHumanReviewViewModel.js';
 import {
   createWorksheetFormatPrototype,
   matchWorksheetFormatSnapshot,
@@ -252,41 +254,41 @@ test('composes proposal, Authority, Cognitive review, Judgment, provenance, and 
 
   assert.equal(
     surface.schemaVersion,
-    EXECUTABLE_PROPOSAL_DETERMINISTIC_REVIEW_SURFACE_SCHEMA_VERSION,
+    UNIFIED_HUMAN_REVIEW_VIEW_MODEL_SCHEMA_VERSION,
   );
   assert.equal(surface.audience, 'human-review');
 
-  assert.equal(surface.proposal.role, 'executable-proposal-identity');
-  assert.match(surface.proposal.digest, /^sha256:[0-9a-f]{64}$/u);
+  assert.equal(surface.proposalIdentity.role, 'executable-proposal-identity');
+  assert.match(surface.proposalIdentity.digest, /^sha256:[0-9a-f]{64}$/u);
 
   assert.equal(
-    surface.authorityVerification.verificationStatus,
+    surface.authority.verification.verificationStatus,
     'satisfied',
   );
-  assert.equal(surface.review.authority.disposition, 'review-only');
-  assert.equal(surface.review.authority.writeAuthority, 'none');
-  assert.equal(surface.review.authority.applyStatus, 'not-authorized');
+  assert.equal(surface.authority.boundary.disposition, 'review-only');
+  assert.equal(surface.authority.boundary.writeAuthority, 'none');
+  assert.equal(surface.authority.boundary.applyStatus, 'not-authorized');
 
-  assert.equal(surface.review.perception.classification, 'matched');
+  assert.equal(surface.cognitive.perception.classification, 'matched');
   assert.equal(
-    surface.review.perception.winnerPrototypeId,
+    surface.cognitive.perception.winnerPrototypeId,
     'release-table',
   );
 
-  assert.equal(surface.review.judgment.state, 'proposal');
-  if (surface.review.judgment.state === 'proposal') {
-    assert.equal(surface.review.judgment.choice, 'inspect');
-    assert.equal(surface.review.judgment.disposition, 'proposal-only');
+  assert.equal(surface.cognitive.judgment.state, 'proposal');
+  if (surface.cognitive.judgment.state === 'proposal') {
+    assert.equal(surface.cognitive.judgment.choice, 'inspect');
+    assert.equal(surface.cognitive.judgment.disposition, 'proposal-only');
   }
 
-  assert.equal(surface.review.provenance.role, 'provenance');
+  assert.equal(surface.cognitive.provenance.role, 'provenance');
   assert.equal(
-    surface.review.provenance.sourceDigest,
+    surface.cognitive.provenance.sourceDigest,
     f.envelope.sourceDigest,
   );
 
   assert.deepEqual(
-    surface.deterministicReviewEvidence.reasons,
+    surface.deterministic.evidence.reasons,
     [{
       code: 'fill-supported-acceptance',
       category: 'decision-impact',
@@ -294,15 +296,15 @@ test('composes proposal, Authority, Cognitive review, Judgment, provenance, and 
     }],
   );
   assert.equal(
-    surface.deterministicReviewEvidence.sourceDigest,
+    surface.deterministic.evidence.sourceDigest,
     f.envelope.sourceDigest,
   );
   assert.equal(
-    surface.deterministicReviewEvidence.comparison.control.status,
+    surface.deterministic.evidence.comparison.control.status,
     'novel',
   );
   assert.equal(
-    surface.deterministicReviewEvidence.comparison.primary.status,
+    surface.deterministic.evidence.comparison.primary.status,
     'matched',
   );
 });
@@ -319,18 +321,18 @@ test('Authority can be blocked while deterministic and Cognitive evidence remain
   );
 
   assert.equal(
-    surface.authorityVerification.verificationStatus,
+    surface.authority.verification.verificationStatus,
     'blocked',
   );
   assert.ok(
-    surface.authorityVerification.failedChecks.includes('parameter-schema'),
+    surface.authority.verification.failedChecks.includes('parameter-schema'),
   );
-  assert.equal(surface.review.perception.classification, 'matched');
+  assert.equal(surface.cognitive.perception.classification, 'matched');
   assert.deepEqual(
-    surface.deterministicReviewEvidence.reasons.map((reason) => reason.code),
+    surface.deterministic.evidence.reasons.map((reason) => reason.code),
     ['fill-supported-acceptance'],
   );
-  assert.equal(surface.review.authority.applyStatus, 'not-authorized');
+  assert.equal(surface.authority.boundary.applyStatus, 'not-authorized');
 });
 
 test('rejects a deterministic prototype pool that does not match visible Envelope profiles before loader invocation', () => {
@@ -452,7 +454,7 @@ test('serialized UI-neutral surface excludes raw proposal, worksheet snapshots, 
     serialized.includes('fill-supported-acceptance'),
     true,
   );
-  assert.equal(serialized.includes(surface.proposal.digest), true);
+  assert.equal(serialized.includes(surface.proposalIdentity.digest), true);
 });
 
 test('default-loader composition preserves deterministic evidence in a normal dependency environment', async () => {
@@ -463,11 +465,11 @@ test('default-loader composition preserves deterministic evidence in a normal de
     );
 
   assert.equal(
-    surface.authorityVerification.verificationStatus,
+    surface.authority.verification.verificationStatus,
     'satisfied',
   );
   assert.deepEqual(
-    surface.deterministicReviewEvidence.reasons.map((reason) => reason.code),
+    surface.deterministic.evidence.reasons.map((reason) => reason.code),
     ['fill-supported-acceptance'],
   );
 });
