@@ -50,6 +50,49 @@ export interface WorksheetFormatFillReviewEvaluation {
   anyTelemetry: WorksheetFormatFillReviewMetrics;
 }
 
+
+export function evaluateWorksheetFormatFillReviewTelemetry(
+  cases: readonly WorksheetFormatFillReviewCase[],
+): WorksheetFormatFillReviewEvaluation {
+  const analyzed = analyzeWorksheetFormatFillReview(cases);
+  const results = analyzed.cases.map((entry, index) => {
+    const source = cases[index];
+    if (!source || source.id !== entry.id) {
+      throw new Error('Fill review evaluation case ordering changed unexpectedly.');
+    }
+
+    return {
+      ...entry,
+      expectedReview: source.expectedReview,
+    } satisfies WorksheetFormatFillReviewCaseResult;
+  });
+
+  return {
+    cases: results,
+    decisionImpact: calculateMetrics(results, (entry) => entry.decisionImpact),
+    essentialUnavailable: calculateMetrics(
+      results,
+      (entry) => entry.essentialUnavailable,
+    ),
+    highImpactReviewTelemetry: calculateMetrics(
+      results,
+      (entry) => entry.highImpactReviewTelemetry,
+    ),
+    broadFillUnavailable: calculateMetrics(
+      results,
+      (entry) => entry.broadFillUnavailable,
+    ),
+    broadFillDisagreement: calculateMetrics(
+      results,
+      (entry) => entry.broadFillDisagreement,
+    ),
+    anyTelemetry: calculateMetrics(
+      results,
+      (entry) => entry.telemetry.length > 0,
+    ),
+  };
+}
+
 function calculateMetrics(
   cases: readonly WorksheetFormatFillReviewCaseResult[],
   isFlagged: (entry: WorksheetFormatFillReviewCaseResult) => boolean,
