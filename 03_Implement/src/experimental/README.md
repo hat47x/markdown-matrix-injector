@@ -472,7 +472,7 @@ repository runtime testへ固定した期待:
 
 ただし現在の作業環境では`xlsx@0.20.3` dependency treeを持たないため、このruntime testのpassはまだ主張しません。
 
-issue-0145では、同じlayout familyを持つLibreOffice最終保存XLSXを追加し、issue-0140で未確認だった4つのdecision-impact reasonをexternal reader経路へ移しました。
+issue-0146では、同じlayout familyを持つLibreOffice最終保存XLSXを追加し、issue-0140で未確認だった4つのdecision-impact reasonをexternal reader経路へ移しました。
 
 確認対象:
 
@@ -487,6 +487,6 @@ issue-0145では、同じlayout familyを持つLibreOffice最終保存XLSXを追
 
 次に進む場合は、issue-0141〜0144で整ったCognitive review / Authority surfaceを再確認し、**deterministic review reasonをprovider-generated cognitive signalと混同せずにどう表示・provenance化するか**を別Issueで設計します。matcher statusを書き換えたり、Cognitive providerへreason生成責務を移したりはしません。
 
-詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`external-xlsx-fill-telemetry.md`、`external-fill-impact-family.md`、`test/fixtures/README.md`、issue-0128〜0145 を参照してください。
+詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`external-xlsx-fill-telemetry.md`、`external-fill-impact-family.md`、`test/fixtures/README.md`、issue-0128〜0146 を参照してください。
 
 十分な外部生成fixtureと安全境界が揃うまでは、warningやreview signalを自動accept / reject条件へ昇格させず、production接続可否も別ADR/Issueで判断します。
