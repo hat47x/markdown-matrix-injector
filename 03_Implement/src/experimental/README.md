@@ -359,8 +359,10 @@ merge shapeは分類を単独支配するfeatureではなく、他の構造証�
 21. `fill-review-telemetry.md` — availability / disagreement / decision-impactの意味分離
 22. `worksheetFormatFillReviewTelemetryExternalXlsx.test.ts` — LibreOffice external XLSXからreader経由でtelemetryを再評価
 23. `external-xlsx-fill-telemetry.md` — 実XLSX corpusとCognitive Assistance Planeとの境界
-24. `test/fixtures/README.md` — 外部生成fixtureのprovenanceとSHA-256
-25. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
+24. `worksheetFormatFillImpactFamilyExternalXlsx.test.ts` — 同一external template familyで残り4つのdecision-impact reasonを固定
+25. `external-fill-impact-family.md` — supported acceptance / ambiguity / rejection / changed winnerの読み方
+26. `test/fixtures/README.md` — 外部生成fixtureのprovenanceとSHA-256
+27. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
 
 ## 13. 安全に変更するためのチェックリスト
 
@@ -470,8 +472,21 @@ repository runtime testへ固定した期待:
 
 ただし現在の作業環境では`xlsx@0.20.3` dependency treeを持たないため、このruntime testのpassはまだ主張しません。
 
-次に進む場合は、**同一real-world template familyでlabel drift / fill drift / competing prototypeを持つ複数external XLSX**を追加し、まだexternal corpusで未確認の `fill-supported-acceptance` / `fill-induced-ambiguity` / `fill-induced-rejection` / `fill-changed-winner` を確認します。その後、Cognitive Contract / Fly Perceptionへdeterministic review reasonをprovenance付きで露出すべきかを別レーンと調整します。
+issue-0145では、同じlayout familyを持つLibreOffice最終保存XLSXを追加し、issue-0140で未確認だった4つのdecision-impact reasonをexternal reader経路へ移しました。
 
-詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`external-xlsx-fill-telemetry.md`、`test/fixtures/README.md`、issue-0128〜0140 を参照してください。
+確認対象:
+
+- 6列2ラベル差 + same dark fill: `fill-supported-acceptance`
+- 6列exact/no-fill vs one-label-wrong/dark candidate: `fill-induced-ambiguity`
+- 8列2ラベル差 + same dark fill: `fill-induced-rejection`
+- 3列dark observation vs structurally近いdark/light候補: `fill-changed-winner`
+
+特にchanged-winnerでは、structure-only topがlight候補B、fill-aware topがdark候補Aへ入れ替わり、`fill-supported-disambiguation` / `fill-changed-winner` / broad `fill-tone-disagreement` を別reasonとして同時に保持します。
+
+この7-case corpusはreason codeを意図的に再現する**coverage evidence**であり、held-out population上のprecision benchmarkではありません。decision-impact precision/recallが1.0でもproduction gate採用根拠にはしません。
+
+次に進む場合は、issue-0141〜0144で整ったCognitive review / Authority surfaceを再確認し、**deterministic review reasonをprovider-generated cognitive signalと混同せずにどう表示・provenance化するか**を別Issueで設計します。matcher statusを書き換えたり、Cognitive providerへreason生成責務を移したりはしません。
+
+詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`external-xlsx-fill-telemetry.md`、`external-fill-impact-family.md`、`test/fixtures/README.md`、issue-0128〜0145 を参照してください。
 
 十分な外部生成fixtureと安全境界が揃うまでは、warningやreview signalを自動accept / reject条件へ昇格させず、production接続可否も別ADR/Issueで判断します。
