@@ -61,8 +61,8 @@ export function adaptClosedChoiceResponse<TChoice extends string>(
   response: ClosedChoiceProviderResponse<TChoice>,
 ): ClosedChoiceJudgmentOutcome<TChoice> {
   assertCognitiveObservation(observation);
-  assertJudgmentProvider(provider);
-  assertQuestion(question);
+  assertClosedChoiceJudgmentProvider(provider);
+  assertClosedChoiceQuestion(question);
 
   if (response.status !== 'decision') {
     assertNonEmpty('response.reasonCode', response.reasonCode);
@@ -138,7 +138,7 @@ export function collectClosedChoiceCalibrationSample<TChoice extends string>(
   };
 }
 
-function assertJudgmentProvider(provider: CognitiveProviderDescriptor): void {
+export function assertClosedChoiceJudgmentProvider(provider: CognitiveProviderDescriptor): void {
   assertCognitiveProviderDescriptor(provider);
   if (provider.category !== 'judgment') {
     throw new Error('Closed-choice provider must use the judgment category.');
