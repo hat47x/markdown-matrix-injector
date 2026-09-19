@@ -228,6 +228,7 @@ function fixture() {
         id: 'release-table',
         snapshot: baseSnapshot,
       }],
+      approvedProfiles: [profile],
     },
   };
 
@@ -354,6 +355,39 @@ test('rejects a deterministic prototype pool that does not match visible Envelop
       },
     ),
     /prototype pool does not match/,
+  );
+  assert.equal(loaderCalls, 0);
+});
+
+test('rejects a same-id prototype snapshot whose features do not match the approved Profile before loader invocation', () => {
+  const f = fixture();
+  let loaderCalls = 0;
+
+  assert.throws(
+    () => prepareExecutableProposalDeterministicReviewWithLoader(
+      {
+        ...f.input,
+        deterministicReview: {
+          ...f.input.deterministicReview,
+          prototypeSnapshots: [{
+            id: 'release-table',
+            snapshot: snapshot([
+              'ID',
+              'Item',
+              'Type',
+              'Required',
+              'Decision',
+              'Memo',
+            ]),
+          }],
+        },
+      },
+      () => {
+        loaderCalls += 1;
+        return f.workbook;
+      },
+    ),
+    /does not match approved Profile features/,
   );
   assert.equal(loaderCalls, 0);
 });
