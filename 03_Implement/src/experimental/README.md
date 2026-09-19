@@ -263,6 +263,8 @@ issue-0134ではさらに、同じsnapshot群を `structure + fill` / `structure
 
 issue-0139では、fillの有無やtone差を一律warningにせず、fillが実際にstatus/winnerを変えた `decision-impact` と、構造的に同一なfill-only候補群なのにfillが欠けた `essential-unavailable` をreview telemetryとして分離しました。広い `fill-unavailable` / tone disagreementはdiagnostic factに留めます。
 
+issue-0140ではこのtelemetryをLibreOffice由来external XLSXへ持ち込み、Theme Dark / Theme Light Tint、RGB Fill、Metadata Gapped、No Titleを実reader経路から再利用するpractical corpusを追加しました。新しいCognitive Contract / Fly Perception / Format Profile / Judgment契約へはまだ接続せず、deterministic worksheet comparisonの品質確認を先行します。
+
 adapterが値を受け取れることと、実入力経路がその値を安定して供給することは別です。後者を確認できない情報は比較契約へ入れません。
 
 ## 9. Feature contract version
@@ -355,8 +357,10 @@ merge shapeは分類を単独支配するfeatureではなく、他の構造証�
 19. `fill-evidence-value.md` — fillが候補confidence / winner marginへ与える影響
 20. `worksheetFormatFillReviewTelemetry.test.ts` — fill impact reason codeを6/8列held-out corpusで評価
 21. `fill-review-telemetry.md` — availability / disagreement / decision-impactの意味分離
-22. `test/fixtures/README.md` — 外部生成fixtureのprovenanceとSHA-256
-23. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
+22. `worksheetFormatFillReviewTelemetryExternalXlsx.test.ts` — LibreOffice external XLSXからreader経由でtelemetryを再評価
+23. `external-xlsx-fill-telemetry.md` — 実XLSX corpusとCognitive Assistance Planeとの境界
+24. `test/fixtures/README.md` — 外部生成fixtureのprovenanceとSHA-256
+25. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
 
 ## 13. 安全に変更するためのチェックリスト
 
@@ -439,18 +443,35 @@ issue-0139ではfill availability / disagreementを6列・8列の20ケースでh
 - tone disagreement単独はreview precision 0
 - すべてのfill factを1つのwarningへ潰すとfalse-positive rate 0.5
 
-したがって次に進む場合は、**high-impact reason codeをexternal-XLSX / adapter由来の実務寄りcorpusで再評価する段階**です。
+issue-0140ではhigh-impact reason codeをexternal-XLSX / adapter由来の9ケースへ持ち込みました。
 
-優先項目:
+corpusは:
 
-1. LibreOffice direct RGB fixture由来snapshot
-2. LibreOffice theme/tint fixture由来snapshot
-3. no-fill / partial-fill
-4. multiple prototypes
-5. structure near-gate
-6. metadata preamble / gapped header
-7. その後にCognitive Contractへobservationとして露出する必要性を別レーンと調整
+- Theme Dark exact
+- Theme Dark vs Theme Dark / Theme Light Tint
+- Theme Dark fill unavailable
+- Theme Light Tint vs Theme Dark
+- Theme Dark fill missing exact
+- RGB Fill exact
+- Metadata Gapped exact
+- Metadata Gapped fill missing
+- No Title exact
 
-詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`test/fixtures/README.md`、issue-0128〜0134、issue-0139 を参照してください。
+です。6ケースはreader snapshotを無加工で使い、3ケースだけfill availabilityを再現するため `fillTone` のみ除去します。
+
+repository runtime testへ固定した期待:
+
+- decision-impact: precision 1.0 / recall 0.5
+- essential-unavailable: precision 1.0 / recall 0.5
+- high-impact union: precision 1.0 / recall 1.0
+- broad fill-unavailable: precision 0.333333
+- broad tone disagreement: precision 0
+- all telemetry一括: precision 0.4 / FPR 0.428571
+
+ただし現在の作業環境では`xlsx@0.20.3` dependency treeを持たないため、このruntime testのpassはまだ主張しません。
+
+次に進む場合は、**同一real-world template familyでlabel drift / fill drift / competing prototypeを持つ複数external XLSX**を追加し、まだexternal corpusで未確認の `fill-supported-acceptance` / `fill-induced-ambiguity` / `fill-induced-rejection` / `fill-changed-winner` を確認します。その後、Cognitive Contract / Fly Perceptionへdeterministic review reasonをprovenance付きで露出すべきかを別レーンと調整します。
+
+詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`external-xlsx-fill-telemetry.md`、`test/fixtures/README.md`、issue-0128〜0140 を参照してください。
 
 十分な外部生成fixtureと安全境界が揃うまでは、warningやreview signalを自動accept / reject条件へ昇格させず、production接続可否も別ADR/Issueで判断します。
