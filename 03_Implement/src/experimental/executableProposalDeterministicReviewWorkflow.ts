@@ -14,12 +14,21 @@ import {
   createWorksheetFormatDeterministicReviewEvidence,
   type DeterministicReviewEvidenceV1,
 } from './deterministicReviewEvidence.js';
+import {
+  assertFormatProfile,
+  formatProfileToWorksheetPrototype,
+  type FormatProfileV1,
+} from './formatProfile.js';
 import type {
   WorksheetFormatSnapshot,
 } from './worksheetFormatFeatureAdapter.js';
 import type {
   WorksheetFormatFillEvidencePrototype,
 } from './worksheetFormatFillEvidenceEvaluation.js';
+import {
+  createWorksheetFormatPrototype,
+  SHEETJS_CE_XLSX_0203_SOURCE_PROFILE,
+} from './worksheetFormatPrototype.js';
 import {
   analyzeWorksheetFormatFillReviewCase,
 } from './worksheetFormatFillReviewTelemetry.js';
@@ -30,6 +39,7 @@ export const EXECUTABLE_PROPOSAL_DETERMINISTIC_REVIEW_SURFACE_SCHEMA_VERSION =
 export interface ExecutableProposalDeterministicReviewInput {
   observationSnapshot: WorksheetFormatSnapshot;
   prototypeSnapshots: readonly WorksheetFormatFillEvidencePrototype[];
+  approvedProfiles: readonly FormatProfileV1[];
 }
 
 export type ExecutableProposalDeterministicReviewWorkflowInput<
@@ -81,6 +91,7 @@ function createEvidence<TChoice extends string>(
   input: ExecutableProposalDeterministicReviewWorkflowInput<TChoice>,
 ): DeterministicReviewEvidenceV1 {
   assertPrototypePoolMatchesEnvelope(input);
+  assertPrototypeSnapshotsMatchApprovedProfiles(input);
 
   const analysis = analyzeWorksheetFormatFillReviewCase({
     id: 'executable-proposal-deterministic-review',
@@ -135,6 +146,86 @@ function assertPrototypePoolMatchesEnvelope<TChoice extends string>(
       'Deterministic review prototype pool does not match the Cognitive Review Envelope profiles.',
     );
   }
+}
+
+function assertPrototypeSnapshotsMatchApprovedProfiles<
+  TChoice extends string,
+>(
+  input: ExecutableProposalDeterministicReviewWorkflowInput<TChoice>,
+): void {
+  const profiles = new Map(
+    input.deterministicReview.approvedProfiles.map((profile) => {
+      assertFormatProfile(profile);
+      if (profile.status !== 'approved') {
+        throw new Error(
+          `Deterministic review requires an approved Format Profile: ${profile.id}.`,
+        );
+      }
+      return [profile.id, profile] as const;
+    }),
+  );
+
+  if (
+    profiles.size !== input.deterministicReview.approvedProfiles.length
+    || profiles.size !== input.envelope.profiles.length
+  ) {
+    throw new Error(
+      'Deterministic review approved Profile pool does not match the Cognitive Review Envelope.',
+    );
+  }
+
+  for (const profileRef of input.envelope.profiles) {
+    const profile = profiles.get(profileRef.id);
+    if (
+      profile === undefined
+      || profile.label !== profileRef.label
+      || profile.featureVersion !== profileRef.featureVersion
+      || profile.sourceProfileId !== profileRef.sourceProfileId
+      || profile.provenance.sourceDigest !== profileRef.baselineSourceDigest
+      || profile.approval?.approvalReference !== profileRef.approvalReference
+      || !sameStrings(
+        [...profile.sourceEvidence].sort(),
+        [...profileRef.sourceEvidence].sort(),
+      )
+    ) {
+      throw new Error(
+        `Deterministic review approved Profile does not match Envelope ref: ${profileRef.id}.`,
+      );
+    }
+  }
+
+  for (const entry of input.deterministicReview.prototypeSnapshots) {
+    const profile = profiles.get(entry.id);
+    if (profile === undefined) {
+      throw new Error(
+        `Missing approved Format Profile for deterministic prototype: ${entry.id}.`,
+      );
+    }
+
+    const derived = createWorksheetFormatPrototype(
+      entry.id,
+      entry.snapshot,
+      SHEETJS_CE_XLSX_0203_SOURCE_PROFILE,
+    );
+    const approved = formatProfileToWorksheetPrototype(
+      profile,
+      SHEETJS_CE_XLSX_0203_SOURCE_PROFILE,
+    );
+
+    if (!sameStrings(derived.features, approved.features)) {
+      throw new Error(
+        `Deterministic prototype snapshot does not match approved Profile features: ${entry.id}.`,
+      );
+    }
+  }
+}
+
+function sameStrings(
+  left: readonly string[],
+  right: readonly string[],
+): boolean {
+  return left.length === right.length
+    && left.every((value, index) => value === right[index]);
 }
 
 function baseWorkflowInput<TChoice extends string>(
