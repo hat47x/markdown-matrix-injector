@@ -1,9 +1,11 @@
-import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import {
   PathContainmentError,
   resolveSourcePath,
 } from '../core/pathResolver.js';
+import {
+  readSourceFileIdentity,
+} from '../core/sourceIdentity.js';
 import { renderEmbedCard } from '../core/renderCard.js';
 import { renderEmbedFrame } from '../core/renderEmbedFrame.js';
 import { renderEmbedTable } from '../core/renderTable.js';
@@ -397,7 +399,7 @@ function evaluateSourceIdentity(
   }
 
   try {
-    const actualDigest = digestFile(context.resolvedPath);
+    const actualDigest = readSourceFileIdentity(context.resolvedPath).digest;
     if (actualDigest === expectedDigest) {
       setPassed(
         results,
@@ -430,7 +432,7 @@ function verifySourceUnchangedAfterLoad(
   digestBefore: string,
 ): void {
   try {
-    const digestAfter = digestFile(resolvedPath);
+    const digestAfter = readSourceFileIdentity(resolvedPath).digest;
     if (digestAfter !== digestBefore) {
       setFailed(
         results,
@@ -492,13 +494,6 @@ function profileContractMatches<TChoice extends string>(
   const winner = payload.winnerPrototypeId;
   return winner === undefined
     || candidates.some((candidate) => candidate.prototypeId === winner);
-}
-
-function digestFile(filePath: string): string {
-  const digest = createHash('sha256')
-    .update(fs.readFileSync(filePath))
-    .digest('hex');
-  return `sha256:${digest}`;
 }
 
 function assertEnvelopeShape<TChoice extends string>(
