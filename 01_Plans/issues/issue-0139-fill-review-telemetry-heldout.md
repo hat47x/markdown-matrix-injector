@@ -47,6 +47,8 @@ issue-0134では、同じsnapshotをstructure+fill / structure-onlyで対比較�
 
 他チャットではCognitive Contract / provider境界を先行設計中である。
 
+作業途中でPR #176 `docs: establish cognitive assistance plane` が作成・mainへ統合されたことを再確認で検知した。PR #176がissue-0135〜0138を採番したため、本Issueは当初のissue-0135から**issue-0139へ採番し直した**。その後、最新main `4240a43bbbd8f72b8fbdf5ffe1f3cf45ffb432b3` を同一作業ブランチへmergeし、behind 0へ同期してから統合する。
+
 本Issueでは:
 
 - CognitiveObservation
