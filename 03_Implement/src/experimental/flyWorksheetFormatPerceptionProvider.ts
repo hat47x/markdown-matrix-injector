@@ -3,7 +3,7 @@ import {
   assertCognitiveOutcome,
   toCognitiveObservationRef,
   type CognitiveObservation,
-  type CognitiveOutcome,
+  type CognitiveSignalOutcome,
   type CognitiveProviderDescriptor,
   type CognitiveScore,
 } from './cognitiveContract.js';
@@ -46,7 +46,7 @@ export interface FlyWorksheetFormatPerceptionPayload {
 }
 
 export type FlyWorksheetFormatPerceptionOutcome =
-  CognitiveOutcome<FlyWorksheetFormatPerceptionPayload>;
+  CognitiveSignalOutcome<FlyWorksheetFormatPerceptionPayload>;
 
 /**
  * Adapts the existing deterministic worksheet-format matcher result into the
