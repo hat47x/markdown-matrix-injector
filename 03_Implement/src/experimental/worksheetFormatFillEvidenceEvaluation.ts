@@ -9,6 +9,7 @@ import {
   createWorksheetFormatPrototype,
   matchWorksheetFormatSnapshot,
   SHEETJS_CE_XLSX_0203_SOURCE_PROFILE,
+  WORKSHEET_FORMAT_STRUCTURE_ONLY_SOURCE_PROFILE,
   type WorksheetFormatSourceProfile,
 } from './worksheetFormatPrototype.js';
 
@@ -46,10 +47,8 @@ export interface WorksheetFormatFillEvidenceEvaluation {
 }
 
 export const WORKSHEET_FORMAT_FILL_EVALUATION_STRUCTURE_ONLY_PROFILE:
-  WorksheetFormatSourceProfile = Object.freeze({
-    id: 'worksheet-fill-eval-structure-only-v1',
-    evidence: Object.freeze(['structure'] as const),
-  });
+  WorksheetFormatSourceProfile =
+    WORKSHEET_FORMAT_STRUCTURE_ONLY_SOURCE_PROFILE;
 
 /**
  * Replays the same snapshots twice:

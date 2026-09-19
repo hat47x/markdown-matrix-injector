@@ -29,6 +29,12 @@ export const SHEETJS_CE_XLSX_0203_SOURCE_PROFILE: WorksheetFormatSourceProfile =
   evidence: Object.freeze(['structure', 'fill'] as const),
 });
 
+export const WORKSHEET_FORMAT_STRUCTURE_ONLY_SOURCE_PROFILE:
+  WorksheetFormatSourceProfile = Object.freeze({
+    id: 'worksheet-fill-eval-structure-only-v1',
+    evidence: Object.freeze(['structure'] as const),
+  });
+
 export interface WorksheetFormatPrototype extends FormatPrototype {
   featureVersion: typeof WORKSHEET_FORMAT_FEATURE_VERSION;
   sourceProfileId: string;
@@ -54,7 +60,7 @@ export function createWorksheetFormatPrototype(
   if (!normalizedId) throw new Error('Worksheet format prototype id must not be empty.');
 
   const observation = extractWorksheetFormatFeatures(snapshot);
-  const comparedFeatures = filterFeaturesByEvidence(observation.features, profile.evidence);
+  const comparedFeatures = filterWorksheetFormatFeaturesByEvidence(observation.features, profile.evidence);
   if (comparedFeatures.length === 0) {
     throw new Error(`Worksheet format prototype "${normalizedId}" has no observable format features.`);
   }
@@ -86,7 +92,7 @@ export function matchWorksheetFormatSnapshot(
   }
 
   const observation = extractWorksheetFormatFeatures(snapshot);
-  const comparedFeatures = filterFeaturesByEvidence(observation.features, profile.evidence);
+  const comparedFeatures = filterWorksheetFormatFeaturesByEvidence(observation.features, profile.evidence);
   return {
     featureVersion: WORKSHEET_FORMAT_FEATURE_VERSION,
     sourceProfileId: profile.id,
@@ -97,7 +103,7 @@ export function matchWorksheetFormatSnapshot(
   };
 }
 
-function filterFeaturesByEvidence(
+export function filterWorksheetFormatFeaturesByEvidence(
   features: readonly string[],
   evidence: readonly WorksheetFormatEvidenceKind[],
 ): string[] {
