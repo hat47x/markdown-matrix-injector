@@ -32,9 +32,10 @@ import {
 import {
   analyzeWorksheetFormatFillReviewCase,
 } from './worksheetFormatFillReviewTelemetry.js';
-
-export const EXECUTABLE_PROPOSAL_DETERMINISTIC_REVIEW_SURFACE_SCHEMA_VERSION =
-  'mmi-executable-proposal-deterministic-review-surface-v1' as const;
+import {
+  createUnifiedHumanReviewViewModel,
+  type UnifiedHumanReviewViewModelV1,
+} from './unifiedHumanReviewViewModel.js';
 
 export interface ExecutableProposalDeterministicReviewInput {
   observationSnapshot: WorksheetFormatSnapshot;
@@ -48,25 +49,12 @@ export type ExecutableProposalDeterministicReviewWorkflowInput<
   deterministicReview: ExecutableProposalDeterministicReviewInput;
 };
 
-export interface ExecutableProposalDeterministicReviewSurfaceV1<
-  TChoice extends string = string,
-> {
-  schemaVersion:
-    typeof EXECUTABLE_PROPOSAL_DETERMINISTIC_REVIEW_SURFACE_SCHEMA_VERSION;
-  audience: 'human-review';
-  proposal: ExecutableProposalVerifiedReviewSurfaceV1<TChoice>['proposal'];
-  review: ExecutableProposalVerifiedReviewSurfaceV1<TChoice>['review'];
-  authorityVerification:
-    ExecutableProposalVerifiedReviewSurfaceV1<TChoice>['authorityVerification'];
-  deterministicReviewEvidence: DeterministicReviewEvidenceV1;
-}
-
 export function prepareExecutableProposalDeterministicReviewWithLoader<
   TChoice extends string,
 >(
   input: ExecutableProposalDeterministicReviewWorkflowInput<TChoice>,
   workbookLoader: AuthorityWorkbookLoader,
-): ExecutableProposalDeterministicReviewSurfaceV1<TChoice> {
+): UnifiedHumanReviewViewModelV1<TChoice> {
   const evidence = createEvidence(input);
   const verified = prepareExecutableProposalVerifiedReviewWithLoader(
     baseWorkflowInput(input),
@@ -79,7 +67,7 @@ export async function prepareExecutableProposalDeterministicReviewWithDefaultLoa
   TChoice extends string,
 >(
   input: ExecutableProposalDeterministicReviewWorkflowInput<TChoice>,
-): Promise<ExecutableProposalDeterministicReviewSurfaceV1<TChoice>> {
+): Promise<UnifiedHumanReviewViewModelV1<TChoice>> {
   const evidence = createEvidence(input);
   const verified = await prepareExecutableProposalVerifiedReviewWithDefaultLoader(
     baseWorkflowInput(input),
@@ -109,22 +97,17 @@ function composeSurface<TChoice extends string>(
   input: ExecutableProposalDeterministicReviewWorkflowInput<TChoice>,
   verified: ExecutableProposalVerifiedReviewSurfaceV1<TChoice>,
   evidence: DeterministicReviewEvidenceV1,
-): ExecutableProposalDeterministicReviewSurfaceV1<TChoice> {
+): UnifiedHumanReviewViewModelV1<TChoice> {
   const wrapped = createDeterministicReviewEvidenceSurface(
     input.envelope,
     verified,
     evidence,
   );
 
-  return {
-    schemaVersion:
-      EXECUTABLE_PROPOSAL_DETERMINISTIC_REVIEW_SURFACE_SCHEMA_VERSION,
-    audience: 'human-review',
-    proposal: wrapped.surface.proposal,
-    review: wrapped.surface.review,
-    authorityVerification: wrapped.surface.authorityVerification,
-    deterministicReviewEvidence: wrapped.deterministicReviewEvidence,
-  };
+  return createUnifiedHumanReviewViewModel(
+    input.envelope,
+    wrapped,
+  );
 }
 
 function assertPrototypePoolMatchesEnvelope<TChoice extends string>(
