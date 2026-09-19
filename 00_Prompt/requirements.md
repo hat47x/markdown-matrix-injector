@@ -47,6 +47,9 @@ AIエージェントは、以下のPhase順に実装とテストを完了させ�
 * **Phase 12: 規約仕様化と普及基盤 (Notation Specification & Adoption Substrate)**
     * 対象: MMI Notation v1 仕様書（conformance levels L0–L3）、パラメータ JSON Schema、conformance corpus、KPI の「重複駆逐」指標への差し替え、表パターン資産の独立公開（ADR-0012）。
 
+* **Phase 13: 認知支援と書式ガバナンス (Cognitive Assistance & Format Governance)**
+    * 対象: Authority Planeを変更しないprovider-neutral認知契約、Fly-inspired Perception、Jev等のclosed-choice Judgment、Format Profile資産化、provenance・abstention・privacy境界（ADR-0018）。
+
 ---
 
 ## 2. 詳細仕様と実装の意図
@@ -156,6 +159,20 @@ Phase 11 で実証した参照実装の品質を土台に、記法を「広く�
 * **Ecosystem compatibility**: Obsidian 系譜（`![[...]]`）との互換関係と劣化クラス（未対応ホストでの可視劣化、Markdown テーブル内 `|` 衝突と escaping 等）を正直に規定する。
 * **KPI redefinition**: 採用観測の主要指標を「駆逐されたコピー重複」「正本と文書の乖離インシデント」「表変更のレビュー所要時間」へ差し替える（Phase 10 の収集基盤を流用し、指標定義のみ変更）。
 * **Asset independence**: Phase 9 の表パターン資産（ベンチマークパック）を、規約・ツールから独立に参照可能な形で公開する。
+
+### 【Phase 13】 認知支援と書式ガバナンス (Cognitive Assistance & Format Governance)
+MMIの決定論的なAuthority Planeを維持したまま、書式認識・入力意図・レビュー判断などの曖昧性を扱う非権威的なCognitive Assistance Planeを追加する（決定正本: ADR-0018）。
+
+* **Authority isolation MUST**: parser / resolver / query semantics / containment / Read-only / diagnostics / rendering / conformanceは認知providerから独立させる。同じ正本とMMI記法に対し、認知機能ON/OFFで論理表・Authority診断が変化してはならない。
+* **Provider-neutral contract MUST**: Perception（Fly-inspired等）、Judgment（Jev等のclosed-choice）、Reasoning/Generation（LLM等）を共通contractへ接続し、provider identity/version、capability、input schema、signal、abstention、provenanceを保持する。
+* **Confidence semantics MUST**: 異なるproviderのconfidenceを共通確率尺度とみなさず、namespaceと意味定義を保持する。単純平均・最大値・共通thresholdで統合しない。
+* **Abstention first MUST**: `novel` / `ambiguous` / `abstained` / `unsupported` / `unavailable` を正常系として扱い、不明時に既知候補へ強制しない。
+* **Derived Cognitive State SHOULD**: provider入力は、正本そのものより再生成可能な抽象feature・限定メタデータ・source digest・provenanceを優先する。write handleを渡さない。
+* **Revalidation MUST**: 認知providerが生成・選択したMMI Notation候補は、適用前に既存parser/schema/resolver/containment/source validation/previewを再通過させる。
+* **Format Profile governance**: worksheet-format prototypeを将来versioned Format Profileへ昇格可能にする。hidden online learningを禁止し、候補生成→差分提示→人間承認→version controlの順で更新する。
+* **Privacy / network opt-in MUST**: 外部providerへの送信は明示opt-inとし、自動クラウドfallbackを禁止する。セル本文・機密情報を既定送信しない。
+* **Notation independence MUST**: Cognitive Assistance PlaneはMMI Notation v1のL0〜L3 conformance要件に含めず、AI固有構文をv1コアへ追加しない。
+* **Current matcher preservation**: ADR-0017およびissue-0114〜0134で固定したworksheet-format-v6、flat scoring、source-profile境界、fail-closed方針を維持する。fillは補助evidenceとして維持するがweightを増やさず、評価telemetryを直接accept/rejectへ昇格させない。
 
 ---
 **【Initial Action Request (AIへの初期指示)】**
