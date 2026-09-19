@@ -300,6 +300,29 @@ test('fails preview when the requested sheet is unavailable', () => {
   );
 });
 
+test('keeps a full failed receipt when the resolved source is not a regular file', () => {
+  const fixture = createFixture();
+  const receipt = run(
+    fixture,
+    '![[../data?mode=card]]',
+    { workbook: undefined },
+  );
+
+  assert.equal(checkStatus(receipt, 'resolver'), 'passed');
+  assert.equal(checkStatus(receipt, 'containment'), 'passed');
+  assert.equal(checkStatus(receipt, 'source-existence'), 'failed');
+  assert.equal(
+    evidenceCode(receipt, 'source-existence'),
+    'SOURCE_NOT_REGULAR_FILE',
+  );
+  assert.equal(checkStatus(receipt, 'source-identity'), 'failed');
+  assert.equal(
+    evidenceCode(receipt, 'source-identity'),
+    'SOURCE_DIGEST_READ_FAILED',
+  );
+  assert.equal(receipt.checks.length, 8);
+});
+
 test('renders explicit card mode without WorkbookData', () => {
   const fixture = createFixture();
   const receipt = run(
