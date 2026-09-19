@@ -15,6 +15,7 @@ const flyProvider: CognitiveProviderDescriptor = {
   id: 'mmi.fly-format',
   version: 'worksheet-format-v6',
   category: 'perception',
+  executionBoundary: 'local',
   capabilities: ['format-candidate-ranking', 'format-novelty'],
 };
 
@@ -101,6 +102,7 @@ test('treats abstained unsupported and unavailable as valid explicit outcomes', 
         id: 'mmi.closed-choice.stub',
         version: '1',
         category: 'judgment',
+        executionBoundary: 'external-opt-in',
         capabilities: ['intent-classification'],
       },
       observation: toCognitiveObservationRef(observation),
@@ -116,6 +118,7 @@ test('validates provider and observation metadata without requiring IO handles',
   assert.doesNotThrow(() => assertCognitiveObservation(observation));
   assert.equal('path' in observation.provenance, false);
   assert.equal('write' in observation.provenance, false);
+  assert.equal(flyProvider.executionBoundary, 'local');
 });
 
 test('rejects blank identity metadata and duplicate capabilities', () => {
@@ -133,6 +136,14 @@ test('rejects blank identity metadata and duplicate capabilities', () => {
       capabilities: ['format-candidate-ranking', 'format-candidate-ranking'],
     }),
     /Duplicate cognitive provider capability/,
+  );
+
+  assert.throws(
+    () => assertCognitiveProviderDescriptor({
+      ...flyProvider,
+      capabilities: [],
+    }),
+    /at least one capability/,
   );
 
   assert.throws(
@@ -177,6 +188,26 @@ test('rejects invalid scores and empty abstention reasons', () => {
       reasonCode: '   ',
     }),
     /reasonCode/,
+  );
+});
+
+test('rejects unsupported runtime status and invalid provider boundary', () => {
+  assert.throws(
+    () => assertCognitiveOutcome({
+      status: 'unexpected' as never,
+      provider: flyProvider,
+      observation: toCognitiveObservationRef(observation),
+      reasonCode: 'INVALID',
+    } as CognitiveOutcome),
+    /Unsupported cognitive outcome status/,
+  );
+
+  assert.throws(
+    () => assertCognitiveProviderDescriptor({
+      ...flyProvider,
+      executionBoundary: 'implicit-cloud' as never,
+    }),
+    /execution boundary/,
   );
 });
 
