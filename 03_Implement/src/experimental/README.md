@@ -259,6 +259,8 @@ issue-0133ではLibreOffice最終保存のtheme-indexed fixtureを追加し、Sh
 
 MMI bridgeはtheme XMLを自力で解決しません。resolved RGBが無いtheme styleは引き続き保守的に `other` とし、adapterはmeaningful fill evidenceへ採用しません。
 
+issue-0134ではさらに、同じsnapshot群を `structure + fill` / `structure only` で対比較し、fill evidenceの**識別価値と副作用**を評価しました。fill-onlyでしか区別できないprototypeをdisambiguateできる一方、共通fillが構造差を薄めて `novel -> matched` を起こすケースもあります。そのためfillは補助証拠として維持しますが、weightを強めません。
+
 adapterが値を受け取れることと、実入力経路がその値を安定して供給することは別です。後者を確認できない情報は比較契約へ入れません。
 
 ## 9. Feature contract version
@@ -347,8 +349,10 @@ merge shapeは分類を単独支配するfeatureではなく、他の構造証�
 15. `xlsxFormatSnapshotLibreOfficeFixture.test.ts` — LibreOffice最終保存XLSXでdirect RGB fillと構造境界を確認
 16. `xlsxFormatSnapshotThemeFixture.test.ts` — 外部theme/tint fillがSheetJSでRGB解決される境界を確認
 17. `theme-fill-boundary.md` — parser / bridge / adapterのtheme責務分離
-18. `test/fixtures/README.md` — 外部生成fixtureのprovenanceとSHA-256
-19. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
+18. `worksheetFormatFillEvidenceEvaluation.test.ts` — fillあり/なしを同じsnapshotで対比較し、識別価値と境界反転を確認
+19. `fill-evidence-value.md` — fillが候補confidence / winner marginへ与える影響
+20. `test/fixtures/README.md` — 外部生成fixtureのprovenanceとSHA-256
+21. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
 
 ## 13. 安全に変更するためのチェックリスト
 
@@ -416,17 +420,22 @@ issue-0130ではadapterを通すsnapshot-level fixtureへ進み、issue-0131で�
 - LibreOffice最終保存のtheme/tint fillも、SheetJSがRGBへ解決できる場合は同じfill evidenceへ正規化する
 - theme indexだけがありresolved RGBが無い場合はbridgeで `other` とし、推測で補わない
 - theme XML / tint algorithmをMMI側へ重複実装しない
+- fillは候補識別に有用だが、共通fillが構造差を薄める場合がある
+- 4列2ラベル変更ではstructure-onlyの `novel 0.675441` がfill一致で `matched 0.724571` へ反転する
+- 同一構造dark/light prototypeはfill込みでmargin `0.098930` を得てdisambiguateできる
+- correct structureとfill一致candidateが競合すると、fillがwinner marginを狭めてambiguousへ安全停止させる場合がある
 
-次に進む場合は、style解析機能をさらに増やす前に、**実務fixtureでfill evidenceの出現率と識別価値を測る段階**です。
+次に進む場合は、fillのweight変更ではなく、**fill availability / fill disagreementをreview telemetryとしてheld-out評価する段階**です。
 
 優先項目:
 
-1. direct RGB / theme / no-fillの実務分布
-2. fill差だけがformat identityへ寄与するケース
-3. fill evidence有無がfalse match / false novelへ与える影響
-4. structure-only sourceとのcross-profile方針
-5. border evidenceを保証対象へ進める必要性
+1. structure near-gate + fill support
+2. prototypeにfillがあるがobservationで欠落するケース
+3. fill-only discrimination
+4. structureとfillが別candidateを支持するケース
+5. direct RGB / theme / no-fillを混ぜた実務寄りcorpus
+6. その後にborder evidenceを保証対象へ進める必要性
 
-詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`test/fixtures/README.md`、issue-0128〜0133 を参照してください。
+詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`test/fixtures/README.md`、issue-0128〜0134 を参照してください。
 
 十分な外部生成fixtureと安全境界が揃うまでは、warningやreview signalを自動accept / reject条件へ昇格させず、production接続可否も別ADR/Issueで判断します。
