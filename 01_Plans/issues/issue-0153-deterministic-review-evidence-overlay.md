@@ -277,7 +277,19 @@ artifact作成後にobjectが書き換えられる場合も考え、surfaceへ�
 - [x] existing Cognitive / Authority schemasを変更しない
 - [x] production runtimeを変更しない
 
-## Concurrent reconciliation\n\n作業途中で他レーンがissue-0150 executable proposal review workflow、issue-0151 Notation parameter contractをmainへ統合したため、本Issueは当初の0150から**0152へ採番し直した**。両レーンはfill telemetry / deterministic review evidenceを変更しておらず、最新mainを同一作業ブランチへ取り込んでから統合する。\n\n## Source identity contractとの境界\n\nissue-0152で`source-file-bytes-v1`のcanonical SHA-256 identity primitiveがmainへ追加された。本Issueはdigestを生成せず、Cognitive Review Envelopeが保持する`sourceDigest`をbinding keyとして消費するだけとする。source bytesのhash規則・containment・byteLengthはissue-0152の責務であり、review evidence側へ再実装しない。\n\n## Validation policy
+## Concurrent reconciliation
+
+作業途中で他レーンがissue-0150 executable proposal review workflow、issue-0151 Notation parameter contractをmainへ統合したため、本Issueは当初の0150からいったん0152へ採番し直した。
+
+その後、issue-0152 Source Identity Contractも他レーンからmainへ統合されたため、本Issueは最終的に**issue-0153**へ繰り下げた。
+
+いずれの並行レーンもfill telemetry / deterministic review evidenceは変更していない。各main更新を同一作業ブランチへ取り込み、branchを分岐させずに同期した。
+
+## Source identity contractとの境界
+
+issue-0152で`source-file-bytes-v1`のcanonical SHA-256 identity primitiveがmainへ追加された。本Issueはdigestを生成せず、Cognitive Review Envelopeが保持する`sourceDigest`をbinding keyとして消費するだけとする。source bytesのhash規則・containment・byteLengthはissue-0152の責務であり、review evidence側へ再実装しない。
+
+## Validation policy
 
 今回の追加はpure experimental TypeScriptで、XLSX readerを直接呼ばない。
 
