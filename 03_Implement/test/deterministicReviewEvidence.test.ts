@@ -493,3 +493,50 @@ test('does not mutate existing review artifacts and does not serialize evaluatio
   assert.equal(serializedEvidence.includes('"apply"'), false);
   assert.equal(serializedEvidence.includes('accepted'), false);
 });
+
+
+test('rejects post-creation reason classification tampering at attachment time', () => {
+  const base = snapshot(
+    ['ID', 'Item', 'Type', 'Required', 'Decision', 'Reviewer'],
+    'dark',
+  );
+  const drift = snapshot(
+    ['Code', 'Item', 'Name', 'Required', 'Decision', 'Reviewer'],
+    'dark',
+  );
+  const result = evaluateCase({
+    id: 'reason-tamper',
+    expectedReview: true,
+    observationSnapshot: drift,
+    prototypeSnapshots: [{ id: 'base', snapshot: base }],
+  });
+  const { envelope, verified } = artifacts(drift, [{
+    id: 'base',
+    label: 'Base Format',
+    snapshot: base,
+  }]);
+  const evidence = createWorksheetFormatDeterministicReviewEvidence(
+    envelope,
+    result,
+  );
+  const first = evidence.reasons[0];
+  assert.ok(first);
+
+  assert.throws(
+    () => createDeterministicReviewEvidenceSurface(
+      envelope,
+      verified,
+      {
+        ...evidence,
+        reasons: [{
+          ...first,
+          category: 'diagnostic',
+          reviewRole: 'diagnostic-only',
+        }],
+        reviewRelevantReasonCount: 0,
+        diagnosticReasonCount: 1,
+      },
+    ),
+    /reason classification/,
+  );
+});
