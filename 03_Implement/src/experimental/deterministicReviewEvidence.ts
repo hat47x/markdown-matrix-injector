@@ -16,9 +16,9 @@ import {
   WORKSHEET_FORMAT_FEATURE_VERSION,
 } from './worksheetFormatPrototype.js';
 import type {
-  WorksheetFormatFillReviewCaseResult,
+  WorksheetFormatFillReviewAnalysisResult,
   WorksheetFormatFillReviewTelemetryCode,
-} from './worksheetFormatFillReviewTelemetry.js';
+} from './worksheetFormatFillReviewAnalysis.js';
 
 export const DETERMINISTIC_REVIEW_EVIDENCE_SCHEMA_VERSION =
   'mmi-deterministic-review-evidence-v1' as const;
@@ -117,7 +117,7 @@ export function createWorksheetFormatDeterministicReviewEvidence<
   TChoice extends string,
 >(
   envelope: CognitiveReviewEnvelope<TChoice>,
-  result: WorksheetFormatFillReviewCaseResult,
+  result: WorksheetFormatFillReviewAnalysisResult,
 ): DeterministicReviewEvidenceV1 {
   assertEnvelopeBinding(envelope, result);
 
@@ -199,7 +199,7 @@ function toReason(
 }
 
 function projectPath(
-  path: WorksheetFormatFillReviewCaseResult['withFill'],
+  path: WorksheetFormatFillReviewAnalysisResult['withFill'],
 ): DeterministicReviewComparisonPathV1 {
   return {
     sourceProfileId: path.sourceProfileId,
@@ -222,7 +222,7 @@ function projectPath(
 
 function assertEnvelopeBinding<TChoice extends string>(
   envelope: CognitiveReviewEnvelope<TChoice>,
-  result: WorksheetFormatFillReviewCaseResult,
+  result: WorksheetFormatFillReviewAnalysisResult,
 ): void {
   if (envelope.sourceDigest.trim().length === 0) {
     throw new Error('Deterministic review evidence requires a source digest.');
