@@ -14,6 +14,9 @@ import {
 import type {
   FlyWorksheetFormatPerceptionOutcome,
 } from './flyWorksheetFormatPerceptionProvider.js';
+import {
+  assertWorksheetFormatObservationIdentityProvenance,
+} from './worksheetFormatObservationIdentity.js';
 import type {
   WorksheetFormatEvidenceKind,
   WorksheetFormatSourceProfile,
@@ -123,6 +126,15 @@ export function createCognitiveReviewEnvelope<TChoice extends string>(
   assertPerceptionShape(input.perception);
   assertSourceProfile(input.sourceProfile);
   assertPerceptionSourceProfile(input.perception, input.sourceProfile);
+  assertWorksheetFormatObservationIdentityProvenance(
+    input.perception.signal.payload.observationIdentity,
+    {
+      sourceDigest: input.perception.observation.sourceDigest,
+      featureVersion: input.perception.signal.payload.featureVersion,
+      sourceProfileId: input.perception.signal.payload.sourceProfileId,
+      sourceEvidence: input.perception.signal.payload.sourceEvidence,
+    },
+  );
 
   const profileById = new Map<string, FormatProfileV1>();
   for (const profile of input.approvedProfiles) {
