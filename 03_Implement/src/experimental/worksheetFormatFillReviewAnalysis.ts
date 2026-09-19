@@ -26,6 +26,18 @@ export type WorksheetFormatFillReviewTelemetryCode =
   | 'fill-unavailable-for-discrimination'
   | 'fill-tone-disagreement';
 
+export type MeaningfulWorksheetFormatFillTone =
+  Exclude<FormatFillTone, 'none' | 'other'>;
+
+export interface WorksheetFormatFillReviewClassificationContext {
+  observationFill?: MeaningfulWorksheetFormatFillTone;
+  prototypeFills: ReadonlyMap<
+    string,
+    MeaningfulWorksheetFormatFillTone | undefined
+  >;
+  structurallyEquivalentPrototypes: boolean;
+}
+
 export interface WorksheetFormatFillReviewAnalysisResult
   extends WorksheetFormatFillEvidenceCaseResult {
   telemetry: readonly WorksheetFormatFillReviewTelemetryCode[];
@@ -58,35 +70,35 @@ export function analyzeWorksheetFormatFillReview(
       throw new Error('Fill review analysis case ordering changed unexpectedly.');
     }
 
-    const telemetry = classifyTelemetry(source, entry);
-    const decisionImpact = telemetry.some(
-      (code) => DECISION_IMPACT_CODES.has(code),
+    const prototypeFills = new Map(
+      source.prototypeSnapshots.map((prototype) => [
+        prototype.id,
+        meaningfulHeaderFillFromFeatures(
+          extractWorksheetFormatFeatures(prototype.snapshot).features,
+        ),
+      ]),
     );
-    const essentialUnavailable = telemetry.includes(
-      'fill-unavailable-for-discrimination',
-    );
-    const broadFillUnavailable = telemetry.includes('fill-unavailable');
-    const broadFillDisagreement = telemetry.includes(
-      'fill-tone-disagreement',
-    );
+    const telemetry = classifyWorksheetFormatFillReview(entry, {
+      observationFill: meaningfulHeaderFillFromFeatures(
+        extractWorksheetFormatFeatures(source.observationSnapshot).features,
+      ),
+      prototypeFills,
+      structurallyEquivalentPrototypes:
+        structurallyEquivalentSnapshotPrototypes(source),
+    });
 
-    return {
-      ...entry,
+    return createWorksheetFormatFillReviewAnalysisResult(
+      entry,
       telemetry,
-      decisionImpact,
-      essentialUnavailable,
-      highImpactReviewTelemetry: decisionImpact || essentialUnavailable,
-      broadFillUnavailable,
-      broadFillDisagreement,
-    } satisfies WorksheetFormatFillReviewAnalysisResult;
+    );
   });
 
   return { cases: results };
 }
 
-function classifyTelemetry(
-  source: WorksheetFormatFillEvidenceCase,
+export function classifyWorksheetFormatFillReview(
   result: WorksheetFormatFillEvidenceCaseResult,
+  context: WorksheetFormatFillReviewClassificationContext,
 ): WorksheetFormatFillReviewTelemetryCode[] {
   const telemetry: WorksheetFormatFillReviewTelemetryCode[] = [];
   const withFillStatus = result.withFill.match.status;
@@ -102,43 +114,72 @@ function classifyTelemetry(
     telemetry.push('fill-changed-winner');
   }
 
-  const observationFill = meaningfulHeaderFill(source.observationSnapshot);
-  const prototypeFills = new Map(
-    source.prototypeSnapshots.map((prototype) => [
-      prototype.id,
-      meaningfulHeaderFill(prototype.snapshot),
-    ]),
-  );
-
   if (
-    observationFill === undefined
-    && [...prototypeFills.values()].some((fill) => fill !== undefined)
+    context.observationFill === undefined
+    && [...context.prototypeFills.values()].some(
+      (fill) => fill !== undefined,
+    )
   ) {
     telemetry.push('fill-unavailable');
   }
 
   if (
-    observationFill === undefined
+    context.observationFill === undefined
     && result.withFill.match.status === 'ambiguous'
     && result.structureOnly.match.status === 'ambiguous'
-    && structurallyEquivalentPrototypes(source)
-    && distinctMeaningfulFills(prototypeFills) >= 2
+    && context.structurallyEquivalentPrototypes
+    && distinctMeaningfulFills(context.prototypeFills) >= 2
   ) {
     telemetry.push('fill-unavailable-for-discrimination');
   }
 
   const structureWinnerFill = result.structureOnly.topPrototypeId
-    ? prototypeFills.get(result.structureOnly.topPrototypeId)
+    ? context.prototypeFills.get(result.structureOnly.topPrototypeId)
     : undefined;
   if (
-    observationFill !== undefined
+    context.observationFill !== undefined
     && structureWinnerFill !== undefined
-    && observationFill !== structureWinnerFill
+    && context.observationFill !== structureWinnerFill
   ) {
     telemetry.push('fill-tone-disagreement');
   }
 
   return telemetry;
+}
+
+export function createWorksheetFormatFillReviewAnalysisResult(
+  entry: WorksheetFormatFillEvidenceCaseResult,
+  telemetry: readonly WorksheetFormatFillReviewTelemetryCode[],
+): WorksheetFormatFillReviewAnalysisResult {
+  const decisionImpact = telemetry.some(
+    (code) => DECISION_IMPACT_CODES.has(code),
+  );
+  const essentialUnavailable = telemetry.includes(
+    'fill-unavailable-for-discrimination',
+  );
+  const broadFillUnavailable = telemetry.includes('fill-unavailable');
+  const broadFillDisagreement = telemetry.includes(
+    'fill-tone-disagreement',
+  );
+
+  return {
+    ...entry,
+    telemetry: [...telemetry],
+    decisionImpact,
+    essentialUnavailable,
+    highImpactReviewTelemetry: decisionImpact || essentialUnavailable,
+    broadFillUnavailable,
+    broadFillDisagreement,
+  };
+}
+
+export function meaningfulHeaderFillFromFeatures(
+  features: readonly string[],
+): MeaningfulWorksheetFormatFillTone | undefined {
+  if (features.includes('header:dark-fill')) return 'dark';
+  if (features.includes('header:gray-fill')) return 'gray';
+  if (features.includes('header:light-fill')) return 'light';
+  return undefined;
 }
 
 function pushStatusTransition(
@@ -163,22 +204,7 @@ function pushStatusTransition(
   }
 }
 
-function meaningfulHeaderFill(
-  snapshot: WorksheetFormatFillEvidenceCase['observationSnapshot'],
-): Exclude<FormatFillTone, 'none' | 'other'> | undefined {
-  const feature = extractWorksheetFormatFeatures(snapshot).features.find(
-    (value) =>
-      value === 'header:dark-fill'
-      || value === 'header:gray-fill'
-      || value === 'header:light-fill',
-  );
-  if (feature === 'header:dark-fill') return 'dark';
-  if (feature === 'header:gray-fill') return 'gray';
-  if (feature === 'header:light-fill') return 'light';
-  return undefined;
-}
-
-function structurallyEquivalentPrototypes(
+function structurallyEquivalentSnapshotPrototypes(
   source: WorksheetFormatFillEvidenceCase,
 ): boolean {
   const featureSets = source.prototypeSnapshots.map((prototype) =>
@@ -201,12 +227,12 @@ function structurallyEquivalentPrototypes(
 function distinctMeaningfulFills(
   prototypeFills: ReadonlyMap<
     string,
-    Exclude<FormatFillTone, 'none' | 'other'> | undefined
+    MeaningfulWorksheetFormatFillTone | undefined
   >,
 ): number {
   return new Set(
     [...prototypeFills.values()].filter(
-      (value): value is Exclude<FormatFillTone, 'none' | 'other'> =>
+      (value): value is MeaningfulWorksheetFormatFillTone =>
         value !== undefined,
     ),
   ).size;
