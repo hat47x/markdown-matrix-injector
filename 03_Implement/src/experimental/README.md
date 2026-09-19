@@ -361,8 +361,10 @@ merge shapeは分類を単独支配するfeatureではなく、他の構造証�
 23. `external-xlsx-fill-telemetry.md` — 実XLSX corpusとCognitive Assistance Planeとの境界
 24. `worksheetFormatFillImpactFamilyExternalXlsx.test.ts` — 同一external template familyで残り4つのdecision-impact reasonを固定
 25. `external-fill-impact-family.md` — supported acceptance / ambiguity / rejection / changed winnerの読み方
-26. `test/fixtures/README.md` — 外部生成fixtureのprovenanceとSHA-256
-27. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
+26. `deterministicReviewEvidence.test.ts` — deterministic reasonをCognitive/Authorityと分離してreview surfaceへ合成
+27. `../../02_Architecture/deterministic-review-evidence-overlay-v1.md` — reason provenance / binding / non-authority境界
+28. `test/fixtures/README.md` — 外部生成fixtureのprovenanceとSHA-256
+29. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
 
 ## 13. 安全に変更するためのチェックリスト
 
@@ -485,8 +487,32 @@ issue-0146では、同じlayout familyを持つLibreOffice最終保存XLSXを追
 
 この7-case corpusはreason codeを意図的に再現する**coverage evidence**であり、held-out population上のprecision benchmarkではありません。decision-impact precision/recallが1.0でもproduction gate採用根拠にはしません。
 
-次に進む場合は、issue-0141〜0144で整ったCognitive review / Authority surfaceを再確認し、**deterministic review reasonをprovider-generated cognitive signalと混同せずにどう表示・provenance化するか**を別Issueで設計します。matcher statusを書き換えたり、Cognitive providerへreason生成責務を移したりはしません。
+issue-0150では、external XLSXまで確認したdeterministic review reasonをCognitive / Authorityへ混ぜずにhuman-review surfaceへ露出する最小contractを追加しました。
 
-詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`external-xlsx-fill-telemetry.md`、`external-fill-impact-family.md`、`test/fixtures/README.md`、issue-0128〜0146 を参照してください。
+新しい構造:
+
+```text
+existing verified human-review surface
+  + deterministic review evidence
+        |
+        v
+DeterministicReviewEvidenceSurfaceV1
+```
+
+重要な境界:
+
+- Cognitive Perception / Judgmentへreasonを入れない
+- Authority receipt / verification checkへreasonを入れない
+- deterministic producerはprovider descriptorを名乗らない
+- `expectedReview`、raw cells、raw feature vectorをartifactへ持ち込まない
+- fill-aware primary matcher resultがEnvelopeのFly Perception payloadとcandidate順・scoreまで一致しなければfail-closed
+- attachment時にもschema / producer / provenance / reason分類 / reason count / primary comparisonを再検証
+- review-relevant reasonがあってもauto rejectしない
+- reasonがなくてもauto acceptしない
+- existing review-only / no-write / not-authorized境界を変更しない
+
+次に進む場合は、issue-0148/0149のexact proposal identity + Authority verified surfaceへこのdeterministic evidence wrapperを実際に合成し、**proposal / Authority / deterministic reason / Cognitive Perception / Judgment / provenanceをUI-neutral view modelで同時表示しても意味が混ざらないか**をfocused compositionで確認します。
+
+詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`external-xlsx-fill-telemetry.md`、`external-fill-impact-family.md`、`../../02_Architecture/deterministic-review-evidence-overlay-v1.md`、`test/fixtures/README.md`、issue-0128〜0150 を参照してください。
 
 十分な外部生成fixtureと安全境界が揃うまでは、warningやreview signalを自動accept / reject条件へ昇格させず、production接続可否も別ADR/Issueで判断します。
