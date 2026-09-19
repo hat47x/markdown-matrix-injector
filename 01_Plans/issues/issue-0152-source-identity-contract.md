@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Refactor / Integrity primitive
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: SHA-256 source identity, contained source resolution, Authority adapter reuse
 - Expected verification level: unit + focused integration
@@ -31,17 +31,17 @@ Authority adapterはsource file bytesのSHA-256をprivate `digestFile` で計算
 
 ## Acceptance criteria
 
-- [ ] source identity algorithm / representationを定数化する。
-- [ ] bytes -> identityがdeterministic。
-- [ ] file -> identityがbytes digestと一致。
-- [ ] identityにbyteLengthを保持する。
-- [ ] contained resolve -> identityが既存resolver境界を再利用する。
-- [ ] workspace外traversal / symlinkを既存 `PathContainmentError` のまま拒否する。
-- [ ] source変更後は別digestとなる。
-- [ ] Authority adapterは共通 `readSourceFileIdentity` を使用する。
-- [ ] Authority adapter内private SHA-256実装を削除する。
-- [ ] source digest evidence code / Receipt semanticsを変更しない。
-- [ ] production plugin / Workbook loader / matcher / fill telemetryを変更しない。
+- [x] source identity algorithm / representationを定数化する。
+- [x] bytes -> identityがdeterministic。
+- [x] file -> identityがbytes digestと一致。
+- [x] identityにbyteLengthを保持する。
+- [x] contained resolve -> identityが既存resolver境界を再利用する。
+- [x] workspace外traversal / symlinkを既存 `PathContainmentError` のまま拒否する。
+- [x] source変更後は別digestとなる。
+- [x] Authority adapterは共通 `readSourceFileIdentity` を使用する。
+- [x] Authority adapter内private SHA-256実装を削除する。
+- [x] source digest evidence code / Receipt semanticsを変更しない。
+- [x] production plugin / Workbook loader / matcher / fill telemetryを変更しない。
 
 ## Validation plan
 
@@ -54,3 +54,31 @@ Authority adapterはsource file bytesのSHA-256をprivate `digestFile` で計算
 - file mutationでdigest変化。
 - GitHub正本adapterに共通primitive importがありprivate digest関数がないことを確認。
 - GitHub Actionsの既知runner/resource不足は完了条件にしない。
+
+
+## Validation evidence
+
+### 2026-09-20 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- `sourceIdentity.ts` + existing `pathResolver` contractを
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- temporary real filesを用いたfocused runtime harness: **6/6 pass**。
+- 確認内容:
+  - raw bytesからのidentityがdeterministicでNode SHA-256直計算と一致。
+  - file identityと同一bytes identityが一致。
+  - contained relative sourceを既存resolver経由で解決してidentity生成。
+  - workspace外traversalを `PathContainmentError` で拒否。
+  - workspace内symlinkからworkspace外real targetへの参照を拒否。
+  - file mutation後にdigest / byteLengthが変化。
+- 初回test記述にidentity存在確認の逆assertを発見し、実装ではなくtest誤記として修正済み。
+- GitHub正本Authority adapterを再取得して確認:
+  - `readSourceFileIdentity` をimport。
+  - private `digestFile` は削除済み。
+  - `createHash` importは残存していない。
+  - load前/後source identity確認の2箇所が共通primitiveを利用。
+- Receipt evidence code / Authority semanticsは変更していない。
+- production plugin / Workbook loader / matcher / fill telemetry / external-XLSX評価コードは変更していない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
