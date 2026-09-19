@@ -67,9 +67,12 @@ payloadはproviderごとの型を使えるが、contract自身はfile handleやw
   - `perception`
   - `judgment`
   - `reasoning-generation`
+- execution boundary
+  - `local`
+  - `external-opt-in`
 - capabilities
 
-categoryは信頼度ではなく責務分類である。
+categoryは信頼度ではなく責務分類である。execution boundaryはprivacy / network境界であり、`external-opt-in`を暗黙に実行してよいという意味ではない。
 
 ## 5. Signal and abstention
 
