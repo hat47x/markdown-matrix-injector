@@ -28,6 +28,9 @@ import {
   type CognitiveReviewEnvelope,
 } from './cognitiveReviewEnvelope.js';
 
+export type AuthorityWorkbookLoader =
+  (absolutePath: string) => WorkbookData;
+
 export interface ExecutableProposalAuthorityRevalidationInput<
   TChoice extends string = string,
 > {
@@ -36,6 +39,7 @@ export interface ExecutableProposalAuthorityRevalidationInput<
   markdownFilePath: string;
   workspaceRoot?: string;
   workbook?: WorkbookData;
+  workbookLoader?: AuthorityWorkbookLoader;
   issuer: AuthorityRevalidationIssuer;
   uriScheme?: string;
 }
@@ -45,6 +49,10 @@ interface EvaluationContext {
   resolvedPath?: string;
   containmentFailure?: PathContainmentError;
   resolveFailure?: Error;
+}
+
+interface PreviewEvaluation {
+  sourceLoadAttempted: boolean;
 }
 
 const CHECK_ORDER: readonly AuthorityRevalidationCheck[] = [
@@ -64,6 +72,7 @@ export function runExecutableProposalAuthorityRevalidation<
   input: ExecutableProposalAuthorityRevalidationInput<TChoice>,
 ): AuthorityRevalidationReceiptV1 {
   assertEnvelopeShape(input.envelope);
+  assertWorkbookInput(input);
 
   const results = new Map<
     AuthorityRevalidationCheck,
@@ -125,41 +134,25 @@ export function runExecutableProposalAuthorityRevalidation<
   const context = resolveContext(input, query);
   applyResolutionChecks(results, context);
 
-  if (context.resolvedPath) {
-    try {
-      const actualDigest = digestFile(context.resolvedPath);
-      if (actualDigest === input.envelope.sourceDigest) {
-        setPassed(
-          results,
-          'source-identity',
-          'SOURCE_DIGEST_MATCHED',
-        );
-      } else {
-        setFailed(
-          results,
-          'source-identity',
-          'SOURCE_DIGEST_MISMATCH',
-          `Resolved source digest ${actualDigest} does not match Envelope digest.`,
-        );
-      }
-    } catch (error) {
-      setFailed(
-        results,
-        'source-identity',
-        'SOURCE_DIGEST_READ_FAILED',
-        errorMessage(error),
-      );
-    }
-  } else {
-    setFailed(
+  const sourceDigestBefore = evaluateSourceIdentity(
+    results,
+    input.envelope.sourceDigest,
+    context,
+  );
+
+  const preview = evaluatePreview(results, input, context);
+
+  if (
+    preview.sourceLoadAttempted
+    && context.resolvedPath
+    && sourceDigestBefore
+  ) {
+    verifySourceUnchangedAfterLoad(
       results,
-      'source-identity',
-      'SOURCE_IDENTITY_NOT_VERIFIED',
-      'Source identity requires a contained resolved source file.',
+      context.resolvedPath,
+      sourceDigestBefore,
     );
   }
-
-  evaluatePreview(results, input, context);
 
   const checks = input.envelope.authorityRevalidation.map((requirement) => {
     const result = results.get(requirement.check);
@@ -293,7 +286,7 @@ function evaluatePreview<TChoice extends string>(
   results: Map<AuthorityRevalidationCheck, AuthorityRevalidationCheckResult>,
   input: ExecutableProposalAuthorityRevalidationInput<TChoice>,
   context: EvaluationContext,
-): void {
+): PreviewEvaluation {
   if (!context.query || !context.resolvedPath) {
     setFailed(
       results,
@@ -301,8 +294,10 @@ function evaluatePreview<TChoice extends string>(
       'PREVIEW_NOT_VERIFIED',
       'Preview requires a parsed notation and contained resolved source path.',
     );
-    return;
+    return { sourceLoadAttempted: false };
   }
+
+  let sourceLoadAttempted = false;
 
   try {
     const query = context.query;
@@ -318,17 +313,33 @@ function evaluatePreview<TChoice extends string>(
         ),
       );
     } else {
-      if (!input.workbook) {
+      let workbook = input.workbook;
+      if (!workbook && input.workbookLoader) {
+        sourceLoadAttempted = true;
+        try {
+          workbook = input.workbookLoader(context.resolvedPath);
+        } catch (error) {
+          setFailed(
+            results,
+            'preview',
+            'PREVIEW_WORKBOOK_LOAD_FAILED',
+            errorMessage(error),
+          );
+          return { sourceLoadAttempted };
+        }
+      }
+
+      if (!workbook) {
         setFailed(
           results,
           'preview',
           'PREVIEW_WORKBOOK_UNAVAILABLE',
-          'WorkbookData is required for table or after-load Smart Fallback preview.',
+          'WorkbookData or workbookLoader is required for table or after-load Smart Fallback preview.',
         );
-        return;
+        return { sourceLoadAttempted };
       }
 
-      html = shouldRenderAsCardAfterLoad(query, input.workbook)
+      html = shouldRenderAsCardAfterLoad(query, workbook)
         ? renderEmbedFrame(
             query,
             renderEmbedCard(
@@ -339,7 +350,7 @@ function evaluatePreview<TChoice extends string>(
           )
         : renderEmbedFrame(
             query,
-            renderEmbedTable(query, input.workbook),
+            renderEmbedTable(query, workbook),
           );
     }
 
@@ -350,7 +361,7 @@ function evaluatePreview<TChoice extends string>(
         'PREVIEW_EMPTY',
         'Read-only renderer returned an empty preview.',
       );
-      return;
+      return { sourceLoadAttempted };
     }
 
     setPassed(results, 'preview', 'READ_ONLY_PREVIEW_RENDERED');
@@ -360,6 +371,86 @@ function evaluatePreview<TChoice extends string>(
       'preview',
       'READ_ONLY_PREVIEW_FAILED',
       errorMessage(error),
+    );
+  }
+
+  return { sourceLoadAttempted };
+}
+
+function evaluateSourceIdentity(
+  results: Map<AuthorityRevalidationCheck, AuthorityRevalidationCheckResult>,
+  expectedDigest: string,
+  context: EvaluationContext,
+): string | undefined {
+  if (!context.resolvedPath) {
+    setFailed(
+      results,
+      'source-identity',
+      'SOURCE_IDENTITY_NOT_VERIFIED',
+      'Source identity requires a contained resolved source file.',
+    );
+    return;
+  }
+
+  try {
+    const actualDigest = digestFile(context.resolvedPath);
+    if (actualDigest === expectedDigest) {
+      setPassed(
+        results,
+        'source-identity',
+        'SOURCE_DIGEST_MATCHED',
+      );
+    } else {
+      setFailed(
+        results,
+        'source-identity',
+        'SOURCE_DIGEST_MISMATCH',
+        `Resolved source digest ${actualDigest} does not match Envelope digest.`,
+      );
+    }
+    return actualDigest;
+  } catch (error) {
+    setFailed(
+      results,
+      'source-identity',
+      'SOURCE_DIGEST_READ_FAILED',
+      errorMessage(error),
+    );
+    return;
+  }
+}
+
+function verifySourceUnchangedAfterLoad(
+  results: Map<AuthorityRevalidationCheck, AuthorityRevalidationCheckResult>,
+  resolvedPath: string,
+  digestBefore: string,
+): void {
+  try {
+    const digestAfter = digestFile(resolvedPath);
+    if (digestAfter !== digestBefore) {
+      setFailed(
+        results,
+        'source-identity',
+        'SOURCE_CHANGED_DURING_PREVIEW',
+        `Source digest changed during Workbook load/preview: ${digestBefore} -> ${digestAfter}.`,
+      );
+    }
+  } catch (error) {
+    setFailed(
+      results,
+      'source-identity',
+      'SOURCE_DIGEST_POST_LOAD_FAILED',
+      errorMessage(error),
+    );
+  }
+}
+
+function assertWorkbookInput<TChoice extends string>(
+  input: ExecutableProposalAuthorityRevalidationInput<TChoice>,
+): void {
+  if (input.workbook && input.workbookLoader) {
+    throw new Error(
+      'Provide either preloaded WorkbookData or workbookLoader, not both.',
     );
   }
 }
