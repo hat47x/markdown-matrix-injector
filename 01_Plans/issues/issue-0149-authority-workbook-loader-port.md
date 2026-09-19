@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Feature / Authority wiring
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: Workbook loader port, production loader bridge, source snapshot consistency, focused tests
 - Expected verification level: unit + focused integration
@@ -36,19 +36,19 @@ issue-0145ではWorkbookDataを呼出側から渡すことで、production `load
 
 ### Acceptance criteria
 
-- [ ] `AuthorityWorkbookLoader` portを追加する。
-- [ ] preloaded `workbook` と `workbookLoader` の同時指定をfail-fastする。
-- [ ] loaderはcontained resolved pathが得られた場合だけ呼ばれる。
-- [ ] parse / resolve / containment失敗時にloaderを呼ばない。
-- [ ] explicit `mode=card` はloaderを呼ばない。
-- [ ] loader例外を `PREVIEW_WORKBOOK_LOAD_FAILED` としてReceiptに保持する。
-- [ ] loader成功時は既存Smart Fallback / rendererへWorkbookDataを渡す。
-- [ ] loader呼出前後のsource digestが変化した場合 `SOURCE_CHANGED_DURING_PREVIEW` とする。
-- [ ] sourceが不変なら既存 `SOURCE_DIGEST_MATCHED` を維持する。
-- [ ] `runExecutableProposalAuthorityEvidenceWithLoader` を追加する。
-- [ ] `runExecutableProposalAuthorityEvidenceWithDefaultLoader` から既存production `loadWorkbook` を呼ぶ。
-- [ ] production `workbookLoader.ts` / parser / resolver / rendererを変更しない。
-- [ ] fill telemetry / external-XLSX評価ファイルを変更しない。
+- [x] `AuthorityWorkbookLoader` portを追加する。
+- [x] preloaded `workbook` と `workbookLoader` の同時指定をfail-fastする。
+- [x] loaderはcontained resolved pathが得られた場合だけ呼ばれる。
+- [x] parse / resolve / containment失敗時にloaderを呼ばない。
+- [x] explicit `mode=card` はloaderを呼ばない。
+- [x] loader例外を `PREVIEW_WORKBOOK_LOAD_FAILED` としてReceiptに保持する。
+- [x] loader成功時は既存Smart Fallback / rendererへWorkbookDataを渡す。
+- [x] loader呼出前後のsource digestが変化した場合 `SOURCE_CHANGED_DURING_PREVIEW` とする。
+- [x] sourceが不変なら既存 `SOURCE_DIGEST_MATCHED` を維持する。
+- [x] `runExecutableProposalAuthorityEvidenceWithLoader` を追加する。
+- [x] `runExecutableProposalAuthorityEvidenceWithDefaultLoader` から既存production `loadWorkbook` を呼ぶ。
+- [x] production `workbookLoader.ts` / parser / resolver / rendererを変更しない。
+- [x] fill telemetry / external-XLSX評価ファイルを変更しない。
 
 ### Validation plan
 
@@ -59,3 +59,28 @@ issue-0145ではWorkbookDataを呼出側から渡すことで、production `load
 - 正常loaderでEvidence/Receipt bindingがsatisfied。
 - normal dependency環境向けにproduction default loader + CSVのfocused testを追加。
 - GitHub Actionsの既知runner/resource不足は完了条件にしない。
+
+
+## Validation evidence
+
+### 2026-09-19 local focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- issue-0145〜0149のadapter/workflow compositionをstrict compile:
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true` で成功。
+- focused runtime harness: **7 checks / 7 pass / 0 fail**。
+- 検証内容:
+  - injected loaderへworkspace containment通過後のresolved absolute pathだけを渡す。
+  - missing sourceではloaderを呼ばずresolver/previewをfail-closed。
+  - explicit `mode=card` ではloaderを呼ばずread-only preview成功。
+  - loader例外を `PREVIEW_WORKBOOK_LOAD_FAILED` としてReceipt内へ保持しAuthority bindingをblocked。
+  - loaderがsourceを変更したfixtureでpost-load digest差分を検出し `SOURCE_CHANGED_DURING_PREVIEW` / blocked。
+  - preloaded `workbook` と `workbookLoader` の同時指定を拒否。
+  - default-loader wrapperのdynamic-import/port contractをCSV loader stubで実行しsatisfiedを確認。
+- ローカル検証環境にはproductionのpinned `xlsx` dependencyがないため、実 `loadWorkbook` + SheetJS経路をローカル成功実績としては主張しない。
+- repository test sourceには通常dependency環境で `runExecutableProposalAuthorityEvidenceWithDefaultLoader` + CSVを直接通すfocused testを追加。
+- source digestはloader呼出前後に再計算し、load/preview窓でsourceが変化した場合はpreview成功の有無にかかわらずAuthority Evidenceをblockedにする。
+- production `workbookLoader.ts` / parser / resolver / renderer / plugin / extensionは変更していない。
+- fill telemetry / external-XLSX fixture・評価コードは変更していない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
