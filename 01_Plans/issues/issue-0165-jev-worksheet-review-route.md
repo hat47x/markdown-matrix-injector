@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Feature / Provider-specific bounded Judgment
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: worksheet review-route choices, minimized Jev state projection, human-review-only route semantics
 - Expected verification level: unit + focused integration
@@ -70,20 +70,20 @@ issue-0163 review-route Observationから外部providerへ送るstateは次だ�
 
 ## Acceptance criteria
 
-- [ ] `WorksheetReviewRouteChoice = inspect | routine` を定義する。
-- [ ] canonical ClosedChoiceQuestionを定義する。
-- [ ] route policyをmachine-readableに定義する。
-- [ ] inspect/routine両方でhuman review requiredを固定する。
-- [ ] inspect/routine両方でapply authority noneを固定する。
-- [ ] inspect/routine両方でautomatic decision noneを固定する。
-- [ ] Jev provider factoryをissue-0162上に実装する。
-- [ ] projectStateは4つのnon-identifying derived fieldsだけを送る。
-- [ ] candidate IDs / sheetName / source digestをstateへ送らない。
-- [ ] providerへ渡すObservation schema/kind/payloadをfail-closed検証する。
-- [ ] model pin / provider id overrideをgeneric Jev adapterへ委譲する。
-- [ ] final outcomeはissue-0161/0138経路でproposal-only。
-- [ ] live network / credentialを追加しない。
-- [ ] production routingを追加しない。
+- [x] `WorksheetReviewRouteChoice = inspect | routine` を定義する。
+- [x] canonical ClosedChoiceQuestionを定義する。
+- [x] route policyをmachine-readableに定義する。
+- [x] inspect/routine両方でhuman review requiredを固定する。
+- [x] inspect/routine両方でapply authority noneを固定する。
+- [x] inspect/routine両方でautomatic decision noneを固定する。
+- [x] Jev provider factoryをissue-0162上に実装する。
+- [x] projectStateは4つのnon-identifying derived fieldsだけを送る。
+- [x] candidate IDs / sheetName / source digestをstateへ送らない。
+- [x] providerへ渡すObservation schema/kind/payloadをfail-closed検証する。
+- [x] model pin / provider id overrideをgeneric Jev adapterへ委譲する。
+- [x] final outcomeはissue-0161/0138経路でproposal-only。
+- [x] live network / credentialを追加しない。
+- [x] production routingを追加しない。
 
 ## Validation plan
 
@@ -97,3 +97,29 @@ issue-0163 review-route Observationから外部providerへ送るstateは次だ�
 - model pin propagation。
 - external opt-in gate。
 - strict compile。
+
+
+## Validation evidence
+
+### 2026-09-20 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- MMI固有review-route state / policy / Choice mappingを
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime harness: **5 tests / 5 pass / 0 fail**。
+- 確認内容:
+  - projected Jev stateは `classification / candidateCount / hasWinner / noveltyScore` の4項目のみ。
+  - sheet name / candidate ID / source digest / feature versionをstateへ含めない。
+  - inspect / routine両routeで `humanReviewRequired=true`。
+  - inspect / routine両routeで `applyAuthority=none`。
+  - inspect / routine両routeで `automaticDecision=none`。
+  - explicit model pinをgeneric Jev adapterへ透過。
+  - canonical review-route Observation以外をprovider transport前に拒否。
+  - noveltyScore等のmalformed payloadをtransport前に拒否。
+- repository test sourceではissue-0161 runnerまで通し、Choice request instructions/criteria、proposal-only outcome、external opt-in gate、provider id/model provenanceを追加検証。
+- review-route `routine` はaccept / approved / safe-to-applyを意味しないことをpolicyとcriteriaの両方へ固定。
+- live Jev network / credential / threshold / production routingは追加していない。
+- 現ローカル環境にはrepository dependency treeがないためrepository全test suite成功は主張しない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
