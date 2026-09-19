@@ -74,17 +74,19 @@ export function createWorksheetFormatObservationIdentityFromSnapshot(
 ): WorksheetFormatObservationIdentityV1 {
   assertSourceProfile(sourceProfile);
 
+  const sourceProfileId = sourceProfile.id.trim();
+  const sourceEvidence = [...new Set(sourceProfile.evidence)].sort();
   const observation = extractWorksheetFormatFeatures(snapshot);
   const comparedFeatures = filterWorksheetFormatFeaturesByEvidence(
     observation.features,
-    sourceProfile.evidence,
+    sourceEvidence,
   );
 
   return createIdentity(
     sourceDigest,
     WORKSHEET_FORMAT_FEATURE_VERSION,
-    sourceProfile.id,
-    sourceProfile.evidence,
+    sourceProfileId,
+    sourceEvidence,
     comparedFeatures,
   );
 }
