@@ -22,6 +22,12 @@ import type {
   WorksheetFormatSnapshot,
 } from './worksheetFormatFeatureAdapter.js';
 import {
+  assertWorksheetFormatObservationIdentityMatchesSnapshot,
+} from './worksheetFormatObservationIdentity.js';
+import {
+  SHEETJS_CE_XLSX_0203_SOURCE_PROFILE,
+} from './worksheetFormatPrototype.js';
+import {
   analyzeWorksheetFormatFillReviewFromProfiles,
 } from './worksheetFormatProfileReviewAnalysis.js';
 import {
@@ -70,6 +76,12 @@ function createEvidence<TChoice extends string>(
   input: ExecutableProposalDeterministicReviewWorkflowInput<TChoice>,
 ): DeterministicReviewEvidenceV1 {
   assertApprovedProfilesMatchEnvelope(input);
+  assertWorksheetFormatObservationIdentityMatchesSnapshot(
+    input.envelope.perception.signal.payload.observationIdentity,
+    input.envelope.sourceDigest,
+    input.deterministicReview.observationSnapshot,
+    SHEETJS_CE_XLSX_0203_SOURCE_PROFILE,
+  );
 
   const analysis = analyzeWorksheetFormatFillReviewFromProfiles([{
     id: 'executable-proposal-deterministic-review',
