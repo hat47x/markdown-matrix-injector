@@ -15,6 +15,7 @@ import {
 import {
   approveFormatProfile,
   createFormatProfileCandidate,
+  formatProfileToWorksheetPrototype,
   type FormatProfileV1,
 } from '../src/experimental/formatProfile.js';
 import {
@@ -24,17 +25,12 @@ import type {
   WorksheetFormatSnapshot,
 } from '../src/experimental/worksheetFormatFeatureAdapter.js';
 import {
-  createWorksheetFormatPrototype,
-  formatProfileToWorksheetPrototype as unused,
-} from '../src/experimental/formatProfile.js';
-import {
   createWorksheetFormatPrototype as createRawPrototype,
   matchWorksheetFormatSnapshot,
   SHEETJS_CE_XLSX_0203_SOURCE_PROFILE,
   WORKSHEET_FORMAT_FEATURE_VERSION,
 } from '../src/experimental/worksheetFormatPrototype.js';
 
-void unused;
 
 const sourceDigest = 'sha256:observed-workbook';
 
@@ -144,7 +140,10 @@ function matchedPerception(
   labels: readonly string[],
 ) {
   const prototypes = profiles.map((profile) =>
-    formatProfileToPrototype(profile));
+    formatProfileToWorksheetPrototype(
+      profile,
+      SHEETJS_CE_XLSX_0203_SOURCE_PROFILE,
+    ));
   const result = matchWorksheetFormatSnapshot(
     snapshot(labels),
     prototypes,
@@ -154,16 +153,6 @@ function matchedPerception(
     perceptionObservation('perception'),
     result,
   );
-}
-
-function formatProfileToPrototype(profile: FormatProfileV1) {
-  return {
-    id: profile.id,
-    features: [...profile.features],
-    featureVersion: WORKSHEET_FORMAT_FEATURE_VERSION,
-    sourceProfileId: profile.sourceProfileId,
-    sourceEvidence: [...profile.sourceEvidence],
-  } as const;
 }
 
 test('builds a review-only envelope across approved profile, perception, and judgment', () => {
