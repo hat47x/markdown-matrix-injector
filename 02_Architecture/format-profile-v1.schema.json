@@ -1,0 +1,151 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://example.invalid/mmi/format-profile-v1.schema.json",
+  "title": "MMI Format Profile v1",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schemaVersion",
+    "id",
+    "label",
+    "purpose",
+    "status",
+    "featureVersion",
+    "sourceProfileId",
+    "sourceEvidence",
+    "features",
+    "provenance"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": "mmi-format-profile-v1"
+    },
+    "id": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$"
+    },
+    "label": {
+      "type": "string",
+      "minLength": 1
+    },
+    "purpose": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "enum": [
+        "candidate",
+        "approved"
+      ]
+    },
+    "featureVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sourceProfileId": {
+      "type": "string",
+      "minLength": 1
+    },
+    "sourceEvidence": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "structure",
+          "fill",
+          "border"
+        ]
+      }
+    },
+    "features": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "sourceKind",
+        "sourceDigest",
+        "generationMethod"
+      ],
+      "properties": {
+        "sourceKind": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sourceDigest": {
+          "type": "string",
+          "minLength": 1
+        },
+        "generationMethod": {
+          "const": "worksheet-prototype-v1"
+        }
+      }
+    },
+    "approval": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "approvedBy",
+        "approvalReference"
+      ],
+      "properties": {
+        "kind": {
+          "const": "human"
+        },
+        "approvedBy": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approvalReference": {
+          "type": "string",
+          "minLength": 1
+        },
+        "approvedAt": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    }
+  },
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "candidate"
+          }
+        }
+      },
+      "then": {
+        "not": {
+          "required": [
+            "approval"
+          ]
+        }
+      }
+    },
+    {
+      "if": {
+        "properties": {
+          "status": {
+            "const": "approved"
+          }
+        }
+      },
+      "then": {
+        "required": [
+          "approval"
+        ]
+      }
+    }
+  ]
+}
