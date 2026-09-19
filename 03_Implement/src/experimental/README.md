@@ -368,8 +368,12 @@ merge shapeは分類を単独支配するfeatureではなく、他の構造証�
 30. `worksheetFormatProfileReviewAnalysis.test.ts` — approved Format Profileからbaseline snapshotなしでfill reviewを再構成
 31. `executableProposalDeterministicReviewWorkflow.test.ts` — Profile-backed analysisからUnifiedHumanReviewViewModelまでを単一workflowで合成
 32. `../../02_Architecture/executable-proposal-deterministic-review-workflow-v1.md` — orchestrationのbinding / fail-closed順序
-33. `test/fixtures/README.md` — 外部生成fixtureのprovenanceとSHA-256
-34. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
+33. `containedUnifiedReviewWorkflow.test.ts` — stable read window内の同一snapshotをPerceptionとdeterministic analysisへ共有
+34. `../../02_Architecture/contained-unified-review-workflow-v1.md` — safe orchestration by construction
+35. `worksheetFormatObservationIdentity.test.ts` — compared format featuresのderived-state identityとprivacy境界
+36. `../../02_Architecture/worksheet-format-observation-identity-v1.md` — Perception / low-level review間のidentity binding
+37. `test/fixtures/README.md` — 外部生成fixtureのprovenanceとSHA-256
+38. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
 
 ## 13. 安全に変更するためのチェックリスト
 
@@ -555,8 +559,23 @@ issue-0155 UnifiedHumanReviewViewModelV1
 - AuthorityがblockedでもCognitive / deterministic domainを改変しない
 - 最終出力は新schemaを作らずissue-0155 view modelをそのまま利用
 
-次に進む場合もproduction wiringへ直結せず、observation snapshot identityの必要性や、human-review UIへ接続する前のpresentation orderingを別Issueで検討します。auto accept / auto reject / apply authorityは引き続き導入しません。
+issue-0160では、contained sourceのstable read window内でsnapshot readerを1回だけ呼び、その**同一snapshot object**をFly PerceptionとProfile-backed deterministic analysisへ内部供給するsafe orchestrationを追加しました。callerへsnapshotやprepared Envelopeを返さないため、通常の上位経路ではsnapshot取り違えを構造的に防ぎます。
 
-詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`external-xlsx-fill-telemetry.md`、`external-fill-impact-family.md`、`../../02_Architecture/deterministic-review-evidence-overlay-v1.md`、`../../02_Architecture/unified-human-review-view-model-v1.md`、`../../02_Architecture/executable-proposal-deterministic-review-workflow-v1.md`、`test/fixtures/README.md`、issue-0128〜0159 を参照してください。
+issue-0161では、上記safe pathを置き換えず、低レベルissue-0159 APIと監査性を補強する `WorksheetFormatObservationIdentityV1` を追加しました。
+
+identityはsource file hashでもexact snapshot hashでもなく、current source profileでmatcherが実際に比較したnormalized format featuresのSHA-256 bindingです。
+
+- body cell値だけが変わりformat featuresが同じならidentityも同じ
+- header/fill/merge/skeleton等のcompared feature stateが変わればidentityも変わる
+- sourceDigest / featureVersion / sourceProfile / sourceEvidenceもdigestへbinding
+- raw cells / raw feature vectorはidentity artifactへ保存しない
+- Fly Perception payload内部に保持し、Review Envelope生成時にprovenanceを再検証
+- issue-0159ではobservation snapshotから再計算し、identity mismatchをAuthority loader前にfail-closed
+- issue-0160の最終UnifiedHumanReviewViewModelにはidentityを既定表示しない
+- hashを匿名化・機密化とは扱わず、external provider opt-in原則は維持
+
+次に進む場合もproduction wiringへ直結せず、human-review UIへ接続する前のpresentation ordering / progressive disclosureを別Issueで評価します。auto accept / auto reject / apply authorityは引き続き導入しません。
+
+詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`external-xlsx-fill-telemetry.md`、`external-fill-impact-family.md`、`../../02_Architecture/deterministic-review-evidence-overlay-v1.md`、`../../02_Architecture/unified-human-review-view-model-v1.md`、`../../02_Architecture/executable-proposal-deterministic-review-workflow-v1.md`、`../../02_Architecture/contained-unified-review-workflow-v1.md`、`../../02_Architecture/worksheet-format-observation-identity-v1.md`、`test/fixtures/README.md`、issue-0128〜0161 を参照してください。
 
 十分な外部生成fixtureと安全境界が揃うまでは、warningやreview signalを自動accept / reject条件へ昇格させず、production接続可否も別ADR/Issueで判断します。
