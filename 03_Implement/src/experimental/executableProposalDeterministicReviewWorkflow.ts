@@ -258,3 +258,18 @@ type _NoDeterministicMatchOptions =
     : true;
 const _noDeterministicMatchOptions: _NoDeterministicMatchOptions = true;
 void _noDeterministicMatchOptions;
+
+
+type _NoExpectedReviewLabel =
+  'expectedReview' extends keyof ExecutableProposalDeterministicReviewInput
+    ? never
+    : true;
+const _noExpectedReviewLabel: _NoExpectedReviewLabel = true;
+void _noExpectedReviewLabel;
+
+type _NoPreparedTelemetry =
+  'telemetry' extends keyof ExecutableProposalDeterministicReviewInput
+    ? never
+    : true;
+const _noPreparedTelemetry: _NoPreparedTelemetry = true;
+void _noPreparedTelemetry;
