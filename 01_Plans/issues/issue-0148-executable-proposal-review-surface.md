@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Feature / Review integrity contract
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: executable proposal identity + cognitive review presentation + Authority overlay composition
 - Expected verification level: unit + focused integration
@@ -44,20 +44,20 @@ issue-0147でexact proposalへのEvidence bindingを追加したため、human-r
 
 ### Acceptance criteria
 
-- [ ] `ExecutableProposalVerifiedReviewSurfaceV1` をpure TypeScriptで定義する。
-- [ ] proposal sectionは `role=executable-proposal-identity` を持つ。
-- [ ] proposal sectionはsource digest / algorithm / representation / digestだけを持ちraw Notationを保持しない。
-- [ ] issue-0147 binderを必ず通す。
-- [ ] issue-0144 verified surface生成を必ず通す。
-- [ ] Evidence bindingとAuthority overlayのstatusが不一致ならfail-closedする。
-- [ ] source digest不一致をfail-closedする。
-- [ ] exact proposal以外へのEvidence swapを拒否する。
-- [ ] Authority blockedでもproposal identity付きsurfaceを生成できる。
-- [ ] Authority satisfiedでもCognitive Judgment / Perceptionをapproved/acceptedへ昇格させない。
-- [ ] review sectionの `review-only / writeAuthority=none / applyStatus=not-authorized` を保持する。
-- [ ] raw cells / feature arrays / raw Notation / combined score / apply APIを追加しない。
-- [ ] Envelope / Presentation / Evidenceをmutateしない。
-- [ ] production UI / plugin / extension / matcher / fill telemetryを変更しない。
+- [x] `ExecutableProposalVerifiedReviewSurfaceV1` をpure TypeScriptで定義する。
+- [x] proposal sectionは `role=executable-proposal-identity` を持つ。
+- [x] proposal sectionはsource digest / algorithm / representation / digestだけを持ちraw Notationを保持しない。
+- [x] issue-0147 binderを必ず通す。
+- [x] issue-0144 verified surface生成を必ず通す。
+- [x] Evidence bindingとAuthority overlayのstatusが不一致ならfail-closedする。
+- [x] source digest不一致をfail-closedする。
+- [x] exact proposal以外へのEvidence swapを拒否する。
+- [x] Authority blockedでもproposal identity付きsurfaceを生成できる。
+- [x] Authority satisfiedでもCognitive Judgment / Perceptionをapproved/acceptedへ昇格させない。
+- [x] review sectionの `review-only / writeAuthority=none / applyStatus=not-authorized` を保持する。
+- [x] raw cells / feature arrays / raw Notation / combined score / apply APIを追加しない。
+- [x] Envelope / Presentation / Evidenceをmutateしない。
+- [x] production UI / plugin / extension / matcher / fill telemetryを変更しない。
 
 ### Validation plan
 
@@ -65,3 +65,25 @@ issue-0147でexact proposalへのEvidence bindingを追加したため、human-r
 - satisfied proposal、blocked proposal、proposal swap、source tampering、presentation tampering、入力不変性をfocused testする。
 - serialized surfaceにraw Notation / cells / features / apply / overallScoreがないことを確認する。
 - GitHub Actionsの既知runner/resource不足は完了条件にしない。
+
+
+## Validation evidence
+
+### 2026-09-19 local focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- issue-0145〜0148のcomposition sourceをstrict compile: `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true` で成功。
+- focused runtime harness: **8 checks / 8 pass / 0 fail**。
+- 検証内容:
+  - exact proposal identity付きsatisfied human-review surfaceを生成。
+  - 同一source上の別proposalへのEvidence swapをproposal digest mismatchで拒否。
+  - blocked Authority Evidenceでもproposal identityを保持したsurfaceを生成。
+  - Presentation source digest改変を拒否。
+  - Evidence source digest改変を拒否。
+  - Envelope / Presentation / Evidenceをcomposition前後で不変に保持。
+  - serialized surfaceにraw Notation、`mode=table`、raw `cells / features`、overall score、apply APIを含めない。
+  - Authority `satisfied` でもCognitive reviewへaccepted / auto-apply semanticsを追加しない。
+- issue-0147 binderとissue-0144 verified surface生成を両方通した後、source digestとAuthority statusの一致をcross-checkする。
+- production UI / plugin / extension / matcher / fill telemetry / external-XLSX評価コードは変更していない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
