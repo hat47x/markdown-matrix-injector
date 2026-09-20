@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import {
   WORKSHEET_REVIEW_ROUTE_LABELING_PROTOCOL_VERSION,
+  WORKSHEET_REVIEW_ROUTE_REQUIRED_INDEPENDENT_ANNOTATIONS,
   assertWorksheetReviewRouteLabelCorpus,
   type WorksheetReviewRouteAdjudicationV1,
   type WorksheetReviewRouteAnnotationV1,
@@ -26,7 +27,7 @@ export const WORKSHEET_REVIEW_ROUTE_ADJUDICATION_PACKET_REPRESENTATION =
   'worksheet-review-route-adjudication-packet-v1' as const;
 
 export const WORKSHEET_REVIEW_ROUTE_MIN_ANNOTATIONS_FOR_ADJUDICATION =
-  2 as const;
+  WORKSHEET_REVIEW_ROUTE_REQUIRED_INDEPENDENT_ANNOTATIONS;
 
 export interface WorksheetReviewRouteAdjudicationAnnotationV1 {
   route: WorksheetReviewRouteChoice;
