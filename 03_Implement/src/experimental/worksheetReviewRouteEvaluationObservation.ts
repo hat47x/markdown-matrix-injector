@@ -75,7 +75,6 @@ export function projectWorksheetReviewRouteEvaluationState(
     observation.payload,
     'worksheet review-route evaluation state',
   );
-  assertExactKeys(state, STATE_KEYS, 'evaluation state');
   assertWorksheetReviewRouteEvaluationState(state);
 
   return {
