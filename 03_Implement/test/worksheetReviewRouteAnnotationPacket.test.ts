@@ -78,12 +78,20 @@ function corpus(): WorksheetReviewRouteLabelCorpusV1 {
           hasWinner: false,
           noveltyScore: 0.5,
         },
-        annotations: [{
-          annotatorRef: 'annotator-existing',
-          route: 'inspect',
-          rationaleCodes: ['NOVEL_FORMAT'],
-          annotationReference: 'annotation:c',
-        }],
+        annotations: [
+          {
+            annotatorRef: 'annotator-existing',
+            route: 'inspect',
+            rationaleCodes: ['NOVEL_FORMAT'],
+            annotationReference: 'annotation:c1',
+          },
+          {
+            annotatorRef: 'annotator-second',
+            route: 'inspect',
+            rationaleCodes: ['NOVEL_FORMAT'],
+            annotationReference: 'annotation:c2',
+          },
+        ],
         adjudication: {
           adjudicatorRef: 'adjudicator',
           route: 'inspect',
