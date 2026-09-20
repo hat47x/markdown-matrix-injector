@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Evaluation data / Annotation workflow
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: labeler-visible packet, evidence digest binding, annotation response validation, immutable corpus update
 - Expected verification level: unit + focused workflow
@@ -74,24 +74,24 @@ callerが任意annotation provenanceを書き込まない。
 
 ## Acceptance criteria
 
-- [ ] annotation packet schema/version/representationを固定。
-- [ ] packetは非adjudicated caseだけを含む。
-- [ ] packetからprojectionStateを除外。
-- [ ] packetからexisting annotation/adjudicationを除外。
-- [ ] route definitionsにinspect/routine双方のhuman-review/no-authority semanticsを含める。
-- [ ] packet digestをSHA-256で生成。
-- [ ] corpus/case/facts orderの単純な並び替えにdigestを依存させない。
-- [ ] evidence内容変更ではdigestが変わる。
-- [ ] annotation response schemaをstrict validation。
-- [ ] unknown response fieldsをreject。
-- [ ] response case id重複をreject。
-- [ ] unknown/adjudicated caseへのresponseをreject。
-- [ ] stale packet digestをreject。
-- [ ] same annotatorによる同一case再annotationをreject。
-- [ ] annotationReferenceを内部生成。
-- [ ] corpusをmutateせず新corpusを返す。
-- [ ] apply後corpusをissue-0168 validatorで再検証。
-- [ ] provider output/live provider/production routingを追加しない。
+- [x] annotation packet schema/version/representationを固定。
+- [x] packetは非adjudicated caseだけを含む。
+- [x] packetからprojectionStateを除外。
+- [x] packetからexisting annotation/adjudicationを除外。
+- [x] route definitionsにinspect/routine双方のhuman-review/no-authority semanticsを含める。
+- [x] packet digestをSHA-256で生成。
+- [x] corpus/case/facts orderの単純な並び替えにdigestを依存させない。
+- [x] evidence内容変更ではdigestが変わる。
+- [x] annotation response schemaをstrict validation。
+- [x] unknown response fieldsをreject。
+- [x] response case id重複をreject。
+- [x] unknown/adjudicated caseへのresponseをreject。
+- [x] stale packet digestをreject。
+- [x] same annotatorによる同一case再annotationをreject。
+- [x] annotationReferenceを内部生成。
+- [x] corpusをmutateせず新corpusを返す。
+- [x] apply後corpusをissue-0168 validatorで再検証。
+- [x] provider output/live provider/production routingを追加しない。
 
 ## Validation plan
 
@@ -107,3 +107,33 @@ callerが任意annotation provenanceを書き込まない。
 - unknown field reject。
 - input immutability。
 - strict compile。
+
+
+## Validation evidence
+
+### 2026-09-20 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- GitHub上の `worksheetReviewRouteAnnotationPacket.ts` 本体を公開interface互換stub依存で
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime validation:
+  - packetはnon-adjudicated caseのみを含む。
+  - packetにprojectionState / prior annotation / adjudicationを保持しない。
+  - packet digestは `sha256:<64 hex>`。
+  - case order / facts order変更ではdigest不変。
+  - evidence内容変更ではdigest変化。
+  - response applyはsource corpusをmutateしない。
+  - evidence変更後のstale responseをreject。
+  - adjudicated caseへのdecisionをreject。
+  - duplicate response decisionをreject。
+- route definitions:
+  - inspect = elevated human review / no rejection semantics。
+  - routine = standard human review / no acceptance or apply semantics。
+  - 両方 `humanReviewRequired=true / applyAuthority=none / automaticDecision=none`。
+- annotation referenceはpacketDigest / caseId / annotatorRefから内部生成。
+- provider output / confidence / model identity / live providerをpacket workflowへ追加していない。
+- adjudication自体は本Issueの責務外。
+- repository dependency treeは現環境に無いためrepository全test suite成功は主張しない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
