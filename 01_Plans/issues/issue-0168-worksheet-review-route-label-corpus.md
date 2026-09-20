@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Evaluation data / Labeling protocol
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: provider-blinded route labels, strict corpus schema, adjudication eligibility, unlabeled seed corpus
 - Expected verification level: unit + fixture validation
@@ -77,22 +77,22 @@ seedの目的:
 
 ## Acceptance criteria
 
-- [ ] corpus/schema/protocol versionを固定。
-- [ ] provider-blinding fieldsを全てtrue固定。
-- [ ] unknown fieldsをfail-closed。
-- [ ] case idをuniqueにする。
-- [ ] evidence source/family/reference/factsを検証。
-- [ ] projection stateはoptionalでissue-0165 state shapeだけを許可。
-- [ ] annotation route/rationale/referenceを検証。
-- [ ] annotator ref重複を拒否。
-- [ ] adjudicationには少なくとも1 annotationを要求。
-- [ ] adjudication済みcaseだけをevaluation labelとして抽出。
-- [ ] projection evaluation抽出時はprojection state必須。
-- [ ] provider choice/probability/confidence/model fieldsをschemaへ持ち込まない。
-- [ ] seed corpusはroute label/adjudicationを持たない。
-- [ ] seed corpusは複数scenario familyを含む。
-- [ ] 既存expectedReviewをroute labelに流用しない。
-- [ ] production routing/live providerを変更しない。
+- [x] corpus/schema/protocol versionを固定。
+- [x] provider-blinding fieldsを全てtrue固定。
+- [x] unknown fieldsをfail-closed。
+- [x] case idをuniqueにする。
+- [x] evidence source/family/reference/factsを検証。
+- [x] projection stateはoptionalでissue-0165 state shapeだけを許可。
+- [x] annotation route/rationale/referenceを検証。
+- [x] annotator ref重複を拒否。
+- [x] adjudicationには少なくとも1 annotationを要求。
+- [x] adjudication済みcaseだけをevaluation labelとして抽出。
+- [x] projection evaluation抽出時はprojection state必須。
+- [x] provider choice/probability/confidence/model fieldsをschemaへ持ち込まない。
+- [x] seed corpusはroute label/adjudicationを持たない。
+- [x] seed corpusは複数scenario familyを含む。
+- [x] 既存expectedReviewをroute labelに流用しない。
+- [x] production routing/live providerを変更しない。
 
 ## Validation plan
 
@@ -109,3 +109,34 @@ seedの目的:
 - seed JSON parse + schema validation + zero final labels。
 - input immutability。
 - strict compile。
+
+
+## Validation evidence
+
+### 2026-09-20 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- GitHub上の `worksheetReviewRouteLabelCorpus.ts` 本体を公開interface互換stub依存で
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime validation:
+  - valid blinded adjudicated corpusを受理。
+  - adjudicated label / projection evaluation caseを抽出。
+  - `providerChoice / providerConfidence / model / probability` のunknown field混入を4/4 reject。
+  - `confidenceHidden=false` をreject。
+  - annotationなしadjudicationをreject。
+  - adjudicated caseのprojection state欠落をprojection抽出時にreject。
+  - pending caseからfinal labelを抽出しない。
+- seed fixture:
+  - 12 cases。
+  - 8種類以上のcase family。
+  - annotations = []。
+  - adjudicationなし。
+  - expected inspect/routineは未付与。
+- fixture pathは既存external XLSX testsと同じ `import.meta.url` 基準へ統一。
+- 既存 `expectedReview` はroute labelとして流用していない。
+- provider output / identity / model / probability / confidenceをlabel schemaへ追加していない。
+- live provider / auto label / production routingは追加していない。
+- repository dependency treeは現環境に無いためrepository全test suite成功は主張しない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
