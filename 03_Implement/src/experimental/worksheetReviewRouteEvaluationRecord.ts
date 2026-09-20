@@ -4,9 +4,17 @@ import {
   type CognitiveProviderDescriptor,
 } from './cognitiveContract.js';
 import {
+  analyzeWorksheetReviewRouteProjectionSeparability,
+  evaluateWorksheetReviewRouteOutcomes,
+} from './worksheetReviewRouteEvaluation.js';
+import {
   WORKSHEET_REVIEW_ROUTE_EVALUATION_REPORT_SCHEMA_VERSION,
+  WORKSHEET_REVIEW_ROUTE_GROUND_TRUTH_REPRESENTATION,
+  assertWorksheetReviewRouteEvaluationPacket,
   assertWorksheetReviewRouteEvaluationResponse,
+  createWorksheetReviewRouteEvaluationPacket,
   evaluateWorksheetReviewRouteEvaluationResponse,
+  type WorksheetReviewRouteEvaluationPacketV1,
   type WorksheetReviewRouteEvaluationReportV1,
   type WorksheetReviewRouteEvaluationResponseV1,
 } from './worksheetReviewRouteEvaluationPacket.js';
@@ -44,6 +52,7 @@ export interface WorksheetReviewRouteEvaluationRecordV1 {
   packetDigest: string;
   groundTruthDigest: string;
   plan: WorksheetReviewRouteEvaluationPlanV1;
+  packet: WorksheetReviewRouteEvaluationPacketV1;
   response: WorksheetReviewRouteEvaluationResponseV1;
   report: WorksheetReviewRouteEvaluationReportV1;
   recordDigest: string;
@@ -58,6 +67,7 @@ const RECORD_KEYS = [
   'packetDigest',
   'groundTruthDigest',
   'plan',
+  'packet',
   'response',
   'report',
   'recordDigest',
@@ -75,87 +85,8 @@ const REPORT_KEYS = [
   'projectionSeparability',
 ] as const;
 
-const SUMMARY_KEYS = [
-  'cases',
-  'expectedInspectCases',
-  'expectedRoutineCases',
-  'decisionCases',
-  'nonDecisionCases',
-  'decisionCoverage',
-  'correctDecisionCases',
-  'incorrectDecisionCases',
-  'decisionAccuracy',
-  'inspectCorrectDecisionCases',
-  'routineCorrectDecisionCases',
-  'inspectRecall',
-  'routineRecall',
-  'unsafeRoutineCases',
-  'unsafeRoutineRate',
-  'unnecessaryInspectCases',
-  'unnecessaryInspectRate',
-  'conservativeCorrectCases',
-  'conservativeAccuracy',
-  'conservativeUnsafeRoutineCases',
-  'conservativeUnsafeRoutineRate',
-  'conservativeExtraInspectCases',
-  'conservativeExtraInspectRate',
-  'inspectBinaryBrierScore',
-  'meanSelectedProbability',
-  'meanProviderConfidence',
-  'caseResults',
-] as const;
-
-const CASE_RESULT_KEYS = new Set([
-  'id',
-  'expectedRoute',
-  'status',
-  'selectedRoute',
-  'providerConfidence',
-  'selectedProbability',
-  'inspectProbability',
-  'correctDecision',
-  'unsafeRoutine',
-  'unnecessaryInspect',
-  'conservativeEffectiveRoute',
-  'conservativeCorrect',
-]);
-
-const REQUIRED_CASE_RESULT_KEYS = [
-  'id',
-  'expectedRoute',
-  'status',
-  'unsafeRoutine',
-  'unnecessaryInspect',
-  'conservativeEffectiveRoute',
-  'conservativeCorrect',
-] as const;
-
-const SEPARABILITY_KEYS = [
-  'cases',
-  'exactStateGroups',
-  'conflictingGroups',
-  'casesInConflictingGroups',
-  'exactStateOracleMaxCorrect',
-  'exactStateOracleMaxAccuracy',
-  'groups',
-] as const;
-
-const GROUP_KEYS = [
-  'state',
-  'caseIds',
-  'inspectCases',
-  'routineCases',
-  'conflictingLabels',
-] as const;
-
-const STATE_KEYS = [
-  'classification',
-  'candidateCount',
-  'hasWinner',
-  'noveltyScore',
-] as const;
-
 export function createWorksheetReviewRouteEvaluationRecord(
+  corpus: WorksheetReviewRouteLabelCorpusV1,
   plan: WorksheetReviewRouteEvaluationPlanV1,
   completed:
     Extract<
@@ -171,10 +102,36 @@ export function createWorksheetReviewRouteEvaluationRecord(
     );
   }
 
+  const packet =
+    createWorksheetReviewRouteEvaluationPacket(corpus);
+  if (packet.packetDigest !== plan.packetDigest) {
+    throw new Error(
+      'Worksheet review-route completed run corpus does not match the evaluation plan packet.',
+    );
+  }
+
+  const recomputedReport =
+    evaluateWorksheetReviewRouteEvaluationResponse(
+      corpus,
+      completed.run.response,
+    );
+
+  if (
+    !sameCanonicalJson(
+      recomputedReport,
+      completed.run.report,
+    )
+  ) {
+    throw new Error(
+      'Worksheet review-route completed run report does not match canonical offline evaluation.',
+    );
+  }
+
   return buildRecord(
     plan,
+    packet,
     completed.run.response,
-    completed.run.report,
+    recomputedReport,
   );
 }
 
@@ -208,13 +165,16 @@ export function assertWorksheetReviewRouteEvaluationRecord(
   assertDigest(record.recordDigest);
 
   assertWorksheetReviewRouteEvaluationPlan(record.plan);
+  assertWorksheetReviewRouteEvaluationPacket(record.packet);
   assertWorksheetReviewRouteEvaluationResponse(
     record.response,
   );
-  assertEvaluationReport(record.report);
+  assertBasicEvaluationReport(record.report);
 
   const plan =
     record.plan as WorksheetReviewRouteEvaluationPlanV1;
+  const packet =
+    record.packet as WorksheetReviewRouteEvaluationPacketV1;
   const response =
     record.response as WorksheetReviewRouteEvaluationResponseV1;
   const report =
@@ -223,6 +183,7 @@ export function assertWorksheetReviewRouteEvaluationRecord(
   if (
     record.planDigest !== plan.planDigest
     || record.packetDigest !== plan.packetDigest
+    || record.packetDigest !== packet.packetDigest
     || record.packetDigest !== response.packetDigest
     || record.packetDigest !== report.packetDigest
     || record.groundTruthDigest !==
@@ -239,13 +200,30 @@ export function assertWorksheetReviewRouteEvaluationRecord(
     report.provider,
   );
 
+  const packetIds =
+    packet.cases.map((entry) => entry.id);
   const responseIds =
     response.outcomes.map((entry) => entry.caseId);
+  assertCanonicalCaseIds(packetIds);
   assertCanonicalCaseIds(responseIds);
+
+  if (!sameStrings(packetIds, responseIds)) {
+    throw new Error(
+      'Worksheet review-route evaluation record response cases do not match the stored packet.',
+    );
+  }
+
+  const caseDigestById = new Map(
+    packet.cases.map(
+      (entry) => [entry.id, entry.caseDigest] as const,
+    ),
+  );
 
   for (const entry of response.outcomes) {
     if (
-      entry.outcome.observation.id !== entry.caseId
+      caseDigestById.get(entry.caseId)
+        !== entry.caseDigest
+      || entry.outcome.observation.id !== entry.caseId
       || entry.outcome.observation.sourceDigest !==
         entry.caseDigest
       || entry.outcome.observation.schemaVersion !==
@@ -257,30 +235,79 @@ export function assertWorksheetReviewRouteEvaluationRecord(
     }
   }
 
+  const labels =
+    extractReportLabels(report, responseIds);
+
+  const expectedGroundTruthDigest =
+    createGroundTruthDigest(
+      record.packetDigest,
+      labels,
+    );
+  if (
+    report.groundTruthDigest !==
+      expectedGroundTruthDigest
+  ) {
+    throw new Error(
+      'Worksheet review-route evaluation report ground-truth digest does not match its case labels.',
+    );
+  }
+
+  const expectedSummary =
+    evaluateWorksheetReviewRouteOutcomes(
+      response.outcomes.map((entry) => ({
+        id: entry.caseId,
+        expectedRoute:
+          requireExpectedRoute(
+            labels,
+            entry.caseId,
+          ),
+        outcome: entry.outcome,
+      })),
+    );
+
+  if (
+    !sameCanonicalJson(
+      report.summary,
+      expectedSummary,
+    )
+  ) {
+    throw new Error(
+      'Worksheet review-route evaluation report summary does not match the stored outcomes and labels.',
+    );
+  }
+
+  const expectedSeparability =
+    analyzeWorksheetReviewRouteProjectionSeparability(
+      packet.cases.map((entry) => ({
+        id: entry.id,
+        state: { ...entry.state },
+        expectedRoute:
+          requireExpectedRoute(
+            labels,
+            entry.id,
+          ),
+      })),
+    );
+
+  if (
+    !sameCanonicalJson(
+      report.projectionSeparability,
+      expectedSeparability,
+    )
+  ) {
+    throw new Error(
+      'Worksheet review-route evaluation report projection separability does not match the stored packet and labels.',
+    );
+  }
+
   if (
     !sameStrings(
       report.evaluatedCaseIds,
       responseIds,
     )
-    || !sameStrings(
-      report.summary.caseResults.map(
-        (entry) => entry.id,
-      ),
-      responseIds,
-    )
   ) {
     throw new Error(
-      'Worksheet review-route evaluation record case-order linkage mismatch.',
-    );
-  }
-
-  if (
-    report.summary.cases !== responseIds.length
-    || report.projectionSeparability.cases !==
-      responseIds.length
-  ) {
-    throw new Error(
-      'Worksheet review-route evaluation record case-count linkage mismatch.',
+      'Worksheet review-route evaluation record evaluated-case linkage mismatch.',
     );
   }
 
@@ -298,6 +325,7 @@ export function assertWorksheetReviewRouteEvaluationRecord(
       packetDigest: record.packetDigest,
       groundTruthDigest: record.groundTruthDigest,
       plan,
+      packet,
       response,
       report,
     });
@@ -326,6 +354,17 @@ export function reevaluateWorksheetReviewRouteEvaluationRecord(
     );
   }
 
+  const currentPacket =
+    createWorksheetReviewRouteEvaluationPacket(corpus);
+  if (
+    currentPacket.packetDigest !==
+      record.packetDigest
+  ) {
+    throw new Error(
+      'Worksheet review-route evaluation record is stale for the current projection packet.',
+    );
+  }
+
   const report =
     evaluateWorksheetReviewRouteEvaluationResponse(
       corpus,
@@ -334,6 +373,7 @@ export function reevaluateWorksheetReviewRouteEvaluationRecord(
 
   return buildRecord(
     record.plan,
+    record.packet,
     record.response,
     report,
   );
@@ -341,6 +381,7 @@ export function reevaluateWorksheetReviewRouteEvaluationRecord(
 
 function buildRecord(
   plan: WorksheetReviewRouteEvaluationPlanV1,
+  packet: WorksheetReviewRouteEvaluationPacketV1,
   response: WorksheetReviewRouteEvaluationResponseV1,
   report: WorksheetReviewRouteEvaluationReportV1,
 ): WorksheetReviewRouteEvaluationRecordV1 {
@@ -354,9 +395,10 @@ function buildRecord(
     purpose:
       'completed-provider-evaluation-record' as const,
     planDigest: plan.planDigest,
-    packetDigest: plan.packetDigest,
+    packetDigest: packet.packetDigest,
     groundTruthDigest: report.groundTruthDigest,
     plan: structuredClone(plan),
+    packet: structuredClone(packet),
     response: structuredClone(response),
     report: structuredClone(report),
   };
@@ -370,7 +412,7 @@ function buildRecord(
   return record;
 }
 
-function assertEvaluationReport(
+function assertBasicEvaluationReport(
   value: unknown,
 ): asserts value is WorksheetReviewRouteEvaluationReportV1 {
   const report = requireRecord(
@@ -402,280 +444,85 @@ function assertEvaluationReport(
     report.evaluatedCaseIds,
     true,
   );
-  assertEvaluationSummary(report.summary);
-  assertProjectionSeparability(
-    report.projectionSeparability,
+  assertCanonicalCaseIds(
+    report.evaluatedCaseIds as string[],
   );
-}
 
-function assertEvaluationSummary(
-  value: unknown,
-): void {
   const summary = requireRecord(
-    value,
+    report.summary,
     'worksheet review-route evaluation summary',
   );
-  assertExactKeys(summary, SUMMARY_KEYS, 'evaluation summary');
-
-  const integerKeys = [
-    'cases',
-    'expectedInspectCases',
-    'expectedRoutineCases',
-    'decisionCases',
-    'nonDecisionCases',
-    'correctDecisionCases',
-    'incorrectDecisionCases',
-    'inspectCorrectDecisionCases',
-    'routineCorrectDecisionCases',
-    'unsafeRoutineCases',
-    'unnecessaryInspectCases',
-    'conservativeCorrectCases',
-    'conservativeUnsafeRoutineCases',
-    'conservativeExtraInspectCases',
-  ] as const;
-  for (const key of integerKeys) {
-    assertNonNegativeInteger(key, summary[key]);
-  }
-
-  for (const key of [
-    'decisionCoverage',
-    'conservativeAccuracy',
-  ] as const) {
-    assertProbability(key, summary[key]);
-  }
-
-  for (const key of [
-    'decisionAccuracy',
-    'inspectRecall',
-    'routineRecall',
-    'unsafeRoutineRate',
-    'unnecessaryInspectRate',
-    'conservativeUnsafeRoutineRate',
-    'conservativeExtraInspectRate',
-    'inspectBinaryBrierScore',
-    'meanSelectedProbability',
-    'meanProviderConfidence',
-  ] as const) {
-    assertProbabilityOrNull(key, summary[key]);
-  }
-
   if (!Array.isArray(summary.caseResults)) {
     throw new Error(
       'Worksheet review-route evaluation summary caseResults must be an array.',
     );
   }
-  const ids: string[] = [];
-  for (const result of summary.caseResults) {
-    assertCaseResult(result);
-    ids.push(result.id);
-  }
-  assertCanonicalCaseIds(ids);
-
-  if (
-    summary.cases !== summary.caseResults.length
-    || summary.expectedInspectCases
-      + summary.expectedRoutineCases !==
-      summary.cases
-    || summary.decisionCases
-      + summary.nonDecisionCases !==
-      summary.cases
-    || summary.correctDecisionCases
-      + summary.incorrectDecisionCases !==
-      summary.decisionCases
-  ) {
-    throw new Error(
-      'Worksheet review-route evaluation summary count invariants do not hold.',
-    );
-  }
-}
-
-function assertCaseResult(
-  value: unknown,
-): asserts value is WorksheetReviewRouteEvaluationReportV1['summary']['caseResults'][number] {
-  const result = requireRecord(
-    value,
-    'worksheet review-route evaluation case result',
-  );
-
-  for (const key of Object.keys(result)) {
-    if (!CASE_RESULT_KEYS.has(key)) {
-      throw new Error(
-        `Unknown worksheet review-route evaluation case result field: ${key}.`,
-      );
-    }
-  }
-  for (const key of REQUIRED_CASE_RESULT_KEYS) {
-    if (!Object.prototype.hasOwnProperty.call(result, key)) {
-      throw new Error(
-        `Missing worksheet review-route evaluation case result field: ${key}.`,
-      );
-    }
-  }
-
-  assertNonEmpty('case result id', result.id);
-  assertRoute(result.expectedRoute);
-  if (
-    result.status !== 'decision'
-    && result.status !== 'non-decision'
-  ) {
-    throw new Error(
-      'Invalid worksheet review-route evaluation case result status.',
-    );
-  }
-  assertRoute(result.conservativeEffectiveRoute);
-  assertBoolean('unsafeRoutine', result.unsafeRoutine);
-  assertBoolean(
-    'unnecessaryInspect',
-    result.unnecessaryInspect,
-  );
-  assertBoolean(
-    'conservativeCorrect',
-    result.conservativeCorrect,
-  );
-
-  if (result.status === 'decision') {
-    assertRoute(result.selectedRoute);
-    assertProbability(
-      'providerConfidence',
-      result.providerConfidence,
-    );
-    assertProbability(
-      'selectedProbability',
-      result.selectedProbability,
-    );
-    assertProbability(
-      'inspectProbability',
-      result.inspectProbability,
-    );
-    assertBoolean(
-      'correctDecision',
-      result.correctDecision,
-    );
-  } else {
-    for (const key of [
-      'selectedRoute',
-      'providerConfidence',
-      'selectedProbability',
-      'inspectProbability',
-      'correctDecision',
-    ] as const) {
-      if (result[key] !== undefined) {
-        throw new Error(
-          `Worksheet review-route non-decision case result must not contain ${key}.`,
-        );
-      }
-    }
-  }
-}
-
-function assertProjectionSeparability(
-  value: unknown,
-): void {
-  const result = requireRecord(
-    value,
+  requireRecord(
+    report.projectionSeparability,
     'worksheet review-route projection separability',
   );
-  assertExactKeys(
-    result,
-    SEPARABILITY_KEYS,
-    'projection separability',
-  );
+}
 
-  for (const key of [
-    'cases',
-    'exactStateGroups',
-    'conflictingGroups',
-    'casesInConflictingGroups',
-    'exactStateOracleMaxCorrect',
-  ] as const) {
-    assertNonNegativeInteger(key, result[key]);
-  }
-  assertProbability(
-    'exactStateOracleMaxAccuracy',
-    result.exactStateOracleMaxAccuracy,
+function extractReportLabels(
+  report: WorksheetReviewRouteEvaluationReportV1,
+  expectedIds: readonly string[],
+): ReadonlyMap<string, 'inspect' | 'routine'> {
+  const summary = requireRecord(
+    report.summary,
+    'worksheet review-route evaluation summary',
   );
-
-  if (!Array.isArray(result.groups)) {
+  if (!Array.isArray(summary.caseResults)) {
     throw new Error(
-      'Worksheet review-route projection groups must be an array.',
+      'Worksheet review-route evaluation summary caseResults must be an array.',
     );
   }
 
-  let totalCases = 0;
-  for (const value of result.groups) {
-    const group = requireRecord(
+  const labels =
+    new Map<string, 'inspect' | 'routine'>();
+  const ids: string[] = [];
+  for (const value of summary.caseResults) {
+    const result = requireRecord(
       value,
-      'worksheet review-route projection group',
+      'worksheet review-route evaluation case result',
     );
-    assertExactKeys(group, GROUP_KEYS, 'projection group');
-
-    const state = requireRecord(
-      group.state,
-      'worksheet review-route projection state',
+    assertNonEmpty(
+      'evaluation case result id',
+      result.id,
     );
-    assertExactKeys(state, STATE_KEYS, 'projection state');
-    if (
-      !['matched', 'ambiguous', 'novel'].includes(
-        String(state.classification),
-      )
-      || typeof state.candidateCount !== 'number'
-      || !Number.isInteger(state.candidateCount)
-      || state.candidateCount < 0
-      || typeof state.hasWinner !== 'boolean'
-      || !isProbability(state.noveltyScore)
-      || (
-        state.hasWinner === true
-        && state.candidateCount < 1
-      )
-    ) {
+    assertRoute(result.expectedRoute);
+    if (labels.has(result.id)) {
       throw new Error(
-        'Invalid worksheet review-route projection state.',
+        `Duplicate worksheet review-route evaluation case result id: ${result.id}.`,
       );
     }
-
-    assertStringArray(
-      'projection group case ids',
-      group.caseIds,
-      true,
+    labels.set(
+      result.id,
+      result.expectedRoute,
     );
-    assertNonNegativeInteger(
-      'projection group inspectCases',
-      group.inspectCases,
-    );
-    assertNonNegativeInteger(
-      'projection group routineCases',
-      group.routineCases,
-    );
-    assertBoolean(
-      'projection group conflictingLabels',
-      group.conflictingLabels,
-    );
-
-    if (
-      group.inspectCases + group.routineCases
-        !== group.caseIds.length
-      || group.conflictingLabels !==
-        (
-          group.inspectCases > 0
-          && group.routineCases > 0
-        )
-    ) {
-      throw new Error(
-        'Worksheet review-route projection group invariants do not hold.',
-      );
-    }
-
-    totalCases += group.caseIds.length;
+    ids.push(result.id);
   }
 
-  if (
-    result.exactStateGroups !== result.groups.length
-    || result.cases !== totalCases
-  ) {
+  assertCanonicalCaseIds(ids);
+  if (!sameStrings(ids, expectedIds)) {
     throw new Error(
-      'Worksheet review-route projection separability count invariants do not hold.',
+      'Worksheet review-route evaluation report case results do not match the stored response.',
     );
   }
+
+  return labels;
+}
+
+function requireExpectedRoute(
+  labels: ReadonlyMap<string, 'inspect' | 'routine'>,
+  id: string,
+): 'inspect' | 'routine' {
+  const route = labels.get(id);
+  if (route === undefined) {
+    throw new Error(
+      `Worksheet review-route evaluation report is missing expected route: ${id}.`,
+    );
+  }
+  return route;
 }
 
 function assertProviderLinkage(
@@ -713,14 +560,41 @@ function sameProvider(
     );
 }
 
+function createGroundTruthDigest(
+  packetDigest: string,
+  labels:
+    ReadonlyMap<string, 'inspect' | 'routine'>,
+): string {
+  const canonicalLabels =
+    [...labels.entries()]
+      .sort(
+        ([left], [right]) =>
+          left.localeCompare(right),
+      )
+      .map(([id, route]) => [id, route]);
+
+  return sha256(JSON.stringify([
+    WORKSHEET_REVIEW_ROUTE_GROUND_TRUTH_REPRESENTATION,
+    WORKSHEET_REVIEW_ROUTE_LABELING_PROTOCOL_VERSION,
+    packetDigest,
+    canonicalLabels,
+  ]));
+}
+
 function createRecordDigest(
   value: unknown,
 ): string {
-  const canonical =
-    JSON.stringify(canonicalizeJson(value));
-  return `sha256:${createHash('sha256')
-    .update(canonical, 'utf8')
-    .digest('hex')}`;
+  return sha256(
+    JSON.stringify(canonicalizeJson(value)),
+  );
+}
+
+function sameCanonicalJson(
+  left: unknown,
+  right: unknown,
+): boolean {
+  return JSON.stringify(canonicalizeJson(left))
+    === JSON.stringify(canonicalizeJson(right));
 }
 
 function canonicalizeJson(
@@ -873,61 +747,6 @@ function assertRoute(
   }
 }
 
-function assertBoolean(
-  label: string,
-  value: unknown,
-): asserts value is boolean {
-  if (typeof value !== 'boolean') {
-    throw new Error(
-      `Worksheet review-route ${label} must be boolean.`,
-    );
-  }
-}
-
-function assertNonNegativeInteger(
-  label: string,
-  value: unknown,
-): asserts value is number {
-  if (
-    typeof value !== 'number'
-    || !Number.isInteger(value)
-    || value < 0
-  ) {
-    throw new Error(
-      `Worksheet review-route ${label} must be a non-negative integer.`,
-    );
-  }
-}
-
-function assertProbability(
-  label: string,
-  value: unknown,
-): asserts value is number {
-  if (!isProbability(value)) {
-    throw new Error(
-      `Worksheet review-route ${label} must be a finite value between 0 and 1.`,
-    );
-  }
-}
-
-function assertProbabilityOrNull(
-  label: string,
-  value: unknown,
-): void {
-  if (value !== null) {
-    assertProbability(label, value);
-  }
-}
-
-function isProbability(
-  value: unknown,
-): value is number {
-  return typeof value === 'number'
-    && Number.isFinite(value)
-    && value >= 0
-    && value <= 1;
-}
-
 function sameStrings(
   left: readonly string[],
   right: readonly string[],
@@ -936,4 +755,10 @@ function sameStrings(
     && left.every(
       (value, index) => value === right[index],
     );
+}
+
+function sha256(value: string): string {
+  return `sha256:${createHash('sha256')
+    .update(value, 'utf8')
+    .digest('hex')}`;
 }
