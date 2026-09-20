@@ -37,6 +37,9 @@ export const WORKSHEET_REVIEW_ROUTE_EVALUATION_REPORT_SCHEMA_VERSION =
 export const WORKSHEET_REVIEW_ROUTE_EVALUATION_PACKET_REPRESENTATION =
   'worksheet-review-route-evaluation-packet-v1' as const;
 
+export const WORKSHEET_REVIEW_ROUTE_EVALUATION_CASE_REPRESENTATION =
+  'worksheet-review-route-evaluation-case-v1' as const;
+
 export const WORKSHEET_REVIEW_ROUTE_GROUND_TRUTH_REPRESENTATION =
   'worksheet-review-route-ground-truth-v1' as const;
 
@@ -48,6 +51,7 @@ export interface WorksheetReviewRouteEvaluationQuestionV1 {
 
 export interface WorksheetReviewRouteEvaluationPacketCaseV1 {
   id: string;
+  caseDigest: string;
   state: JevWorksheetReviewRouteState;
 }
 
@@ -66,6 +70,7 @@ export interface WorksheetReviewRouteEvaluationPacketV1 {
 
 export interface WorksheetReviewRouteEvaluationOutcomeRecordV1 {
   caseId: string;
+  caseDigest: string;
   outcome: ClosedChoiceJudgmentOutcome<WorksheetReviewRouteChoice>;
 }
 
@@ -101,6 +106,7 @@ const RESPONSE_KEYS = [
 
 const OUTCOME_RECORD_KEYS = [
   'caseId',
+  'caseDigest',
   'outcome',
 ] as const;
 
@@ -117,14 +123,25 @@ export function createWorksheetReviewRouteEvaluationPacket(
     );
   }
 
+  const question: WorksheetReviewRouteEvaluationQuestionV1 = {
+    id: WORKSHEET_REVIEW_ROUTE_QUESTION.id,
+    semantics: WORKSHEET_REVIEW_ROUTE_QUESTION.semantics,
+    choices: [...WORKSHEET_REVIEW_ROUTE_QUESTION.choices],
+  };
+
   const cases = projectionCases
     .map((entry) => ({
       id: entry.id,
+      caseDigest: createCaseDigest(
+        question,
+        entry.id,
+        entry.state,
+      ),
       state: { ...entry.state },
     }))
     .sort((left, right) => left.id.localeCompare(right.id));
 
-  const question: WorksheetReviewRouteEvaluationQuestionV1 = {
+  const questionForPacket: WorksheetReviewRouteEvaluationQuestionV1 = {
     id: WORKSHEET_REVIEW_ROUTE_QUESTION.id,
     semantics: WORKSHEET_REVIEW_ROUTE_QUESTION.semantics,
     choices: [...WORKSHEET_REVIEW_ROUTE_QUESTION.choices],
@@ -138,7 +155,7 @@ export function createWorksheetReviewRouteEvaluationPacket(
     representation:
       WORKSHEET_REVIEW_ROUTE_EVALUATION_PACKET_REPRESENTATION,
     purpose: 'blinded-provider-evaluation' as const,
-    question,
+    question: questionForPacket,
     cases,
   };
 
@@ -202,6 +219,7 @@ export function assertWorksheetReviewRouteEvaluationResponse(
       'evaluation outcome record',
     );
     assertNonEmpty('evaluation outcome case id', record.caseId);
+    assertDigest(record.caseDigest);
     if (ids.has(record.caseId)) {
       throw new Error(
         `Duplicate worksheet review-route evaluation outcome case id: ${record.caseId}.`,
@@ -227,6 +245,7 @@ export function evaluateWorksheetReviewRouteEvaluationResponse(
   }
 
   assertExactOutcomeCoverage(packet, response);
+  assertOutcomeCaseDigests(packet, response);
 
   const labels = getAdjudicatedWorksheetReviewRouteLabels(corpus);
   const labelById = new Map(
@@ -289,6 +308,7 @@ function createPacketDigest(
     .sort((left, right) => left.id.localeCompare(right.id))
     .map((entry) => [
       entry.id,
+      entry.caseDigest,
       entry.state.classification,
       entry.state.candidateCount,
       entry.state.hasWinner,
@@ -307,6 +327,23 @@ function createPacketDigest(
   ]);
 
   return sha256(canonical);
+}
+
+function createCaseDigest(
+  question: WorksheetReviewRouteEvaluationQuestionV1,
+  caseId: string,
+  state: JevWorksheetReviewRouteState,
+): string {
+  return sha256(JSON.stringify([
+    WORKSHEET_REVIEW_ROUTE_EVALUATION_CASE_REPRESENTATION,
+    WORKSHEET_REVIEW_ROUTE_LABELING_PROTOCOL_VERSION,
+    question.id,
+    caseId,
+    state.classification,
+    state.candidateCount,
+    state.hasWinner,
+    state.noveltyScore,
+  ]));
 }
 
 function createGroundTruthDigest(
@@ -350,6 +387,25 @@ function assertExactOutcomeCoverage(
     if (!actual.has(id)) {
       throw new Error(
         `Worksheet review-route evaluation outcome is missing for packet case: ${id}.`,
+      );
+    }
+  }
+}
+
+function assertOutcomeCaseDigests(
+  packet: WorksheetReviewRouteEvaluationPacketV1,
+  response: WorksheetReviewRouteEvaluationResponseV1,
+): void {
+  const digestById = new Map(
+    packet.cases.map(
+      (entry) => [entry.id, entry.caseDigest] as const,
+    ),
+  );
+
+  for (const entry of response.outcomes) {
+    if (digestById.get(entry.caseId) !== entry.caseDigest) {
+      throw new Error(
+        `Worksheet review-route evaluation outcome case digest does not match packet state: ${entry.caseId}.`,
       );
     }
   }
