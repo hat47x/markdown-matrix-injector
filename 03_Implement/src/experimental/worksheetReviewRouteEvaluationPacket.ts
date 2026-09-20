@@ -72,6 +72,8 @@ export interface WorksheetReviewRouteEvaluationOutcomeRecordV1 {
 export interface WorksheetReviewRouteEvaluationResponseV1 {
   schemaVersion:
     typeof WORKSHEET_REVIEW_ROUTE_EVALUATION_RESPONSE_SCHEMA_VERSION;
+  protocolVersion:
+    typeof WORKSHEET_REVIEW_ROUTE_LABELING_PROTOCOL_VERSION;
   packetDigest: string;
   outcomes: readonly WorksheetReviewRouteEvaluationOutcomeRecordV1[];
 }
@@ -79,6 +81,8 @@ export interface WorksheetReviewRouteEvaluationResponseV1 {
 export interface WorksheetReviewRouteEvaluationReportV1 {
   schemaVersion:
     typeof WORKSHEET_REVIEW_ROUTE_EVALUATION_REPORT_SCHEMA_VERSION;
+  protocolVersion:
+    typeof WORKSHEET_REVIEW_ROUTE_LABELING_PROTOCOL_VERSION;
   purpose: 'adjudicated-ground-truth-evaluation';
   packetDigest: string;
   groundTruthDigest: string;
@@ -90,6 +94,7 @@ export interface WorksheetReviewRouteEvaluationReportV1 {
 
 const RESPONSE_KEYS = [
   'schemaVersion',
+  'protocolVersion',
   'packetDigest',
   'outcomes',
 ] as const;
@@ -165,6 +170,15 @@ export function assertWorksheetReviewRouteEvaluationResponse(
   ) {
     throw new Error(
       'Unsupported worksheet review-route evaluation response schema version.',
+    );
+  }
+
+  if (
+    response.protocolVersion !==
+    WORKSHEET_REVIEW_ROUTE_LABELING_PROTOCOL_VERSION
+  ) {
+    throw new Error(
+      'Unsupported worksheet review-route evaluation protocol version.',
     );
   }
 
@@ -249,6 +263,8 @@ export function evaluateWorksheetReviewRouteEvaluationResponse(
   return {
     schemaVersion:
       WORKSHEET_REVIEW_ROUTE_EVALUATION_REPORT_SCHEMA_VERSION,
+    protocolVersion:
+      WORKSHEET_REVIEW_ROUTE_LABELING_PROTOCOL_VERSION,
     purpose: 'adjudicated-ground-truth-evaluation',
     packetDigest: packet.packetDigest,
     groundTruthDigest: createGroundTruthDigest(
