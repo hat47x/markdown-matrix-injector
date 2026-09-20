@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Evaluation data / Annotation workflow hardening
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: per-annotator blinded work packet, resume safety, shared independent-annotation requirement
 - Expected verification level: unit + focused workflow
@@ -112,24 +112,24 @@ annotationReferenceは内部生成する。
 
 ## Acceptance criteria
 
-- [ ] shared independent annotation countをlabel corpusへ定義。
-- [ ] adjudication packet minimumがshared constantを参照。
-- [ ] per-annotator work packet schema/version/representationを固定。
-- [ ] packetにrequiredIndependentAnnotationsを保持。
-- [ ] same annotatorが既に処理したcaseを除外。
-- [ ] annotation必要数を満たしたcaseを除外。
-- [ ] adjudicated caseを除外。
-- [ ] projectionState / prior annotation / identitiesをpacketへ含めない。
-- [ ] packet digestへrequired annotation countをbinding。
-- [ ] response strict validation。
-- [ ] stale responseをreject。
-- [ ] unknown/already-labeled/fully-annotated/adjudicated caseをreject。
-- [ ] duplicate response decisionをreject。
-- [ ] annotationReferenceを内部生成。
-- [ ] source corpusをmutateしない。
-- [ ] 2 annotations到達後はthird-label oversamplingを防ぐ。
-- [ ] resume時にremaining workだけを返す。
-- [ ] live provider / production routingを変更しない。
+- [x] shared independent annotation countをlabel corpusへ定義。
+- [x] adjudication packet minimumがshared constantを参照。
+- [x] per-annotator work packet schema/version/representationを固定。
+- [x] packetにrequiredIndependentAnnotationsを保持。
+- [x] same annotatorが既に処理したcaseを除外。
+- [x] annotation必要数を満たしたcaseを除外。
+- [x] adjudicated caseを除外。
+- [x] projectionState / prior annotation / identitiesをpacketへ含めない。
+- [x] packet digestへrequired annotation countをbinding。
+- [x] response strict validation。
+- [x] stale responseをreject。
+- [x] unknown/already-labeled/fully-annotated/adjudicated caseをreject。
+- [x] duplicate response decisionをreject。
+- [x] annotationReferenceを内部生成。
+- [x] source corpusをmutateしない。
+- [x] 2 annotations到達後はthird-label oversamplingを防ぐ。
+- [x] resume時にremaining workだけを返す。
+- [x] live provider / production routingを変更しない。
 
 ## Validation plan
 
@@ -145,3 +145,32 @@ annotationReferenceは内部生成する。
 - third-label oversampling prevention。
 - shared constant equality with adjudication packet。
 - strict response validation。
+
+
+## Validation evidence
+
+### 2026-09-20 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- resume-safe selection / digest / immutable applyと同一境界を持つfocused TypeScript harnessを
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime:
+  - annotator Aには自身が未処理かつ必要数未達の `one-b / zero` のみ配布。
+  - annotator Aが `zero` を処理後、resume packetから `zero` が除外。
+  - annotator Bの2件目annotation後、annotator Cのpacketに `zero` が出ずthird-label oversamplingを防止。
+  - 他annotatorのannotationでeligible setが変化した後、古いpacketDigestをstaleとしてreject。
+  - source corpusをmutateしない。
+- repository test sourceを旧branch版から修正し、新しい `WorksheetReviewRouteAnnotationWorkPacketV1` APIを直接テスト。
+  - packet non-disclosure。
+  - resume。
+  - 2 annotations -> adjudication handoff。
+  - stale response。
+  - unknown field / duplicate decision / same-annotator ineligible case rejection。
+  - immutability。
+- 旧branchに残っていた存在しない `createWorksheetReviewRouteAnnotationPacketForAnnotator` 参照を削除し、テスト不整合を解消。
+- `WORKSHEET_REVIEW_ROUTE_REQUIRED_INDEPENDENT_ANNOTATIONS=2` をlabel corpusへ集約し、adjudication packet minimumも同じ定数を参照。
+- live provider / automatic consensus / production routing / apply authorityは追加していない。
+- repository全dependency tree成功は現環境では主張しない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
