@@ -171,3 +171,32 @@ branchは feature/human-review-presentation-ordering-v1 1本に限定し、完�
 GitHub Actionsの既知runner/resource不足は完了条件にしない。
 
 repository dependency treeを利用できない環境ではrepository全test passを主張せず、strict compile / focused contract inspection / diff確認を記録する。
+
+
+## Validation evidence
+
+### 2026-09-21 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- `UnifiedHumanReviewPresentationPlanV1` 本体を、`UnifiedHumanReviewViewModelV1` の公開interface互換stubと組み合わせ、
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime harness: **5 checks / 5 pass / 0 fail**。
+  1. satisfied + matched + Judgment not-requested + no reasonsでは4 sectionすべてcollapsed。
+  2. Authority blockedではAuthorityだけexpandedし、Cognitive / Deterministicへ連動しない。
+  3. Cognitive novelではCognitiveだけexpandedし、Deterministicへ連動しない。
+  4. review-relevant deterministic reasonではDeterministicだけexpanded。
+  5. diagnostic-only reasonだけではDeterministicをexpandedにしない。
+- repository test sourceでは追加で:
+  - ambiguous Perception
+  - Judgment proposal
+  - Judgment non-decision / abstained
+  - all notable conditions coexist時もProposal Identityはcollapsed
+  - source model immutability
+  - invalid schema / role / Authority boundary / reason count rejection
+  - serializationにoverall verdict / score / recommendation / apply actionを含めない
+  を固定。
+- Production UI / provider / Authority / matcher / evaluation metricは変更していない。
+- repository全dependency tree成功は現環境では主張しない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
