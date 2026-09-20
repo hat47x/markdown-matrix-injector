@@ -606,6 +606,7 @@ issue-0167〜0170では、live providerやproduction routingを変更せず、re
 6. issue-0172: provider向けblinded projection packet + adjudicated label strict evaluation
 7. issue-0173: resume-safe blinded annotation work allocation
 8. issue-0174: readiness-gated provider-neutral evaluation runner + Jev parity adapter
+9. issue-0175: resume-safe blinded adjudication work allocation
 
 issue-0170では、2件以上の独立annotationがある未adjudicated caseだけを対象にし、adjudicatorへはevidenceと匿名化したroute/rationaleだけを提示します。annotator identity / projectionState / provider/model/confidenceは見せません。
 
@@ -638,6 +639,19 @@ issue-0173では、annotation作業を中断・再開しても同じannotatorへ
 独立annotation必要数は `WORKSHEET_REVIEW_ROUTE_REQUIRED_INDEPENDENT_ANNOTATIONS` をlabel corpus / annotation allocation / adjudicationで共有します。packet生成時のannotatorRefはfilterにのみ使い、packet本体には既存annotation・annotator identity・projectionState・provider情報を保持しません。
 
 response apply時にはcurrent corpusから同じannotatorRefでpacketを再生成し、digest不一致をstale responseとして拒否します。2件の独立annotationが揃ったcaseはannotation workから外れ、issue-0170のhuman adjudicationへ進みます。
+
+
+### Resume-safe adjudication work allocation
+
+issue-0175では、issue-0170のglobal adjudication packetを担当者別のresume-safe work queueへ拡張する `WorksheetReviewRouteAdjudicationWorkPacketV1` を追加します。
+
+current adjudicatorが対象caseの元annotatorだった場合、そのcaseは**提示前**にwork packetから除外します。adjudicatorRefはfilterにだけ使い、packet本体やdigest inputへは含めません。同じeligible setを見る複数adjudicatorは同じblinded packet digestを得ます。
+
+responseはpacket全件の完了を要求せずpartial applyを許可します。apply後にcurrent corpusから同じadjudicatorRefでpacketを再生成すると、完了済みcaseだけが消え、remaining workをそのまま再開できます。
+
+work responseのstale検出・case eligibility確認後、final adjudication適用はissue-0170の `applyWorksheetReviewRouteAdjudicationResponse` へ委譲します。adjudicationReference生成、strict corpus validation、self-review最終防御はcanonical pathへ一本化し、allocation層では再実装しません。
+
+self-ineligibleでpacketに見えていないcaseだけが変化してもvisible work digestは変えません。一方、他のadjudicatorがvisible caseを先にadjudicateするなどeligible setが変われば古いresponseはstaleとしてrejectします。lock/leaseではなくoptimistic stale detectionとして扱います。
 
 
 ### Readiness-gated provider evaluation
