@@ -52,7 +52,7 @@ workflow-level minimum:
 理由:
 - annotation 1件だけをfinal truthへ昇格させない
 - independent labeling phaseを実質的に要求する
-- corpus schemaの表現力とは別に運用境界を強める
+- corpus validator自体も同じminimum=2を強制し、final label extractionまで同一invariantを維持する
 
 ## 4. Anonymous annotation representation
 
@@ -149,3 +149,15 @@ adjudication packetはさらにannotator identityも表示しない。
 - production review routing
 - apply authority
 - external provider invocation
+
+
+## 13. Corpus invariant strengthening
+
+並行レーン統合後、workflow-level eligibilityだけでなくlabel corpus validatorでも:
+
+- adjudicationには2件以上のindependent annotations。
+- adjudicatorは対象caseのannotatorではない。
+
+ことを必須とする。
+
+これによりpacketを経由しない不正なadjudication objectもfinal evaluation labelへ入らない。
