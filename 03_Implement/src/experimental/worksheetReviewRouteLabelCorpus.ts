@@ -271,12 +271,17 @@ function assertCase(
   }
 
   if (entry.adjudication !== undefined) {
-    if (entry.annotations.length === 0) {
+    if (entry.annotations.length < 2) {
       throw new Error(
-        `Worksheet review-route adjudication requires at least one annotation: ${entry.id}.`,
+        `Worksheet review-route adjudication requires at least two independent annotations: ${entry.id}.`,
       );
     }
     assertAdjudication(entry.adjudication);
+    if (annotators.has(entry.adjudication.adjudicatorRef)) {
+      throw new Error(
+        `Worksheet review-route adjudicator must be independent from case annotators: ${entry.id}.`,
+      );
+    }
   }
 }
 
