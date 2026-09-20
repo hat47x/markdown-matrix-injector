@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Evaluation infrastructure
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: inspect/routine outcome metrics, conservative fallback metrics, probability quality, exact-state separability diagnostics
 - Expected verification level: unit + focused evaluation
@@ -74,21 +74,21 @@ production workflowへfallback自動化は追加しない。
 
 ## Acceptance criteria
 
-- [ ] provider-neutral route outcome evaluatorを追加。
-- [ ] expected inspect -> predicted routineをunsafe routineとして独立計測。
-- [ ] expected routine -> predicted inspectをunnecessary inspectとして独立計測。
-- [ ] non-decisionをdecision accuracy分母へ混ぜない。
-- [ ] decision coverageを別指標で保持。
-- [ ] conservative fallback-to-inspect counterfactualを別指標で保持。
-- [ ] inspect probabilityのbinary Brier scoreをdecisionだけから計算。
-- [ ] provider confidenceをaccuracyと同一視しない。
-- [ ] mean provider confidenceはdescriptive metricとしてのみ保持。
-- [ ] malformed/error Judgmentをfail-closed。
-- [ ] exact-state conflicting-label groupを検出。
-- [ ] exact-state oracle max accuracyを算出。
-- [ ] 0 decision / 0 expected classでもNaNを返さない。
-- [ ] 既存 `expectedReview` をroute labelとして流用しない。
-- [ ] live Jev call / threshold / production routingを追加しない。
+- [x] provider-neutral route outcome evaluatorを追加。
+- [x] expected inspect -> predicted routineをunsafe routineとして独立計測。
+- [x] expected routine -> predicted inspectをunnecessary inspectとして独立計測。
+- [x] non-decisionをdecision accuracy分母へ混ぜない。
+- [x] decision coverageを別指標で保持。
+- [x] conservative fallback-to-inspect counterfactualを別指標で保持。
+- [x] inspect probabilityのbinary Brier scoreをdecisionだけから計算。
+- [x] provider confidenceをaccuracyと同一視しない。
+- [x] mean provider confidenceはdescriptive metricとしてのみ保持。
+- [x] malformed/error Judgmentをfail-closed。
+- [x] exact-state conflicting-label groupを検出。
+- [x] exact-state oracle max accuracyを算出。
+- [x] 0 decision / 0 expected classでもNaNを返さない。
+- [x] 既存 `expectedReview` をroute labelとして流用しない。
+- [x] live Jev call / threshold / production routingを追加しない。
 
 ## Validation plan
 
@@ -105,3 +105,45 @@ production workflowへfallback自動化は追加しない。
 - exact-state all-separable
 - input immutability
 - strict compile
+
+
+## Validation evidence
+
+### 2026-09-20 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- GitHub上の `worksheetReviewRouteEvaluation.ts` 本体を、公開interface互換stub依存で
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime validation:
+  - 6-case mixed outcome:
+    - decision coverage = `0.666667`
+    - decision accuracy = `0.5`
+    - unsafe routine rate = `0.333333`
+    - unnecessary inspect rate = `0.333333`
+    - conservative extra inspect rate = `0.666667`
+  - probability-quality case:
+    - inspect binary Brier score = `0.025`
+    - mean selected probability = `0.85`
+    - mean provider confidence = `0.75`
+    - confidenceとaccuracyを別指標として保持。
+  - all non-decision case:
+    - decision accuracy / Brier = `null`
+    - NaNを返さない。
+  - exact-state conflicting-label case:
+    - 4 cases / 2 exact-state groups
+    - conflicting groups = `1`
+    - cases in conflicting group = `3`
+    - exact-state oracle max accuracy = `0.75`
+- repository test sourceではさらに:
+  - single expected class edge。
+  - error outcome拒否。
+  - provider-confidence欠落拒否。
+  - exact-state fully separable case。
+  - input immutability。
+- `expectedReview` はreview-route labelとして流用していない。
+- live Jev call / model threshold / auto fallback / production routingは追加していない。
+- conservative fallback-to-inspectはevaluation counterfactualでありruntime policyではない。
+- repository dependency treeは現環境に無いためrepository全test suite成功は主張しない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
