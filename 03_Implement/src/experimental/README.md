@@ -377,8 +377,10 @@ merge shapeは分類を単独支配するfeatureではなく、他の構造証�
 39. `worksheetReviewRouteAnnotationPacket.test.ts` — labeler向けblinded annotation packetとstale response防止
 40. `worksheetReviewRouteAdjudicationPacket.test.ts` — 匿名化annotationを使うblinded adjudicationとfinal label確定
 41. `../../02_Architecture/worksheet-review-route-adjudication-packet-v1.md` — adjudicator visibility / digest / self-review禁止
-42. `test/fixtures/README.md` — 外部生成fixtureのprovenanceとSHA-256
-43. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
+42. `worksheetReviewRouteEvaluationPacket.test.ts` — ground truthをproviderへ見せないprojection packetとstrict outcome join
+43. `../../02_Architecture/worksheet-review-route-evaluation-packet-v1.md` — provider-input digest / ground-truth digest分離とevaluation boundary
+44. `test/fixtures/README.md` — 外部生成fixtureのprovenanceとSHA-256
+45. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
 
 ## 13. 安全に変更するためのチェックリスト
 
@@ -600,6 +602,7 @@ issue-0167〜0170では、live providerやproduction routingを変更せず、re
 2. issue-0168: provider-blinded label corpus
 3. issue-0169: labeler向けblinded annotation packet
 4. issue-0170: adjudicator向けblinded adjudication packet
+5. issue-0171: provider向けblinded projection packet + adjudicated label strict evaluation
 
 issue-0170では、2件以上の独立annotationがある未adjudicated caseだけを対象にし、adjudicatorへはevidenceと匿名化したroute/rationaleだけを提示します。annotator identity / projectionState / provider/model/confidenceは見せません。
 
@@ -608,3 +611,14 @@ packet digestはevidenceとannotation集合の双方へbindingされるため、
 adjudicator自身が元annotatorだったcaseもapply時にrejectします。多数決やunanimous labelの自動確定は行わず、final routeは明示的human adjudicationとしてのみcorpusへ追加します。
 
 このレーンのinspect / routineはいずれもhuman reviewを要求し、apply authorityやautomatic decisionを持ちません。
+
+
+issue-0171では、provider評価時のground-truth leakageとmanual join errorを避けるため、adjudicated corpusからprovider-visible projection stateだけを抽出する `WorksheetReviewRouteEvaluationPacketV1` を追加します。
+
+provider packetに含めるのはcase id / canonical inspect-routine question / classification / candidateCount / hasWinner / noveltyScoreだけです。expected route、evidence、annotations、adjudication、provider/model identity、probability/confidenceは含めません。
+
+packetDigestはprovider-visible state集合へbindingし、final routeは意図的にdigest inputから除外します。一方evaluation reportには別の `groundTruthDigest` を持ち、current adjudicated final routesをbindingします。
+
+この分離により、projection stateが変わらずfinal labelだけ訂正された場合はprovider inference resultを再利用しつつ、どのground-truth versionで評価したかをreportへ残せます。
+
+responseはpacket case集合との完全一致を要求し、missing / extra / duplicate case、stale packet、mixed provider descriptor、wrong review-route questionをfail-closedします。metric計算はissue-0167の既存evaluatorを再利用し、新しいaccuracy定義は導入しません。
