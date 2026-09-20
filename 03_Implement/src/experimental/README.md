@@ -372,8 +372,13 @@ merge shapeは分類を単独支配するfeatureではなく、他の構造証�
 34. `../../02_Architecture/contained-unified-review-workflow-v1.md` — safe orchestration by construction
 35. `worksheetFormatObservationIdentity.test.ts` — compared format featuresのderived-state identityとprivacy境界
 36. `../../02_Architecture/worksheet-format-observation-identity-v1.md` — Perception / low-level review間のidentity binding
-37. `test/fixtures/README.md` — 外部生成fixtureのprovenanceとSHA-256
-38. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
+37. `worksheetReviewRouteEvaluation.test.ts` — inspect/routineの非対称error・coverage・Brier・projection separability
+38. `worksheetReviewRouteLabelCorpus.test.ts` — provider-blinded independent label corpus
+39. `worksheetReviewRouteAnnotationPacket.test.ts` — labeler向けblinded annotation packetとstale response防止
+40. `worksheetReviewRouteAdjudicationPacket.test.ts` — 匿名化annotationを使うblinded adjudicationとfinal label確定
+41. `../../02_Architecture/worksheet-review-route-adjudication-packet-v1.md` — adjudicator visibility / digest / self-review禁止
+42. `test/fixtures/README.md` — 外部生成fixtureのprovenanceとSHA-256
+43. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
 
 ## 13. 安全に変更するためのチェックリスト
 
@@ -583,3 +588,23 @@ identityはsource file hashでもexact snapshot hashでもなく、current sourc
 詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`external-xlsx-fill-telemetry.md`、`external-fill-impact-family.md`、`../../02_Architecture/deterministic-review-evidence-overlay-v1.md`、`../../02_Architecture/unified-human-review-view-model-v1.md`、`../../02_Architecture/executable-proposal-deterministic-review-workflow-v1.md`、`../../02_Architecture/contained-unified-review-workflow-v1.md`、`../../02_Architecture/worksheet-format-observation-identity-v1.md`、`test/fixtures/README.md`、issue-0128〜0163 を参照してください。
 
 十分な外部生成fixtureと安全境界が揃うまでは、warningやreview signalを自動accept / reject条件へ昇格させず、production接続可否も別ADR/Issueで判断します。
+
+
+### Review-route evaluation data lane
+
+issue-0167〜0170では、live providerやproduction routingを変更せず、review-route Judgmentを独立に評価できるground-truth作成レーンを整備しています。
+
+順序:
+
+1. issue-0167: provider-neutral evaluation metrics
+2. issue-0168: provider-blinded label corpus
+3. issue-0169: labeler向けblinded annotation packet
+4. issue-0170: adjudicator向けblinded adjudication packet
+
+issue-0170では、2件以上の独立annotationがある未adjudicated caseだけを対象にし、adjudicatorへはevidenceと匿名化したroute/rationaleだけを提示します。annotator identity / projectionState / provider/model/confidenceは見せません。
+
+packet digestはevidenceとannotation集合の双方へbindingされるため、annotation後のevidence変更・annotation変更・追加/削除はstale responseとしてrejectされます。
+
+adjudicator自身が元annotatorだったcaseもapply時にrejectします。多数決やunanimous labelの自動確定は行わず、final routeは明示的human adjudicationとしてのみcorpusへ追加します。
+
+このレーンのinspect / routineはいずれもhuman reviewを要求し、apply authorityやautomatic decisionを持ちません。
