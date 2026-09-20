@@ -93,6 +93,11 @@ function assertWorksheetReviewRouteEvaluationState(
     value,
     'worksheet review-route evaluation state',
   );
+  assertExactKeys(
+    state,
+    STATE_KEYS,
+    'evaluation state',
+  );
 
   if (
     !['matched', 'ambiguous', 'novel'].includes(
