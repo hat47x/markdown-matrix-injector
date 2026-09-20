@@ -380,8 +380,9 @@ function assertProjectionState(
     !['matched', 'ambiguous', 'novel'].includes(
       String(state.classification),
     )
+    || typeof state.candidateCount !== 'number'
     || !Number.isInteger(state.candidateCount)
-    || (state.candidateCount as number) < 0
+    || state.candidateCount < 0
     || typeof state.hasWinner !== 'boolean'
     || !isProbability(state.noveltyScore)
   ) {
@@ -392,7 +393,7 @@ function assertProjectionState(
 
   if (
     state.hasWinner === true
-    && (state.candidateCount as number) < 1
+    && state.candidateCount < 1
   ) {
     throw new Error(
       'Worksheet review-route projection cannot have a winner without candidates.',
