@@ -86,12 +86,7 @@ export function createJevWorksheetReviewRouteProvider(
         return projectWorksheetReviewRouteState(observation);
       },
       describeChoice(choice) {
-        switch (choice) {
-          case 'inspect':
-            return 'Use the higher-attention human-review route. This does not mean reject.';
-          case 'routine':
-            return 'Use the standard human-review route. This does not mean accept, approve, or authorize apply.';
-        }
+        return describeWorksheetReviewRouteChoice(choice);
       },
     };
 
@@ -99,6 +94,17 @@ export function createJevWorksheetReviewRouteProvider(
     config,
     transport,
   );
+}
+
+export function describeWorksheetReviewRouteChoice(
+  choice: WorksheetReviewRouteChoice,
+): string {
+  switch (choice) {
+    case 'inspect':
+      return 'Use the higher-attention human-review route. This does not mean reject.';
+    case 'routine':
+      return 'Use the standard human-review route. This does not mean accept, approve, or authorize apply.';
+  }
 }
 
 export function projectWorksheetReviewRouteState(
