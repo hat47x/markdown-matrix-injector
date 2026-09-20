@@ -85,7 +85,7 @@ seedの目的:
 - [x] projection stateはoptionalでissue-0165 state shapeだけを許可。
 - [x] annotation route/rationale/referenceを検証。
 - [x] annotator ref重複を拒否。
-- [x] adjudicationには少なくとも1 annotationを要求。
+- [x] adjudicationには2件以上のindependent annotationを要求（issue-0170で強化）。
 - [x] adjudication済みcaseだけをevaluation labelとして抽出。
 - [x] projection evaluation抽出時はprojection state必須。
 - [x] provider choice/probability/confidence/model fieldsをschemaへ持ち込まない。
@@ -101,7 +101,7 @@ seedの目的:
 - unknown provider field rejection。
 - blinding false rejection。
 - duplicate case/annotator rejection。
-- adjudication without annotation rejection。
+- adjudication with fewer than two independent annotations rejection。
 - invalid route/rationale rejection。
 - projection state validation。
 - adjudicated label extraction。
@@ -140,3 +140,12 @@ seedの目的:
 - live provider / auto label / production routingは追加していない。
 - repository dependency treeは現環境に無いためrepository全test suite成功は主張しない。
 - GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
+
+
+## Post-0170 strengthening
+
+issue-0170でfinal evaluation labelのground-truth品質条件を強化した。
+
+- adjudication済みcaseは**2件以上の異なるannotatorによるannotation**を必須とする。
+- adjudicatorRefはそのcaseのannotatorRef群と異なることを必須とする。
+- このinvariantは `assertWorksheetReviewRouteLabelCorpus` 自体で強制するため、弱いadjudicationはissue-0167のlabel extractionへ到達しない。
