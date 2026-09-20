@@ -39,12 +39,20 @@ function corpus(): WorksheetReviewRouteLabelCorpusV1 {
         hasWinner: false,
         noveltyScore: 0.2,
       },
-      annotations: [{
-        annotatorRef: 'annotator-a',
-        route: 'inspect',
-        rationaleCodes: ['AMBIGUOUS_FORMAT'],
-        annotationReference: 'annotation:a',
-      }],
+      annotations: [
+        {
+          annotatorRef: 'annotator-a',
+          route: 'inspect',
+          rationaleCodes: ['AMBIGUOUS_FORMAT'],
+          annotationReference: 'annotation:a',
+        },
+        {
+          annotatorRef: 'annotator-b',
+          route: 'inspect',
+          rationaleCodes: ['AMBIGUOUS_FORMAT'],
+          annotationReference: 'annotation:b',
+        },
+      ],
       adjudication: {
         adjudicatorRef: 'adjudicator-a',
         route: 'inspect',
@@ -139,13 +147,24 @@ test('rejects duplicate cases and duplicate annotator refs', () => {
   );
 });
 
-test('rejects adjudication without an independent annotation', () => {
-  const value = structuredClone(corpus());
-  value.cases[0]!.annotations = [];
+test('requires two independent annotations and an independent adjudicator', () => {
+  const tooFew = structuredClone(corpus());
+  tooFew.cases[0]!.annotations = [
+    tooFew.cases[0]!.annotations[0]!,
+  ];
 
   assert.throws(
-    () => assertWorksheetReviewRouteLabelCorpus(value),
-    /adjudication requires at least one annotation/,
+    () => assertWorksheetReviewRouteLabelCorpus(tooFew),
+    /at least two independent annotations/,
+  );
+
+  const samePerson = structuredClone(corpus());
+  samePerson.cases[0]!.adjudication!.adjudicatorRef =
+    'annotator-a';
+
+  assert.throws(
+    () => assertWorksheetReviewRouteLabelCorpus(samePerson),
+    /adjudicator must be independent/,
   );
 });
 
