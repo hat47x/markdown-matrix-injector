@@ -607,6 +607,7 @@ issue-0167〜0170では、live providerやproduction routingを変更せず、re
 7. issue-0173: resume-safe blinded annotation work allocation
 8. issue-0174: readiness-gated provider-neutral evaluation runner + Jev parity adapter
 9. issue-0175: resume-safe blinded adjudication work allocation
+10. issue-0176: predeclared evaluation plan manifest
 
 issue-0170では、2件以上の独立annotationがある未adjudicated caseだけを対象にし、adjudicatorへはevidenceと匿名化したroute/rationaleだけを提示します。annotator identity / projectionState / provider/model/confidenceは見せません。
 
@@ -661,3 +662,12 @@ issue-0174では、0171 readinessをprovider実行より前に必ず評価し、
 readyな場合だけ0172 evaluation packetの各caseを、classification / candidateCount / hasWinner / noveltyScoreだけを持つevaluation専用Observationへ変換し、issue-0161のprovider runnerへ渡します。expected routeやevidenceはprovider pathへ入りません。
 
 Jev評価ではproduction Observationへ合わせるための偽sheet名/candidate IDを作らず、4項目stateを直接投影する `createJevWorksheetReviewRouteEvaluationProvider` を使います。production providerと評価providerのJev request全体が同じになるparity testを置き、評価だけ別criteriaになることを防ぎます。
+
+
+### Predeclared evaluation plan
+
+issue-0176では、provider evaluation条件を実行前に固定する `WorksheetReviewRouteEvaluationPlanV1` を追加します。
+
+planは0172 packetDigest、0171 readiness policy、canonical provider descriptorをSHA-256のplanDigestへbindingします。runtime providerやprojection stateがplanと異なる場合はprovider call前にfail-closedし、readinessが失われた場合はprovider call 0でblockedになります。
+
+expected route自体はplanDigestに入れません。provider-visible stateが同じでreadinessを維持するlabel correctionならprovider inferenceを再実行せず、label versionは0172 reportのgroundTruthDigestで別管理します。
