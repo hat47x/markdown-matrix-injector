@@ -309,3 +309,39 @@ provider executionはissue-0161/0162/0165/0166側の責務。
 GitHub Actionsの既知runner/resource不足は完了条件にしない。
 
 repository dependency treeが無い場合はrepository全test passを主張せず、strict compile / focused harness / source-level contract inspectionを記録する。
+
+
+## Validation evidence
+
+### 2026-09-20 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- repository checkout/authはcontainer側に無く、private GitHubへshellから直接cloneできないため、公開interface互換のfocused TypeScript harnessで
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  のcompileを実行し成功。
+- focused runtime harness: **10 checks / 10 pass / 0 fail**。
+  - packetDigestがSHA-256形式。
+  - per-case caseDigestがSHA-256形式。
+  - corpus case order変更でpacketDigest不変。
+  - projection state変更でpacketDigest変化。
+  - final route変更だけではpacketDigest不変。
+  - final route変更でgroundTruthDigest変化。
+  - caseDigest mismatchをreject。
+  - missing case coverageをreject。
+  - mixed provider descriptorをreject。
+  - wrong canonical questionをreject。
+- repository test sourceではさらに:
+  - provider packetがexpectedRoute / evidence / annotations / adjudication / label provenanceを保持しない。
+  - zero adjudicated projection caseをreject。
+  - response unknown field / protocol mismatchをreject。
+  - projection state変更後のstale packet responseをreject。
+  - missing / extra / duplicate outcome caseをreject。
+  - exact issue-0167 metricsを再利用。
+  - projection separabilityをreportへ保持。
+  - corpus / response immutability。
+- provider packetとground truthを別digestへbindingし、label correctionだけでprovider inference input identityを変えないことを固定。
+- per-case caseDigestはaccidental outcome misbinding防止用のworkflow integrity bindingであり、provider署名や悪意あるresponseに対する暗号学的証明とは扱わない。
+- live Jev call / model selection / threshold / production routing / apply authorityは追加していない。
+- repository dependency treeは現環境に無いためrepository全test suite成功は主張しない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
