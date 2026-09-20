@@ -33,6 +33,7 @@ packet case:
 
     {
       id,
+      caseDigest,
       state: {
         classification,
         candidateCount,
@@ -101,7 +102,27 @@ adjudicator identity / rationale / provenance全体のidentityではない。
 
 詳細監査はlabel corpusを参照する。
 
-## 7. Response completeness
+## 7. Per-case state identity
+
+packet-wide digestとは別に、各caseは `caseDigest` を持つ。
+
+representation:
+
+    worksheet-review-route-evaluation-case-v1
+
+digest input:
+- labeling protocol
+- canonical question id
+- case id
+- projection state
+
+response outcome recordにもcaseDigestを要求する。
+
+これにより外側のcaseIdだけでなく、provider-visible state identityまでjoin時に照合する。
+
+caseDigestはprovider署名ではなく、evaluation workflow内のaccidental misbinding防止である。
+
+## 8. Response completeness
 
 response case setはpacket case setと完全一致必須。
 
@@ -112,7 +133,7 @@ response case setはpacket case setと完全一致必須。
 
 silent partial evaluationを避ける。
 
-## 8. Provider consistency
+## 9. Provider consistency
 
 1 report = 1 provider descriptor。
 
@@ -125,13 +146,13 @@ provider key:
 
 異なるprovider/model resultを1 summaryへ混ぜない。
 
-## 9. Question identity
+## 10. Question identity
 
 signal outcomeはcanonical worksheet review-route question idを持つこと。
 
 non-decisionにはquestion payloadがないため適用しない。
 
-## 10. Evaluation reuse
+## 11. Evaluation reuse
 
 新metricsを作らない。
 
@@ -143,7 +164,7 @@ non-decisionにはquestion payloadがないため適用しない。
 
 issue-0167をmetric semanticsの正本とする。
 
-## 11. Immutability
+## 12. Immutability
 
 packet creation / response evaluationは:
 - corpus
@@ -154,7 +175,7 @@ packet creation / response evaluationは:
 
 reportは新しいobject。
 
-## 12. 非責務
+## 13. 非責務
 
 - provider call
 - Jev transport
