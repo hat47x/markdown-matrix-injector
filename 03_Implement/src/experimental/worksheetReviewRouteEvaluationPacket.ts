@@ -141,12 +141,6 @@ export function createWorksheetReviewRouteEvaluationPacket(
     }))
     .sort((left, right) => left.id.localeCompare(right.id));
 
-  const questionForPacket: WorksheetReviewRouteEvaluationQuestionV1 = {
-    id: WORKSHEET_REVIEW_ROUTE_QUESTION.id,
-    semantics: WORKSHEET_REVIEW_ROUTE_QUESTION.semantics,
-    choices: [...WORKSHEET_REVIEW_ROUTE_QUESTION.choices],
-  };
-
   const base = {
     schemaVersion:
       WORKSHEET_REVIEW_ROUTE_EVALUATION_PACKET_SCHEMA_VERSION,
@@ -155,7 +149,7 @@ export function createWorksheetReviewRouteEvaluationPacket(
     representation:
       WORKSHEET_REVIEW_ROUTE_EVALUATION_PACKET_REPRESENTATION,
     purpose: 'blinded-provider-evaluation' as const,
-    question: questionForPacket,
+    question,
     cases,
   };
 
