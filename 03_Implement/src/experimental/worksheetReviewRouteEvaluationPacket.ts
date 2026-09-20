@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import {
   assertCognitiveOutcome,
+  type CognitiveOutcome,
   type CognitiveProviderDescriptor,
 } from './cognitiveContract.js';
 import type {
@@ -220,7 +221,7 @@ export function assertWorksheetReviewRouteEvaluationResponse(
       );
     }
     ids.add(record.caseId);
-    assertCognitiveOutcome(record.outcome);
+    assertCognitiveOutcome(record.outcome as CognitiveOutcome);
   }
 }
 
