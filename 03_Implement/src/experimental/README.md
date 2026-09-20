@@ -605,6 +605,7 @@ issue-0167〜0170では、live providerやproduction routingを変更せず、re
 5. issue-0171: provider評価前のground-truth readiness report
 6. issue-0172: provider向けblinded projection packet + adjudicated label strict evaluation
 7. issue-0173: resume-safe blinded annotation work allocation
+8. issue-0174: readiness-gated provider-neutral evaluation runner + Jev parity adapter
 
 issue-0170では、2件以上の独立annotationがある未adjudicated caseだけを対象にし、adjudicatorへはevidenceと匿名化したroute/rationaleだけを提示します。annotator identity / projectionState / provider/model/confidenceは見せません。
 
@@ -637,3 +638,12 @@ issue-0173では、annotation作業を中断・再開しても同じannotatorへ
 独立annotation必要数は `WORKSHEET_REVIEW_ROUTE_REQUIRED_INDEPENDENT_ANNOTATIONS` をlabel corpus / annotation allocation / adjudicationで共有します。packet生成時のannotatorRefはfilterにのみ使い、packet本体には既存annotation・annotator identity・projectionState・provider情報を保持しません。
 
 response apply時にはcurrent corpusから同じannotatorRefでpacketを再生成し、digest不一致をstale responseとして拒否します。2件の独立annotationが揃ったcaseはannotation workから外れ、issue-0170のhuman adjudicationへ進みます。
+
+
+### Readiness-gated provider evaluation
+
+issue-0174では、0171 readinessをprovider実行より前に必ず評価し、not-readyならprovider call 0でblocked resultを返す `runWorksheetReviewRouteEvaluation` を追加します。
+
+readyな場合だけ0172 evaluation packetの各caseを、classification / candidateCount / hasWinner / noveltyScoreだけを持つevaluation専用Observationへ変換し、issue-0161のprovider runnerへ渡します。expected routeやevidenceはprovider pathへ入りません。
+
+Jev評価ではproduction Observationへ合わせるための偽sheet名/candidate IDを作らず、4項目stateを直接投影する `createJevWorksheetReviewRouteEvaluationProvider` を使います。production providerと評価providerのJev request全体が同じになるparity testを置き、評価だけ別criteriaになることを防ぎます。
