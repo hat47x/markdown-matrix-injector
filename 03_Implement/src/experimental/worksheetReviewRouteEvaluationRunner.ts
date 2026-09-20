@@ -29,8 +29,8 @@ import {
   type WorksheetReviewRouteEvaluationReadinessV1,
 } from './worksheetReviewRouteReadiness.js';
 
-export interface RunWorksheetReviewRouteEvaluationOptions
-  extends RunClosedChoiceJudgmentProviderOptions {}
+export type RunWorksheetReviewRouteEvaluationOptions =
+  RunClosedChoiceJudgmentProviderOptions;
 
 export type WorksheetReviewRouteEvaluationRunResultV1 =
   | {
@@ -67,7 +67,9 @@ export async function runWorksheetReviewRouteEvaluation(
 
   const packet =
     createWorksheetReviewRouteEvaluationPacket(corpus);
-  const outcomes = [];
+  const outcomes: Array<
+    WorksheetReviewRouteEvaluationResponseV1['outcomes'][number]
+  > = [];
 
   for (const entry of packet.cases) {
     const observation =
