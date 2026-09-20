@@ -364,23 +364,25 @@ merge shapeは分類を単独支配するfeatureではなく、他の構造証�
 26. `deterministicReviewEvidence.test.ts` — deterministic reasonをCognitive/Authorityと分離してreview surfaceへ合成
 27. `../../02_Architecture/deterministic-review-evidence-overlay-v1.md` — reason provenance / binding / non-authority境界
 28. `unifiedHumanReviewViewModel.test.ts` — Proposal / Authority / Cognitive / Deterministicを4領域へ分離
-29. `worksheetFormatFillReviewAnalysis.test.ts` — evaluation labelに依存しないfill review analysis
-30. `worksheetFormatProfileReviewAnalysis.test.ts` — approved Format Profileからbaseline snapshotなしでfill reviewを再構成
-31. `executableProposalDeterministicReviewWorkflow.test.ts` — Profile-backed analysisからUnifiedHumanReviewViewModelまでを単一workflowで合成
-32. `../../02_Architecture/executable-proposal-deterministic-review-workflow-v1.md` — orchestrationのbinding / fail-closed順序
-33. `containedUnifiedReviewWorkflow.test.ts` — stable read window内の同一snapshotをPerceptionとdeterministic analysisへ共有
-34. `../../02_Architecture/contained-unified-review-workflow-v1.md` — safe orchestration by construction
-35. `worksheetFormatObservationIdentity.test.ts` — compared format featuresのderived-state identityとprivacy境界
-36. `../../02_Architecture/worksheet-format-observation-identity-v1.md` — Perception / low-level review間のidentity binding
-37. `worksheetReviewRouteEvaluation.test.ts` — inspect/routineの非対称error・coverage・Brier・projection separability
-38. `worksheetReviewRouteLabelCorpus.test.ts` — provider-blinded independent label corpus
-39. `worksheetReviewRouteAnnotationPacket.test.ts` — labeler向けblinded annotation packetとstale response防止
-40. `worksheetReviewRouteAdjudicationPacket.test.ts` — 匿名化annotationを使うblinded adjudicationとfinal label確定
-41. `../../02_Architecture/worksheet-review-route-adjudication-packet-v1.md` — adjudicator visibility / digest / self-review禁止
-42. `worksheetReviewRouteEvaluationPacket.test.ts` — ground truthをproviderへ見せないprojection packetとstrict outcome join
-43. `../../02_Architecture/worksheet-review-route-evaluation-packet-v1.md` — provider-input digest / ground-truth digest分離とevaluation boundary
-44. `test/fixtures/README.md` — 外部生成fixtureのprovenanceとSHA-256
-45. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
+29. `unifiedHumanReviewPresentationPlan.test.ts` — 4領域の表示順と既定展開をoverall verdictなしで固定
+30. `../../02_Architecture/unified-human-review-presentation-plan-v1.md` — progressive disclosureとcross-domain非連動境界
+31. `worksheetFormatFillReviewAnalysis.test.ts` — evaluation labelに依存しないfill review analysis
+32. `worksheetFormatProfileReviewAnalysis.test.ts` — approved Format Profileからbaseline snapshotなしでfill reviewを再構成
+33. `executableProposalDeterministicReviewWorkflow.test.ts` — Profile-backed analysisからUnifiedHumanReviewViewModelまでを単一workflowで合成
+34. `../../02_Architecture/executable-proposal-deterministic-review-workflow-v1.md` — orchestrationのbinding / fail-closed順序
+35. `containedUnifiedReviewWorkflow.test.ts` — stable read window内の同一snapshotをPerceptionとdeterministic analysisへ共有
+36. `../../02_Architecture/contained-unified-review-workflow-v1.md` — safe orchestration by construction
+37. `worksheetFormatObservationIdentity.test.ts` — compared format featuresのderived-state identityとprivacy境界
+38. `../../02_Architecture/worksheet-format-observation-identity-v1.md` — Perception / low-level review間のidentity binding
+39. `worksheetReviewRouteEvaluation.test.ts` — inspect/routineの非対称error・coverage・Brier・projection separability
+40. `worksheetReviewRouteLabelCorpus.test.ts` — provider-blinded independent label corpus
+41. `worksheetReviewRouteAnnotationPacket.test.ts` — labeler向けblinded annotation packetとstale response防止
+42. `worksheetReviewRouteAdjudicationPacket.test.ts` — 匿名化annotationを使うblinded adjudicationとfinal label確定
+43. `../../02_Architecture/worksheet-review-route-adjudication-packet-v1.md` — adjudicator visibility / digest / self-review禁止
+44. `worksheetReviewRouteEvaluationPacket.test.ts` — ground truthをproviderへ見せないprojection packetとstrict outcome join
+45. `../../02_Architecture/worksheet-review-route-evaluation-packet-v1.md` — provider-input digest / ground-truth digest分離とevaluation boundary
+46. `test/fixtures/README.md` — 外部生成fixtureのprovenanceとSHA-256
+47. `flyInspiredFormatMatcher.test.ts` — matcher一般規則
 
 ## 13. 安全に変更するためのチェックリスト
 
@@ -585,9 +587,28 @@ identityはsource file hashでもexact snapshot hashでもなく、current sourc
 - issue-0160の最終UnifiedHumanReviewViewModelにはidentityを既定表示しない
 - hashを匿名化・機密化とは扱わず、external provider opt-in原則は維持
 
-次に進む場合もproduction wiringへ直結せず、human-review UIへ接続する前のpresentation ordering / progressive disclosureを別Issueで評価します。auto accept / auto reject / apply authorityは引き続き導入しません。
+issue-0178では、`UnifiedHumanReviewViewModelV1` を変更せず、その上にUI-neutralな `UnifiedHumanReviewPresentationPlanV1` を追加しました。
 
-詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`external-xlsx-fill-telemetry.md`、`external-fill-impact-family.md`、`../../02_Architecture/deterministic-review-evidence-overlay-v1.md`、`../../02_Architecture/unified-human-review-view-model-v1.md`、`../../02_Architecture/executable-proposal-deterministic-review-workflow-v1.md`、`../../02_Architecture/contained-unified-review-workflow-v1.md`、`../../02_Architecture/worksheet-format-observation-identity-v1.md`、`test/fixtures/README.md`、issue-0128〜0163 を参照してください。
+固定した表示順:
+
+1. Authority
+2. Cognitive
+3. Deterministic
+4. Proposal Identity
+
+既定展開は各domain自身の事実だけから決めます。
+
+- Authority: blockedのみexpanded
+- Cognitive: ambiguous / novel、またはJudgment proposal / non-decisionでexpanded
+- Deterministic: review-relevant reasonがある場合だけexpanded
+- diagnostic-only reasonだけでは自動展開しない
+- Proposal Identityは常にcollapsed
+
+section間の連動、overall verdict、combined score、recommendation、auto accept / reject、apply authorityは導入しません。
+
+次に進む場合もproduction wiringへ直結せず、実UIへ接続する前にラベル文言・アクセシビリティ・キーボード操作・details disclosure semanticsを別UI contractとして評価します。
+
+詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`external-xlsx-fill-telemetry.md`、`external-fill-impact-family.md`、`../../02_Architecture/deterministic-review-evidence-overlay-v1.md`、`../../02_Architecture/unified-human-review-view-model-v1.md`、`../../02_Architecture/executable-proposal-deterministic-review-workflow-v1.md`、`../../02_Architecture/contained-unified-review-workflow-v1.md`、`../../02_Architecture/worksheet-format-observation-identity-v1.md`、`test/fixtures/README.md`、issue-0128〜0178 を参照してください。
 
 十分な外部生成fixtureと安全境界が揃うまでは、warningやreview signalを自動accept / reject条件へ昇格させず、production接続可否も別ADR/Issueで判断します。
 
