@@ -156,6 +156,24 @@ function localProvider(
   };
 }
 
+test('requires the readiness policy to explicitly require projection completeness', async () => {
+  const seen: unknown[] = [];
+
+  await assert.rejects(
+    () => runWorksheetReviewRouteEvaluation(
+      readyCorpus(),
+      {
+        ...policy,
+        requireProjectionForAllAdjudicated: false,
+      },
+      localProvider(seen),
+    ),
+    /requireProjectionForAllAdjudicated=true/,
+  );
+
+  assert.equal(seen.length, 0);
+});
+
 test('blocks before provider execution when readiness policy is not satisfied', async () => {
   const source = readyCorpus();
   source.cases = source.cases.map((entry) => ({
