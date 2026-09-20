@@ -12,6 +12,9 @@ export const WORKSHEET_REVIEW_ROUTE_LABEL_CORPUS_SCHEMA_VERSION =
 export const WORKSHEET_REVIEW_ROUTE_LABELING_PROTOCOL_VERSION =
   'mmi-worksheet-review-route-labeling-v1' as const;
 
+export const WORKSHEET_REVIEW_ROUTE_REQUIRED_INDEPENDENT_ANNOTATIONS =
+  2 as const;
+
 export type WorksheetReviewRouteEvidenceSourceClass =
   | 'synthetic'
   | 'external-xlsx'
@@ -271,9 +274,12 @@ function assertCase(
   }
 
   if (entry.adjudication !== undefined) {
-    if (entry.annotations.length < 2) {
+    if (
+      entry.annotations.length <
+        WORKSHEET_REVIEW_ROUTE_REQUIRED_INDEPENDENT_ANNOTATIONS
+    ) {
       throw new Error(
-        `Worksheet review-route adjudication requires at least two independent annotations: ${entry.id}.`,
+        `Worksheet review-route adjudication requires at least ${WORKSHEET_REVIEW_ROUTE_REQUIRED_INDEPENDENT_ANNOTATIONS} independent annotations: ${entry.id}.`,
       );
     }
     assertAdjudication(entry.adjudication);

@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {
   WORKSHEET_REVIEW_ROUTE_LABEL_CORPUS_SCHEMA_VERSION,
   WORKSHEET_REVIEW_ROUTE_LABELING_PROTOCOL_VERSION,
+  WORKSHEET_REVIEW_ROUTE_REQUIRED_INDEPENDENT_ANNOTATIONS,
   getAdjudicatedWorksheetReviewRouteLabels,
   type WorksheetReviewRouteLabelCorpusV1,
 } from '../src/experimental/worksheetReviewRouteLabelCorpus.js';
@@ -144,6 +145,10 @@ test('packet exposes evidence and anonymized annotations only for eligible pendi
   assert.equal(
     packet.minimumAnnotationsPerCase,
     WORKSHEET_REVIEW_ROUTE_MIN_ANNOTATIONS_FOR_ADJUDICATION,
+  );
+  assert.equal(
+    WORKSHEET_REVIEW_ROUTE_MIN_ANNOTATIONS_FOR_ADJUDICATION,
+    WORKSHEET_REVIEW_ROUTE_REQUIRED_INDEPENDENT_ANNOTATIONS,
   );
   assert.deepEqual(
     packet.cases.map((entry) => entry.id),

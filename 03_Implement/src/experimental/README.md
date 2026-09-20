@@ -604,6 +604,7 @@ issue-0167〜0170では、live providerやproduction routingを変更せず、re
 4. issue-0170: adjudicator向けblinded adjudication packet
 5. issue-0171: provider評価前のground-truth readiness report
 6. issue-0172: provider向けblinded projection packet + adjudicated label strict evaluation
+7. issue-0173: resume-safe blinded annotation work allocation
 
 issue-0170では、2件以上の独立annotationがある未adjudicated caseだけを対象にし、adjudicatorへはevidenceと匿名化したroute/rationaleだけを提示します。annotator identity / projectionState / provider/model/confidenceは見せません。
 
@@ -627,3 +628,12 @@ packetDigestはprovider-visible state集合へbindingし、final routeは意図�
 この分離により、projection stateが変わらずfinal labelだけ訂正された場合はprovider inference resultを再利用しつつ、どのground-truth versionで評価したかをreportへ残せます。
 
 responseはpacket case集合との完全一致を要求し、missing / extra / duplicate case、stale packet、mixed provider descriptor、wrong review-route questionをfail-closedします。metric計算はissue-0167の既存evaluatorを再利用し、新しいaccuracy定義は導入しません。
+
+
+### Resume-safe annotation work allocation
+
+issue-0173では、annotation作業を中断・再開しても同じannotatorへ処理済みcaseを再提示せず、必要な独立annotation数を満たしたcaseへ3件目以降を過剰配布しない `WorksheetReviewRouteAnnotationWorkPacketV1` を追加します。
+
+独立annotation必要数は `WORKSHEET_REVIEW_ROUTE_REQUIRED_INDEPENDENT_ANNOTATIONS` をlabel corpus / annotation allocation / adjudicationで共有します。packet生成時のannotatorRefはfilterにのみ使い、packet本体には既存annotation・annotator identity・projectionState・provider情報を保持しません。
+
+response apply時にはcurrent corpusから同じannotatorRefでpacketを再生成し、digest不一致をstale responseとして拒否します。2件の独立annotationが揃ったcaseはannotation workから外れ、issue-0170のhuman adjudicationへ進みます。
