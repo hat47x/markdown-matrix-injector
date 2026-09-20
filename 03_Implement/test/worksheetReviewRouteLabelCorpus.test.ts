@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import {
   WORKSHEET_REVIEW_ROUTE_LABEL_CORPUS_SCHEMA_VERSION,
   WORKSHEET_REVIEW_ROUTE_LABELING_PROTOCOL_VERSION,
@@ -166,12 +166,10 @@ test('requires projection state before extracting projection evaluation cases', 
 });
 
 test('validates the unlabeled seed corpus and confirms that it contains no final route labels', () => {
-  const fixturePath = path.join(
-    process.cwd(),
-    'test',
-    'fixtures',
-    'worksheet-review-route-label-corpus.seed.json',
-  );
+  const fixturePath = fileURLToPath(new URL(
+    './fixtures/worksheet-review-route-label-corpus.seed.json',
+    import.meta.url,
+  ));
   const parsed: unknown = JSON.parse(
     fs.readFileSync(fixturePath, 'utf8'),
   );
