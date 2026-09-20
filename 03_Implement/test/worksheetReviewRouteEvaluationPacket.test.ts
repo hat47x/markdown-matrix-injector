@@ -231,6 +231,19 @@ function response(
   } as const;
 }
 
+test('rejects packet creation when no adjudicated projection cases exist', () => {
+  const source = corpus();
+  source.cases = source.cases.map((entry) => ({
+    ...entry,
+    adjudication: undefined,
+  }));
+
+  assert.throws(
+    () => createWorksheetReviewRouteEvaluationPacket(source),
+    /requires at least one adjudicated case/,
+  );
+});
+
 test('provider packet exposes canonical question and projection state but no ground truth or label evidence', () => {
   const packet =
     createWorksheetReviewRouteEvaluationPacket(corpus());
@@ -388,6 +401,26 @@ test('strictly joins adjudicated labels to complete provider outcomes and reuses
   assert.equal(
     result.projectionSeparability.exactStateOracleMaxAccuracy,
     1,
+  );
+});
+
+test('response validation rejects unknown fields and protocol mismatch', () => {
+  const valid = response();
+
+  assert.throws(
+    () => assertWorksheetReviewRouteEvaluationResponse({
+      ...valid,
+      providerId: 'not-allowed',
+    }),
+    /Unknown worksheet review-route evaluation response field/,
+  );
+
+  assert.throws(
+    () => assertWorksheetReviewRouteEvaluationResponse({
+      ...valid,
+      protocolVersion: 'other-protocol',
+    }),
+    /Unsupported worksheet review-route evaluation protocol version/,
   );
 });
 
