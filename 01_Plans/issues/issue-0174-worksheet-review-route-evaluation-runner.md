@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Evaluation execution / Provider parity
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: readiness gate, provider-neutral packet execution, evaluation Observation, Jev production/evaluation parity
 - Expected verification level: unit + focused integration
@@ -115,25 +115,25 @@ evaluation Observationをproduction Observationへ偽装しない。
 
 ## Acceptance criteria
 
-- [ ] readiness policyをrunner引数で必須化。
-- [ ] readiness not-ready時はprovider call 0。
-- [ ] ready時のみevaluation packetを生成して実行。
-- [ ] evaluation Observation schema/kindを固定。
-- [ ] Observation payloadを4項目exact stateへ限定。
-- [ ] caseDigestをObservation provenanceへbinding。
-- [ ] expectedRoute/evidence/annotation/adjudicationをprovider Observationへ含めない。
-- [ ] packet caseDigestとoutcomeを自動response化。
-- [ ] issue-0172 strict evaluatorからreport生成。
-- [ ] local providerで完走。
-- [ ] external providerはexplicit opt-in必須。
-- [ ] provider exceptionでpartial reportを返さない。
-- [ ] corpus/readiness policyをmutateしない。
-- [ ] production Choice criteriaをhelperとして共有。
-- [ ] Jev evaluation providerをgeneric Jev adapter上に実装。
-- [ ] Jev production/evaluation request parityを固定。
-- [ ] fake sheetName/candidate IDsを作らない。
-- [ ] live network/API key/retryを追加しない。
-- [ ] production routing/apply authorityを変更しない。
+- [x] readiness policyをrunner引数で必須化。
+- [x] readiness not-ready時はprovider call 0。
+- [x] ready時のみevaluation packetを生成して実行。
+- [x] evaluation Observation schema/kindを固定。
+- [x] Observation payloadを4項目exact stateへ限定。
+- [x] caseDigestをObservation provenanceへbinding。
+- [x] expectedRoute/evidence/annotation/adjudicationをprovider Observationへ含めない。
+- [x] packet caseDigestとoutcomeを自動response化。
+- [x] issue-0172 strict evaluatorからreport生成。
+- [x] local providerで完走。
+- [x] external providerはexplicit opt-in必須。
+- [x] provider exceptionでpartial reportを返さない。
+- [x] corpus/readiness policyをmutateしない。
+- [x] production Choice criteriaをhelperとして共有。
+- [x] Jev evaluation providerをgeneric Jev adapter上に実装。
+- [x] Jev production/evaluation request parityを固定。
+- [x] fake sheetName/candidate IDsを作らない。
+- [x] live network/API key/retryを追加しない。
+- [x] production routing/apply authorityを変更しない。
 
 ## Validation plan
 
@@ -148,3 +148,32 @@ evaluation Observationをproduction Observationへ偽装しない。
 - exact four-field Jev state。
 - no production identifier leakage。
 - strict compile。
+
+
+## Validation evidence
+
+### 2026-09-21 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- GitHub branch上の0174実装4module:
+  - `worksheetReviewRouteEvaluationObservation.ts`
+  - `worksheetReviewRouteEvaluationRunner.ts`
+  - `jevWorksheetReviewRouteEvaluationProvider.ts`
+  - Choice criteria helperを共有化した `jevWorksheetReviewRouteProvider.ts`
+  を、公開interface互換の最小stub依存で
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime: **6 groups pass / 0 fail**。
+  1. `requireProjectionForAllAdjudicated=true` を明示しないpolicyをprovider call前にreject。
+  2. readiness blocked corpusではprovider call 0。
+  3. local providerでcompleted result / issue-0172 style reportを生成し、provider ObservationにexpectedRoute / evidence / annotations / adjudication / annotatorRef / adjudicatorRef / evidence factsが入らないことを確認。
+  4. `external-opt-in` providerはallowExternalなしでfirst decision前にrejectし、明示opt-in時のみ実行。
+  5. production Jev providerとevaluation Jev providerへequivalent stateを与え、transport request全体がdeep-equal。evaluation requestにproduction sheetName / candidate IDを含めない。
+  6. evaluation stateにextra fieldを入れた場合、および `candidateCount=0 && hasWinner=true` をfail-closed。
+- provider-neutral runnerはpacket case id / caseDigestとoutcomeを機械的にbindingし、manual joinを追加していない。
+- fake sheetName / synthetic candidate IDs / synthetic winnerPrototypeIdを生成していない。
+- production review-route Choice criteriaはhelper化しただけで意味変更なし。
+- live Jev network transport / credentials / retry / concurrency / model selection / threshold tuning / production routing / apply authorityは追加していない。
+- repository全dependency tree成功は現環境では主張しない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
