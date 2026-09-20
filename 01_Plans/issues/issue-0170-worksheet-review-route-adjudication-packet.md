@@ -62,7 +62,7 @@ adjudication対象は:
 
 `WORKSHEET_REVIEW_ROUTE_MIN_ANNOTATIONS_FOR_ADJUDICATION = 2` を固定する。
 
-corpus schema自体は1 annotationでもadjudicationを表現できるが、本workflowはより強い運用境界として2件以上を要求する。
+並行レーン統合後はworkflowだけでなくcorpus validator自体も2件以上のindependent annotationを必須とし、adjudicatorが元annotatorではないことを強制する。
 
 ## Annotation anonymity
 
@@ -258,3 +258,23 @@ repository dependency treeが無い場合はrepository全test passを主張せ�
 - majority vote / unanimous auto-finalization / live provider / production routingは追加していない。
 - repository dependency treeは現環境に無いためrepository全test suite成功は主張しない。
 - GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
+
+
+## Reconciliation note
+
+2026-09-20、並行レーンで同一adjudication責務の重複実装を検出したため、`worksheetReviewRouteAdjudicationPacket.ts` を正本として一本化した。
+
+統合時に追加した強化:
+- `assertWorksheetReviewRouteLabelCorpus` 自体でadjudicationに2件以上のindependent annotationを要求。
+- adjudicatorRefが対象caseのannotatorRef群と一致するcorpusをreject。
+- issue-0168の閉じた仕様文書もこのinvariantへ整合。
+
+重複していた別module / test / issue / architectureは削除し、branchを分岐させず同一作業branch上で解消した。
+
+### Validation
+
+- canonical packet実装のsource contractを再照合。
+- `minimumAnnotationsPerCase=2` がpacket fieldとdigest inputの双方にbindingされることを確認。
+- case/evidence/annotation/rationaleのcanonical sort、stale response、self-review拒否、immutable applyのtest sourceを確認。
+- reconciliation時のinterface-compatible strict TypeScript compile / focused runtimeではcanonical digest・immutable apply・stale detection・adjudicator independenceを確認。
+- repository全dependency tree成功は現環境では主張しない。
