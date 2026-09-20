@@ -602,7 +602,7 @@ issue-0167〜0170では、live providerやproduction routingを変更せず、re
 2. issue-0168: provider-blinded label corpus
 3. issue-0169: labeler向けblinded annotation packet
 4. issue-0170: adjudicator向けblinded adjudication packet
-5. issue-0171: provider向けblinded projection packet + adjudicated label strict evaluation
+5. issue-0172: provider向けblinded projection packet + adjudicated label strict evaluation
 
 issue-0170では、2件以上の独立annotationがある未adjudicated caseだけを対象にし、adjudicatorへはevidenceと匿名化したroute/rationaleだけを提示します。annotator identity / projectionState / provider/model/confidenceは見せません。
 
@@ -613,7 +613,7 @@ adjudicator自身が元annotatorだったcaseもapply時にrejectします。多
 このレーンのinspect / routineはいずれもhuman reviewを要求し、apply authorityやautomatic decisionを持ちません。
 
 
-issue-0171では、provider評価時のground-truth leakageとmanual join errorを避けるため、adjudicated corpusからprovider-visible projection stateだけを抽出する `WorksheetReviewRouteEvaluationPacketV1` を追加します。
+issue-0172では、provider評価時のground-truth leakageとmanual join errorを避けるため、adjudicated corpusからprovider-visible projection stateだけを抽出する `WorksheetReviewRouteEvaluationPacketV1` を追加します。
 
 provider packetに含めるのはcase id / canonical inspect-routine question / classification / candidateCount / hasWinner / noveltyScoreだけです。expected route、evidence、annotations、adjudication、provider/model identity、probability/confidenceは含めません。
 
