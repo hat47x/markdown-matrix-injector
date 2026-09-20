@@ -194,6 +194,12 @@ function response(
   const packet =
     createWorksheetReviewRouteEvaluationPacket(source);
 
+  const digestById = new Map(
+    packet.cases.map(
+      (entry) => [entry.id, entry.caseDigest] as const,
+    ),
+  );
+
   return {
     schemaVersion:
       WORKSHEET_REVIEW_ROUTE_EVALUATION_RESPONSE_SCHEMA_VERSION,
@@ -203,6 +209,7 @@ function response(
     outcomes: [
       {
         caseId: 'inspect-case',
+        caseDigest: digestById.get('inspect-case')!,
         outcome: decision(
           'inspect-case',
           'inspect',
@@ -212,6 +219,7 @@ function response(
       },
       {
         caseId: 'routine-case',
+        caseDigest: digestById.get('routine-case')!,
         outcome: decision(
           'routine-case',
           'inspect',
@@ -407,6 +415,7 @@ test('rejects missing, extra, and duplicate outcome records', () => {
           ...valid.outcomes,
           {
             caseId: 'extra-case',
+            caseDigest: `sha256:${'0'.repeat(64)}`,
             outcome: decision(
               'extra-case',
               'inspect',
@@ -450,6 +459,28 @@ test('rejects stale responses when provider-visible projection state changes', (
   );
 });
 
+test('rejects outcome records bound to the wrong provider-visible case state', () => {
+  const source = corpus();
+  const valid = response(source);
+
+  assert.throws(
+    () => evaluateWorksheetReviewRouteEvaluationResponse(
+      source,
+      {
+        ...valid,
+        outcomes: [
+          {
+            ...valid.outcomes[0],
+            caseDigest: valid.outcomes[1]!.caseDigest,
+          },
+          valid.outcomes[1],
+        ],
+      },
+    ),
+    /case digest does not match packet state/,
+  );
+});
+
 test('rejects mixed provider descriptors and wrong question ids', () => {
   const source = corpus();
   const valid = response(source);
@@ -463,6 +494,7 @@ test('rejects mixed provider descriptors and wrong question ids', () => {
           valid.outcomes[0],
           {
             caseId: 'routine-case',
+            caseDigest: valid.outcomes[1]!.caseDigest,
             outcome: decision(
               'routine-case',
               'routine',
@@ -492,6 +524,7 @@ test('rejects mixed provider descriptors and wrong question ids', () => {
         outcomes: [
           {
             caseId: 'inspect-case',
+            caseDigest: valid.outcomes[0]!.caseDigest,
             outcome: decision(
               'inspect-case',
               'inspect',
