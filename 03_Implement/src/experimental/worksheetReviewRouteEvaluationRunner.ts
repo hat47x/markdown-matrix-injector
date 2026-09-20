@@ -52,6 +52,15 @@ export async function runWorksheetReviewRouteEvaluation(
     ClosedChoiceJudgmentProvider<WorksheetReviewRouteChoice>,
   options: RunWorksheetReviewRouteEvaluationOptions = {},
 ): Promise<WorksheetReviewRouteEvaluationRunResultV1> {
+  if (
+    readinessPolicy.requireProjectionForAllAdjudicated
+      !== true
+  ) {
+    throw new Error(
+      'Worksheet review-route evaluation runner requires requireProjectionForAllAdjudicated=true.',
+    );
+  }
+
   const readiness =
     evaluateWorksheetReviewRouteReadiness(
       corpus,
