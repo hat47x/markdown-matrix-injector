@@ -1,0 +1,158 @@
+{
+  "schemaVersion": "mmi-worksheet-review-route-label-corpus-v1",
+  "protocolVersion": "mmi-worksheet-review-route-labeling-v1",
+  "purpose": "independent-ground-truth",
+  "blinding": {
+    "providerOutputHidden": true,
+    "providerIdentityHidden": true,
+    "modelIdentityHidden": true,
+    "probabilityHidden": true,
+    "confidenceHidden": true
+  },
+  "cases": [
+    {
+      "id": "known-exact-fill-aware",
+      "evidence": {
+        "sourceClass": "synthetic",
+        "caseFamily": "known-exact",
+        "reference": "03_Implement/test/worksheetFormatFillReviewTelemetry.test.ts#6-exact",
+        "facts": [
+          "Known template family with exact structure and available fill evidence."
+        ]
+      },
+      "annotations": []
+    },
+    {
+      "id": "known-one-label-same-fill",
+      "evidence": {
+        "sourceClass": "synthetic",
+        "caseFamily": "recoverable-label-drift",
+        "reference": "03_Implement/test/worksheetFormatFillReviewTelemetry.test.ts#6-one-label-same-fill",
+        "facts": [
+          "Known template family with one header-label change and matching fill evidence."
+        ]
+      },
+      "annotations": []
+    },
+    {
+      "id": "fill-supported-acceptance",
+      "evidence": {
+        "sourceClass": "synthetic",
+        "caseFamily": "fill-decision-impact",
+        "reference": "03_Implement/test/worksheetFormatFillReviewTelemetry.test.ts#6-two-label-same-fill",
+        "facts": [
+          "Fill-aware and structure-only comparison paths produce different acceptance behavior."
+        ]
+      },
+      "annotations": []
+    },
+    {
+      "id": "fill-only-discrimination",
+      "evidence": {
+        "sourceClass": "synthetic",
+        "caseFamily": "fill-supported-disambiguation",
+        "reference": "03_Implement/test/worksheetFormatFillReviewTelemetry.test.ts#6-fill-only-discrimination",
+        "facts": [
+          "Structurally equivalent candidates are distinguishable when fill evidence is available."
+        ]
+      },
+      "annotations": []
+    },
+    {
+      "id": "fill-unavailable-discrimination",
+      "evidence": {
+        "sourceClass": "synthetic",
+        "caseFamily": "evidence-unavailable",
+        "reference": "03_Implement/test/worksheetFormatFillReviewTelemetry.test.ts#6-fill-unavailable-discrimination",
+        "facts": [
+          "Candidates require fill evidence for discrimination but the observation lacks usable fill evidence."
+        ]
+      },
+      "annotations": []
+    },
+    {
+      "id": "structure-fill-conflict",
+      "evidence": {
+        "sourceClass": "synthetic",
+        "caseFamily": "fill-induced-ambiguity",
+        "reference": "03_Implement/test/worksheetFormatFillReviewTelemetry.test.ts#6-structure-fill-conflict",
+        "facts": [
+          "Structure and fill evidence pull candidate ranking in different directions."
+        ]
+      },
+      "annotations": []
+    },
+    {
+      "id": "tone-drift-diagnostic",
+      "evidence": {
+        "sourceClass": "synthetic",
+        "caseFamily": "diagnostic-only-variation",
+        "reference": "03_Implement/test/worksheetFormatFillReviewTelemetry.test.ts#6-tone-drift",
+        "facts": [
+          "Fill tone differs while both fill-aware and structure-only paths remain stable matches."
+        ]
+      },
+      "annotations": []
+    },
+    {
+      "id": "missing-fill-exact",
+      "evidence": {
+        "sourceClass": "synthetic",
+        "caseFamily": "broad-evidence-unavailable",
+        "reference": "03_Implement/test/worksheetFormatFillReviewTelemetry.test.ts#6-missing-fill-exact",
+        "facts": [
+          "Fill evidence is unavailable on an otherwise exact known-template observation."
+        ]
+      },
+      "annotations": []
+    },
+    {
+      "id": "near-tied-candidates",
+      "evidence": {
+        "sourceClass": "synthetic",
+        "caseFamily": "perception-ambiguity",
+        "reference": "03_Implement/test/worksheetFormatBoundaryEvaluation.test.ts#near-tied viable candidates",
+        "facts": [
+          "Multiple viable known-format candidates remain within the configured winner-margin boundary."
+        ]
+      },
+      "annotations": []
+    },
+    {
+      "id": "clearly-novel-format",
+      "evidence": {
+        "sourceClass": "synthetic",
+        "caseFamily": "perception-novelty",
+        "reference": "03_Implement/test/worksheetFormatBoundaryEvaluation.test.ts#clearly different dependency table",
+        "facts": [
+          "Observation remains below the known-format acceptance boundary."
+        ]
+      },
+      "annotations": []
+    },
+    {
+      "id": "multi-family-label-occupancy-drift",
+      "evidence": {
+        "sourceClass": "synthetic",
+        "caseFamily": "multi-family-drift",
+        "reference": "03_Implement/test/worksheetFormatMultiFamilyDriftEvaluation.test.ts#label plus occupancy drift",
+        "facts": [
+          "Header-label and body-occupancy representation families differ from the known prototype."
+        ]
+      },
+      "annotations": []
+    },
+    {
+      "id": "multi-family-label-merge-drift",
+      "evidence": {
+        "sourceClass": "synthetic",
+        "caseFamily": "multi-family-drift",
+        "reference": "03_Implement/test/worksheetFormatMultiFamilyDriftEvaluation.test.ts#label plus merge drift",
+        "facts": [
+          "Header-label and recurring-merge representation families differ from the known prototype."
+        ]
+      },
+      "annotations": []
+    }
+  ]
+}
