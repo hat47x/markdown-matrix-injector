@@ -47,6 +47,7 @@ packetに含める:
   - semantics
   - inspect/routine choices
 - adjudicated case id
+- per-case `caseDigest`
 - case projection state
   - classification
   - candidateCount
@@ -104,11 +105,13 @@ response:
 - packetDigest
 - outcomes
   - caseId
+  - caseDigest
   - ClosedChoice Judgment outcome
 
 strict validation:
 - unknown top-level field reject
 - duplicate caseId reject
+- caseDigest format check
 - malformed Cognitive Outcome reject
 - packet digest format check
 - protocol version check
@@ -119,14 +122,36 @@ evaluation時:
 1. current corpusからpacketを再生成
 2. response.packetDigestと比較
 3. response case setとpacket case setを完全一致させる
-4. current adjudicated labelsをcase idでjoin
-5. issue-0167 evaluatorへ渡す
+4. caseDigestをpacketのprovider-visible stateへ照合
+5. current adjudicated labelsをcase idでjoin
+6. issue-0167 evaluatorへ渡す
 
 missing outcomeもextra outcomeもrejectする。
 
 部分評価を暗黙に許可しない。
 
 部分評価が必要なら将来別contractで明示する。
+
+## Per-case state binding
+
+packet全体のpacketDigestに加えて、各caseへ `caseDigest` を付ける。
+
+representation:
+
+    worksheet-review-route-evaluation-case-v1
+
+caseDigest input:
+- representation
+- labeling protocol
+- canonical question id
+- case id
+- projection state
+
+response recordにもcaseDigestを要求し、packet内の同case digestと完全一致させる。
+
+目的は、outcome収集時のcaseId付け替え・別stateへの誤joinを早期検出すること。
+
+caseDigestはprovider署名ではなくworkflow integrity bindingであり、悪意あるresponseの暗号学的証明を目的としない。
 
 ## Provider consistency
 
@@ -244,6 +269,8 @@ provider executionはissue-0161/0162/0165/0166側の責務。
 - [x] final route変更ではpacket digest不変
 - [x] response protocolVersionを固定
 - [x] response strict validation
+- [x] per-case caseDigestを固定
+- [x] response caseDigest mismatchをreject
 - [x] duplicate outcome case reject
 - [x] stale packet response reject
 - [x] missing outcome reject
@@ -270,6 +297,7 @@ provider executionはissue-0161/0162/0165/0166側の責務。
 - known metric values
 - projection separability
 - missing/extra/duplicate outcomes
+- caseDigest mismatch
 - stale packet
 - mixed provider
 - wrong question
