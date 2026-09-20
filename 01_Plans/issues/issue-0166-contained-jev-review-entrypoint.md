@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Feature / Provider-specific safe orchestration
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: issue-0165 canonical Jev route provider -> issue-0163 provider-backed contained review
 - Expected verification level: unit + focused composition
@@ -55,20 +55,20 @@ trueでない場合:
 
 ## Acceptance criteria
 
-- [ ] Jev review-route専用input型を追加する。
-- [ ] `allowExternalJev: true` を必須化する。
-- [ ] consentをsnapshot I/O前にruntime検証する。
-- [ ] issue-0165 provider factoryを内部生成する。
-- [ ] issue-0165 canonical questionを内部利用する。
-- [ ] callerからprovider/question/projectState/criteriaを受け取らない。
-- [ ] injected snapshot reader + Workbook loader版を追加する。
-- [ ] default readers版を追加する。
-- [ ] model pin/provider id overrideだけを許容する。
-- [ ] resultは既存 `UnifiedHumanReviewViewModelV1`。
-- [ ] routineでもhuman review/no-writeを維持する。
-- [ ] transport errorでAuthority loaderへ進まない。
-- [ ] live fetch/API key/retryを実装しない。
-- [ ] production routingを追加しない。
+- [x] Jev review-route専用input型を追加する。
+- [x] `allowExternalJev: true` を必須化する。
+- [x] consentをsnapshot I/O前にruntime検証する。
+- [x] issue-0165 provider factoryを内部生成する。
+- [x] issue-0165 canonical questionを内部利用する。
+- [x] callerからprovider/question/projectState/criteriaを受け取らない。
+- [x] injected snapshot reader + Workbook loader版を追加する。
+- [x] default readers版を追加する。
+- [x] model pin/provider id overrideだけを許容する。
+- [x] resultは既存 `UnifiedHumanReviewViewModelV1`。
+- [x] routineでもhuman review/no-writeを維持する。
+- [x] transport errorでAuthority loaderへ進まない。
+- [x] live fetch/API key/retryを実装しない。
+- [x] production routingを追加しない。
 
 ## Validation plan
 
@@ -80,3 +80,30 @@ trueでない場合:
 - transport failureでloader未呼出。
 - final serialization境界。
 - strict compile。
+
+
+## Validation evidence
+
+### 2026-09-20 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- consent-first / canonical-provider composition境界を
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime harness: **3 tests / 3 pass / 0 fail**。
+- 確認内容:
+  - `allowExternalJev=true` でcanonical provider/question経路へ進む。
+  - consentがtrueでない場合、snapshot read / provider transport / Workbook loadをすべて0回で停止。
+  - pinned model / provider idをissue-0165 -> issue-0162へ透過。
+  - final Authority boundaryは `writeAuthority=none / applyStatus=not-authorized` を維持。
+  - Judgmentは `proposal-only`。
+- repository focused test sourceではさらに:
+  - minimized Jev stateとcanonical inspect/routine criteria。
+  - routine resultでもapply authorizationなし。
+  - transport failureでAuthority loader未呼出。
+  - final modelにJev state / raw snapshot / source path / raw Notationを保持しない。
+- caller inputからprovider / question / state projectorを除外するcompile-time guardを追加。
+- live fetch / API key / Authorization / retry / production configは追加していない。
+- 現ローカル環境にはrepository dependency treeがないためrepository全test suite成功は主張しない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
