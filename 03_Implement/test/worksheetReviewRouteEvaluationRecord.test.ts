@@ -223,11 +223,13 @@ test('creates a deterministic linked record without raw label-corpus provenance'
 
   const first =
     createWorksheetReviewRouteEvaluationRecord(
+      source,
       plan,
       completed,
     );
   const second =
     createWorksheetReviewRouteEvaluationRecord(
+      source,
       plan,
       completed,
     );
@@ -279,6 +281,7 @@ test('rejects unknown fields, tampered digests, provider linkage, and observatio
     await completedRun(source);
   const record =
     createWorksheetReviewRouteEvaluationRecord(
+      source,
       plan,
       completed,
     );
@@ -321,6 +324,41 @@ test('rejects unknown fields, tampered digests, provider linkage, and observatio
     ),
     /observation linkage mismatch/,
   );
+
+  const packetStateTamper =
+    structuredClone(record);
+  packetStateTamper.packet.cases[0]!.state = {
+    ...packetStateTamper.packet.cases[0]!.state,
+    noveltyScore: 0.77,
+  };
+  assert.throws(
+    () => assertWorksheetReviewRouteEvaluationRecord(
+      packetStateTamper,
+    ),
+    /case digest does not match state/,
+  );
+
+  const summaryTamper =
+    structuredClone(record);
+  summaryTamper.report.summary.decisionAccuracy =
+    0.25;
+  assert.throws(
+    () => assertWorksheetReviewRouteEvaluationRecord(
+      summaryTamper,
+    ),
+    /summary does not match/,
+  );
+
+  const projectionTamper =
+    structuredClone(record);
+  projectionTamper.report.projectionSeparability
+    .exactStateOracleMaxAccuracy = 0;
+  assert.throws(
+    () => assertWorksheetReviewRouteEvaluationRecord(
+      projectionTamper,
+    ),
+    /projection separability does not match/,
+  );
 });
 
 test('rejects response case reordering instead of normalizing a completed record silently', async () => {
@@ -329,6 +367,7 @@ test('rejects response case reordering instead of normalizing a completed record
     await completedRun(source);
   const record =
     createWorksheetReviewRouteEvaluationRecord(
+      source,
       plan,
       completed,
     );
@@ -354,6 +393,7 @@ test('offline label-only correction reuses the stored provider response and chan
     await completedRun(source, runtimeProvider);
   const record =
     createWorksheetReviewRouteEvaluationRecord(
+      source,
       plan,
       completed,
     );
@@ -405,6 +445,7 @@ test('offline re-evaluation rejects projection changes and readiness regressions
     await completedRun(source);
   const record =
     createWorksheetReviewRouteEvaluationRecord(
+      source,
       plan,
       completed,
     );
@@ -446,6 +487,7 @@ test('record creation and offline re-evaluation do not mutate source inputs', as
 
   const record =
     createWorksheetReviewRouteEvaluationRecord(
+      source,
       plan,
       completed,
     );
