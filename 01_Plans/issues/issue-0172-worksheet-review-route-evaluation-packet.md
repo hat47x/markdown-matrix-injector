@@ -176,7 +176,7 @@ signal outcomeはcanonical:
 
 question idであることを要求する。
 
-issue-0167 evaluator自体は一般的なclosed-choice outcomeを評価できるが、issue-0171 runnerではreview-route専用評価としてquestion identityを追加検証する。
+issue-0167 evaluator自体は一般的なclosed-choice outcomeを評価できるが、issue-0172 runnerではreview-route専用評価としてquestion identityを追加検証する。
 
 non-decision outcomeはsignal payloadを持たないためquestion-id check対象外。
 
@@ -345,3 +345,16 @@ repository dependency treeが無い場合はrepository全test passを主張せ�
 - live Jev call / model selection / threshold / production routing / apply authorityは追加していない。
 - repository dependency treeは現環境に無いためrepository全test suite成功は主張しない。
 - GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
+
+
+## Concurrency reconciliation
+
+2026-09-20、並行レーン統合後に `worksheet-review-route-readiness` と本Issueがともに `issue-0171` を使用していることを検出した。
+
+時系列ではreadiness側の0171作業が先行していたため:
+- readiness = issue-0171を維持。
+- 本evaluation packet = issue-0172へ改番。
+- 実装module / architecture file名 / schema versionは意味変更がないため変更しない。
+- provider-visible packet / caseDigest / groundTruthDigestの契約にも変更なし。
+
+この改番は追跡番号の衝突解消のみで、runtime semanticsは変更しない。
