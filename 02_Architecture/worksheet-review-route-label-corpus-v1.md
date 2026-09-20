@@ -45,7 +45,7 @@ adjudicationなし。
 
 ### adjudicated
 
-1件以上のannotation + adjudication。
+2件以上のindependent annotation + independent adjudicatorによるadjudication。
 
 issue-0167へexpected routeとして渡せるのはadjudicated caseだけ。
 
@@ -75,6 +75,12 @@ unknown fieldsは拒否する。
 ## 7. Adjudication
 
 adjudicationは最終expected routeを決めるが、runtime Authority verdictではない。
+
+issue-0170以降、adjudicated caseは:
+- 2件以上の異なるannotatorによるannotation。
+- adjudicatorがそのcaseのannotatorではない。
+
+ことをcorpus invariantとして要求する。
 
 inspect/routineはいずれもissue-0165の通り:
 - human review required
