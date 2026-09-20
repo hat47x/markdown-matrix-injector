@@ -212,3 +212,32 @@ canonical apply時にはcurrent global packetを生成し直すため、実際�
 GitHub Actionsの既知runner/resource不足は完了条件にしない。
 
 repository dependency treeが無い場合はrepository全test passを主張せず、strict compile / focused harness / source-level contract inspectionを記録する。
+
+
+## Validation evidence
+
+### 2026-09-21 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- issue-0170 adjudication packet/apply contractとissue-0173 annotation work allocationを再読し、責務分離を確認。
+- 新しいadjudication work allocation本体をinterface-compatibleなstubsとともに
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime harness: **4 checks / 4 pass / 0 fail**。
+  - current adjudicatorが元annotatorだったcaseをpacket生成時に除外。
+  - partial adjudication後、resume packetはremaining caseだけを返す。
+  - 別adjudicatorがvisible caseを先に処理した後、古いwork responseをstaleとしてreject。
+  - self-ineligibleでpacketに見えていないcaseだけのevidence変更ではvisible work digestを維持。
+- repository test sourceではさらに:
+  - fresh adjudicatorへ全eligible caseを提示。
+  - same eligibilityの異なるadjudicatorでpacket digest一致。
+  - packetからadjudicator/annotator identity、annotationReference、projection/provider/confidenceを非露出。
+  - self-review caseをvalid packet responseへ混入してもreject。
+  - unknown response field / duplicate decisionをcanonical issue-0170 validator経由でreject。
+  - source corpus immutability。
+- final adjudication applicationはissue-0170の `applyWorksheetReviewRouteAdjudicationResponse` を再利用し、adjudicationReference生成やstrict corpus validationを二重実装していない。
+- main同期時にmodule/test 2ファイルが一度branch treeから脱落したことを差分確認で検出し、元コミット `a1ed0566...` から回収。回収後のcompareで5ファイル差分に復元した。
+- live provider / provider score / automatic consensus / production routing / apply authorityは追加していない。
+- repository全dependency tree成功は現環境では主張しない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
