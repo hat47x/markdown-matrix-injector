@@ -227,3 +227,34 @@ routineはaccept / approve / applyを意味しない。
 GitHub Actionsの既知runner/resource不足は完了条件にしない。
 
 repository dependency treeが無い場合はrepository全test passを主張せず、strict compile / focused harness / source-level contract inspectionを記録する。
+
+
+## Validation evidence
+
+### 2026-09-20 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- container側に `@types/node` が無いため、`node:crypto` / `node:assert/strict` の最小型宣言だけをstubし、新module本体を
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime harness: **5 checks / 5 pass / 0 fail**。
+  - 2 annotation以上のeligible caseだけをpacketへ含める。
+  - packet serializationへannotator identityを出さない。
+  - case/facts/annotation order変更でpacket digest不変。
+  - valid responseをimmutableにapplyしsource corpusを変更しない。
+  - annotation content変更後のresponseをstaleとしてreject。
+  - adjudicatorが元annotatorの場合をreject。
+- repository test sourceではさらに:
+  - unanimous annotation caseも自動確定せずpacketへ残す。
+  - evidence変更でdigest変化。
+  - annotation route変更でdigest変化。
+  - one-label-only / already-adjudicated / unknown case reject。
+  - duplicate response decision reject。
+  - unknown response field reject。
+  - apply後に既存final label extraction APIでexpected routeを取得。
+  - route semanticsはinspect/routineともhuman-review-only / no apply authority / no automatic decision。
+- provider output / provider identity / model identity / probability / confidence / projectionState / annotatorRef / annotationReferenceをadjudication packetへ追加していない。
+- majority vote / unanimous auto-finalization / live provider / production routingは追加していない。
+- repository dependency treeは現環境に無いためrepository全test suite成功は主張しない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
