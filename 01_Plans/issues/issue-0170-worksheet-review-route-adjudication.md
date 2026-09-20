@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Evaluation data / Adjudication workflow
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: blinded adjudication packet, two-independent-annotation gate, stale binding, immutable corpus update
 - Expected verification level: unit + focused workflow
@@ -91,26 +91,26 @@ issue-0168 corpus validatorも強化:
 
 ## Acceptance criteria
 
-- [ ] adjudication packet schema/version/representationを固定。
-- [ ] 2 annotations未満をpacket対象外。
-- [ ] packetからprojectionStateを除外。
-- [ ] packetからannotatorRef / annotationReferenceを除外。
-- [ ] packetからprovider-adjacent dataを除外。
-- [ ] anonymous annotation route/rationaleを提示。
-- [ ] packet digestをSHA-256で生成。
-- [ ] case/fact/annotation/rationale orderのみの変更でdigest不変。
-- [ ] evidence/annotation内容変更でdigest変化。
-- [ ] response strict validation。
-- [ ] duplicate response caseをreject。
-- [ ] unknown/ineligible/already-adjudicated caseをreject。
-- [ ] stale responseをreject。
-- [ ] adjudicatorが元annotatorならreject。
-- [ ] adjudicationReferenceを内部生成。
-- [ ] immutable corpus update。
-- [ ] apply後corpus validator再検証。
-- [ ] corpus validatorで2 annotations minimumを強制。
-- [ ] corpus validatorでadjudicator independenceを強制。
-- [ ] live provider / auto adjudication / production routingを追加しない。
+- [x] adjudication packet schema/version/representationを固定。
+- [x] 2 annotations未満をpacket対象外。
+- [x] packetからprojectionStateを除外。
+- [x] packetからannotatorRef / annotationReferenceを除外。
+- [x] packetからprovider-adjacent dataを除外。
+- [x] anonymous annotation route/rationaleを提示。
+- [x] packet digestをSHA-256で生成。
+- [x] case/fact/annotation/rationale orderのみの変更でdigest不変。
+- [x] evidence/annotation内容変更でdigest変化。
+- [x] response strict validation。
+- [x] duplicate response caseをreject。
+- [x] unknown/ineligible/already-adjudicated caseをreject。
+- [x] stale responseをreject。
+- [x] adjudicatorが元annotatorならreject。
+- [x] adjudicationReferenceを内部生成。
+- [x] immutable corpus update。
+- [x] apply後corpus validator再検証。
+- [x] corpus validatorで2 annotations minimumを強制。
+- [x] corpus validatorでadjudicator independenceを強制。
+- [x] live provider / auto adjudication / production routingを追加しない。
 
 ## Validation plan
 
@@ -125,3 +125,34 @@ issue-0168 corpus validatorも強化:
 - strengthened corpus validation。
 - input immutability。
 - strict compile。
+
+
+## Validation evidence
+
+### 2026-09-20 focused validation
+
+- Node.js runtime: local focused harness。
+- TypeScript: `5.8.3`。
+- `worksheetReviewRouteAdjudication.ts` を公開interface互換stub依存で
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime:
+  - case/facts/annotation/rationale order変更でpacket digest不変。
+  - valid responseをimmutableにapply。
+  - adjudicatorが元annotatorの場合をreject。
+  - annotation内容変更後のstale responseをreject。
+- repository test sourceで追加固定:
+  - 2 annotations未満をadjudication packet対象外。
+  - projectionState / annotatorRef / annotationReference / adjudicated caseをpacketへ保持しない。
+  - evidenceまたはannotation内容変更でdigest変化。
+  - unknown/ineligible/already-adjudicated caseをreject。
+  - duplicate adjudication decisionをreject。
+  - unknown provider-like response fieldをreject。
+- `assertWorksheetReviewRouteLabelCorpus` を強化:
+  - adjudicationには2件以上のindependent annotations必須。
+  - adjudicatorRefはannotatorRef群と異なることを必須。
+- issue-0168の閉じた仕様文書も0170 invariantへ整合済み。
+- majority vote / consensus auto-adjudicationは実装していない。
+- live provider / projection-state judgment / production routing / apply authorityは追加していない。
+- repository dependency treeは現環境に無いためrepository全test suite成功は主張しない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
