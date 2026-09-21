@@ -20,6 +20,7 @@ import {
 } from '../src/experimental/worksheetReviewRouteLabelCorpus.js';
 import {
   WORKSHEET_REVIEW_ROUTE_EVALUATION_RESPONSE_SCHEMA_VERSION,
+  assertWorksheetReviewRouteEvaluationPacket,
   assertWorksheetReviewRouteEvaluationResponse,
   createWorksheetReviewRouteEvaluationPacket,
   evaluateWorksheetReviewRouteEvaluationResponse,
@@ -284,6 +285,56 @@ test('provider packet exposes canonical question and projection state but no gro
       `packet leaked ${forbidden}`,
     );
   }
+});
+
+test('strict packet validation recomputes case and packet digests and requires canonical structure', () => {
+  const packet =
+    createWorksheetReviewRouteEvaluationPacket(corpus());
+
+  assert.doesNotThrow(
+    () => assertWorksheetReviewRouteEvaluationPacket(
+      packet,
+    ),
+  );
+
+  const stateTamper = structuredClone(packet);
+  stateTamper.cases[0]!.state.noveltyScore = 0.99;
+  assert.throws(
+    () => assertWorksheetReviewRouteEvaluationPacket(
+      stateTamper,
+    ),
+    /case digest does not match state/,
+  );
+
+  const orderTamper = structuredClone(packet);
+  orderTamper.cases = [
+    ...orderTamper.cases,
+  ].reverse();
+  assert.throws(
+    () => assertWorksheetReviewRouteEvaluationPacket(
+      orderTamper,
+    ),
+    /unique and canonically sorted/,
+  );
+
+  const unknownField = structuredClone(packet) as any;
+  unknownField.question.providerHint = 'hidden';
+  assert.throws(
+    () => assertWorksheetReviewRouteEvaluationPacket(
+      unknownField,
+    ),
+    /Unknown worksheet review-route evaluation question field/,
+  );
+
+  const digestTamper = structuredClone(packet);
+  digestTamper.packetDigest =
+    `sha256:${'0'.repeat(64)}`;
+  assert.throws(
+    () => assertWorksheetReviewRouteEvaluationPacket(
+      digestTamper,
+    ),
+    /packet digest does not match its contents/,
+  );
 });
 
 test('packet digest is stable across corpus ordering and changes with provider-visible projection state', () => {
