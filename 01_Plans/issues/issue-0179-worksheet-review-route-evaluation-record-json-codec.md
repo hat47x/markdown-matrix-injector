@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Evaluation artifact / Portability
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: canonical JSON serialization, strict/normalizing parse, stable artifact filename, transport-neutral export descriptor
 - Expected verification level: unit + focused runtime
@@ -100,27 +100,27 @@ machine-readable syntax schemaを将来追加しても、semantic authorityはis
 
 ## Acceptance criteria
 
-- [ ] codec version/media type constantsを固定。
-- [ ] canonical serializerを追加。
-- [ ] recursive object key sort。
-- [ ] array orderを保持。
-- [ ] whitespace/trailing newlineなし。
-- [ ] non-finite numberをreject。
-- [ ] serializer前にissue-0177 validatorを実行。
-- [ ] normalizing parseを追加。
-- [ ] canonical parseを追加。
-- [ ] canonical parseがpretty JSONをreject。
-- [ ] canonical parseがkey-order違いをreject。
-- [ ] canonical parseがtrailing newlineをreject。
-- [ ] canonical parseがduplicate-key inputをreject。
-- [ ] semantic tamperをparse時にissue-0177 validatorでreject。
-- [ ] full recordDigest hexを使うstable filename。
-- [ ] artifact descriptorはI/Oを行わない。
-- [ ] serialize/parseでsource recordをmutateしない。
-- [ ] canonical round-tripでdeepEqual。
-- [ ]同一recordのserializationがdeterministic。
-- [ ] filesystem/database/cloud persistenceを追加しない。
-- [ ] authentication signatureと混同しない。
+- [x] codec version/media type constantsを固定。
+- [x] canonical serializerを追加。
+- [x] recursive object key sort。
+- [x] array orderを保持。
+- [x] whitespace/trailing newlineなし。
+- [x] non-finite numberをreject。
+- [x] serializer前にissue-0177 validatorを実行。
+- [x] normalizing parseを追加。
+- [x] canonical parseを追加。
+- [x] canonical parseがpretty JSONをreject。
+- [x] canonical parseがkey-order違いをreject。
+- [x] canonical parseがtrailing newlineをreject。
+- [x] canonical parseがduplicate-key inputをreject。
+- [x] semantic tamperをparse時にissue-0177 validatorでreject。
+- [x] full recordDigest hexを使うstable filename。
+- [x] artifact descriptorはI/Oを行わない。
+- [x] serialize/parseでsource recordをmutateしない。
+- [x] canonical round-tripでdeepEqual。
+- [x] 同一recordのserializationがdeterministic。
+- [x] filesystem/database/cloud persistenceを追加しない。
+- [x] authentication signatureと混同しない。
 
 ## Validation plan
 
@@ -134,3 +134,31 @@ machine-readable syntax schemaを将来追加しても、semantic authorityはis
 - non-finite rejection。
 - immutability。
 - strict compile。
+
+
+## Validation evidence
+
+### 2026-09-21 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- GitHub branch上のcodec sourceと同一実装をissue-0177 interface-compatible validator stub上で
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime:
+  - canonical object-key sort。
+  - array order保持。
+  - whitespace / trailing newlineなし。
+  - canonical round-trip。
+  - normalizing parseはpretty JSON / noncanonical key orderを受理。
+  - canonical parseはpretty JSON / key-order違い / trailing newlineをreject。
+  - duplicate top-level keyはnormalizing parseではJSON semanticsとして解決されるが、canonical parseではinput byte mismatchとしてreject。
+  - invalid JSONをreject。
+  - invalid recordDigestをissue-0177 validation boundaryでreject。
+  - non-finite numberをreject。
+  - full 64-hex recordDigestをstable filenameへ使用。
+  - artifact descriptorはcontent / filename / mediaType / codecVersionだけを返しI/Oなし。
+  - source recordをmutateしない。
+- repository test sourceはactual issue-0174 -> issue-0176 -> issue-0177 completed runからrecordを作成してcodecを検証。
+- JSON Schemaはsemantic authorityとせず新規追加していない。issue-0177 runtime validatorが引き続き正本。
+- filesystem/database/cloud persistence / signature / encryption / credential / production routingは追加していない。
