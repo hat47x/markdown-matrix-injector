@@ -213,6 +213,16 @@ test('requires human and adjudicated labels to remain blind to the candidate mod
   );
 });
 
+test('rejects split source-family identity that disagrees with source provenance', () => {
+  const value = observation();
+  value.split.group_keys.source_family = 'different-family';
+
+  assert.throws(
+    () => assertStructuredArtifactObservation(value),
+    /must match source.source_family_id/,
+  );
+});
+
 test('rejects source, workbook and mutation groups that cross train/valid/test', () => {
   const train = observation('train');
   const valid = structuredClone(train);
