@@ -98,6 +98,35 @@ export interface WorksheetReviewRouteEvaluationReportV1 {
   projectionSeparability: WorksheetReviewRouteProjectionSeparability;
 }
 
+const PACKET_KEYS = [
+  'schemaVersion',
+  'protocolVersion',
+  'representation',
+  'purpose',
+  'packetDigest',
+  'question',
+  'cases',
+] as const;
+
+const QUESTION_KEYS = [
+  'id',
+  'semantics',
+  'choices',
+] as const;
+
+const PACKET_CASE_KEYS = [
+  'id',
+  'caseDigest',
+  'state',
+] as const;
+
+const PACKET_STATE_KEYS = [
+  'classification',
+  'candidateCount',
+  'hasWinner',
+  'noveltyScore',
+] as const;
+
 const RESPONSE_KEYS = [
   'schemaVersion',
   'protocolVersion',
@@ -161,6 +190,150 @@ export function createWorksheetReviewRouteEvaluationPacket(
       base.cases,
     ),
   };
+}
+
+export function assertWorksheetReviewRouteEvaluationPacket(
+  value: unknown,
+): asserts value is WorksheetReviewRouteEvaluationPacketV1 {
+  const packet = requireRecord(
+    value,
+    'worksheet review-route evaluation packet',
+  );
+  assertExactKeys(
+    packet,
+    PACKET_KEYS,
+    'evaluation packet',
+  );
+
+  if (
+    packet.schemaVersion !==
+      WORKSHEET_REVIEW_ROUTE_EVALUATION_PACKET_SCHEMA_VERSION
+    || packet.protocolVersion !==
+      WORKSHEET_REVIEW_ROUTE_LABELING_PROTOCOL_VERSION
+    || packet.representation !==
+      WORKSHEET_REVIEW_ROUTE_EVALUATION_PACKET_REPRESENTATION
+    || packet.purpose !==
+      'blinded-provider-evaluation'
+  ) {
+    throw new Error(
+      'Invalid worksheet review-route evaluation packet identity.',
+    );
+  }
+
+  assertDigest(packet.packetDigest);
+
+  const question = requireRecord(
+    packet.question,
+    'worksheet review-route evaluation question',
+  );
+  assertExactKeys(
+    question,
+    QUESTION_KEYS,
+    'evaluation question',
+  );
+  if (
+    question.id !== WORKSHEET_REVIEW_ROUTE_QUESTION.id
+    || question.semantics !==
+      WORKSHEET_REVIEW_ROUTE_QUESTION.semantics
+    || !Array.isArray(question.choices)
+    || question.choices.length !==
+      WORKSHEET_REVIEW_ROUTE_QUESTION.choices.length
+    || !question.choices.every(
+      (choice, index) =>
+        choice ===
+          WORKSHEET_REVIEW_ROUTE_QUESTION.choices[index],
+    )
+  ) {
+    throw new Error(
+      'Worksheet review-route evaluation packet must use the canonical question.',
+    );
+  }
+
+  if (
+    !Array.isArray(packet.cases)
+    || packet.cases.length === 0
+  ) {
+    throw new Error(
+      'Worksheet review-route evaluation packet must contain at least one case.',
+    );
+  }
+
+  const typedQuestion =
+    question as unknown as
+      WorksheetReviewRouteEvaluationQuestionV1;
+  const typedCases:
+    WorksheetReviewRouteEvaluationPacketCaseV1[] = [];
+  const ids: string[] = [];
+
+  for (const value of packet.cases) {
+    const entry = requireRecord(
+      value,
+      'worksheet review-route evaluation packet case',
+    );
+    assertExactKeys(
+      entry,
+      PACKET_CASE_KEYS,
+      'evaluation packet case',
+    );
+    assertNonEmpty(
+      'evaluation packet case id',
+      entry.id,
+    );
+    assertDigest(entry.caseDigest);
+
+    const state = requireRecord(
+      entry.state,
+      'worksheet review-route evaluation packet state',
+    );
+    assertExactKeys(
+      state,
+      PACKET_STATE_KEYS,
+      'evaluation packet state',
+    );
+    assertEvaluationPacketState(state);
+
+    const typedState =
+      state as unknown as JevWorksheetReviewRouteState;
+    const expectedCaseDigest = createCaseDigest(
+      typedQuestion,
+      entry.id,
+      typedState,
+    );
+    if (entry.caseDigest !== expectedCaseDigest) {
+      throw new Error(
+        `Worksheet review-route evaluation packet case digest does not match state: ${entry.id}.`,
+      );
+    }
+
+    ids.push(entry.id);
+    typedCases.push({
+      id: entry.id,
+      caseDigest: entry.caseDigest,
+      state: { ...typedState },
+    });
+  }
+
+  const sortedIds = [...ids].sort();
+  if (
+    ids.some(
+      (id, index) => id !== sortedIds[index],
+    )
+    || new Set(ids).size !== ids.length
+  ) {
+    throw new Error(
+      'Worksheet review-route evaluation packet case ids must be unique and canonically sorted.',
+    );
+  }
+
+  const expectedPacketDigest = createPacketDigest(
+    typedQuestion,
+    typedCases,
+  );
+  if (packet.packetDigest !== expectedPacketDigest) {
+    throw new Error(
+      'Worksheet review-route evaluation packet digest does not match its contents.',
+    );
+  }
 }
 
 export function assertWorksheetReviewRouteEvaluationResponse(
@@ -515,6 +688,32 @@ function requireRecord(
     throw new Error(`${label} must be an object.`);
   }
   return value as Record<string, unknown>;
+}
+
+function assertEvaluationPacketState(
+  state: Record<string, unknown>,
+): void {
+  if (
+    !['matched', 'ambiguous', 'novel'].includes(
+      String(state.classification),
+    )
+    || typeof state.candidateCount !== 'number'
+    || !Number.isInteger(state.candidateCount)
+    || state.candidateCount < 0
+    || typeof state.hasWinner !== 'boolean'
+    || typeof state.noveltyScore !== 'number'
+    || !Number.isFinite(state.noveltyScore)
+    || state.noveltyScore < 0
+    || state.noveltyScore > 1
+    || (
+      state.hasWinner === true
+      && state.candidateCount < 1
+    )
+  ) {
+    throw new Error(
+      'Invalid worksheet review-route evaluation packet state.',
+    );
+  }
 }
 
 function assertNonEmpty(
