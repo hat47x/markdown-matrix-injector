@@ -7,6 +7,8 @@
 ```text
 0176 Evaluation Plan
         +
+0172 Provider-visible Evaluation Packet
+        +
 0172 Provider Response
         +
 0172 Evaluation Report
@@ -36,7 +38,7 @@ current adjudicated final labels。
 
 ### recordDigest
 
-plan + response + reportを含むrecord全体のcontent identity。
+plan + provider-visible packet + response + reportを含むrecord全体のcontent identity。
 
 これらを1つのhashへ意味的に潰さない。
 
@@ -49,7 +51,24 @@ recordとdigestの両方を書き換えられる主体に対するauthenticity�
 
 将来persistent audit storeへ接続する場合は署名/append-only storeを別Issueで検討する。
 
-## 4. Provider result binding
+## 4. Stored provider-visible packet
+
+planのpacketDigestだけでは、後から実際のprovider-visible stateを復元できない。
+
+そのためrecordにはissue-0172のblinded evaluation packetをsnapshotする。
+
+packet validatorは:
+- canonical question。
+- unique/canonical case order。
+- exact four-field state。
+- caseDigest再計算。
+- packetDigest再計算。
+
+をfail-closedで確認する。
+
+raw worksheet/evidence/annotationsは保存しない。
+
+## 5. Provider result binding
 
 response outcomeごとに:
 - caseId
@@ -62,13 +81,13 @@ response outcomeごとに:
 
 これにより別case/state outcomeの付け替えをrecord境界でもfail-closedする。
 
-## 5. Provider identity
+## 6. Provider identity
 
 plan provider / report provider / response outcome providerは同一identityを要求する。
 
 capabilitiesは順序ではなくcanonical sorted setとして比較する。
 
-## 6. Case order
+## 7. Case order
 
 issue-0172 evaluation packetはcase idでcanonical sortする。
 
@@ -81,7 +100,19 @@ recordでは:
 
 record再生時の手作業reorderを許容しない。
 
-## 7. Offline ground-truth re-evaluation
+### Report semantic recomputation
+
+record validatorはreportを単に型検証しない。
+
+- caseResultsのexpectedRouteからgroundTruthDigest再計算。
+- stored response + labelsからsummary再計算。
+- stored packet state + labelsからprojection separability再計算。
+
+し、stored reportとcanonical deep-equalを要求する。
+
+これによりrecordDigestだけ再計算したmetric改ざんもrejectする。
+
+## 8. Offline ground-truth re-evaluation
 
 stored provider responseはprovider-visible packetDigestへbinding済み。
 
@@ -93,7 +124,7 @@ label-only correction後:
 
 providerは呼ばない。
 
-## 8. Stale boundaries
+## 9. Stale boundaries
 
 ### projection changed
 
@@ -108,7 +139,7 @@ predeclared evaluation populationとして条件を満たさなくなったた�
 
 stored responseを別provider planへ移植しない。
 
-## 9. Non-disclosure
+## 10. Non-disclosure
 
 recordにはlabel corpus自体を保存しない。
 
@@ -121,7 +152,7 @@ recordにはlabel corpus自体を保存しない。
 
 reportにはexpected routeごとのaggregate/case resultが含まれるため、recordはground-truth-derived evaluation artifactでありprovider input artifactではない。
 
-## 10. 非責務
+## 11. 非責務
 
 - filesystem/database persistence。
 - cryptographic authenticity signature。
