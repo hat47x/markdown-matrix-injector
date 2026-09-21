@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Evaluation governance / Reproducibility
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: completed run record, identity linkage, record digest, offline ground-truth re-evaluation
 - Expected verification level: unit + focused integration
@@ -115,32 +115,32 @@ readiness regression:
 
 ## Acceptance criteria
 
-- [ ] record schema/version/representationを固定。
-- [ ] planDigest / packetDigest / groundTruthDigestをtop-levelへ保持。
-- [ ] plan / response / reportをrecordへsnapshot。
-- [ ] recordDigestをSHA-256で生成。
-- [ ] recordDigestはauthenticationではない旨を文書化。
-- [ ] issue-0176 plan validatorを再利用。
-- [ ] issue-0172 response validatorを再利用。
-- [ ] report structureをstrict validation。
-- [ ] plan/report/response provider identityを一致確認。
-- [ ] outcome observation idをcaseIdへbinding。
-- [ ] outcome observation sourceDigestをcaseDigestへbinding。
-- [ ] stored packet stateとresponse caseDigestを一致確認。
-- [ ] report metric tamperをcanonical recomputationでreject。
-- [ ] evaluation Observation schemaを確認。
-- [ ] response case orderをcanonicalに要求。
-- [ ] report evaluatedCaseIdsをresponse idsへ一致。
-- [ ] summary caseResults idsをresponse idsへ一致。
-- [ ] unknown record fieldをreject。
-- [ ] tampered digest/linkageをreject。
-- [ ] readiness-preserving label correctionをoffline再評価。
-- [ ] label correctionでplan/packet/response不変。
-- [ ] label correctionでgroundTruthDigest/recordDigest変化。
-- [ ] projection changeをstaleとしてreject。
-- [ ] readiness regressionをreject。
-- [ ] source corpus / source recordをmutateしない。
-- [ ] live provider / persistence / credential / production routingを追加しない。
+- [x] record schema/version/representationを固定。
+- [x] planDigest / packetDigest / groundTruthDigestをtop-levelへ保持。
+- [x] plan / response / reportをrecordへsnapshot。
+- [x] recordDigestをSHA-256で生成。
+- [x] recordDigestはauthenticationではない旨を文書化。
+- [x] issue-0176 plan validatorを再利用。
+- [x] issue-0172 response validatorを再利用。
+- [x] report structureをstrict validation。
+- [x] plan/report/response provider identityを一致確認。
+- [x] outcome observation idをcaseIdへbinding。
+- [x] outcome observation sourceDigestをcaseDigestへbinding。
+- [x] stored packet stateとresponse caseDigestを一致確認。
+- [x] report metric tamperをcanonical recomputationでreject。
+- [x] evaluation Observation schemaを確認。
+- [x] response case orderをcanonicalに要求。
+- [x] report evaluatedCaseIdsをresponse idsへ一致。
+- [x] summary caseResults idsをresponse idsへ一致。
+- [x] unknown record fieldをreject。
+- [x] tampered digest/linkageをreject。
+- [x] readiness-preserving label correctionをoffline再評価。
+- [x] label correctionでplan/packet/response不変。
+- [x] label correctionでgroundTruthDigest/recordDigest変化。
+- [x] projection changeをstaleとしてreject。
+- [x] readiness regressionをreject。
+- [x] source corpus / source recordをmutateしない。
+- [x] live provider / persistence / credential / production routingを追加しない。
 
 ## Validation plan
 
@@ -156,3 +156,48 @@ readiness regression:
 - readiness regression rejection。
 - input immutability。
 - strict compile。
+
+
+## Validation evidence
+
+### 2026-09-21 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- `worksheetReviewRouteEvaluationRecord.ts` を、issue-0167/0171/0172/0176の公開interface互換stub依存で
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- issue-0172へ追加した `assertWorksheetReviewRouteEvaluationPacket` もstrict compile成功。
+- packet validator focused runtime:
+  - valid canonical packetを受理。
+  - provider-visible state改ざんをcaseDigest再計算でreject。
+  - case order変更をreject。
+  - unknown question fieldをreject。
+  - packetDigest改ざんをreject。
+- evaluation record focused runtime:
+  - valid completed planned runからdeterministic recordを生成。
+  - stored packet / response / report / planのdigest/provider/case linkageを確認。
+  - recordDigestだけ再計算しても、report metric改ざんをcanonical summary recomputationでreject。
+  - expected route改ざんをgroundTruthDigest再計算でreject。
+  - projection separability改ざんをstored packet + labelsからの再計算でreject。
+  - readinessを維持するlabel-only correctionではproviderを再実行せずoffline re-evaluation。
+  - label correction後もplanDigest / packetDigest / stored responseは不変。
+  - groundTruthDigest / metrics / recordDigestは更新。
+  - projection state変更はstale packetとしてreject。
+  - readiness regressionはprovider再利用前にreject。
+  - source corpus / source record / plan / responseをmutateしない。
+- repository test source:
+  - evaluation packet strict validatorの直接fixtureを追加。
+  - evaluation recordのstored packet binding、semantic tamper、case order、offline re-evaluation、stale/readiness境界を直接テスト。
+- recordはraw evidence / annotations / annotatorRef / adjudicatorRefを新規保存しない。
+- `recordDigest` はcontent identityであり、authentication signature / trusted timestampではない。
+- live provider / credentials / persistence / production routing / apply authorityは追加していない。
+- repository全dependency tree成功は現環境では主張しない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
+
+## Parallel-lane reconciliation
+
+- 作業中にissue-0178 unified human review presentation planがmainへ統合された。
+- issue-0178はREADME + presentation-plan filesのみで、0177 implementation/testとは非重複。
+- 0177 branchのREADMEは最新main版を基準に再構成し、issue-0178記述を保持したまま0177節だけを追加した。
+- 新しいrebase用branchは作らず、元の `feature/worksheet-review-route-evaluation-record` を継続使用する。
