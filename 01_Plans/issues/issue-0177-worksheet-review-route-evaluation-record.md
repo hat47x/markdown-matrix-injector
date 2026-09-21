@@ -37,6 +37,7 @@ record:
 - packetDigest
 - groundTruthDigest
 - plan
+- provider-visible evaluation packet
 - response
 - report
 - recordDigest
@@ -54,12 +55,12 @@ record自身を書き換えてdigestも再計算できる主体への暗号学�
 
 ## Record creation
 
-`createWorksheetReviewRouteEvaluationRecord(plan, completedRun)`:
+`createWorksheetReviewRouteEvaluationRecord(corpus, plan, completedRun)`:
 
 - plan strict validation。
 - completed planned runだけ受理。
 - completedRun.planDigest == plan.planDigest。
-- plan / response / report packetDigest一致。
+- current corpusからprovider-visible packetを再生成し、plan / packet / response / report packetDigest一致。
 - report groundTruthDigestをtop-levelへbinding。
 - plan provider / report provider / all response outcome providersを同一provider identityとして確認。
 - response outcomeのobservation:
@@ -125,6 +126,8 @@ readiness regression:
 - [ ] plan/report/response provider identityを一致確認。
 - [ ] outcome observation idをcaseIdへbinding。
 - [ ] outcome observation sourceDigestをcaseDigestへbinding。
+- [ ] stored packet stateとresponse caseDigestを一致確認。
+- [ ] report metric tamperをcanonical recomputationでreject。
 - [ ] evaluation Observation schemaを確認。
 - [ ] response case orderをcanonicalに要求。
 - [ ] report evaluatedCaseIdsをresponse idsへ一致。
