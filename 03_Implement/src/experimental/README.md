@@ -630,6 +630,9 @@ issue-0167〜0170では、live providerやproduction routingを変更せず、re
 9. issue-0175: resume-safe blinded adjudication work allocation
 10. issue-0176: predeclared evaluation plan manifest
 11. issue-0177: immutable provider-evaluation record + offline ground-truth re-evaluation
+12. issue-0179: canonical evaluation-record JSON codec
+
+issue-0178はこのevaluation laneとは別のhuman-review presentation laneとして並行実装済みです。
 
 issue-0170では、2件以上の独立annotationがある未adjudicated caseだけを対象にし、adjudicatorへはevidenceと匿名化したroute/rationaleだけを提示します。annotator identity / projectionState / provider/model/confidenceは見せません。
 
@@ -702,3 +705,12 @@ issue-0177では、完了したprovider evaluationを `WorksheetReviewRouteEvalu
 recordには0176 plan、provider-visibleな0172 evaluation packet、provider response、evaluation reportをsnapshotし、planDigest / packetDigest / groundTruthDigest / recordDigestを分離して保持します。packet/state・outcome observation・provider identity・report metricsをcanonical再計算で照合するため、単にrecordDigestを再計算しただけの意味論改ざんは受理しません。
 
 human ground truthだけが訂正され、0171 readinessとprovider-visible packetが変わらない場合はstored responseをofflineで再評価できます。providerは再実行せず、planDigest / packetDigest / responseは不変、groundTruthDigest / metrics / recordDigestだけが更新されます。
+
+
+### Canonical evaluation-record JSON codec
+
+issue-0179では、issue-0177 recordをstorage非依存のcanonical JSON artifactへ変換する `WorksheetReviewRouteEvaluationRecordJsonCodecV1` を追加します。
+
+canonical serializerはissue-0177 validatorを先に通し、object keyをrecursive sort、array orderを保持、whitespace/trailing newlineなしのJSON textを返します。normalizing parseはmanual/migration用途として非canonical formattingを許容しますが、canonical parseはinput textと再serialization結果の完全一致を要求するため、pretty JSON、key-order違い、trailing newline、duplicate-key inputをcanonical artifactとして受理しません。
+
+artifact descriptorはmedia type、recordDigest full hex由来のstable filename、canonical contentだけを返し、filesystem/database/cloud writeやsignatureは行いません。
