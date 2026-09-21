@@ -245,6 +245,14 @@ test('creates a deterministic linked record without raw label-corpus provenance'
     completed.run.report.packetDigest,
   );
   assert.equal(
+    first.packet.packetDigest,
+    first.packetDigest,
+  );
+  assert.deepEqual(
+    first.packet.cases.map((entry) => entry.id),
+    first.response.outcomes.map((entry) => entry.caseId),
+  );
+  assert.equal(
     first.groundTruthDigest,
     completed.run.report.groundTruthDigest,
   );
@@ -361,6 +369,42 @@ test('rejects unknown fields, tampered digests, provider linkage, and observatio
   );
 });
 
+test('rejects a self-consistent-looking report metric or label tamper even if recordDigest is not trusted', async () => {
+  const source = corpus();
+  const { plan, completed } =
+    await completedRun(source);
+  const record =
+    createWorksheetReviewRouteEvaluationRecord(
+      source,
+      plan,
+      completed,
+    );
+
+  const metricTamper =
+    structuredClone(record);
+  metricTamper.report.summary.decisionAccuracy = 0;
+  assert.throws(
+    () => assertWorksheetReviewRouteEvaluationRecord(
+      metricTamper,
+    ),
+    /summary does not match/,
+  );
+
+  const labelTamper =
+    structuredClone(record);
+  labelTamper.report.summary.caseResults[0]!.expectedRoute =
+    labelTamper.report.summary.caseResults[0]!
+      .expectedRoute === 'inspect'
+      ? 'routine'
+      : 'inspect';
+  assert.throws(
+    () => assertWorksheetReviewRouteEvaluationRecord(
+      labelTamper,
+    ),
+    /ground-truth digest does not match/,
+  );
+});
+
 test('rejects response case reordering instead of normalizing a completed record silently', async () => {
   const source = corpus();
   const { plan, completed } =
@@ -420,6 +464,10 @@ test('offline label-only correction reuses the stored provider response and chan
   assert.equal(
     replayed.packetDigest,
     record.packetDigest,
+  );
+  assert.deepEqual(
+    replayed.packet,
+    record.packet,
   );
   assert.deepEqual(
     replayed.response,
