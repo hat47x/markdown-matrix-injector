@@ -1,17 +1,21 @@
 import { type EmbedQuery } from '../parser/embedSyntax.js';
 import { escapeHtml } from './html.js';
-import { columnToIndex, sliceRange } from './tableGeometry.js';
+import { columnToIndex, sliceRegion } from './tableGeometry.js';
 import { type WorkbookData } from './workbookLoader.js';
 
 export function renderEmbedTable(query: EmbedQuery, workbook: WorkbookData): string {
   const sheetName = query.target ?? Object.keys(workbook.sheets)[0];
-  const rows = workbook.sheets[sheetName];
+  const sheet = workbook.sheets[sheetName];
 
-  if (!rows) {
+  if (!sheet) {
     throw new Error(`Sheet not found: ${sheetName}`);
   }
 
-  const transformed = applyStructuralTransformations(query, query.range ? sliceRange(rows, query.range) : rows);
+  // By the time this is called, Smart Fallback has already accepted the
+  // region's dimensions (measured without touching a cell -- smartFallback.ts)
+  // and decided this reference renders as a table. This is the single point
+  // where the corresponding display rectangle is actually materialised.
+  const transformed = applyStructuralTransformations(query, sliceRegion(sheet, query.range));
   const { headers, bodyRows } = splitHeaderRows(transformed, query.params.get('header'));
   const filteredBodyRows = applyRowFilters(query, bodyRows);
   const highlightColumnIndex = resolveColumnSelector(query.params.get('highlightColumn'), headers);

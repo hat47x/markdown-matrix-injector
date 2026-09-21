@@ -1,0 +1,16 @@
+{
+  "name": "mmi-clipboard-probe",
+  "displayName": "MMI Clipboard Probe",
+  "description": "Logs the DataTransfer MIME types a Markdown paste provider actually receives.",
+  "version": "0.0.1",
+  "publisher": "mmi-probe",
+  "engines": { "vscode": "^1.96.0" },
+  "categories": ["Other"],
+  "activationEvents": ["onStartupFinished"],
+  "main": "./extension.js",
+  "contributes": {
+    "commands": [
+      { "command": "mmiProbe.dumpClipboard", "title": "MMI Probe: Dump Clipboard" }
+    ]
+  }
+}

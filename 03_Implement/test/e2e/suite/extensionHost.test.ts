@@ -21,9 +21,16 @@ const PASTE_DROP_E2E_BOUNDARY =
   'E2E proves provider registration surface, fallback compatibility, and shared logic reuse; it does not prove final OS-native paste/drop UX dispatch.';
 const HEADLESS_ENTRY_CONDITION_GUIDANCE =
   'If Extension Host cannot start because headless prerequisites such as xvfb-run/display wiring are missing, treat it as a verification entry-condition failure rather than a provider regression.';
-const PASTE_FALLBACK_EXPECTED_INSERT = '![[/tmp/report.xlsx#Summary|A1:B2]]';
+// Filepath-only, no `#sheet|range` -- pasteDrop.ts stopped guessing sheet name
+// (from `data-sheet`) and range (from table shape) on 2026-09-14: a real Excel
+// HTML capture never carries either honestly, so `suggestEmbedFromClipboardHtml`
+// now returns only what it can actually verify (input-assistance-paste-provenance.md
+// §6). These constants were not updated at the time because the e2e suite could
+// not be run in this environment until 2026-09-17 (WSLg display discovery) --
+// the stale `#Summary|A1:B2` / `#Summary|A1:B1` expectations were never caught.
+const PASTE_FALLBACK_EXPECTED_INSERT = '![[/tmp/report.xlsx]]';
 const DROP_FALLBACK_EXPECTED_INSERT = '![[/tmp/drop-target.csv]]';
-const NATIVE_PASTE_EXPECTED_INSERT = '![[/tmp/native.xlsx#Summary|A1:B1]]';
+const NATIVE_PASTE_EXPECTED_INSERT = '![[/tmp/native.xlsx]]';
 const NATIVE_DROP_EXPECTED_INSERT = '![[/tmp/native-drop.csv]]';
 
 export async function runIntegrationTests(): Promise<void> {
@@ -54,6 +61,7 @@ export async function runIntegrationTests(): Promise<void> {
   });
   const pasteDropBoundary = await runStage('paste-drop-observation', () => observePasteDropBoundary());
   await runStage('paste-drop-boundary', () => verifyPasteDropCoverage(markdownFilePath, pasteDropBoundary));
+  await runStage('content-match-standalone-command', () => verifyContentMatchStandaloneCommand(markdownFilePath));
   const autocompleteResult = await runStage('autocomplete-boundary', () => verifyAutocompleteIntegration(markdownFilePath));
   await runStage('diagnostics', () => verifyDiagnosticsIntegration(workspaceRoot));
   logStage('paste-drop-proof-boundary:post-autocomplete', {
@@ -461,7 +469,7 @@ async function verifyPasteDropCommandFallback(
 
   assert.match(
     fallbackTextAfterPaste,
-    /!\[\[\/tmp\/report\.xlsx#Summary\|A1:B2\]\]/,
+    /!\[\[\/tmp\/report\.xlsx\]\]/,
     `Expected ${ISSUE_0010_ACCEPTANCE_TRACE.acceptance3} to keep the paste fallback path inserting through the shared paste/drop logic. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)} boundary=${JSON.stringify(verificationBoundary)}`,
   );
   assert.ok(
@@ -490,6 +498,86 @@ async function verifyPasteDropCommandFallback(
   assert.ok(
     fallbackTextAfterDrop.includes(DROP_FALLBACK_EXPECTED_INSERT),
     `Expected fallback drop command to produce ${DROP_FALLBACK_EXPECTED_INSERT} so provider-regression triage remains separate from unrelated autocomplete flakes. capability=${JSON.stringify(capability)} integrationState=${JSON.stringify(integrationState)} boundary=${JSON.stringify(verificationBoundary)}`,
+  );
+}
+
+/**
+ * issue-0114 作業D real GUI verification, standalone-command path (`MMI:
+ * Insert Embed by Content Match`). Uses the real `vscode.env.clipboard` and
+ * the real fixture workspace (`test/fixtures/workspace/data/roles.csv`,
+ * containing a unique "Alice,Admin" row unmatched by any other workspace
+ * fixture) to prove the whole pipeline end to end: clipboard TSV -> parseTsv
+ * -> findWorkbookContentMatches (real `vscode.workspace.findFiles` scan of
+ * the real workspace) -> a real document edit.
+ *
+ * `vscode.window.showQuickPick` is monkey-patched to auto-select the first
+ * item rather than waiting for a human -- this test process shares the same
+ * `vscode` module instance as the loaded extension (both run inside the one
+ * Extension Host process that `@vscode/test-electron` starts), so patching it
+ * here really does intercept the call `insertEmbedByContentMatch` makes.
+ *
+ * NOT covered here: the `editor.action.pasteAs` (Ctrl+.) integration path.
+ * That requires the real OS clipboard to carry `text/html` (only `text/html`/
+ * `files` mime types make VS Code invoke `provideDocumentPasteEdits` at all --
+ * `vscode.env.clipboard` can only set plain text). Setting a real multi-MIME
+ * clipboard payload from this environment would need an external tool
+ * (xclip/wl-copy), which is not installed and cannot be installed without an
+ * interactive sudo password (see issue-0114 "実VS Code GUI確認の試行記録").
+ */
+async function verifyContentMatchStandaloneCommand(markdownFilePath: string): Promise<void> {
+  // Not `openMarkdownDocument` here: `markdownFilePath` (docs/spec.md) was
+  // already opened as a real editor document by the paste-drop-boundary stage
+  // above. `vscode.workspace.openTextDocument` returns the cached in-memory
+  // TextDocument for a URI that is already open -- it does NOT pick up a
+  // fresh `workspace.fs.writeFile` to the same path -- so resetting content
+  // needs an actual edit, not a disk write + reopen.
+  const document = await vscode.workspace.openTextDocument(vscode.Uri.file(markdownFilePath));
+  const editor = await vscode.window.showTextDocument(document);
+  const fullRange = new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length));
+  await editor.edit((editBuilder) => editBuilder.replace(fullRange, '# ContentMatch\n\n'));
+  editor.selection = new vscode.Selection(new vscode.Position(1, 0), new vscode.Position(1, 0));
+
+  await vscode.env.clipboard.writeText('Alice\tAdmin');
+  const clipboardReadBack = await vscode.env.clipboard.readText();
+  const workspaceFolderForDoc = vscode.workspace.getWorkspaceFolder(document.uri);
+  const workbookFilesSeen = await vscode.workspace.findFiles('**/*.{xlsx,xls,csv,xml}', '**/{node_modules,dist}/**');
+
+  const originalShowQuickPick = vscode.window.showQuickPick;
+  let pickedFrom: unknown;
+  (vscode.window as { showQuickPick: unknown }).showQuickPick = async (itemsOrPromise: unknown) => {
+    const items = await itemsOrPromise;
+    pickedFrom = items;
+    return Array.isArray(items) ? items[0] : undefined;
+  };
+  const originalShowInformationMessage = vscode.window.showInformationMessage;
+  const infoMessages: unknown[] = [];
+  (vscode.window as { showInformationMessage: unknown }).showInformationMessage = (...args: unknown[]) => {
+    infoMessages.push(args[0]);
+    return Promise.resolve(undefined);
+  };
+
+  let textAfterContentMatch: string;
+  try {
+    await vscode.commands.executeCommand('markdownMatrixInjector.insertEmbedByContentMatch');
+    textAfterContentMatch = document.getText();
+  } finally {
+    (vscode.window as { showQuickPick: unknown }).showQuickPick = originalShowQuickPick;
+    (vscode.window as { showInformationMessage: unknown }).showInformationMessage = originalShowInformationMessage;
+  }
+
+  logStage('content-match-standalone-command:after-command', {
+    documentText: textAfterContentMatch,
+    quickPickItems: pickedFrom,
+    infoMessages,
+    clipboardReadBack,
+    workspaceFolderForDoc: workspaceFolderForDoc?.uri.fsPath,
+    workbookFilesSeen: workbookFilesSeen.map((uri) => uri.fsPath),
+  });
+
+  assert.match(
+    textAfterContentMatch,
+    /!\[\[\.\.\/data\/roles\.csv#Sheet1\|A2:B2\]\]/,
+    `Expected the content-match command to find the unique "Alice,Admin" row in data/roles.csv and insert it after an explicit (auto-selected single-item) pick. documentText=${textAfterContentMatch}`,
   );
 }
 

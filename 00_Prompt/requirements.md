@@ -1,163 +1,48 @@
-# 要件定義書: Markdown Matrix Injector
+# MMIの製品要求
 
-## 0. プロジェクトの背景と設計思想 (Philosophy & Intent)
-**【解決すべき課題】**
-SIerにおける設計書は、Excel方眼紙や数百ページのWordのようなモノリス構造のバイナリ形式が採用されがちであり、AIエージェント開発との適合性が低い。一方で標準的なMarkdown文書は、エンジニアリング的文書に要求されるテーブルおよびマトリクス表現に著しく弱い。
-さらに、AIエージェントが Excel を含むあらゆるファイルを直接編集できる時代には、正本と文書内コピーの乖離（ドリフト）は人間の手作業時代より**速く・大量に**発生する。課題の中心は「Excel からデータを取り出せないこと」から「**正本と文書の間に検証可能な境界がないこと**」へ移った（ADR-0012）。
-納品文書の品質に関しては、Word文書からの移行を可能にするエンタープライズ品質のレイアウトと、PDF出力時の印刷制御機能が引き続き必要である。
+## 目的
 
-**【本プロジェクトのミッション】**（ADR-0012 により再定義）
-テキスト文書から正本表データ（Excel, CSV, XML 等）の必要断面を**宣言的・読み取り専用・検証可能**に参照するための**公開規約（MMI Notation）とその参照実装**を提供し、人間と AI エージェントが共存する文書運用において「コピーによる二重管理」を「参照による単一正本」へ置き換える。
+Excel・CSV・XMLの表を正本として管理し、Markdown文書には必要な範囲を参照表示する。表のコピーによる二重管理を減らし、参照先と表示内容を人間が確認できるようにする。
 
-**【恒久規範 (Permanent Norm)】**
-本規約に準拠する処理系は、参照先の正本を**改変してはならない**（Read-only MUST）。編集機能は本プロジェクトの恒久的な非対象である。「何でも編集できるエージェント」の時代において、構造的に書き込めない参照経路は安全装置であり、本プロジェクトの差別化の核である。
+成果物はMMI記法、VS Code拡張、実務で使える表のサンプルと日本語の利用文書である。実装状態と未解決事項は[現在の作業](../01_Plans/README.md)で管理する。本書は開発順序や過去の進捗を記録しない。
 
-**【成果物の位置付け】**
-1. **MMI Notation（規約）**: `![[...]]` 参照記法の公開仕様。conformance levels（L0–L3）による段階的準拠を許し、エディタ・AIツールの世代交代から独立して存続する一級の成果物。
-2. **VS Code 拡張（参照実装）**: 上記規約の L3（Delivery Profile）準拠実装。プレビュー注入・Smart Fallback・エンタープライズ印刷制御・納品マニフェストを実証する。
-3. **表パターン資産**: 要件トレーサビリティ・状態遷移・障害切り分け・リリース判定等のテンプレート群（Phase 9）。規約・ツールと独立に再利用可能な社会財。
+## 守る境界
 
----
+- **読み取り専用:** 正本を改変しない。元データの編集は対象外。
+- **正確な参照:** ファイル・シート・原本座標・変換条件の意味を保持する。
+- **見える失敗:** 不在ファイル、無効な指定、非対応形式、表示できない条件を利用者へ示す。推測した結果を確定情報として扱わない。
+- **再現可能性:** 同じ入力・正本・設定から同じ結果を得られるようにする。
+- **アクセス範囲:** 許可された参照範囲を守る。信頼されていない内容をコードとして実行しない。
 
-## 1. 開発フェーズ定義
-AIエージェントは、以下のPhase順に実装とテストを完了させること。
+## 提供する機能
 
-* **Phase 1: コアエンジンとパフォーマンス基盤 (Core Viewer & Cache)**
-    * 対象: 独自記法パース、CSV/Excel/XML読み込み、アグレッシブ・キャッシュ、厳密な相対パス解決。
-* **Phase 2: クエリ言語としての拡張 (Advanced Query Parameters)**
-    * 対象: `mode`, `header`, `columns`, `transpose`, `grep`, `highlight`, `format` によるデータスライス。
-* **Phase 3: 脱Word・エンタープライズ印刷制御 (Word Migration & Print Control)**
-    * 対象: `caption`, `id` による図表管理。`pageBreak`, `orientation` によるPDFレイアウト制御。
-* **Phase 4: SIer納品品質の担保 (Smart Fallback & Delivery)**
-    * 対象: 巨大表・作図のカード化（縮退表示）、納品マニフェスト出力コマンド。
-* **Phase 5: 開発者体験と品質保証 (DX & Diagnostics)**
-    * 対象: オートコンプリート、リンク切れエラー検知（Diagnostics）、クリップボード解析を伴う Paste/D&D。
-* **Phase 6: 公開ドキュメント体系化と価値訴求 (Public Documentation & Adoption)**
-    * 対象: 一般向け概要、導入チュートリアル、活用シナリオ、詳細仕様リファレンス、文書化による要件/設計/テストへのフィードバックループ。
-* **Phase 7: リリース運用品質と採用拡大 (Release Readiness & Adoption Scale)**
-    * 対象: リリースゲート自動化、query-evidence を使った採用KPI観測、docs audit から上流還流までのSLA運用。
-* **Phase 8: 運用信頼性とサポート性強化 (Operational Reliability & Supportability)**
-    * 対象: triage自動化、support runbook整備、障害パターンのcontract test化による回帰予防。
-* **Phase 9: ルールテーブル相互運用と設計資産化 (Rule Table Interoperability & Design Assetization)**
-    * 対象: Drools参照パターンの実データテンプレート化、相互運用検証、設計文書・テスト資産の双方向同期運用。
-* **Phase 10: 採用運用ガバナンス自動化 (Adoption Operations Governance Automation)**
-    * 対象: query-evidence の継続収集自動化、docs/support 改善SLAの可視化、運用KPIの週次レポート化。
-* **Phase 11: プロダクト完成度と公開品質 (Product Completeness & Release-Worthiness)**
-    * 対象: 本質価値（Markdown 中心・Excel 正本・エンタープライズ出力・データ完全性・DX）が実利用環境で end-to-end に達成・実証されているかを完成度の基準として問い直し、欠落を上流から順に閉じる。配布・採用施策は本基準（公開に足る品質ゲート）を満たすまで着手しない。
-* **Phase 12: 規約仕様化と普及基盤 (Notation Specification & Adoption Substrate)**
-    * 対象: MMI Notation v1 仕様書（conformance levels L0–L3）、パラメータ JSON Schema、conformance corpus、KPI の「重複駆逐」指標への差し替え、表パターン資産の独立公開（ADR-0012）。
+| 領域 | 要求 |
+| --- | --- |
+| 参照 | Markdownからファイル、シート、A1範囲を指定する。相対パスは参照元文書を基準とする |
+| データ | CSV、Excel、XML Spreadsheet 2003を扱う。汎用XMLを表として誤解析しない |
+| 変換 | 範囲、列抽出、転置、見出し、行絞込みを規定された順序で適用する |
+| 表示 | 表、強調、コード形式、キャプション、相互参照を提供する |
+| 大きな表 | Smart Fallbackで別紙参照へ切り替え、原本を開く手段を示す |
+| 印刷・納品 | 改ページ・用紙向きの指定、別紙表示、納品マニフェストを提供する。出力器による制約を明示する |
+| 執筆支援 | ファイル・シート・文法の補完、参照の診断、貼り付け・ドロップを支援する |
+| 応答性 | 読込みを再利用し、原本更新で失効させる。巨大データで編集操作を長時間止めない |
+| 利用文書 | 導入手順、期待結果、実務サンプル、画面・動画、対応条件を自然な日本語で説明する |
 
----
+構文、既定値、変換順序、診断、準拠レベルは[MMI記法仕様](../04_Documentation/spec/mmi-notation-v1.md)を正本とし、本書へ重複転記しない。機械可読の定義は[パラメータスキーマ](../04_Documentation/spec/params.schema.json)と準拠テストを対応させる。
 
-## 2. 詳細仕様と実装の意図
+## 公開品質
 
-### 【Phase 1】 コアエンジンとパフォーマンス基盤
-* **Syntax**: `![[<filepath>#<sheet_or_name>|<range>?<params>]]`
-* **パス解決**: 現在のMarkdownファイルからの相対パスを最優先とし、フォールバックでワークスペースルートを試行する。
-* **キャッシュ機構**: 巨大ファイルによるフリーズを防ぐため、ファイルの最終更新日時（mtime）をキーにしたオンメモリキャッシュ（パース済みWorkbookオブジェクトの使い回し）を必須とする。
-* **XMLフェイルセーフ**: `.xml` は「XML Spreadsheet 2003」を想定。先頭シグネチャ（`<?mso-application progid="Excel.Sheet"?>`等）を検証し、汎用XMLの場合はパースを中断しエラーUIを描画する。
+公開する版について、次を確認する。
 
-### 【Phase 2】 クエリ言語としての拡張
-URLクエリストリング形式（`?key=val&...`）でデータを切り出す。
-* **`mode`**: `card` (強制カード化), `table` (強制展開)。未指定はSmart Fallback。
-* **`header`**: `none` (デフォルト), `first` (範囲の1行目をヘッダ化), `{数値}` (そのシートの指定行を結合)。
-* **`columns`**: 例 `A,C,F`。指定列のみ抽出。
-* **`transpose`**: `true` で行列を反転。
-* **`grep`**: 例 `grep=AUTH`。キーワードを含む行のみ抽出。
-* **`highlightColumn` / `highlightValue`**: 一致する行にCSSクラス（ハイライト）を付与。
-* **`formatColumn`**: 例 `E:json`。指定列のセルをコードブロックとして描画。
+1. 実際のVS Codeで参照が描画され、診断・原本を開く操作が機能する。
+2. 代表サンプルの印刷・PDF結果を確認し、検証した出力器と制約を明示する。
+3. 操作前後で正本データが変わらない。
+4. 対応ホスト、形式、範囲、性能の制約を実測と一致させる。
 
-### 【Phase 3】 脱Word・エンタープライズ印刷制御
-Word文書からの移行と、Pandoc/Markdown PDF等の出力ツールとの協調を実現する。
-* **`caption`**: 例 `caption=状態遷移表`。表の上部にキャプション（`<figcaption>`等）を付与する。
-* **`id`**: 例 `id=tbl-state`。コンテナにIDを付与し、Markdown内の相互参照（アンカーリンク）を可能にする。
-* **`pageBreak`**: `before`, `after`, `both`。出力するHTMLコンテナに `page-break-before: always;` 等のCSSを付与し、PDFの改ページを強制する。
-* **`orientation`**: `landscape`, `portrait`。特定のCSSクラスを付与し、印刷用CSS（`@page` ルール）と連携してそのページのみ用紙の向きを制御する。
+自動テストの合格だけでは、実機操作やPDF品質の確認を代替できない。
 
-### 【Phase 4】 SIer納品品質の担保 (Smart Fallback)
-* **発動条件**: [A] 列数10超 or セル数500超（※`mode=table`指定時は強制展開）。 [B] シート指定のないファイル全体。 [C] `mode=card` 指定時。
-* **画面UI (`@media screen`)**: 「ファイル名・範囲・開くボタン」を持つリッチなリンクカードUI（クリックで `env.openExternal`）。
-* **印刷UI (`@media print`)**: カードUIを非表示にし、納品文書として違和感のない「別紙参照ブロック（罫線表）」へ動的に変形させる。
-* **マニフェスト出力**: `Generate Delivery Manifest` コマンドで、別紙扱いとなったファイル群を納品用チェックリスト（CSV）として出力する。
+## 次に検討する入力支援
 
-### 【Phase 5】 開発者体験と品質保証 (DX & Diagnostics)
-* **Autocomplete**: `![[` 入力時から、ファイル名 → `#` → シート/範囲 → `?` → パラメータ までを段階的にサジェスト。
-* **Diagnostics (静的解析)**: リンクを検証。「ファイル不在」「シート不在」「無効なXML」の場合、該当箇所に赤波線（Error）を引き Problemsパネルに通知。
-* **Paste & D&D**: D&Dでのリンク挿入。ペースト時はExcel, Google Sheets等からのHTMLクリップボードメタデータを解析し、ベストエフォートで記法を展開する。
+最優先はExcelのコピー領域を原本座標のMMI参照として貼り付けること。その後に文法補完・参照編集、CPUでの自然言語と表構造の検索を検討する。外部推論APIやGPUを必須にせず、ローカルLLMは保留する。
 
-### 【Phase 6】 公開ドキュメント体系化と価値訴求 (Public Documentation & Adoption)
-Phase 5 までで整備した製品機能を、一般ユーザー・導入担当者・評価者へ伝わる公開ドキュメントとして体系化し、文書化から得た学びを継続的に製品へ還流する。
-* **Audience-specific doc set**: 少なくとも `概要`, `クイックスタート/チュートリアル`, `活用シナリオ`, `詳細仕様リファレンス` の 4 系統を公開文書として整備する。
-* **Value articulation**: 単なる機能列挙ではなく、「Markdown を中心にしつつ Excel / CSV / XML を正本として扱う意義」「巨大表や印刷要件に強い理由」「どの利用者が何を楽にできるのか」を具体例で説明する。
-* **Documentation feedback loop**: 文書化の途中で見つかった曖昧仕様、操作導線の弱さ、検証不足は、`requirements.md` / `02_Architecture` / `03_Implement/test` / `01_Plans/issues` へ逆流させる。文書だけで抱え込まず、要件・設計・テストの正本を更新する。
-* **Progressive refinement**: 文書は一度で完成させず、対象読者ごとに価値仮説・つまずき・補足説明を繰り返し見直す。各イテレーションで、どの知見がどの上流文書へ反映されたか追跡可能であること。
-* **Documentation quality gate**: 公開文書は、想定読者、前提条件、手順、期待結果、関連正本リンク、既知の制約を必ず明記する。サンプル・スクリーンショット・FAQ・比較表など、理解を補助する素材の追加可否も毎回評価する。
-
-### 【Phase 7】 リリース運用品質と採用拡大 (Release Readiness & Adoption Scale)
-Phase 1〜6 の成果を継続運用可能な形へ昇華し、公開後の品質と採用拡大を両立させる。
-* **Release gate automation**: `docs-check` / `unit` / `integration` の合格条件を release 判定フローとして標準化し、Issueの Validation evidence へ追跡可能に記録する。
-* **Adoption observability**: query-evidence artifact を活用し KPI を定点観測する。KPI 定義は Phase 12 / ADR-0012 D6 により「駆逐されたコピー重複・正本と文書の乖離インシデント・表変更のレビュー所要時間」へ再定義された（旧: 導入時間・リンク不整合検知率・印刷再現性）。
-* **Feedback loop SLA**: docs audit で発見した課題を `requirements` / `02_Architecture` / `03_Implement/test` / `01_Plans/issues` へ還流する期限と責任分界を定義する。
-* **Safe evolution rule**: 不可逆な方針変更は ADR、実行改善は issue で管理し、機能追加は release gate を満たす範囲で実施する。
-
-### 【Phase 8】 運用信頼性とサポート性強化 (Operational Reliability & Supportability)
-Phase 7 で整備した release gate を「障害時に早く直せる運用基盤」へ発展させ、採用拡大後のサポート品質を安定化する。
-* **Failure triage automation**: query-evidence / release-gate artifact から失敗分類（path, sheet, query, render, print）を自動要約し、一次切り分け時間を短縮する。
-* **Support playbook hardening**: FAQ・troubleshooting・検証コマンドを runbook として接続し、再現手順（入力・期待値・実際値）を標準化する。
-* **Regression prevention by contract tests**: 運用で多発する失敗シナリオを contract test に固定し、release gate で常時検知する。
-* **Persona-aware prioritization**: gate fail 時に影響読者（author/reviewer/delivery）を付与し、優先度判断を運用ルール化する。
-* **Documentation usability & coverage uplift**: 運用ドキュメントは「検索しやすさ（導線・索引）」「再現に必要な情報の網羅性（前提・入力・期待値・制約）」を品質指標として継続監査し、問い合わせ時の自己解決率を高める。
-* **Product quality feedback loop from support logs**: runbook運用・FAQ更新・問い合わせ分類で得た知見を `requirements` / `02_Architecture` / `03_Implement/test` へ定期還流し、文書改善をプロダクト品質改善に直結させる。
-* **Reference pattern ingestion from OSS table formats**: Drools の spreadsheet decision table（RuleSet/RuleTable 構造）等を参照し、システム設計文書向けの表パターンと test data パターンを抽出・標準化する。
-
-### 【Phase 9】 ルールテーブル相互運用と設計資産化 (Rule Table Interoperability & Design Assetization)
-Phase 8 で定義したパターンを「実運用で再利用できる資産」に昇格させ、設計文書と検証データの同期品質を継続的に担保する。
-* **Executable pattern templates**: Drools参照の表パターンを CSV/XLSX テンプレートとして整備し、設計文書でそのまま再利用できるひな形を提供する。
-* **Interoperability validation set**: RuleSet相当メタ情報、RuleTable相当条件/アクション、属性列（priority/effective/expires）を含む相互運用テストデータセットを管理する。
-* **Round-trip documentation flow**: 文書で使った表テンプレートを test fixture へ同期し、fixtureで見つかった不足を文書テンプレートへ逆反映する双方向運用を標準化する。
-* **Template quality gates**: テンプレートは「可読性（読者が意図を理解できる）」「検証性（grep/columns/headerで観測可能）」「追跡性（要件/ADR/issueへ紐付く）」の3軸で監査する。
-* **Adoption benchmark pack**: SIer設計文書で頻出する表（要件トレーサビリティ、状態遷移、障害切り分け、リリース判定）を最小ベンチマークセットとして定義し、採用時の初期評価時間を短縮する。
-* **Test coverage uplift for template governance**: Phase 9 では sync checker / release gate / query observability の回帰テストを継続拡張し、正常系・異常系・境界値（空欄、重複、日付不正、行差分、I/O失敗）を最低1件以上含むことを必須化する。
-* **Test pattern expansion as reusable assets**: テストケースは単発修正に閉じず、再利用可能なパターン（table種別別、query種別別、運用失敗種別別）としてテンプレート化し、次イテレーションで追加しやすい構造へ維持する。
-
-### 【Phase 10】 採用運用ガバナンス自動化 (Adoption Operations Governance Automation)
-Phase 9 で整備したテンプレート資産・同期ゲート・観測導線を、継続運用で「改善速度」と「説明責任」を担保できる運用ガバナンスへ昇格させる。
-* **Evidence auto-harvest**: `docs-check` / `unit` / `integration` / sync gate の実行結果を query-evidence artifact として定期収集し、失敗分類と影響読者を紐付けて保存する。
-* **SLA dashboard seed**: docs audit と support runbook の更新SLA（例: triage 24h, workaround 72h, 恒久対策7日）を機械可読で保持し、期限超過を検知可能にする。
-* **Weekly governance report**: 週次KPIサマリのレポート生成導線を整備する。KPI 定義は Phase 12 / ADR-0012 D6 を正本とする（旧: 導入時間・リンク不整合検知率・印刷再現性・問い合わせ自己解決率）。
-* **Backlog auto-escalation rule**: 週次レポート上の閾値逸脱を `01_Plans/issues/` 起票候補として自動抽出し、Decisionが必要な事項のみ `01_Plans/adr/` へエスカレーションする。
-* **Auditability baseline**: 運用判断（優先度、延期理由、対応責任者）を追跡可能なメタデータとして残し、将来の採用監査・納品監査に耐える状態を標準化する。
-
-### 【Phase 11】 プロダクト完成度と公開品質 (Product Completeness & Release-Worthiness)
-Phase 1〜10 は機能領域ごとの実装と運用基盤を整えたが、**「モジュール単体が green であること」と「プロダクトが本質価値を実利用環境で提供できること」は別物**である。本フェーズは、配布より前に後者を完成度の基準として問い直し、満たすまで公開しないことを前提とする。詳細決定は `01_Plans/adr/ADR-0010-product-completion-gate.md`。
-
-**本質価値 (Essential Value) の再確認:**
-1. Markdown 中心の執筆 + Excel/CSV/XML を正本とした疎結合参照（二重管理・デシンクの排除）。
-2. クエリによる必要スライスのインライン表示。
-3. Word 代替に足るエンタープライズ出力（キャプション/相互参照/改ページ/用紙向き/巨大表の縮退/納品マニフェスト、PDF 品質）。
-4. 正本データの完全性（read-only ビューア、原本を破壊しない）。
-5. リンク切れ検知・補完・Paste/D&D の開発者体験。
-
-**公開に足る品質 (Definition of Release-Worthiness) — 完成度ゲート:**
-* **G1 End-to-end で動く**: 実 VS Code の Markdown プレビューで `![[...]]` が正しく描画される（サニタイズ後も生存・スタイル適用・キャッシュ動作・scroll sync 健全）。単体テストではなく実ホストの事実で確認する。
-* **G2 エンタープライズ出力が実証される**: 代表的な SIer 設計書サンプルで caption/相互参照/pageBreak/orientation/Smart Fallback が PDF 出力まで含めて意図どおり再現される（対応 PDF 生成器を最低 1 つ明示）。
-* **G3 データ完全性の保証**: 実 Excel/CSV/XML で原本が改変されないこと（read-only）を保証として確認する。
-* **G4 正直な適用範囲**: 動かない条件（PDF 生成器差分・XML 種別・host/version 制約・巨大ファイル限界）が推測でなく実測に基づき文書化される。
-* **判定主体**: G1〜G4 は manual-e2e を含む end-to-end エビデンスで判定し、requirements/ADR/issue へトレース可能にする。「issue が Done」「release gate が green」だけでは本ゲートを充足しない。
-
-**上流からの是正フロー（本フェーズの進め方）:**
-要件（本節）→ 設計（`ADR-0010`: end-to-end 検証ゲート、preview を manual scope へ恒久退避していた判断の見直し）→ 実装/テスト（preview 結線[済] → preview スタイル → block レベル描画・出力構造の健全性 → 実 e2e による描画生存の実証 → PDF/印刷検証 → 実データ fixture と正直な制約）→ 文書（主張と実測の整合）の順で閉じる。**配布・採用拡大（Marketplace 公開、コミュニティ整備、供給網運用）は本ゲート通過後の別フェーズ**として扱い、本フェーズでは着手しない。
-
-### 【Phase 12】 規約仕様化と普及基盤 (Notation Specification & Adoption Substrate)
-Phase 11 で実証した参照実装の品質を土台に、記法を「広く受け入れられる公開規約」へ昇格させる（決定正本: ADR-0012）。
-* **Specification first**: `![[<target>#<sheet>|<range>?<params>]]` を RFC 2119 語彙・日英併記で仕様化し、conformance levels（L0: Parse & Passthrough / L1: Static Slice / L2: Workbook & Query / L3: Publication Profiles）による段階的準拠を定義する。部分実装でも準拠を名乗れることを普及の前提とする。
-* **8 規範原則**: Read-only / Visible degradation / Determinism / Containment / Forward compatibility（`x-` 名前空間）/ Stable diagnostics / i18n 中立（納品概念は Delivery Profile へ隔離、日英併記）/ Machine-readable contract。
-* **Machine-readable contract**: パラメータ JSON Schema と conformance corpus を仕様と同時に公開する。corpus は (a) 他実装の準拠試験、(b) AI エージェントへの教示（1 ファイルで記法を学習可能）、(c) 参照実装の回帰資産を兼ねる。
-* **Ecosystem compatibility**: Obsidian 系譜（`![[...]]`）との互換関係と劣化クラス（未対応ホストでの可視劣化、Markdown テーブル内 `|` 衝突と escaping 等）を正直に規定する。
-* **KPI redefinition**: 採用観測の主要指標を「駆逐されたコピー重複」「正本と文書の乖離インシデント」「表変更のレビュー所要時間」へ差し替える（Phase 10 の収集基盤を流用し、指標定義のみ変更）。
-* **Asset independence**: Phase 9 の表パターン資産（ベンチマークパック）を、規約・ツールから独立に参照可能な形で公開する。
-
----
-**【Initial Action Request (AIへの初期指示)】**
-上記仕様の【Phase 1】から実装を開始してください。
-まずプロジェクトのディレクトリ構造（関心の分離・キャッシュ機構の配置を明確にすること）を提案し、`markdown-it` カスタムプラグインとキャッシュマネージャーのモックアップコードを出力してください。
+これは未実装の提案であり、既存機能の保証ではない。詳細と検証条件は[入力支援企画](../01_Plans/input-assistance-proposal.md)を参照する。

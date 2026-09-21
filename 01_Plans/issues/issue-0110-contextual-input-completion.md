@@ -8,9 +8,10 @@
 - Expected verification level: manual-e2e
 
 ## Traceability
-- Related Backlog/Phase: requirements.md Phase 5 / Phase 11
+- Related Requirement: requirements.md「執筆支援」「公開品質」
 - Related ADR/Spec: ADR-0016-notation-first-input-assistance.md, 04_Documentation/spec/mmi-notation-v1.md
-- Dependency: なし
+- Related Design: [ソースモデル](../../02_Architecture/input-assistance-source-model.md)（範囲候補は原本座標で提示する）
+- Dependency: issue-0114完了
 
 ## Execution Plan
 ### Proposed solution
@@ -25,3 +26,12 @@
 
 ### Validation plan
 既存のビルド・単体・Extension Hostを回帰検査する。新しい動作は実VS Codeで確認し、候補選択・キャンセル・Undo・原本ハッシュと通信範囲を記録する。測定値を取得するまでは性能やAI品質の目標を達成済みとしない。
+
+## Remaining work
+
+issue-0114（原本座標の保持）の完了待ち。範囲候補は原本座標で提示する必要があり、先に着手すると二重実装になる。
+
+着手時に解決する未解決事項。
+
+- 範囲候補をどこまで出すか。使用範囲全体か、検出した表領域か。表領域の検出は[CPUでの範囲探索](../../02_Architecture/input-assistance-cpu-search.md)§2と設計を共有する。
+- `header`の行番号と範囲省略クエリの既存契約に、仕様と実装の不一致がないか実装前に照合する。

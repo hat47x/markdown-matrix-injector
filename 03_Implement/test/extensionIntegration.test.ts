@@ -103,7 +103,7 @@ test('createDiagnosticsForDocument falls back to workspace-root relative path wh
 test('getPasteInsertText and getDropInsertText reuse pasteDrop suggestions through command-friendly adapters', () => {
   assert.equal(
     getPasteInsertText({ clipboardHtml: '<div data-sheet="Summary">file:///tmp/report.xlsx</div><table><tr><td>A</td></tr></table>' }),
-    '![[/tmp/report.xlsx#Summary|A1:A1]]',
+    '![[/tmp/report.xlsx]]',
   );
   assert.equal(getDropInsertText({ droppedFiles: ['/tmp/report.csv'] }), '![[/tmp/report.csv]]');
   assert.equal(getPasteInsertText(), undefined);
@@ -243,7 +243,7 @@ test('native drop adapter reuses pasteDrop priority across uri-list, html, and f
     },
   };
 
-  assert.equal(await getDropInsertTextFromDataTransfer(htmlThenFileTransfer), '![[/tmp/from-html.xlsx#Summary|A1:A1]]');
+  assert.equal(await getDropInsertTextFromDataTransfer(htmlThenFileTransfer), '![[/tmp/from-html.xlsx]]');
 
   const filesOnlyTransfer = {
     get(mimeType: string) {
@@ -319,11 +319,11 @@ test('native paste/drop adapters reuse pasteDrop logic from DataTransfer surface
     },
   };
 
-  assert.equal(await getPasteInsertTextFromDataTransfer(htmlTransfer), '![[/tmp/report.xlsx#Summary|A1:A1]]');
+  assert.equal(await getPasteInsertTextFromDataTransfer(htmlTransfer), '![[/tmp/report.xlsx]]');
   assert.equal(await getDropInsertTextFromDataTransfer(fileTransfer), '![[/tmp/report.csv]]');
   assert.deepEqual(
     await getPasteEditFromDataTransfer(htmlTransfer, { createEdit: (insertText) => ({ insertText, surface: 'paste' }) }),
-    { insertText: '![[/tmp/report.xlsx#Summary|A1:A1]]', surface: 'paste' },
+    { insertText: '![[/tmp/report.xlsx]]', surface: 'paste' },
   );
   assert.deepEqual(
     await getDropEditFromDataTransfer(fileTransfer, { createEdit: (insertText) => ({ insertText, surface: 'drop' }) }),
@@ -396,6 +396,7 @@ test('extension integration boundaries keep canonical native providers and compa
       'onCommand:markdownMatrixInjector.openSource',
       'onCommand:markdownMatrixInjector.insertEmbedFromPaste',
       'onCommand:markdownMatrixInjector.insertEmbedFromDrop',
+      'onCommand:markdownMatrixInjector.insertEmbedByContentMatch',
       'onLanguage:markdown',
     ],
   );
@@ -407,6 +408,7 @@ test('extension integration boundaries keep canonical native providers and compa
       'markdownMatrixInjector.openSource',
       'markdownMatrixInjector.insertEmbedFromPaste',
       'markdownMatrixInjector.insertEmbedFromDrop',
+      'markdownMatrixInjector.insertEmbedByContentMatch',
     ],
   );
 });
@@ -438,6 +440,10 @@ test('native provider metadata stays API-visible without collapsing command fall
         command: 'markdownMatrixInjector.insertEmbedFromDrop',
         title: 'MMI: Insert Embed From Drop',
       },
+      {
+        command: 'markdownMatrixInjector.insertEmbedByContentMatch',
+        title: 'MMI: Insert Embed by Content Match (search workspace workbooks for the copied range)',
+      },
     ],
   );
   assert.deepEqual(
@@ -467,8 +473,103 @@ test('extension integration state remains source-visible for native edit kind mi
   assert.match(source, /hostSupportsDropProvider: typeof vscode\.languages\.registerDocumentDropEditProvider === 'function'/);
   assert.match(source, /registeredPasteProvider: false/);
   assert.match(source, /registeredDropProvider: false/);
-  assert.match(source, /providedPasteEditKinds: \[NATIVE_PASTE_DROP_EDIT_KIND\],\s*pasteMimeTypes: \[\.\.\.PASTE_MIME_TYPES\]/s);
+  assert.match(source, /providedPasteEditKinds: \[NATIVE_PASTE_DROP_EDIT_KIND, CONTENT_MATCH_PASTE_EDIT_KIND\],\s*pasteMimeTypes: \[\.\.\.PASTE_MIME_TYPES\]/s);
   assert.match(source, /providedDropEditKinds: \[NATIVE_PASTE_DROP_EDIT_KIND\],\s*dropMimeTypes: \[\.\.\.DROP_MIME_TYPES\]/s);
+});
+
+// issue-0114 作業D: content-matching command wiring. Real end-to-end
+// verification (does invoking this command in an actual VS Code window find
+// matches and insert correctly) has NOT been done via GUI interaction --
+// `showQuickPick` cannot be driven from an automated e2e test without
+// monkey-patching `vscode.window`, which this codebase's e2e suite does not
+// currently do for any command. This test instead pins the structural
+// contract at the source level, matching the verification depth already used
+// above for the other thin VS Code glue in this file (native provider
+// registration, compatibility fallback commands).
+test('standalone content-match command exists and never auto-inserts', async () => {
+  const { default: fs } = await import('node:fs/promises');
+  const source = await fs.readFile(new URL('../src/extension.ts', import.meta.url), 'utf8');
+
+  assert.match(source, /const CONTENT_MATCH_PASTE_COMMAND_ID = 'markdownMatrixInjector\.insertEmbedByContentMatch';/);
+  // registerCommand, not registerTextEditorCommand: the latter does not
+  // support async callbacks (microsoft/vscode#178931 et al.) -- confirmed via
+  // real Extension Host e2e (2026-09-17), where the original
+  // registerTextEditorCommand registration silently orphaned the whole
+  // function body after its first `await`.
+  assert.match(
+    source,
+    /registerCommand\(CONTENT_MATCH_PASTE_COMMAND_ID, \(\) => insertEmbedByContentMatch\(\)\),/,
+  );
+  assert.match(source, /async function insertEmbedByContentMatch\(\): Promise<void> \{\s*const editor = vscode\.window\.activeTextEditor;/s);
+
+  // Reuses the exact workspace file-discovery scope already used by autocomplete
+  // (same glob, same node_modules/dist exclusion) -- not a new scanning policy.
+  assert.match(
+    source,
+    /vscode\.workspace\.findFiles\(WORKBOOK_FILE_GLOB, '\*\*\/\{node_modules,dist\}\/\*\*'\)\)\s*\.filter\(\(uri\) => uri\.fsPath\.startsWith\(workspaceRoot\)\)\s*\.slice\(0, MAX_CONTENT_MATCH_WORKSPACE_FILES\)/s,
+  );
+
+  // Every result -- one match or many -- is routed through showQuickPick and
+  // the edit only happens if the user actually picked something (R1: no
+  // auto-confirm).
+  assert.match(source, /const picked = await pickContentMatch\(matches\);\s*if \(!picked\) \{/s);
+  assert.match(source, /await vscode\.window\.showQuickPick\(items, \{ placeHolder \}\);/);
+  // Re-resolves the active editor immediately before the final edit rather
+  // than trusting the reference captured before the async gaps above (the
+  // same class of staleness that made `registerTextEditorCommand` unsafe
+  // here in the first place).
+  assert.match(
+    source,
+    /const currentEditor = vscode\.window\.activeTextEditor;\s*if \(!currentEditor \|\| currentEditor\.document\.uri\.toString\(\) !== documentUri\.toString\(\)\) \{/s,
+  );
+  assert.match(
+    source,
+    /await currentEditor\.edit\(\(editBuilder\) => editBuilder\.replace\(selection, buildContentMatchMarkdown\(picked\)\)\);/,
+  );
+});
+
+// issue-0114 作業D続き（2026-09-16）: automatic-paste integration. The user's
+// stated intent for content-matching was to integrate it into paste itself,
+// not to live only behind a separate command. Folding it into every normal
+// Ctrl+V would risk auto-inserting an unconfirmed guess (VS Code's own paste
+// widget behavior: "the first edit is applied immediately, the rest become a
+// switch-afterward option" -- an insert-then-offer-undo flow, not an R1-safe
+// choose-before-insert flow). `editor.action.pasteAs` / Ctrl+. is different:
+// VS Code's documented UX for it is "a dropdown to choose the paste behavior
+// BEFORE the content is inserted" -- genuinely choose-then-insert. Gating on
+// `context.triggerKind === vscode.DocumentPasteTriggerKind.PasteAs` gets
+// automatic-paste integration (no separate command needed for the common
+// case) without weakening R1, using only VS Code's built-in paste-picker UI.
+test('content-match search integrates into paste via the PasteAs trigger only, never a normal Ctrl+V', async () => {
+  const { default: fs } = await import('node:fs/promises');
+  const source = await fs.readFile(new URL('../src/extension.ts', import.meta.url), 'utf8');
+
+  assert.match(source, /const CONTENT_MATCH_PASTE_EDIT_KIND = NATIVE_PASTE_DROP_EDIT_KIND\.append\('contentMatch'\);/);
+  assert.match(
+    source,
+    /if \(context\.triggerKind === vscode\.DocumentPasteTriggerKind\.PasteAs\) \{\s*edits\.push\(\.\.\.\(await getContentMatchPasteEdits\(document, dataTransfer, token\)\)\);\s*\}/s,
+  );
+  // The gate reads context.triggerKind, so provideDocumentPasteEdits must
+  // actually receive (not discard) document/context/token -- confirms the
+  // gate can genuinely distinguish Automatic from PasteAs, not just always-on
+  // or always-off by construction.
+  assert.match(source, /async provideDocumentPasteEdits\(document, _ranges, dataTransfer, context, token\)/);
+
+  assert.match(
+    source,
+    /async function getContentMatchPasteEdits\(\s*document: vscode\.TextDocument,\s*dataTransfer: vscode\.DataTransfer,\s*token: vscode\.CancellationToken,\s*\): Promise<vscode\.DocumentPasteEdit\[\]> \{/s,
+  );
+  // A bare scalar paste (a word, a URL) never reaches findFiles/loadWorkbook at
+  // all -- the workspace is not touched for content clearly too small to match.
+  assert.match(
+    source,
+    /if \(!plainText \|\| !looksLikeTabularClipboard\(plainText\)\) \{\s*return \[\];\s*\}/s,
+  );
+  assert.match(source, /function looksLikeTabularClipboard\(plainText: string\): boolean \{/);
+  // Cancellation is honoured mid-search (VS Code can cancel a PasteAs request,
+  // e.g. the user pressing Escape or starting another edit).
+  assert.match(source, /if \(token\?\.isCancellationRequested\) \{\s*break;\s*\}/s);
+  assert.match(source, /if \(token\.isCancellationRequested\) \{\s*return \[\];\s*\}/s);
 });
 
 test('e2e lane keeps paste/drop observation ahead of autocomplete to isolate known completion instability', async () => {
@@ -476,7 +577,13 @@ test('e2e lane keeps paste/drop observation ahead of autocomplete to isolate kno
   const source = await fs.readFile(new URL('./e2e/suite/extensionHost.test.ts', import.meta.url), 'utf8');
 
   assert.match(source, /runStage\('paste-drop-observation', \(\) => observePasteDropBoundary\(\)\);\s*await runStage\('paste-drop-boundary'/s);
-  assert.match(source, /await runStage\('paste-drop-boundary', \(\) => verifyPasteDropCoverage\(markdownFilePath, pasteDropBoundary\)\);\s*const autocompleteResult = await runStage\('autocomplete-boundary'/s);
+  // content-match-standalone-command (issue-0114 作業D続き、2026-09-16) runs
+  // after paste-drop-boundary but still ahead of autocomplete-boundary, so it
+  // does not disturb the isolation this test protects.
+  assert.match(
+    source,
+    /await runStage\('paste-drop-boundary', \(\) => verifyPasteDropCoverage\(markdownFilePath, pasteDropBoundary\)\);\s*await runStage\('content-match-standalone-command', \(\) => verifyContentMatchStandaloneCommand\(markdownFilePath\)\);\s*const autocompleteResult = await runStage\('autocomplete-boundary'/s,
+  );
   assert.match(source, /markdownMatrixInjector\.__test\.getPasteInsertTextFromDataTransfer/);
   assert.match(source, /markdownMatrixInjector\.__test\.getDropInsertTextFromDataTransfer/);
   assert.match(source, /markdownMatrixInjector\.__test\.getPasteDropIntegrationState/);
@@ -488,7 +595,7 @@ test('extension adapters preserve shared paste/drop boundaries across command an
   const html = '<div data-sheet="Summary">file:///tmp/shared.xlsx</div><table><tr><td>A</td><td>B</td></tr></table>';
   const droppedFiles = ['/tmp/shared.csv'];
 
-  assert.equal(getPasteInsertText({ clipboardHtml: html }), '![[/tmp/shared.xlsx#Summary|A1:B1]]');
+  assert.equal(getPasteInsertText({ clipboardHtml: html }), '![[/tmp/shared.xlsx]]');
   assert.equal(await getPasteInsertTextFromDataTransfer({
     get(mimeType: string) {
       if (mimeType !== 'text/html') {
@@ -501,7 +608,7 @@ test('extension adapters preserve shared paste/drop boundaries across command an
         },
       };
     },
-  }), '![[/tmp/shared.xlsx#Summary|A1:B1]]');
+  }), '![[/tmp/shared.xlsx]]');
 
   assert.equal(getDropInsertText({ droppedFiles }), '![[/tmp/shared.csv]]');
   assert.equal(await getDropInsertTextFromDataTransfer({

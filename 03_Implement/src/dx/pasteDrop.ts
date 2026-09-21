@@ -69,6 +69,21 @@ export async function suggestEmbedFromDataTransfer(
   return suggestEmbedFromTransferValues(source, await readTransferValuesFromDataTransfer(dataTransfer, source));
 }
 
+/**
+ * `sheet` and `range` are deliberately never inferred here (issue-0114 /
+ * ADR-0016 "残る判断"; paste-provenance.md §6). A real Excel range copy was
+ * captured and confirmed (2026-09-11) to contain neither a sheet name (no
+ * `<title>`, no `data-sheet`-like attribute) nor the workbook's own file path
+ * anywhere in its HTML -- only two `<link>` references to a *temporary*
+ * clip-staging folder (see `extractSupportedFilepathFromHtml`). Guessing a
+ * sheet from `<title>`/`data-sheet`, or a range from the copied fragment's
+ * row/column count assuming an A1 origin, would silently fabricate
+ * provenance MMI cannot actually verify (spec P2: failures must be visible,
+ * never silent). A bare `![[file.xlsx]]` -- file only -- is the most this
+ * function can honestly claim; the caller/user supplies sheet and range
+ * (issue-0110 completion, or the content-matching flow issue-0114 "作業D"
+ * has not yet implemented).
+ */
 export function suggestEmbedFromClipboardHtml(html: string): PasteDropSuggestion | null {
   const normalizedHtml = html.trim();
   if (!normalizedHtml) {
@@ -80,9 +95,7 @@ export function suggestEmbedFromClipboardHtml(html: string): PasteDropSuggestion
     return null;
   }
 
-  const sheet = extractSheetNameFromHtml(normalizedHtml);
-  const range = inferRangeFromHtmlTable(normalizedHtml);
-  return buildSuggestion('clipboard-html', filepath, sheet, range);
+  return buildSuggestion('clipboard-html', filepath);
 }
 
 export function suggestEmbedFromDroppedFiles(files: readonly string[]): PasteDropSuggestion | null {
@@ -99,30 +112,184 @@ export function isSupportedWorkbookPath(filepath: string): boolean {
   return SUPPORTED_EXTENSIONS.some((extension) => normalized.endsWith(extension));
 }
 
-export function inferRangeFromHtmlTable(html: string): string | undefined {
-  const rowMatches = [...html.matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)];
+export interface HtmlTableShape {
+  rowCount: number;
+  columnCount: number;
+}
+
+/**
+ * Shape (row/column count) of the first `<table>` in `html`, via an
+ * occupancy grid that honors `rowspan`/`colspan` (design review R2:
+ * `01_Plans/input-assistance-design-review.md`). This deliberately returns
+ * *shape only*, never an A1 range -- see `suggestEmbedFromClipboardHtml` for
+ * why inferring an origin from shape alone is unsound. Intended for the
+ * content-matching candidate search (issue-0114 "作業D", not yet
+ * implemented): comparing a copied fragment's shape against sheets in a
+ * candidate workbook is a cheap first filter before comparing cell values.
+ *
+ * A per-row `<td>` count -- even the max across rows -- cannot recover true
+ * width: a table whose first row is `A(rowspan=2), B` and second row is
+ * `C, D` has at most 2 cells per row, but true width is 3 (the rowspan
+ * pushes `C`/`D` one column right, since browsers/Excel never re-emit a
+ * `<td>` for a cell covered by a rowspan from above). Verified against this
+ * exact case and against a real captured Excel clipboard payload
+ * (`03_Implement/scripts/clipboard-probe/probe-lib.cjs::htmlShape`, the
+ * reference implementation this ports from).
+ *
+ * Counted from the whole `<table>`, not just inside
+ * `<!--StartFragment-->`...`<!--EndFragment-->`: a single-row copy was
+ * observed to place its `<tr>` *outside* the fragment markers (see
+ * `input-assistance-paste-provenance.md` §1.5), so fragment-only counting
+ * would under-report by a row.
+ */
+export function extractHtmlTableShape(html: string): HtmlTableShape | undefined {
+  const tableMatch = /<table\b[\s\S]*?<\/table>/i.exec(html);
+  if (!tableMatch) {
+    return undefined;
+  }
+
+  const rowMatches = [...tableMatch[0].matchAll(/<tr\b[^>]*>([\s\S]*?)<\/tr>/gi)];
   if (rowMatches.length === 0) {
     return undefined;
   }
 
-  const rowCount = rowMatches.length;
-  let maxColumnCount = 0;
+  // grid[row] is a sparse array; a truthy slot means that physical cell is
+  // occupied, either by a cell literally emitted at that position or by the
+  // colspan/rowspan of an earlier cell reaching into it.
+  const grid: boolean[][] = [];
+  const occupy = (row: number, col: number): void => {
+    (grid[row] ??= [])[col] = true;
+  };
 
-  for (const rowMatch of rowMatches) {
-    const cells = [...rowMatch[1].matchAll(/<(td|th)\b[^>]*?(?:colspan=(?:"(\d+)"|'(\d+)'|(\d+)))?[^>]*>/gi)];
-    const columnCount = cells.reduce((total, cellMatch) => {
-      const colspan = Number.parseInt(cellMatch[2] ?? cellMatch[3] ?? cellMatch[4] ?? '1', 10);
-      return total + (Number.isNaN(colspan) ? 1 : Math.max(colspan, 1));
-    }, 0);
+  rowMatches.forEach((rowMatch, rowIndex) => {
+    grid[rowIndex] ??= [];
+    let col = 0;
 
-    maxColumnCount = Math.max(maxColumnCount, columnCount);
-  }
+    for (const cellMatch of rowMatch[1].matchAll(/<(?:td|th)\b([^>]*)>/gi)) {
+      const attrs = cellMatch[1];
+      const colspan = parseSpanAttribute(attrs, 'colspan');
+      const rowspan = parseSpanAttribute(attrs, 'rowspan');
 
-  if (rowCount <= 0 || maxColumnCount <= 0) {
+      while (grid[rowIndex][col]) {
+        col += 1; // skip a column already covered by an earlier row's rowspan
+      }
+      for (let dr = 0; dr < rowspan; dr += 1) {
+        for (let dc = 0; dc < colspan; dc += 1) {
+          occupy(rowIndex + dr, col + dc);
+        }
+      }
+      col += colspan;
+    }
+  });
+
+  const rowCount = grid.length;
+  const columnCount = grid.reduce((max, row) => Math.max(max, row.length), 0);
+  if (rowCount <= 0 || columnCount <= 0) {
     return undefined;
   }
 
-  return `A1:${columnNumberToLabel(maxColumnCount)}${rowCount}`;
+  return { rowCount, columnCount };
+}
+
+function parseSpanAttribute(attrs: string, name: 'colspan' | 'rowspan'): number {
+  const match = new RegExp(`${name}=(?:"(\\d+)"|'(\\d+)'|(\\d+))`, 'i').exec(attrs);
+  const raw = match?.[1] ?? match?.[2] ?? match?.[3];
+  const value = raw === undefined ? 1 : Number.parseInt(raw, 10);
+  return Number.isNaN(value) ? 1 : Math.max(1, value);
+}
+
+/**
+ * Parses Excel's tab-separated plain-text clipboard payload (`text/plain`)
+ * into a cell matrix -- the value-matrix half of what content-matching needs
+ * from a clipboard capture (`input-assistance-paste-provenance.md` §4/§5):
+ * `extractHtmlTableShape` supplies the occupancy-grid-aware shape from
+ * `text/html`, this supplies the actual display values from `text/plain`.
+ *
+ * Mirrors `workbookLoader.ts`'s RFC4180 CSV parser's quoting rules with tab
+ * in place of comma, confirmed against real Excel TSV clipboard output
+ * (2026-09-14, captured via `03_Implement/scripts/clipboard-probe`):
+ *
+ * - A cell is wrapped in double quotes only when it contains a tab or an
+ *   embedded newline. A bare `"` alone does NOT trigger quoting -- Excel
+ *   leaves e.g. `say "hi"` completely unescaped when no tab/newline is
+ *   present, which is looser than strict RFC4180 (observed, not assumed).
+ * - When quoting IS triggered, an internal `"` is doubled (`""`) exactly
+ *   like CSV (confirmed: a cell with both a tab and a quote round-trips as
+ *   `"a\tb say ""hi"""`).
+ * - The row separator is CRLF; an embedded newline inside a quoted cell is a
+ *   bare LF (never CRLF), matching what a `<td>` with an Alt+Enter line break
+ *   produces.
+ *
+ * Behavior mirrors `parseCsv`: the whole payload is trimmed once, unquoted
+ * cells are trimmed, quoted cells are not (their content, including
+ * intentional leading/trailing whitespace, is preserved verbatim).
+ */
+export function parseTsv(text: string): string[][] {
+  const trimmed = text.trim();
+  if (trimmed.length === 0) {
+    return [];
+  }
+
+  const rows: string[][] = [];
+  let row: string[] = [];
+  let field = '';
+  let fieldIsQuoted = false;
+  let inQuotes = false;
+
+  const flushField = (): void => {
+    row.push(fieldIsQuoted ? field : field.trim());
+    field = '';
+    fieldIsQuoted = false;
+  };
+  const flushRow = (): void => {
+    flushField();
+    rows.push(row);
+    row = [];
+  };
+
+  for (let i = 0; i < trimmed.length; i += 1) {
+    const ch = trimmed[i];
+
+    if (inQuotes) {
+      if (ch === '"') {
+        if (trimmed[i + 1] === '"') {
+          field += '"';
+          i += 1;
+        } else {
+          inQuotes = false;
+        }
+      } else {
+        field += ch;
+      }
+      continue;
+    }
+
+    if (ch === '"' && field === '' && !fieldIsQuoted) {
+      inQuotes = true;
+      fieldIsQuoted = true;
+      continue;
+    }
+
+    if (ch === '\t') {
+      flushField();
+      continue;
+    }
+
+    if (ch === '\r') {
+      continue;
+    }
+
+    if (ch === '\n') {
+      flushRow();
+      continue;
+    }
+
+    field += ch;
+  }
+
+  flushRow(); // final row -- `trimmed` was trimmed, so it never ends on a bare newline
+
+  return rows;
 }
 
 export async function readTransferValuesFromDataTransfer(
@@ -199,50 +366,49 @@ function buildSuggestion(
   };
 }
 
+/**
+ * Real Excel range copies were observed (2026-09-11, issue-0114 "Cの完了内容")
+ * to place two `<link>` elements in `<head>`, both pointing at a *temporary*
+ * HTML-clip staging folder (`...\msohtmlclip<N>\...`), never the source
+ * workbook:
+ *
+ *   <link id=Main-File rel=Main-File href="file:///...\msohtmlclip1\01\clip.htm">
+ *   <link rel=File-List href="file:///...\msohtmlclip1\01\clip_filelist.xml">
+ *
+ * The second one ends in `.xml`, one of MMI's supported extensions, so the
+ * previous unconditional regex scan matched it and produced a suggestion
+ * pointing at that transient staging file instead of the real workbook --
+ * confirmed by replaying an actual captured clipboard payload (not a
+ * synthetic fixture) through this function. An exhaustive scan of that same
+ * real payload found the true workbook path nowhere else in the HTML either,
+ * so "no match" (leading to no suggestion, or a fallback to plain-text paste)
+ * is the correct outcome for genuine Excel HTML -- not a guess at the wrong
+ * file. `<head>` never carries the copied content itself (that is always in
+ * `<body>`), so excluding it removes exactly this class of false positive.
+ */
+function stripHtmlHead(html: string): string {
+  return html.replace(/<head\b[^>]*>[\s\S]*?<\/head>/gi, '');
+}
+
 function extractSupportedFilepathFromHtml(html: string): string | undefined {
-  const decodedHtml = decodeHtmlEntities(html);
+  const decodedHtml = decodeHtmlEntities(stripHtmlHead(html));
   const matches = decodedHtml.match(/(?:file:\/\/\/[^"'\s<>]+|[A-Za-z]:[\/][^"'<>\s]+|\.\.?\/[^"]+?|\/[^"'<>\s]+?)(?:\.xlsx|\.xls|\.csv|\.xml)/gi);
   if (!matches) {
     return undefined;
   }
 
-  return firstSupportedPath(matches);
-}
-
-function extractSheetNameFromHtml(html: string): string | undefined {
-  const decodedHtml = decodeHtmlEntities(html);
-  const patterns = [
-    /data-sheet=(?:"([^"]+)"|'([^']+)')/i,
-    /(?:sheet|worksheet|tab)=(?:"([^"]+)"|'([^']+)')/i,
-    /<title>([^<]+)<\/title>/i,
-  ];
-
-  for (const pattern of patterns) {
-    const match = decodedHtml.match(pattern);
-    const value = match?.[1] ?? match?.[2];
-    if (value) {
-      return value.trim();
-    }
+  // Defense in depth: even outside <head>, never suggest a path that is
+  // self-evidently the HTML-clip staging area rather than a real workbook.
+  const realWorkbookMatches = matches.filter((match) => !/msohtmlclip/i.test(match));
+  if (realWorkbookMatches.length === 0) {
+    return undefined;
   }
 
-  return undefined;
+  return firstSupportedPath(realWorkbookMatches);
 }
 
 function firstSupportedPath(files: readonly string[]): string | undefined {
   return files.map((file) => normalizePath(file)).find((file) => isSupportedWorkbookPath(file));
-}
-
-function columnNumberToLabel(columnNumber: number): string {
-  let value = columnNumber;
-  let label = '';
-
-  while (value > 0) {
-    const remainder = (value - 1) % 26;
-    label = String.fromCharCode(65 + remainder) + label;
-    value = Math.floor((value - 1) / 26);
-  }
-
-  return label;
 }
 
 function decodeHtmlEntities(value: string): string {

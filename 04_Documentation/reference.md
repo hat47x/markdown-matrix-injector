@@ -372,6 +372,10 @@ VS Code コマンドパレットから利用できる主要コマンド:
 | MMI: Open Embed Source | `markdownMatrixInjector.openSource` | 表データの絶対パスを引数として受け取り、OS既定アプリへ渡す。カードはADR-0015の拡張URIハンドラーから同じ処理を呼ぶ。信頼済みローカルワークスペース内の対応形式のみ許可し、realpathで境界を確認する。引数なしのパレット実行は対象を選ぶ操作ではない。 |
 | MMI: Insert Embed From Paste | `markdownMatrixInjector.insertEmbedFromPaste` | クリップボードから埋め込み記法を生成・挿入する。 |
 | MMI: Insert Embed From Drop | `markdownMatrixInjector.insertEmbedFromDrop` | ドロップしたファイルから埋め込み記法を生成・挿入する。 |
+| MMI: Insert Embed by Content Match | `markdownMatrixInjector.insertEmbedByContentMatch` | クリップボードの値（TSV）でワークスペース内のワークブック（`**/*.{xlsx,xls,csv,xml}`、`node_modules`/`dist`除外、最大`MAX_CONTENT_MATCH_WORKSPACE_FILES`件）を検索し、一致する範囲を候補として提示する。Excelのセルコピーは元ファイルの場所を含まないため、上記2コマンド（パス依存）が使えない場合の代替経路。結果が1件でも複数件でも`showQuickPick`による明示選択を必ず経る（自動確定しない）。同じ検索は`editor.action.pasteAs`（Ctrl+.）からも呼ばれる（下記）。通常の自動貼り付け（Ctrl+V）へは統合されていない（自動適用によるR1違反リスクを避けるため）。 |
+
+### `editor.action.pasteAs`（Paste As...、既定 Ctrl+.）との統合
+`registerDocumentPasteEditProvider`は`context.triggerKind === DocumentPasteTriggerKind.PasteAs`のときだけ、内容照合の候補を追加で返す。VS Code標準の「挿入前に選ぶ」ドロップダウンに候補が並ぶため、独自UIを実装せずR1（自動確定しない）を満たす。通常のCtrl+V（`triggerKind: Automatic`）ではこの検索を一切行わない——`Automatic`では複数の`DocumentPasteEdit`のうち最初の1件が即座に自動適用される仕様のため、そこに含めると未確認の推測が本文へ入ってしまうリスクがある。単一スカラー値（単語・URL等）の貼り付けでは、ワークスペースへのアクセス自体が発生しない（`looksLikeTabularClipboard`によるゲート）。
 
 ### Generate Delivery Manifest の挙動
 - 正常系挙動: `mode=card` 指定、列数 10 超、セル数 500 超、シート未指定（ファイル全体参照）で「別紙」となった埋め込みを 1 行ずつ CSV 化する（列: `sourcePath, sheet, range, reason, caption, id`）。

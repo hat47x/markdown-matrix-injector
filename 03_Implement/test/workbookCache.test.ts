@@ -6,7 +6,14 @@ import path from 'node:path';
 import XLSX from 'xlsx';
 import { WorkbookCache } from '../src/cache/workbookCache.js';
 import { resolveSourcePath } from '../src/core/pathResolver.js';
-import { loadWorkbook } from '../src/core/workbookLoader.js';
+import { loadWorkbook, type SheetSource } from '../src/core/workbookLoader.js';
+import { sliceRegion } from '../src/core/tableGeometry.js';
+
+/** Materialises a whole `SheetSource` (its used range) as a display matrix, for
+ * assertions that compare against a plain `string[][]` fixture. */
+function sheetToMatrix(sheet: SheetSource): string[][] {
+  return sliceRegion(sheet);
+}
 
 test('WorkbookCache reuses workbook for identical mtime', () => {
   const cache = new WorkbookCache<{ id: number }>();
@@ -50,7 +57,7 @@ test('loadWorkbook parses csv content into Sheet1', () => {
 
   const workbook = loadWorkbook({ absolutePath: filePath });
 
-  assert.deepEqual(workbook.sheets.Sheet1, [
+  assert.deepEqual(sheetToMatrix(workbook.sheets.Sheet1), [
     ['Name', 'Role'],
     ['Alice', 'Admin'],
     ['Bob', 'User'],
@@ -78,7 +85,7 @@ test('loadWorkbook accepts XML Spreadsheet 2003 files', () => {
 
   const workbook = loadWorkbook({ absolutePath: filePath });
 
-  assert.deepEqual(workbook.sheets.Sheet1, [
+  assert.deepEqual(sheetToMatrix(workbook.sheets.Sheet1), [
     ['Name', 'Role'],
     ['Alice', 'Admin'],
   ]);
@@ -100,7 +107,7 @@ function loadCsv(contents: string): string[][] {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-csv-quote-'));
   const filePath = path.join(tempDir, 'matrix.csv');
   fs.writeFileSync(filePath, contents);
-  return loadWorkbook({ absolutePath: filePath }).sheets.Sheet1;
+  return sheetToMatrix(loadWorkbook({ absolutePath: filePath }).sheets.Sheet1);
 }
 
 test('loadWorkbook keeps a comma inside a quoted cell as one field', () => {
@@ -160,6 +167,28 @@ test('loadWorkbook still parses plain (unquoted) CSV exactly as before', () => {
   ]);
 });
 
+// ── CSV: the whole-file trim() shifts the A1 origin past leading blank lines
+// -- a known, separate gap from the used-range/blank-row fix this module made
+// for XLSX (parseCsv's own doc comment, input-assistance-source-model.md §7,
+// issue-0114 "未対応で残る点"). Deliberately NOT fixed here: whether CSV should
+// get the same origin-preserving contract as XLSX is an open product decision
+// (a leading blank line in a hand-edited CSV may be noise, not real row 1 the
+// way an Excel used-range is authoritative). This test only pins the CURRENT
+// behavior so a future change to parseCsv is a visible, deliberate decision
+// rather than an accidental regression. ────────────────────────────────────
+
+test('loadWorkbook\'s CSV origin silently shifts past leading blank lines (documented, intentionally unfixed gap)', () => {
+  const rows = loadCsv('\n\nName,Role\nAlice,Admin\n');
+
+  // Two real leading blank lines precede the header in the source file, but
+  // parseCsv's whole-file trim() strips them before parsing: the header ends
+  // up addressed as A1 instead of the physically-correct A3.
+  assert.deepEqual(rows, [
+    ['Name', 'Role'],
+    ['Alice', 'Admin'],
+  ]);
+});
+
 // ── XLSX: date cells render as unambiguous ISO-8601 (not locale-ambiguous
 // short-form like "4/3/26", which a SIer-design-document reader could misread
 // as either April 3 or March 4) ─────────────────────────────────────────────
@@ -175,7 +204,7 @@ test('loadWorkbook renders a real (Excel-typed) date cell as YYYY-MM-DD, not loc
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
   fs.writeFileSync(filePath, XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }));
 
-  const rows = loadWorkbook({ absolutePath: filePath }).sheets.Sheet1;
+  const rows = sheetToMatrix(loadWorkbook({ absolutePath: filePath }).sheets.Sheet1);
 
   assert.deepEqual(rows, [
     ['Name', 'EffectiveFrom'],
@@ -194,10 +223,83 @@ test('loadWorkbook leaves non-date numeric cells and date-like text cells untouc
   XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
   fs.writeFileSync(filePath, XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }));
 
-  const rows = loadWorkbook({ absolutePath: filePath }).sheets.Sheet1;
+  const rows = sheetToMatrix(loadWorkbook({ absolutePath: filePath }).sheets.Sheet1);
 
   assert.deepEqual(rows, [
     ['Price', 'Percent', 'Label'],
     ['1234.5', '0.15', '2026-04-03 as text'],
   ]);
+});
+
+// ── XLSX: origin-preserving coordinates, blank rows, error cells, declared
+// merges (issue-0114 / ADR-0016). Fixed reproduction:
+// input-assistance-source-model.md §1. `aoa_to_sheet` always originates at
+// A1, so these fixtures are built from explicit cell addresses instead --
+// the same shape `XLSX.read()` sees for a real Excel-authored workbook whose
+// used range starts away from A1. ───────────────────────────────────────────
+
+/** Writes a worksheet built from explicit `{ addr: cellObject }` entries (not
+ * `aoa_to_sheet`, which always originates at A1) and returns the loaded
+ * `SheetSource`. */
+function loadXlsxSheet(cells: Record<string, XLSX.CellObject>, ref: string, merges?: XLSX.Range[]): SheetSource {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-xlsx-origin-'));
+  const filePath = path.join(tempDir, 'sheet.xlsx');
+  const workbook = XLSX.utils.book_new();
+  const worksheet: XLSX.WorkSheet = { ...cells, '!ref': ref, ...(merges ? { '!merges': merges } : {}) };
+  XLSX.utils.book_append_sheet(workbook, worksheet, 'Sheet1');
+  fs.writeFileSync(filePath, XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }));
+  return loadWorkbook({ absolutePath: filePath }).sheets.Sheet1;
+}
+
+test('loadWorkbook preserves a non-A1 used-range origin and a genuinely blank row in between', () => {
+  // The flagship reproduction: used range starts at C5 (not A1), row 9 is
+  // entirely blank between two populated rows.
+  const sheet = loadXlsxSheet(
+    {
+      C5: { t: 's', v: 'ID' }, D5: { t: 's', v: '操作' },
+      C6: { t: 's', v: 'ST-001' }, D6: { t: 's', v: '申請' },
+      C8: { t: 's', v: 'ST-004' }, D8: { t: 's', v: '取消' },
+    },
+    'C5:D8',
+  );
+
+  assert.deepEqual(sheetToMatrix(sheet), [
+    ['ID', '操作'],
+    ['ST-001', '申請'],
+    ['', ''],
+    ['ST-004', '取消'],
+  ]);
+  // The same block must be addressable by its real A1 coordinates -- this is
+  // what makes `![[...|C5:D8]]` show the right cells instead of an A1-relative
+  // 4-row slice from a completely different part of the sheet.
+  assert.deepEqual(sliceRegion(sheet, 'C5:D8'), sheetToMatrix(sheet));
+});
+
+test('loadWorkbook exposes a cached error value as its display text instead of an empty string', () => {
+  const sheet = loadXlsxSheet(
+    { A1: { t: 's', v: 'Result' }, A2: { t: 'e', v: 7, f: '1/0' } },
+    'A1:A2',
+  );
+
+  assert.deepEqual(sheetToMatrix(sheet), [['Result'], ['#DIV/0!']]);
+});
+
+test('loadWorkbook exposes declared merges without inferring them from adjacent blank cells', () => {
+  const sheet = loadXlsxSheet(
+    { A1: { t: 's', v: '合計' } },
+    'A1:B2',
+    [{ s: { r: 0, c: 0 }, e: { r: 0, c: 1 } }], // A1:B2 declares only A1:B1 merged
+  );
+
+  assert.deepEqual(sheet.merges, [{ startRow: 0, startCol: 0, endRow: 0, endCol: 1 }]);
+});
+
+test('loadWorkbook reports no merges when none are declared, even with adjacent blank cells', () => {
+  const sheet = loadXlsxSheet({ A1: { t: 's', v: 'x' } }, 'A1:B2');
+  assert.deepEqual(sheet.merges, []);
+});
+
+test('sliceRegion with no range reads the sheet\'s used range, not an assumed A1 block', () => {
+  const sheet = loadXlsxSheet({ C5: { t: 's', v: 'only-cell' } }, 'C5:C5');
+  assert.deepEqual(sliceRegion(sheet), [['only-cell']]);
 });

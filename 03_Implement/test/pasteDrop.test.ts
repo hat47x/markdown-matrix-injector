@@ -9,7 +9,8 @@ import {
   getPasteInsertTextFromDataTransfer,
 } from '../src/dx/vscodeAdapters.js';
 import {
-  inferRangeFromHtmlTable,
+  extractHtmlTableShape,
+  parseTsv,
   readTransferValuesFromDataTransfer,
   isSupportedWorkbookPath,
   suggestEmbedFromDataTransfer,
@@ -24,7 +25,14 @@ test('suggestEmbedFromClipboardHtml returns null when HTML does not expose a sup
   assert.equal(suggestEmbedFromClipboardHtml(html), null);
 });
 
-test('suggestEmbedFromClipboardHtml extracts filepath, sheet, and inferred range from workbook HTML metadata', () => {
+// `sheet` and `range` are never inferred from clipboard HTML (see the doc
+// comment on `suggestEmbedFromClipboardHtml`): a real Excel capture has
+// neither a `<title>`/`data-sheet` sheet name nor its own file path anywhere
+// in the HTML, so guessing either from HTML metadata would fabricate
+// provenance MMI cannot verify. Only a real file path -- when one genuinely
+// appears in the HTML body -- produces a (file-only) suggestion.
+
+test('suggestEmbedFromClipboardHtml extracts only the filepath from workbook HTML, never a sheet or range', () => {
   const html = [
     '<html>',
     '<head><title>Architecture</title></head>',
@@ -41,9 +49,7 @@ test('suggestEmbedFromClipboardHtml extracts filepath, sheet, and inferred range
   assert.deepEqual(suggestEmbedFromClipboardHtml(html), {
     source: 'clipboard-html',
     filepath: 'C:/docs/spec.xlsx',
-    sheet: 'Architecture',
-    range: 'A1:C2',
-    markdown: '![[C:/docs/spec.xlsx#Architecture|A1:C2]]',
+    markdown: '![[C:/docs/spec.xlsx]]',
   });
 });
 
@@ -56,10 +62,67 @@ test('suggestEmbedFromClipboardHtml normalizes encoded workbook paths from clipb
   assert.deepEqual(suggestEmbedFromClipboardHtml(html), {
     source: 'clipboard-html',
     filepath: '/tmp/My Report.xlsx',
-    sheet: 'Summary',
-    range: 'A1:A1',
-    markdown: '![[/tmp/My Report.xlsx#Summary|A1:A1]]',
+    markdown: '![[/tmp/My Report.xlsx]]',
   });
+});
+
+// ── Real Excel clipboard HTML (issue-0114 "Cの完了内容", 2026-09-11) ─────────
+//
+// A genuine Excel range copy was captured (via 03_Implement/scripts/
+// clipboard-probe) and replayed through the shipped extraction functions.
+// Real Excel HTML places two <link> elements in <head>, both pointing at a
+// *temporary* HTML-clip staging folder (`...\msohtmlclip<N>\...`) rather than
+// the source workbook -- and never contains the real workbook path anywhere
+// else. Before the fix below, `<link rel=File-List href="...clip_filelist.
+// xml">` was matched because it ends in `.xml` (a supported extension),
+// producing `![[C:/.../msohtmlclip1/01/clip_filelist.xml|A1:D8]]` -- a
+// reference to a transient staging file, not the user's workbook. The
+// fixture here reproduces that exact <head> shape (CSS/style trimmed for
+// readability; everything load-bearing for the bug is kept verbatim).
+
+const REAL_EXCEL_CLIPBOARD_HTML = [
+  '<html xmlns:o="urn:schemas-microsoft-com:office:office"',
+  'xmlns:x="urn:schemas-microsoft-com:office:excel"',
+  'xmlns="http://www.w3.org/TR/REC-html40">',
+  '<head>',
+  '<meta http-equiv=Content-Type content="text/html; charset=utf-8">',
+  '<meta name=ProgId content=Excel.Sheet>',
+  '<meta name=Generator content="Microsoft Excel 15">',
+  '<link id=Main-File rel=Main-File',
+  'href="file:///C:/Users/mbs0267/AppData/Local/Temp/msohtmlclip1/01/clip.htm">',
+  '<link rel=File-List',
+  'href="file:///C:/Users/mbs0267/AppData/Local/Temp/msohtmlclip1/01/clip_filelist.xml">',
+  '</head>',
+  '<body>',
+  '<table border=0 cellpadding=0 cellspacing=0 width=300>',
+  '<!--StartFragment-->',
+  '<tr><td>ID</td><td>操作</td></tr>',
+  '<tr><td>ST-001</td><td>申請</td></tr>',
+  '<!--EndFragment-->',
+  '</table>',
+  '</body>',
+  '</html>',
+].join('\r\n');
+
+test('suggestEmbedFromClipboardHtml does not mistake Excel\'s HTML-clip staging <link> for the workbook path (real capture)', () => {
+  // No suggestion is the correct outcome: the real workbook path is not
+  // present anywhere in genuine Excel clipboard HTML (confirmed by
+  // exhaustively scanning an actual capture), so guessing at the staging
+  // file -- or any other guess -- would be wrong. Falling through to the
+  // host's normal paste behaviour is the safe degradation.
+  assert.equal(suggestEmbedFromClipboardHtml(REAL_EXCEL_CLIPBOARD_HTML), null);
+});
+
+test('suggestEmbedFromClipboardHtml ignores Main-File/File-List staging links even when a real workbook path is also present', () => {
+  const html = REAL_EXCEL_CLIPBOARD_HTML.replace(
+    '<body>',
+    '<body><div data-sheet="状態遷移">file:///C:/data/設計.xlsx</div>',
+  );
+
+  const suggestion = suggestEmbedFromClipboardHtml(html);
+
+  assert.equal(suggestion?.filepath, 'C:/data/設計.xlsx');
+  assert.doesNotMatch(suggestion?.filepath ?? '', /msohtmlclip|clip_filelist/);
 });
 
 test('suggestEmbedFromDroppedFiles returns the first supported file and ignores unsupported entries', () => {
@@ -92,9 +155,7 @@ test('suggestEmbedFromPasteDrop prefers clipboard-derived suggestions before fal
     {
       source: 'clipboard-html',
       filepath: '/tmp/report.xlsx',
-      sheet: 'Summary',
-      range: 'A1:A1',
-      markdown: '![[/tmp/report.xlsx#Summary|A1:A1]]',
+      markdown: '![[/tmp/report.xlsx]]',
     },
   );
 });
@@ -109,7 +170,7 @@ test('suggestEmbedFromPasteDrop falls back to dropped files and otherwise return
   assert.equal(suggestEmbedFromPasteDrop({ droppedFiles: ['/tmp/readme.md'] }), null);
 });
 
-test('inferRangeFromHtmlTable counts rows and colspan to infer an A1 range', () => {
+test('extractHtmlTableShape counts rows and same-row colspan', () => {
   const html = [
     '<table>',
     '<tr><th colspan="2">Header</th><th>State</th></tr>',
@@ -118,13 +179,131 @@ test('inferRangeFromHtmlTable counts rows and colspan to infer an A1 range', () 
     '</table>',
   ].join('');
 
-  assert.equal(inferRangeFromHtmlTable(html), 'A1:C3');
+  assert.deepEqual(extractHtmlTableShape(html), { rowCount: 3, columnCount: 3 });
 });
 
-test('inferRangeFromHtmlTable expands beyond column Z and returns undefined for cell-less rows', () => {
+test('extractHtmlTableShape counts a wide table and returns undefined for a table with no cells', () => {
   const wideCells = Array.from({ length: 28 }, (_, index) => `<td>${index + 1}</td>`).join('');
-  assert.equal(inferRangeFromHtmlTable(`<table><tr>${wideCells}</tr><tr>${wideCells}</tr></table>`), 'A1:AB2');
-  assert.equal(inferRangeFromHtmlTable('<table><tr></tr></table>'), undefined);
+  assert.deepEqual(
+    extractHtmlTableShape(`<table><tr>${wideCells}</tr><tr>${wideCells}</tr></table>`),
+    { rowCount: 2, columnCount: 28 },
+  );
+  assert.equal(extractHtmlTableShape('<table><tr></tr></table>'), undefined);
+  assert.equal(extractHtmlTableShape('<p>no table here</p>'), undefined);
+});
+
+test('extractHtmlTableShape accounts for rowspan when a per-row cell count alone would under-report width', () => {
+  // Row 1: A(rowspan=2), B -- 2 <td>s. Row 2: C, D -- 2 <td>s (a cell covered
+  // by A's rowspan is never re-emitted). A naive max-per-row count gives 2,
+  // but C/D are pushed one column right by A's rowspan, so the true width is
+  // 3. This is the exact review R2 counterexample.
+  const html = [
+    '<table>',
+    '<tr><td rowspan="2">A</td><td>B</td></tr>',
+    '<tr><td>C</td><td>D</td></tr>',
+    '</table>',
+  ].join('');
+
+  assert.deepEqual(extractHtmlTableShape(html), { rowCount: 2, columnCount: 3 });
+});
+
+test('extractHtmlTableShape counts a single-row copy whose <tr> sits outside the fragment markers', () => {
+  // Observed in a real Excel capture (input-assistance-paste-provenance.md
+  // §1.5): Excel places the sole <tr> of a single-row copy *outside*
+  // <!--StartFragment-->...<!--EndFragment-->. Counting from the whole
+  // <table> (not just inside the fragment markers) is what makes this work.
+  const html = [
+    '<table>',
+    '<!--StartFragment-->',
+    '<!--EndFragment-->',
+    '<tr><td>ID</td><td>操作</td></tr>',
+    '</table>',
+  ].join('');
+
+  assert.deepEqual(extractHtmlTableShape(html), { rowCount: 1, columnCount: 2 });
+});
+
+// ── parseTsv: Excel's plain-text clipboard payload (issue-0114 "作業D",
+// 2026-09-14). Quoting rules confirmed against real Excel TSV output (see
+// the function's own doc comment) -- not assumed by analogy with CSV.
+
+test('parseTsv splits on tabs and CRLF row breaks', () => {
+  assert.deepEqual(parseTsv('ID\t操作\r\nST-001\t申請\r\n'), [
+    ['ID', '操作'],
+    ['ST-001', '申請'],
+  ]);
+});
+
+test('parseTsv reproduces a real captured Excel TSV payload verbatim, including the mid-table blank row', () => {
+  // Exact bytes captured from a real Excel range copy (状態遷移!C5:F12,
+  // issue-0114 "Cの完了内容"): a blank row 9 becomes a row of empty cells,
+  // not a dropped row.
+  const real = 'ID\t操作\t遷移後状態\t判定\r\n'
+    + 'ST-001\t申請\t審査中\t要確認\r\n'
+    + 'ST-002\t承認\t承認済\t合格\r\n'
+    + 'ST-003\t差戻\t記入中\t要確認\r\n'
+    + '\t\t\t\r\n'
+    + 'ST-004\t取消\t取消済\t合格\r\n'
+    + '007\t2026/04/03\tST-002\t#DIV/0!\r\n'
+    + 'ST-006\t\t完了\t合格\r\n';
+
+  assert.deepEqual(parseTsv(real), [
+    ['ID', '操作', '遷移後状態', '判定'],
+    ['ST-001', '申請', '審査中', '要確認'],
+    ['ST-002', '承認', '承認済', '合格'],
+    ['ST-003', '差戻', '記入中', '要確認'],
+    ['', '', '', ''],
+    ['ST-004', '取消', '取消済', '合格'],
+    ['007', '2026/04/03', 'ST-002', '#DIV/0!'],
+    ['ST-006', '', '完了', '合格'],
+  ]);
+});
+
+test('parseTsv keeps a tab embedded in a quoted cell as one field', () => {
+  // Real Excel output for a cell containing a literal tab: `"a<TAB>b"`.
+  assert.deepEqual(parseTsv('Plain\tHasTab\r\nx\t"a\tb"\r\n'), [
+    ['Plain', 'HasTab'],
+    ['x', 'a\tb'],
+  ]);
+});
+
+test('parseTsv keeps an embedded newline in a quoted cell as one logical row', () => {
+  // Real Excel output for an Alt+Enter line break: `"line1<LF>line2"` -- the
+  // embedded newline is a bare LF, never CRLF, inside the quotes.
+  assert.deepEqual(parseTsv('A\tB\r\n1\t"line1\nline2"\r\n2\tplain\r\n'), [
+    ['A', 'B'],
+    ['1', 'line1\nline2'],
+    ['2', 'plain'],
+  ]);
+});
+
+test('parseTsv unescapes a doubled quote inside a quoted cell', () => {
+  // Real Excel output for a cell needing quoting (it has a tab) that also
+  // contains a literal quote: `"a<TAB>b say ""hi"""`.
+  assert.deepEqual(parseTsv('"a\tb say ""hi"""\r\n'), [['a\tb say "hi"']]);
+});
+
+test('parseTsv leaves a bare quote unescaped when nothing forces quoting', () => {
+  // Confirmed real Excel behaviour: a cell containing only a quote (no tab,
+  // no newline) is NOT wrapped in quotes at all -- looser than strict
+  // RFC4180. `say "hi"` must round-trip as plain text, not be mistaken for
+  // the start of a quoted field.
+  assert.deepEqual(parseTsv('A\tB\r\nx\tsay "hi"\r\n'), [
+    ['A', 'B'],
+    ['x', 'say "hi"'],
+  ]);
+});
+
+test('parseTsv trims unquoted cells but preserves whitespace inside quoted cells', () => {
+  assert.deepEqual(parseTsv('A\tB\r\n" padded "\t unquoted \r\n'), [
+    ['A', 'B'],
+    [' padded ', 'unquoted'],
+  ]);
+});
+
+test('parseTsv returns an empty matrix for blank input', () => {
+  assert.deepEqual(parseTsv(''), []);
+  assert.deepEqual(parseTsv('   \r\n  '), []);
 });
 
 test('isSupportedWorkbookPath only accepts workbook-like extensions', () => {
@@ -144,9 +323,7 @@ test('suggestEmbedFromClipboardHtml returns a supported file path even when HTML
   assert.deepEqual(suggestEmbedFromClipboardHtml(html), {
     source: 'clipboard-html',
     filepath: '/tmp/report.xlsx',
-    sheet: 'Summary',
-    range: 'A1:B1',
-    markdown: '![[/tmp/report.xlsx#Summary|A1:B1]]',
+    markdown: '![[/tmp/report.xlsx]]',
   });
 });
 
@@ -262,9 +439,7 @@ test('suggestEmbedFromDataTransfer reuses clipboard HTML parsing for native past
   assert.deepEqual(await suggestEmbedFromDataTransfer(transfer, 'paste'), {
     source: 'clipboard-html',
     filepath: '/tmp/spec.xlsx',
-    sheet: 'Architecture',
-    range: 'A1:B1',
-    markdown: '![[/tmp/spec.xlsx#Architecture|A1:B1]]',
+    markdown: '![[/tmp/spec.xlsx]]',
   });
 });
 
@@ -530,9 +705,7 @@ test('suggestEmbedFromDataTransfer honors paste mime priority by preferring text
   assert.deepEqual(await suggestEmbedFromDataTransfer(transfer, 'paste'), {
     source: 'clipboard-html',
     filepath: '/tmp/from-html.xlsx',
-    sheet: 'Summary',
-    range: 'A1:A1',
-    markdown: '![[/tmp/from-html.xlsx#Summary|A1:A1]]',
+    markdown: '![[/tmp/from-html.xlsx]]',
   });
   assert.deepEqual(
     suggestEmbedFromTransferValues('paste', await readTransferValuesFromDataTransfer(transfer, 'paste')),
@@ -681,9 +854,7 @@ test('suggestEmbedFromDataTransfer keeps drop priority ordered as uri-list, html
   assert.deepEqual(await suggestEmbedFromDataTransfer(transfer, 'drop'), {
     source: 'clipboard-html',
     filepath: '/tmp/from-html.xlsx',
-    sheet: 'Summary',
-    range: 'A1:B1',
-    markdown: '![[/tmp/from-html.xlsx#Summary|A1:B1]]',
+    markdown: '![[/tmp/from-html.xlsx]]',
   });
   assert.deepEqual(
     suggestEmbedFromTransferValues('drop', await readTransferValuesFromDataTransfer(transfer, 'drop')),
@@ -714,7 +885,7 @@ test('vscodeAdapters command fallback and native paste surface converge on the s
   const fallbackInsertText = getPasteInsertText({ clipboardHtml });
   const nativeInsertText = await getPasteInsertTextFromDataTransfer(transfer);
 
-  assert.equal(fallbackInsertText, '![[/tmp/adapter.xlsx#Summary|A1:B1]]');
+  assert.equal(fallbackInsertText, '![[/tmp/adapter.xlsx]]');
   assert.equal(nativeInsertText, fallbackInsertText);
 });
 

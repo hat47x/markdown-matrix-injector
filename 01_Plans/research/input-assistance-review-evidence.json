@@ -1,0 +1,36 @@
+{
+  "basis": "saved synthetic Excel workbook and 13 saved clipboard cases; no new GUI observation",
+  "node": "24.19.0",
+  "scriptHashes": {
+    "repro-coords.cjs": "93ecc378c444bcfba16d3e419caa10c4f00bf1c6a35ab8606eeafb9754cfc19f",
+    "repro-details.cjs": "962f677aece5939c6538edf1e4bf62bed9ec0a9104edf6e2882fd9db1e03951c",
+    "summarize.cjs": "1248e419279b6d87624248a262e69792a890eb0aa9e924fe552b740fc2b49b9a"
+  },
+  "coordinateProbe": {
+    "expandedCells": 3527040,
+    "expandedMs": 5747,
+    "requested32CellsMs": 0.112,
+    "requested2010CellsMs": 0.677,
+    "comparison": "different inputs and work; not a speedup benchmark"
+  },
+  "dateProbe": {
+    "freshCells": true,
+    "noFormat": {
+      "dateNF": "2026-04-03",
+      "default": "4/3/26"
+    },
+    "m/d/yy": {
+      "dateNF": "4/3/26",
+      "default": "4/3/26"
+    }
+  },
+  "descriptorProbe": {
+    "cases": 13,
+    "method": "dwSrcOfCopy offset and UTF16LE NUL terminator"
+  },
+  "notVerified": [
+    "VS Code DataTransfer",
+    "GUI selection",
+    "full search performance"
+  ]
+}
