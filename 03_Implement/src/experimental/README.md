@@ -629,6 +629,7 @@ issue-0167〜0170では、live providerやproduction routingを変更せず、re
 8. issue-0174: readiness-gated provider-neutral evaluation runner + Jev parity adapter
 9. issue-0175: resume-safe blinded adjudication work allocation
 10. issue-0176: predeclared evaluation plan manifest
+11. issue-0177: immutable provider-evaluation record + offline ground-truth re-evaluation
 
 issue-0170では、2件以上の独立annotationがある未adjudicated caseだけを対象にし、adjudicatorへはevidenceと匿名化したroute/rationaleだけを提示します。annotator identity / projectionState / provider/model/confidenceは見せません。
 
@@ -692,3 +693,12 @@ issue-0176では、provider evaluation条件を実行前に固定する `Workshe
 planは0172 packetDigest、0171 readiness policy、canonical provider descriptorをSHA-256のplanDigestへbindingします。runtime providerやprojection stateがplanと異なる場合はprovider call前にfail-closedし、readinessが失われた場合はprovider call 0でblockedになります。
 
 expected route自体はplanDigestに入れません。provider-visible stateが同じでreadinessを維持するlabel correctionならprovider inferenceを再実行せず、label versionは0172 reportのgroundTruthDigestで別管理します。
+
+
+### Immutable evaluation record
+
+issue-0177では、完了したprovider evaluationを `WorksheetReviewRouteEvaluationRecordV1` として固定します。
+
+recordには0176 plan、provider-visibleな0172 evaluation packet、provider response、evaluation reportをsnapshotし、planDigest / packetDigest / groundTruthDigest / recordDigestを分離して保持します。packet/state・outcome observation・provider identity・report metricsをcanonical再計算で照合するため、単にrecordDigestを再計算しただけの意味論改ざんは受理しません。
+
+human ground truthだけが訂正され、0171 readinessとprovider-visible packetが変わらない場合はstored responseをofflineで再評価できます。providerは再実行せず、planDigest / packetDigest / responseは不変、groundTruthDigest / metrics / recordDigestだけが更新されます。
