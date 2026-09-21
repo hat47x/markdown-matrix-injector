@@ -8,6 +8,7 @@ import {
 } from '../src/core/smartFallback.js';
 import { type EmbedQuery } from '../src/parser/embedSyntax.js';
 import { type WorkbookData } from '../src/core/workbookLoader.js';
+import { sheetSourceFromMatrix, type SheetSource } from '../src/core/sheetSource.js';
 
 function createInput(overrides: Partial<SmartFallbackInput> = {}): SmartFallbackInput {
   return {
@@ -34,7 +35,7 @@ function createQuery(overrides: Partial<EmbedQuery> = {}): EmbedQuery {
 function createWorkbook(rows: string[][]): WorkbookData {
   return {
     sheets: {
-      Sheet1: rows,
+      Sheet1: sheetSourceFromMatrix(rows),
     },
   };
 }
@@ -119,4 +120,60 @@ test('evaluateSmartFallback switches to card mode when no sheet target is provid
 
   assert.equal(decision.renderMode, 'card');
   assert.deepEqual(decision.reasons, ['missing-sheet-target']);
+});
+
+// ── mode=table's hard resource ceiling (input-assistance-source-model.md §3:
+// "mode=tableで強制された場合も上限を外さない") ───────────────────────────
+
+test('evaluateSmartFallback throws when mode=table exceeds the hard cell limit instead of silently rendering it', () => {
+  assert.throws(
+    () => evaluateSmartFallback(createInput({ mode: 'table', rowCount: 1, columnCount: 100_001, cellCount: 100_001 })),
+    /100001 cells exceeds the 100000-cell limit/,
+  );
+});
+
+test('evaluateSmartFallback keeps table mode for mode=table at the hard limit boundary', () => {
+  const decision = evaluateSmartFallback(createInput({ mode: 'table', rowCount: 1, columnCount: 100_000, cellCount: 100_000 }));
+
+  assert.equal(decision.renderMode, 'table');
+  assert.deepEqual(decision.reasons, ['explicit-table-mode']);
+});
+
+test('shouldRenderAsCardAfterLoad propagates the hard-limit error for mode=table without ever touching a cell', () => {
+  // A declared range whose dimensions alone (arithmetic on the range, per
+  // measureRegion's contract) exceed the hard limit. cellAt throws if called,
+  // proving the rejection happens before any cell would be materialised.
+  const hugeSheet: SheetSource = {
+    usedRange: { startRow: 0, startCol: 0, endRow: 999, endCol: 999 }, // 1,000,000 cells
+    merges: [],
+    cellAt: () => {
+      throw new Error('cellAt must not be called before the hard-limit check');
+    },
+  };
+  const workbook: WorkbookData = { sheets: { Sheet1: hugeSheet } };
+
+  assert.throws(
+    () => shouldRenderAsCardAfterLoad(createQuery({ params: new URLSearchParams('mode=table') }), workbook),
+    /1000000 cells exceeds the 100000-cell limit/,
+  );
+});
+
+test('shouldRenderAsCardAfterLoad measures the declared range width, not the sheet\'s actual column count', () => {
+  // A sheet with only 3 real columns, but a query that declares a 12-column
+  // range. The range itself defines the rectangle to be shown (spec §6 step
+  // 1); Smart Fallback must decide on that declared width, not on how many
+  // columns happen to be populated. Getting this wrong under-counts columns
+  // and silently renders as a table something the declared range says should
+  // fall back to a card.
+  const workbook = createWorkbook([
+    ['A', 'B', 'C'],
+    ['1', '2', '3'],
+  ]);
+
+  const shouldRenderCard = shouldRenderAsCardAfterLoad(
+    createQuery({ range: 'A1:L2' }),
+    workbook,
+  );
+
+  assert.equal(shouldRenderCard, true);
 });

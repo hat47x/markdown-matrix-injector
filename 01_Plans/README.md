@@ -1,68 +1,41 @@
-# 01_Plans: Planning & Decision Hub
+# 現在の作業
 
-**MMI プロジェクトにおける「意思決定」と「タスク実行」の管理ディレクトリ。**
+## 現況
 
-## Core Principle: 決定と実行の分離
-1. **Decision (方針決定) -> `01_Plans/adr/`**
-   - 不可逆な決定事項(ADR)。AIは曖昧さに直面時、仮想会議を実行しADRを起票。
-2. **Action (タスク実行) -> `01_Plans/issues/`**
-   - 短命な実行計画。AIはアトミックに実行し、CLI検証をパスすること。
+VS Code拡張、記法仕様、日本語チュートリアル、実務サンプルを整備している。記法仕様はDraft、配布物は公開準備中の検証版。新しい入力支援はレビュー指摘R1〜R5を設計・ADR・観測ハーネスへ反映済み（[作業A完了](issues/issue-0114-excel-range-paste.md)）、**原本座標の保持（作業B）も実装・自動テスト完了**（2026-09-11、WSL2 Ubuntu環境）、**VS CodeのDataTransfer観測（作業C）も完了**（同日、Windows実機）。次は段2（貼り付け本体・作業D）。
 
-## 開発の進め方 (AIエージェントの操作)
-人間はAIに対して長大なプロンプトを入力する必要はありません。以下のショートコマンドをチャットに入力すると、AIが `00_Prompt/meta_prompt.md` を読み込み自律的にプロセスを展開します。
+**解決済みの問題:** Excel読込みで空行と使用範囲の原点が失われ、正しい参照文字列を挿入しても原本と違う位置が表示される問題を、原本座標を保持するソースモデル（`SheetSource`）へ置き換えて修正した。`npm test`全258件成功、実サンプルでの回帰0件、旗艦の再現ケース（`設計.xlsx#状態遷移|C5:F12`）が設計文書どおりの出力になることを実描画で確認済み。
 
-- **「現在のフェーズをクローズして」**: テスト結果等のエビデンスに基づく完了判定。
-- **「次フェーズを計画して」**: 仮想ステークホルダー会議の実行、ADR・Issueの自動生成。
-- **「並列実行用プロンプトを作成して」**: 競合しないファイル群ごとの実行エージェント用指示書生成。
-- **「開発を進めて」**: クローズ判定〜プロンプト生成までを全自動実行。
+**確定した事実（作業C）:** VS Codeの`DataTransfer`はExcelの出所形式を一切公開しない。実機で`text/plain`・`text/html`・`text/rtf`・`image/png`の4件のみを確認し、`SourceURL`を含むCF_HTMLヘッダーもVS Code側で失われることを確認した。[ADR-0017](adr/ADR-0017-windows-clipboard-provenance-bridge.md)の選択肢1（拡張内だけで完結）は却下確定。選択肢2（Windows補助プロセス）を実装するかは未決定だが、段2の実装（内容照合ベース）はこの判断を待たずに進められる。
 
-**Performance note for AI agents:**
-作業開始時、全ファイルを読まず、着手する `issue-XXXX.md` と関連 `ADR-XXXX.md` のみをコンテキストに含めること。
+## 入力支援の作業順
 
-## Planning triage shortcut（運用入口）
-未処理の ADR / issue を最小コンテキストで抽出したい場合は、まず `01_Plans/tools/planning_queue.py` を実行する。
+| 順序 | 作業 | 状態 | 着手できるか |
+| --- | --- | --- | --- |
+| 1 | [Excel範囲貼り付け・座標保持](issues/issue-0114-excel-range-paste.md) | Open（段1=作業B・作業C完了、段2=作業D以降が**次の最優先**） | 着手可能。`src/dx/pasteDrop.ts`のA1起点range生成の置き換えとセットで進める |
+| 2 | [文脈に応じた補完](issues/issue-0110-contextual-input-completion.md) | Draft | 0114の座標保持は完了。着手可能（範囲候補の設計はCPU探索と共有するため0115の設計を先に確認） |
+| 3 | [参照の作成・編集](issues/issue-0111-reference-authoring-flow.md) | Draft | 0110待ち |
+| 4 | [CPUでの範囲探索](issues/issue-0115-cpu-range-search.md) | Draft | 索引はソースモデル（`SheetSource`）に依存。0110/0111待ち。性能・精度は未測定 |
+| 任意 | [既存AIへの依頼と結果検証](issues/issue-0112-ai-proposal-handoff.md) | Draft | 主経路外。0115の評価後に要否を再判断 |
+| 保留 | [ローカルLLM評価](issues/issue-0113-local-ai-feasibility.md) | Draft | 着手しない |
 
-```bash
-python3 01_Plans/tools/planning_queue.py
+**開発環境:** WSL2 Ubuntu（Node v20.20.2、npm 10.8.2、Python 3.12.3、git 2.43.0）で`npm ci`／`npm run build`／`npm test`を実行できることを確認済み。Windows側のこの調査環境自体にはNode.js・npm・実体のあるPython 3が無い（`python`はMicrosoft Storeのスタブ）。実装はWSL2側で行う。VS Code実機操作（DataTransfer観測・GUIでの貼り付け）はWindows側でのみ可能で、こちらは動作確認済み。
+
+- [企画](input-assistance-proposal.md): 利用体験と対象範囲。
+- [技術調査](input-assistance-technical-research.md): 確認済みの事実、未確認事項、検証手順。
+- 設計: [ソースモデル](../02_Architecture/input-assistance-source-model.md)、[クリップボード出所と照合](../02_Architecture/input-assistance-paste-provenance.md)、[CPUでの範囲探索](../02_Architecture/input-assistance-cpu-search.md)。
+- [ADR-0016](adr/ADR-0016-notation-first-input-assistance.md): 入力支援の方針と確定した設計判断。[ADR-0017](adr/ADR-0017-windows-clipboard-provenance-bridge.md): 出所取得の条件付き判断。いずれもProposed。
+
+## 計画の管理
+
+依頼に該当するIssueを読み、受入条件と次の作業を確認する。作業一覧が必要な場合だけ、リポジトリルートで実行する。
+
+```sh
+python 01_Plans/tools/planning_queue.py
 ```
 
-### planning_queue.py を使うタイミング
-- セッション開始直後（どの issue / ADR から読むか未確定の時）。
-- docs audit で発見事項を上流へ還流した直後（pending / orphan が増減したか確認する時）。
-- issue を `Done` に変更した直後（次の着手候補へ遷移する時）。
+Draftは検討中であり、採用・実装済みを意味しない。ユーザーの依頼範囲と依存関係を確認して着手する。重要な選択は[ADR](adr/TEMPLATE.md)、実行内容は[Issue](issues/README.md)へ記す。日々の経緯や完了作業の一覧はこのページへ追加しない。
 
-### planning_queue.py の期待出力
-- `pending ADR`: `Draft` / `Proposed` の ADR 一覧。
-- `pending issue`: `Draft` / `Open` / `In Progress` の issue 一覧。
-- `orphan issue`: `Related ADR/Spec` に欠落参照がある issue 一覧。
+## 次の着手条件
 
-この 3 点を確認し、次の 1 件だけを読む。
-1. `In Progress` issue
-2. `Open` issue
-3. `Draft` issue
-4. `pending ADR`
-
-## docs audit -> 上流還流の参照順（feedback loop）
-`docs audit` で見つかった改善点は、文書内で抱え込まず `feedback loop` として上流へ還流する。参照順は次で固定する。
-
-1. `04_Documentation/` の監査結果を整理し、差分を項目化する（docs audit）。
-2. `00_Prompt/requirements.md` を確認し、要件変更が必要な項目を切り出す。
-3. `02_Architecture/` を確認し、設計変更が必要な項目を切り出す。
-4. `03_Implement/test` 相当の検証観点不足を切り出す。
-5. `01_Plans/adr/` に Decision が必要な項目を起票し、`01_Plans/issues/` に Action を起票する。
-6. 最後に `planning_queue.py` を再実行し、pending / orphan の可視性を回復して triage に戻る。
-
-## Planning Hub の標準導線（README 単体版）
-1. この README を読む（運用原則の確認）。
-2. `python3 01_Plans/tools/planning_queue.py` を実行（pending / orphan 可視化）。
-3. 対象を 1 件に絞って issue 本文を読む。
-4. 必要な ADR だけを読む（無関係 ADR は読まない）。
-5. 実行または docs audit 還流を行う。
-6. `planning_queue.py` を再実行し、次の issue / ADR へ進む。
-
-- ツールは `01_Plans/adr/` と `01_Plans/issues/` の**先頭メタ情報だけ**を走査し、pending ADR / pending issue / orphan issue を一覧化する。
-- 詳細運用は `01_Plans/planning-triage.md` を参照する。
-
-## 入力支援の企画（2026-09-09）
-
-[MMI入力支援企画](input-assistance-proposal.md): 既定文法の補完、参照の作成・編集、追加API費用を必要としないAI支援の比較。ADR-0016はProposed、issue-0110〜0113はDraft。新機能は未実装。
+[設計レビューと作業指示](input-assistance-design-review.md)のA〜Fを作業順とする。A・B・Cは完了。**次は作業D（内容照合＋明示候補選択の最小貼り付け）。** `src/dx/pasteDrop.ts`の`inferRangeFromHtmlTable`は現在もA1起点の範囲を生成し続けており、占有グリッド方式（参考実装: `03_Implement/scripts/clipboard-probe/probe-lib.cjs::htmlShape`）への置き換えとセットで実装する。自動確定とWindows橋渡し（作業E、[ADR-0017](adr/ADR-0017-windows-clipboard-provenance-bridge.md)選択肢2）はR1/R4を満たすまで着手しない。観測ハーネスの期待値は`03_Implement/scripts/clipboard-probe/expected-cases.json`に固定してある。

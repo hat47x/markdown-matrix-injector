@@ -290,9 +290,11 @@ VS Code への接続点はすべて `extension.ts`。プレビュー本体は `e
 | `markdownMatrixInjector.generateDeliveryManifest` | MMI: Generate Delivery Manifest | カード化される埋め込みを抽出し `<名前>.delivery-manifest.csv`（列: `sourcePath, sheet, range, reason, caption, id`）を隣に出力。**リンク切れ・シート不在は含めない**（それらは Diagnostics 対象）。対象 0 件なら書かず通知のみ、未保存なら保存を促す。 |
 | `markdownMatrixInjector.openSource` | MMI: Open Embed Source | カードの拡張URIハンドラーから共通処理で`env.openExternal`へ渡す。信頼済みのローカルワークスペース内の表データに限定する。元のcommand URI方式は標準プレビューで動作せずADR-0015で更新した。 |
 | `markdownMatrixInjector.insertEmbedFromPaste` / `…FromDrop` | Paste / D&D 挿入 | クリップボードの HTML／ドロップファイルから `![[...]]` を生成挿入。ネイティブ provider 非対応の旧ホスト向け互換経路。 |
+| `markdownMatrixInjector.insertEmbedByContentMatch` | MMI: Insert Embed by Content Match | クリップボードの`text/plain`（TSV）を`dx/contentMatchSearch.ts::findWorkbookContentMatches`へ渡し、ワークスペース内のワークブック（自動補完と同じglob）を横断して`core/contentMatch.ts::findContentMatches`で検索する。結果は必ず`showQuickPick`（1件でも）を経て挿入する（issue-0114作業D、2026-09-15）。 |
 
 - **Autocomplete**: `![[` 入力後に `filepath` → `#sheet` → `range` → `?param` を段階提示（`dx/autocompleteProvider.ts`）。
-- **ネイティブ Paste / D&D provider**: 対応ホストでは `registerDocumentPasteEditProvider` / `…DropEditProvider` を使用。
+- **ネイティブ Paste / D&D provider**: 対応ホストでは `registerDocumentPasteEditProvider` / `…DropEditProvider` を使用。実Excelコピーは原本パスを一切含まないため（実機確認済み）、通常のCtrl+Vではこの経路は実質的に発火しない。
+- **`editor.action.pasteAs`（Ctrl+.）統合**（issue-0114作業D続き、2026-09-16）: `provideDocumentPasteEdits`は`context.triggerKind === vscode.DocumentPasteTriggerKind.PasteAs`のときだけ、上記content-match検索の結果を追加の`DocumentPasteEdit`として返す（`getContentMatchPasteEdits`）。VS Code公式の「PasteAsは挿入前に選択肢を出す」という仕様により、自前のUIなしでR1（自動確定しない）を満たす。**通常のCtrl+V（`Automatic`）ではこの検索を一切行わない**——`Automatic`は複数`DocumentPasteEdit`のうち最初の1件を即座に自動適用する仕様のため、そこに含めると未確認の推測が自動挿入されるリスクがある。`looksLikeTabularClipboard`が単一スカラー値の貼り付け（単語・URL等）を弾き、`MAX_CONTENT_MATCH_WORKSPACE_FILES`（500件）が病的に大きいワークスペースへの安全弁になる。ワークスペース全体検索の性能は実測済み（ネイティブファイルシステムで実サンプル30ファイル約20ms、300ファイル約65〜140ms、`/mnt/c`のようなWSL2↔Windowsブリッジは代表的でないため除外）。
 - **テスト／開発専用コマンド**: `ExtensionMode.Test` または環境変数 `MMI_ENABLE_TEST_COMMANDS=1` のときだけ登録（`exportQueryEvidence` など）。query-evidence は「エージェントが書いた記載が正本と一致するか」を検証する ground truth を出力します。
 
 ---

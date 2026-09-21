@@ -1,9 +1,23 @@
 import { type EmbedQuery } from '../parser/embedSyntax.js';
-import { sliceRange } from './tableGeometry.js';
+import { measureRegion } from './tableGeometry.js';
 import { type WorkbookData } from './workbookLoader.js';
 
 const MAX_COLUMNS_BEFORE_CARD = 10;
 const MAX_CELLS_BEFORE_CARD = 500;
+
+/**
+ * Hard ceiling that an explicit `mode=table` cannot lift
+ * (`input-assistance-source-model.md` §3: "mode=tableで強制された場合も上限を
+ * 外さない。超過は記法仕様P2に沿う可視エラーとする。"). Unlike
+ * `MAX_CELLS_BEFORE_CARD` -- a rendering-quality threshold that only ever
+ * applies when the mode is left to auto-detect -- this exists solely to stop
+ * a forced table from materialising a pathologically large rectangle (the
+ * design doc's own motivating case: a distant used-range origin expanding to
+ * 3,527,040 cells). The exact number is a provisional placeholder; real
+ * render-time performance has not been measured yet (issue-0114 "Remaining
+ * work").
+ */
+const MAX_CELLS_HARD_LIMIT = 100_000;
 
 export type SmartFallbackRenderMode = 'table' | 'card';
 
@@ -41,6 +55,13 @@ export function evaluateSmartFallback(input: SmartFallbackInput): SmartFallbackD
   }
 
   if (normalizedMode === 'table') {
+    if (input.cellCount > MAX_CELLS_HARD_LIMIT) {
+      throw new Error(
+        `Reference too large to render as a table (${input.cellCount} cells exceeds the ` +
+          `${MAX_CELLS_HARD_LIMIT}-cell limit). mode=table does not lift this limit -- narrow ` +
+          'the range or split the reference.',
+      );
+    }
     return createDecision('table', ['explicit-table-mode'], input);
   }
 
@@ -100,22 +121,22 @@ export function shouldRenderAsCardAfterLoad(query: EmbedQuery, workbook: Workboo
   return getSmartFallbackDecisionAfterLoad(query, workbook).renderMode === 'card';
 }
 
+/**
+ * Dimensions only -- no cell is touched (review R3: measure before you
+ * materialise). This is what lets a reference to a huge or distant-origin
+ * range be sized as a card without ever building its display matrix.
+ */
 function getWorkbookSelectionMetrics(query: EmbedQuery, workbook: WorkbookData): Pick<SmartFallbackInput, 'rowCount' | 'columnCount' | 'cellCount'> {
   if (!query.target) {
     return { rowCount: 0, columnCount: 0, cellCount: 0 };
   }
 
-  const rows = workbook.sheets[query.target];
-  if (!rows) {
+  const sheet = workbook.sheets[query.target];
+  if (!sheet) {
     throw new Error(`Sheet not found: ${query.target}`);
   }
 
-  const slicedRows = query.range ? sliceRange(rows, query.range) : rows;
-  return {
-    rowCount: slicedRows.length,
-    columnCount: slicedRows.reduce((max, row) => Math.max(max, row.length), 0),
-    cellCount: slicedRows.reduce((count, row) => count + row.length, 0),
-  };
+  return measureRegion(sheet, query.range);
 }
 
 function createDecision(

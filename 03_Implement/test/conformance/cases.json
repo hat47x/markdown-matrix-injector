@@ -97,6 +97,15 @@
     "expectNotContains": ["class=\"mmi-table\"", "mmi-error"]
   },
   {
+    "name": "fallback-declared-range-width-exceeds-data-to-card",
+    "level": "L2",
+    "spec": "§6 step 1 + §7 rule 4",
+    "files": { "narrow.csv": "A,B,C\n1,2,3" },
+    "markdown": "![[./narrow.csv#Sheet1|A1:L2]]",
+    "expectContains": ["class=\"mmi-card\""],
+    "expectNotContains": ["class=\"mmi-table\"", "mmi-error"]
+  },
+  {
     "name": "fallback-no-sheet-target-to-card",
     "level": "L2",
     "spec": "§7 rule 3",

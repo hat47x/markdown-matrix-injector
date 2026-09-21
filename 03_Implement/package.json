@@ -71,6 +71,7 @@
     "onCommand:markdownMatrixInjector.openSource",
     "onCommand:markdownMatrixInjector.insertEmbedFromPaste",
     "onCommand:markdownMatrixInjector.insertEmbedFromDrop",
+    "onCommand:markdownMatrixInjector.insertEmbedByContentMatch",
     "onLanguage:markdown"
   ],
   "contributes": {
@@ -98,6 +99,10 @@
       {
         "command": "markdownMatrixInjector.insertEmbedFromDrop",
         "title": "MMI: Insert Embed From Drop"
+      },
+      {
+        "command": "markdownMatrixInjector.insertEmbedByContentMatch",
+        "title": "MMI: Insert Embed by Content Match (search workspace workbooks for the copied range)"
       }
     ]
   }

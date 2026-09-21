@@ -334,6 +334,21 @@ test('markdownMatrixPlugin keeps table mode when mode=table overrides smart fall
   assert.doesNotMatch(html, /class="mmi-card"/);
 });
 
+test('markdownMatrixPlugin renders a visible mmi-error, not a huge table, when mode=table exceeds the hard cell limit', () => {
+  // The declared range alone (A1:A100001, 100,001 cells) drives the decision --
+  // the fixture data itself stays tiny. mode=table must not be able to bypass
+  // this (input-assistance-source-model.md §3), and per notation spec P2 the
+  // failure must be visible, never silent.
+  const fixture = createCsvFixture([['x']]);
+
+  const md = createMarkdownIt(fixture.markdownFilePath);
+  const html = md.render('![[./roles.csv#Sheet1|A1:A100001?mode=table]]');
+
+  assert.match(html, /class="mmi-error"/);
+  assert.match(html, /100001 cells exceeds the 100000-cell limit/);
+  assert.doesNotMatch(html, /class="mmi-table"/);
+});
+
 test('markdownMatrixPlugin auto-falls back to card mode when no sheet is specified', () => {
   const fixture = createCsvFixture([
     ['ID', 'Name'],

@@ -8,9 +8,9 @@
 - Expected verification level: manual-e2e
 
 ## Traceability
-- Related Backlog/Phase: requirements.md Phase 5 / Phase 11
+- Related Requirement: requirements.md「執筆支援」「公開品質」
 - Related ADR/Spec: ADR-0016-notation-first-input-assistance.md, 04_Documentation/spec/mmi-notation-v1.md
-- Dependency: issue-0111完了
+- Dependency: 主経路外の任意タスク。issue-0115の評価後に必要性を再判断
 
 ## Execution Plan
 ### Proposed solution
@@ -24,3 +24,12 @@
 
 ### Validation plan
 既存のビルド・単体・Extension Hostを回帰検査する。新しい動作は実VS Codeで確認し、候補選択・キャンセル・Undo・原本ハッシュと通信範囲を記録する。測定値を取得するまでは性能やAI品質の目標を達成済みとしない。
+
+## Remaining work
+
+主経路外の任意タスク。[issue-0115](issue-0115-cpu-range-search.md)の評価後に必要性を再判断する。CPU探索で十分な精度が出れば本Issueは不要になり得る。
+
+着手する場合の未解決事項。
+
+- 依頼文に含めるメタデータの範囲。原本のセル値をどこまで載せるかは利用者の確認を要する。
+- 戻された候補の検証は[クリップボード出所と照合](../../02_Architecture/input-assistance-paste-provenance.md)§4と同じ照合契約を使う。独自の緩い検証を作らない。

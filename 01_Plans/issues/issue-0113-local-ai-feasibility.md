@@ -8,9 +8,9 @@
 - Expected verification level: manual-e2e
 
 ## Traceability
-- Related Backlog/Phase: requirements.md Phase 5 / Phase 11
+- Related Requirement: requirements.md「執筆支援」「公開品質」
 - Related ADR/Spec: ADR-0016-notation-first-input-assistance.md, 04_Documentation/spec/mmi-notation-v1.md
-- Dependency: issue-0112完了
+- Dependency: 保留。非GPU性能の懸念により実装順から除外。再開は別判断
 
 ## Execution Plan
 ### Proposed solution
@@ -25,3 +25,9 @@
 
 ### Validation plan
 既存のビルド・単体・Extension Hostを回帰検査する。新しい動作は実VS Codeで確認し、候補選択・キャンセル・Undo・原本ハッシュと通信範囲を記録する。測定値を取得するまでは性能やAI品質の目標を達成済みとしない。
+
+## Remaining work
+
+**保留。着手しない。** 非GPU環境での性能懸念により実装順から除外している。再開は別判断とする。
+
+保留の前提: 主経路（貼り付け・補完・CPU探索）はローカルLLMに依存しない設計になっている。CPU探索（issue-0115）の評価結果が目標に届かない場合でも、[ADR-0016](../adr/ADR-0016-notation-first-input-assistance.md)に従いLLMへ自動で切り替えない。本Issueを再開するかは、その時点で改めて判断する。
