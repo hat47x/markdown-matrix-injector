@@ -251,7 +251,8 @@ export function assertStructuredArtifactObservation(
   assertRegion(observation.region);
   assertFeatures(observation.features);
   assertLabels(observation.labels);
-  assertSplit(observation.split);
+  const source = requireRecord(observation.source, 'source');
+  assertSplit(observation.split, source.source_family_id as string);
   assertProvenance(observation.provenance);
 }
 
@@ -551,7 +552,10 @@ function assertLabels(value: unknown): void {
   }
 }
 
-function assertSplit(value: unknown): void {
+function assertSplit(
+  value: unknown,
+  expectedSourceFamily: string,
+): void {
   const split = requireRecord(value, 'split');
   assertExactKeys(split, SPLIT_KEYS, 'split');
 
@@ -572,6 +576,11 @@ function assertSplit(value: unknown): void {
     groups.source_family,
     'split.group_keys.source_family',
   );
+  if (groups.source_family !== expectedSourceFamily) {
+    throw new Error(
+      'split.group_keys.source_family must match source.source_family_id.',
+    );
+  }
   assertNonEmpty(
     groups.workbook_or_document,
     'split.group_keys.workbook_or_document',
@@ -807,7 +816,7 @@ function canonicalize(value: unknown): unknown {
         value as Record<string, unknown>,
       )
         .sort(([left], [right]) =>
-          left.localeCompare(right))
+          left < right ? -1 : left > right ? 1 : 0)
         .map(([key, entry]) => [
           key,
           canonicalize(entry),
