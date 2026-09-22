@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Evaluation governance / Canonical artifact
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: issue-0188 execution record canonical JSON serialization, parsing, artifact descriptor
 - Expected verification level: unit + focused compile/runtime
@@ -47,24 +47,24 @@ filesystem/database/cloud writeは行わない。
 
 ## Acceptance criteria
 
-- [ ] codec version / media typeを固定。
-- [ ] issue-0188 validatorをserializer/parserで再利用。
-- [ ] deterministic compact canonical JSON。
-- [ ] recursive object key sort。
-- [ ] array order保持。
-- [ ] non-finite number拒否。
-- [ ] undefined拒否。
-- [ ] non-plain object拒否。
-- [ ] normalizing parseはpretty JSONを受理。
-- [ ] canonical parseはpretty JSONを拒否。
-- [ ] canonical parseはkey-order違いを拒否。
-- [ ] canonical parseはtrailing newlineを拒否。
-- [ ] canonical parseはduplicate-key textを拒否。
-- [ ] semantically invalid execution recordを拒否。
-- [ ] filenameへfull 64-hex executionDigestを保持。
-- [ ] serialization/parseでsource recordをmutateしない。
-- [ ] signature / timestamp / persistenceを追加しない。
-- [ ] better-worse / winner / ranking / deployment semanticsを追加しない。
+- [x] codec version / media typeを固定。
+- [x] issue-0188 validatorをserializer/parserで再利用。
+- [x] deterministic compact canonical JSON。
+- [x] recursive object key sort。
+- [x] array order保持。
+- [x] non-finite number拒否。
+- [x] undefined拒否。
+- [x] non-plain object拒否。
+- [x] normalizing parseはpretty JSONを受理。
+- [x] canonical parseはpretty JSONを拒否。
+- [x] canonical parseはkey-order違いを拒否。
+- [x] canonical parseはtrailing newlineを拒否。
+- [x] canonical parseはduplicate-key textを拒否。
+- [x] semantically invalid execution recordを拒否。
+- [x] filenameへfull 64-hex executionDigestを保持。
+- [x] serialization/parseでsource recordをmutateしない。
+- [x] signature / timestamp / persistenceを追加しない。
+- [x] better-worse / winner / ranking / deployment semanticsを追加しない。
 
 ## Validation plan
 
@@ -77,3 +77,30 @@ filesystem/database/cloud writeは行わない。
 - stable full-digest filename。
 - immutability。
 - strict compile。
+
+
+## Validation evidence
+
+### 2026-09-22 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- GitHub branch上のcodec本体と同一実装を、issue-0188 execution record validatorのinterface-compatible stub上で
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime:
+  - compact canonical JSON round-trip。
+  - normalizing parseでpretty JSONを受理。
+  - canonical parseでpretty JSON / trailing newline / duplicate-key textを3/3 reject。
+  - full 64-hex `executionDigest` をstable filenameへ使用。
+  - artifact descriptorのcontent/fileName整合。
+  - source recordをmutateしない。
+- repository test sourceではさらに:
+  - actual issue-0188 validatorをsemantic authorityとしてserializer/parserで再利用。
+  - noncanonical key order rejection。
+  - executionDigest tamper rejection。
+  - codec version / media type固定。
+- codecはcanonical bytesを定義するだけでsignature / trusted timestamp / persistenceを追加しない。
+- better-worse / winner / provider ranking / deployment semanticsを追加していない。
+- repository全dependency tree成功は現環境では主張しない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
