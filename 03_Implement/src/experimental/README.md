@@ -637,6 +637,7 @@ issue-0167〜0170では、live providerやproduction routingを変更せず、re
 16. issue-0184: canonical comparison-policy-result JSON codec
 17. issue-0185: canonical predeclared comparison-policy JSON codec
 18. issue-0186: predeclared evaluation-record comparison plan
+19. issue-0187: canonical comparison-plan JSON codec
 
 issue-0178はこのevaluation laneとは別のhuman-review presentation laneとして並行実装済みです。
 
@@ -788,3 +789,12 @@ issue-0186では、左右evaluation recordと0183 policyの組み合わせを比
 planDigestはleftRecordDigest / rightRecordDigest / explicit comparison policyを方向付きでSHA-256 bindingします。A→BとB→Aは別planとして扱い、runtimeで別recordへ差し替わった場合は0181 comparison生成前にfail-closedします。
 
 record pairがplanと一致した後は0181 comparisonと0183 policy guardへ委譲します。policy noncomplianceはexecution errorではなく、`compliant=false` とcanonical violationsを持つ正常なtyped resultとして返します。planDigest自体はbetter/worse、winner、provider ranking、deployment approvalを意味しません。
+
+
+### Comparison-plan canonical JSON codec
+
+issue-0187では、0186 comparison planをcanonical JSON artifactへ変換する `WorksheetReviewRouteEvaluationRecordComparisonPlanJsonCodecV1` を追加します。
+
+serializerは0186 validatorをsemantic authorityとして使い、object keyをrecursive sort、array orderを保持、whitespace/trailing newlineなしのcompact JSONを生成します。normalizing parseはformat差を許容し、canonical parseはpretty JSON・key-order違い・trailing newline・duplicate-key textをrejectします。
+
+filenameはplanDigestのfull 64-hexを使い、plan identityを短縮しません。codecはfilesystem/database/cloud write、signature、trusted timestamp、better/worse、provider ranking、deployment semanticsを追加しません。
