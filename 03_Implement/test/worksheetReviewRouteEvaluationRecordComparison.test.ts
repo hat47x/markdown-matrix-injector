@@ -140,6 +140,11 @@ function adjudicated(
 
 function provider(
   mode: 'normal' | 'flip-inspect-a' = 'normal',
+  capabilities:
+    readonly string[] = [
+      'fixture',
+      'closed-choice',
+    ],
 ): ClosedChoiceJudgmentProvider<WorksheetReviewRouteChoice> {
   return {
     descriptor: {
@@ -147,10 +152,7 @@ function provider(
       version: '1',
       category: 'judgment',
       executionBoundary: 'local',
-      capabilities: [
-        'fixture',
-        'closed-choice',
-      ],
+      capabilities,
     },
     async decide({ observation }): Promise<
       ClosedChoiceProviderResponse<WorksheetReviewRouteChoice>
@@ -508,35 +510,57 @@ test('detects provider-visible packet change without inventing a ground-truth ro
   );
 });
 
-test('provider capability order does not create a provider difference', async () => {
+test('provider capability order does not create a provider or response difference', async () => {
   const source = corpus();
-  const { record: first } =
-    await record(source);
-  const reordered = structuredClone(first);
+  const first = await record(
+    source,
+    provider(
+      'normal',
+      ['fixture', 'closed-choice'],
+    ),
+  );
+  const second = await record(
+    source,
+    provider(
+      'normal',
+      ['closed-choice', 'fixture'],
+    ),
+  );
 
-  reordered.plan.provider.capabilities = [
-    ...reordered.plan.provider.capabilities,
-  ].reverse();
-  reordered.report.provider.capabilities = [
-    ...reordered.report.provider.capabilities,
-  ].reverse();
-  for (const outcome of reordered.response.outcomes) {
-    outcome.outcome.provider.capabilities = [
-      ...outcome.outcome.provider.capabilities,
-    ].reverse();
-  }
+  assert.equal(
+    first.plan.planDigest,
+    second.plan.planDigest,
+  );
+  assert.notEqual(
+    first.record.recordDigest,
+    second.record.recordDigest,
+  );
 
-  // A record with noncanonical plan capabilities is invalid, so compare
-  // semantically equivalent valid records by restoring canonical record
-  // validation and varying only comparison helper inputs is not allowed.
-  // The record validator is the stronger boundary.
-  assert.throws(
-    () =>
-      compareWorksheetReviewRouteEvaluationRecords(
-        first,
-        reordered,
-      ),
-    /canonical capability order/,
+  const comparison =
+    compareWorksheetReviewRouteEvaluationRecords(
+      first.record,
+      second.record,
+    );
+
+  assert.equal(
+    comparison.recordIdentity.sameRecord,
+    false,
+  );
+  assert.equal(
+    comparison.plan.sameProvider,
+    true,
+  );
+  assert.equal(
+    comparison.report.sameProvider,
+    true,
+  );
+  assert.equal(
+    comparison.response.sameResponse,
+    true,
+  );
+  assert.deepEqual(
+    comparison.response.changedCaseIds,
+    [],
   );
 });
 
