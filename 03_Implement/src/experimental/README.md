@@ -632,6 +632,7 @@ issue-0167〜0170では、live providerやproduction routingを変更せず、re
 11. issue-0177: immutable provider-evaluation record + offline ground-truth re-evaluation
 12. issue-0179: canonical evaluation-record JSON codec
 13. issue-0181: evaluation-record comparison by independent change dimensions
+14. issue-0182: canonical comparison JSON codec
 
 issue-0178はこのevaluation laneとは別のhuman-review presentation laneとして並行実装済みです。
 
@@ -736,3 +737,12 @@ issue-0181では、2本のvalidated `WorksheetReviewRouteEvaluationRecordV1` を
 特に `labelOnlyReevaluation` は、same planDigest + same packetDigest + same stored response + different groundTruthDigest の場合だけtrueになります。provider outcome rerunやplan変更とは明確に区別します。
 
 provider capabilitiesの並び順はsemantic response/provider comparisonではcanonical setとして扱いますが、recordDigest自体はissue-0177のcontent identityとして変更しません。comparison artifactはchanged case idだけを保持し、expected route値、probability/confidence、evidence、annotation/adjudication provenanceを複製しません。overall score、better/worse、winner、recommendationも追加しません。
+
+
+### Evaluation-record comparison canonical JSON codec
+
+issue-0182では、issue-0181 comparison artifactをcanonical JSONとしてstorage/transport非依存で受け渡す `WorksheetReviewRouteEvaluationRecordComparisonJsonCodecV1` を追加します。
+
+serializerはissue-0181 validatorを先に通し、object keyをrecursive sort、array orderを保持、whitespace/trailing newlineなしのJSON textを生成します。normalizing parseはmanual/migration用途としてformat差を許容しますが、canonical parseはinput textと再serialization結果の完全一致を要求するため、pretty JSON、key-order違い、trailing newline、duplicate-key inputをcanonical artifactとして受理しません。
+
+filenameは `leftRecordDigest-to-rightRecordDigest` の方向をfull 64-hexのまま保持し、A→BとB→Aを別artifactとして扱います。comparisonDigest、signature、filesystem/database/cloud persistence、better/worse評価は追加しません。
