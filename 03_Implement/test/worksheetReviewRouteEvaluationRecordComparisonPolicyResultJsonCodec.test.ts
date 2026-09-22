@@ -263,13 +263,15 @@ test('serializer does not mutate source result and rejects invalid semantics bef
   );
   assert.deepEqual(value, before);
 
-  const invalid = structuredClone(value);
-  invalid.violations = [
-    {
-      code: 'RESPONSE_CHANGED',
-      dimension: 'response',
-    },
-  ];
+  const invalid = {
+    ...structuredClone(value),
+    violations: [
+      {
+        code: 'RESPONSE_CHANGED' as const,
+        dimension: 'response' as const,
+      },
+    ],
+  };
 
   assert.throws(
     () =>
