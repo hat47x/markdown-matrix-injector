@@ -279,6 +279,35 @@ export function assertWorksheetReviewRouteEvaluationRecordComparison(
     );
   }
 
+  if (
+    response.sameResponse
+    && response.changedCaseIds.length !== 0
+  ) {
+    throw new Error(
+      'Worksheet review-route comparison sameResponse cannot have changed case ids.',
+    );
+  }
+
+  if (
+    groundTruth.sameGroundTruthDigest
+    && groundTruth.changedExpectedRouteCaseIds.length
+      !== 0
+  ) {
+    throw new Error(
+      'Worksheet review-route comparison same ground truth cannot have changed expected-route case ids.',
+    );
+  }
+
+  if (
+    groundTruth.labelOnlyReevaluation
+    && groundTruth.changedExpectedRouteCaseIds.length
+      === 0
+  ) {
+    throw new Error(
+      'Worksheet review-route label-only re-evaluation must identify at least one changed expected-route case.',
+    );
+  }
+
   if (recordIdentity.sameRecord) {
     const allSame = [
       plan.samePlanDigest,
