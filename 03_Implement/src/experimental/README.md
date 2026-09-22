@@ -808,3 +808,12 @@ issue-0188では、0186 predeclared planと0183 policy resultを一体の `Works
 recordはplanDigest、directional left/right recordDigest、plan snapshot、policy result snapshotを保持し、result.comparisonのrecord pairとresult.policyがplanと一致することをstrict validationします。executionDigestはrecord全体のcontent identityであり、signatureやtrusted timestampではありません。
 
 policy resultが `compliant=false` でもplanned comparison execution自体は正常に完了しているため、typed violationsを含むvalid execution recordとして保存できます。better/worse、winner、provider ranking、deployment approvalは導入しません。
+
+
+### Planned comparison execution record canonical JSON codec
+
+issue-0189では、issue-0188の `WorksheetReviewRouteEvaluationRecordComparisonExecutionRecordV1` をstorage/transport非依存のcanonical JSON artifactへ変換します。
+
+serializer/parserはissue-0188 validatorをsemantic authorityとして再利用し、recursive object-key sort、array order保持、compact JSON、trailing newlineなしを固定します。normalizing parseはformat差を許容し、canonical parseはpretty JSON・key-order違い・trailing newline・duplicate-key textをrejectします。
+
+filenameは `executionDigest` のfull 64-hexを保持します。codecはsignature、trusted timestamp、filesystem/database/cloud persistence、better/worse、provider ranking、deployment semanticsを追加しません。
