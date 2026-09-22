@@ -1,8 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {
-  compareWorksheetReviewRouteEvaluationRecords,
-  type WorksheetReviewRouteEvaluationRecordComparisonV1,
+import type {
+  WorksheetReviewRouteEvaluationRecordComparisonV1,
 } from '../src/experimental/worksheetReviewRouteEvaluationRecordComparison.js';
 import {
   WORKSHEET_REVIEW_ROUTE_EVALUATION_RECORD_COMPARISON_JSON_CODEC_VERSION,
@@ -13,9 +12,6 @@ import {
   prepareWorksheetReviewRouteEvaluationRecordComparisonJsonArtifact,
   serializeWorksheetReviewRouteEvaluationRecordComparisonJson,
 } from '../src/experimental/worksheetReviewRouteEvaluationRecordComparisonJsonCodec.js';
-import type {
-  WorksheetReviewRouteEvaluationRecordV1,
-} from '../src/experimental/worksheetReviewRouteEvaluationRecord.js';
 
 function comparison(
   leftDigest =
@@ -235,7 +231,7 @@ test('artifact descriptor is transport-neutral and contains canonical content', 
   );
 });
 
-test('serializer rejects non-finite values and does not mutate source comparison', () => {
+test('serializer rejects non-finite semantic values and does not mutate source comparison', () => {
   const value = comparison();
   const before = structuredClone(value);
 
@@ -244,20 +240,18 @@ test('serializer rejects non-finite values and does not mutate source comparison
   );
   assert.deepEqual(value, before);
 
-  const invalid =
-    structuredClone(value) as unknown as Record<string, unknown>;
-  invalid.extraMetric = Number.NaN;
+  const invalid = structuredClone(value) as unknown as {
+    recordIdentity: {
+      sameRecord: number;
+    };
+  };
+  invalid.recordIdentity.sameRecord = Number.NaN;
 
   assert.throws(
     () =>
       serializeWorksheetReviewRouteEvaluationRecordComparisonJson(
         invalid as unknown as WorksheetReviewRouteEvaluationRecordComparisonV1,
       ),
-    /Unknown worksheet review-route evaluation record comparison field/,
+    /sameRecord/,
   );
 });
-
-// Keep this import path exercised by the repository build without duplicating
-// the full issue-0181 record fixture in this codec-focused test.
-void compareWorksheetReviewRouteEvaluationRecords;
-void (null as unknown as WorksheetReviewRouteEvaluationRecordV1);
