@@ -71,8 +71,8 @@ export function compareWorksheetReviewRouteEvaluationRecords(
     left.packetDigest === right.packetDigest;
   const sameResponse =
     sameCanonicalJson(
-      left.response,
-      right.response,
+      normalizeResponse(left),
+      normalizeResponse(right),
     );
   const sameGroundTruthDigest =
     left.groundTruthDigest ===
@@ -326,10 +326,60 @@ function changedResponseCaseIds(
   ).filter(
     (id) =>
       !sameCanonicalJson(
-        leftById.get(id),
-        rightById.get(id),
+        normalizeOutcomeRecord(
+          leftById.get(id),
+        ),
+        normalizeOutcomeRecord(
+          rightById.get(id),
+        ),
       ),
   );
+}
+
+function normalizeResponse(
+  record: WorksheetReviewRouteEvaluationRecordV1,
+): unknown {
+  return {
+    ...record.response,
+    outcomes: record.response.outcomes.map(
+      normalizeOutcomeRecord,
+    ),
+  };
+}
+
+function normalizeOutcomeRecord(
+  entry:
+    WorksheetReviewRouteEvaluationRecordV1['response']['outcomes'][number]
+    | undefined,
+): unknown {
+  if (entry === undefined) {
+    return undefined;
+  }
+
+  return {
+    ...entry,
+    outcome: {
+      ...entry.outcome,
+      provider:
+        canonicalProvider(
+          entry.outcome.provider,
+        ),
+    },
+  };
+}
+
+function canonicalProvider(
+  provider: CognitiveProviderDescriptor,
+): CognitiveProviderDescriptor {
+  return {
+    id: provider.id,
+    version: provider.version,
+    category: provider.category,
+    executionBoundary: provider.executionBoundary,
+    capabilities: [
+      ...provider.capabilities,
+    ].sort(),
+  };
 }
 
 function changedExpectedRouteCaseIds(
