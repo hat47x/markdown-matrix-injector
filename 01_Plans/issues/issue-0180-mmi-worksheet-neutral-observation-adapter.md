@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Research / Cross-repo structured-artifact intelligence
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: research-only WorksheetFormatSnapshot -> neutral observation adapter
 - Expected verification level: unit + focused validation
@@ -93,24 +93,24 @@ source observation digestには:
 
 ## Acceptance criteria
 
-- [ ] research-only adapter moduleを追加。
-- [ ] existing neutral validatorを最終境界で再利用。
-- [ ] non-empty boundsをone-based inclusiveへ変換。
-- [ ] non-empty ratioを実測。
-- [ ] observed region overlap merge countを実測。
-- [ ] existing header heuristicのpresent/absentをcategorical signalとしてemit。
-- [ ] labelsを空に保つ。
-- [ ] review-route / matcher classification / provider dataを含めない。
-- [ ] source snapshot digestをdeterministicに生成。
-- [ ] snapshot cell/merge order違いで同じsource observation digest。
-- [ ] adapter_config_digestをstatic canonical configから生成。
-- [ ] hidden visibility未保持をmethod ID/provenanceで明示。
-- [ ] style-only cellはnon-empty boundsへ含めない。
-- [ ] empty snapshotはfail-closed。
-- [ ] invalid digest / metadataをfail-closed。
-- [ ] source snapshotをmutateしない。
-- [ ] production parser/resolver/renderer/review-routeを変更しない。
-- [ ] model/trainingを追加しない。
+- [x] research-only adapter moduleを追加。
+- [x] existing neutral validatorを最終境界で再利用。
+- [x] non-empty boundsをone-based inclusiveへ変換。
+- [x] non-empty ratioを実測。
+- [x] observed region overlap merge countを実測。
+- [x] existing header heuristicのpresent/absentをcategorical signalとしてemit。
+- [x] labelsを空に保つ。
+- [x] review-route / matcher classification / provider dataを含めない。
+- [x] source snapshot digestをdeterministicに生成。
+- [x] snapshot cell/merge order違いで同じsource observation digest。
+- [x] adapter_config_digestをstatic canonical configから生成。
+- [x] hidden visibility未保持をmethod ID/provenanceで明示。
+- [x] style-only cellはnon-empty boundsへ含めない。
+- [x] empty snapshotはfail-closed。
+- [x] invalid digest / metadataをfail-closed。
+- [x] source snapshotをmutateしない。
+- [x] production parser/resolver/renderer/review-routeを変更しない。
+- [x] model/trainingを追加しない。
 
 ## Validation plan
 
@@ -123,3 +123,28 @@ source observation digestには:
 - malformed metadata。
 - immutability。
 - neutral contract validation。
+
+
+## Validation evidence
+
+### 2026-09-22 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- GitHub branch上のadapter sourceと同一実装を、neutral contract / WorksheetFormatSnapshot / feature-versionのinterface-compatible依存で
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime: **5/5 PASS**。
+  1. non-empty bounding regionをone-based inclusiveでemit。
+  2. 9/12 non-empty ratio、observed-region overlap merge count=1、header candidate=presentを確認。
+  3. style-only cellとregion外mergeがbounds/countを拡張しない。
+  4. cell/merge入力順を反転してもsource_observation_digest不変。
+  5. single-cell snapshotではheader candidate=absentを明示。
+  6. empty text-only observation / malformed sourceDigest / blank sheetNameをfail-closed。
+  7. source snapshotをmutateしない。
+- emitted labelsは空。
+- matched / ambiguous / novel / review-route / provider confidence / winner prototype IDをneutral outputへ持ち込まない。
+- normalizer visible-only methodと同一method IDを名乗らず、hidden row/column visibility unavailableをadapter_config_digestへbinding。
+- production parser / resolver / renderer / review-route / matcher thresholdは変更していない。
+- model/training dependencyは追加していない。
+- repository全dependency tree成功は現環境では主張しない。
