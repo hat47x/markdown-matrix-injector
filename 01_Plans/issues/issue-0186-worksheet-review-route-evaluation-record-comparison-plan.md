@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Evaluation governance / Predeclaration
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: directional record pair + explicit comparison policy + plan digest + planned comparison execution
 - Expected verification level: unit + focused integration
@@ -95,27 +95,27 @@ better/worse、winner、provider ranking、deployment approvalを意味しない
 
 ## Acceptance criteria
 
-- [ ] plan schema/version/representationを固定。
-- [ ] left/right recordDigestを方向付きで保持。
-- [ ] policyをsnapshot。
-- [ ] planDigestをSHA-256で生成。
-- [ ] object key order非依存のdigest。
-- [ ] A→BとB→AでplanDigestが異なる。
-- [ ] policy変更でplanDigestが変わる。
-- [ ] same inputsでdeterministic。
-- [ ] issue-0177 record validatorを再利用。
-- [ ] issue-0183 policy validatorを再利用。
-- [ ] strict plan validator。
-- [ ] unknown fieldをreject。
-- [ ] tampered planDigestをreject。
-- [ ] malformed record digestをreject。
-- [ ] runtime left record mismatchをcomparison前にreject。
-- [ ] runtime right record mismatchをcomparison前にreject。
-- [ ] issue-0181 comparisonへ委譲。
-- [ ] issue-0183 policy resultへ委譲。
-- [ ] policy noncomplianceをthrowせずtyped resultで返す。
-- [ ] source records / policy / planをmutateしない。
-- [ ] live provider / storage / signature / deployment semanticsを追加しない。
+- [x] plan schema/version/representationを固定。
+- [x] left/right recordDigestを方向付きで保持。
+- [x] policyをsnapshot。
+- [x] planDigestをSHA-256で生成。
+- [x] object key order非依存のdigest。
+- [x] A→BとB→AでplanDigestが異なる。
+- [x] policy変更でplanDigestが変わる。
+- [x] same inputsでdeterministic。
+- [x] issue-0177 record validatorを再利用。
+- [x] issue-0183 policy validatorを再利用。
+- [x] strict plan validator。
+- [x] unknown fieldをreject。
+- [x] tampered planDigestをreject。
+- [x] malformed record digestをreject。
+- [x] runtime left record mismatchをcomparison前にreject。
+- [x] runtime right record mismatchをcomparison前にreject。
+- [x] issue-0181 comparisonへ委譲。
+- [x] issue-0183 policy resultへ委譲。
+- [x] policy noncomplianceをthrowせずtyped resultで返す。
+- [x] source records / policy / planをmutateしない。
+- [x] live provider / storage / signature / deployment semanticsを追加しない。
 
 ## Validation plan
 
@@ -128,3 +128,31 @@ better/worse、winner、provider ranking、deployment approvalを意味しない
 - noncompliant planned comparison。
 - immutability。
 - strict compile。
+
+
+## Validation evidence
+
+### 2026-09-22 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- GitHub branch上の `worksheetReviewRouteEvaluationRecordComparisonPlan.ts` と同一実装を、issue-0177 record / issue-0181 comparison / issue-0183 policyのinterface-compatible focused environmentで
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime:
+  - 同じleft/right/policyから同一planDigest。
+  - A→BとB→AでplanDigestが異なる。
+  - policy変更でplanDigestが異なる。
+  - planDigest改ざんをstrict validatorでreject。
+  - runtime left record差し替えをcomparison生成前にreject。
+  - label-only changeを許可するpolicyでは `status=completed / compliant=true`。
+  - 同changeを禁止するpolicyでもexecution自体は成功し、`compliant=false` と `GROUND_TRUTH_CHANGED / LABEL_ONLY_REEVALUATION_FORBIDDEN` をtyped violationsとして返す。
+- repository test sourceではさらに:
+  - unknown field / malformed digest rejection。
+  - right record mismatch rejection。
+  - policy snapshot clone。
+  - source records / policy / plan immutability。
+  - overall verdict / better-worse / winner / recommendation / scoreの非導入。
+- planDigestはpredeclared comparison intentのcontent identityであり、signature / trusted timestampではない。
+- live provider / storage / persistence / ranking / deployment semanticsは追加していない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
