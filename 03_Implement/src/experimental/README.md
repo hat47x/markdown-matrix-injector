@@ -714,3 +714,15 @@ issue-0179では、issue-0177 recordをstorage非依存のcanonical JSON artifac
 canonical serializerはissue-0177 validatorを先に通し、object keyをrecursive sort、array orderを保持、whitespace/trailing newlineなしのJSON textを返します。normalizing parseはmanual/migration用途として非canonical formattingを許容しますが、canonical parseはinput textと再serialization結果の完全一致を要求するため、pretty JSON、key-order違い、trailing newline、duplicate-key inputをcanonical artifactとして受理しません。
 
 artifact descriptorはmedia type、recordDigest full hex由来のstable filename、canonical contentだけを返し、filesystem/database/cloud writeやsignatureは行いません。
+
+
+### Structured-artifact neutral worksheet adapter
+
+issue-0180: research-only `WorksheetFormatSnapshot -> structured-artifact neutral observation v0` adapter。
+
+`createMmiWorksheetStructuredArtifactObservation` は、MMIの既存snapshotから実際に観測できる
+non-empty bounding geometry / non-empty ratio / merge count / header-candidate signalだけをneutral v0へ射影します。
+
+hidden row/column visibilityはWorksheetFormatSnapshotに保持されていないため、excel-houganshi-normalizerのvisible-only methodとは別method IDを使用します。差異はH2 divergence evidenceとして保持し、数値を無理に同一意味へ正規化しません。
+
+このadapterはresearch-onlyであり、MMI Notation、Format Profile、Fly matcher、review-route、Authority Planeのruntime contractを変更しません。
