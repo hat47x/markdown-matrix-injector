@@ -633,6 +633,7 @@ issue-0167〜0170では、live providerやproduction routingを変更せず、re
 12. issue-0179: canonical evaluation-record JSON codec
 13. issue-0181: evaluation-record comparison by independent change dimensions
 14. issue-0182: canonical comparison JSON codec
+15. issue-0183: explicit evaluation-record comparison change policy guard
 
 issue-0178はこのevaluation laneとは別のhuman-review presentation laneとして並行実装済みです。
 
@@ -746,3 +747,14 @@ issue-0182では、issue-0181 comparison artifactをcanonical JSONとしてstora
 serializerはissue-0181 validatorを先に通し、object keyをrecursive sort、array orderを保持、whitespace/trailing newlineなしのJSON textを生成します。normalizing parseはmanual/migration用途としてformat差を許容しますが、canonical parseはinput textと再serialization結果の完全一致を要求するため、pretty JSON、key-order違い、trailing newline、duplicate-key inputをcanonical artifactとして受理しません。
 
 filenameは `leftRecordDigest-to-rightRecordDigest` の方向をfull 64-hexのまま保持し、A→BとB→Aを別artifactとして扱います。comparisonDigest、signature、filesystem/database/cloud persistence、better/worse評価は追加しません。
+
+
+### Evaluation-record comparison change policy guard
+
+issue-0183では、issue-0181 comparisonのchange dimensionをcallerが事前に明示した許可境界へ照合する `WorksheetReviewRouteEvaluationRecordComparisonPolicyV1` を追加します。
+
+policyはrecord identity / plan / packet / readiness policy / provider / response / ground truth / summary / projection separability / report providerの各changeをbooleanで明示し、defaultを持ちません。さらに `labelOnlyReevaluation` を required / forbidden / either で指定できます。
+
+guard resultはcomparisonとpolicyをsnapshotし、violationをcanonical sorted listとして返します。validatorはcomparison+policyからviolationsを再計算するため、resultのcompliant/violationsだけを書き換えたartifactを受理しません。
+
+compliantは「明示されたchange boundaryに適合した」という意味だけで、better/worse、model quality、provider ranking、deployment approvalを意味しません。
