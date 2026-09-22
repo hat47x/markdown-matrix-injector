@@ -638,6 +638,7 @@ issue-0167〜0170では、live providerやproduction routingを変更せず、re
 17. issue-0185: canonical predeclared comparison-policy JSON codec
 18. issue-0186: predeclared evaluation-record comparison plan
 19. issue-0187: canonical comparison-plan JSON codec
+20. issue-0188: immutable planned-comparison execution record
 
 issue-0178はこのevaluation laneとは別のhuman-review presentation laneとして並行実装済みです。
 
@@ -798,3 +799,12 @@ issue-0187では、0186 comparison planをcanonical JSON artifactへ変換する
 serializerは0186 validatorをsemantic authorityとして使い、object keyをrecursive sort、array orderを保持、whitespace/trailing newlineなしのcompact JSONを生成します。normalizing parseはformat差を許容し、canonical parseはpretty JSON・key-order違い・trailing newline・duplicate-key textをrejectします。
 
 filenameはplanDigestのfull 64-hexを使い、plan identityを短縮しません。codecはfilesystem/database/cloud write、signature、trusted timestamp、better/worse、provider ranking、deployment semanticsを追加しません。
+
+
+### Planned comparison execution record
+
+issue-0188では、0186 predeclared planと0183 policy resultを一体の `WorksheetReviewRouteEvaluationRecordComparisonExecutionRecordV1` として固定します。
+
+recordはplanDigest、directional left/right recordDigest、plan snapshot、policy result snapshotを保持し、result.comparisonのrecord pairとresult.policyがplanと一致することをstrict validationします。executionDigestはrecord全体のcontent identityであり、signatureやtrusted timestampではありません。
+
+policy resultが `compliant=false` でもplanned comparison execution自体は正常に完了しているため、typed violationsを含むvalid execution recordとして保存できます。better/worse、winner、provider ranking、deployment approvalは導入しません。
