@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Evaluation governance / Portability
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: issue-0186 comparison plan canonical JSON serialization / strict parse / transport-neutral artifact descriptor
 - Expected verification level: unit + focused runtime
@@ -43,22 +43,22 @@ worksheet-review-route-evaluation-record-comparison-plan-<64hex>.json
 
 ## Acceptance criteria
 
-- [ ] codec version/media type constantsを固定。
-- [ ] serializer前にissue-0186 validatorを実行。
-- [ ] recursive object key sort。
-- [ ] array order保持。
-- [ ] whitespace/trailing newlineなし。
-- [ ] normalizing parseを追加。
-- [ ] canonical parseを追加。
-- [ ] pretty/key-order/trailing-newline/duplicate-key canonical rejection。
-- [ ] semantic tamperをissue-0186 validatorでreject。
-- [ ] full planDigest hexをstable filenameへ使用。
-- [ ] artifact descriptorはI/Oを行わない。
-- [ ] canonical round-tripでdeepEqual。
-- [ ] deterministic serialization。
-- [ ] source planをmutateしない。
-- [ ] signature/persistence/default policy/better-worse/deployment semanticsを追加しない。
-- [ ] production runtimeを変更しない。
+- [x] codec version/media type constantsを固定。
+- [x] serializer前にissue-0186 validatorを実行。
+- [x] recursive object key sort。
+- [x] array order保持。
+- [x] whitespace/trailing newlineなし。
+- [x] normalizing parseを追加。
+- [x] canonical parseを追加。
+- [x] pretty/key-order/trailing-newline/duplicate-key canonical rejection。
+- [x] semantic tamperをissue-0186 validatorでreject。
+- [x] full planDigest hexをstable filenameへ使用。
+- [x] artifact descriptorはI/Oを行わない。
+- [x] canonical round-tripでdeepEqual。
+- [x] deterministic serialization。
+- [x] source planをmutateしない。
+- [x] signature/persistence/default policy/better-worse/deployment semanticsを追加しない。
+- [x] production runtimeを変更しない。
 
 ## Validation plan
 
@@ -71,3 +71,30 @@ worksheet-review-route-evaluation-record-comparison-plan-<64hex>.json
 - stable filename/artifact descriptor。
 - immutability。
 - strict compile。
+
+
+## Validation evidence
+
+### 2026-09-22 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- issue-0186 plan実装とcodec本体を
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime:
+  - deterministic canonical serialization。
+  - compact JSON / trailing newlineなし。
+  - canonical round-trip deep equality。
+  - normalizing parseでpretty JSON受理。
+  - canonical parseでpretty JSON reject。
+  - planDigest tamperをissue-0186 validatorでreject。
+  - full 64-hex planDigestをstable filenameへ使用。
+- repository test sourceではさらに:
+  - noncanonical key order / trailing newline reject。
+  - duplicate-key canonical reject。
+  - codec version / media type / artifact descriptor。
+  - source plan immutability。
+- 初回focused harnessではround-tripを`JSON.stringify`のobject insertion orderで比較して偽陰性となったため、semantic deep equalityへ修正して再実行し成功。codec実装の不具合ではないことを確認。
+- filesystem/database/cloud I/O、signature、trusted timestamp、default policy、better/worse、ranking、deployment semanticsは追加していない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
