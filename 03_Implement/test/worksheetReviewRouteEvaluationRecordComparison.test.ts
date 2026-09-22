@@ -634,6 +634,32 @@ test('strict comparison validation rejects unknown fields, unsorted ids, and log
       }),
     /canonical sorted order/,
   );
+
+  assert.throws(
+    () =>
+      assertWorksheetReviewRouteEvaluationRecordComparison({
+        ...comparison,
+        response: {
+          sameResponse: true,
+          changedCaseIds: ['inspect-a'],
+        },
+      }),
+    /sameResponse cannot have changed case ids/,
+  );
+
+  assert.throws(
+    () =>
+      assertWorksheetReviewRouteEvaluationRecordComparison({
+        ...comparison,
+        groundTruth: {
+          ...comparison.groundTruth,
+          sameGroundTruthDigest: true,
+          changedExpectedRouteCaseIds: ['inspect-a'],
+          labelOnlyReevaluation: false,
+        },
+      }),
+    /same ground truth cannot have changed expected-route case ids/,
+  );
 });
 
 test('comparison does not mutate either source record', async () => {
