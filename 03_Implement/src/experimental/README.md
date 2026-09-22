@@ -634,6 +634,7 @@ issue-0167〜0170では、live providerやproduction routingを変更せず、re
 13. issue-0181: evaluation-record comparison by independent change dimensions
 14. issue-0182: canonical comparison JSON codec
 15. issue-0183: explicit evaluation-record comparison change policy guard
+16. issue-0184: canonical comparison-policy-result JSON codec
 
 issue-0178はこのevaluation laneとは別のhuman-review presentation laneとして並行実装済みです。
 
@@ -758,3 +759,12 @@ policyはrecord identity / plan / packet / readiness policy / provider / respons
 guard resultはcomparisonとpolicyをsnapshotし、violationをcanonical sorted listとして返します。validatorはcomparison+policyからviolationsを再計算するため、resultのcompliant/violationsだけを書き換えたartifactを受理しません。
 
 compliantは「明示されたchange boundaryに適合した」という意味だけで、better/worse、model quality、provider ranking、deployment approvalを意味しません。
+
+
+### Comparison policy result canonical JSON codec
+
+issue-0184では、issue-0183のcomparison change policy resultをstorage/transport非依存のcanonical JSONへ変換します。
+
+serializerはissue-0183 validatorをsemantic authorityとして再利用し、object keyをrecursive sort、array orderを保持、whitespace/trailing newlineなしのJSONを生成します。normalizing parseはformat差を許容し、canonical parseはpretty JSON / key-order違い / trailing newline / duplicate-key inputをrejectします。
+
+filenameはleft/right recordDigestのfull 64-hexを方向付きで保持します。policy/result digest、signature、persistence、better/worse、provider ranking、deployment semanticsは追加しません。
