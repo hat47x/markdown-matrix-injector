@@ -631,6 +631,7 @@ issue-0167〜0170では、live providerやproduction routingを変更せず、re
 10. issue-0176: predeclared evaluation plan manifest
 11. issue-0177: immutable provider-evaluation record + offline ground-truth re-evaluation
 12. issue-0179: canonical evaluation-record JSON codec
+13. issue-0181: evaluation-record comparison by independent change dimensions
 
 issue-0178はこのevaluation laneとは別のhuman-review presentation laneとして並行実装済みです。
 
@@ -726,3 +727,12 @@ non-empty bounding geometry / non-empty ratio / merge count / header-candidate s
 hidden row/column visibilityはWorksheetFormatSnapshotに保持されていないため、excel-houganshi-normalizerのvisible-only methodとは別method IDを使用します。差異はH2 divergence evidenceとして保持し、数値を無理に同一意味へ正規化しません。
 
 このadapterはresearch-onlyであり、MMI Notation、Format Profile、Fly matcher、review-route、Authority Planeのruntime contractを変更しません。
+
+
+### Evaluation record comparison
+
+issue-0181では、2本のvalidated `WorksheetReviewRouteEvaluationRecordV1` を比較し、record変化を1つのoverall verdictへ潰さず、plan / provider-visible packet / provider response / ground truth / reportのchange dimensionへ分離する `WorksheetReviewRouteEvaluationRecordComparisonV1` を追加します。
+
+特に `labelOnlyReevaluation` は、same planDigest + same packetDigest + same stored response + different groundTruthDigest の場合だけtrueになります。provider outcome rerunやplan変更とは明確に区別します。
+
+provider capabilitiesの並び順はsemantic response/provider comparisonではcanonical setとして扱いますが、recordDigest自体はissue-0177のcontent identityとして変更しません。comparison artifactはchanged case idだけを保持し、expected route値、probability/confidence、evidence、annotation/adjudication provenanceを複製しません。overall score、better/worse、winner、recommendationも追加しません。
