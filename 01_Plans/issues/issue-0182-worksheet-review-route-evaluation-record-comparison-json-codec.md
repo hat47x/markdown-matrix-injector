@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Evaluation artifact / Portability
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: canonical JSON serialization, strict/normalizing parse, stable directional filename, transport-neutral artifact descriptor
 - Expected verification level: unit + focused runtime
@@ -98,29 +98,29 @@ issue-0181 artifactにはcomparisonDigestを新設しない。
 
 ## Acceptance criteria
 
-- [ ] codec version/media type constantsを固定。
-- [ ] canonical serializerを追加。
-- [ ] serializer前にissue-0181 validatorを実行。
-- [ ] recursive object key sort。
-- [ ] array orderを保持。
-- [ ] whitespace/trailing newlineなし。
-- [ ] non-finite numberをreject。
-- [ ] normalizing parseを追加。
-- [ ] canonical parseを追加。
-- [ ] canonical parseがpretty JSONをreject。
-- [ ] canonical parseがkey-order違いをreject。
-- [ ] canonical parseがtrailing newlineをreject。
-- [ ] canonical parseがduplicate-key inputをreject。
-- [ ] semantic tamperをissue-0181 validatorでreject。
-- [ ] stable directional filenameを追加。
-- [ ] full left/right digest hexをfilenameへ使用。
-- [ ] A→B と B→A のfilenameが異なる。
-- [ ] artifact descriptorはI/Oを行わない。
-- [ ] canonical round-tripでdeepEqual。
-- [ ] deterministic serialization。
-- [ ] source comparisonをmutateしない。
-- [ ] comparisonDigest / signature / persistenceを追加しない。
-- [ ] production runtimeを変更しない。
+- [x] codec version/media type constantsを固定。
+- [x] canonical serializerを追加。
+- [x] serializer前にissue-0181 validatorを実行。
+- [x] recursive object key sort。
+- [x] array orderを保持。
+- [x] whitespace/trailing newlineなし。
+- [x] non-finite numberをreject。
+- [x] normalizing parseを追加。
+- [x] canonical parseを追加。
+- [x] canonical parseがpretty JSONをreject。
+- [x] canonical parseがkey-order違いをreject。
+- [x] canonical parseがtrailing newlineをreject。
+- [x] canonical parseがduplicate-key inputをreject。
+- [x] semantic tamperをissue-0181 validatorでreject。
+- [x] stable directional filenameを追加。
+- [x] full left/right digest hexをfilenameへ使用。
+- [x] A→B と B→A のfilenameが異なる。
+- [x] artifact descriptorはI/Oを行わない。
+- [x] canonical round-tripでdeepEqual。
+- [x] deterministic serialization。
+- [x] source comparisonをmutateしない。
+- [x] comparisonDigest / signature / persistenceを追加しない。
+- [x] production runtimeを変更しない。
 
 ## Validation plan
 
@@ -135,3 +135,33 @@ issue-0181 artifactにはcomparisonDigestを新設しない。
 - non-finite rejection。
 - immutability。
 - strict compile。
+
+
+## Validation evidence
+
+### 2026-09-22 focused validation
+
+- Node.js: `v22.16.0`
+- TypeScript: `5.8.3`
+- GitHub branch上のcodec sourceと同一実装をissue-0181 comparison interface-compatible validator stub上で
+  `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
+  でcompile成功。
+- focused runtime:
+  - canonical serializationはdeterministic。
+  - canonical round-tripはsemantic deep-equal。
+  - object keyをrecursive canonical sort。
+  - array order保持。
+  - whitespace / trailing newlineなし。
+  - normalizing parseはpretty JSONを受理。
+  - canonical parseはpretty JSON / noncanonical key order / trailing newlineをreject。
+  - duplicate-key inputはnormalizing parseではJSON semanticsとして解決されるが、canonical parseではinput byte mismatchとしてreject。
+  - issue-0181 semantic invariant違反をparse/serialize boundaryでreject。
+  - invalid/non-finite semantic valueもissue-0181 validator boundaryでfail-closed。
+  - stable filenameはleft/rightのfull 64-hex record digestを保持し、A→BとB→Aで異なる。
+  - artifact descriptorはcodecVersion / mediaType / fileName / canonical contentだけを返しI/Oなし。
+  - source comparisonをmutateしない。
+- comparisonDigest / signature / persistence / cloud writeは追加していない。
+- comparison artifactのbetter/worse / winner / recommendation semanticsは追加していない。
+- production runtimeは変更していない。
+- repository全dependency tree成功は現環境では主張しない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
