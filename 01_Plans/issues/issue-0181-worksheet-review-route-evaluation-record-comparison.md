@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Evaluation governance / Comparison
-- Status: Open
+- Status: Done
 - Priority: High
 - Scope: validated record-to-record comparison, independent change dimensions, label-only re-evaluation detection
 - Expected verification level: unit + focused integration
@@ -131,26 +131,26 @@ comparison artifactへ以下を新規保存しない:
 
 ## Acceptance criteria
 
-- [ ] comparison schema/version/representationを固定。
-- [ ] 両recordをissue-0177 validatorで検証。
-- [ ] sameRecordをrecordDigestで算出。
-- [ ] planDigest / packetDigest / readiness policy / providerを独立比較。
-- [ ] stored responseを独立比較。
-- [ ] response changedCaseIdsをcanonical算出。
-- [ ] groundTruthDigestを独立比較。
-- [ ] changedExpectedRouteCaseIdsをcanonical算出。
-- [ ] labelOnlyReevaluationを厳密条件で算出。
-- [ ] report summary / projection separability / providerを独立比較。
-- [ ] provider capabilities orderを無視。
-- [ ] object key orderを比較上無視。
-- [ ] strict comparison validator。
-- [ ] unknown fieldをreject。
-- [ ] unsorted/duplicate case idsをreject。
-- [ ] logical invariant mismatchをreject。
-- [ ] comparison artifactへraw evidence / label identity metadataを入れない。
-- [ ] overall verdict / score / winner / recommendationを追加しない。
-- [ ] source recordsをmutateしない。
-- [ ] production runtime / provider execution / storageを変更しない。
+- [x] comparison schema/version/representationを固定。
+- [x] 両recordをissue-0177 validatorで検証。
+- [x] sameRecordをrecordDigestで算出。
+- [x] planDigest / packetDigest / readiness policy / providerを独立比較。
+- [x] stored responseを独立比較。
+- [x] response changedCaseIdsをcanonical算出。
+- [x] groundTruthDigestを独立比較。
+- [x] changedExpectedRouteCaseIdsをcanonical算出。
+- [x] labelOnlyReevaluationを厳密条件で算出。
+- [x] report summary / projection separability / providerを独立比較。
+- [x] provider capabilities orderを無視。
+- [x] object key orderを比較上無視。
+- [x] strict comparison validator。
+- [x] unknown fieldをreject。
+- [x] unsorted/duplicate case idsをreject。
+- [x] logical invariant mismatchをreject。
+- [x] comparison artifactへraw evidence / label identity metadataを入れない。
+- [x] overall verdict / score / winner / recommendationを追加しない。
+- [x] source recordsをmutateしない。
+- [x] production runtime / provider execution / storageを変更しない。
 
 ## Validation plan
 
@@ -164,3 +164,28 @@ comparison artifactへ以下を新規保存しない:
 - non-disclosure。
 - immutability。
 - strict compile。
+
+
+## Validation evidence
+
+### 2026-09-22 focused validation
+
+- TypeScript: strict compile成功。
+  - `target ES2022`
+  - `module NodeNext`
+  - `moduleResolution NodeNext`
+  - `strict=true`
+- GitHub branch上の `worksheetReviewRouteEvaluationRecordComparison.ts` と同一実装を、issue-0177 record / provider descriptorのinterface-compatible stubでcompile。
+- focused runtime: **5/5 PASS / 0 fail**。
+  1. identical recordでは全same flag=true、change case list空、overall verdictなし。
+  2. issue-0177 label-only offline re-evaluationではplan/packet/response同一、groundTruthのみ差分、`labelOnlyReevaluation=true`、changed expected-route case idのみを抽出。
+  3. same-plan provider rerunではresponse changed caseだけを抽出し、label-onlyとは判定しない。
+  4. provider capabilitiesの順序差はprovider/response semantic equalityへ影響させない。一方recordDigest content identityは別のまま維持。
+  5. unknown field / unsorted case ids / sameResponse-change-list矛盾 / ground-truth invariant矛盾 / labelOnly invariant矛盾をfail-closed。
+- response比較ではprovider descriptorのcapabilitiesだけをcanonical sortし、probability/confidence等provider outcome内容はそのまま比較する。
+- comparison artifactはcase id以外のexpected route値、probability/confidence、evidence、annotation/adjudication provenanceを複製しない。
+- overall score / winner / better-worse / recommendation / deployment判断を追加していない。
+- source recordをmutateしない。
+- provider実行 / persistence / production routingは変更していない。
+- repository全dependency tree成功は現環境では主張しない。
+- GitHub Actionsの既知runner/resource不足は完了条件に使用しない。
