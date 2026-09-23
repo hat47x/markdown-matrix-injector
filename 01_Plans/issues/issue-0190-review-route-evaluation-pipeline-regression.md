@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Regression / integration qualification
-- Status: Open
+- Status: Implementation complete; local execution pending
 - Priority: High
 - Scope: existing issue-0171/0172/0174/0176/0177/0179/0183/0186/0187/0188/0189 contract composition
 - Production runtime: no changes
@@ -47,3 +47,13 @@ Use a synthetic, independently adjudicated four-case corpus and an explicitly lo
 Run the new integration test and strict compile in an actual local repository checkout when dependencies are available. GitHub Actions are paused because of the usage cap; do not dispatch or rerun them. When dependencies cannot be accessed, report this explicitly and distinguish source review from executed evidence.
 
 Do not edit the simultaneous structured-artifact Draft PR research branch or its fixture files.
+
+## 2026-09-23 source verification
+
+- Added four actual-module integration test cases in test/worksheetReviewRouteEvaluationPipeline.test.ts.
+- Inspected the real, current exports of all 12 imported experimental modules against test imports: 12/12 module interfaces resolved, no missing named exports.
+- Confirmed test cases cover successful local run -> record codec -> offline label-only replay -> comparison plan codec -> execution record codec; explicit noncompliance; stale/readiness/pair/digest failure; and an abstained provider outcome.
+- Regression tests use an in-process local stub, synthetic evidence, and existing exported APIs. No production module, matcher, workbook, cloud transport, or research fixture is modified.
+- Verification limit: this execution environment does not have the private repository checkout/dependency tree and cannot resolve GitHub from its shell. GitHub Actions are explicitly paused due the usage cap. Consequently no actual TypeScript build, npm unit-suite result, or live Jev evaluation is claimed. Run the new test and build in an authorized local checkout before considering the test runtime-verified.
+
+This milestone adds an end-to-end test artifact; runtime verification remains a separately tracked completion condition.
