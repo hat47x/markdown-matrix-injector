@@ -57,3 +57,16 @@ Do not edit the simultaneous structured-artifact Draft PR research branch or its
 - Verification limit: this execution environment does not have the private repository checkout/dependency tree and cannot resolve GitHub from its shell. GitHub Actions are explicitly paused due the usage cap. Consequently no actual TypeScript build, npm unit-suite result, or live Jev evaluation is claimed. Run the new test and build in an authorized local checkout before considering the test runtime-verified.
 
 This milestone adds an end-to-end test artifact; runtime verification remains a separately tracked completion condition.
+
+## Local qualification command
+
+issue-0191で、actual checkout上の残検証を1コマンドへ固定した。
+
+```sh
+cd 03_Implement
+npm run qualify:review-route-evaluation-pipeline
+```
+
+このcommandは `npm run build` 成功後に `test/worksheetReviewRouteEvaluationPipeline.test.ts` だけを実行する。
+
+GitHub Actionsは利用量上限のため引き続き使用しない。上記commandのactual success evidenceが得られるまでは、本Issueの `Status: Implementation complete; local execution pending` を変更しない。
