@@ -33,6 +33,8 @@
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "test:unit": "node --import tsx --test ./test/*.test.ts",
+    "test:review-route-evaluation-pipeline": "node --import tsx --test ./test/worksheetReviewRouteEvaluationPipeline.test.ts",
+    "qualify:review-route-evaluation-pipeline": "npm run build && npm run test:review-route-evaluation-pipeline",
     "test:phase9-sync": "python3 ../01_Plans/tools/check_phase9_template_sync.py",
     "test:phase9-guide-sync": "python3 ../01_Plans/tools/generate_phase9_pattern_guide.py --check",
     "test:e2e": "npm run build && bash ./scripts/run-vscode-e2e.sh",
