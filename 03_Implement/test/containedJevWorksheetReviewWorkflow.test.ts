@@ -6,6 +6,7 @@ import path from 'node:path';
 import type {
   WorkbookData,
 } from '../src/core/workbookLoader.js';
+import { sheetSourceFromMatrix } from '../src/core/sheetSource.js';
 import {
   prepareContainedUnifiedReviewWithJevRouteReaderAndLoader,
 } from '../src/experimental/containedJevWorksheetReviewWorkflow.js';
@@ -78,10 +79,10 @@ function fixture() {
 
   const workbook: WorkbookData = {
     sheets: {
-      Sheet1: [
+      Sheet1: sheetSourceFromMatrix([
         ['ID', 'State'],
         ['1', 'ready'],
-      ],
+      ]),
     },
   };
 

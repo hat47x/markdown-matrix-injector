@@ -6,6 +6,7 @@ import path from 'node:path';
 import type {
   WorkbookData,
 } from '../src/core/workbookLoader.js';
+import { sheetSourceFromMatrix } from '../src/core/sheetSource.js';
 import {
   adaptClosedChoiceResponse,
 } from '../src/experimental/closedChoiceJudgment.js';
@@ -111,10 +112,10 @@ function fixture() {
   const observationSnapshot = snapshot();
   const workbook: WorkbookData = {
     sheets: {
-      Sheet1: [
+      Sheet1: sheetSourceFromMatrix([
         [...HEADERS],
         ['1', 'item', 'type', 'yes', 'allow', 'alice'],
-      ],
+      ]),
     },
   };
 

@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { WorkbookData } from '../src/core/workbookLoader.js';
+import { sheetSourceFromMatrix } from '../src/core/sheetSource.js';
 import type { CognitiveObservation } from '../src/experimental/cognitiveContract.js';
 import {
   createCognitiveReviewEnvelope,
@@ -135,10 +136,10 @@ function fixture(rawNotation = TABLE_PROPOSAL) {
 
   const workbook: WorkbookData = {
     sheets: {
-      Sheet1: [
+      Sheet1: sheetSourceFromMatrix([
         ['ID', 'State'],
         ['1', 'ready'],
-      ],
+      ]),
     },
   };
 

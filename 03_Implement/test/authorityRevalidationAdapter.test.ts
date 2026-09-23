@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import type { WorkbookData } from '../src/core/workbookLoader.js';
+import { sheetSourceFromMatrix } from '../src/core/sheetSource.js';
 import type { CognitiveObservation } from '../src/experimental/cognitiveContract.js';
 import {
   bindAuthorityRevalidationReceipt,
@@ -137,10 +138,10 @@ function createFixture(): Fixture {
     sourceDigest,
     workbook: {
       sheets: {
-        Sheet1: [
+        Sheet1: sheetSourceFromMatrix([
           ['ID', 'State'],
           ['1', 'ready'],
-        ],
+        ]),
       },
     },
     envelope,
