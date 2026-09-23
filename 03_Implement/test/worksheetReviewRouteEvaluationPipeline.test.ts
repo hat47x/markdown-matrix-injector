@@ -209,10 +209,12 @@ async function runFixture() {
     route: 'routine',
     rationaleCodes: ['CORRECTED_FINAL_ROUTE'],
   };
+  const beforeLeft = structuredClone(left);
   const right = reevaluateWorksheetReviewRouteEvaluationRecord(
     corrected,
     left,
   );
+  assert.deepEqual(left, beforeLeft);
   assert.deepEqual(source, beforeSource);
   assert.deepEqual(plan, beforePlan);
   return { source, corrected, left, right, plan, provider, observed };
@@ -383,4 +385,68 @@ test('stale source, regressed readiness, record substitution and codec tamper fa
   assert.doesNotThrow(
     () => assertWorksheetReviewRouteEvaluationRecord(left),
   );
+});
+
+
+test('a provider abstention stays a typed non-decision through record and offline replay', async () => {
+  const source = corpus();
+  const observed: unknown[] = [];
+  const base = localProvider(observed);
+  const abstaining: ClosedChoiceJudgmentProvider<WorksheetReviewRouteChoice> = {
+    descriptor: base.descriptor,
+    async decide(request) {
+      if (request.observation.id === 'inspect-c') {
+        observed.push(structuredClone(request.observation.payload));
+        return {
+          status: 'abstained',
+          reasonCode: 'LOW_INFORMATION',
+        };
+      }
+      return base.decide(request);
+    },
+  };
+  const plan = createWorksheetReviewRouteEvaluationPlan(
+    source, readiness, abstaining.descriptor,
+  );
+  const completed = await runWorksheetReviewRouteEvaluationPlan(
+    source, plan, abstaining,
+  );
+  assert.equal(completed.status, 'completed');
+  if (completed.status !== 'completed') {
+    throw new Error('Synthetic abstention run did not complete.');
+  }
+  const record = createWorksheetReviewRouteEvaluationRecord(
+    source, plan, completed,
+  );
+  assert.equal(record.report.summary.decisionCoverage, 0.75);
+  assert.equal(record.report.summary.nonDecisionCases, 1);
+  assert.equal(record.report.summary.decisionAccuracy, 1);
+  assert.deepEqual(
+    record.response.outcomes
+      .filter((entry) => entry.outcome.status === 'abstained')
+      .map((entry) => entry.caseId),
+    ['inspect-c'],
+  );
+  assert.deepEqual(
+    parseCanonicalWorksheetReviewRouteEvaluationRecordJson(
+      prepareWorksheetReviewRouteEvaluationRecordJsonArtifact(
+        record,
+      ).content,
+    ),
+    record,
+  );
+
+  const corrected = structuredClone(source);
+  corrected.cases[0]!.adjudication = {
+    ...corrected.cases[0]!.adjudication!,
+    route: 'routine',
+    rationaleCodes: ['CORRECTED_FINAL_ROUTE'],
+  };
+  const replayed = reevaluateWorksheetReviewRouteEvaluationRecord(
+    corrected, record,
+  );
+  assert.equal(observed.length, 4);
+  assert.equal(replayed.report.summary.nonDecisionCases, 1);
+  assert.equal(replayed.report.summary.decisionAccuracy, 0.666667);
+  assert.deepEqual(replayed.response, record.response);
 });
