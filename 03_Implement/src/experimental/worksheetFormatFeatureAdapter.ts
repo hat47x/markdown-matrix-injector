@@ -25,6 +25,7 @@ export interface WorksheetFormatSnapshot {
 
 export interface WorksheetFormatFeatureOptions {
   maxHeaderScanRows?: number;
+  maxBodyOccupancyRows?: number;
 }
 
 export interface WorksheetFormatFeatureObservation {
@@ -39,15 +40,30 @@ interface RowCandidate {
   score: number;
 }
 
+interface TitleMergeEvidence {
+  span: number;
+  row: number;
+}
+
+interface BodyRowEvidence {
+  row: number;
+  cells: WorksheetFormatCell[];
+}
+
 const DEFAULT_MAX_HEADER_SCAN_ROWS = 20;
+const DEFAULT_MAX_BODY_OCCUPANCY_ROWS = 4;
 
 export function extractWorksheetFormatFeatures(
   snapshot: WorksheetFormatSnapshot,
   options: WorksheetFormatFeatureOptions = {},
 ): WorksheetFormatFeatureObservation {
   const maxHeaderScanRows = options.maxHeaderScanRows ?? DEFAULT_MAX_HEADER_SCAN_ROWS;
+  const maxBodyOccupancyRows = options.maxBodyOccupancyRows ?? DEFAULT_MAX_BODY_OCCUPANCY_ROWS;
   if (!Number.isInteger(maxHeaderScanRows) || maxHeaderScanRows <= 0) {
     throw new Error('maxHeaderScanRows must be a positive integer.');
+  }
+  if (!Number.isInteger(maxBodyOccupancyRows) || maxBodyOccupancyRows <= 0) {
+    throw new Error('maxBodyOccupancyRows must be a positive integer.');
   }
 
   const cells = validateAndCanonicalizeCells(snapshot.cells);
@@ -59,13 +75,15 @@ export function extractWorksheetFormatFeatures(
     .filter((cell) => normalizedText(cell.text) !== '')
     .map((cell) => cell.column)
     .sort((left, right) => left - right);
-  const features: string[] = ['region:table', 'header:row'];
   const headerStart = headerColumns[0];
+  const headerEnd = headerColumns[headerColumns.length - 1];
+  const features: string[] = ['region:table', 'header:row'];
 
-  const titleSpan = titleMergeSpan(cells, merges, header.row, headerColumns);
-  if (titleSpan !== undefined) {
+  const title = selectTitleMergeEvidence(cells, merges, header.row, headerColumns);
+  if (title) {
     features.push('region:title-row');
-    features.push(`layout:title-span:${titleSpan}`);
+    features.push(`layout:title-span:${title.span}`);
+    features.push(`layout:title-header-gap:${header.row - title.row - 1}`);
   }
 
   const fillTone = dominantValue(header.cells.map((cell) => cell.fillTone).filter(isMeaningfulFillTone));
@@ -83,19 +101,120 @@ export function extractWorksheetFormatFeatures(
   }
 
   const borderKind = dominantValue(
-    cells.filter((cell) => normalizedText(cell.text) !== '')
+    cells
+      .filter((cell) => normalizedText(cell.text) !== '')
       .map((cell) => cell.borderKind)
       .filter(isMeaningfulBorderKind),
   );
   if (borderKind) features.push(`border:${borderKind}`);
 
   if (headerColumns.length >= 2) {
-    const span = headerColumns[headerColumns.length - 1] - headerColumns[0] + 1;
+    const span = headerEnd - headerStart + 1;
     features.push(`layout:${span}-columns`);
     features.push(headerColumns.length === span ? 'layout:header-contiguous' : 'layout:header-gapped');
   }
 
+  const headerMergeMask = horizontalMergeLinkMask(merges, header.row, headerStart, headerEnd);
+  if (headerMergeMask) {
+    features.push('merge:header-horizontal-present');
+    features.push(`layout:header-horizontal-merge-links:${headerMergeMask}`);
+  }
+
+  const bodyRows = selectBodyRows(cells, header.row, headerStart, headerEnd);
+  const firstBodyRow = bodyRows[0];
+  if (firstBodyRow) {
+    features.push('body:present');
+    features.push(`layout:first-body-gap:${firstBodyRow.row - header.row - 1}`);
+
+    const occupiedColumns = new Set(firstBodyRow.cells.map((cell) => cell.column));
+    const occupiedHeaderColumns = headerColumns.filter((column) => occupiedColumns.has(column)).length;
+    features.push(
+      occupiedHeaderColumns === headerColumns.length
+        ? 'layout:first-body-coverage:full'
+        : 'layout:first-body-coverage:partial',
+    );
+
+    const sampledBodyRows = bodyRows.slice(0, maxBodyOccupancyRows);
+    const majorityMask = headerColumns.map((column) => {
+      const occupiedCount = sampledBodyRows.filter((row) =>
+        row.cells.some((cell) => cell.column === column),
+      ).length;
+      return occupiedCount > sampledBodyRows.length / 2 ? '1' : '0';
+    }).join('');
+    features.push(`layout:body-majority-occupancy:${majorityMask}`);
+
+    const bodyMergeMask = majorityHorizontalMergeLinkMask(
+      merges,
+      sampledBodyRows,
+      headerStart,
+      headerEnd,
+    );
+    if (bodyMergeMask) {
+      features.push('merge:body-horizontal-recurring');
+      features.push(`layout:body-majority-horizontal-merge-links:${bodyMergeMask}`);
+    }
+  }
+
   return { features: normalizeFormatFeatures(features), headerRow: header.row, headerColumns };
+}
+
+/**
+ * Encodes which adjacent physical column boundaries are crossed by a
+ * horizontal merge on one row. Absolute worksheet columns are discarded: a
+ * four-column table always produces a three-bit mask relative to its own span.
+ *
+ * Rectangular/vertical merges are intentionally excluded in v6 so one feature
+ * has one clear meaning. A row with no horizontal merge returns undefined and
+ * therefore does not gain artificial "no merge" evidence.
+ */
+function horizontalMergeLinkMask(
+  merges: readonly WorksheetFormatMerge[],
+  row: number,
+  startColumn: number,
+  endColumn: number,
+): string | undefined {
+  if (endColumn <= startColumn) return undefined;
+  const links = new Array<boolean>(endColumn - startColumn).fill(false);
+
+  for (const merge of merges) {
+    if (merge.startRow !== row || merge.endRow !== row) continue;
+    const overlapStart = Math.max(merge.startColumn, startColumn);
+    const overlapEnd = Math.min(merge.endColumn, endColumn);
+    for (let column = overlapStart; column < overlapEnd; column += 1) {
+      links[column - startColumn] = true;
+    }
+  }
+
+  return links.some(Boolean) ? links.map((linked) => linked ? '1' : '0').join('') : undefined;
+}
+
+/**
+ * Applies the same strict-majority rule as body occupancy to merge links. A
+ * boundary becomes structural evidence only when the horizontal merge recurs
+ * in more than half of the bounded body-row sample. One-off presentation
+ * merges therefore do not become part of the format identity.
+ */
+function majorityHorizontalMergeLinkMask(
+  merges: readonly WorksheetFormatMerge[],
+  bodyRows: readonly BodyRowEvidence[],
+  startColumn: number,
+  endColumn: number,
+): string | undefined {
+  if (bodyRows.length === 0 || endColumn <= startColumn) return undefined;
+  const counts = new Array<number>(endColumn - startColumn).fill(0);
+
+  for (const bodyRow of bodyRows) {
+    const mask = horizontalMergeLinkMask(merges, bodyRow.row, startColumn, endColumn);
+    if (!mask) continue;
+    [...mask].forEach((bit, index) => {
+      if (bit === '1') counts[index] += 1;
+    });
+  }
+
+  const majority = counts.map((count) => count > bodyRows.length / 2);
+  return majority.some(Boolean)
+    ? majority.map((linked) => linked ? '1' : '0').join('')
+    : undefined;
 }
 
 function validateAndCanonicalizeCells(input: readonly WorksheetFormatCell[]): WorksheetFormatCell[] {
@@ -144,45 +263,89 @@ function selectHeaderRow(cells: readonly WorksheetFormatCell[], maxRows: number)
   return candidates.sort((left, right) => right.score - left.score || left.row - right.row)[0];
 }
 
-function titleMergeSpan(
+function selectTitleMergeEvidence(
   cells: readonly WorksheetFormatCell[],
   merges: readonly WorksheetFormatMerge[],
   headerRow: number,
   headerColumns: readonly number[],
-): number | undefined {
+): TitleMergeEvidence | undefined {
   if (headerColumns.length < 2) return undefined;
   const headerStart = headerColumns[0];
   const headerEnd = headerColumns[headerColumns.length - 1];
-  const spans = merges
+
+  return merges
     .filter((merge) => merge.startRow < headerRow && merge.startRow === merge.endRow)
-    .filter((merge) => {
+    .map((merge) => {
       const overlapStart = Math.max(merge.startColumn, headerStart);
       const overlapEnd = Math.min(merge.endColumn, headerEnd);
-      if (overlapEnd - overlapStart + 1 < 2) return false;
-      return cells.some((cell) => cell.row === merge.startRow
-        && cell.column >= merge.startColumn && cell.column <= merge.endColumn
-        && normalizedText(cell.text) !== '');
+      const span = overlapEnd - overlapStart + 1;
+      const hasText = span >= 2 && cells.some((cell) =>
+        cell.row === merge.startRow
+        && cell.column >= merge.startColumn
+        && cell.column <= merge.endColumn
+        && normalizedText(cell.text) !== '',
+      );
+      return hasText ? { span, row: merge.startRow } : undefined;
     })
-    .map((merge) => Math.min(merge.endColumn, headerEnd) - Math.max(merge.startColumn, headerStart) + 1)
-    .sort((left, right) => right - left);
-  return spans[0];
+    .filter((value): value is TitleMergeEvidence => value !== undefined)
+    .sort((left, right) => right.span - left.span || right.row - left.row)[0];
+}
+
+function selectBodyRows(
+  cells: readonly WorksheetFormatCell[],
+  headerRow: number,
+  startColumn: number,
+  endColumn: number,
+): BodyRowEvidence[] {
+  const byRow = new Map<number, WorksheetFormatCell[]>();
+  for (const cell of cells) {
+    if (
+      cell.row <= headerRow
+      || cell.column < startColumn
+      || cell.column > endColumn
+      || normalizedText(cell.text) === ''
+    ) {
+      continue;
+    }
+    const row = byRow.get(cell.row) ?? [];
+    row.push(cell);
+    byRow.set(cell.row, row);
+  }
+
+  return [...byRow.entries()]
+    .sort(([leftRow], [rightRow]) => leftRow - rightRow)
+    .map(([row, rowCells]) => ({
+      row,
+      cells: [...rowCells].sort((left, right) => left.column - right.column),
+    }));
 }
 
 function normalizedText(value: string | undefined): string {
   return (value ?? '').normalize('NFKC').trim().replace(/\s+/gu, ' ');
 }
-function isMeaningfulFillTone(value: FormatFillTone | undefined): value is Exclude<FormatFillTone, 'none' | 'other'> {
+
+function isMeaningfulFillTone(
+  value: FormatFillTone | undefined,
+): value is Exclude<FormatFillTone, 'none' | 'other'> {
   return value === 'dark' || value === 'gray' || value === 'light';
 }
-function isMeaningfulBorderKind(value: FormatBorderKind | undefined): value is Exclude<FormatBorderKind, 'none' | 'other'> {
+
+function isMeaningfulBorderKind(
+  value: FormatBorderKind | undefined,
+): value is Exclude<FormatBorderKind, 'none' | 'other'> {
   return value === 'grid' || value === 'thin';
 }
+
 function dominantValue<T extends string>(values: readonly T[]): T | undefined {
   if (values.length === 0) return undefined;
   const counts = new Map<T, number>();
   for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
-  return [...counts.entries()].sort(([lv, lc], [rv, rc]) => rc - lc || lv.localeCompare(rv))[0]?.[0];
+  return [...counts.entries()]
+    .sort(([leftValue, leftCount], [rightValue, rightCount]) =>
+      rightCount - leftCount || leftValue.localeCompare(rightValue),
+    )[0]?.[0];
 }
+
 function assertCoordinate(name: string, value: number): void {
   if (!Number.isInteger(value) || value < 0) throw new Error(`${name} must be a non-negative integer.`);
 }
