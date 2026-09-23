@@ -6,6 +6,7 @@ import path from 'node:path';
 import type {
   WorkbookData,
 } from '../src/core/workbookLoader.js';
+import { sheetSourceFromMatrix } from '../src/core/sheetSource.js';
 import {
   adaptClosedChoiceResponse,
 } from '../src/experimental/closedChoiceJudgment.js';
@@ -209,7 +210,7 @@ function fixture() {
 
   const workbook: WorkbookData = {
     sheets: {
-      Sheet1: rows,
+      Sheet1: sheetSourceFromMatrix(rows),
     },
   };
 

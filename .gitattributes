@@ -2,3 +2,11 @@
 
 # Preserve CP932 bytes and Excel-style CRLF in this sample.
 04_Documentation/samples/practical/data/excel-cp932.csv -text -diff
+
+# Base64-encoded binary XLSX payloads: byte-exact ASCII, not line-oriented
+# text. Without this, a checkout with core.autocrlf=true rewrites the LF
+# line-wrapping to CRLF, corrupting the encoded payload and breaking any test
+# that decodes it back to bytes (confirmed 2026-09-23: git blob hash != working
+# tree hash for these two files on a Windows checkout with autocrlf=true).
+*.xlsx.base64 binary
+03_Implement/test/fixtures/*.xlsx binary
