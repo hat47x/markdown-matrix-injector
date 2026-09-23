@@ -631,6 +631,14 @@ issue-0167〜0170では、live providerやproduction routingを変更せず、re
 10. issue-0176: predeclared evaluation plan manifest
 11. issue-0177: immutable provider-evaluation record + offline ground-truth re-evaluation
 12. issue-0179: canonical evaluation-record JSON codec
+13. issue-0181: evaluation-record comparison by independent change dimensions
+14. issue-0182: canonical comparison JSON codec
+15. issue-0183: explicit evaluation-record comparison change policy guard
+16. issue-0184: canonical comparison-policy-result JSON codec
+17. issue-0185: canonical predeclared comparison-policy JSON codec
+18. issue-0186: predeclared evaluation-record comparison plan
+19. issue-0187: canonical comparison-plan JSON codec
+20. issue-0188: immutable planned-comparison execution record
 
 issue-0178はこのevaluation laneとは別のhuman-review presentation laneとして並行実装済みです。
 
@@ -714,3 +722,98 @@ issue-0179では、issue-0177 recordをstorage非依存のcanonical JSON artifac
 canonical serializerはissue-0177 validatorを先に通し、object keyをrecursive sort、array orderを保持、whitespace/trailing newlineなしのJSON textを返します。normalizing parseはmanual/migration用途として非canonical formattingを許容しますが、canonical parseはinput textと再serialization結果の完全一致を要求するため、pretty JSON、key-order違い、trailing newline、duplicate-key inputをcanonical artifactとして受理しません。
 
 artifact descriptorはmedia type、recordDigest full hex由来のstable filename、canonical contentだけを返し、filesystem/database/cloud writeやsignatureは行いません。
+
+
+### Structured-artifact neutral worksheet adapter
+
+issue-0180: research-only `WorksheetFormatSnapshot -> structured-artifact neutral observation v0` adapter。
+
+`createMmiWorksheetStructuredArtifactObservation` は、MMIの既存snapshotから実際に観測できる
+non-empty bounding geometry / non-empty ratio / merge count / header-candidate signalだけをneutral v0へ射影します。
+
+hidden row/column visibilityはWorksheetFormatSnapshotに保持されていないため、excel-houganshi-normalizerのvisible-only methodとは別method IDを使用します。差異はH2 divergence evidenceとして保持し、数値を無理に同一意味へ正規化しません。
+
+このadapterはresearch-onlyであり、MMI Notation、Format Profile、Fly matcher、review-route、Authority Planeのruntime contractを変更しません。
+
+
+### Evaluation record comparison
+
+issue-0181では、2本のvalidated `WorksheetReviewRouteEvaluationRecordV1` を比較し、record変化を1つのoverall verdictへ潰さず、plan / provider-visible packet / provider response / ground truth / reportのchange dimensionへ分離する `WorksheetReviewRouteEvaluationRecordComparisonV1` を追加します。
+
+特に `labelOnlyReevaluation` は、same planDigest + same packetDigest + same stored response + different groundTruthDigest の場合だけtrueになります。provider outcome rerunやplan変更とは明確に区別します。
+
+provider capabilitiesの並び順はsemantic response/provider comparisonではcanonical setとして扱いますが、recordDigest自体はissue-0177のcontent identityとして変更しません。comparison artifactはchanged case idだけを保持し、expected route値、probability/confidence、evidence、annotation/adjudication provenanceを複製しません。overall score、better/worse、winner、recommendationも追加しません。
+
+
+### Evaluation-record comparison canonical JSON codec
+
+issue-0182では、issue-0181 comparison artifactをcanonical JSONとしてstorage/transport非依存で受け渡す `WorksheetReviewRouteEvaluationRecordComparisonJsonCodecV1` を追加します。
+
+serializerはissue-0181 validatorを先に通し、object keyをrecursive sort、array orderを保持、whitespace/trailing newlineなしのJSON textを生成します。normalizing parseはmanual/migration用途としてformat差を許容しますが、canonical parseはinput textと再serialization結果の完全一致を要求するため、pretty JSON、key-order違い、trailing newline、duplicate-key inputをcanonical artifactとして受理しません。
+
+filenameは `leftRecordDigest-to-rightRecordDigest` の方向をfull 64-hexのまま保持し、A→BとB→Aを別artifactとして扱います。comparisonDigest、signature、filesystem/database/cloud persistence、better/worse評価は追加しません。
+
+
+### Evaluation-record comparison change policy guard
+
+issue-0183では、issue-0181 comparisonのchange dimensionをcallerが事前に明示した許可境界へ照合する `WorksheetReviewRouteEvaluationRecordComparisonPolicyV1` を追加します。
+
+policyはrecord identity / plan / packet / readiness policy / provider / response / ground truth / summary / projection separability / report providerの各changeをbooleanで明示し、defaultを持ちません。さらに `labelOnlyReevaluation` を required / forbidden / either で指定できます。
+
+guard resultはcomparisonとpolicyをsnapshotし、violationをcanonical sorted listとして返します。validatorはcomparison+policyからviolationsを再計算するため、resultのcompliant/violationsだけを書き換えたartifactを受理しません。
+
+compliantは「明示されたchange boundaryに適合した」という意味だけで、better/worse、model quality、provider ranking、deployment approvalを意味しません。
+
+
+### Comparison policy result canonical JSON codec
+
+issue-0184では、issue-0183のcomparison change policy resultをstorage/transport非依存のcanonical JSONへ変換します。
+
+serializerはissue-0183 validatorをsemantic authorityとして再利用し、object keyをrecursive sort、array orderを保持、whitespace/trailing newlineなしのJSONを生成します。normalizing parseはformat差を許容し、canonical parseはpretty JSON / key-order違い / trailing newline / duplicate-key inputをrejectします。
+
+filenameはleft/right recordDigestのfull 64-hexを方向付きで保持します。policy/result digest、signature、persistence、better/worse、provider ranking、deployment semanticsは追加しません。
+
+
+### Comparison policy canonical JSON codec
+
+issue-0185では、issue-0183のexplicit comparison change policyそのものを、comparison/result生成前に固定できるcanonical JSON artifactへ変換します。
+
+serializerはissue-0183 policy validatorをsemantic authorityとして再利用し、recursive object-key sort、array order保持、compact JSON、trailing newlineなしを固定します。normalizing parseはmanual/migration用途のformat差を許容しますが、canonical parseはpretty JSON、key-order違い、trailing newline、duplicate-key textをrejectします。
+
+policy単体へ新しいdigest/signatureは追加せず、filenameは固定のtransport-neutral名称です。これによりpredeclared policy bytesとissue-0184のpost-evaluation result artifactを分離しつつ、default policy、better/worse、provider ranking、deployment semanticsを導入しません。
+
+
+### Predeclared evaluation-record comparison plan
+
+issue-0186では、左右evaluation recordと0183 policyの組み合わせを比較前に固定する `WorksheetReviewRouteEvaluationRecordComparisonPlanV1` を追加します。
+
+planDigestはleftRecordDigest / rightRecordDigest / explicit comparison policyを方向付きでSHA-256 bindingします。A→BとB→Aは別planとして扱い、runtimeで別recordへ差し替わった場合は0181 comparison生成前にfail-closedします。
+
+record pairがplanと一致した後は0181 comparisonと0183 policy guardへ委譲します。policy noncomplianceはexecution errorではなく、`compliant=false` とcanonical violationsを持つ正常なtyped resultとして返します。planDigest自体はbetter/worse、winner、provider ranking、deployment approvalを意味しません。
+
+
+### Comparison-plan canonical JSON codec
+
+issue-0187では、0186 comparison planをcanonical JSON artifactへ変換する `WorksheetReviewRouteEvaluationRecordComparisonPlanJsonCodecV1` を追加します。
+
+serializerは0186 validatorをsemantic authorityとして使い、object keyをrecursive sort、array orderを保持、whitespace/trailing newlineなしのcompact JSONを生成します。normalizing parseはformat差を許容し、canonical parseはpretty JSON・key-order違い・trailing newline・duplicate-key textをrejectします。
+
+filenameはplanDigestのfull 64-hexを使い、plan identityを短縮しません。codecはfilesystem/database/cloud write、signature、trusted timestamp、better/worse、provider ranking、deployment semanticsを追加しません。
+
+
+### Planned comparison execution record
+
+issue-0188では、0186 predeclared planと0183 policy resultを一体の `WorksheetReviewRouteEvaluationRecordComparisonExecutionRecordV1` として固定します。
+
+recordはplanDigest、directional left/right recordDigest、plan snapshot、policy result snapshotを保持し、result.comparisonのrecord pairとresult.policyがplanと一致することをstrict validationします。executionDigestはrecord全体のcontent identityであり、signatureやtrusted timestampではありません。
+
+policy resultが `compliant=false` でもplanned comparison execution自体は正常に完了しているため、typed violationsを含むvalid execution recordとして保存できます。better/worse、winner、provider ranking、deployment approvalは導入しません。
+
+
+### Planned comparison execution record canonical JSON codec
+
+issue-0189では、issue-0188の `WorksheetReviewRouteEvaluationRecordComparisonExecutionRecordV1` をstorage/transport非依存のcanonical JSON artifactへ変換します。
+
+serializer/parserはissue-0188 validatorをsemantic authorityとして再利用し、recursive object-key sort、array order保持、compact JSON、trailing newlineなしを固定します。normalizing parseはformat差を許容し、canonical parseはpretty JSON・key-order違い・trailing newline・duplicate-key textをrejectします。
+
+filenameは `executionDigest` のfull 64-hexを保持します。codecはsignature、trusted timestamp、filesystem/database/cloud persistence、better/worse、provider ranking、deployment semanticsを追加しません。
