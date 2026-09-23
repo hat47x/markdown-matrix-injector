@@ -11,11 +11,6 @@ import type {
   WorksheetFormatSnapshot,
 } from '../src/experimental/worksheetFormatFeatureAdapter.js';
 
-/**
- * Simulates environments where style metadata cannot be trusted. The same
- * snapshots are used, but fill/border evidence is deliberately excluded from
- * comparison so the test measures how much identity remains in structure.
- */
 const STRUCTURE_ONLY_PROFILE: WorksheetFormatSourceProfile = {
   id: 'structure-only-v1',
   evidence: ['structure'],
@@ -25,12 +20,16 @@ type TableOptions = {
   fill?: FormatFillTone;
   startColumn?: number;
   gapBeforeRelativeColumns?: readonly number[];
+  bodyValues?: readonly string[];
+  bodyRow?: number;
+  partialBody?: boolean;
+  omitBody?: boolean;
 };
 
 /**
- * Builds a small worksheet snapshot in the same shape produced by the read-only
- * worksheet bridge. Keeping fixtures at snapshot level isolates matcher and
- * feature behavior from SheetJS runtime availability.
+ * Builds a snapshot that resembles a small Excel design table.
+ * Values are intentionally simple: these tests evaluate geometry and presence,
+ * not semantic value classification.
  */
 function table(
   title: string,
@@ -47,8 +46,10 @@ function table(
   }> = [{ row: 0, column: startColumn, text: title }];
 
   let column = startColumn;
+  const headerColumns: number[] = [];
   for (const label of labels) {
     while (gapBefore.has(column - startColumn)) column += 1;
+    headerColumns.push(column);
     cells.push({
       row: 1,
       column,
@@ -56,6 +57,17 @@ function table(
       ...(options.fill ? { fillTone: options.fill } : {}),
     });
     column += 1;
+  }
+
+  if (!options.omitBody) {
+    const bodyValues = options.bodyValues ?? labels.map((_, index) => `v${index + 1}`);
+    bodyValues.forEach((value, index) => {
+      if (options.partialBody && index === bodyValues.length - 1) return;
+      const bodyColumn = headerColumns[index];
+      if (bodyColumn !== undefined) {
+        cells.push({ row: options.bodyRow ?? 2, column: bodyColumn, text: value });
+      }
+    });
   }
 
   return {
@@ -68,7 +80,7 @@ const baseline = {
   release: table('リリース判定表', ['ID', '項目', '判定', '確認者', '備考', '期限'], { fill: 'dark' }),
   interface: table('インターフェース定義', ['項目名', '型', '必須', '桁数', '説明', '例'], { fill: 'gray' }),
   code: table('コード一覧', ['コード', '名称', '説明'], { fill: 'light' }),
-  settings: table('設定表', ['項目', '値'], { fill: 'dark' }),
+  settings: table('設定表', ['項目', '値'], { fill: 'dark', bodyValues: ['timeout', '30'] }),
 } as const;
 
 function prototypes(profile: WorksheetFormatSourceProfile) {
@@ -130,7 +142,7 @@ for (const profile of [SHEETJS_CE_XLSX_0203_SOURCE_PROFILE, STRUCTURE_ONLY_PROFI
 
 test('structure + fill: one renamed column in a two-column table remains a candidate', () => {
   const result = matchWorksheetFormatSnapshot(
-    table('設定表', ['項目', '内容'], { fill: 'dark' }),
+    table('設定表', ['項目', '内容'], { fill: 'dark', bodyValues: ['timeout', '30'] }),
     prototypes(SHEETJS_CE_XLSX_0203_SOURCE_PROFILE),
     SHEETJS_CE_XLSX_0203_SOURCE_PROFILE,
   );
@@ -140,67 +152,122 @@ test('structure + fill: one renamed column in a two-column table remains a candi
   assert.ok((result.match.winner?.confidence ?? 0) >= 0.7);
 });
 
-test('structure only: the same two-column rename fails closed because evidence is insufficient', () => {
+test('structure only: table skeleton and occupancy evidence recover a one-column rename in a two-column table', () => {
   const result = matchWorksheetFormatSnapshot(
-    table('設定表', ['項目', '内容'], { fill: 'dark' }),
+    table('設定表', ['項目', '内容'], { fill: 'dark', bodyValues: ['timeout', '30'] }),
+    prototypes(STRUCTURE_ONLY_PROFILE),
+    STRUCTURE_ONLY_PROFILE,
+  );
+
+  assert.equal(result.match.status, 'matched');
+  assert.equal(result.match.winner?.prototypeId, 'settings');
+  assert.ok(result.observation.features.includes('layout:body-majority-occupancy:11'));
+  assert.ok((result.match.winner?.confidence ?? 0) >= 0.7);
+});
+
+test('structure only: changing both labels still remains novel', () => {
+  const result = matchWorksheetFormatSnapshot(
+    table('別表', ['コード', '名称'], { fill: 'dark', bodyValues: ['timeout', '30'] }),
     prototypes(STRUCTURE_ONLY_PROFILE),
     STRUCTURE_ONLY_PROFILE,
   );
 
   assert.equal(result.match.status, 'novel');
   assert.equal(result.match.winner, undefined);
-  assert.ok((result.match.candidates[0]?.confidence ?? 1) < 0.7);
 });
 
-test('structure + fill: equidistant viable two-column candidates are ambiguous', () => {
+test('structure only: body row displacement is preserved and fails closed', () => {
+  const result = matchWorksheetFormatSnapshot(
+    table('設定表', ['項目', '内容'], {
+      fill: 'dark',
+      bodyValues: ['timeout', '30'],
+      bodyRow: 4,
+    }),
+    prototypes(STRUCTURE_ONLY_PROFILE),
+    STRUCTURE_ONLY_PROFILE,
+  );
+
+  assert.equal(result.match.status, 'novel');
+});
+
+test('structure only: partial first body coverage is preserved and fails closed', () => {
+  const result = matchWorksheetFormatSnapshot(
+    table('設定表', ['項目', '内容'], {
+      fill: 'dark',
+      bodyValues: ['timeout', '30'],
+      partialBody: true,
+    }),
+    prototypes(STRUCTURE_ONLY_PROFILE),
+    STRUCTURE_ONLY_PROFILE,
+  );
+
+  assert.equal(result.match.status, 'novel');
+});
+
+test('structure only: missing body evidence is not invented to force a match', () => {
+  const result = matchWorksheetFormatSnapshot(
+    table('設定表', ['項目', '内容'], { fill: 'dark', omitBody: true }),
+    prototypes(STRUCTURE_ONLY_PROFILE),
+    STRUCTURE_ONLY_PROFILE,
+  );
+
+  assert.equal(result.match.status, 'novel');
+  assert.equal(result.match.winner, undefined);
+});
+
+test('structure + fill: near-tied viable two-column candidates are ambiguous', () => {
   const profile = SHEETJS_CE_XLSX_0203_SOURCE_PROFILE;
   const candidates = [
     createWorksheetFormatPrototype(
       'settings-value',
-      table('設定表', ['項目', '値'], { fill: 'dark' }),
+      table('設定表', ['項目', '値'], { fill: 'dark', bodyValues: ['timeout', '30'] }),
       profile,
     ),
     createWorksheetFormatPrototype(
       'settings-description',
-      table('設定表', ['項目', '説明'], { fill: 'dark' }),
+      table('設定表', ['項目', '説明'], { fill: 'dark', bodyValues: ['timeout', '30'] }),
       profile,
     ),
   ];
 
   const result = matchWorksheetFormatSnapshot(
-    table('設定表', ['項目', '内容'], { fill: 'dark' }),
+    table('設定表', ['項目', '内容'], { fill: 'dark', bodyValues: ['timeout', '30'] }),
     candidates,
     profile,
   );
 
   assert.equal(result.match.status, 'ambiguous');
   assert.equal(result.match.winner, undefined);
-  assert.equal(result.match.candidates[0]?.confidence, result.match.candidates[1]?.confidence);
+  const first = result.match.candidates[0]?.confidence ?? 0;
+  const second = result.match.candidates[1]?.confidence ?? 0;
+  assert.ok(Math.abs(first - second) < 0.05);
 });
 
-test('structure only: an equal tie below minimum confidence is novel, not ambiguous', () => {
+test('structure only: near-tied viable two-column candidates remain ambiguous after v5 evidence', () => {
   const profile = STRUCTURE_ONLY_PROFILE;
   const candidates = [
     createWorksheetFormatPrototype(
       'settings-value',
-      table('設定表', ['項目', '値'], { fill: 'dark' }),
+      table('設定表', ['項目', '値'], { bodyValues: ['timeout', '30'] }),
       profile,
     ),
     createWorksheetFormatPrototype(
       'settings-description',
-      table('設定表', ['項目', '説明'], { fill: 'dark' }),
+      table('設定表', ['項目', '説明'], { bodyValues: ['timeout', '30'] }),
       profile,
     ),
   ];
 
   const result = matchWorksheetFormatSnapshot(
-    table('設定表', ['項目', '内容'], { fill: 'dark' }),
+    table('設定表', ['項目', '内容'], { bodyValues: ['timeout', '30'] }),
     candidates,
     profile,
   );
 
-  assert.equal(result.match.status, 'novel');
+  assert.equal(result.match.status, 'ambiguous');
   assert.equal(result.match.winner, undefined);
-  assert.equal(result.match.candidates[0]?.confidence, result.match.candidates[1]?.confidence);
-  assert.ok((result.match.candidates[0]?.confidence ?? 1) < 0.7);
+  assert.ok((result.match.candidates[0]?.confidence ?? 0) >= 0.7);
+  const first = result.match.candidates[0]?.confidence ?? 0;
+  const second = result.match.candidates[1]?.confidence ?? 0;
+  assert.ok(Math.abs(first - second) < 0.05);
 });

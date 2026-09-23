@@ -41,6 +41,10 @@ Excel・CSV・XMLの表を正本として管理し、Markdown文書には必要�
 
 自動テストの合格だけでは、実機操作やPDF品質の確認を代替できない。
 
+## 認知支援と書式ガバナンス
+
+MMIの決定論的なAuthority Plane（parser・resolver・query semantics・containment・Read-only・diagnostics・rendering・conformance）は認知処理から独立を保つ。書式認識・入力意図・レビュー判断などの曖昧性は、Authority Planeの外側にあるCognitive Assistance Planeが非権威的な候補・説明として提供し、正本やNotation解釈を書き換えない。同じ正本とMMI記法に対し、認知機能のON/OFFで論理表・Authority診断が変化してはならない。外部providerへの送信は明示opt-inとし、自動クラウドfallbackは行わない。決定正本は[ADR-0018](../01_Plans/adr/ADR-0018-cognitive-assistance-plane.md)、進捗は[現在の作業](../01_Plans/README.md)を参照する。
+
 ## 次に検討する入力支援
 
 最優先はExcelのコピー領域を原本座標のMMI参照として貼り付けること。その後に文法補完・参照編集、CPUでの自然言語と表構造の検索を検討する。外部推論APIやGPUを必須にせず、ローカルLLMは保留する。

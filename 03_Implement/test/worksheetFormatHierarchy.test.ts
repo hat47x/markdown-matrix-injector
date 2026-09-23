@@ -38,10 +38,12 @@ test('adapter emits coarse and fine-grained hierarchical features together', () 
   assert.ok(observation.features.includes('column:項目'));
   assert.ok(observation.features.includes('column:値'));
   assert.ok(observation.features.includes('layout:2-columns'));
+  assert.ok(observation.features.includes('body:present'));
+  assert.ok(observation.features.includes('layout:body-majority-occupancy:11'));
 });
 
-test('feature contract is versioned as worksheet-format-v3', () => {
-  assert.equal(WORKSHEET_FORMAT_FEATURE_VERSION, 'worksheet-format-v3');
+test('feature contract is versioned as worksheet-format-v6', () => {
+  assert.equal(WORKSHEET_FORMAT_FEATURE_VERSION, 'worksheet-format-v6');
 });
 
 test('two-column fill tone drift remains a candidate at the default threshold', () => {
@@ -102,7 +104,7 @@ test('same-shaped table with both column labels changed remains novel', () => {
   assert.equal(result.match.winner, undefined);
 });
 
-test('equidistant two-column prototypes remain ambiguous', () => {
+test('near-tied viable two-column prototypes remain ambiguous', () => {
   const left = createWorksheetFormatPrototype(
     'value-table',
     twoColumnSnapshot(['項目', '値'], 'dark'),
@@ -121,10 +123,12 @@ test('equidistant two-column prototypes remain ambiguous', () => {
 
   assert.equal(result.match.status, 'ambiguous');
   assert.equal(result.match.winner, undefined);
-  assert.equal(result.match.candidates[0]?.confidence, result.match.candidates[1]?.confidence);
+  const first = result.match.candidates[0]?.confidence ?? 0;
+  const second = result.match.candidates[1]?.confidence ?? 0;
+  assert.ok(Math.abs(first - second) < 0.05);
 });
 
-test('structure-only profile excludes both coarse and fine fill features', () => {
+test('structure-only profile excludes fill features but keeps structural occupancy evidence', () => {
   const profile = { id: 'structure-only-v1', evidence: ['structure'] as const };
   const prototype = createWorksheetFormatPrototype(
     'settings',
@@ -136,4 +140,7 @@ test('structure-only profile excludes both coarse and fine fill features', () =>
   assert.ok(!prototype.features.includes('header:dark-fill'));
   assert.ok(prototype.features.includes('header:row'));
   assert.ok(prototype.features.includes('region:table'));
+  assert.ok(prototype.features.includes('body:present'));
+  assert.ok(prototype.features.includes('layout:first-body-gap:0'));
+  assert.ok(prototype.features.includes('layout:body-majority-occupancy:11'));
 });
