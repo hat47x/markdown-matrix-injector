@@ -853,7 +853,11 @@ async function refreshDiagnosticsForDocument(
       const vsCodeDiagnostic = new vscode.Diagnostic(
         new vscode.Range(range.start.line, range.start.character, range.end.line, range.end.character),
         diagnostic.message,
-        vscode.DiagnosticSeverity.Error,
+        diagnostic.severity === 'warning'
+          ? vscode.DiagnosticSeverity.Warning
+          : diagnostic.severity === 'information'
+            ? vscode.DiagnosticSeverity.Information
+            : vscode.DiagnosticSeverity.Error,
       );
       vsCodeDiagnostic.source = diagnostic.source;
       vsCodeDiagnostic.code = diagnostic.code;

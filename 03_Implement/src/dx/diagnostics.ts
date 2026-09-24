@@ -1,6 +1,12 @@
-export type DiagnosticSeverity = 'error';
+export type DiagnosticSeverity = 'error' | 'warning' | 'information';
 export type XmlMode = 'none' | 'spreadsheet2003' | 'invalid';
-export type DiagnosticCode = 'MMI_FILE_NOT_FOUND' | 'MMI_INVALID_XML' | 'MMI_SHEET_NOT_FOUND' | 'MMI_PATH_OUTSIDE_BOUNDARY';
+export type DiagnosticCode =
+  | 'MMI_FILE_NOT_FOUND'
+  | 'MMI_INVALID_XML'
+  | 'MMI_SHEET_NOT_FOUND'
+  | 'MMI_PATH_OUTSIDE_BOUNDARY'
+  | 'MMI_INVALID_PARAM_VALUE'
+  | 'MMI_UNKNOWN_PARAM';
 
 export interface DiagnosticRange {
   start: number;
@@ -40,6 +46,8 @@ const DIAGNOSTIC_PRIORITY: Record<DiagnosticCode, number> = {
   MMI_PATH_OUTSIDE_BOUNDARY: 0,
   MMI_INVALID_XML: 1,
   MMI_SHEET_NOT_FOUND: 2,
+  MMI_INVALID_PARAM_VALUE: 3,
+  MMI_UNKNOWN_PARAM: 4,
 };
 
 export function validateEmbedDiagnostics(input: ValidateEmbedDiagnosticsInput): EmbedDiagnostic[] {

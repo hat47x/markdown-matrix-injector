@@ -20,6 +20,7 @@ import { analyzeCompletionContext } from './completionContext.js';
 import { rangeCandidates } from './completionCandidates.js';
 import { getParams, parseEmbedParts, serializeEmbedParts, setParam, type EmbedParts } from './embedEditor.js';
 import { fileFixCandidates, sheetFixCandidates } from './embedFixes.js';
+import { parameterIssues } from './parameterDiagnostics.js';
 import { describePreview, summarizeRenderedEmbed, type PreviewSummary } from './embedPreview.js';
 import { resolveWorkbookPath, toRelativeSuggestion } from './vscodeAdapters.js';
 
@@ -383,6 +384,13 @@ export function createEmbedFixProvider(workbookGlob: string): vscode.CodeActionP
             fixes = sheetFixCandidates(embed.parts.sheet, Object.keys(readWorkbookCached(absolute).sheets));
           } catch {
             fixes = [];
+          }
+        } else if (diagnostic.code === 'MMI_INVALID_PARAM_VALUE' || diagnostic.code === 'MMI_UNKNOWN_PARAM') {
+          const diagnosticStart = document.offsetAt(diagnostic.range.start) - embedStart;
+          const issue = parameterIssues(embedText).find((candidate) => candidate.start === diagnosticStart && candidate.code === diagnostic.code);
+          if (issue?.suggestion !== undefined) {
+            span = new vscode.Range(document.positionAt(embedStart + issue.start), document.positionAt(embedStart + issue.end));
+            fixes = [{ replacement: issue.suggestion }];
           }
         } else if (diagnostic.code === 'MMI_FILE_NOT_FOUND' && workspaceRoot) {
           const at = embedText.indexOf(embed.parts.filepath, 3);

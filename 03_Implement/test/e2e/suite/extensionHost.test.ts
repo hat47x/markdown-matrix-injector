@@ -330,6 +330,25 @@ async function verifyDiagnosticsIntegration(workspaceRoot: string): Promise<void
     (await vscode.commands.getCommands(true)).includes('markdownMatrixInjector.authorEmbed'),
     'The guided authoring command must be registered.',
   );
+
+  // A value the renderer would silently ignore is a warning with a fix to the closest valid value.
+  const typo = await openMarkdownDocument(
+    path.join(workspaceRoot, 'docs', 'param-typo.md'),
+    ['# Typo', '![[../data/roles.csv#Sheet1|A1:B3?mode=tabel]]'].join('\n'),
+  );
+  const [warning] = await waitForDiagnostics(typo.uri, 1);
+  assert.equal(warning.code?.toString(), 'MMI_INVALID_PARAM_VALUE');
+  assert.equal(warning.severity, vscode.DiagnosticSeverity.Warning);
+  const typoActions = await vscode.commands.executeCommand<vscode.CodeAction[]>(
+    'vscode.executeCodeActionProvider',
+    typo.uri,
+    warning.range,
+    vscode.CodeActionKind.QuickFix.value,
+  );
+  const typoFix = (typoActions ?? []).find((action) => action.title === '「table」に置き換える');
+  assert.ok(typoFix?.edit, `Expected a fix to table, got: ${(typoActions ?? []).map((action) => action.title).join(', ')}`);
+  assert.ok(await vscode.workspace.applyEdit(typoFix.edit));
+  assert.equal(typo.lineAt(1).text, '![[../data/roles.csv#Sheet1|A1:B3?mode=table]]');
 }
 
 interface NativeProviderCapability {

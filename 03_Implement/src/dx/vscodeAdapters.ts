@@ -1,3 +1,4 @@
+import { parameterIssues } from './parameterDiagnostics.js';
 import path from 'node:path';
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
@@ -172,6 +173,21 @@ export async function createDiagnosticsForDocument(
       diagnostics.push({
         diagnostic,
         range: rangeFromOffsets(text, match.absoluteStart + diagnostic.range.start, match.absoluteStart + diagnostic.range.end + 1),
+      });
+    }
+
+    // Values the renderer would silently ignore, and likely-misspelt keys.
+    for (const issue of parameterIssues(match.raw)) {
+      diagnostics.push({
+        diagnostic: {
+          severity: issue.severity,
+          code: issue.code,
+          message: issue.message,
+          range: { start: issue.start, end: Math.max(issue.start, issue.end - 1) },
+          source: 'markdown-matrix-injector',
+          priority: issue.code === 'MMI_INVALID_PARAM_VALUE' ? 3 : 4,
+        },
+        range: rangeFromOffsets(text, match.absoluteStart + issue.start, match.absoluteStart + Math.max(issue.start + 1, issue.end)),
       });
     }
   }
