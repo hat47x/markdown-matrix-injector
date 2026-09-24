@@ -41,6 +41,7 @@ import {
   type WorkbookSheetsSource,
 } from './dx/contentMatchSearch.js';
 import { markdownMatrixPlugin } from './plugin/markdownMatrixPlugin.js';
+import { AUTHOR_EMBED_COMMAND_ID, createEmbedFixProvider, runAuthoringFlow } from './dx/authoringFlow.js';
 
 interface RenderEmbedForTestArgs {
   markdown: string;
@@ -144,6 +145,15 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
       openEmbedSource(sourcePath),
     ),
     vscode.commands.registerCommand(CONTENT_MATCH_PASTE_COMMAND_ID, () => insertEmbedByContentMatch()),
+    vscode.commands.registerCommand(AUTHOR_EMBED_COMMAND_ID, () =>
+      runAuthoringFlow({
+        workbookGlob: WORKBOOK_FILE_GLOB,
+        render: (markdown, markdownFilePath, workspaceRoot) => renderEmbedForTest({ markdown, markdownFilePath, workspaceRoot }),
+      }),
+    ),
+    vscode.languages.registerCodeActionsProvider(MARKDOWN_SELECTOR, createEmbedFixProvider(WORKBOOK_FILE_GLOB), {
+      providedCodeActionKinds: [vscode.CodeActionKind.QuickFix],
+    }),
     ...registerCompatibilityPasteDropCommands(),
     vscode.languages.registerCompletionItemProvider(
       MARKDOWN_SELECTOR,

@@ -76,6 +76,7 @@
     "onCommand:markdownMatrixInjector.insertEmbedFromPaste",
     "onCommand:markdownMatrixInjector.insertEmbedFromDrop",
     "onCommand:markdownMatrixInjector.insertEmbedByContentMatch",
+    "onCommand:markdownMatrixInjector.authorEmbed",
     "onLanguage:markdown"
   ],
   "contributes": {
@@ -107,6 +108,10 @@
       {
         "command": "markdownMatrixInjector.insertEmbedByContentMatch",
         "title": "MMI: Insert Embed by Content Match (search workspace workbooks for the copied range)"
+      },
+      {
+        "command": "markdownMatrixInjector.authorEmbed",
+        "title": "MMI: Create or Edit Embed (file, sheet, range, preview, confirm)"
       }
     ]
   }

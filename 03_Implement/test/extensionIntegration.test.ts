@@ -397,6 +397,7 @@ test('extension integration boundaries keep canonical native providers and compa
       'onCommand:markdownMatrixInjector.insertEmbedFromPaste',
       'onCommand:markdownMatrixInjector.insertEmbedFromDrop',
       'onCommand:markdownMatrixInjector.insertEmbedByContentMatch',
+      'onCommand:markdownMatrixInjector.authorEmbed',
       'onLanguage:markdown',
     ],
   );
@@ -409,6 +410,7 @@ test('extension integration boundaries keep canonical native providers and compa
       'markdownMatrixInjector.insertEmbedFromPaste',
       'markdownMatrixInjector.insertEmbedFromDrop',
       'markdownMatrixInjector.insertEmbedByContentMatch',
+      'markdownMatrixInjector.authorEmbed',
     ],
   );
 });
@@ -443,6 +445,10 @@ test('native provider metadata stays API-visible without collapsing command fall
       {
         command: 'markdownMatrixInjector.insertEmbedByContentMatch',
         title: 'MMI: Insert Embed by Content Match (search workspace workbooks for the copied range)',
+      },
+      {
+        command: 'markdownMatrixInjector.authorEmbed',
+        title: 'MMI: Create or Edit Embed (file, sheet, range, preview, confirm)',
       },
     ],
   );

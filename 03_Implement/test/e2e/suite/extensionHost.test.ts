@@ -218,6 +218,33 @@ async function verifyDiagnosticsIntegration(workspaceRoot: string): Promise<void
   const codes = [...new Set(diagnostics.map((diagnostic) => diagnostic.code?.toString()))];
 
   assert.deepEqual(codes, ['MMI_FILE_NOT_FOUND', 'MMI_INVALID_XML', 'MMI_SHEET_NOT_FOUND']);
+
+  // issue-0111: the quick fix offers only sheets that exist and replaces only the sheet name.
+  // Line 3 (roles.csv#MissingSheet); line 2's invalid.xml cannot be read, so it rightly gets no fix.
+  const sheetDiagnostic = diagnostics.find(
+    (diagnostic) => diagnostic.code?.toString() === 'MMI_SHEET_NOT_FOUND' && diagnostic.range.start.line === 3,
+  )!;
+  const actions = await vscode.commands.executeCommand<vscode.CodeAction[]>(
+    'vscode.executeCodeActionProvider',
+    document.uri,
+    sheetDiagnostic.range,
+    vscode.CodeActionKind.QuickFix.value,
+  );
+  const fix = (actions ?? []).find((action) => action.title === '「Sheet1」に置き換える');
+  assert.ok(
+    fix?.edit,
+    `Expected a quick fix to Sheet1, got: ${(actions ?? []).map((action) => action.title).join(', ')}; diagnostic=${JSON.stringify({
+      source: sheetDiagnostic.source,
+      range: sheetDiagnostic.range,
+      text: document.getText(sheetDiagnostic.range),
+    })}`,
+  );
+  assert.ok(await vscode.workspace.applyEdit(fix.edit));
+  assert.equal(document.lineAt(3).text, '![[../data/roles.csv#Sheet1|A1:B2]]');
+  assert.ok(
+    (await vscode.commands.getCommands(true)).includes('markdownMatrixInjector.authorEmbed'),
+    'The guided authoring command must be registered.',
+  );
 }
 
 interface NativeProviderCapability {
