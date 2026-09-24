@@ -13,9 +13,9 @@ VS Code拡張、記法仕様、日本語チュートリアル、実務サンプ�
 | 順序 | 作業 | 状態 | 着手できるか |
 | --- | --- | --- | --- |
 | 1 | [Excel範囲貼り付け・座標保持](issues/issue-0114-excel-range-paste.md) | Open（作業B・C・D完了。残: pasteAs経路のe2e、ADR-0017の判断） | 残作業のみ |
-| 2 | [文脈に応じた補完](issues/issue-0110-contextual-input-completion.md) | Draft | 0114の座標保持は完了。着手可能（範囲候補の設計はCPU探索と共有するため0115の設計を先に確認） |
-| 3 | [参照の作成・編集](issues/issue-0111-reference-authoring-flow.md) | Draft | 0110待ち |
-| 4 | [CPUでの範囲探索](issues/issue-0115-cpu-range-search.md) | In Progress（評価・実測済み。未見の自然言語でRecall@5 0.63〜0.67、FlyHashは条件付き採用） | 次は限定文法の網羅。UIは0110/0111で扱う |
+| 2 | [文脈に応じた補完](issues/issue-0110-contextual-input-completion.md) | In Progress（カーソル区間の置換・値候補・選んだシートの表だけの範囲候補を実装） | 残: 多環境（multi-root・IME・Undo等）の実機確認 |
+| 3 | [参照の作成・編集](issues/issue-0111-reference-authoring-flow.md) | In Progress（案内付きコマンド・部分更新・実エンジンの確認・修正候補・ホバーを実装） | 残: 利用者の実機観測 |
+| 4 | [CPUでの範囲探索](issues/issue-0115-cpu-range-search.md) | In Progress（`MMI: Find Table by Description`として組み込み。最新の未見評価でRecall@5 0.800、FlyHashは条件付き採用） | 次は言い換えへの対応 |
 | 任意 | [既存AIへの依頼と結果検証](issues/issue-0112-ai-proposal-handoff.md) | Draft | 主経路外。0115の評価後に要否を再判断 |
 | 保留 | [ローカルLLM評価](issues/issue-0113-local-ai-feasibility.md) | Draft | 着手しない |
 
