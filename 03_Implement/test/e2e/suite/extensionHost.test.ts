@@ -64,6 +64,7 @@ export async function runIntegrationTests(): Promise<void> {
   await runStage('content-match-standalone-command', () => verifyContentMatchStandaloneCommand(markdownFilePath));
   const autocompleteResult = await runStage('autocomplete-boundary', () => verifyAutocompleteIntegration(markdownFilePath));
   await runStage('diagnostics', () => verifyDiagnosticsIntegration(workspaceRoot));
+  await runStage('hover-and-authoring', () => verifyHoverAndAuthoringEntry(workspaceRoot));
   logStage('paste-drop-proof-boundary:post-autocomplete', {
     autocompleteSheetCompletionStable: autocompleteResult.sheetCompletionStable,
     autocompleteKnownUnstableReason: autocompleteResult.knownUnstableReason,
@@ -200,6 +201,35 @@ async function verifyContextCompletionReplaceRange(markdownFilePath: string): Pr
     !(fencedList?.items ?? []).some((candidate) => candidate.label.toString() === 'table'),
     'No MMI candidates inside a fenced code block.',
   );
+}
+
+async function verifyHoverAndAuthoringEntry(workspaceRoot: string): Promise<void> {
+  const document = await openMarkdownDocument(
+    path.join(workspaceRoot, 'docs', 'hover-authoring.md'),
+    ['# Hover', '![[../data/roles.csv#Sheet1|A1:B3?header=first]]'].join('\n'),
+  );
+  await vscode.window.showTextDocument(document);
+  const position = new vscode.Position(1, 10);
+  const hovers = await vscode.commands.executeCommand<vscode.Hover[]>('vscode.executeHoverProvider', document.uri, position);
+  const text = (hovers ?? [])
+    .flatMap((hover) => hover.contents)
+    .map((content) => (typeof content === 'string' ? content : 'value' in content ? content.value : ''))
+    .join('\n');
+  assert.match(text, /本体2行 × 2列/u, `Hover must summarise the real rendering. Got: ${text.slice(0, 300)}`);
+  assert.match(text, /<table class="mmi-table">/u, 'Hover must show the engine table.');
+  assert.match(text, /command:markdownMatrixInjector\.authorEmbed/u, 'Hover must offer editing.');
+
+  const actions = await vscode.commands.executeCommand<vscode.CodeAction[]>(
+    'vscode.executeCodeActionProvider',
+    document.uri,
+    new vscode.Range(position, position),
+  );
+  assert.ok((actions ?? []).some((action) => action.title === 'MMI: この参照を編集…'), 'An embed must offer the edit action.');
+
+  const commands = await vscode.commands.getCommands(true);
+  for (const id of ['markdownMatrixInjector.findEmbedByDescription', 'markdownMatrixInjector.clearSearchIndex']) {
+    assert.ok(commands.includes(id), `${id} must be registered.`);
+  }
 }
 
 async function verifyDiagnosticsIntegration(workspaceRoot: string): Promise<void> {

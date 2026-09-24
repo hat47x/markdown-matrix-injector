@@ -77,6 +77,8 @@
     "onCommand:markdownMatrixInjector.insertEmbedFromDrop",
     "onCommand:markdownMatrixInjector.insertEmbedByContentMatch",
     "onCommand:markdownMatrixInjector.authorEmbed",
+    "onCommand:markdownMatrixInjector.findEmbedByDescription",
+    "onCommand:markdownMatrixInjector.clearSearchIndex",
     "onLanguage:markdown"
   ],
   "contributes": {
@@ -112,6 +114,14 @@
       {
         "command": "markdownMatrixInjector.authorEmbed",
         "title": "MMI: Create or Edit Embed (file, sheet, range, preview, confirm)"
+      },
+      {
+        "command": "markdownMatrixInjector.findEmbedByDescription",
+        "title": "MMI: Find Table by Description (e.g. 状態遷移表のIDと操作を見せて)"
+      },
+      {
+        "command": "markdownMatrixInjector.clearSearchIndex",
+        "title": "MMI: Clear Table Search Index"
       }
     ]
   }

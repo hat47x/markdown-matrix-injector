@@ -14,8 +14,8 @@
 import fs from 'node:fs';
 import * as vscode from 'vscode';
 
-import { WorkbookCache } from '../cache/workbookCache.js';
-import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
+import type { WorkbookData } from '../core/workbookLoader.js';
+import { readWorkbookCached } from './sharedWorkbookCache.js';
 import { analyzeCompletionContext } from './completionContext.js';
 import { rangeCandidates } from './completionCandidates.js';
 import { getParams, parseEmbedParts, serializeEmbedParts, setParam, type EmbedParts } from './embedEditor.js';
@@ -28,12 +28,21 @@ export const AUTHOR_EMBED_COMMAND_ID = 'markdownMatrixInjector.authorEmbed';
 export interface AuthoringDependencies {
   workbookGlob: string;
   render(markdown: string, markdownFilePath: string, workspaceRoot?: string): Promise<string>;
+  /** "Find by description" entry on the first step; returns the chosen embed's parts. */
+  searchByDescription?(document: vscode.TextDocument): Promise<EmbedParts | undefined>;
 }
+
+export interface AuthoringStart {
+  parts: EmbedParts;
+  /** Step to open on; earlier steps stay reachable with Back. */
+  step: 'options' | 'confirm';
+}
+
+const SEARCH_SENTINEL = '__mmi_search__';
 
 type Step = 'file' | 'sheet' | 'range' | 'options' | 'confirm';
 const STEPS: Step[] = ['file', 'sheet', 'range', 'options', 'confirm'];
 
-const cache = new WorkbookCache<WorkbookData>();
 
 interface Located {
   range: vscode.Range;
@@ -53,7 +62,7 @@ export function embedAt(document: vscode.TextDocument, position: vscode.Position
   return undefined;
 }
 
-export async function runAuthoringFlow(deps: AuthoringDependencies): Promise<void> {
+export async function runAuthoringFlow(deps: AuthoringDependencies, start?: AuthoringStart): Promise<void> {
   const editor = vscode.window.activeTextEditor;
   if (!editor || editor.document.languageId !== 'markdown') return;
   const document = editor.document;
@@ -66,13 +75,13 @@ export async function runAuthoringFlow(deps: AuthoringDependencies): Promise<voi
   }
   const target = existing?.range ?? editor.selection;
   const startVersion = document.version;
-  let parts: EmbedParts = existing?.parts ?? { filepath: '', segments: [] };
-  let step = 0;
+  let parts: EmbedParts = start?.parts ?? existing?.parts ?? { filepath: '', segments: [] };
+  let step = start ? STEPS.indexOf(start.step) : 0;
 
   const workbookOf = (filepath: string): { absolute: string; data?: WorkbookData } => {
     const absolute = resolveWorkbookPath(filepath, document.uri.fsPath, workspaceRoot);
     try {
-      return { absolute, data: loadWorkbook({ absolutePath: absolute, cache }) };
+      return { absolute, data: readWorkbookCached(absolute) };
     } catch {
       return { absolute };
     }
@@ -89,7 +98,22 @@ export async function runAuthoringFlow(deps: AuthoringDependencies): Promise<voi
             .map((uri) => toRelativeSuggestion(document.uri.fsPath, uri.fsPath))
             .sort((a, b) => a.localeCompare(b))
         : [];
-      result = await pick(title, 'ブックを選ぶ', files.map((file) => ({ label: file, value: file, picked: file === parts.filepath })), step > 0);
+      const searchItem = deps.searchByDescription
+        ? [{ label: '$(search) 説明から探す…', description: '例: 状態遷移表のIDと操作を見せて', value: SEARCH_SENTINEL }]
+        : [];
+      result = await pick(
+        title,
+        'ブックを選ぶ（説明から探すこともできます）',
+        [...searchItem, ...files.map((file) => ({ label: file, value: file, picked: file === parts.filepath }))],
+        step > 0,
+      );
+      if (result.kind === 'value' && result.value === SEARCH_SENTINEL) {
+        const found = await deps.searchByDescription!(document);
+        if (!found) continue; // back to the file step
+        parts = found;
+        step = STEPS.indexOf('confirm');
+        continue;
+      }
       if (result.kind === 'value') parts = { ...parts, filepath: result.value, ...(result.value !== parts.filepath ? { sheet: undefined, range: undefined } : {}) };
     } else if (current === 'sheet') {
       const sheets = Object.keys(workbookOf(parts.filepath).data?.sheets ?? {});
@@ -250,8 +274,18 @@ function stamp(absolutePath: string): string {
 
 export function createEmbedFixProvider(workbookGlob: string): vscode.CodeActionProvider {
   return {
-    async provideCodeActions(document, _range, context) {
+    async provideCodeActions(document, range, context) {
       const actions: vscode.CodeAction[] = [];
+      const here = embedAt(document, range.start);
+      if (here) {
+        const edit = new vscode.CodeAction('MMI: この参照を編集…', vscode.CodeActionKind.RefactorRewrite);
+        edit.command = {
+          command: AUTHOR_EMBED_COMMAND_ID,
+          title: 'MMI: この参照を編集…',
+          arguments: [{ uri: document.uri.toString(), line: range.start.line, character: range.start.character }],
+        };
+        actions.push(edit);
+      }
       const workspaceRoot = vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath;
       for (const diagnostic of context.diagnostics) {
         if (diagnostic.source !== 'markdown-matrix-injector') continue;
@@ -273,7 +307,7 @@ export function createEmbedFixProvider(workbookGlob: string): vscode.CodeActionP
           }
           try {
             const absolute = resolveWorkbookPath(embed.parts.filepath, document.uri.fsPath, workspaceRoot);
-            fixes = sheetFixCandidates(embed.parts.sheet, Object.keys(loadWorkbook({ absolutePath: absolute, cache }).sheets));
+            fixes = sheetFixCandidates(embed.parts.sheet, Object.keys(readWorkbookCached(absolute).sheets));
           } catch {
             fixes = [];
           }

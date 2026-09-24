@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Feature
-- Status: In Progress（評価実装・実測済み 2026-09-24。FlyHashは条件付き採用。製品UIは未着手）
+- Status: In Progress（評価実装・実測済み 2026-09-24。FlyHashは条件付き採用。2026-09-24にVS Codeコマンド`MMI: Find Table by Description`として組み込み）
 - Priority: High
 - Scope: 構造索引 / 限定文法の解析器 / 候補検索の比較評価 / 実機Evidence
 - Expected verification level: manual-e2e
@@ -52,6 +52,8 @@
 
 - 限定文法の網羅（活用・口語の条件表現・略称）。改善は新しい未見セットで測る（v1・v2は消費済み）。
 - 該当なしの依頼で、既存の表に近いもの（例: 総合テストケース）が候補に出る問題（確定はしない）。
-- 製品への組み込み（VS Code上の候補提示・選択はissue-0110/0111）とWorkerでの実行。
+- Workerスレッドでの実行（現状は協調的な中断と進行表示のみ）。
+
+**製品への組み込み（2026-09-24）:** `src/search/workspaceRegionIndex.ts`（ワークスペースの索引。既定BM25、5万領域超でFlyHash＋厳密な再順位付け、候補ごとに原本と再照合）と`src/dx/searchFlow.ts`（入力に追従する候補一覧と理由付きの棄却）。選んだ候補は案内付きフロー（issue-0111）の確認段へ渡り、実エンジンの表示を確かめてから挿入する。索引はメモリ上のみで、`MMI: Clear Table Search Index`で消去できる。利用者向けの説明は[利用マニュアル](../../04_Documentation/user-manual.md#説明から表を探す)。
 - Windowsネイティブ・ページキャッシュを破棄した初回読込での測定。コピー検証30件（issue-0114の内容照合側）。
 - 10万領域での索引メモリの削減（値サンプルの縮小・方式の絞り込み）。

@@ -398,6 +398,8 @@ test('extension integration boundaries keep canonical native providers and compa
       'onCommand:markdownMatrixInjector.insertEmbedFromDrop',
       'onCommand:markdownMatrixInjector.insertEmbedByContentMatch',
       'onCommand:markdownMatrixInjector.authorEmbed',
+      'onCommand:markdownMatrixInjector.findEmbedByDescription',
+      'onCommand:markdownMatrixInjector.clearSearchIndex',
       'onLanguage:markdown',
     ],
   );
@@ -411,6 +413,8 @@ test('extension integration boundaries keep canonical native providers and compa
       'markdownMatrixInjector.insertEmbedFromDrop',
       'markdownMatrixInjector.insertEmbedByContentMatch',
       'markdownMatrixInjector.authorEmbed',
+      'markdownMatrixInjector.findEmbedByDescription',
+      'markdownMatrixInjector.clearSearchIndex',
     ],
   );
 });
@@ -449,6 +453,14 @@ test('native provider metadata stays API-visible without collapsing command fall
       {
         command: 'markdownMatrixInjector.authorEmbed',
         title: 'MMI: Create or Edit Embed (file, sheet, range, preview, confirm)',
+      },
+      {
+        command: 'markdownMatrixInjector.findEmbedByDescription',
+        title: 'MMI: Find Table by Description (e.g. 状態遷移表のIDと操作を見せて)',
+      },
+      {
+        command: 'markdownMatrixInjector.clearSearchIndex',
+        title: 'MMI: Clear Table Search Index',
       },
     ],
   );

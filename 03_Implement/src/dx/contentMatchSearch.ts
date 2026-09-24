@@ -15,6 +15,7 @@ import { findContentMatches, type ContentMatch } from '../core/contentMatch.js';
 import { cellRangeToA1 } from '../core/tableGeometry.js';
 import type { CellRange, SheetSource } from '../core/sheetSource.js';
 import { parseTsv } from './pasteDrop.js';
+import { detectRegions } from '../search/regionDetector.js';
 
 export interface WorkbookSheetsSource {
   /** Path as it should appear in the resulting `![[...]]` reference (already relativized by the caller). */
@@ -26,6 +27,45 @@ export interface WorkbookContentMatch {
   readonly filepath: string;
   readonly sheet: string;
   readonly range: CellRange;
+  /** Where the match sits, so identical copies in different places can be told apart. */
+  readonly context?: MatchContext;
+}
+
+export interface MatchContext {
+  /** Title of the detected table that contains the match. */
+  readonly title?: string;
+  /** Headers of that table, if the match is below its header row. */
+  readonly headers?: readonly string[];
+  /** Displayed values of the row just above / below the match, within its columns. */
+  readonly rowAbove?: readonly string[];
+  readonly rowBelow?: readonly string[];
+}
+
+/** Context for one match, read from the source sheet (read-only). */
+export function matchContext(sheet: SheetSource, range: CellRange): MatchContext {
+  const rowOf = (row: number): string[] | undefined => {
+    if (row < 0) return undefined;
+    const values: string[] = [];
+    for (let col = range.startCol; col <= range.endCol; col += 1) values.push(sheet.cellAt(row, col)?.text ?? '');
+    return values.some((value) => value !== '') ? values : undefined;
+  };
+  let region;
+  try {
+    region = detectRegions('', sheet, { maxScanCells: 200_000, maxValueSample: 0 }).find(
+      (candidate) =>
+        candidate.range.startRow <= range.startRow &&
+        candidate.range.endRow >= range.endRow &&
+        candidate.range.startCol <= range.startCol &&
+        candidate.range.endCol >= range.endCol,
+    );
+  } catch {
+    region = undefined;
+  }
+  const headers =
+    region?.headers && region.headerConfidence !== 'none' && range.startRow > region.range.startRow
+      ? region.headers.slice(range.startCol - region.range.startCol, range.endCol - region.range.startCol + 1)
+      : undefined;
+  return { title: region?.title, headers, rowAbove: rowOf(range.startRow - 1), rowBelow: rowOf(range.endRow + 1) };
 }
 
 /**
@@ -72,7 +112,12 @@ function matchesForSheet(
     return []; // sheet too large to index (maxIndexedCells) -- skip, don't abort the whole search
   }
 
-  return sheetMatches.map((match) => ({ filepath, sheet: sheetName, range: match.range }));
+  return sheetMatches.map((match) => ({
+    filepath,
+    sheet: sheetName,
+    range: match.range,
+    context: matchContext(sheet, match.range),
+  }));
 }
 
 /** Renders a content match as the `![[file#sheet|range]]` text to insert. */

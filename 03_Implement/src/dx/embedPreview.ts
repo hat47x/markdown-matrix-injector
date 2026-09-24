@@ -53,3 +53,19 @@ function decodeEntities(text: string): string {
     .replace(/&#39;/gu, "'")
     .replace(/&amp;/gu, '&');
 }
+
+/**
+ * The engine's table HTML cut down to its header and first `maxRows` body
+ * rows, for a hover. Anything that is not a table (card, error) is returned
+ * unchanged. Classes and attributes stay as the engine wrote them.
+ */
+export function truncateTableHtml(html: string, maxRows: number): { html: string; hiddenRows: number } {
+  const body = /<tbody>([\s\S]*?)<\/tbody>/u.exec(html);
+  if (!body) return { html, hiddenRows: 0 };
+  const rows = body[1].match(/<tr[\s>][\s\S]*?<\/tr>/gu) ?? [];
+  if (rows.length <= maxRows) return { html, hiddenRows: 0 };
+  return {
+    html: html.replace(body[0], `<tbody>${rows.slice(0, maxRows).join('')}</tbody>`),
+    hiddenRows: rows.length - maxRows,
+  };
+}

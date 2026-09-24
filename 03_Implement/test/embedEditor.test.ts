@@ -64,7 +64,7 @@ import MarkdownIt from 'markdown-it';
 import { WorkbookCache } from '../src/cache/workbookCache.js';
 import type { WorkbookData } from '../src/core/workbookLoader.js';
 import { markdownMatrixPlugin } from '../src/plugin/markdownMatrixPlugin.js';
-import { describePreview, summarizeRenderedEmbed } from '../src/dx/embedPreview.js';
+import { describePreview, summarizeRenderedEmbed, truncateTableHtml } from '../src/dx/embedPreview.js';
 
 test('preview: summaries come from the real engine for table, empty, card and error', () => {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-preview-'));
@@ -82,5 +82,8 @@ test('preview: summaries come from the real engine for table, empty, card and er
   assert.equal(error.kind, 'error');
   assert.match(describePreview(error), /^エラー: /u);
   assert.match(describePreview({ kind: 'table', bodyRows: 3, columns: 3, header: true }), /本体3行 × 3列（見出しあり）/u);
+  const cut = truncateTableHtml(render('![[roles.csv#Sheet1|A1:C4?header=first]]'), 2);
+  assert.equal(cut.hiddenRows, 1);
+  assert.deepEqual(summarizeRenderedEmbed(cut.html), { kind: 'table', bodyRows: 2, columns: 3, header: true });
   fs.rmSync(dir, { recursive: true, force: true });
 });

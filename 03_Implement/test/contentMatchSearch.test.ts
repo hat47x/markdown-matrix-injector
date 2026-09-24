@@ -3,6 +3,10 @@ import assert from 'node:assert/strict';
 
 import { buildContentMatchMarkdown, findWorkbookContentMatches, type WorkbookSheetsSource } from '../src/dx/contentMatchSearch.js';
 import { sheetSourceFromMatrix, type SheetSource } from '../src/core/sheetSource.js';
+import type { WorkbookContentMatch } from '../src/dx/contentMatchSearch.js';
+
+/** Location only; `context` is covered by its own test. */
+const located = ({ filepath, sheet, range }: WorkbookContentMatch) => ({ filepath, sheet, range });
 
 function workbook(filepath: string, sheets: Record<string, readonly (readonly string[])[]>): WorkbookSheetsSource {
   return {
@@ -23,7 +27,7 @@ test('findWorkbookContentMatches finds a match in the only workbook given', () =
 
   const matches = findWorkbookContentMatches('a\tb\r\nc\td\r\n', workbooks);
 
-  assert.deepEqual(matches, [
+  assert.deepEqual(matches.map(located), [
     { filepath: './design.xlsx', sheet: 'Sheet1', range: { startRow: 0, startCol: 0, endRow: 1, endCol: 1 } },
   ]);
 });
@@ -48,7 +52,7 @@ test('findWorkbookContentMatches aggregates matches across multiple workbooks an
   const matches = findWorkbookContentMatches('a\tb\r\nc\td\r\n', workbooks);
 
   assert.deepEqual(
-    matches.sort((left, right) => left.filepath.localeCompare(right.filepath)),
+    matches.sort((left, right) => left.filepath.localeCompare(right.filepath)).map(located),
     [
       { filepath: './a.xlsx', sheet: 'Sheet2', range: { startRow: 0, startCol: 0, endRow: 1, endCol: 1 } },
       { filepath: './b.csv', sheet: 'Sheet1', range: { startRow: 0, startCol: 1, endRow: 1, endCol: 2 } },
@@ -86,7 +90,7 @@ test('findWorkbookContentMatches skips a sheet too large to index instead of abo
 
   const matches = findWorkbookContentMatches('a\tb\r\nc\td\r\n', workbooks);
 
-  assert.deepEqual(matches, [
+  assert.deepEqual(matches.map(located), [
     { filepath: './small.xlsx', sheet: 'Sheet1', range: { startRow: 0, startCol: 0, endRow: 1, endCol: 1 } },
   ]);
 });
@@ -99,4 +103,29 @@ test('buildContentMatchMarkdown renders file#sheet|range, including a non-A1 ori
   });
 
   assert.equal(markdown, '![[./design.xlsx#状態遷移|C5:F12]]');
+});
+
+test('findWorkbookContentMatches describes where each identical copy sits', () => {
+  const workbooks = [
+    workbook('./release.xlsx', {
+      Sheet1: [
+        ['リリース判定', '', ''],
+        ['No', '確認項目', '判定'],
+        ['1', '性能試験', 'OK'],
+        ['2', '脆弱性診断', 'NG'],
+        ['', '', ''],
+        ['承認', '', ''],
+        ['No', '確認項目', '判定'],
+        ['7', '移行', '保留'],
+        ['2', '脆弱性診断', 'NG'],
+      ],
+    }),
+  ];
+  const matches = findWorkbookContentMatches('2\t脆弱性診断\tNG\r\n', workbooks);
+  assert.equal(matches.length, 2);
+  assert.deepEqual(matches.map((match) => [match.context?.title, match.context?.rowAbove?.join('|')]), [
+    ['リリース判定', '1|性能試験|OK'],
+    ['承認', '7|移行|保留'],
+  ]);
+  assert.deepEqual(matches[0].context?.headers, ['No', '確認項目', '判定']);
 });

@@ -41,7 +41,10 @@ import {
   type WorkbookSheetsSource,
 } from './dx/contentMatchSearch.js';
 import { markdownMatrixPlugin } from './plugin/markdownMatrixPlugin.js';
-import { AUTHOR_EMBED_COMMAND_ID, createEmbedFixProvider, runAuthoringFlow } from './dx/authoringFlow.js';
+import { AUTHOR_EMBED_COMMAND_ID, createEmbedFixProvider, runAuthoringFlow, type AuthoringDependencies } from './dx/authoringFlow.js';
+import { readWorkbookCached } from './dx/sharedWorkbookCache.js';
+import { clearSearchIndexes, FIND_EMBED_COMMAND_ID, searchEmbedByDescription } from './dx/searchFlow.js';
+import { createEmbedHoverProvider } from './dx/embedHover.js';
 
 interface RenderEmbedForTestArgs {
   markdown: string;
@@ -145,14 +148,29 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
       openEmbedSource(sourcePath),
     ),
     vscode.commands.registerCommand(CONTENT_MATCH_PASTE_COMMAND_ID, () => insertEmbedByContentMatch()),
-    vscode.commands.registerCommand(AUTHOR_EMBED_COMMAND_ID, () =>
-      runAuthoringFlow({
-        workbookGlob: WORKBOOK_FILE_GLOB,
-        render: (markdown, markdownFilePath, workspaceRoot) => renderEmbedForTest({ markdown, markdownFilePath, workspaceRoot }),
-      }),
-    ),
+    vscode.commands.registerCommand(AUTHOR_EMBED_COMMAND_ID, async (at?: { uri?: string; line?: number; character?: number }) => {
+      // From a hover / code action: act on that embed, not wherever the cursor happens to be.
+      const editor = vscode.window.activeTextEditor;
+      if (editor && at?.uri === editor.document.uri.toString() && typeof at.line === 'number' && typeof at.character === 'number') {
+        const position = new vscode.Position(at.line, at.character);
+        editor.selection = new vscode.Selection(position, position);
+      }
+      await runAuthoringFlow(authoringDependencies());
+    }),
+    vscode.languages.registerHoverProvider(MARKDOWN_SELECTOR, createEmbedHoverProvider(renderEmbedCached)),
+    vscode.commands.registerCommand(FIND_EMBED_COMMAND_ID, async () => {
+      const document = vscode.window.activeTextEditor?.document;
+      if (!document || document.languageId !== 'markdown') return;
+      const parts = await searchEmbedByDescription(document, WORKBOOK_FILE_GLOB);
+      // A chosen candidate goes to preview & confirm, never straight into the document (R1).
+      if (parts) await runAuthoringFlow(authoringDependencies(), { parts, step: 'confirm' });
+    }),
+    vscode.commands.registerCommand(CLEAR_SEARCH_INDEX_COMMAND_ID, () => {
+      clearSearchIndexes();
+      void vscode.window.showInformationMessage('MMI: 表の検索索引を消去しました（メモリ上のみに保持していました）。');
+    }),
     vscode.languages.registerCodeActionsProvider(MARKDOWN_SELECTOR, createEmbedFixProvider(WORKBOOK_FILE_GLOB), {
-      providedCodeActionKinds: [vscode.CodeActionKind.QuickFix],
+      providedCodeActionKinds: [vscode.CodeActionKind.QuickFix, vscode.CodeActionKind.RefactorRewrite],
     }),
     ...registerCompatibilityPasteDropCommands(),
     vscode.languages.registerCompletionItemProvider(
@@ -181,7 +199,28 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
   return { extendMarkdownIt };
 }
 
-export function deactivate(): void {}
+export function deactivate(): void {
+  clearSearchIndexes();
+}
+
+const CLEAR_SEARCH_INDEX_COMMAND_ID = 'markdownMatrixInjector.clearSearchIndex';
+
+/** Preview rendering for hover and the guided flow: the real engine with one mtime cache. */
+const previewRenderCache = new WorkbookCache<WorkbookData>();
+
+async function renderEmbedCached(markdown: string, markdownFilePath: string, workspaceRoot?: string): Promise<string> {
+  const md = new MarkdownIt();
+  md.use(markdownMatrixPlugin, { markdownFilePath, workspaceRoot, cache: previewRenderCache });
+  return md.render(markdown);
+}
+
+function authoringDependencies(): AuthoringDependencies {
+  return {
+    workbookGlob: WORKBOOK_FILE_GLOB,
+    render: renderEmbedCached,
+    searchByDescription: (document) => searchEmbedByDescription(document, WORKBOOK_FILE_GLOB),
+  };
+}
 
 export async function renderEmbedForTest(args: RenderEmbedForTestArgs): Promise<string> {
   const md = new MarkdownIt();
@@ -436,16 +475,31 @@ interface ContentMatchPickItem extends vscode.QuickPickItem {
   match: WorkbookContentMatch;
 }
 
+function describeMatchContext(match: WorkbookContentMatch): string {
+  const context = match.context;
+  if (!context) return '';
+  const join = (values?: readonly string[]) => values?.map((value) => value || '（空）').join(' | ');
+  return [
+    context.headers ? `見出し: ${join(context.headers)}` : '',
+    context.rowAbove ? `直前の行: ${join(context.rowAbove)}` : '',
+    context.rowBelow ? `直後の行: ${join(context.rowBelow)}` : '',
+  ]
+    .filter(Boolean)
+    .join('　');
+}
+
 async function pickContentMatch(matches: readonly WorkbookContentMatch[]): Promise<WorkbookContentMatch | undefined> {
   const items: ContentMatchPickItem[] = matches.map((match) => ({
     label: `${match.filepath}#${match.sheet}`,
-    detail: cellRangeToA1(match.range),
+    description: [cellRangeToA1(match.range), match.context?.title].filter(Boolean).join('  '),
+    detail: describeMatchContext(match),
     match,
   }));
+  // Inferred from content only: the clipboard never says where the copy came from.
   const placeHolder =
     matches.length === 1
-      ? 'MMI: Insert this matching range as a reference? (Esc to cancel)'
-      : `MMI: ${matches.length} matching ranges found — pick one (Esc to cancel)`;
+      ? 'MMI: 内容が一致した範囲（コピー元は推定）を参照として挿入しますか？（Escで中止）'
+      : `MMI: 内容が一致した範囲が${matches.length}件あります（コピー元は推定）。周辺の見出し・前後の行で選んでください（Escで中止）`;
 
   const picked = await vscode.window.showQuickPick(items, { placeHolder });
   return picked?.match;
@@ -676,11 +730,6 @@ function createCompletionProvider(): vscode.CompletionItemProvider {
   };
 }
 
-/**
- * Workbooks read for completion, keyed by path and invalidated by mtime, so
- * typing inside one embed does not re-read its workbook on every keystroke.
- */
-const completionWorkbookCache = new WorkbookCache<WorkbookData>();
 
 async function buildContextCandidates(document: vscode.TextDocument, context: CompletionContext): Promise<CompletionCandidate[]> {
   const workspaceRoot = vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath;
@@ -722,7 +771,7 @@ async function buildContextCandidates(document: vscode.TextDocument, context: Co
 
 function readCompletionWorkbook(absolutePath: string): WorkbookData | undefined {
   try {
-    return loadWorkbook({ absolutePath, cache: completionWorkbookCache });
+    return readWorkbookCached(absolutePath);
   } catch {
     return undefined; // missing or unreadable: diagnostics report it, completion stays quiet
   }
