@@ -163,12 +163,43 @@ async function verifyAutocompleteIntegration(markdownFilePath: string): Promise<
   });
   assertCompletionIncludes(queryCompletion, 'header');
 
+  // issue-0110: enum values with a replace range covering only the typed value.
+  await verifyContextCompletionReplaceRange(markdownFilePath);
+
   return {
     sheetCompletionStable,
     knownUnstableReason: sheetCompletionStable
       ? undefined
       : `Known unstable autocomplete assertion after # is isolated from paste/drop acceptance. ${AUTOCOMPLETE_ISOLATION_BOUNDARY}`,
   };
+}
+
+async function verifyContextCompletionReplaceRange(markdownFilePath: string): Promise<void> {
+  const uniqueFilePath = markdownFilePath.replace(/\.md$/, `-ctx-${Math.random().toString(36).slice(2)}.md`);
+  const line = '前 ![[../data/roles.csv#Sheet1|A1:B2?mode=ta&x-keep=1]] 後';
+  const document = await openMarkdownDocument(uniqueFilePath, `Context\n${line}`);
+  await vscode.window.showTextDocument(document);
+  const cursor = new vscode.Position(1, line.indexOf('mode=ta') + 'mode=ta'.length);
+  const list = await vscode.commands.executeCommand<vscode.CompletionList>('vscode.executeCompletionItemProvider', document.uri, cursor);
+  const item = (list?.items ?? []).find((candidate) => candidate.label.toString() === 'table');
+  assert.ok(item, `Expected a 'table' value candidate, got: ${(list?.items ?? []).map((c) => c.label.toString()).join(', ')}`);
+  const range = item.range instanceof vscode.Range ? item.range : (item.range as { replacing: vscode.Range } | undefined)?.replacing;
+  assert.ok(range, 'Value candidate must carry an explicit replace range.');
+  assert.equal(document.getText(range), 'ta', 'Only the typed value may be replaced; the rest of the embed and the prose must survive.');
+
+  const fenced = await openMarkdownDocument(
+    uniqueFilePath.replace(/\.md$/, '-fence.md'),
+    'Fence\n```\n![[../data/roles.csv#Sheet1|A1:B2?mode=ta\n```',
+  );
+  const fencedList = await vscode.commands.executeCommand<vscode.CompletionList>(
+    'vscode.executeCompletionItemProvider',
+    fenced.uri,
+    new vscode.Position(2, '![[../data/roles.csv#Sheet1|A1:B2?mode=ta'.length),
+  );
+  assert.ok(
+    !(fencedList?.items ?? []).some((candidate) => candidate.label.toString() === 'table'),
+    'No MMI candidates inside a fenced code block.',
+  );
 }
 
 async function verifyDiagnosticsIntegration(workspaceRoot: string): Promise<void> {
