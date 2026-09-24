@@ -40,6 +40,7 @@ export interface AuthoringStart {
 }
 
 const SEARCH_SENTINEL = '__mmi_search__';
+const WHOLE_BOOK = '__mmi_whole_book__';
 
 type Step = 'file' | 'sheet' | 'range' | 'options' | 'confirm';
 const STEPS: Step[] = ['file', 'sheet', 'range', 'options', 'confirm'];
@@ -79,6 +80,7 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
   let parts: EmbedParts = start?.parts ?? existing?.parts ?? { filepath: '', segments: [] };
   let step = start ? STEPS.indexOf(start.step) : 0;
   let movingBack = false;
+  const initial = { filepath: parts.filepath, sheet: parts.sheet };
 
   const workbookOf = (filepath: string): { absolute: string; data?: WorkbookData } => {
     const absolute = resolveWorkbookPath(filepath, document.uri.fsPath, workspaceRoot);
@@ -106,7 +108,12 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
       result = await pick(
         title,
         'ブックを選ぶ（説明から探すこともできます）',
-        [...searchItem, ...files.map((file) => ({ label: file, value: file, picked: file === parts.filepath }))],
+        [
+          ...searchItem,
+          // The reference's own spelling of its path stays keepable even if the list spells it differently.
+          ...(parts.filepath && !files.includes(parts.filepath) ? [{ label: parts.filepath, description: '現在のブック', value: parts.filepath, picked: true }] : []),
+          ...files.map((file) => ({ label: file, value: file, picked: file === parts.filepath })),
+        ],
         step > 0,
       );
       if (result.kind === 'value' && result.value === SEARCH_SENTINEL) {
@@ -122,11 +129,29 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
       if (sheets.length <= 1 && /\.csv$/iu.test(parts.filepath)) {
         // Nothing to choose: skip in the direction the user is moving, so Back
         // from the range step reaches the file step instead of bouncing.
-        result = movingBack ? { kind: 'back' } : { kind: 'value', value: sheets[0] ?? 'Sheet1' };
+        // Keep a sheet-less reference as it was; a newly chosen CSV gets its one sheet.
+        const keepWhole = parts.filepath === initial.filepath && initial.sheet === undefined;
+        result = movingBack ? { kind: 'back' } : { kind: 'value', value: keepWhole ? WHOLE_BOOK : (sheets[0] ?? 'Sheet1') };
       } else {
-        result = await pick(title, 'シートを選ぶ', sheets.map((sheet) => ({ label: sheet, value: sheet, picked: sheet === parts.sheet })), true);
+        result = await pick(
+          title,
+          'シートを選ぶ',
+          [
+            ...sheets.map((sheet) => ({ label: sheet, value: sheet, picked: sheet === parts.sheet })),
+            // A whole-book reference (always a card) is valid notation; keep it reachable and keepable.
+            { label: 'シートを指定しない（ブック全体・別紙カード）', value: WHOLE_BOOK, picked: parts.sheet === undefined },
+          ],
+          true,
+        );
       }
-      if (result.kind === 'value') parts = { ...parts, sheet: result.value, ...(result.value !== parts.sheet ? { range: undefined } : {}) };
+      if (result.kind === 'value') {
+        const sheet = result.value === WHOLE_BOOK ? undefined : result.value;
+        parts = { ...parts, sheet, ...(sheet !== parts.sheet ? { range: undefined } : {}) };
+      }
+    } else if (current === 'range' && parts.sheet === undefined) {
+      // No sheet, no range: skip in the direction of travel.
+      result = movingBack ? { kind: 'back' } : { kind: 'value', value: '' };
+      if (result.kind === 'value') parts = { ...parts, range: undefined };
     } else if (current === 'range') {
       const sheet = parts.sheet ? workbookOf(parts.filepath).data?.sheets[parts.sheet] : undefined;
       const context = { stage: 'range' as const, replaceStart: 0, replaceEnd: 0, typed: '', filepath: parts.filepath, usedParams: [] };
@@ -137,8 +162,12 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
           value: candidate.label,
           picked: candidate.label === parts.range,
         })),
-        { label: '範囲を指定しない', description: 'シート全体（大きい場合はカード表示）', value: '' },
+        { label: '範囲を指定しない', description: 'シート全体（大きい場合はカード表示）', value: '', picked: parts.range === undefined },
       ];
+      // A hand-picked range that is not a detected table must stay keepable.
+      if (parts.range && !items.some((item) => item.value === parts.range)) {
+        items.unshift({ label: parts.range, description: '現在の範囲', value: parts.range, picked: true });
+      }
       result = await pick(title, '範囲を選ぶ（表題・見出しでも絞り込めます）', items, true);
       if (result.kind === 'value') parts = { ...parts, range: result.value || undefined };
     } else if (current === 'options') {
