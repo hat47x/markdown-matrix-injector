@@ -145,6 +145,24 @@ export async function searchEmbedByDescription(document: vscode.TextDocument, wo
   });
 }
 
+/**
+ * Test-command entry (Extension Host e2e): the same index and compile path
+ * as the search box, with the typed text and the chosen row given directly.
+ */
+export async function scriptedSearch(
+  document: vscode.TextDocument,
+  workbookGlob: string,
+  text: string,
+  pickIndex: number,
+): Promise<{ items: string[]; parts?: EmbedParts }> {
+  const workspaceRoot = vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath;
+  if (!workspaceRoot) return { items: [] };
+  const index = await ensureIndexed(workspaceRoot, workbookGlob);
+  if (!index) return { items: [] };
+  const items = toItems(index.query(text, (bookPath) => toRelativeSuggestion(document.uri.fsPath, bookPath)));
+  return { items: items.map((item) => `${item.label} | ${item.detail ?? ''}`), parts: items[pickIndex]?.parts };
+}
+
 /** Candidates, or a reason the request cannot be expressed / matched. Always shown regardless of label filtering. */
 export function toItems(result: CompileResult): ResultItem[] {
   if (result.status === 'candidates') {

@@ -41,9 +41,16 @@ import {
   type WorkbookSheetsSource,
 } from './dx/contentMatchSearch.js';
 import { markdownMatrixPlugin } from './plugin/markdownMatrixPlugin.js';
-import { AUTHOR_EMBED_COMMAND_ID, createEmbedFixProvider, runAuthoringFlow, type AuthoringDependencies } from './dx/authoringFlow.js';
+import {
+  AUTHOR_EMBED_COMMAND_ID,
+  createEmbedFixProvider,
+  runAuthoringFlow,
+  runScriptedAuthoringFlow,
+  type AuthoringDependencies,
+  type ScriptedAnswer,
+} from './dx/authoringFlow.js';
 import { readWorkbookCached } from './dx/sharedWorkbookCache.js';
-import { clearSearchIndexes, FIND_EMBED_COMMAND_ID, searchEmbedByDescription } from './dx/searchFlow.js';
+import { clearSearchIndexes, FIND_EMBED_COMMAND_ID, scriptedSearch, searchEmbedByDescription } from './dx/searchFlow.js';
 import { createEmbedHoverProvider } from './dx/embedHover.js';
 
 interface RenderEmbedForTestArgs {
@@ -530,6 +537,27 @@ function shouldRegisterTestCommands(context: vscode.ExtensionContext): boolean {
 
 function registerTestCommands(nativePasteDropState: NativePasteDropState): vscode.Disposable[] {
   return [
+    // Guided flows with scripted choices: same code path as the QuickPicks, only the choice is given.
+    vscode.commands.registerCommand(
+      'markdownMatrixInjector.__test.runAuthoringScripted',
+      async (args: { line: number; character: number; answers: ScriptedAnswer[] }) => {
+        const editor = vscode.window.activeTextEditor;
+        if (editor) editor.selection = new vscode.Selection(args.line, args.character, args.line, args.character);
+        return runScriptedAuthoringFlow(authoringDependencies(), args.answers);
+      },
+    ),
+    vscode.commands.registerCommand(
+      'markdownMatrixInjector.__test.findAndAuthorScripted',
+      async (args: { query: string; pick: number; answers: ScriptedAnswer[] }) => {
+        const document = vscode.window.activeTextEditor?.document;
+        if (!document) return undefined;
+        const found = await scriptedSearch(document, WORKBOOK_FILE_GLOB, args.query, args.pick);
+        const transcript = found.parts
+          ? await runScriptedAuthoringFlow(authoringDependencies(), args.answers, { parts: found.parts, step: 'confirm' })
+          : [];
+        return { items: found.items, transcript };
+      },
+    ),
     vscode.commands.registerCommand(
       'markdownMatrixInjector.__test.getPasteInsertTextFromDataTransfer',
       (dataTransfer: vscode.DataTransfer) => getPasteInsertTextFromDataTransfer(dataTransfer),

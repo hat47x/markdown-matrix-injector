@@ -89,39 +89,139 @@
     "commands": [
       {
         "command": "markdownMatrixInjector.renderEmbedForTest",
-        "title": "MMI: Render Embed For Test"
+        "title": "%mmi.command.renderEmbedForTest%",
+        "category": "MMI"
       },
       {
         "command": "markdownMatrixInjector.generateDeliveryManifest",
-        "title": "MMI: Generate Delivery Manifest"
+        "title": "%mmi.command.generateDeliveryManifest%",
+        "category": "MMI"
       },
       {
         "command": "markdownMatrixInjector.openSource",
-        "title": "MMI: Open Embed Source"
+        "title": "%mmi.command.openSource%",
+        "category": "MMI"
       },
       {
         "command": "markdownMatrixInjector.insertEmbedFromPaste",
-        "title": "MMI: Insert Embed From Paste"
+        "title": "%mmi.command.insertEmbedFromPaste%",
+        "category": "MMI"
       },
       {
         "command": "markdownMatrixInjector.insertEmbedFromDrop",
-        "title": "MMI: Insert Embed From Drop"
+        "title": "%mmi.command.insertEmbedFromDrop%",
+        "category": "MMI"
       },
       {
         "command": "markdownMatrixInjector.insertEmbedByContentMatch",
-        "title": "MMI: Insert Embed by Content Match (search workspace workbooks for the copied range)"
+        "title": "%mmi.command.insertEmbedByContentMatch%",
+        "category": "MMI"
       },
       {
         "command": "markdownMatrixInjector.authorEmbed",
-        "title": "MMI: Create or Edit Embed (file, sheet, range, preview, confirm)"
+        "title": "%mmi.command.authorEmbed%",
+        "category": "MMI"
       },
       {
         "command": "markdownMatrixInjector.findEmbedByDescription",
-        "title": "MMI: Find Table by Description (e.g. 状態遷移表のIDと操作を見せて)"
+        "title": "%mmi.command.findEmbedByDescription%",
+        "category": "MMI"
       },
       {
         "command": "markdownMatrixInjector.clearSearchIndex",
-        "title": "MMI: Clear Table Search Index"
+        "title": "%mmi.command.clearSearchIndex%",
+        "category": "MMI"
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "markdownMatrixInjector.authorEmbed",
+          "when": "editorLangId == markdown",
+          "group": "mmi@1"
+        },
+        {
+          "command": "markdownMatrixInjector.findEmbedByDescription",
+          "when": "editorLangId == markdown",
+          "group": "mmi@2"
+        },
+        {
+          "command": "markdownMatrixInjector.insertEmbedByContentMatch",
+          "when": "editorLangId == markdown",
+          "group": "mmi@3"
+        }
+      ]
+    },
+    "keybindings": [
+      {
+        "command": "markdownMatrixInjector.authorEmbed",
+        "key": "ctrl+alt+m",
+        "mac": "cmd+alt+m",
+        "when": "editorTextFocus && editorLangId == markdown"
+      }
+    ],
+    "walkthroughs": [
+      {
+        "id": "mmi.gettingStarted",
+        "title": "%mmi.walkthrough.title%",
+        "description": "%mmi.walkthrough.description%",
+        "steps": [
+          {
+            "id": "mmi.gettingStarted.write",
+            "title": "%mmi.walkthrough.write.title%",
+            "description": "%mmi.walkthrough.write.description%",
+            "media": {
+              "markdown": "media/walkthrough/write.md"
+            },
+            "completionEvents": [
+              "onLanguage:markdown"
+            ]
+          },
+          {
+            "id": "mmi.gettingStarted.author",
+            "title": "%mmi.walkthrough.author.title%",
+            "description": "%mmi.walkthrough.author.description%",
+            "media": {
+              "markdown": "media/walkthrough/author.md"
+            },
+            "completionEvents": [
+              "onCommand:markdownMatrixInjector.authorEmbed"
+            ]
+          },
+          {
+            "id": "mmi.gettingStarted.find",
+            "title": "%mmi.walkthrough.find.title%",
+            "description": "%mmi.walkthrough.find.description%",
+            "media": {
+              "markdown": "media/walkthrough/find.md"
+            },
+            "completionEvents": [
+              "onCommand:markdownMatrixInjector.findEmbedByDescription"
+            ]
+          },
+          {
+            "id": "mmi.gettingStarted.check",
+            "title": "%mmi.walkthrough.check.title%",
+            "description": "%mmi.walkthrough.check.description%",
+            "media": {
+              "markdown": "media/walkthrough/check.md"
+            },
+            "completionEvents": [
+              "onCommand:markdownMatrixInjector.authorEmbed"
+            ]
+          },
+          {
+            "id": "mmi.gettingStarted.paste",
+            "title": "%mmi.walkthrough.paste.title%",
+            "description": "%mmi.walkthrough.paste.description%",
+            "media": {
+              "markdown": "media/walkthrough/paste.md"
+            },
+            "completionEvents": [
+              "onCommand:markdownMatrixInjector.insertEmbedByContentMatch"
+            ]
+          }
+        ]
       }
     ]
   }

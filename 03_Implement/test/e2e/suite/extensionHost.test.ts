@@ -65,6 +65,7 @@ export async function runIntegrationTests(): Promise<void> {
   const autocompleteResult = await runStage('autocomplete-boundary', () => verifyAutocompleteIntegration(markdownFilePath));
   await runStage('diagnostics', () => verifyDiagnosticsIntegration(workspaceRoot));
   await runStage('hover-and-authoring', () => verifyHoverAndAuthoringEntry(workspaceRoot));
+  await runStage('guided-flows-scripted', () => verifyGuidedFlowsScripted(workspaceRoot));
   logStage('paste-drop-proof-boundary:post-autocomplete', {
     autocompleteSheetCompletionStable: autocompleteResult.sheetCompletionStable,
     autocompleteKnownUnstableReason: autocompleteResult.knownUnstableReason,
@@ -201,6 +202,60 @@ async function verifyContextCompletionReplaceRange(markdownFilePath: string): Pr
     !(fencedList?.items ?? []).some((candidate) => candidate.label.toString() === 'table'),
     'No MMI candidates inside a fenced code block.',
   );
+}
+
+type Transcript = { title: string; placeholder: string; items: string[] }[];
+
+/**
+ * issue-0111 / issue-0115: the guided flows driven with scripted choices
+ * through the same code path as the QuickPicks, in a real editor.
+ */
+async function verifyGuidedFlowsScripted(workspaceRoot: string): Promise<void> {
+  const original = '![[../data/roles.csv#Sheet1|A1:B3?x-keep=1&header=first]]';
+  const document = await openMarkdownDocument(path.join(workspaceRoot, 'docs', 'guided-flows.md'), ['# Guided', original].join('\n'));
+  await vscode.window.showTextDocument(document);
+  const run = (answers: unknown[]) =>
+    vscode.commands.executeCommand<Transcript>('markdownMatrixInjector.__test.runAuthoringScripted', { line: 1, character: 5, answers });
+
+  // Cancel at the first step: nothing changes.
+  const versionBefore = document.version;
+  await run([{ cancel: true }]);
+  assert.equal(document.version, versionBefore, 'Cancelling must not edit the document.');
+
+  // Back from the range step reaches the file step (the CSV sheet step skips itself both ways).
+  const backTranscript = await run([{ keep: true }, { back: true }, { cancel: true }]);
+  assert.deepEqual(
+    backTranscript.map((step) => step.title.replace(/.*\((\d)\/5\)/u, '$1')),
+    ['1', '3', '1'],
+    `Back must return to the file step. Got: ${JSON.stringify(backTranscript.map((step) => step.title))}`,
+  );
+
+  // Edit: keep file and range, add mode=card; unknown x-keep survives; preview shows a card; one Undo restores.
+  const transcript = await run([{ keep: true }, { keep: true }, { options: ['header=first', 'mode=card'] }, 'insert']);
+  const edited = '![[../data/roles.csv#Sheet1|A1:B3?x-keep=1&header=first&mode=card]]';
+  assert.equal(document.lineAt(1).text, edited);
+  assert.match(transcript[transcript.length - 1].placeholder, /別紙カード/u, 'The confirm step must show what the engine renders.');
+  await vscode.commands.executeCommand('undo');
+  assert.equal(document.lineAt(1).text, original, 'One Undo must restore the original reference.');
+
+  // Find by description, then confirm: the search index covers the workspace workbooks.
+  const blank = await openMarkdownDocument(path.join(workspaceRoot, 'docs', 'guided-find.md'), '# Find\n\n');
+  const editor = await vscode.window.showTextDocument(blank);
+  editor.selection = new vscode.Selection(2, 0, 2, 0);
+  const found = await vscode.commands.executeCommand<{ items: string[]; transcript: Transcript }>(
+    'markdownMatrixInjector.__test.findAndAuthorScripted',
+    { query: 'release-gate', pick: 0, answers: ['insert'] },
+  );
+  assert.ok(found.transcript.length > 0, `Search must yield a candidate. Items: ${found.items.join(' / ')}`);
+  assert.match(blank.lineAt(2).text, /^!\[\[\.\.\/data\/sier-design\/release-gate\.csv#Sheet1\|/u);
+
+  // A request the notation cannot express is refused with the reason, and nothing is inserted.
+  const refused = await vscode.commands.executeCommand<{ items: string[]; transcript: Transcript }>(
+    'markdownMatrixInjector.__test.findAndAuthorScripted',
+    { query: 'release-gateをStatus別に集計', pick: 0, answers: ['insert'] },
+  );
+  assert.match(refused.items[0], /MMI記法で表せません/u);
+  assert.equal(refused.transcript.length, 0);
 }
 
 async function verifyHoverAndAuthoringEntry(workspaceRoot: string): Promise<void> {

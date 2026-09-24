@@ -77,6 +77,7 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
   const startVersion = document.version;
   let parts: EmbedParts = start?.parts ?? existing?.parts ?? { filepath: '', segments: [] };
   let step = start ? STEPS.indexOf(start.step) : 0;
+  let movingBack = false;
 
   const workbookOf = (filepath: string): { absolute: string; data?: WorkbookData } => {
     const absolute = resolveWorkbookPath(filepath, document.uri.fsPath, workspaceRoot);
@@ -118,7 +119,9 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
     } else if (current === 'sheet') {
       const sheets = Object.keys(workbookOf(parts.filepath).data?.sheets ?? {});
       if (sheets.length <= 1 && /\.csv$/iu.test(parts.filepath)) {
-        result = { kind: 'value', value: sheets[0] ?? 'Sheet1' };
+        // Nothing to choose: skip in the direction the user is moving, so Back
+        // from the range step reaches the file step instead of bouncing.
+        result = movingBack ? { kind: 'back' } : { kind: 'value', value: sheets[0] ?? 'Sheet1' };
       } else {
         result = await pick(title, 'シートを選ぶ', sheets.map((sheet) => ({ label: sheet, value: sheet, picked: sheet === parts.sheet })), true);
       }
@@ -171,7 +174,8 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
       }
     }
     if (result.kind === 'cancel') return; // nothing changed
-    step = result.kind === 'back' ? Math.max(0, step - 1) : step + 1;
+    movingBack = result.kind === 'back';
+    step = movingBack ? Math.max(0, step - 1) : step + 1;
   }
 }
 
@@ -181,7 +185,51 @@ interface PickItem extends vscode.QuickPickItem {
   value: string;
 }
 
+/**
+ * Scripted answers for the Extension Host e2e (registered only as a test
+ * command). Each step consumes one answer: an item value or label, `keep`
+ * (the preselected item), `back`, `cancel`, or the option labels to select.
+ * The same code path as the real QuickPick runs; only the choice is scripted.
+ */
+export type ScriptedAnswer = string | { keep: true } | { back: true } | { cancel: true } | { options: string[] };
+
+export interface ScriptedStep {
+  title: string;
+  placeholder: string;
+  items: string[];
+}
+
+let script: { answers: ScriptedAnswer[]; transcript: ScriptedStep[] } | undefined;
+
+export async function runScriptedAuthoringFlow(
+  deps: AuthoringDependencies,
+  answers: ScriptedAnswer[],
+  start?: AuthoringStart,
+): Promise<ScriptedStep[]> {
+  script = { answers: [...answers], transcript: [] };
+  try {
+    await runAuthoringFlow(deps, start);
+    return script.transcript;
+  } finally {
+    script = undefined;
+  }
+}
+
+function scriptedPick(title: string, placeholder: string, items: (PickItem & { picked?: boolean })[]): StepResult {
+  script!.transcript.push({ title, placeholder, items: items.map((item) => item.label) });
+  const answer = script!.answers.shift();
+  if (answer === undefined || (typeof answer === 'object' && 'cancel' in answer)) return { kind: 'cancel' };
+  if (typeof answer === 'object' && 'back' in answer) return { kind: 'back' };
+  const chosen =
+    typeof answer === 'object' && 'keep' in answer
+      ? (items.find((item) => item.picked) ?? items[0])
+      : items.find((item) => item.value === answer || item.label === answer);
+  if (!chosen) throw new Error(`Scripted answer ${JSON.stringify(answer)} matches no item in: ${items.map((item) => item.label).join(', ')}`);
+  return { kind: 'value', value: chosen.value };
+}
+
 function pick(title: string, placeholder: string, items: (PickItem & { picked?: boolean })[], canGoBack: boolean): Promise<StepResult> {
+  if (script) return Promise.resolve(scriptedPick(title, placeholder, items));
   return new Promise((resolve) => {
     const quickPick = vscode.window.createQuickPick<PickItem>();
     quickPick.title = title;
@@ -208,13 +256,47 @@ function pick(title: string, placeholder: string, items: (PickItem & { picked?: 
   });
 }
 
+const OPTIONS = [
+  { label: 'header=first', description: '先頭行を見出しにする', key: 'header', value: 'first' },
+  { label: 'mode=table', description: '大きくても表として表示する', key: 'mode', value: 'table' },
+  { label: 'mode=card', description: '別紙カードとして表示する', key: 'mode', value: 'card' },
+  { label: 'transpose=true', description: '行と列を入れ替える', key: 'transpose', value: 'true' },
+];
+
+/** The parts after choosing `chosenLabels`, or a message when the choice is contradictory. */
+function applyOptions(parts: EmbedParts, chosenLabels: readonly string[]): EmbedParts | string {
+  const chosen = OPTIONS.filter((option) => chosenLabels.includes(option.label));
+  if (chosen.some((c) => c.label === 'mode=table') && chosen.some((c) => c.label === 'mode=card')) {
+    return 'mode=table と mode=card は同時に選べません';
+  }
+  let next = parts;
+  for (const key of new Set(OPTIONS.map((option) => option.key))) {
+    const selected = chosen.find((option) => option.key === key);
+    const offered = OPTIONS.filter((option) => option.key === key).map((option) => option.value);
+    const currentValues = getParams(parts, key);
+    // Only keys whose current value is one we offer are ours to change.
+    if (selected) next = setParam(next, key, selected.value);
+    else if (currentValues.length > 0 && currentValues.every((value) => offered.includes(value))) next = setParam(next, key, undefined);
+  }
+  return next;
+}
+
 function pickOptions(title: string, parts: EmbedParts): Promise<StepResult> {
-  const options = [
-    { label: 'header=first', description: '先頭行を見出しにする', key: 'header', value: 'first' },
-    { label: 'mode=table', description: '大きくても表として表示する', key: 'mode', value: 'table' },
-    { label: 'mode=card', description: '別紙カードとして表示する', key: 'mode', value: 'card' },
-    { label: 'transpose=true', description: '行と列を入れ替える', key: 'transpose', value: 'true' },
-  ];
+  const options = OPTIONS;
+  if (script) {
+    const placeholder = '表示の指定';
+    script.transcript.push({ title, placeholder, items: options.map((option) => option.label) });
+    const answer = script.answers.shift();
+    if (answer === undefined || (typeof answer === 'object' && 'cancel' in answer)) return Promise.resolve({ kind: 'cancel' });
+    if (typeof answer === 'object' && 'back' in answer) return Promise.resolve({ kind: 'back' });
+    const labels =
+      typeof answer === 'object' && 'options' in answer
+        ? answer.options
+        : options.filter((option) => getParams(parts, option.key).includes(option.value)).map((option) => option.label);
+    const next = applyOptions(parts, labels);
+    if (typeof next === 'string') throw new Error(next);
+    return Promise.resolve({ kind: 'options', parts: next });
+  }
   return new Promise((resolve) => {
     const quickPick = vscode.window.createQuickPick<(typeof options)[number]>();
     quickPick.title = title;
@@ -232,19 +314,10 @@ function pickOptions(title: string, parts: EmbedParts): Promise<StepResult> {
     };
     quickPick.onDidTriggerButton(() => finish({ kind: 'back' }));
     quickPick.onDidAccept(() => {
-      const chosen = quickPick.selectedItems;
-      if (chosen.some((c) => c.label === 'mode=table') && chosen.some((c) => c.label === 'mode=card')) {
-        quickPick.placeholder = 'mode=table と mode=card は同時に選べません';
+      const next = applyOptions(parts, quickPick.selectedItems.map((item) => item.label));
+      if (typeof next === 'string') {
+        quickPick.placeholder = next;
         return;
-      }
-      let next = parts;
-      for (const key of new Set(options.map((option) => option.key))) {
-        const selected = chosen.find((option) => option.key === key);
-        const offered = options.filter((option) => option.key === key).map((option) => option.value);
-        const currentValues = getParams(parts, key);
-        // Only keys whose current value is one we offer are ours to change.
-        if (selected) next = setParam(next, key, selected.value);
-        else if (currentValues.length > 0 && currentValues.every((value) => offered.includes(value))) next = setParam(next, key, undefined);
       }
       finish({ kind: 'options', parts: next });
     });

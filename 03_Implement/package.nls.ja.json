@@ -1,0 +1,23 @@
+{
+  "mmi.command.renderEmbedForTest": "参照をテスト描画",
+  "mmi.command.generateDeliveryManifest": "納品一覧を作成",
+  "mmi.command.openSource": "参照元のファイルを開く",
+  "mmi.command.insertEmbedFromPaste": "貼り付けから参照を挿入（互換）",
+  "mmi.command.insertEmbedFromDrop": "ドロップから参照を挿入（互換）",
+  "mmi.command.insertEmbedByContentMatch": "コピーした範囲と同じ内容の表を探して参照を挿入",
+  "mmi.command.authorEmbed": "参照を作成・編集（ブック→シート→範囲→確認）",
+  "mmi.command.findEmbedByDescription": "説明から表を探して参照を挿入（例: 状態遷移表のIDと操作を見せて）",
+  "mmi.command.clearSearchIndex": "表の検索索引を消去",
+  "mmi.walkthrough.title": "MMIをはじめる",
+  "mmi.walkthrough.description": "Excel・CSVの表を、写さずにMarkdownから参照します。",
+  "mmi.walkthrough.write.title": "補完で参照を書く",
+  "mmi.walkthrough.write.description": "Markdownで`![[`と入力します。ブック、シート、範囲（選んだシートにある表）、表示の指定が説明付きで出ます。",
+  "mmi.walkthrough.author.title": "案内に沿って作る・直す",
+  "mmi.walkthrough.author.description": "ブック→シート→範囲→表示の指定を選び、表示を確かめてから挿入します。既存の参照の上なら、変えた指定だけを書き換えます（Ctrl+Alt+M）。\n[参照を作成・編集](command:markdownMatrixInjector.authorEmbed)",
+  "mmi.walkthrough.find.title": "説明から表を探す",
+  "mmi.walkthrough.find.description": "「状態遷移表のIDと操作を見せて」のように入力します。記法で表せない依頼は理由を示して断ります。\n[説明から表を探す](command:markdownMatrixInjector.findEmbedByDescription)",
+  "mmi.walkthrough.check.title": "参照を確かめる・直す",
+  "mmi.walkthrough.check.description": "参照にマウスを乗せると実際の表示が出ます。見つからないシート名・ファイル名には、実在する候補だけの修正が出ます。",
+  "mmi.walkthrough.paste.title": "Excelのコピーを参照にする",
+  "mmi.walkthrough.paste.description": "Excelでセルをコピーしてから実行します。同じ値を持つ範囲をワークスペースのブックから探し、候補から選びます。\n[コピーした範囲を探す](command:markdownMatrixInjector.insertEmbedByContentMatch)"
+}

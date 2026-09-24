@@ -1,0 +1,23 @@
+{
+  "mmi.command.renderEmbedForTest": "Render Embed For Test",
+  "mmi.command.generateDeliveryManifest": "Generate Delivery Manifest",
+  "mmi.command.openSource": "Open Embed Source",
+  "mmi.command.insertEmbedFromPaste": "Insert Embed From Paste",
+  "mmi.command.insertEmbedFromDrop": "Insert Embed From Drop",
+  "mmi.command.insertEmbedByContentMatch": "Insert Embed by Content Match (search workspace workbooks for the copied range)",
+  "mmi.command.authorEmbed": "Create or Edit Embed (file, sheet, range, preview, confirm)",
+  "mmi.command.findEmbedByDescription": "Find Table by Description (e.g. 状態遷移表のIDと操作を見せて)",
+  "mmi.command.clearSearchIndex": "Clear Table Search Index",
+  "mmi.walkthrough.title": "Get started with MMI",
+  "mmi.walkthrough.description": "Reference Excel/CSV tables from Markdown without copying them.",
+  "mmi.walkthrough.write.title": "Write a reference with completion",
+  "mmi.walkthrough.write.description": "Type `![[` in Markdown. Files, sheets, ranges (the tables on the chosen sheet) and options are offered with explanations.",
+  "mmi.walkthrough.author.title": "Create or edit step by step",
+  "mmi.walkthrough.author.description": "Pick book, sheet, range and options, see what it renders as, then insert. On an existing reference only what you change is rewritten.\n[Create or Edit Embed](command:markdownMatrixInjector.authorEmbed)",
+  "mmi.walkthrough.find.title": "Find a table by description",
+  "mmi.walkthrough.find.description": "Type e.g. \"状態遷移表のIDと操作を見せて\". Requests the notation cannot express are refused with the reason.\n[Find Table by Description](command:markdownMatrixInjector.findEmbedByDescription)",
+  "mmi.walkthrough.check.title": "Check and fix references",
+  "mmi.walkthrough.check.description": "Hover a reference to see what it renders as. Broken sheet or file names get fixes that list only existing targets.",
+  "mmi.walkthrough.paste.title": "Turn an Excel copy into a reference",
+  "mmi.walkthrough.paste.description": "Copy cells in Excel, then run the command: the workspace books are searched for the same values and you pick where they came from.\n[Insert Embed by Content Match](command:markdownMatrixInjector.insertEmbedByContentMatch)"
+}
