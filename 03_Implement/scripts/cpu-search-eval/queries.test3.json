@@ -1,0 +1,48 @@
+[
+  {"id":"w01","text":"リリース判定の表、確認項目と判定だけ","category":"exact","expect":{"regions":["リリース判定チェックリスト.xlsx#判定!A2:E8"],"columns":["確認項目","判定"]}},
+  {"id":"w02","text":"障害管理台帳の障害一覧を貼ってください","category":"exact","expect":{"regions":["障害管理台帳.xlsx#障害一覧!A1:F9"]}},
+  {"id":"w03","text":"API仕様書のインターフェース一覧をPOSTで絞り込んで","category":"exact","expect":{"regions":["受注_API仕様書.xlsx#IF一覧!C5:G11"],"grep":"POST"}},
+  {"id":"w04","text":"性能測定結果 シナリオ 平均応答時間 判定","category":"exact","expect":{"regions":["性能試験結果.xlsx#結果!A2:E8"],"columns":["シナリオ","平均応答時間","判定"]}},
+  {"id":"w05","text":"課題管理表の課題一覧、田中を含む行だけ欲しい","category":"exact","expect":{"regions":["課題管理表.xlsx#課題一覧!A1:F8"],"grep":"田中"}},
+  {"id":"w06","text":"ファイアウォールルールを設計書に貼りたいです","category":"exact","expect":{"regions":["ネットワーク設計書.xlsx#FW!A2:E7"]}},
+  {"id":"w07","text":"移行リハーサル実績の表をお願いします。週次報告に載せます。","category":"exact","expect":{"regions":["移行計画書.xlsx#リハーサル!A2:D5"]}},
+  {"id":"w08","text":"売上集計の月次シート、月と粗利だけで","category":"exact","expect":{"regions":["売上集計.xlsx#月次!A1:D7"],"columns":["月","粗利"]}},
+
+  {"id":"w09","text":"トレサビの要件IDと試験IDと状態","category":"abbreviation","expect":{"regions":["要件トレーサビリティマトリクス.xlsx#Sheet1!B5:E13"],"columns":["要件ID","試験ID","状態"]}},
+  {"id":"w10","text":"脆弱性診断の指摘","category":"abbreviation","expect":{"regions":["脆弱性診断結果.xlsx#指摘事項!A1:E7"]}},
+  {"id":"w11","text":"結合TC、NGのものだけ","category":"abbreviation","expect":{"regions":["結合テスト仕様書_受注.xlsx#テストケース!A5:E13"],"grep":"NG"}},
+  {"id":"w12","text":"変更管理のCR一覧ください","category":"abbreviation","expect":{"regions":["変更管理台帳.xlsx#変更要求!A1:E6"]}},
+  {"id":"w13","text":"非機能の項目と目標値を貼っといて","category":"abbreviation","expect":{"regions":["要件定義書.xlsx#非機能要件!A1:D7"],"columns":["項目","目標値"]}},
+  {"id":"w14","text":"IP割当表","category":"abbreviation","expect":{"regions":["ネットワーク設計書.xlsx#IP!A2:C7"]}},
+
+  {"id":"w15","text":"システム障害が起きたときの切り分けの流れを手順書に貼りたい","category":"paraphrase","expect":{"regions":["障害管理台帳.xlsx#切り分け手順!B4:E9"]}},
+  {"id":"w16","text":"サーバごとのスペック表、ホスト名とCPUとメモリで","category":"paraphrase","expect":{"regions":["サーバ構成.xlsx#サーバ!A2:E7"],"columns":["ホスト名","CPU","メモリ"]}},
+  {"id":"w17","text":"権限の種類ごとの説明と、どういう人に付けるかのルール一覧","category":"paraphrase","expect":{"regions":["権限設計書.xlsx#ロール!A1:C5"]}},
+  {"id":"w18","text":"開発費用の内訳を工程ごとに、人月と金額で。提案書に入れます","category":"paraphrase","expect":{"regions":["見積書.xlsx#見積!B4:E9"],"columns":["工程","人月","金額"]}},
+  {"id":"w19","text":"会計側で夜間に動くジョブの一覧を見たい","category":"paraphrase","expect":{"regions":["会計_基本設計書.xlsx#バッチ一覧!A1:D6"]}},
+  {"id":"w20","text":"お客さんからの問合せで調査中のものを出してもらえますか","category":"paraphrase","expect":{"regions":["問い合わせ管理.xlsx#問い合わせ!A1:D7"],"grep":"調査中"}},
+  {"id":"w21","text":"チーム構成とリーダーがわかる表。キックオフ資料に貼る","category":"paraphrase","expect":{"regions":["プロジェクト体制.xlsx#体制!A2:D6"],"columns":["チーム","リーダー"]}},
+  {"id":"w22","text":"バックアップを何世代残してどこに置くか書いてある表","category":"paraphrase","expect":{"regions":["運用設計書.xlsx#運用!H4:K7"]}},
+
+  {"id":"w23","text":"受注状態繊維表を貼りたい","category":"typo","expect":{"regions":["受注_基本設計書.xlsx#状態遷移!B4:F10"]}},
+  {"id":"w24","text":"リリース判定の承認社の一覧","category":"typo","expect":{"regions":["リリース判定チェックリスト.xlsx#判定!A12:C15"]}},
+  {"id":"w25","text":"要件トレーサビリテイの要件IDと状態","category":"typo","expect":{"regions":["要件トレーサビリティマトリクス.xlsx#Sheet1!B5:E13"],"columns":["要件ID","状態"]}},
+  {"id":"w26","text":"会計連携システムの画面一欄","category":"typo","expect":{"regions":["会計_基本設計書.xlsx#画面一覧!A2:D7"]}},
+
+  {"id":"w27","text":"画面一覧を貼りたい","category":"duplicate","expect":{"regions":["受注_基本設計書.xlsx#画面一覧!A2:D9","会計_基本設計書.xlsx#画面一覧!A2:D7"],"allOf":true}},
+  {"id":"w28","text":"DBのテーブル一覧","category":"duplicate","expect":{"regions":["DB設計書_受注.xlsx#テーブル一覧!A2:C6","DB設計書_会計.xlsx#テーブル一覧!A2:C5"],"allOf":true}},
+  {"id":"w29","text":"状態遷移表の現在状態とイベントと遷移先","category":"duplicate","expect":{"regions":["受注_基本設計書.xlsx#状態遷移!B4:F10","受注_基本設計書.xlsx#状態遷移!B14:E18"],"columns":["現在状態","イベント","遷移先"],"allOf":true}},
+  {"id":"w30","text":"インターフェースの一覧表をお願いします","category":"duplicate","expect":{"regions":["受注_API仕様書.xlsx#IF一覧!C5:G11","外部IF一覧.xlsx#Sheet1!A2:E6"],"allOf":true}},
+
+  {"id":"w31","text":"障害一覧を重要度別に件数集計して","category":"unsupported","expect":{"reject":"unsupported"}},
+  {"id":"w32","text":"性能測定結果で平均応答時間が3秒以上のシナリオだけ","category":"unsupported","expect":{"reject":"unsupported"}},
+  {"id":"w33","text":"課題一覧から完了以外のものを出して。残課題の確認用です。","category":"unsupported","expect":{"reject":"unsupported"}},
+  {"id":"w34","text":"問い合わせ、受付日の新しい順に上位5件","category":"unsupported","expect":{"reject":"unsupported"}},
+  {"id":"w35","text":"リリース判定で判定列がNGの行だけ抜き出して","category":"unsupported","expect":{"reject":"unsupported"}},
+
+  {"id":"w36","text":"請求状態遷移表","category":"none","expect":{"reject":"no-match"}},
+  {"id":"w37","text":"結合テスト仕様書の会計版のテストケースを貼ってほしい","category":"none","expect":{"reject":"no-match"}},
+  {"id":"w38","text":"納品書の項目定義（帳票レイアウト）","category":"none","expect":{"reject":"no-match"}},
+  {"id":"w39","text":"受注DBのT_CUSTOMERのテーブル定義","category":"none","expect":{"reject":"no-match"}},
+  {"id":"w40","text":"取引先マスタの一覧を貼りたいんだけど","category":"none","expect":{"reject":"no-match"}}
+]
