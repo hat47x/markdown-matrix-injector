@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Feature
-- Status: Draft
+- Status: In Progress（2026-09-24 実装。実機での多環境検証が残り）
 - Priority: High
 - Scope: src/dx/autocompleteProvider.ts, src/extension.ts, params.schema.json同期テスト
 - Expected verification level: manual-e2e
@@ -18,20 +18,26 @@
 [入力支援企画](../input-assistance-proposal.md)の該当範囲を1件ずつ実施する。今回は企画のみで未着手。ADRの提案を具体化してからOpenへ変更する。
 
 ### Acceptance criteria
-- [ ] 未完成記法のカーソル区間を解析し、途中の値だけを置換して後続記法と本文を保持する。コード例と閉じた記法の外では候補を出さない。
-- [ ] 既知キーと値の候補・日本語説明をschemaと同期する。header、mode、orientation等の値を実機で選べる。formatColumnの反復と未知キーを保持する。
-- [ ] 選択シートだけから範囲を提示する。固定候補でWorkbookを読まず、mtimeキャッシュとキャンセルを使う。
+- [x] 未完成記法のカーソル区間を解析し、途中の値だけを置換して後続記法と本文を保持する。コード例と閉じた記法の外では候補を出さない。
+- [x] 既知キーと値の候補・日本語説明をschemaと同期する。header、mode、orientation等の値を実機で選べる。formatColumnの反復と未知キーを保持する。
+- [x] 選択シートだけから範囲を提示する。固定候補でWorkbookを読まず、mtimeキャッシュとキャンセルを使う。
 - [ ] CSV/Excel/XML/TSV、multi-root、IME、Undo、原本変更、遅い旧要求の破棄を検証する。
-- [ ] header行番号と範囲省略クエリの既存契約を実装前に照合し、説明の不一致を上流に記録して解決する。
+- [x] header行番号と範囲省略クエリの既存契約を実装前に照合し、説明の不一致を上流に記録して解決する。
 
 ### Validation plan
 既存のビルド・単体・Extension Hostを回帰検査する。新しい動作は実VS Codeで確認し、候補選択・キャンセル・Undo・原本ハッシュと通信範囲を記録する。測定値を取得するまでは性能やAI品質の目標を達成済みとしない。
 
 ## Remaining work
 
-issue-0114（原本座標の保持）の完了待ち。範囲候補は原本座標で提示する必要があり、先に着手すると二重実装になる。
+**実装（2026-09-24）:** `src/dx/completionContext.ts`（カーソル区間の解析）、`src/dx/completionCandidates.ts`（候補と日本語説明）、`extension.ts`の補完プロバイダ。単体テスト`test/completionContext.test.ts`（9件）、Extension Host e2e（実VS Code 1.136、WSLg）で置換範囲とコードブロック内の抑止を確認。
 
-着手時に解決する未解決事項。
+- 置換は**カーソル下の値だけ**（`mode=ta|ble&x-keep=1`で`ta`〜`ble`のみ）。後続の記法・未知キー・本文は保持。フェンス（```/~~~）・インラインコード内、閉じた`![[...]]`の後では候補を出さない。
+- キー・列挙値は`MMI_KNOWN_PARAMETER_CONTRACT`から出し、`params.schema.json`とのキー・列挙・パターン一致と日本語説明の網羅を単体テストで検査する。使用済みキーは隠し、繰返し可の`formatColumn`は残す。
+- 範囲は**記法で選ばれたシートだけ**から、領域検出（issue-0115）の表領域を表題・見出し付きで先頭に、次に使用範囲を出す。以前は全シートの使用範囲を混ぜて出していた（不具合）。`columns=`は範囲が検出領域と一致するとき、範囲内の相対列文字を見出し名付きで出し、`A,`の後は追加分だけを出す。
+- ブックはmtimeキャッシュ（`WorkbookCache`）経由で読み、固定語彙（mode等）の候補ではブックを読まない。キャンセルと文書versionの変化で古い結果を捨てる。
+- 契約の照合: `header=<n>`は変換後の第n行（1始まり）で記法仕様§6・schema・契約が一致。範囲省略（`![[a.xlsx#Sheet1?mode=card]]`）でもクエリ補完が働くことをテストで確認。上流への不一致記録は不要だった。
 
-- 範囲候補をどこまで出すか。使用範囲全体か、検出した表領域か。表領域の検出は[CPUでの範囲探索](../../02_Architecture/input-assistance-cpu-search.md)§2と設計を共有する。
-- `header`の行番号と範囲省略クエリの既存契約に、仕様と実装の不一致がないか実装前に照合する。
+残り:
+
+- CSV/Excel/XML/TSV、multi-root、IME、Undo、原本変更、遅い旧要求の破棄の実機検証（criterion 4）。
+- 既存のe2eの「#の後のシート候補」の既知の不安定さが解消したかの継続観測。

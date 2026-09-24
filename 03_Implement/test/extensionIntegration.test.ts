@@ -397,6 +397,9 @@ test('extension integration boundaries keep canonical native providers and compa
       'onCommand:markdownMatrixInjector.insertEmbedFromPaste',
       'onCommand:markdownMatrixInjector.insertEmbedFromDrop',
       'onCommand:markdownMatrixInjector.insertEmbedByContentMatch',
+      'onCommand:markdownMatrixInjector.authorEmbed',
+      'onCommand:markdownMatrixInjector.findEmbedByDescription',
+      'onCommand:markdownMatrixInjector.clearSearchIndex',
       'onLanguage:markdown',
     ],
   );
@@ -409,6 +412,9 @@ test('extension integration boundaries keep canonical native providers and compa
       'markdownMatrixInjector.insertEmbedFromPaste',
       'markdownMatrixInjector.insertEmbedFromDrop',
       'markdownMatrixInjector.insertEmbedByContentMatch',
+      'markdownMatrixInjector.authorEmbed',
+      'markdownMatrixInjector.findEmbedByDescription',
+      'markdownMatrixInjector.clearSearchIndex',
     ],
   );
 });
@@ -417,35 +423,29 @@ test('native provider metadata stays API-visible without collapsing command fall
   const packageJsonModule = await import('../package.json', { with: { type: 'json' } });
   const packageJson = packageJsonModule.default;
 
+  // Titles are localized (package.nls.json / package.nls.ja.json); the palette shows "MMI: <title>".
+  const englishTitles: Record<string, string> = {
+    renderEmbedForTest: 'Render Embed For Test',
+    generateDeliveryManifest: 'Generate Delivery Manifest',
+    openSource: 'Open Embed Source',
+    insertEmbedFromPaste: 'Insert Embed From Paste',
+    insertEmbedFromDrop: 'Insert Embed From Drop',
+    insertEmbedByContentMatch: 'Insert Embed by Content Match (search workspace workbooks for the copied range)',
+    authorEmbed: 'Create or Edit Embed (file, sheet, range, preview, confirm)',
+    findEmbedByDescription: 'Find Table by Description (e.g. 状態遷移表のIDと操作を見せて)',
+    clearSearchIndex: 'Clear Table Search Index',
+  };
   assert.deepEqual(
     packageJson.contributes.commands,
-    [
-      {
-        command: 'markdownMatrixInjector.renderEmbedForTest',
-        title: 'MMI: Render Embed For Test',
-      },
-      {
-        command: 'markdownMatrixInjector.generateDeliveryManifest',
-        title: 'MMI: Generate Delivery Manifest',
-      },
-      {
-        command: 'markdownMatrixInjector.openSource',
-        title: 'MMI: Open Embed Source',
-      },
-      {
-        command: 'markdownMatrixInjector.insertEmbedFromPaste',
-        title: 'MMI: Insert Embed From Paste',
-      },
-      {
-        command: 'markdownMatrixInjector.insertEmbedFromDrop',
-        title: 'MMI: Insert Embed From Drop',
-      },
-      {
-        command: 'markdownMatrixInjector.insertEmbedByContentMatch',
-        title: 'MMI: Insert Embed by Content Match (search workspace workbooks for the copied range)',
-      },
-    ],
+    Object.keys(englishTitles).map((id) => ({
+      command: `markdownMatrixInjector.${id}`,
+      title: `%mmi.command.${id}%`,
+      category: 'MMI',
+    })),
   );
+  const nlsModule = await import('../package.nls.json', { with: { type: 'json' } });
+  const nls = nlsModule.default as Record<string, string>;
+  for (const [id, title] of Object.entries(englishTitles)) assert.equal(nls[`mmi.command.${id}`], title, id);
   assert.deepEqual(
     packageJson.activationEvents.filter((event: string) => event.startsWith('onCommand:markdownMatrixInjector.insertEmbedFrom')),
     [
@@ -780,4 +780,31 @@ test('shared paste/drop boundaries keep fallback commands and native adapters be
   assert.equal(getDropInsertText(), undefined);
   assert.equal(await getPasteInsertTextFromDataTransfer(emptyTransfer), undefined);
   assert.equal(await getDropInsertTextFromDataTransfer(emptyTransfer), undefined);
+});
+
+test('every localized manifest string exists in English and Japanese, and walkthrough media ship', async () => {
+  const [{ default: fs }, packageJsonModule, enModule, jaModule] = await Promise.all([
+    import('node:fs'),
+    import('../package.json', { with: { type: 'json' } }),
+    import('../package.nls.json', { with: { type: 'json' } }),
+    import('../package.nls.ja.json', { with: { type: 'json' } }),
+  ]);
+  const placeholders = [...JSON.stringify(packageJsonModule.default).matchAll(/"%([^%"]+)%"/gu)].map((match) => match[1]);
+  assert.ok(placeholders.length > 0);
+  for (const key of placeholders) {
+    assert.ok((enModule.default as Record<string, string>)[key], `package.nls.json lacks ${key}`);
+    assert.ok((jaModule.default as Record<string, string>)[key], `package.nls.ja.json lacks ${key}`);
+  }
+  assert.deepEqual(Object.keys(enModule.default).sort(), Object.keys(jaModule.default).sort());
+  for (const walkthrough of packageJsonModule.default.contributes.walkthroughs) {
+    for (const step of walkthrough.steps) {
+      assert.ok(fs.existsSync(new URL(`../${step.media.markdown}`, import.meta.url)), step.media.markdown);
+    }
+  }
+  const menu = packageJsonModule.default.contributes.menus['editor/context'].map((item: { command: string }) => item.command);
+  assert.deepEqual(menu, [
+    'markdownMatrixInjector.authorEmbed',
+    'markdownMatrixInjector.findEmbedByDescription',
+    'markdownMatrixInjector.insertEmbedByContentMatch',
+  ]);
 });

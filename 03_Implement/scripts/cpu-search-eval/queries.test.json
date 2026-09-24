@@ -1,0 +1,48 @@
+[
+  {"id":"t01","text":"受注状態遷移表のIDとイベントと遷移先を出して","category":"exact","expect":{"regions":["受注_基本設計書.xlsx#状態遷移!B4:F10"],"columns":["ID","イベント","遷移先"]}},
+  {"id":"t02","text":"リリース判定からNGを含む行を抜き出して","category":"exact","expect":{"regions":["リリース判定チェックリスト.xlsx#判定!A2:E8"],"grep":"NG"}},
+  {"id":"t03","text":"障害切り分け手順を貼りたい","category":"exact","expect":{"regions":["障害管理台帳.xlsx#切り分け手順!B4:E9"]}},
+  {"id":"t04","text":"権限マトリクスの機能と管理者の列だけ","category":"exact","expect":{"regions":["権限設計書.xlsx#権限!A2:D7"],"columns":["機能","管理者"]}},
+  {"id":"t05","text":"課題一覧で対応中のものを見せて","category":"exact","expect":{"regions":["課題管理表.xlsx#課題一覧!A1:F8"],"grep":"対応中"}},
+  {"id":"t06","text":"IF一覧のエンドポイントとメソッド","category":"exact","expect":{"regions":["受注_API仕様書.xlsx#IF一覧!C5:G11"],"columns":["エンドポイント","メソッド"]}},
+  {"id":"t07","text":"用語集から用語と説明だけ引用して","category":"exact","expect":{"regions":["用語集.xlsx#用語!A1:C6"],"columns":["用語","説明"]}},
+  {"id":"t08","text":"性能測定結果のシナリオと判定を載せて","category":"exact","expect":{"regions":["性能試験結果.xlsx#結果!A2:E8"],"columns":["シナリオ","判定"]}},
+
+  {"id":"t09","text":"トレサビの試験IDと状態を見たい","category":"abbreviation","expect":{"regions":["要件トレーサビリティマトリクス.xlsx#Sheet1!B5:E13"],"columns":["試験ID","状態"]}},
+  {"id":"t10","text":"FWルールの送信元と宛先とポート","category":"abbreviation","expect":{"regions":["ネットワーク設計書.xlsx#FW!A2:E7"],"columns":["送信元","宛先","ポート"]}},
+  {"id":"t11","text":"障害台帳から対応中のやつ出して","category":"abbreviation","expect":{"regions":["障害管理台帳.xlsx#障害一覧!A1:F9"],"grep":"対応中"}},
+  {"id":"t12","text":"API仕様のエラーコード表を貼って","category":"abbreviation","expect":{"regions":["受注_API仕様書.xlsx#エラーコード!A1:D6"]}},
+  {"id":"t13","text":"IP割当表のセグメントとIPアドレス","category":"abbreviation","expect":{"regions":["ネットワーク設計書.xlsx#IP!A2:C7"],"columns":["セグメント","IPアドレス"]}},
+  {"id":"t14","text":"移行リハの実施日と結果と課題を確認したい","category":"abbreviation","expect":{"regions":["移行計画書.xlsx#リハーサル!A2:D5"],"columns":["実施日","結果","課題"]}},
+
+  {"id":"t15","text":"サーバのスペック一覧、ホスト名とCPUとメモリで","category":"paraphrase","expect":{"regions":["サーバ構成.xlsx#サーバ!A2:E7"],"columns":["ホスト名","CPU","メモリ"]}},
+  {"id":"t16","text":"監視の設定で閾値と通知先を確認したい","category":"paraphrase","expect":{"regions":["運用設計書.xlsx#運用!B4:E8"],"columns":["閾値","通知先"]}},
+  {"id":"t17","text":"会計のバッチジョブの一覧を出して","category":"paraphrase","expect":{"regions":["会計_基本設計書.xlsx#バッチ一覧!A1:D6"]}},
+  {"id":"t18","text":"受注システムの画面の一覧、画面IDと画面名だけ","category":"paraphrase","expect":{"regions":["受注_基本設計書.xlsx#画面一覧!A2:D9"],"columns":["画面ID","画面名"]}},
+  {"id":"t19","text":"メッセージ定義の区分と本文を見せて","category":"paraphrase","expect":{"regions":["メッセージ一覧.xlsx#メッセージ!A1:C7"],"columns":["区分","本文"]}},
+  {"id":"t20","text":"バックアップの世代と保管場所を載せたい","category":"paraphrase","expect":{"regions":["運用設計書.xlsx#運用!H4:K7"],"columns":["世代","保管場所"]}},
+  {"id":"t21","text":"開発工数の見積りを貼って","category":"paraphrase","expect":{"regions":["見積書.xlsx#見積!B4:E9"]}},
+  {"id":"t22","text":"仕訳テーブルのレイアウト、カラム名と型と桁","category":"paraphrase","expect":{"regions":["DB設計書_会計.xlsx#T_JOURNAL!A2:E7"],"columns":["カラム名","型","桁"]}},
+
+  {"id":"t23","text":"傷害管理台帳で鈴木さんを含む行","category":"typo","expect":{"regions":["障害管理台帳.xlsx#障害一覧!A1:F9"],"grep":"鈴木"}},
+  {"id":"t24","text":"ﾘﾘｰｽ判定の確認項目と判定","category":"typo","expect":{"regions":["リリース判定チェックリスト.xlsx#判定!A2:E8"],"columns":["確認項目","判定"]}},
+  {"id":"t25","text":"権限設計所のロール一覧を見せて","category":"typo","expect":{"regions":["権限設計書.xlsx#ロール!A1:C5"]}},
+  {"id":"t26","text":"試験スケジュルの工程と開始日と終了日","category":"typo","expect":{"regions":["テスト計画書.xlsx#スケジュール!A2:D6"],"columns":["工程","開始日","終了日"]}},
+
+  {"id":"t27","text":"画面一覧を貼って","category":"duplicate","expect":{"regions":["受注_基本設計書.xlsx#画面一覧!A2:D9","会計_基本設計書.xlsx#画面一覧!A2:D7"],"allOf":true}},
+  {"id":"t28","text":"テーブル一覧のテーブル名と論理名","category":"duplicate","expect":{"regions":["DB設計書_受注.xlsx#テーブル一覧!A2:C6","DB設計書_会計.xlsx#テーブル一覧!A2:C5"],"columns":["テーブル名","論理名"],"allOf":true}},
+  {"id":"t29","text":"状態遷移表の現在状態とイベントと遷移先を見たい","category":"duplicate","expect":{"regions":["受注_基本設計書.xlsx#状態遷移!B4:F10","受注_基本設計書.xlsx#状態遷移!B14:E18"],"columns":["現在状態","イベント","遷移先"],"allOf":true}},
+  {"id":"t30","text":"インターフェース一覧を見せて","category":"duplicate","expect":{"regions":["受注_API仕様書.xlsx#IF一覧!C5:G11","外部IF一覧.xlsx#Sheet1!A2:E6"],"allOf":true}},
+
+  {"id":"t31","text":"障害一覧を重要度別に件数集計して","category":"unsupported","expect":{"reject":"unsupported"}},
+  {"id":"t32","text":"課題一覧で期限が今日より前のものだけ","category":"unsupported","expect":{"reject":"unsupported"}},
+  {"id":"t33","text":"脆弱性診断の指摘事項で対応状況が完了以外のもの","category":"unsupported","expect":{"reject":"unsupported"}},
+  {"id":"t34","text":"性能測定結果を平均応答時間の遅い順に並べて","category":"unsupported","expect":{"reject":"unsupported"}},
+  {"id":"t35","text":"リリース判定で判定列がOKの行だけ","category":"unsupported","expect":{"reject":"unsupported"}},
+
+  {"id":"t36","text":"給与テーブルの定義を見せて","category":"none","expect":{"reject":"no-match"}},
+  {"id":"t37","text":"顧客満足度アンケートの結果を貼って","category":"none","expect":{"reject":"no-match"}},
+  {"id":"t38","text":"総合テストケースの試験項目と期待結果","category":"none","expect":{"reject":"no-match"}},
+  {"id":"t39","text":"会計DBのT_CUSTOMERのカラム定義","category":"none","expect":{"reject":"no-match"}},
+  {"id":"t40","text":"出張旅費精算システムの画面一覧","category":"none","expect":{"reject":"no-match"}}
+]

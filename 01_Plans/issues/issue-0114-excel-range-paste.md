@@ -206,7 +206,7 @@
 - **既存の明示コマンド（`insertEmbedByContentMatch`）は維持した**。貼り付け操作を経由せず「クリップボードに今ある内容で検索したい」場合に使える、独立した価値がある。
 
 **含んでいないもの（今後の検討課題）**:
-- **候補一覧のプレビュー内容が最小限。** §7が求める「先頭数行・一致の根拠」の表示は無く、`DocumentPasteEdit`の`title`（ファイル#シート＋範囲）のみ。一致は常に完全一致なので根拠は自明だが、値のプレビューは無い。
+- **候補一覧のプレビュー内容が最小限。** §7が求める「先頭数行・一致の根拠」の表示は無く、`DocumentPasteEdit`の`title`（ファイル#シート＋範囲）のみ。一致は常に完全一致なので根拠は自明だが、値のプレビューは無い。**2026-09-24、明示コマンド（`MMI: Insert Embed by Content Match`）の候補に、一致を含む表の表題・見出しと、一致の直前・直後の行を表示するようにした**（`contentMatchSearch.ts::matchContext`）。同じ値が複数の場所にあるとき、周辺で見分けられる。候補は「コピー元は推定」と明示する。`Paste As`のドロップダウンは`title`1行しか表示できないため変わらない。
 - **`editor.action.pasteAs`経路のみ、実VS Code GUIでの動作確認が未実施。** 理由は下記「実VS Code GUI確認」節（実クリップボードへ`text/html`を設定する手段が本環境に無い）。**明示コマンド経路（`insertEmbedByContentMatch`）は実e2eで動作確認済み**（2026-09-17）——`showQuickPick`をテストコード内で一時的に差し替えて駆動し、実ワークスペースの実ファイルに対する検索から挿入までの全パイプラインを実証した。この過程で`registerTextEditorCommand`の非同期未サポートという本物の実装バグを発見・修正した（詳細は下記節）。
 
 **テスト**: `test/extensionIntegration.test.ts`へ構造テストを追加・更新（`providedPasteEditKinds`の変更、`PasteAs`ゲートの存在、`looksLikeTabularClipboard`によるゲート、キャンセル伝播の3箇所）。`npm test`は355件全成功。**加えて2026-09-17、`test/e2e/suite/extensionHost.test.ts`に実e2eステージ`content-match-standalone-command`を追加し、実VS Code上での動作を確認した**（下記「実VS Code GUI確認」節）。

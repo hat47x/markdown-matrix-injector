@@ -10,12 +10,6 @@ import { loadWorkbook, type WorkbookData } from './core/workbookLoader.js';
 import { cellRangeToA1 } from './core/tableGeometry.js';
 import { buildDeliveryManifestCsv } from './manifest/collectDeliveryManifest.js';
 import {
-  AUTOCOMPLETE_QUERY_PARAM_CANDIDATES,
-  getAutocompleteCandidates,
-  type AutocompleteCandidateSets,
-} from './dx/autocompleteProvider.js';
-import {
-  buildCompletionItems,
   buildQueryEvidenceExportArtifacts,
   createDiagnosticsForDocument,
   getDropEditFromDataTransfer,
@@ -25,12 +19,21 @@ import {
   getPasteInsertText,
   getPasteInsertTextFromDataTransfer,
   getTextBeforePosition,
-  resolveWorkbookReference,
+  resolveWorkbookPath,
   toRelativeSuggestion,
   type PasteDropCommandArgs,
 } from './dx/vscodeAdapters.js';
 import { getScenarioTemplateCandidates, SCENARIO_OBSERVATION_TEMPLATE } from './dx/scenarioTemplate.js';
 import { parseTsv } from './dx/pasteDrop.js';
+import { analyzeCompletionContext, type CompletionContext } from './dx/completionContext.js';
+import {
+  paramKeyCandidates,
+  paramValueCandidates,
+  rangeCandidates,
+  regionForRange,
+  simpleCandidates,
+  type CompletionCandidate,
+} from './dx/completionCandidates.js';
 import {
   buildContentMatchMarkdown,
   findWorkbookContentMatches,
@@ -38,6 +41,17 @@ import {
   type WorkbookSheetsSource,
 } from './dx/contentMatchSearch.js';
 import { markdownMatrixPlugin } from './plugin/markdownMatrixPlugin.js';
+import {
+  AUTHOR_EMBED_COMMAND_ID,
+  createEmbedFixProvider,
+  runAuthoringFlow,
+  runScriptedAuthoringFlow,
+  type AuthoringDependencies,
+  type ScriptedAnswer,
+} from './dx/authoringFlow.js';
+import { readWorkbookCached } from './dx/sharedWorkbookCache.js';
+import { clearSearchIndexes, FIND_EMBED_COMMAND_ID, scriptedSearch, searchEmbedByDescription } from './dx/searchFlow.js';
+import { createEmbedHoverProvider } from './dx/embedHover.js';
 
 interface RenderEmbedForTestArgs {
   markdown: string;
@@ -46,7 +60,7 @@ interface RenderEmbedForTestArgs {
 }
 
 const MARKDOWN_SELECTOR: vscode.DocumentSelector = [{ language: 'markdown' }];
-const SUPPORTED_COMPLETION_TRIGGER_CHARACTERS = ['[', '#', '|', '?', '&'] as const;
+const SUPPORTED_COMPLETION_TRIGGER_CHARACTERS = ['[', '#', '|', '?', '&', '=', ','] as const;
 const WORKBOOK_FILE_GLOB = '**/*.{xlsx,xls,csv,xml}';
 const NATIVE_PASTE_DROP_EDIT_KIND = vscode.DocumentDropOrPasteEditKind.Text.append('markdownMatrixInjector', 'embed');
 const CONTENT_MATCH_PASTE_EDIT_KIND = NATIVE_PASTE_DROP_EDIT_KIND.append('contentMatch');
@@ -141,6 +155,30 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
       openEmbedSource(sourcePath),
     ),
     vscode.commands.registerCommand(CONTENT_MATCH_PASTE_COMMAND_ID, () => insertEmbedByContentMatch()),
+    vscode.commands.registerCommand(AUTHOR_EMBED_COMMAND_ID, async (at?: { uri?: string; line?: number; character?: number }) => {
+      // From a hover / code action: act on that embed, not wherever the cursor happens to be.
+      const editor = vscode.window.activeTextEditor;
+      if (editor && at?.uri === editor.document.uri.toString() && typeof at.line === 'number' && typeof at.character === 'number') {
+        const position = new vscode.Position(at.line, at.character);
+        editor.selection = new vscode.Selection(position, position);
+      }
+      await runAuthoringFlow(authoringDependencies());
+    }),
+    vscode.languages.registerHoverProvider(MARKDOWN_SELECTOR, createEmbedHoverProvider(renderEmbedCached)),
+    vscode.commands.registerCommand(FIND_EMBED_COMMAND_ID, async () => {
+      const document = vscode.window.activeTextEditor?.document;
+      if (!document || document.languageId !== 'markdown') return;
+      const parts = await searchEmbedByDescription(document, WORKBOOK_FILE_GLOB);
+      // A chosen candidate goes to preview & confirm, never straight into the document (R1).
+      if (parts) await runAuthoringFlow(authoringDependencies(), { parts, step: 'confirm' });
+    }),
+    vscode.commands.registerCommand(CLEAR_SEARCH_INDEX_COMMAND_ID, () => {
+      clearSearchIndexes();
+      void vscode.window.showInformationMessage('MMI: 表の検索索引を消去しました（メモリ上のみに保持していました）。');
+    }),
+    vscode.languages.registerCodeActionsProvider(MARKDOWN_SELECTOR, createEmbedFixProvider(WORKBOOK_FILE_GLOB), {
+      providedCodeActionKinds: [vscode.CodeActionKind.QuickFix, vscode.CodeActionKind.RefactorRewrite],
+    }),
     ...registerCompatibilityPasteDropCommands(),
     vscode.languages.registerCompletionItemProvider(
       MARKDOWN_SELECTOR,
@@ -168,7 +206,28 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
   return { extendMarkdownIt };
 }
 
-export function deactivate(): void {}
+export function deactivate(): void {
+  clearSearchIndexes();
+}
+
+const CLEAR_SEARCH_INDEX_COMMAND_ID = 'markdownMatrixInjector.clearSearchIndex';
+
+/** Preview rendering for hover and the guided flow: the real engine with one mtime cache. */
+const previewRenderCache = new WorkbookCache<WorkbookData>();
+
+async function renderEmbedCached(markdown: string, markdownFilePath: string, workspaceRoot?: string): Promise<string> {
+  const md = new MarkdownIt();
+  md.use(markdownMatrixPlugin, { markdownFilePath, workspaceRoot, cache: previewRenderCache });
+  return md.render(markdown);
+}
+
+function authoringDependencies(): AuthoringDependencies {
+  return {
+    workbookGlob: WORKBOOK_FILE_GLOB,
+    render: renderEmbedCached,
+    searchByDescription: (document) => searchEmbedByDescription(document, WORKBOOK_FILE_GLOB),
+  };
+}
 
 export async function renderEmbedForTest(args: RenderEmbedForTestArgs): Promise<string> {
   const md = new MarkdownIt();
@@ -285,7 +344,7 @@ async function openEmbedSource(sourcePath: unknown): Promise<void> {
  * silently on every Ctrl+V would be a background-scanning behavior change to
  * every paste that nobody asked for. The workspace file-discovery scope here
  * is not a new policy -- it reuses the exact glob and exclusion already used
- * by the autocomplete provider (`buildAutocompleteCandidateSets`).
+ * by the completion provider (`buildContextCandidates`).
  *
  * Never auto-inserts (design review R1): the result -- whether one match or
  * many -- is always routed through `showQuickPick`, VS Code's own explicit
@@ -414,7 +473,9 @@ async function getContentMatchPasteEdits(
 
   const matches = findWorkbookContentMatches(plainText, workbooks);
   return matches.map((match) => {
-    const title = `MMI: ${match.filepath}#${match.sheet} (${cellRangeToA1(match.range)})`;
+    // One line only in the Paste As dropdown: the containing table's title tells identical copies apart.
+    const where = match.context?.title ? ` ${match.context.title}` : '';
+    const title = `MMI: ${match.filepath}#${match.sheet} (${cellRangeToA1(match.range)})${where}（内容から推定）`;
     return new vscode.DocumentPasteEdit(buildContentMatchMarkdown(match), title, CONTENT_MATCH_PASTE_EDIT_KIND);
   });
 }
@@ -423,16 +484,31 @@ interface ContentMatchPickItem extends vscode.QuickPickItem {
   match: WorkbookContentMatch;
 }
 
+function describeMatchContext(match: WorkbookContentMatch): string {
+  const context = match.context;
+  if (!context) return '';
+  const join = (values?: readonly string[]) => values?.map((value) => value || '（空）').join(' | ');
+  return [
+    context.headers ? `見出し: ${join(context.headers)}` : '',
+    context.rowAbove ? `直前の行: ${join(context.rowAbove)}` : '',
+    context.rowBelow ? `直後の行: ${join(context.rowBelow)}` : '',
+  ]
+    .filter(Boolean)
+    .join('　');
+}
+
 async function pickContentMatch(matches: readonly WorkbookContentMatch[]): Promise<WorkbookContentMatch | undefined> {
   const items: ContentMatchPickItem[] = matches.map((match) => ({
     label: `${match.filepath}#${match.sheet}`,
-    detail: cellRangeToA1(match.range),
+    description: [cellRangeToA1(match.range), match.context?.title].filter(Boolean).join('  '),
+    detail: describeMatchContext(match),
     match,
   }));
+  // Inferred from content only: the clipboard never says where the copy came from.
   const placeHolder =
     matches.length === 1
-      ? 'MMI: Insert this matching range as a reference? (Esc to cancel)'
-      : `MMI: ${matches.length} matching ranges found — pick one (Esc to cancel)`;
+      ? 'MMI: 内容が一致した範囲（コピー元は推定）を参照として挿入しますか？（Escで中止）'
+      : `MMI: 内容が一致した範囲が${matches.length}件あります（コピー元は推定）。周辺の見出し・前後の行で選んでください（Escで中止）`;
 
   const picked = await vscode.window.showQuickPick(items, { placeHolder });
   return picked?.match;
@@ -463,6 +539,27 @@ function shouldRegisterTestCommands(context: vscode.ExtensionContext): boolean {
 
 function registerTestCommands(nativePasteDropState: NativePasteDropState): vscode.Disposable[] {
   return [
+    // Guided flows with scripted choices: same code path as the QuickPicks, only the choice is given.
+    vscode.commands.registerCommand(
+      'markdownMatrixInjector.__test.runAuthoringScripted',
+      async (args: { line: number; character: number; answers: ScriptedAnswer[] }) => {
+        const editor = vscode.window.activeTextEditor;
+        if (editor) editor.selection = new vscode.Selection(args.line, args.character, args.line, args.character);
+        return runScriptedAuthoringFlow(authoringDependencies(), args.answers);
+      },
+    ),
+    vscode.commands.registerCommand(
+      'markdownMatrixInjector.__test.findAndAuthorScripted',
+      async (args: { query: string; pick: number; answers: ScriptedAnswer[] }) => {
+        const document = vscode.window.activeTextEditor?.document;
+        if (!document) return undefined;
+        const found = await scriptedSearch(document, WORKBOOK_FILE_GLOB, args.query, args.pick);
+        const transcript = found.parts
+          ? await runScriptedAuthoringFlow(authoringDependencies(), args.answers, { parts: found.parts, step: 'confirm' })
+          : [];
+        return { items: found.items, transcript };
+      },
+    ),
     vscode.commands.registerCommand(
       'markdownMatrixInjector.__test.getPasteInsertTextFromDataTransfer',
       (dataTransfer: vscode.DataTransfer) => getPasteInsertTextFromDataTransfer(dataTransfer),
@@ -617,16 +714,33 @@ function registerNativeDropProvider(context: vscode.ExtensionContext, nativePast
 
 function createCompletionProvider(): vscode.CompletionItemProvider {
   return {
-    async provideCompletionItems(document, position) {
+    async provideCompletionItems(document, position, token) {
       const linePrefix = getTextBeforePosition(document.lineAt(position.line).text, position.character);
 
       if (linePrefix.includes('![[')) {
-        const candidateSets = await buildAutocompleteCandidateSets(document, linePrefix);
-        const candidates = buildCompletionItems(getAutocompleteCandidates(linePrefix, candidateSets));
-
+        const text = document.getText();
+        const context = analyzeCompletionContext(text, document.offsetAt(position));
+        if (!context) {
+          return undefined; // inside code, or no embed open at the cursor
+        }
+        const version = document.version;
+        const candidates = await buildContextCandidates(document, context);
+        // A newer keystroke or an edit supersedes this request: drop stale results.
+        if (token.isCancellationRequested || document.version !== version) {
+          return undefined;
+        }
+        const replace = new vscode.Range(document.positionAt(context.replaceStart), document.positionAt(context.replaceEnd));
         return candidates.map((candidate) => {
-          const item = new vscode.CompletionItem(candidate.label, toCompletionKind(candidate.kind));
+          const item = new vscode.CompletionItem(candidate.label, toContextCompletionKind(candidate.kind));
           item.insertText = candidate.insertText;
+          item.range = replace;
+          item.detail = candidate.detail;
+          item.sortText = candidate.sortText;
+          // Filter on the typed token plus the explanation, so 「遷移」 finds B3:D5 (状態遷移表).
+          item.filterText = `${candidate.label} ${candidate.detail ?? ''}`;
+          if (candidate.kind === 'param-key') {
+            item.command = { command: 'editor.action.triggerSuggest', title: '' };
+          }
           return item;
         });
       }
@@ -646,44 +760,65 @@ function createCompletionProvider(): vscode.CompletionItemProvider {
   };
 }
 
-async function buildAutocompleteCandidateSets(
-  document: vscode.TextDocument,
-  input: string,
-): Promise<AutocompleteCandidateSets> {
-  const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
-  const workspaceRoot = workspaceFolder?.uri.fsPath;
-  const files = workspaceRoot
-    ? (await vscode.workspace.findFiles(WORKBOOK_FILE_GLOB, '**/{node_modules,dist}/**'))
-        .filter((uri) => uri.fsPath.startsWith(workspaceRoot))
-        .map((uri) => toRelativeSuggestion(document.uri.fsPath, uri.fsPath))
-        .sort((left, right) => left.localeCompare(right))
-    : [];
-  const reference = resolveWorkbookReference(input, document.uri.fsPath, workspaceRoot);
-  const workbookMetadata = reference?.resolvedFilepath
-    ? await readWorkbookMetadata(reference.resolvedFilepath)
-    : undefined;
 
-  return {
-    files,
-    sheets: workbookMetadata?.sheets ?? [],
-    ranges: workbookMetadata?.ranges ?? [],
-    queryParams: AUTOCOMPLETE_QUERY_PARAM_CANDIDATES,
-  };
+async function buildContextCandidates(document: vscode.TextDocument, context: CompletionContext): Promise<CompletionCandidate[]> {
+  const workspaceRoot = vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath;
+  if (context.stage === 'filepath') {
+    const files = workspaceRoot
+      ? (await vscode.workspace.findFiles(WORKBOOK_FILE_GLOB, '**/{node_modules,dist}/**'))
+          .filter((uri) => uri.fsPath.startsWith(workspaceRoot))
+          .map((uri) => toRelativeSuggestion(document.uri.fsPath, uri.fsPath))
+          .sort((left, right) => left.localeCompare(right))
+      : [];
+    return simpleCandidates(files, context.typed, 'file');
+  }
+  if (context.stage === 'param-key') {
+    return paramKeyCandidates(context);
+  }
+  // Fixed vocabularies need no workbook.
+  if (context.stage === 'param-value' && !['columns', 'highlightColumn', 'formatColumn'].includes(context.paramKey ?? '')) {
+    return paramValueCandidates(context);
+  }
+  const workbook = context.filepath ? readCompletionWorkbook(resolveWorkbookPath(context.filepath, document.uri.fsPath, workspaceRoot)) : undefined;
+  if (!workbook) {
+    return context.stage === 'param-value' ? paramValueCandidates(context) : [];
+  }
+  const sheetNames = Object.keys(workbook.sheets);
+  if (context.stage === 'sheet') {
+    return simpleCandidates(sheetNames, context.typed, 'sheet');
+  }
+  // CSV has one implicit sheet; otherwise only the sheet the embed names.
+  const sheetName = context.sheet ?? (sheetNames.length === 1 ? sheetNames[0] : undefined);
+  const sheet = sheetName ? workbook.sheets[sheetName] : undefined;
+  if (!sheetName || !sheet) {
+    return context.stage === 'param-value' ? paramValueCandidates(context) : [];
+  }
+  if (context.stage === 'range') {
+    return rangeCandidates(context, sheetName, sheet);
+  }
+  return paramValueCandidates(context, regionForRange(sheetName, sheet, context.range));
 }
 
-async function readWorkbookMetadata(
-  resolvedFilepath: string,
-): Promise<{ sheets: string[]; ranges: string[] } | undefined> {
+function readCompletionWorkbook(absolutePath: string): WorkbookData | undefined {
   try {
-    const workbook = XLSX.read(await fs.readFile(resolvedFilepath), { type: 'buffer', dense: true });
-    const sheets = [...workbook.SheetNames];
-    const ranges = sheets
-      .map((sheetName) => workbook.Sheets[sheetName]?.['!ref'])
-      .filter((range): range is string => typeof range === 'string' && range.length > 0);
-
-    return { sheets, ranges };
+    return readWorkbookCached(absolutePath);
   } catch {
-    return undefined;
+    return undefined; // missing or unreadable: diagnostics report it, completion stays quiet
+  }
+}
+
+function toContextCompletionKind(kind: CompletionCandidate['kind']): vscode.CompletionItemKind {
+  switch (kind) {
+    case 'file':
+      return vscode.CompletionItemKind.File;
+    case 'sheet':
+      return vscode.CompletionItemKind.Module;
+    case 'range':
+      return vscode.CompletionItemKind.Field;
+    case 'param-key':
+      return vscode.CompletionItemKind.Property;
+    case 'param-value':
+      return vscode.CompletionItemKind.EnumMember;
   }
 }
 
@@ -720,7 +855,11 @@ async function refreshDiagnosticsForDocument(
       const vsCodeDiagnostic = new vscode.Diagnostic(
         new vscode.Range(range.start.line, range.start.character, range.end.line, range.end.character),
         diagnostic.message,
-        vscode.DiagnosticSeverity.Error,
+        diagnostic.severity === 'warning'
+          ? vscode.DiagnosticSeverity.Warning
+          : diagnostic.severity === 'information'
+            ? vscode.DiagnosticSeverity.Information
+            : vscode.DiagnosticSeverity.Error,
       );
       vsCodeDiagnostic.source = diagnostic.source;
       vsCodeDiagnostic.code = diagnostic.code;
@@ -729,17 +868,3 @@ async function refreshDiagnosticsForDocument(
   );
 }
 
-function toCompletionKind(kind: 'file' | 'sheet' | 'range' | 'query-param'): vscode.CompletionItemKind {
-  switch (kind) {
-    case 'file':
-      return vscode.CompletionItemKind.File;
-    case 'sheet':
-      return vscode.CompletionItemKind.Module;
-    case 'range':
-      return vscode.CompletionItemKind.Field;
-    case 'query-param':
-      return vscode.CompletionItemKind.Property;
-    default:
-      return vscode.CompletionItemKind.Text;
-  }
-}

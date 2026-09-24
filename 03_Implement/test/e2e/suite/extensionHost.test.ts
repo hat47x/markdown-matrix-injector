@@ -64,6 +64,8 @@ export async function runIntegrationTests(): Promise<void> {
   await runStage('content-match-standalone-command', () => verifyContentMatchStandaloneCommand(markdownFilePath));
   const autocompleteResult = await runStage('autocomplete-boundary', () => verifyAutocompleteIntegration(markdownFilePath));
   await runStage('diagnostics', () => verifyDiagnosticsIntegration(workspaceRoot));
+  await runStage('hover-and-authoring', () => verifyHoverAndAuthoringEntry(workspaceRoot));
+  await runStage('guided-flows-scripted', () => verifyGuidedFlowsScripted(workspaceRoot));
   logStage('paste-drop-proof-boundary:post-autocomplete', {
     autocompleteSheetCompletionStable: autocompleteResult.sheetCompletionStable,
     autocompleteKnownUnstableReason: autocompleteResult.knownUnstableReason,
@@ -163,12 +165,126 @@ async function verifyAutocompleteIntegration(markdownFilePath: string): Promise<
   });
   assertCompletionIncludes(queryCompletion, 'header');
 
+  // issue-0110: enum values with a replace range covering only the typed value.
+  await verifyContextCompletionReplaceRange(markdownFilePath);
+
   return {
     sheetCompletionStable,
     knownUnstableReason: sheetCompletionStable
       ? undefined
       : `Known unstable autocomplete assertion after # is isolated from paste/drop acceptance. ${AUTOCOMPLETE_ISOLATION_BOUNDARY}`,
   };
+}
+
+async function verifyContextCompletionReplaceRange(markdownFilePath: string): Promise<void> {
+  const uniqueFilePath = markdownFilePath.replace(/\.md$/, `-ctx-${Math.random().toString(36).slice(2)}.md`);
+  const line = '前 ![[../data/roles.csv#Sheet1|A1:B2?mode=ta&x-keep=1]] 後';
+  const document = await openMarkdownDocument(uniqueFilePath, `Context\n${line}`);
+  await vscode.window.showTextDocument(document);
+  const cursor = new vscode.Position(1, line.indexOf('mode=ta') + 'mode=ta'.length);
+  const list = await vscode.commands.executeCommand<vscode.CompletionList>('vscode.executeCompletionItemProvider', document.uri, cursor);
+  const item = (list?.items ?? []).find((candidate) => candidate.label.toString() === 'table');
+  assert.ok(item, `Expected a 'table' value candidate, got: ${(list?.items ?? []).map((c) => c.label.toString()).join(', ')}`);
+  const range = item.range instanceof vscode.Range ? item.range : (item.range as { replacing: vscode.Range } | undefined)?.replacing;
+  assert.ok(range, 'Value candidate must carry an explicit replace range.');
+  assert.equal(document.getText(range), 'ta', 'Only the typed value may be replaced; the rest of the embed and the prose must survive.');
+
+  const fenced = await openMarkdownDocument(
+    uniqueFilePath.replace(/\.md$/, '-fence.md'),
+    'Fence\n```\n![[../data/roles.csv#Sheet1|A1:B2?mode=ta\n```',
+  );
+  const fencedList = await vscode.commands.executeCommand<vscode.CompletionList>(
+    'vscode.executeCompletionItemProvider',
+    fenced.uri,
+    new vscode.Position(2, '![[../data/roles.csv#Sheet1|A1:B2?mode=ta'.length),
+  );
+  assert.ok(
+    !(fencedList?.items ?? []).some((candidate) => candidate.label.toString() === 'table'),
+    'No MMI candidates inside a fenced code block.',
+  );
+}
+
+type Transcript = { title: string; placeholder: string; items: string[] }[];
+
+/**
+ * issue-0111 / issue-0115: the guided flows driven with scripted choices
+ * through the same code path as the QuickPicks, in a real editor.
+ */
+async function verifyGuidedFlowsScripted(workspaceRoot: string): Promise<void> {
+  const original = '![[../data/roles.csv#Sheet1|A1:B3?x-keep=1&header=first]]';
+  const document = await openMarkdownDocument(path.join(workspaceRoot, 'docs', 'guided-flows.md'), ['# Guided', original].join('\n'));
+  await vscode.window.showTextDocument(document);
+  const run = (answers: unknown[]) =>
+    vscode.commands.executeCommand<Transcript>('markdownMatrixInjector.__test.runAuthoringScripted', { line: 1, character: 5, answers });
+
+  // Cancel at the first step: nothing changes.
+  const versionBefore = document.version;
+  await run([{ cancel: true }]);
+  assert.equal(document.version, versionBefore, 'Cancelling must not edit the document.');
+
+  // Back from the range step reaches the file step (the CSV sheet step skips itself both ways).
+  const backTranscript = await run([{ keep: true }, { back: true }, { cancel: true }]);
+  assert.deepEqual(
+    backTranscript.map((step) => step.title.replace(/.*\((\d)\/5\)/u, '$1')),
+    ['1', '3', '1'],
+    `Back must return to the file step. Got: ${JSON.stringify(backTranscript.map((step) => step.title))}`,
+  );
+
+  // Edit: keep file and range, add mode=card; unknown x-keep survives; preview shows a card; one Undo restores.
+  const transcript = await run([{ keep: true }, { keep: true }, { options: ['header=first', 'mode=card'] }, 'insert']);
+  const edited = '![[../data/roles.csv#Sheet1|A1:B3?x-keep=1&header=first&mode=card]]';
+  assert.equal(document.lineAt(1).text, edited);
+  assert.match(transcript[transcript.length - 1].placeholder, /別紙カード/u, 'The confirm step must show what the engine renders.');
+  await vscode.commands.executeCommand('undo');
+  assert.equal(document.lineAt(1).text, original, 'One Undo must restore the original reference.');
+
+  // Find by description, then confirm: the search index covers the workspace workbooks.
+  const blank = await openMarkdownDocument(path.join(workspaceRoot, 'docs', 'guided-find.md'), '# Find\n\n');
+  const editor = await vscode.window.showTextDocument(blank);
+  editor.selection = new vscode.Selection(2, 0, 2, 0);
+  const found = await vscode.commands.executeCommand<{ items: string[]; transcript: Transcript }>(
+    'markdownMatrixInjector.__test.findAndAuthorScripted',
+    { query: 'release-gate', pick: 0, answers: ['insert'] },
+  );
+  assert.ok(found.transcript.length > 0, `Search must yield a candidate. Items: ${found.items.join(' / ')}`);
+  assert.match(blank.lineAt(2).text, /^!\[\[\.\.\/data\/sier-design\/release-gate\.csv#Sheet1\|/u);
+
+  // A request the notation cannot express is refused with the reason, and nothing is inserted.
+  const refused = await vscode.commands.executeCommand<{ items: string[]; transcript: Transcript }>(
+    'markdownMatrixInjector.__test.findAndAuthorScripted',
+    { query: 'release-gateをStatus別に集計', pick: 0, answers: ['insert'] },
+  );
+  assert.match(refused.items[0], /MMI記法で表せません/u);
+  assert.equal(refused.transcript.length, 0);
+}
+
+async function verifyHoverAndAuthoringEntry(workspaceRoot: string): Promise<void> {
+  const document = await openMarkdownDocument(
+    path.join(workspaceRoot, 'docs', 'hover-authoring.md'),
+    ['# Hover', '![[../data/roles.csv#Sheet1|A1:B3?header=first]]'].join('\n'),
+  );
+  await vscode.window.showTextDocument(document);
+  const position = new vscode.Position(1, 10);
+  const hovers = await vscode.commands.executeCommand<vscode.Hover[]>('vscode.executeHoverProvider', document.uri, position);
+  const text = (hovers ?? [])
+    .flatMap((hover) => hover.contents)
+    .map((content) => (typeof content === 'string' ? content : 'value' in content ? content.value : ''))
+    .join('\n');
+  assert.match(text, /本体2行 × 2列/u, `Hover must summarise the real rendering. Got: ${text.slice(0, 300)}`);
+  assert.match(text, /<table class="mmi-table">/u, 'Hover must show the engine table.');
+  assert.match(text, /command:markdownMatrixInjector\.authorEmbed/u, 'Hover must offer editing.');
+
+  const actions = await vscode.commands.executeCommand<vscode.CodeAction[]>(
+    'vscode.executeCodeActionProvider',
+    document.uri,
+    new vscode.Range(position, position),
+  );
+  assert.ok((actions ?? []).some((action) => action.title === 'MMI: この参照を編集…'), 'An embed must offer the edit action.');
+
+  const commands = await vscode.commands.getCommands(true);
+  for (const id of ['markdownMatrixInjector.findEmbedByDescription', 'markdownMatrixInjector.clearSearchIndex']) {
+    assert.ok(commands.includes(id), `${id} must be registered.`);
+  }
 }
 
 async function verifyDiagnosticsIntegration(workspaceRoot: string): Promise<void> {
@@ -187,6 +303,52 @@ async function verifyDiagnosticsIntegration(workspaceRoot: string): Promise<void
   const codes = [...new Set(diagnostics.map((diagnostic) => diagnostic.code?.toString()))];
 
   assert.deepEqual(codes, ['MMI_FILE_NOT_FOUND', 'MMI_INVALID_XML', 'MMI_SHEET_NOT_FOUND']);
+
+  // issue-0111: the quick fix offers only sheets that exist and replaces only the sheet name.
+  // Line 3 (roles.csv#MissingSheet); line 2's invalid.xml cannot be read, so it rightly gets no fix.
+  const sheetDiagnostic = diagnostics.find(
+    (diagnostic) => diagnostic.code?.toString() === 'MMI_SHEET_NOT_FOUND' && diagnostic.range.start.line === 3,
+  )!;
+  const actions = await vscode.commands.executeCommand<vscode.CodeAction[]>(
+    'vscode.executeCodeActionProvider',
+    document.uri,
+    sheetDiagnostic.range,
+    vscode.CodeActionKind.QuickFix.value,
+  );
+  const fix = (actions ?? []).find((action) => action.title === '「Sheet1」に置き換える');
+  assert.ok(
+    fix?.edit,
+    `Expected a quick fix to Sheet1, got: ${(actions ?? []).map((action) => action.title).join(', ')}; diagnostic=${JSON.stringify({
+      source: sheetDiagnostic.source,
+      range: sheetDiagnostic.range,
+      text: document.getText(sheetDiagnostic.range),
+    })}`,
+  );
+  assert.ok(await vscode.workspace.applyEdit(fix.edit));
+  assert.equal(document.lineAt(3).text, '![[../data/roles.csv#Sheet1|A1:B2]]');
+  assert.ok(
+    (await vscode.commands.getCommands(true)).includes('markdownMatrixInjector.authorEmbed'),
+    'The guided authoring command must be registered.',
+  );
+
+  // A value the renderer would silently ignore is a warning with a fix to the closest valid value.
+  const typo = await openMarkdownDocument(
+    path.join(workspaceRoot, 'docs', 'param-typo.md'),
+    ['# Typo', '![[../data/roles.csv#Sheet1|A1:B3?mode=tabel]]'].join('\n'),
+  );
+  const [warning] = await waitForDiagnostics(typo.uri, 1);
+  assert.equal(warning.code?.toString(), 'MMI_INVALID_PARAM_VALUE');
+  assert.equal(warning.severity, vscode.DiagnosticSeverity.Warning);
+  const typoActions = await vscode.commands.executeCommand<vscode.CodeAction[]>(
+    'vscode.executeCodeActionProvider',
+    typo.uri,
+    warning.range,
+    vscode.CodeActionKind.QuickFix.value,
+  );
+  const typoFix = (typoActions ?? []).find((action) => action.title === '「table」に置き換える');
+  assert.ok(typoFix?.edit, `Expected a fix to table, got: ${(typoActions ?? []).map((action) => action.title).join(', ')}`);
+  assert.ok(await vscode.workspace.applyEdit(typoFix.edit));
+  assert.equal(typo.lineAt(1).text, '![[../data/roles.csv#Sheet1|A1:B3?mode=table]]');
 }
 
 interface NativeProviderCapability {
