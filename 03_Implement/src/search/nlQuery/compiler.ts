@@ -69,6 +69,12 @@ export interface CompileResult {
   reasons: string[];
   /** Always true: a person must choose; nothing is inserted automatically. */
   requiresSelection: true;
+  /**
+   * With `no-match` only: up to 3 tables whose names partly match, for the UI
+   * to offer separately as "近いかもしれない表". They do not change the status:
+   * the request is still reported as unmatched.
+   */
+  nearMisses?: Candidate[];
 }
 
 const UNSUPPORTED_REASON: Record<UnsupportedConstruct, string> = {
@@ -82,6 +88,9 @@ const UNSUPPORTED_REASON: Record<UnsupportedConstruct, string> = {
   columnScopedContains:
     '列を限定した「含む」はMMI記法にありません。grepは行全体を対象にします。列を限定せず「「…」を含む行」と言えば候補を出せます。',
 };
+
+/** Tables at least this well named are offered as near misses when nothing matches. */
+const NEAR_MISS_COVERAGE = 0.25;
 
 /** Characters that would break `![[path#sheet|range?k=v]]` or URLSearchParams. */
 const NOTATION_UNSAFE = /[|#[\]?\n\r]/u;
@@ -150,13 +159,17 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
 
   const rejections = new Set<string>();
   const candidates: Candidate[] = [];
+  const near: { hit: RegionHit; coverage: number }[] = [];
   for (const hit of hits) {
     if (candidates.length >= maxCandidates) break;
     // Names must match names (book / sheet / title / headers); sampled cell
     // values only count when the request names nothing but a grep term.
     const regionBag = nameHints.length > 0 ? options.index.namesBagOf(hit.doc) : options.index.bagOf(hit.doc);
     const coverage = regionBag ? coverageOf(coverageHints, regionBag) : 0;
-    if (coverage < minCoverage) continue;
+    if (coverage < minCoverage) {
+      if (coverage >= NEAR_MISS_COVERAGE && near.length < 3) near.push({ hit, coverage });
+      continue;
+    }
 
     const resolved = resolveColumns(hit.region, ir.columns, options.minColumnSimilarity ?? 0.6, synonyms);
     if (!resolved.ok) {
@@ -182,7 +195,27 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
   }
 
   if (candidates.length === 0) {
-    return result('no-match', rejections.size > 0 ? [...rejections] : ['条件に合う表が見つかりません。']);
+    const nearMisses = near.flatMap(({ hit, coverage }) => {
+      const resolved = resolveColumns(hit.region, ir.columns, options.minColumnSimilarity ?? 0.6, synonyms);
+      const columns = resolved.ok ? resolved.columns : [];
+      const emitted = emit(hit.region, ir, columns, options.relativePath(hit.region.bookPath));
+      if (!emitted.ok) return [];
+      const notes = ['名前が一致しないため、確かめてから選んでください。', ...(resolved.ok ? resolved.notes : ['列の指定は反映していません。']), ...emitted.notes];
+      return [{
+        region: hit.region,
+        markdown: emitted.markdown,
+        explanation: explain(hit.region, emitted.range, columns, ir, notes),
+        retrievalScore: hit.score,
+        coverage,
+        columns,
+        partial: true,
+        notes,
+      }];
+    });
+    return {
+      ...result('no-match', rejections.size > 0 ? [...rejections] : ['条件に合う表が見つかりません。']),
+      ...(nearMisses.length > 0 ? { nearMisses } : {}),
+    };
   }
   // Candidates that honour every requested column come before partial ones.
   candidates.sort((a, b) => Number(a.partial) - Number(b.partial));

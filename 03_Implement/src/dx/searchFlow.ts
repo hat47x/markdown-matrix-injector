@@ -169,7 +169,12 @@ export function toItems(result: CompileResult): ResultItem[] {
     return result.candidates.map((candidate) => ({
       label: `$(table) ${candidate.region.title ?? candidate.region.sheet}`,
       description: `${candidate.region.bookStem} / ${candidate.region.sheet} ${candidate.region.a1}`,
-      detail: candidate.explanation,
+      detail: [
+        candidate.explanation,
+        candidate.region.headers?.length ? `見出し: ${candidate.region.headers.slice(0, 6).join('・')}` : '',
+      ]
+        .filter(Boolean)
+        .join(' ｜ '),
       parts: parseEmbedParts(candidate.markdown),
       alwaysShow: true,
     }));
@@ -181,8 +186,21 @@ export function toItems(result: CompileResult): ResultItem[] {
       : result.status === 'needs-more-input'
         ? '表の名前をもう少し具体的に'
         : '該当する表が見つかりません';
+  const near: ResultItem[] = (result.nearMisses ?? []).length > 0
+    ? [
+        { label: '近いかもしれない表（名前は一致しません）', kind: vscode.QuickPickItemKind.Separator },
+        ...(result.nearMisses ?? []).map((candidate) => ({
+          label: `$(question) ${candidate.region.title ?? candidate.region.sheet}`,
+          description: `${candidate.region.bookStem} / ${candidate.region.sheet} ${candidate.region.a1}`,
+          detail: candidate.explanation,
+          parts: parseEmbedParts(candidate.markdown),
+          alwaysShow: true,
+        })),
+      ]
+    : [];
   return [
     { label: `${icon} ${head}`, detail: result.reasons.join(' '), alwaysShow: true },
+    ...near,
     ...QUERY_EXAMPLES.map((example) => ({ label: `$(lightbulb) ${example}`, description: '入力例', example, alwaysShow: true })),
   ];
 }

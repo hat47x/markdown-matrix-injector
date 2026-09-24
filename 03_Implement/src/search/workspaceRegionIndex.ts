@@ -97,8 +97,7 @@ export class WorkspaceRegionIndex {
       synonyms: this.options.synonyms ?? DEFAULT_SYNONYMS,
       maxCandidates,
     });
-    if (result.status !== 'candidates') return result;
-    const fresh = result.candidates.filter((candidate) => {
+    const current = (candidate: CompileResult['candidates'][number]): boolean => {
       try {
         const stat = this.options.statFile(candidate.region.bookPath);
         if (this.catalog.needsUpdate(candidate.region.bookPath, stat)) return false;
@@ -107,7 +106,11 @@ export class WorkspaceRegionIndex {
       } catch {
         return false;
       }
-    });
+    };
+    if (result.status !== 'candidates') {
+      return result.nearMisses ? { ...result, nearMisses: result.nearMisses.filter(current) } : result;
+    }
+    const fresh = result.candidates.filter(current);
     if (fresh.length === 0) {
       return { ...result, status: 'no-match', candidates: [], reasons: ['候補の原本が変更されています。索引を更新してから再度検索してください。'] };
     }

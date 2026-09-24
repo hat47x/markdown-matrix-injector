@@ -473,7 +473,9 @@ async function getContentMatchPasteEdits(
 
   const matches = findWorkbookContentMatches(plainText, workbooks);
   return matches.map((match) => {
-    const title = `MMI: ${match.filepath}#${match.sheet} (${cellRangeToA1(match.range)})`;
+    // One line only in the Paste As dropdown: the containing table's title tells identical copies apart.
+    const where = match.context?.title ? ` ${match.context.title}` : '';
+    const title = `MMI: ${match.filepath}#${match.sheet} (${cellRangeToA1(match.range)})${where}（内容から推定）`;
     return new vscode.DocumentPasteEdit(buildContentMatchMarkdown(match), title, CONTENT_MATCH_PASTE_EDIT_KIND);
   });
 }

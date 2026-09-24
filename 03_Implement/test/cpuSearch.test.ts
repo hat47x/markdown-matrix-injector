@@ -478,3 +478,16 @@ test('rules: structural suffixes need not match; parenthesised qualifiers must',
   assert.equal(compileQuery('性能測定の一覧', { index, method: 'bm25', relativePath }).status, 'candidates');
   assert.equal(compileQuery('性能測定結果（会計）', { index, method: 'bm25', relativePath }).status, 'no-match');
 });
+
+test('near misses: offered separately when nothing matches by name; the status stays no-match', () => {
+  const { index } = buildIndex();
+  const result = compileQuery('状態管理表', { index, method: 'bm25', relativePath });
+  assert.equal(result.status, 'no-match');
+  assert.equal(result.candidates.length, 0);
+  assert.equal(result.nearMisses?.[0].region.a1, 'B3:E6');
+  assert.match(result.nearMisses![0].explanation, /名前が一致しない/u);
+  // Nothing near at all: no suggestions either.
+  assert.equal(compileQuery('給与明細の支給額を見せて', { index, method: 'bm25', relativePath }).nearMisses, undefined);
+  // Unsupported requests never get near misses.
+  assert.equal(compileQuery('状態管理表を担当者別に集計', { index, method: 'bm25', relativePath }).nearMisses, undefined);
+});
