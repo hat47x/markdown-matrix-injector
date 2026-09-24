@@ -35,6 +35,12 @@ export interface UnsupportedItem {
   kind: UnsupportedConstruct;
   text: string;
   span: Span;
+  /**
+   * For aggregation/sort words: the word as part of a possible name
+   * (「平均」+「応答時間」, or 「件数」 alone). The compiler lifts the
+   * unsupported marker only if this exact name exists in the index.
+   */
+  compound?: Hint;
 }
 
 export interface ContainsCondition {
@@ -65,7 +71,7 @@ export interface QueryIR {
   diagnostics: Diagnostic[];
 }
 
-const TARGET_PARTICLES = new Set(['の', 'から', 'で', 'に', 'は', 'へ']);
+const TARGET_PARTICLES = new Set(['の', 'からの', 'での', 'への', 'との', 'から', 'で', 'に', 'は', 'へ']);
 const HIRAGANA_ONLY = /^[ぁ-ゟー]+$/u;
 /** Inflected verb endings: 抜き出して, 貼りたい, 並べます. */
 const VERB_ENDING = /[ぁ-ゟ](?:て|で|たい|たく|ます|ろ)$/u;
@@ -74,10 +80,52 @@ const LIGHT_VERBS = new Set(['して', 'したい', 'する', 'します']);
 /** 「対応中の{もの|やつ|行}」 */
 const VALUE_HEADS = new Set(['もの', 'やつ', 'ヤツ', 'の']);
 
+/**
+ * After 「Xが」: does the clause go on to name a table (「APIが返すエラーの一覧」)?
+ * Then it describes that table; otherwise it is a condition on column X.
+ * Stops at the first verb, row noun or unsupported marker, like the
+ * condition scan does.
+ */
+function describesTable(tokens: Token[], from: number): boolean {
+  // A relative clause needs a verb (返す, 使えるか). Without one, 「判定がNGの表」
+  // is still a column condition and must be rejected, not silently dropped.
+  let verb = false;
+  for (let i = from; i < tokens.length; i += 1) {
+    const kind = tokens[i].kind;
+    if (kind === 'WORD' && /[うくすつぬむるぐぶ]か?(?![ぁ-ゟ])/u.test(tokens[i].text)) verb = true;
+    if (kind === 'TABLE' || kind === 'SHEET' || kind === 'BOOK') return verb;
+    if (kind === 'VERB' || kind === 'ROW' || kind === 'UNSUPPORTED' || kind === 'CONTAINS') return false;
+    if (kind === 'FILLER' && ['もの', 'だけ', 'のみ'].includes(tokens[i].text)) return false;
+  }
+  return false;
+}
+
 export function parseQuery(input: string): QueryIR {
   // Honorifics carry no meaning for lookup: 「鈴木さんを含む」 greps 鈴木.
-  const tokens = tokenize(input).filter((token) => token.kind !== 'HONORIFIC');
+  const all = tokenize(input).filter((token) => token.kind !== 'HONORIFIC');
   const ir: QueryIR = { input, target: [], columns: [], contains: [], unsupported: [], diagnostics: [] };
+  // Only the first sentence that names something is the request; the rest is
+  // context (「…を載せたい。運用手順書から参照したいので」). Unsupported markers
+  // are still collected from every sentence, so none can hide after a 。.
+  const sentences: Token[][] = [[]];
+  for (const token of all) {
+    if (token.kind === 'PERIOD') sentences.push([]);
+    else sentences[sentences.length - 1].push(token);
+  }
+  const naming = (sentence: Token[]) => sentence.some((t) => t.kind === 'WORD' || t.kind === 'QUOTED' || t.kind === 'FILENAME');
+  const chosen = sentences.find(naming) ?? sentences[0];
+  const tokens = chosen;
+  for (const sentence of sentences) {
+    if (sentence === chosen || sentence.length === 0) continue;
+    for (const token of sentence) {
+      if (token.kind === 'UNSUPPORTED') ir.unsupported.push({ kind: token.unsupported ?? 'negation', text: token.text, span: token.span });
+    }
+    ir.diagnostics.push({
+      code: 'ignored-word',
+      message: `「${input.slice(sentence[0].span.start, sentence[sentence.length - 1].span.end)}」は依頼の補足として扱いました。`,
+      span: { start: sentence[0].span.start, end: sentence[sentence.length - 1].span.end },
+    });
+  }
   const loose: { hint: Hint; particle?: string }[] = [];
 
   const hintOf = (token: Token, suffix?: Token): Hint => {
@@ -116,9 +164,17 @@ export function parseQuery(input: string): QueryIR {
       case 'RANGE':
         setOnce('range', hintOf(token));
         continue;
-      case 'UNSUPPORTED':
-        ir.unsupported.push({ kind: token.unsupported ?? 'negation', text: token.text, span: token.span });
+      case 'UNSUPPORTED': {
+        const glued = tokens[i + 1]?.kind === 'WORD' && tokens[i + 1].span.start === token.span.end ? tokens[i + 1] : undefined;
+        const nameLike = (token.unsupported === 'aggregation' || token.unsupported === 'sort') && token.text.length >= 2;
+        ir.unsupported.push({
+          kind: token.unsupported ?? 'negation',
+          text: token.text,
+          span: token.span,
+          ...(nameLike ? { compound: hintOf(token, glued) } : {}),
+        });
         continue;
+      }
       case 'CONTAINS':
         ir.diagnostics.push({ code: 'contains-without-term', message: '何を含む行かが指定されていません。', span: token.span });
         continue;
@@ -128,7 +184,7 @@ export function parseQuery(input: string): QueryIR {
         // A bare noun after 「Xの」 retypes X: 「リリース判定の表」.
         const last = loose[loose.length - 1];
         const key = token.kind === 'TABLE' ? 'table' : token.kind === 'SHEET' ? 'sheet' : 'source';
-        if (last && last.particle === 'の' && ir.target.length === 0) {
+        if (last && last.particle?.endsWith('の') && ir.target.length === 0) {
           loose.pop();
           setOnce(key, last.hint);
           continue;
@@ -230,7 +286,7 @@ export function parseQuery(input: string): QueryIR {
     } else if (isParticle(next, 'を', 'が', 'の') && after?.kind === 'CONTAINS') {
       ir.contains.push({ term: hintOf(token) });
       i += 2;
-    } else if (isParticle(next, 'が')) {
+    } else if (isParticle(next, 'が') && !describesTable(tokens, i + 2)) {
       // 「判定が要確認の行」: a per-column equality/condition. grep cannot say this.
       let end = i + 1;
       while (end + 1 < tokens.length && !['VERB', 'ROW', 'UNSUPPORTED'].includes(tokens[end + 1].kind)) end += 1;
@@ -241,6 +297,18 @@ export function parseQuery(input: string): QueryIR {
         span: { start: token.span.start, end: tokens[end].span.end },
       });
       i = end;
+    } else if (isParticle(next, 'に', 'へ') && tokens[i + 2]?.kind === 'VERB') {
+      // 「レビュー資料に引用したい」: where the reference goes, not what it points at.
+      ir.diagnostics.push({
+        code: 'ignored-word',
+        message: `「${input.slice(token.span.start, token.span.end)}」は貼り付け先として扱いました。`,
+        span: token.span,
+      });
+      i += 1;
+    } else if (isParticle(next, 'が')) {
+      // 「APIが返すエラーの一覧」: a clause describing the table, not a condition.
+      loose.push({ hint: hintOf(token) });
+      i += 1;
     } else {
       loose.push({ hint: hintOf(token), particle: next?.kind === 'PARTICLE' ? next.text : undefined });
       if (next?.kind === 'PARTICLE') i += 1;

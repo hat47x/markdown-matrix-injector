@@ -28,6 +28,7 @@ export type TokenKind =
   | 'CONTAINS'
   | 'FILLER'
   | 'HONORIFIC'
+  | 'PERIOD'
   | 'UNSUPPORTED';
 
 export interface Span {
@@ -55,11 +56,14 @@ interface Keyword {
 }
 
 const KEYWORDS: Keyword[] = [
-  ...['から', 'の', 'を', 'で', 'と', 'や', 'が', 'に', 'へ', 'は'].map((text) => ({
+  // Compound particles first by length: 「からの」「での」 behave like の.
+  ...['からの', 'での', 'への', 'との', 'から', 'の', 'を', 'で', 'と', 'や', 'が', 'に', 'へ', 'は'].map((text) => ({
     text,
     kind: 'PARTICLE' as const,
     afterNonHiragana: true,
   })),
+  // Sentence ends: only the first sentence that names something is the request.
+  ...['。', '！', '？', '!', '?'].map((text) => ({ text, kind: 'PERIOD' as const })),
   { text: '、', kind: 'PARTICLE' },
   { text: ',', kind: 'PARTICLE' },
   { text: 'および', kind: 'PARTICLE' },
@@ -74,10 +78,15 @@ const KEYWORDS: Keyword[] = [
     '貼って', '貼りたい', '埋め込んで', '埋め込み', '挿入', 'ください', '下さい', 'して', 'したい', 'する',
     'お願い', 'ほしい', '欲しい', '探して', '検索', '抜き出して', '抜き出す', '抜き出したい', '載せて', '載せる',
     '載せたい', '知りたい', '教えて', '使いたい', '確認したい', '確認して', '出力して', 'まとめて',
+    // Colloquial and polite forms of the same few verbs (貼る・載せる・出す・入れる・引用・参照).
+    '貼っといて', '貼っておいて', '貼ってほしい', '載せといて', '載せておいて', '載せてほしい', '出しといて',
+    '出しておいて', '出してほしい', '入れて', '入れたい', '入れといて', '入れておいて', '引用したい', '引用して',
+    '参照したい', '参照して', '見せてほしい', '表示して', '表示したい', 'もらえますか', 'もらえる', 'いただけますか',
   ].map((text) => ({ text, kind: 'VERB' as const })),
   // Kana only: 様 / 氏 would split 仕様書 and 氏名.
   ...['さん', 'さま', 'くん'].map((text) => ({ text, kind: 'HONORIFIC' as const, afterNonHiragana: true })),
-  ...['含む', '含まれる', '含んだ', '含んでいる', '入っている', '入った', '入ってる', '書かれた', '書いてある'].map(
+  // 「NGが出てる」「要確認が載っている」: the value appears somewhere -- a row-wide contains.
+  ...['含む', '含まれる', '含まれてる', '含まれている', '含んだ', '含んでいる', '入っている', '入った', '入ってる', '書かれた', '書いてある', '出てる', '出ている', '載ってる', '載っている'].map(
     (text) => ({ text, kind: 'CONTAINS' as const }),
   ),
   ...['だけ', 'のみ', 'すべて', '全部', '全体', '範囲', 'もの', 'ところ', 'あたり', 'について', 'という', 'って'].map(

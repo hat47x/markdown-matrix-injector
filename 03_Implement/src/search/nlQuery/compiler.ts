@@ -97,7 +97,9 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
     requiresSelection: true,
   });
 
-  // --- semantic check, before touching any data -------------------------
+  // --- semantic check ------------------------------------------------------
+  // 「平均応答時間」「件数」 are aggregation words only if no such name exists.
+  const liftedNotes = liftVerifiedNames(ir, options.index);
   const unsupported = new Set(ir.unsupported.map((item) => item.kind));
   const reasons = [...unsupported].map((kind) => UNSUPPORTED_REASON[kind]);
   if (ir.contains.length > 1) reasons.push('grepは1語だけです。複数語の条件は表せません。');
@@ -114,12 +116,19 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
   const queryBag = requestFeatureBag(ir, synonyms);
   // Columns are checked by resolution, not coverage; a grep-only request is
   // judged by its term.
-  const allCoverageHints = (nameHints.length > 0 ? nameHints : ir.contains.map((c) => c.term)).map(
-    (hint) => variantsOf(stripExtension(hint.text), hint.quoted ? [] : synonyms),
+  const parts = (nameHints.length > 0 ? nameHints : ir.contains.map((c) => c.term)).flatMap((hint) =>
+    (nameHints.length > 0 && !hint.quoted ? coverageParts(stripExtension(hint.text)) : [{ text: stripExtension(hint.text), qualifier: false }]).map(
+      (part) => ({ variants: variantsOf(part.text, hint.quoted ? [] : synonyms), qualifier: part.qualifier }),
+    ),
   );
-  const { kept: coverageHints, dropped } =
-    nameHints.length > 0 ? discriminatingHints(allCoverageHints, options.index) : { kept: allCoverageHints, dropped: [] };
-  const droppedNotes = dropped.map((text) => `「${text}」はどの表の名前にも無いため、絞り込みに使っていません。`);
+  const discriminated =
+    nameHints.length > 0
+      ? discriminatingHints(parts.filter((part) => !part.qualifier).map((part) => part.variants), options.index)
+      : { kept: parts.map((part) => part.variants), dropped: [] as string[] };
+  // Qualifiers are never dropped: an unknown 「（会計）」 must still exclude the 受注 table.
+  const coverageHints = [...discriminated.kept, ...parts.filter((part) => part.qualifier).map((part) => part.variants)];
+  const dropped = discriminated.dropped;
+  const droppedNotes = [...liftedNotes, ...dropped.map((text) => `「${text}」はどの表の名前にも無いため、絞り込みに使っていません。`)];
 
   let hits: RegionHit[];
   const fileHint = ir.source && /\.(?:xlsx|xlsm|xls|csv|xml)$/iu.test(ir.source.text) ? ir.source : undefined;
@@ -198,6 +207,54 @@ export function requestFeatureBag(ir: QueryIR, synonyms: readonly (readonly stri
   for (const column of ir.columns) addVariants(column, 1);
   for (const condition of ir.contains) addTextFeatures(bag, condition.term.text, 0.5);
   return bag;
+}
+
+/**
+ * An aggregation/sort word that is really part of a name the index holds
+ * (header 「平均応答時間」, header 「件数」) is a name, not an operation. Only an
+ * exact, existing name lifts the marker -- a guess never does.
+ */
+function liftVerifiedNames(ir: QueryIR, index: RegionSearchIndex): string[] {
+  const notes: string[] = [];
+  ir.unsupported = ir.unsupported.filter((item) => {
+    const compound = item.compound;
+    if (!compound || index.namesFrequency(`w:${normalizeText(compound.text)}`) === 0) return true;
+    const gluedStart = item.span.end;
+    const replaceIn = (list: Hint[]): boolean => {
+      const at = list.findIndex((hint) => hint.span.start === gluedStart);
+      if (at < 0) return false;
+      list[at] = compound;
+      return true;
+    };
+    if (!replaceIn(ir.columns) && !replaceIn(ir.target)) {
+      (ir.table || ir.sheet || ir.source || ir.target.length > 0 ? ir.columns : ir.target).push(compound);
+    }
+    notes.push(`「${compound.raw}」は集計・並べ替えではなく、既存の見出し名として扱いました。`);
+    return false;
+  });
+  // Keep the order the user wrote the names in.
+  ir.columns.sort((a, b) => a.span.start - b.span.start);
+  ir.target.sort((a, b) => a.span.start - b.span.start);
+  return notes;
+}
+
+const STRUCTURAL_SUFFIX = /(?:一覧表|一覧|テーブル|リスト|表)$/u;
+
+/**
+ * A name hint split into the parts that must each match: the structural
+ * suffix is dropped (「指摘一覧」 -> 指摘: 一覧 only says it is a table), and a
+ * parenthesised qualifier is its own required part (「結合テストケース（会計）」
+ * must match 会計 too, so the 受注 table is not accepted).
+ */
+function coverageParts(text: string): { text: string; qualifier: boolean }[] {
+  const qualifiers = [...text.matchAll(/[（(]([^）)]+)[）)]/gu)].map((match) => match[1].trim()).filter(Boolean);
+  const base = text.replace(/[（(][^）)]*[）)]/gu, '').trim();
+  const stripped = base.replace(STRUCTURAL_SUFFIX, '');
+  const main = [...stripped].length >= 2 ? stripped : base;
+  return [
+    ...(main ? [{ text: main, qualifier: false }] : []),
+    ...qualifiers.map((qualifier) => ({ text: qualifier, qualifier: true })),
+  ];
 }
 
 /**

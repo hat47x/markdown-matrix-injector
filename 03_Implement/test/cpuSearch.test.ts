@@ -417,3 +417,64 @@ test('safety: sort markers survive next to inflected verbs', () => {
     assert.equal(compileQuery(input, { index, method: 'bm25', relativePath }).status, 'unsupported', input);
   }
 });
+
+// --- general phrasing rules (from held-out v2 analysis; v2 is no longer blind) ---
+
+const PERF: WorkbookData = {
+  sheets: {
+    結果: sheet({
+      A1: '性能測定結果',
+      ...table('A2', [
+        ['シナリオ', '件数', '平均応答時間', '判定'],
+        ['受注登録', '100', '1.2秒', 'OK'],
+        ['受注照会', '300', '0.8秒', 'NG'],
+      ]),
+    }),
+  },
+};
+
+function perfIndex(): RegionSearchIndex {
+  const catalog = new RegionCatalog();
+  catalog.setBook('/ws/性能試験結果.xlsx', { mtimeMs: 1, size: 1 }, PERF);
+  catalog.setBook('/ws/リリース判定.xlsx', { mtimeMs: 1, size: 1 }, RELEASE);
+  const index = new RegionSearchIndex(catalog);
+  index.sync();
+  return index;
+}
+
+test('rules: an aggregation word inside an existing header name is that header, not an operation', () => {
+  const index = perfIndex();
+  const result = compileQuery('性能測定結果のシナリオと平均応答時間だけ出して', { index, method: 'bm25', relativePath });
+  assert.deepEqual(result.candidates[0].columns.map((c) => c.header), ['シナリオ', '平均応答時間']);
+  assert.match(result.candidates[0].explanation, /既存の見出し名として扱いました/u);
+  assert.deepEqual(compileQuery('性能測定結果の件数と判定', { index, method: 'bm25', relativePath }).candidates[0].columns.map((c) => c.header), ['件数', '判定']);
+  // No such name: still an aggregation request, still rejected.
+  assert.equal(compileQuery('性能測定結果の平均を出して', { index, method: 'bm25', relativePath }).status, 'unsupported');
+  assert.equal(compileQuery('リリース判定の件数を数えて', { index, method: 'bm25', relativePath }).status, 'unsupported');
+});
+
+test('rules: later sentences are context, but their unsupported markers still count', () => {
+  const index = perfIndex();
+  const result = compileQuery('性能測定結果を載せたい。レビューで使うので', { index, method: 'bm25', relativePath });
+  assert.equal(result.status, 'candidates');
+  assert.equal(compileQuery('性能測定結果を載せたい。判定がNG以外のもの', { index, method: 'bm25', relativePath }).status, 'unsupported');
+});
+
+test('rules: a destination is not a target; a value that appears is a row-wide contains', () => {
+  const index = perfIndex();
+  assert.equal(compileQuery('性能測定結果、レビュー資料に引用したい', { index, method: 'bm25', relativePath }).status, 'candidates');
+  const shown = compileQuery('性能測定結果でNGが出てるもの', { index, method: 'bm25', relativePath });
+  assert.match(shown.candidates[0].markdown, /grep=NG/u);
+});
+
+test('safety: 「Xが…の表」 without a verb stays a rejected column condition', () => {
+  const index = perfIndex();
+  assert.equal(compileQuery('判定がNGの表', { index, method: 'bm25', relativePath }).status, 'unsupported');
+  assert.equal(compileQuery('性能測定結果で判定がNGのものの一覧', { index, method: 'bm25', relativePath }).status, 'unsupported');
+});
+
+test('rules: structural suffixes need not match; parenthesised qualifiers must', () => {
+  const index = perfIndex();
+  assert.equal(compileQuery('性能測定の一覧', { index, method: 'bm25', relativePath }).status, 'candidates');
+  assert.equal(compileQuery('性能測定結果（会計）', { index, method: 'bm25', relativePath }).status, 'no-match');
+});
