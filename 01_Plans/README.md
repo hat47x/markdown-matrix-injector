@@ -2,7 +2,7 @@
 
 ## 現況
 
-VS Code拡張、記法仕様、日本語チュートリアル、実務サンプルを整備している。記法仕様はDraft、配布物は公開準備中の検証版。新しい入力支援はレビュー指摘R1〜R5を設計・ADR・観測ハーネスへ反映済み（[作業A完了](issues/issue-0114-excel-range-paste.md)）、**原本座標の保持（作業B）も実装・自動テスト完了**（2026-09-11、WSL2 Ubuntu環境）、**VS CodeのDataTransfer観測（作業C）も完了**（同日、Windows実機）。次は段2（貼り付け本体・作業D）。
+VS Code拡張、記法仕様、日本語チュートリアル、実務サンプルを整備している。記法仕様はDraft、配布物は公開準備中の検証版。新しい入力支援はレビュー指摘R1〜R5を設計・ADR・観測ハーネスへ反映済み（[作業A完了](issues/issue-0114-excel-range-paste.md)）、**原本座標の保持（作業B）も実装・自動テスト完了**（2026-09-11、WSL2 Ubuntu環境）、**VS CodeのDataTransfer観測（作業C）も完了**（同日、Windows実機）。**作業D（内容照合による貼り付け）と`editor.action.pasteAs`への統合も完了**（2026-09-16〜17）。**CPUでの範囲探索（issue-0115）は評価実装と実測を終え、FlyHashは条件付き採用**（2026-09-24）。
 
 **解決済みの問題:** Excel読込みで空行と使用範囲の原点が失われ、正しい参照文字列を挿入しても原本と違う位置が表示される問題を、原本座標を保持するソースモデル（`SheetSource`）へ置き換えて修正した。`npm test`全258件成功、実サンプルでの回帰0件、旗艦の再現ケース（`設計.xlsx#状態遷移|C5:F12`）が設計文書どおりの出力になることを実描画で確認済み。
 
@@ -12,10 +12,10 @@ VS Code拡張、記法仕様、日本語チュートリアル、実務サンプ�
 
 | 順序 | 作業 | 状態 | 着手できるか |
 | --- | --- | --- | --- |
-| 1 | [Excel範囲貼り付け・座標保持](issues/issue-0114-excel-range-paste.md) | Open（段1=作業B・作業C完了、段2=作業D以降が**次の最優先**） | 着手可能。`src/dx/pasteDrop.ts`のA1起点range生成の置き換えとセットで進める |
+| 1 | [Excel範囲貼り付け・座標保持](issues/issue-0114-excel-range-paste.md) | Open（作業B・C・D完了。残: pasteAs経路のe2e、ADR-0017の判断） | 残作業のみ |
 | 2 | [文脈に応じた補完](issues/issue-0110-contextual-input-completion.md) | Draft | 0114の座標保持は完了。着手可能（範囲候補の設計はCPU探索と共有するため0115の設計を先に確認） |
 | 3 | [参照の作成・編集](issues/issue-0111-reference-authoring-flow.md) | Draft | 0110待ち |
-| 4 | [CPUでの範囲探索](issues/issue-0115-cpu-range-search.md) | Draft | 索引はソースモデル（`SheetSource`）に依存。0110/0111待ち。性能・精度は未測定 |
+| 4 | [CPUでの範囲探索](issues/issue-0115-cpu-range-search.md) | In Progress（評価・実測済み。未見の自然言語でRecall@5 0.63〜0.67、FlyHashは条件付き採用） | 次は限定文法の網羅。UIは0110/0111で扱う |
 | 任意 | [既存AIへの依頼と結果検証](issues/issue-0112-ai-proposal-handoff.md) | Draft | 主経路外。0115の評価後に要否を再判断 |
 | 保留 | [ローカルLLM評価](issues/issue-0113-local-ai-feasibility.md) | Draft | 着手しない |
 
@@ -38,4 +38,4 @@ Draftは検討中であり、採用・実装済みを意味しない。ユーザ
 
 ## 次の着手条件
 
-[設計レビューと作業指示](input-assistance-design-review.md)のA〜Fを作業順とする。A・B・Cは完了。**次は作業D（内容照合＋明示候補選択の最小貼り付け）。** `src/dx/pasteDrop.ts`の`inferRangeFromHtmlTable`は現在もA1起点の範囲を生成し続けており、占有グリッド方式（参考実装: `03_Implement/scripts/clipboard-probe/probe-lib.cjs::htmlShape`）への置き換えとセットで実装する。自動確定とWindows橋渡し（作業E、[ADR-0017](adr/ADR-0017-windows-clipboard-provenance-bridge.md)選択肢2）はR1/R4を満たすまで着手しない。観測ハーネスの期待値は`03_Implement/scripts/clipboard-probe/expected-cases.json`に固定してある。
+[設計レビューと作業指示](input-assistance-design-review.md)のA〜Fを作業順とする。A〜Dは完了（作業Dは内容照合＋明示候補選択。自動確定はしない）。自動確定とWindows橋渡し（作業E、[ADR-0017](adr/ADR-0017-windows-clipboard-provenance-bridge.md)選択肢2）はR1/R4を満たすまで着手しない。CPU探索の次の作業は[issue-0115](issues/issue-0115-cpu-range-search.md)の「残り」を参照。
