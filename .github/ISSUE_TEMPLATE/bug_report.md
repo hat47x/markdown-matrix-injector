@@ -29,7 +29,7 @@ If applicable, add screenshots to help explain your problem.
 ## Environment
 
 - OS: [e.g. Windows 11, macOS 14, Ubuntu 24.04]
-- VS Code version: [e.g. 1.96.0]
+- VS Code version: [e.g. 1.100.0]
 - MMI extension version: [e.g. 0.1.0]
 - Node.js version: [e.g. 22.x]
 
