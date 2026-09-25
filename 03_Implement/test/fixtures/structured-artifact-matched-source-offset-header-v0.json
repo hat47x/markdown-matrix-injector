@@ -1,0 +1,42 @@
+{
+  "schema": "hat47x.structured-artifact-matched-source/v0",
+  "source_family_id": "sai-h2-offset-header-v0",
+  "workbook_or_document": "sai-h2-offset-header-v0.synthetic",
+  "sheet_name": "Sheet1",
+  "privacy_class": "public",
+  "rows": [
+    [
+      "Report",
+      null,
+      null
+    ],
+    [
+      "Generated",
+      "2026-09-25",
+      null
+    ],
+    [
+      "Name",
+      "Value",
+      "Status"
+    ],
+    [
+      "A",
+      "1",
+      "ok"
+    ],
+    [
+      "B",
+      "2",
+      "ok"
+    ]
+  ],
+  "merges": [
+    {
+      "start_row": 1,
+      "start_col": 1,
+      "end_row": 1,
+      "end_col": 3
+    }
+  ]
+}
