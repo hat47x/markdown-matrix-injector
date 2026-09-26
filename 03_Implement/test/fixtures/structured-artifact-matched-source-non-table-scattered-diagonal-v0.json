@@ -1,0 +1,45 @@
+{
+  "schema": "hat47x.structured-artifact-matched-source/v0",
+  "source_family_id": "sai-h2-non-table-scattered-diagonal-v0",
+  "workbook_or_document": "sai-h2-non-table-scattered-diagonal-v0.synthetic",
+  "sheet_name": "Sheet1",
+  "privacy_class": "public",
+  "rows": [
+    [
+      "A",
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      "B",
+      null,
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      "C",
+      null,
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      "D",
+      null
+    ],
+    [
+      null,
+      null,
+      null,
+      null,
+      "E"
+    ]
+  ],
+  "merges": []
+}

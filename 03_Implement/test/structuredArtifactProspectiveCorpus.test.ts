@@ -14,28 +14,43 @@ import {
 const FIXTURE_ROOT = new URL('./fixtures/', import.meta.url);
 const MANIFEST = 'structured-artifact-prospective-corpus-v0.json';
 
-function readJson(name: string): unknown {
+function readJson(name: string): any {
   return JSON.parse(readFileSync(new URL(name, FIXTURE_ROOT), 'utf8'));
 }
 
 function sha256File(name: string): string {
-  const bytes = readFileSync(new URL(name, FIXTURE_ROOT));
-  return 'sha256:' + createHash('sha256').update(bytes).digest('hex');
+  return 'sha256:' + createHash('sha256')
+    .update(readFileSync(new URL(name, FIXTURE_ROOT)))
+    .digest('hex');
 }
 
-test('prospective corpus preregisters three target-independent source families', () => {
+test('prospective corpus preregisters six target-independent source families with both table-like classes', () => {
   const manifest = readJson(MANIFEST);
   assertStructuredArtifactProspectiveCorpus(manifest);
 
-  assert.equal(manifest.cases.length, 3);
+  assert.equal(manifest.cases.length, 6);
   assert.deepEqual(
-    manifest.cases.map((entry) => entry.source_family_id),
+    manifest.cases.map((entry: any) => entry.source_family_id),
     [
       'sai-h2-basic-table-v0',
       'sai-h2-offset-header-v0',
       'sai-h2-compact-table-v0',
+      'sai-h2-non-table-notes-single-column-v0',
+      'sai-h2-non-table-kv-pairs-v0',
+      'sai-h2-non-table-scattered-diagonal-v0',
     ],
   );
+
+  const tableLikeTargets = manifest.cases.map((entry: any) => {
+    const targetFile = entry.target_ref.split('/').at(-1);
+    assert.ok(targetFile);
+    return readJson(targetFile).labels['region.table_like']?.value;
+  });
+  assert.deepEqual(
+    tableLikeTargets,
+    [true, true, true, false, false, false],
+  );
+
   for (const entry of manifest.cases) {
     assert.equal(entry.observation_generation.target_independent, true);
     assert.equal(
@@ -66,7 +81,30 @@ test('each target is bound to the exact preregistered source bytes', () => {
     assert.equal(target.source.source_digest, sha256File(sourceFile));
     assert.equal(target.source.source_family_id, entry.source_family_id);
     assert.equal(source.source_family_id, entry.source_family_id);
-    assert.equal(target.source.workbook_or_document, source.workbook_or_document);
+    assert.equal(
+      target.source.workbook_or_document,
+      source.workbook_or_document,
+    );
+  }
+});
+
+test('non-table targets do not fabricate header-boundary labels', () => {
+  const manifest = readJson(MANIFEST);
+  for (const entry of manifest.cases.slice(3)) {
+    const targetFile = entry.target_ref.split('/').at(-1);
+    assert.ok(targetFile);
+    const target = readJson(targetFile);
+    assert.equal(
+      target.labels['region.table_like'].value,
+      false,
+    );
+    assert.equal(
+      Object.prototype.hasOwnProperty.call(
+        target.labels,
+        'region.header_boundary',
+      ),
+      false,
+    );
   }
 });
 

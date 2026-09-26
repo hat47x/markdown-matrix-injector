@@ -35,32 +35,30 @@ type MatchedSource = {
 };
 
 const EXPECTED = new Map([
-  [
-    'sai-h2-basic-table-v0',
-    {
-      observation: 'structured-artifact-matched-mmi-observation-v0.json',
-      digest:
-        'sha256:61ad3e393bf3cc464b72de94a57c062f4d90fab432079dca920e39f493e05361',
-    },
-  ],
-  [
-    'sai-h2-offset-header-v0',
-    {
-      observation:
-        'structured-artifact-matched-mmi-observation-offset-header-v0.json',
-      digest:
-        'sha256:5da37e29f8dcf2820c4b37fabd5d238dedd4a10566249529d2a07a2f207f0fc9',
-    },
-  ],
-  [
-    'sai-h2-compact-table-v0',
-    {
-      observation:
-        'structured-artifact-matched-mmi-observation-compact-table-v0.json',
-      digest:
-        'sha256:225e54369aa1511482560e468965225e36f0ba230228be0c3b41c855b519fd45',
-    },
-  ],
+  ['sai-h2-basic-table-v0', {
+    observation: 'structured-artifact-matched-mmi-observation-v0.json',
+    digest: 'sha256:61ad3e393bf3cc464b72de94a57c062f4d90fab432079dca920e39f493e05361',
+  }],
+  ['sai-h2-offset-header-v0', {
+    observation: 'structured-artifact-matched-mmi-observation-offset-header-v0.json',
+    digest: 'sha256:5da37e29f8dcf2820c4b37fabd5d238dedd4a10566249529d2a07a2f207f0fc9',
+  }],
+  ['sai-h2-compact-table-v0', {
+    observation: 'structured-artifact-matched-mmi-observation-compact-table-v0.json',
+    digest: 'sha256:225e54369aa1511482560e468965225e36f0ba230228be0c3b41c855b519fd45',
+  }],
+  ['sai-h2-non-table-notes-single-column-v0', {
+    observation: 'structured-artifact-matched-mmi-observation-non-table-notes-single-column-v0.json',
+    digest: 'sha256:dc3a7012f523767e247f861737e2fc9f5666093f4f1faa09dd68d194a02c5637',
+  }],
+  ['sai-h2-non-table-kv-pairs-v0', {
+    observation: 'structured-artifact-matched-mmi-observation-non-table-kv-pairs-v0.json',
+    digest: 'sha256:9fb653fa22a540cb705afd869612269ecb350891b153fd240ec77b106614dff4',
+  }],
+  ['sai-h2-non-table-scattered-diagonal-v0', {
+    observation: 'structured-artifact-matched-mmi-observation-non-table-scattered-diagonal-v0.json',
+    digest: 'sha256:df44d36ec6220a6c0ade8cacd770d03029bbef32e75bc5cfb0f1cbeff92ddf83',
+  }],
 ]);
 
 function readJson(name: string): any {
@@ -76,23 +74,13 @@ function sha256File(name: string): string {
 }
 
 function toSnapshot(source: MatchedSource): WorksheetFormatSnapshot {
-  const cells: Array<{
-    row: number;
-    column: number;
-    text: string;
-  }> = [];
-
+  const cells: Array<{row: number; column: number; text: string}> = [];
   source.rows.forEach((row, rowIndex) => {
     row.forEach((value, columnIndex) => {
       if (value === null) return;
-      cells.push({
-        row: rowIndex,
-        column: columnIndex,
-        text: value,
-      });
+      cells.push({row: rowIndex, column: columnIndex, text: value});
     });
   });
-
   return {
     cells,
     merges: source.merges.map((merge) => ({
@@ -140,7 +128,6 @@ test('all preregistered MMI corpus observations are frozen from source-only adap
       structuredArtifactObservationDigest(observation),
       expected.digest,
     );
-
     assert.equal(
       entry.observation_generation
         .target_fields_not_supplied_to_adapter,
@@ -153,40 +140,46 @@ test('all preregistered MMI corpus observations are frozen from source-only adap
   }
 });
 
-test('new prospective cases retain target-independent geometry evidence', () => {
-  const offset = readJson(
-    'structured-artifact-matched-mmi-observation-offset-header-v0.json',
+test('non-table tranche preserves target-independent structural diversity', () => {
+  const notes = readJson(
+    'structured-artifact-matched-mmi-observation-non-table-notes-single-column-v0.json',
   );
-  const compact = readJson(
-    'structured-artifact-matched-mmi-observation-compact-table-v0.json',
+  const kv = readJson(
+    'structured-artifact-matched-mmi-observation-non-table-kv-pairs-v0.json',
+  );
+  const diagonal = readJson(
+    'structured-artifact-matched-mmi-observation-non-table-scattered-diagonal-v0.json',
   );
 
+  assert.equal(notes.region.col_count, 1);
+  assert.equal(notes.features['geometry.non_empty_ratio'].value, 1);
   assert.equal(
-    offset.features['geometry.non_empty_ratio'].value,
-    0.8,
+    notes.features['role.header_candidate_signal'].value,
+    'absent',
   );
-  assert.equal(
-    offset.features['geometry.merged_cell_count'].value,
-    1,
-  );
-  assert.equal(offset.region.row_count, 5);
-  assert.equal(offset.region.col_count, 3);
 
+  assert.equal(kv.region.col_count, 2);
+  assert.equal(kv.features['geometry.non_empty_ratio'].value, 1);
   assert.equal(
-    compact.features['geometry.non_empty_ratio'].value,
-    11 / 12,
+    kv.features['role.header_candidate_signal'].value,
+    'present',
   );
-  assert.equal(
-    compact.features['geometry.merged_cell_count'].value,
-    0,
-  );
-  assert.equal(compact.region.row_count, 4);
-  assert.equal(compact.region.col_count, 3);
 
-  for (const value of [offset, compact]) {
+  assert.equal(diagonal.region.row_count, 5);
+  assert.equal(diagonal.region.col_count, 5);
+  assert.equal(
+    diagonal.features['geometry.non_empty_ratio'].value,
+    0.2,
+  );
+  assert.equal(
+    diagonal.features['role.header_candidate_signal'].value,
+    'absent',
+  );
+
+  for (const value of [notes, kv, diagonal]) {
     assert.equal(
-      value.features['role.header_candidate_signal'].value,
-      'present',
+      value.features['geometry.merged_cell_count'].value,
+      0,
     );
     assert.deepEqual(value.labels, {});
   }
