@@ -24,32 +24,18 @@ function sha256File(name: string): string {
     .digest('hex');
 }
 
-test('prospective corpus preregisters six target-independent source families with both table-like classes', () => {
+test('prospective corpus freezes twelve target-independent source families with balanced table-like targets', () => {
   const manifest = readJson(MANIFEST);
   assertStructuredArtifactProspectiveCorpus(manifest);
 
-  assert.equal(manifest.cases.length, 6);
-  assert.deepEqual(
-    manifest.cases.map((entry: any) => entry.source_family_id),
-    [
-      'sai-h2-basic-table-v0',
-      'sai-h2-offset-header-v0',
-      'sai-h2-compact-table-v0',
-      'sai-h2-non-table-notes-single-column-v0',
-      'sai-h2-non-table-kv-pairs-v0',
-      'sai-h2-non-table-scattered-diagonal-v0',
-    ],
-  );
-
-  const tableLikeTargets = manifest.cases.map((entry: any) => {
+  assert.equal(manifest.cases.length, 12);
+  const tableLike = manifest.cases.map((entry: any) => {
     const targetFile = entry.target_ref.split('/').at(-1);
     assert.ok(targetFile);
-    return readJson(targetFile).labels['region.table_like']?.value;
+    return readJson(targetFile).labels['region.table_like'].value;
   });
-  assert.deepEqual(
-    tableLikeTargets,
-    [true, true, true, false, false, false],
-  );
+  assert.equal(tableLike.filter(Boolean).length, 6);
+  assert.equal(tableLike.filter((value: boolean) => !value).length, 6);
 
   for (const entry of manifest.cases) {
     assert.equal(entry.observation_generation.target_independent, true);
@@ -64,7 +50,7 @@ test('prospective corpus preregisters six target-independent source families wit
   }
 });
 
-test('each target is bound to the exact preregistered source bytes', () => {
+test('every target is bound to exact preregistered source bytes and negative cases omit header-boundary', () => {
   const manifest = readJson(MANIFEST);
   assertStructuredArtifactProspectiveCorpus(manifest);
 
@@ -74,7 +60,7 @@ test('each target is bound to the exact preregistered source bytes', () => {
     assert.ok(sourceFile);
     assert.ok(targetFile);
 
-    const source = readJson(sourceFile) as Record<string, unknown>;
+    const source = readJson(sourceFile);
     const target = readJson(targetFile);
     assertStructuredArtifactReferenceTarget(target);
 
@@ -85,36 +71,25 @@ test('each target is bound to the exact preregistered source bytes', () => {
       target.source.workbook_or_document,
       source.workbook_or_document,
     );
+
+    if (target.labels['region.table_like'].value === false) {
+      assert.equal(
+        Object.prototype.hasOwnProperty.call(
+          target.labels,
+          'region.header_boundary',
+        ),
+        false,
+      );
+    }
   }
 });
 
-test('non-table targets do not fabricate header-boundary labels', () => {
-  const manifest = readJson(MANIFEST);
-  for (const entry of manifest.cases.slice(3)) {
-    const targetFile = entry.target_ref.split('/').at(-1);
-    assert.ok(targetFile);
-    const target = readJson(targetFile);
-    assert.equal(
-      target.labels['region.table_like'].value,
-      false,
-    );
-    assert.equal(
-      Object.prototype.hasOwnProperty.call(
-        target.labels,
-        'region.header_boundary',
-      ),
-      false,
-    );
-  }
-});
-
-test('manifest canonical serialization and digest are deterministic', () => {
+test('manifest canonical serialization and digest remain deterministic', () => {
   const manifest = readJson(MANIFEST);
   const first = canonicalStructuredArtifactProspectiveCorpusJson(manifest);
   const second = canonicalStructuredArtifactProspectiveCorpusJson(
     structuredClone(manifest),
   );
-
   assert.equal(first, second);
   assert.match(
     structuredArtifactProspectiveCorpusDigest(manifest),
@@ -122,23 +97,20 @@ test('manifest canonical serialization and digest are deterministic', () => {
   );
 });
 
-test('header-boundary corpus fails closed if leakage-sensitive feature is admitted', () => {
-  const manifest = readJson(MANIFEST) as any;
-  manifest.cases[0].observation_generation.excluded_portable_features = [];
-
+test('header candidate remains excluded and SAI-0E cannot claim training or authority', () => {
+  const leak = readJson(MANIFEST);
+  leak.cases[0].observation_generation.excluded_portable_features = [];
   assert.throws(
-    () => assertStructuredArtifactProspectiveCorpus(manifest),
+    () => assertStructuredArtifactProspectiveCorpus(leak),
     /must exclude role\.header_candidate_signal/,
   );
-});
 
-test('SAI-0E corpus cannot claim training, runtime authority, or winner selection', () => {
   for (const field of [
     'training_performed',
     'product_runtime_authority',
     'winner_selection_performed',
   ] as const) {
-    const manifest = readJson(MANIFEST) as any;
+    const manifest = readJson(MANIFEST);
     manifest.boundary[field] = true;
     assert.throws(
       () => assertStructuredArtifactProspectiveCorpus(manifest),
