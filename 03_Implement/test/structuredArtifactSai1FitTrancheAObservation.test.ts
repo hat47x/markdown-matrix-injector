@@ -80,7 +80,7 @@ test('SAI-1 fit tranche A capture exposes only preregistered portable inputs', (
 
   assert.equal(
     MMI_WORKSHEET_SAI1_PORTABLE_ADAPTER_CONFIG_DIGEST,
-    'sha256:f66ced3d8ea23f49eb54a92dfb86703c1cdaedda5e09c1a685492f6689a3b8e4',
+    'sha256:d43374587cbbbc1605aca34229f10d3b152afa5711b3c787c7f4fca11599131e',
   );
   assert.deepEqual(capture.split_mapping, {
     preregistered: 'fit',
