@@ -1,0 +1,45 @@
+{
+  "schema": "hat47x.structured-artifact-matched-source/v0",
+  "source_family_id": "sai-h2-table-wide-row2-5col-v0",
+  "workbook_or_document": "sai-h2-table-wide-row2-5col-v0.synthetic",
+  "sheet_name": "Sheet1",
+  "privacy_class": "public",
+  "rows": [
+    [
+      "Wide report",
+      null,
+      null,
+      null,
+      null
+    ],
+    [
+      "Name",
+      "Q1",
+      "Q2",
+      "Q3",
+      "Status"
+    ],
+    [
+      "A",
+      "1",
+      "2",
+      "3",
+      "ok"
+    ],
+    [
+      "B",
+      "4",
+      "5",
+      "6",
+      null
+    ]
+  ],
+  "merges": [
+    {
+      "start_row": 1,
+      "start_col": 1,
+      "end_row": 1,
+      "end_col": 5
+    }
+  ]
+}

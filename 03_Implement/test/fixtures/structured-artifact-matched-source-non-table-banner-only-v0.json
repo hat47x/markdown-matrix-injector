@@ -1,0 +1,23 @@
+{
+  "schema": "hat47x.structured-artifact-matched-source/v0",
+  "source_family_id": "sai-h2-non-table-banner-only-v0",
+  "workbook_or_document": "sai-h2-non-table-banner-only-v0.synthetic",
+  "sheet_name": "Sheet1",
+  "privacy_class": "public",
+  "rows": [
+    [
+      "Quarterly summary",
+      null,
+      null,
+      null
+    ]
+  ],
+  "merges": [
+    {
+      "start_row": 1,
+      "start_col": 1,
+      "end_row": 1,
+      "end_col": 4
+    }
+  ]
+}

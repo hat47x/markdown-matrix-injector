@@ -1,0 +1,34 @@
+{
+  "schema": "hat47x.structured-artifact-matched-source/v0",
+  "source_family_id": "sai-h2-table-ragged-row1-4x4-v0",
+  "workbook_or_document": "sai-h2-table-ragged-row1-4x4-v0.synthetic",
+  "sheet_name": "Sheet1",
+  "privacy_class": "public",
+  "rows": [
+    [
+      "Name",
+      "Q1",
+      "Q2",
+      "Q3"
+    ],
+    [
+      "A",
+      "1",
+      "2",
+      "3"
+    ],
+    [
+      "B",
+      "4",
+      null,
+      "6"
+    ],
+    [
+      "C",
+      null,
+      "8",
+      "9"
+    ]
+  ],
+  "merges": []
+}
