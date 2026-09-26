@@ -19,5 +19,6 @@
   "mmi.walkthrough.check.title": "参照を確かめる・直す",
   "mmi.walkthrough.check.description": "参照にマウスを乗せると実際の表示が出ます。見つからないシート名・ファイル名には、実在する候補だけの修正が出ます。",
   "mmi.walkthrough.paste.title": "Excelのコピーを参照にする",
-  "mmi.walkthrough.paste.description": "Excelでセルをコピーしてから実行します。同じ値を持つ範囲をワークスペースのブックから探し、候補から選びます。\n[コピーした範囲を探す](command:markdownMatrixInjector.insertEmbedByContentMatch)"
+  "mmi.walkthrough.paste.description": "Excelでセルをコピーしてから実行します。同じ値を持つ範囲をワークスペースのブックから探し、候補から選びます。\n[コピーした範囲を探す](command:markdownMatrixInjector.insertEmbedByContentMatch)",
+  "mmi.setting.useClipboardSource": "Windowsのローカル環境のみ: Excelのコピーを **Paste As** や「コピーした範囲と同じ内容の表を探して参照を挿入」で貼るとき、Windows標準のPowerShellでクリップボードからコピー元（ブック・シート・セル範囲）を読み、保存済みの原本が同じ値を示すことを確かめてから「コピー元を確認済み」として先頭に示します。読んだ内容は保存せず、選ぶまで挿入しません。"
 }

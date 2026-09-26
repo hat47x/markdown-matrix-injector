@@ -10,3 +10,5 @@
 # tree hash for these two files on a Windows checkout with autocrlf=true).
 *.xlsx.base64 binary
 03_Implement/test/fixtures/*.xlsx binary
+# Fixtures whose bytes are hashed (cross-repo identity): keep LF on every checkout.
+03_Implement/test/fixtures/*.json text eol=lf

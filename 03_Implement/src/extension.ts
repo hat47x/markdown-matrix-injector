@@ -52,6 +52,11 @@ import {
 import { readWorkbookCached } from './dx/sharedWorkbookCache.js';
 import { clearSearchIndexes, FIND_EMBED_COMMAND_ID, scriptedSearch, searchEmbedByDescription } from './dx/searchFlow.js';
 import { createEmbedHoverProvider } from './dx/embedHover.js';
+import { confirmedCopySource, isConfirmedSource, warmCopySource, withSource } from './dx/copySource.js';
+import { stopClipboardHelper } from './dx/windowsClipboard.js';
+
+/** Set on activation; the clipboard reader script ships under media/clipboard. */
+let extensionRootPath = '';
 
 interface RenderEmbedForTestArgs {
   markdown: string;
@@ -136,6 +141,9 @@ function createPasteDropIntegrationTestMetadata(): PasteDropIntegrationTestMetad
 
 export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: typeof extendMarkdownIt } {
   const diagnostics = vscode.languages.createDiagnosticCollection('markdown-matrix-injector');
+  extensionRootPath = context.extensionPath;
+  // Start the Windows clipboard reader in the background so the first Paste As does not wait for it.
+  setTimeout(() => warmCopySource(extensionRootPath), 1500).unref?.();
   const nativePasteDropState = createNativePasteDropState();
 
   context.subscriptions.push(
@@ -208,6 +216,7 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
 
 export function deactivate(): void {
   clearSearchIndexes();
+  stopClipboardHelper();
 }
 
 const CLEAR_SEARCH_INDEX_COMMAND_ID = 'markdownMatrixInjector.clearSearchIndex';
@@ -385,11 +394,15 @@ async function insertEmbedByContentMatch(): Promise<void> {
     return;
   }
 
-  const workbooks = await loadWorkspaceWorkbooksForContentMatch(documentUri.fsPath, workspaceRoot);
-  const matches = findWorkbookContentMatches(clipboardText, workbooks);
+  const [source, workbooks] = await Promise.all([
+    confirmedCopySource(extensionRootPath, editor.document, clipboardText),
+    loadWorkspaceWorkbooksForContentMatch(documentUri.fsPath, workspaceRoot),
+  ]);
+  const matches = withSource(source.match, findWorkbookContentMatches(clipboardText, workbooks));
 
   if (matches.length === 0) {
-    void vscode.window.showInformationMessage('MMI: No matching range found in this workspace\'s workbooks.');
+    const why = source.reason ? ` (${source.reason})` : '';
+    void vscode.window.showInformationMessage(`MMI: No matching range found in this workspace's workbooks.${why}`);
     return;
   }
 
@@ -466,16 +479,20 @@ async function getContentMatchPasteEdits(
     return [];
   }
 
-  const workbooks = await loadWorkspaceWorkbooksForContentMatch(document.uri.fsPath, workspaceRoot, token);
+  const [source, workbooks] = await Promise.all([
+    confirmedCopySource(extensionRootPath, document, plainText),
+    loadWorkspaceWorkbooksForContentMatch(document.uri.fsPath, workspaceRoot, token),
+  ]);
   if (token.isCancellationRequested) {
     return [];
   }
 
-  const matches = findWorkbookContentMatches(plainText, workbooks);
+  const matches = withSource(source.match, findWorkbookContentMatches(plainText, workbooks));
   return matches.map((match) => {
     // One line only in the Paste As dropdown: the containing table's title tells identical copies apart.
     const where = match.context?.title ? ` ${match.context.title}` : '';
-    const title = `MMI: ${match.filepath}#${match.sheet} (${cellRangeToA1(match.range)})${where}（内容から推定）`;
+    const how = isConfirmedSource(match) ? '（コピー元を確認済み）' : '（内容から推定）';
+    const title = `MMI: ${match.filepath}#${match.sheet} (${cellRangeToA1(match.range)})${where}${how}`;
     return new vscode.DocumentPasteEdit(buildContentMatchMarkdown(match), title, CONTENT_MATCH_PASTE_EDIT_KIND);
   });
 }
@@ -499,16 +516,18 @@ function describeMatchContext(match: WorkbookContentMatch): string {
 
 async function pickContentMatch(matches: readonly WorkbookContentMatch[]): Promise<WorkbookContentMatch | undefined> {
   const items: ContentMatchPickItem[] = matches.map((match) => ({
-    label: `${match.filepath}#${match.sheet}`,
-    description: [cellRangeToA1(match.range), match.context?.title].filter(Boolean).join('  '),
+    label: isConfirmedSource(match) ? `$(verified) ${match.filepath}#${match.sheet}` : `${match.filepath}#${match.sheet}`,
+    description: [cellRangeToA1(match.range), match.context?.title, isConfirmedSource(match) ? 'コピー元を確認済み' : '内容から推定']
+      .filter(Boolean)
+      .join('  '),
     detail: describeMatchContext(match),
     match,
   }));
-  // Inferred from content only: the clipboard never says where the copy came from.
+  // A confirmed source is still a choice, not a decision (R1).
   const placeHolder =
     matches.length === 1
-      ? 'MMI: 内容が一致した範囲（コピー元は推定）を参照として挿入しますか？（Escで中止）'
-      : `MMI: 内容が一致した範囲が${matches.length}件あります（コピー元は推定）。周辺の見出し・前後の行で選んでください（Escで中止）`;
+      ? 'MMI: この範囲を参照として挿入しますか？（Escで中止）'
+      : `MMI: 候補が${matches.length}件あります。コピー元を確認済みのものが先頭です。周辺の見出し・前後の行で選んでください（Escで中止）`;
 
   const picked = await vscode.window.showQuickPick(items, { placeHolder });
   return picked?.match;

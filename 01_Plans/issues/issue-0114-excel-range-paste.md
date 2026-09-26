@@ -372,7 +372,7 @@ powershell -ExecutionPolicy Bypass -File .\03_Implement\scripts\clipboard-probe\
 - 実キー入力（Ctrl+V）とコマンド経由貼り付けの経路一致の実測（意図的に未検証。理由は「Cの完了内容」参照）。
 - UI操作でのCtrl+ドラッグ非連続選択の挙動（COM経由では外接矩形が出力された）。
 - 巨大な選択でのクリップボード生成時間とHTMLの大きさ。上限とキャンセルの設計に必要。
-- [ADR-0017](../adr/ADR-0017-windows-clipboard-provenance-bridge.md)選択肢2（Windows補助プロセス）を実装するか、選択肢3（内容照合のみ）で進めるかの判断。作業Dは判断を待たずに着手できる。
+- ~~ADR-0017選択肢2を実装するかの判断~~ → **2026-09-25に採用・実装・実Excelで検証済み**（[ADR-0017](../adr/ADR-0017-windows-clipboard-provenance-bridge.md)「採用と実装」）。`Paste As`と明示コマンドで、照合済みのコピー元が「コピー元を確認済み」として先頭に出る。残り: 実VS Code（Windows）上でのCtrl+./Paste Asからの実操作確認。
 
 ## 実装開始前のレビュー受入条件
 

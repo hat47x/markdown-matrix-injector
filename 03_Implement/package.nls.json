@@ -19,5 +19,6 @@
   "mmi.walkthrough.check.title": "Check and fix references",
   "mmi.walkthrough.check.description": "Hover a reference to see what it renders as. Broken sheet or file names get fixes that list only existing targets.",
   "mmi.walkthrough.paste.title": "Turn an Excel copy into a reference",
-  "mmi.walkthrough.paste.description": "Copy cells in Excel, then run the command: the workspace books are searched for the same values and you pick where they came from.\n[Insert Embed by Content Match](command:markdownMatrixInjector.insertEmbedByContentMatch)"
+  "mmi.walkthrough.paste.description": "Copy cells in Excel, then run the command: the workspace books are searched for the same values and you pick where they came from.\n[Insert Embed by Content Match](command:markdownMatrixInjector.insertEmbedByContentMatch)",
+  "mmi.setting.useClipboardSource": "Local Windows only: when pasting an Excel copy with **Paste As** or *Insert Embed by Content Match*, read the copy source (book, sheet, cells) from the Windows clipboard with the built-in PowerShell and offer it first as \"copy source confirmed\" -- only after checking that the saved workbook shows exactly the copied values. Nothing is stored and nothing is inserted without your choice."
 }

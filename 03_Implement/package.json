@@ -224,6 +224,16 @@
           }
         ]
       }
-    ]
+    ],
+    "configuration": {
+      "title": "Markdown Matrix Injector",
+      "properties": {
+        "markdownMatrixInjector.paste.useClipboardSource": {
+          "type": "boolean",
+          "default": true,
+          "markdownDescription": "%mmi.setting.useClipboardSource%"
+        }
+      }
+    }
   }
 }
