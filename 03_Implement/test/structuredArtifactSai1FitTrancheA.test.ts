@@ -94,3 +94,28 @@ test('materialization does not generate observations or admit training', () => {
     training_admitted: false,
   });
 });
+
+test('clear-negative KV fixture stays sparse under frozen SAI-0F semantics', () => {
+  const source = readJson(
+    'structured-artifact-sai1-source-non-table-kv-record-5x2-v0.json',
+  );
+  const target = readJson(
+    'structured-artifact-sai1-target-non-table-kv-record-5x2-v0.json',
+  );
+
+  assert.equal(source.rows.length, 5);
+  assert.equal(source.rows.every((row: any[]) => row.length === 2), true);
+  assert.equal(
+    source.rows.filter(
+      (row: any[]) => row.every((cell) => cell === null),
+    ).length,
+    2,
+  );
+  assert.deepEqual(source.rows[1], [null, null]);
+  assert.deepEqual(source.rows[3], [null, null]);
+  assert.equal(target.labels['region.table_like'].value, false);
+  assert.equal(
+    target.labels['region.ambiguous_or_non_table'].value,
+    true,
+  );
+});
