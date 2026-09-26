@@ -78,7 +78,7 @@ test('all five portable values match across independent producers for 4/4 famili
   assert.deepEqual(excelByFamily, mmiByFamily);
 });
 
-test('parity closeout advances only to remaining fit materialization', () => {
+test('input parity closeout hands off to independent Excel observation capture', () => {
   const closeout = readJson(CLOSEOUT);
 
   assert.deepEqual(closeout.decision, {
@@ -94,7 +94,7 @@ test('parity closeout advances only to remaining fit materialization', () => {
     product_runtime_authority: false,
   });
   assert.deepEqual(closeout.next_gate, {
-    name: 'remaining_preregistered_fit_family_materialization',
+    name: 'excel_independent_observation_capture_and_parity_check',
     training_admitted: false,
   });
 });
