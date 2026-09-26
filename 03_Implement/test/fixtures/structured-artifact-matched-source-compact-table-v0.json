@@ -1,0 +1,30 @@
+{
+  "schema": "hat47x.structured-artifact-matched-source/v0",
+  "source_family_id": "sai-h2-compact-table-v0",
+  "workbook_or_document": "sai-h2-compact-table-v0.synthetic",
+  "sheet_name": "Sheet1",
+  "privacy_class": "public",
+  "rows": [
+    [
+      "Name",
+      "Value",
+      "Status"
+    ],
+    [
+      "A",
+      "1",
+      "ok"
+    ],
+    [
+      "B",
+      "2",
+      "hold"
+    ],
+    [
+      "C",
+      "3",
+      null
+    ]
+  ],
+  "merges": []
+}
