@@ -203,3 +203,29 @@ v0 does not include:
 SAI-0B/H1 asks excel-houganshi-normalizer #20 to independently emit the same JSON contract.
 
 Only after two products reuse the contract should rules, logistic regression, or LightGBM comparisons begin.
+
+## 13. Before v1: convergence check with SEI contracts (informative)
+
+This section is informative. It does not change v0 rules and creates no dependency on SEI.
+
+Before promoting hat47x.structured-artifact-observation/v0 to v1, check whether it can converge with the following contracts of hat47x/sei-cognition (all v1alpha1, on SEI main under contracts/):
+
+- sei.semantic-interchange/v1alpha1: a thin portable envelope. A receiver must not interpret an unknown contract id or version as known. SEI fixtures keep such records opaque as not_verified, and partial knowledge is not treated as malformed.
+- sei.capability-observation/v1alpha1: provider-specific context stays behind references or extensions. Trust and priority are not inferred from the provider kind.
+- sei.jcs+sha256/v1alpha1 and sei.raw-bytes+sha256/v1alpha1: representation profiles used by SEI exact bindings.
+
+Differences to resolve or record before v1:
+
+1. Unknown content. v0 fails closed on unknown top-level fields. The SEI envelope carries unknown nested contracts opaquely as not_verified. These can coexist: fail closed inside a known schema version, and carry unknown versions opaquely at the envelope level. v1 should state which applies where.
+2. Canonical bytes. §10 sorts object keys recursively, serializes compact JSON, and appends LF. v0 does not declare RFC 8785 (JCS). The SEI JCS profile follows RFC 8785 and has no trailing newline. Both use SHA-256, but the same object yields different digests, at least because of the trailing LF. v1 should either adopt the JCS profile or declare its own representation profile identity.
+3. Digest text. Both sides use sha256:<64 lowercase hex>. MMI source identity (source-identity-contract-v1.md, representation source-file-bytes-v1) follows the same byte rule as sei.raw-bytes+sha256/v1alpha1.
+4. Provenance. v0 producer and provenance fields (§3) should map onto SEI adapter and mapping provenance without flattening source origin, derivation, and adapter version into one field.
+5. Confidence. The v0 non-goal "common scoring of product-specific confidence" (§11) agrees with ADR-0018 D4 and with SEI provider neutrality. v1 should keep it.
+
+Goal: avoid a third independent envelope in the family. Candidate outcomes are (a) keep v0/v1 as a payload contract that an SEI interchange envelope can carry as an extension record, (b) align v1 canonicalization with the JCS profile, or (c) keep both separate and publish a mapping. The choice belongs to v1 promotion and needs agreement from the second producer (excel-houganshi-normalizer).
+
+No dependency: MMI validators, adapters, and tests do not import SEI code or schemas. The check is a document comparison and, if needed, a fixture-level digest comparison.
+
+Evidence: design only. No cross-product run has been performed.
+
+See also: [SEI decision-semantics mapping](sei-decision-semantics-mapping.md) (Japanese) and [issue-0192](../01_Plans/issues/issue-0192-sei-decision-basis-table-binding.md).
