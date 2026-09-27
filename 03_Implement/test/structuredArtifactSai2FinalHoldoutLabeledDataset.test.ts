@@ -1,0 +1,7 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+const R=new URL('./fixtures/',import.meta.url),D='structured-artifact-sai2-final-holdout-labeled-candidate-dataset-v0.json',F='structured-artifact-sai2-final-holdout-mmi-candidate-local-features-v0.json';
+function j(n:string):any{return JSON.parse(readFileSync(new URL(n,R),'utf8'));}
+test('final holdout labels attach after frozen features without mutation',()=>{const d=j(D),f=j(F),fb=new Map(f.cases.map((x:any)=>[x.source_family_id,x]));assert.equal(d.rows.length,7);assert.equal(d.aggregate.positive_label_count,2);assert.equal(d.aggregate.negative_label_count,5);for(const row of d.rows){const fam:any=fb.get(row.source_family_id),c=fam.candidates.find((x:any)=>x.ordinal===row.candidate_ordinal);assert.deepEqual(row.portable_values,c.portable_values);assert.equal(row.label,row.label_provenance.exact_target_rectangle_match?1:0);}});
+test('labeled holdout remains unscored and winner immutable',()=>{const d=j(D);assert.equal(d.boundary.winner_candidate_id,'rules-v0');assert.equal(d.boundary.ranker_scoring_performed,false);assert.equal(d.boundary.ranker_refit_performed,false);assert.equal(d.boundary.winner_change_performed,false);});
