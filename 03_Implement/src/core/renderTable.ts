@@ -3,7 +3,13 @@ import { escapeHtml } from './html.js';
 import { columnToIndex, sliceRegion } from './tableGeometry.js';
 import { type WorkbookData } from './workbookLoader.js';
 
-export function renderEmbedTable(query: EmbedQuery, workbook: WorkbookData): string {
+export interface LogicalTable {
+  headers?: string[];
+  bodyRows: string[][];
+}
+
+/** The logical table of spec §6 (range → columns → transpose → header → grep), shared by every output format. */
+export function buildLogicalTable(query: EmbedQuery, workbook: WorkbookData): LogicalTable {
   const sheetName = query.target ?? Object.keys(workbook.sheets)[0];
   const sheet = workbook.sheets[sheetName];
 
@@ -17,7 +23,11 @@ export function renderEmbedTable(query: EmbedQuery, workbook: WorkbookData): str
   // where the corresponding display rectangle is actually materialised.
   const transformed = applyStructuralTransformations(query, sliceRegion(sheet, query.range));
   const { headers, bodyRows } = splitHeaderRows(transformed, query.params.get('header'));
-  const filteredBodyRows = applyRowFilters(query, bodyRows);
+  return { headers, bodyRows: applyRowFilters(query, bodyRows) };
+}
+
+export function renderEmbedTable(query: EmbedQuery, workbook: WorkbookData): string {
+  const { headers, bodyRows: filteredBodyRows } = buildLogicalTable(query, workbook);
   const highlightColumnIndex = resolveColumnSelector(query.params.get('highlightColumn'), headers);
   const highlightValue = query.params.get('highlightValue');
   const formatColumnSpecs = parseFormatColumns(query.params.getAll('formatColumn'), headers);
