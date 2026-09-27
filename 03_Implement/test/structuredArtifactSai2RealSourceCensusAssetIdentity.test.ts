@@ -14,7 +14,7 @@ function readJson(name: string): any {
   );
 }
 
-test('Census asset identities bind only frozen discovery-pool members', () => {
+test('Census metadata resolution remains bound to v0 pool members', () => {
   const discovery = readJson(DISCOVERY);
   const tranche = readJson(TRANCHE);
   const pool = new Map(
@@ -48,7 +48,7 @@ test('Census asset identities bind only frozen discovery-pool members', () => {
   }
 });
 
-test('Census identity resolution uses directory metadata without opening assets', () => {
+test('Census resolution never dereferenced an asset', () => {
   const tranche = readJson(TRANCHE);
 
   assert.equal(
@@ -58,39 +58,30 @@ test('Census identity resolution uses directory metadata without opening assets'
   for (const asset of tranche.assets) {
     assert.equal(asset.asset_dereferenced, false);
     assert.equal(asset.source_digest, null);
-    assert.equal(
-      asset.item_specific_terms_status,
-      'pending',
-    );
+    assert.equal(asset.item_specific_terms_status, 'pending');
   }
-  assert.deepEqual(tranche.aggregate, {
-    resolved_asset_identity_count: 5,
-    primary_count: 4,
-    reserve_count: 1,
-    asset_dereferenced_count: 0,
-    source_digest_count: 0,
-  });
+  assert.equal(tranche.aggregate.asset_dereferenced_count, 0);
+  assert.equal(tranche.aggregate.source_digest_count, 0);
 });
 
-test('partial identity tranche keeps all source-byte and evaluation gates closed', () => {
+test('v0-bound Census resolution is explicitly provisional until v1 mirror', () => {
   const tranche = readJson(TRANCHE);
 
-  assert.deepEqual(tranche.boundary, {
-    exact_asset_identity_resolution_performed: true,
-    item_specific_terms_review_completed: false,
-    source_bytes_opened: false,
-    workbook_structure_inspected: false,
-    sheet_selection_performed: false,
-    targets_authored: false,
-    candidate_generation_performed: false,
-    portable_feature_capture_performed: false,
-    real_source_winner_scoring_performed: false,
-    product_runtime_authority: false,
+  assert.equal(
+    tranche.authority_status,
+    'provisional_metadata_resolution_not_authoritative_for_source_open',
+  );
+  assert.equal(tranche.authoritative_for_source_open, false);
+  assert.deepEqual(tranche.correction_dependency, {
+    required_discovery_manifest_id:
+      'sai-2b-real-source-discovery-manifest-v1',
+    required_excel_exact_mirror: true,
+    revalidation_required_after_mirror: true,
+    workbook_bytes_opened_before_revalidation: false,
   });
   assert.deepEqual(tranche.next_gate, {
     name:
-      'resolve_remaining_19_asset_identities_and_complete_item_specific_terms_review',
-    remaining_asset_identity_count: 19,
+      'merge_discovery_v1_then_excel_exact_mirror_then_rebind_census_identity',
     source_byte_open_admitted: false,
     target_authoring_admitted: false,
     candidate_generation_admitted: false,
