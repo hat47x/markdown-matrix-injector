@@ -178,7 +178,7 @@ export async function retryFrozenMaterialization(args: {
     'sha256:' + createHash('sha256').update(bytes).digest('hex');
   entry.retrieved_at_utc = now();
   entry.binary_validation =
-    'pass_zip_container_structure_without_semantic_worksheet_inspection';
+    'pass_xlsx_package_entries_without_semantic_worksheet_inspection';
   entry.transport_evidence = {
     ...(entry.transport_evidence ?? {}),
     current_retry_outcome: 'payload_received_and_hashed',
@@ -245,6 +245,12 @@ export function validateZipContainer(
   if (eocd < 0) {
     return { ok: false, reason: 'zip_eocd_missing' };
   }
+  if (
+    view.getUint16(eocd + 4, true) !== 0
+    || view.getUint16(eocd + 6, true) !== 0
+  ) {
+    return { ok: false, reason: 'zip_multi_disk_not_supported' };
+  }
 
   const entryCount = view.getUint16(eocd + 10, true);
   const centralDirectorySize = view.getUint32(eocd + 12, true);
@@ -258,8 +264,49 @@ export function validateZipContainer(
   ) {
     return { ok: false, reason: 'zip_central_directory_bounds_invalid' };
   }
-  if (view.getUint32(centralDirectoryOffset, true) !== 0x02014b50) {
-    return { ok: false, reason: 'zip_central_directory_missing' };
+
+  const names = new Set<string>();
+  let offset = centralDirectoryOffset;
+  for (let index = 0; index < entryCount; index += 1) {
+    if (
+      offset + 46 > eocd
+      || view.getUint32(offset, true) !== 0x02014b50
+    ) {
+      return { ok: false, reason: 'zip_central_directory_entry_invalid' };
+    }
+    const nameLength = view.getUint16(offset + 28, true);
+    const extraLength = view.getUint16(offset + 30, true);
+    const commentLength = view.getUint16(offset + 32, true);
+    const nameStart = offset + 46;
+    const nameEnd = nameStart + nameLength;
+    if (nameEnd > eocd) {
+      return { ok: false, reason: 'zip_filename_bounds_invalid' };
+    }
+    names.add(
+      Buffer.from(
+        bytes.buffer,
+        bytes.byteOffset + nameStart,
+        nameLength,
+      ).toString('utf8'),
+    );
+    offset = nameEnd + extraLength + commentLength;
+  }
+
+  if (offset !== centralDirectoryOffset + centralDirectorySize) {
+    return { ok: false, reason: 'zip_central_directory_size_mismatch' };
+  }
+
+  for (const required of [
+    '[Content_Types].xml',
+    '_rels/.rels',
+    'xl/workbook.xml',
+  ]) {
+    if (!names.has(required)) {
+      return {
+        ok: false,
+        reason: 'xlsx_required_entry_missing:' + required,
+      };
+    }
   }
 
   return { ok: true };

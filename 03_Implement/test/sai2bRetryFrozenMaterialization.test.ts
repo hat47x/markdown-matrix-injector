@@ -30,23 +30,67 @@ function entry(): ProgressEntry {
   };
 }
 
-function tinyZip(): Uint8Array {
-  const bytes = new Uint8Array(30 + 46 + 22);
-  const view = new DataView(bytes.buffer);
-  view.setUint32(0, 0x04034b50, true);
-  view.setUint32(30, 0x02014b50, true);
-  const eocd = 76;
-  view.setUint32(eocd, 0x06054b50, true);
-  view.setUint16(eocd + 8, 1, true);
-  view.setUint16(eocd + 10, 1, true);
-  view.setUint32(eocd + 12, 46, true);
-  view.setUint32(eocd + 16, 30, true);
-  return bytes;
+function xlsxFrame(): Uint8Array {
+  const names = [
+    '[Content_Types].xml',
+    '_rels/.rels',
+    'xl/workbook.xml',
+  ];
+  const locals: Uint8Array[] = [];
+  const centrals: Uint8Array[] = [];
+  let localOffset = 0;
+
+  for (const name of names) {
+    const nameBytes = Buffer.from(name);
+    const local = new Uint8Array(30 + nameBytes.length);
+    const localView = new DataView(local.buffer);
+    localView.setUint32(0, 0x04034b50, true);
+    localView.setUint16(26, nameBytes.length, true);
+    local.set(nameBytes, 30);
+    locals.push(local);
+
+    const central = new Uint8Array(46 + nameBytes.length);
+    const centralView = new DataView(central.buffer);
+    centralView.setUint32(0, 0x02014b50, true);
+    centralView.setUint16(28, nameBytes.length, true);
+    centralView.setUint32(42, localOffset, true);
+    central.set(nameBytes, 46);
+    centrals.push(central);
+    localOffset += local.length;
+  }
+
+  const centralSize = centrals.reduce(
+    (sum, part) => sum + part.length,
+    0,
+  );
+  const eocd = new Uint8Array(22);
+  const eocdView = new DataView(eocd.buffer);
+  eocdView.setUint32(0, 0x06054b50, true);
+  eocdView.setUint16(8, names.length, true);
+  eocdView.setUint16(10, names.length, true);
+  eocdView.setUint32(12, centralSize, true);
+  eocdView.setUint32(16, localOffset, true);
+
+  const output = new Uint8Array(
+    localOffset + centralSize + eocd.length,
+  );
+  let offset = 0;
+  for (const part of [...locals, ...centrals, eocd]) {
+    output.set(part, offset);
+    offset += part.length;
+  }
+  return output;
 }
 
-test('ZIP validation is structural only and accepts a minimal readable container', () => {
-  assert.deepEqual(validateZipContainer(tinyZip()), { ok: true });
+test('XLSX validation requires OOXML package entries without worksheet semantics', () => {
+  assert.deepEqual(validateZipContainer(xlsxFrame()), { ok: true });
   assert.equal(validateZipContainer(new Uint8Array(10)).ok, false);
+
+  const generic = xlsxFrame();
+  const marker = Buffer.from('xl/workbook.xml');
+  const markerOffset = Buffer.from(generic).lastIndexOf(marker);
+  generic.set(Buffer.alloc(marker.length, 0x78), markerOffset);
+  assert.equal(validateZipContainer(generic).ok, false);
 });
 
 test('retry uses the exact frozen URL and records a successful binary hash', async () => {
@@ -56,7 +100,7 @@ test('retry uses the exact frozen URL and records a successful binary hash', asy
     now: () => '2026-09-28T00:00:00.000Z',
     fetchImpl: async (url) => {
       seen.push(url);
-      return new Response(tinyZip(), {
+      return new Response(xlsxFrame(), {
         status: 200,
         headers: {
           'content-type':
@@ -70,11 +114,11 @@ test('retry uses the exact frozen URL and records a successful binary hash', asy
   assert.equal(outcome.decision, 'succeeded');
   assert.equal(outcome.entry.status, 'succeeded');
   assert.equal(outcome.entry.attempt_count, 2);
-  assert.equal(outcome.entry.byte_size, tinyZip().byteLength);
+  assert.equal(outcome.entry.byte_size, xlsxFrame().byteLength);
   assert.match(outcome.entry.sha256 ?? '', /^sha256:[0-9a-f]{64}$/u);
   assert.equal(
     outcome.entry.binary_validation,
-    'pass_zip_container_structure_without_semantic_worksheet_inspection',
+    'pass_xlsx_package_entries_without_semantic_worksheet_inspection',
   );
   assert.equal(outcome.entry.workbook_semantic_inspection_performed, false);
 });
@@ -138,7 +182,7 @@ test('successful retry opens only the next fixed Stage-A ordinal', async () => {
   const outcome = await retryFrozenMaterialization({
     entry: entry(),
     fetchImpl: async () =>
-      new Response(tinyZip(), { status: 200 }),
+      new Response(xlsxFrame(), { status: 200 }),
   });
   const progress = {
     entries: [
