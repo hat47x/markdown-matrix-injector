@@ -243,3 +243,35 @@ test('SAI-2A candidate ordering and OOD limits are frozen before materialization
   assert.equal(generator.overflow_policy, 'generator_ood_and_abstain');
   assert.equal(generator.empty_source_policy, 'generator_ood_and_abstain');
 });
+
+
+test('SAI-2A title exclusion matches source-only regionDetector semantics', () => {
+  const prereg = readJson(PREREG);
+  const title =
+    prereg.candidate_generator.title_exclusion;
+
+  assert.deepEqual(title, {
+    candidate_range_excludes_recognized_title: true,
+    detached: {
+      max_blank_rows_between: 1,
+      require_column_overlap: true,
+      singleton_cell_or_single_covering_merge: true,
+    },
+    glued: {
+      first_row_singleton_cell_or_single_covering_merge: true,
+      minimum_second_row_occupied_cells: 2,
+      require_multirow_multicolumn_block: true,
+    },
+    text_semantics_used: false,
+  });
+  assert.equal(
+    prereg.excluded_inputs.includes('title_text'),
+    true,
+  );
+  assert.equal(
+    prereg.deferred_unvalidated_inputs.includes(
+      'detector.title_present',
+    ),
+    true,
+  );
+});
