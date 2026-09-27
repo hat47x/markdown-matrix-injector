@@ -1,0 +1,96 @@
+---
+name: mmi
+description: >
+  Excel・CSV・TSV・XML Spreadsheet 2003の表を、Markdownの設計書へ写さずにMMI参照（![[...]]）で載せる。
+  設計書・仕様書・試験書などで表を扱うとき、正本のExcel/CSVを参照して章を書くとき、
+  mmi inspect / check / render を使うとき、`![[...]]`を含むMarkdownを編集するときに使う。
+---
+
+# MMI: 表は写さず、正本を参照する
+
+MMIの参照は、Excel・CSVなどの正本から必要な表だけをMarkdownへ描く。表の値は正本から描かれるため、転記誤りと更新漏れが起きない。
+
+## 必ず守ること
+
+- **表の値を本文へ写さない。** 正本にある表は`![[...]]`で参照する。Markdownの表を手で書いてよいのは、正本が存在しない表だけ。
+- **正本を編集しない。** Excel・CSVを書き換えたり、作り直したりしない。正本に誤りがあれば、利用者に報告する。
+- **推測で参照を書かない。** 先に`mmi inspect`でシート名・範囲・見出しを確かめる。
+- **`mmi check`がエラー0件になるまで直す。** エラーが残ったまま完了と報告しない。
+- **記法で表せない依頼を言い換えない。** 集計・計算・複数条件の絞り込みはMMIではできない。正本側で集計シートを作るよう提案するか、できないと報告する。`grep`は部分一致の絞り込みにすぎない。
+- **正本の値を必要以上にAIへ渡さない。** `inspect`は既定で構造だけを返す。値が必要なときだけ`--values`を使い、利用者の組織の規則に従う。
+
+## 作業の順序
+
+1. **目録を見る。**
+   ```sh
+   mmi inspect masters/設計.xlsx --from docs/基本設計書.md
+   ```
+   シートごとの表の範囲、見出し、行数と、そのまま使える参照の例が出る。`--from`で書き込む文書を指定すると、参照のパスがその文書からの相対パスになる。`--json`で機械可読になる。
+2. **参照を書く。** 本文を起案し、表は参照で置く。必要な列と行だけに絞る。
+3. **検証する。**
+   ```sh
+   mmi check docs/
+   ```
+   `ファイル:行:列 error コード メッセージ`の形で出る。終了コードは、エラーがあれば1。
+4. **読み戻す。**
+   ```sh
+   mmi render docs/基本設計書.md
+   ```
+   参照を展開したMarkdownが出る。本文の主張（「承認できるのは承認者のみ」など）が表と矛盾しないか確かめる。
+5. **報告する。** 使った正本、参照した範囲、`check`の結果、本文と表の確認結果を利用者に伝える。
+
+`mmi`コマンドが無い場合は、MMIリポジトリの`03_Implement`で`npm run mmi -- <command> ...`を使う。
+
+## 記法
+
+```md
+![[<パス>#<シート>|<範囲>?<パラメータ>]]
+```
+
+- パスは参照元の文書からの相対パス。ワークスペースの外、URLは参照できない。
+- シート名は必ず書く。CSV・TSVのシート名は`Sheet1`。シート名を省くと表にならず別紙カードになる。
+- 範囲はA1形式（`A1:F13`）。`inspect`が示した範囲を使う。
+- 参照は1行に1つ、前後を空行にする。Markdownの表の中には置かない（`|`が衝突する）。
+
+| パラメータ | 意味 | 例 |
+| --- | --- | --- |
+| `header` | 見出し行。`first`、行番号、`none` | `header=first` |
+| `columns` | 表示する列（原本の列記号） | `columns=A,C,F` |
+| `grep` | いずれかのセルに部分一致する行だけ（大文字小文字を区別しない） | `grep=要確認` |
+| `transpose` | 行と列を入れ替える | `transpose=true` |
+| `caption` | 表題 | `caption=表4-1　役割別の権限` |
+| `id` | 相互参照用のID | `id=permissions` |
+| `highlightColumn`・`highlightValue` | 一致する行を強調する | `highlightColumn=状態&highlightValue=要確認` |
+| `formatColumn` | 列をコード表示にする | `formatColumn=E:json` |
+| `mode` | `table`または`card`（別紙） | `mode=card` |
+| `pageBreak`・`orientation` | 印刷時の改ページ・用紙の向き | `pageBreak=before&orientation=landscape` |
+
+処理の順序は「範囲 → columns → transpose → header → grep」。`columns`は見出し名ではなく列記号で指定する。
+**`grep`は`columns`で残した列だけを探す。** 絞り込みに使う語を含む列（画面IDなど）を`columns`で落とすと、表が空になる。`render`で行が出ているか必ず確かめる。
+列が10を超える、またはセルが500を超える表は、自動で別紙カードになる。必要な列と行だけに絞るか、別紙として扱う。
+
+例:
+
+```md
+承認者が操作できる範囲を表4-2に示す。
+
+![[../masters/設計.xlsx#権限|A1:F13?header=first&columns=A,B,D&caption=表4-2　承認者の操作]]
+```
+
+## 診断コード
+
+| コード | 意味 | 直し方 |
+| --- | --- | --- |
+| `MMI_FILE_NOT_FOUND` | ファイルが無い | パスを参照元の文書からの相対で直す。`inspect`の`--from`を使う |
+| `MMI_PATH_OUTSIDE_BOUNDARY` | ワークスペースの外 | ワークスペース内の正本を使う。外の正本は利用者に相談する |
+| `MMI_SHEET_NOT_FOUND` | シートが無い | `inspect`が示したシート名を使う |
+| `MMI_INVALID_XML` | XML Spreadsheet 2003でない | 対応形式の正本を使う |
+| `MMI_INVALID_PARAM_VALUE` | パラメータの値が不正 | 上の表の値に直す |
+| `MMI_UNKNOWN_PARAM` | 知らないパラメータ | 綴りを直す |
+
+## 納品
+
+- PDF: `mmi render 文書.md --to html -o 文書.html`の後、HTMLをPDFへ変換する（確認済みの経路はWeasyPrint）。
+- 別紙の一覧: `mmi manifest 文書.md -o 文書.delivery-manifest.csv`
+
+仕様の正本は[MMI Notation v1](https://github.com/hat47x/markdown-matrix-injector/blob/main/04_Documentation/spec/mmi-notation-v1.md)。

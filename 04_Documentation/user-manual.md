@@ -151,6 +151,29 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 **元データのコピーやZIP化は行いません。** 一覧を見ながら、別紙を納品フォルダーへまとめます。
 同名の一覧は再実行すると上書きされるため、手作業で追記した内容を残す場合は先に別名で保存してください。
 
+## コマンドで使う
+
+`mmi`コマンドは、VS Codeを開かずに参照の確認・展開を行います。AIエージェントに設計書を書かせるとき、CIで参照を検証するときに使います。どのコマンドも元データを書き換えず、`-o`を指定したときだけファイルへ書き出します。
+
+| コマンド | 内容 |
+| --- | --- |
+| `mmi inspect <正本>` | シートごとの表の範囲・見出し・行数と、そのまま使える参照の例を表示。既定ではセル値を出さない（`--values 3`で先頭3行を表示） |
+| `mmi check <文書またはフォルダー>` | 参照の誤りを「問題」パネルと同じ診断コードで表示。誤りがあれば終了コード1 |
+| `mmi render <文書>` | 参照を展開したMarkdownを出力。`--to html`でPDF変換用のHTML |
+| `mmi manifest <文書>` | 別紙カードになる参照の一覧をCSVで出力 |
+
+参照を検証する範囲（ワークスペース）は、実行したフォルダーです。`--root`で変えられます。`--json`を付けると機械可読な出力になります。
+
+現在はNode.js 20以上と、リポジトリの`03_Implement`での`npm ci`が必要です。実行例です。
+
+```bash
+cd 03_Implement
+npm run build
+node dist/src/cli/mmi.js check ../04_Documentation/kits/basic-design --root ../04_Documentation/kits/basic-design
+```
+
+AIエージェントに使わせる場合は、[AI向け指示](../skills/mmi/SKILL.md)を読ませ、[基本設計書キット](kits/basic-design/README.md)の依頼例から始めてください。
+
 ## PDFを作る
 
 MMIはプレビュー用のHTMLとCSSを生成します。PDFへの変換は別の生成器を使います。
@@ -163,7 +186,7 @@ MMIはプレビュー用のHTMLとCSSを生成します。PDFへの変換は別�
 開発環境を使える方は、リポジトリの`03_Implement`で実行します。
 
 ```bash
-node --import tsx scripts/render-document.ts ../04_Documentation/samples/practical/10-print.md ../04_Documentation/samples/practical/10-print.html
+npm run mmi -- render ../04_Documentation/samples/practical/10-print.md --to html -o ../04_Documentation/samples/practical/10-print.html --root ../04_Documentation/samples/practical
 weasyprint ../04_Documentation/samples/practical/10-print.html ../04_Documentation/samples/practical/10-print.pdf
 ```
 
