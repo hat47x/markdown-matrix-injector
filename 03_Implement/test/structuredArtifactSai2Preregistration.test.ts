@@ -191,3 +191,55 @@ test('SAI-2A metrics separate candidate coverage from ranking quality', () => {
     'p95_latency_ms',
   ]);
 });
+
+test('SAI-2A ranking inputs are limited to already portable evidence until candidate-local parity', () => {
+  const prereg = readJson(PREREG);
+
+  assert.deepEqual(prereg.portable_ranking_inputs, [
+    'region.row_count',
+    'region.col_count',
+    'geometry.non_empty_ratio',
+    'geometry.merged_cell_count',
+    'role.body_candidate_signal',
+  ]);
+  assert.deepEqual(prereg.deferred_unvalidated_inputs, [
+    'detector.header_confidence',
+    'detector.title_present',
+    'detector.reason.single_row',
+    'detector.reason.single_column',
+    'detector.reason.contains_merged_cells',
+  ]);
+  assert.deepEqual(prereg.ranking_input_contract, {
+    status: 'provisional_until_candidate_local_cross_producer_parity',
+    unvalidated_inputs_must_not_enter_fit_or_scoring: true,
+  });
+});
+
+test('SAI-2A inherits SAI-1 closeout without satisfying the real-source admission gate', () => {
+  const prereg = readJson(PREREG);
+
+  assert.deepEqual(prereg.upstream_sai1, {
+    closeout_id: 'sai-1-synthetic-research-closeout-v0',
+    closeout_ref:
+      '03_Implement/test/fixtures/structured-artifact-sai1-research-closeout-v0.json',
+    closeout_git_blob_sha:
+      'f151075737b67db3477891864e737008f9b1256e',
+    runtime_admission_next_gate:
+      'real_source_external_validity_preregistration',
+    runtime_admission_remains_blocked: true,
+    sai2_research_does_not_satisfy_external_validity_gate: true,
+  });
+});
+
+test('SAI-2A candidate ordering and OOD limits are frozen before materialization', () => {
+  const prereg = readJson(PREREG);
+  const generator = prereg.candidate_generator;
+
+  assert.equal(generator.coordinate_system, 'one_based_inclusive');
+  assert.deepEqual(generator.stable_order, [
+    'row_start', 'col_start', 'row_end', 'col_end',
+  ]);
+  assert.equal(generator.max_unique_candidates, 32);
+  assert.equal(generator.overflow_policy, 'generator_ood_and_abstain');
+  assert.equal(generator.empty_source_policy, 'generator_ood_and_abstain');
+});
