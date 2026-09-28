@@ -499,3 +499,37 @@ test('offline handoff accepts a continuous redirect chain ending at final_url', 
   assert.equal(outcome.entry.final_url, receipt.final_url);
   assert.deepEqual(outcome.entry.redirect_chain, receipt.redirect_chain);
 });
+
+
+test('offline handoff rejects WHATWG-normalizable URLs outside frozen HTTPS pattern', () => {
+  const bytes = xlsxFrame();
+
+  assert.throws(
+    () => retryFrozenMaterializationFromBytes({
+      entry: entry(),
+      bytes,
+      receipt: {
+        ...offlineReceipt(),
+        final_url: 'https:example.test/frozen.xlsx',
+      },
+    }),
+    /final_url must be an HTTPS URL/u,
+  );
+
+  assert.throws(
+    () => retryFrozenMaterializationFromBytes({
+      entry: entry(),
+      bytes,
+      receipt: {
+        ...offlineReceipt(),
+        final_url: 'https://example.test/final.xlsx',
+        redirect_chain: [{
+          status: 302,
+          from: 'https://example.test/frozen.xlsx',
+          to: 'https:/example.test/final.xlsx',
+        }],
+      },
+    }),
+    /redirect_chain must match the frozen schema/u,
+  );
+});

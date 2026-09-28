@@ -80,11 +80,15 @@ const OFFLINE_RECEIPT_FIELDS = [
 ] as const;
 
 function isHttpsUrl(value: unknown): value is string {
-  if (typeof value !== 'string') {
+  if (
+    typeof value !== 'string'
+    || !value.startsWith('https://')
+  ) {
     return false;
   }
   try {
-    return new URL(value).protocol === 'https:';
+    const parsed = new URL(value);
+    return parsed.protocol === 'https:' && parsed.hostname.length > 0;
   } catch {
     return false;
   }
