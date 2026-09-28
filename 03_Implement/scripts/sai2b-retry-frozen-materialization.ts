@@ -146,6 +146,30 @@ function assertOfflineReceiptSchemaShape(
   }
 }
 
+
+function assertOfflineReceiptRedirectProvenance(
+  receipt: OfflinePayloadReceipt,
+): void {
+  let expectedFrom = receipt.request_url;
+  for (const hop of receipt.redirect_chain as Array<{
+    status: number;
+    from: string;
+    to: string;
+  }>) {
+    if (hop.from !== expectedFrom) {
+      throw new Error(
+        'Offline receipt redirect_chain must be continuous from the frozen request URL.',
+      );
+    }
+    expectedFrom = hop.to;
+  }
+  if (receipt.final_url !== expectedFrom) {
+    throw new Error(
+      'Offline receipt final_url must equal the terminal frozen redirect URL.',
+    );
+  }
+}
+
 export async function retryFrozenMaterialization(args: {
   entry: ProgressEntry;
   fetchImpl?: FetchLike;
@@ -330,6 +354,7 @@ export function retryFrozenMaterializationFromBytes(args: {
       'Offline receipt request_url must exactly match the frozen request URL.',
     );
   }
+  assertOfflineReceiptRedirectProvenance(args.receipt);
   if (
     !Number.isInteger(args.receipt.http_status)
     || args.receipt.http_status < 200
