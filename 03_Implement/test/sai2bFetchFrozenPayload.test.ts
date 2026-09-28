@@ -42,3 +42,12 @@ test('offline fetch helper does not substitute the request identity', () => {
   assert.doesNotMatch(script, /fallback/u);
   assert.doesNotMatch(script, /alternate/u);
 });
+
+
+test('offline fetch helper fail-closes before following a non-HTTPS redirect', () => {
+  assert.match(
+    script,
+    /new URL\(nextUrl\)\.protocol !== 'https:'/u,
+  );
+  assert.match(script, /redirect_non_https_target/u);
+});

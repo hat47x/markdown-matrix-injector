@@ -81,6 +81,11 @@ async function main(): Promise<void> {
       );
     }
     const nextUrl = new URL(location, currentUrl).toString();
+    if (new URL(nextUrl).protocol !== 'https:') {
+      throw new Error(
+        'redirect_non_https_target url=' + nextUrl,
+      );
+    }
     redirectChain.push({
       status: response.status,
       from: currentUrl,
