@@ -404,3 +404,98 @@ test('offline handoff rejects receipts outside the frozen schema shape', () => {
     /exactly the frozen schema fields/u,
   );
 });
+
+
+test('offline handoff rejects redirect provenance that is not continuous from the frozen request', () => {
+  const bytes = xlsxFrame();
+  const requestUrl = 'https://example.test/frozen.xlsx';
+
+  assert.throws(
+    () => retryFrozenMaterializationFromBytes({
+      entry: entry(),
+      bytes,
+      receipt: {
+        ...offlineReceipt(),
+        final_url: 'https://example.test/final.xlsx',
+        redirect_chain: [{
+          status: 302,
+          from: 'https://example.test/unrelated.xlsx',
+          to: 'https://example.test/final.xlsx',
+        }],
+      },
+    }),
+    /continuous from the frozen request URL/u,
+  );
+
+  assert.throws(
+    () => retryFrozenMaterializationFromBytes({
+      entry: entry(),
+      bytes,
+      receipt: {
+        ...offlineReceipt(),
+        final_url: 'https://example.test/final.xlsx',
+        redirect_chain: [
+          {
+            status: 302,
+            from: requestUrl,
+            to: 'https://example.test/hop-1.xlsx',
+          },
+          {
+            status: 302,
+            from: 'https://example.test/gap.xlsx',
+            to: 'https://example.test/final.xlsx',
+          },
+        ],
+      },
+    }),
+    /continuous from the frozen request URL/u,
+  );
+
+  assert.throws(
+    () => retryFrozenMaterializationFromBytes({
+      entry: entry(),
+      bytes,
+      receipt: {
+        ...offlineReceipt(),
+        final_url: 'https://example.test/not-the-terminal-hop.xlsx',
+        redirect_chain: [{
+          status: 302,
+          from: requestUrl,
+          to: 'https://example.test/terminal.xlsx',
+        }],
+      },
+    }),
+    /final_url must equal the terminal frozen redirect URL/u,
+  );
+});
+
+test('offline handoff accepts a continuous redirect chain ending at final_url', () => {
+  const bytes = xlsxFrame();
+  const requestUrl = 'https://example.test/frozen.xlsx';
+  const receipt: OfflinePayloadReceipt = {
+    ...offlineReceipt(),
+    final_url: 'https://example.test/final.xlsx',
+    redirect_chain: [
+      {
+        status: 302,
+        from: requestUrl,
+        to: 'https://example.test/hop-1.xlsx',
+      },
+      {
+        status: 307,
+        from: 'https://example.test/hop-1.xlsx',
+        to: 'https://example.test/final.xlsx',
+      },
+    ],
+  };
+
+  const outcome = retryFrozenMaterializationFromBytes({
+    entry: entry(),
+    bytes,
+    receipt,
+  });
+
+  assert.equal(outcome.decision, 'succeeded');
+  assert.equal(outcome.entry.final_url, receipt.final_url);
+  assert.deepEqual(outcome.entry.redirect_chain, receipt.redirect_chain);
+});
