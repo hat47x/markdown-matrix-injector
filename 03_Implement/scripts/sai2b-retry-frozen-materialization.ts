@@ -42,6 +42,15 @@ export type MaterializeOutcome = {
     | 'materialization_failure';
 };
 
+export type OfflinePayloadReceipt = {
+  request_url: string;
+  final_url: string;
+  redirect_chain: unknown[];
+  http_status: number;
+  content_type: string | null;
+  retrieved_at_utc: string;
+};
+
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const MAX_REDIRECTS = 10;
 
@@ -188,6 +197,90 @@ export async function retryFrozenMaterialization(args: {
   return {
     entry,
     bytes,
+    decision: 'succeeded',
+  };
+}
+
+export function retryFrozenMaterializationFromBytes(args: {
+  entry: ProgressEntry;
+  bytes: Uint8Array;
+  receipt: OfflinePayloadReceipt;
+}): MaterializeOutcome {
+  const entry = structuredClone(args.entry);
+
+  if (
+    entry.status !== 'transport_retry_pending'
+    || !entry.resolved_request_url_or_identity
+  ) {
+    throw new Error(
+      'Offline Stage-A ingest requires a transport_retry_pending entry with a frozen request URL.',
+    );
+  }
+  if (
+    args.receipt.request_url
+    !== entry.resolved_request_url_or_identity
+  ) {
+    throw new Error(
+      'Offline receipt request_url must exactly match the frozen request URL.',
+    );
+  }
+  if (
+    !Number.isInteger(args.receipt.http_status)
+    || args.receipt.http_status < 200
+    || args.receipt.http_status >= 300
+  ) {
+    throw new Error(
+      'Offline payload ingest accepts only a successful 2xx transport receipt.',
+    );
+  }
+  if (!args.receipt.final_url) {
+    throw new Error('Offline receipt final_url is required.');
+  }
+  if (!Array.isArray(args.receipt.redirect_chain)) {
+    throw new Error('Offline receipt redirect_chain must be an array.');
+  }
+  if (
+    !args.receipt.retrieved_at_utc
+    || Number.isNaN(Date.parse(args.receipt.retrieved_at_utc))
+  ) {
+    throw new Error(
+      'Offline receipt retrieved_at_utc must be a valid timestamp.',
+    );
+  }
+
+  const validation = validateZipContainer(args.bytes);
+  if (!validation.ok) {
+    throw new Error(
+      'Offline payload validation failed without classifying a source failure: '
+      + validation.reason,
+    );
+  }
+
+  entry.attempt_count += 1;
+  entry.status = 'succeeded';
+  entry.redirect_chain = structuredClone(args.receipt.redirect_chain);
+  entry.final_url = args.receipt.final_url;
+  entry.http_status = args.receipt.http_status;
+  entry.content_type = args.receipt.content_type;
+  entry.byte_size = args.bytes.byteLength;
+  entry.sha256 =
+    'sha256:' + createHash('sha256').update(args.bytes).digest('hex');
+  entry.retrieved_at_utc = args.receipt.retrieved_at_utc;
+  entry.binary_validation =
+    'pass_xlsx_package_entries_without_semantic_worksheet_inspection';
+  entry.workbook_semantic_inspection_performed = false;
+  delete entry.materialization_failure_reason;
+  entry.transport_evidence = {
+    ...(entry.transport_evidence ?? {}),
+    current_retry_outcome: 'offline_payload_ingested_and_hashed',
+    acquisition_mode: 'offline_handoff_receipt',
+    receipt_request_url_verified: true,
+    source_materialization_failure_reason_applied: null,
+  };
+
+  return {
+    entry,
+    bytes: args.bytes,
     decision: 'succeeded',
   };
 }
@@ -429,7 +522,7 @@ function parseArgs(argv: string[]): Map<string, string> {
     const value = argv[index + 1];
     if (!key?.startsWith('--') || value === undefined) {
       throw new Error(
-        'Usage: --progress <json> --snapshot-out <json> --payload-out <xlsx>',
+        'Usage: --progress <json> --snapshot-out <json> --payload-out <xlsx> [--payload-in <xlsx> --receipt-in <json>]',
       );
     }
     result.set(key.slice(2), value);
@@ -442,9 +535,11 @@ async function main(): Promise<void> {
   const progressPath = args.get('progress');
   const snapshotOut = args.get('snapshot-out');
   const payloadOut = args.get('payload-out');
+  const payloadIn = args.get('payload-in');
+  const receiptIn = args.get('receipt-in');
   if (!progressPath || !snapshotOut || !payloadOut) {
     throw new Error(
-      'Usage: --progress <json> --snapshot-out <json> --payload-out <xlsx>',
+      'Usage: --progress <json> --snapshot-out <json> --payload-out <xlsx> [--payload-in <xlsx> --receipt-in <json>]',
     );
   }
 
@@ -461,9 +556,21 @@ async function main(): Promise<void> {
     );
   }
 
-  const outcome = await retryFrozenMaterialization({
-    entry: retryEntries[0],
-  });
+  if (Boolean(payloadIn) !== Boolean(receiptIn)) {
+    throw new Error(
+      '--payload-in and --receipt-in must be provided together.',
+    );
+  }
+
+  const outcome = payloadIn && receiptIn
+    ? retryFrozenMaterializationFromBytes({
+        entry: retryEntries[0],
+        bytes: new Uint8Array(readFileSync(resolve(payloadIn))),
+        receipt: JSON.parse(readFileSync(resolve(receiptIn), 'utf8')),
+      })
+    : await retryFrozenMaterialization({
+        entry: retryEntries[0],
+      });
   const next = applyOutcomeToProgress(progress, outcome);
 
   mkdirSync(dirname(resolve(snapshotOut)), { recursive: true });

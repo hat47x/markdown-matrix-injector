@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 import {
   applyOutcomeToProgress,
   retryFrozenMaterialization,
+  retryFrozenMaterializationFromBytes,
   validateZipContainer,
+  type OfflinePayloadReceipt,
   type ProgressEntry,
 } from '../scripts/sai2b-retry-frozen-materialization.js';
 
@@ -208,4 +210,66 @@ test('successful retry opens only the next fixed Stage-A ordinal', async () => {
   assert.equal(next.next_gate.source_id, 'second');
   assert.equal(next.next_gate.candidate_generation_admitted, false);
   assert.equal(next.next_gate.scoring_admitted, false);
+});
+
+
+function offlineReceipt(
+  requestUrl = 'https://example.test/frozen.xlsx',
+): OfflinePayloadReceipt {
+  return {
+    request_url: requestUrl,
+    final_url: requestUrl,
+    redirect_chain: [],
+    http_status: 200,
+    content_type:
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    retrieved_at_utc: '2026-09-28T03:00:00.000Z',
+  };
+}
+
+test('offline handoff hashes a validated payload only when receipt matches the frozen request', () => {
+  const outcome = retryFrozenMaterializationFromBytes({
+    entry: entry(),
+    bytes: xlsxFrame(),
+    receipt: offlineReceipt(),
+  });
+
+  assert.equal(outcome.decision, 'succeeded');
+  assert.equal(outcome.entry.status, 'succeeded');
+  assert.equal(outcome.entry.attempt_count, 2);
+  assert.equal(outcome.entry.final_url, 'https://example.test/frozen.xlsx');
+  assert.equal(outcome.entry.http_status, 200);
+  assert.equal(outcome.entry.byte_size, xlsxFrame().byteLength);
+  assert.match(outcome.entry.sha256 ?? '', /^sha256:[0-9a-f]{64}$/u);
+  assert.equal(
+    outcome.entry.transport_evidence?.acquisition_mode,
+    'offline_handoff_receipt',
+  );
+  assert.equal(
+    outcome.entry.transport_evidence?.receipt_request_url_verified,
+    true,
+  );
+  assert.equal(outcome.entry.workbook_semantic_inspection_performed, false);
+});
+
+test('offline handoff rejects a receipt for any URL other than the frozen request', () => {
+  assert.throws(
+    () => retryFrozenMaterializationFromBytes({
+      entry: entry(),
+      bytes: xlsxFrame(),
+      receipt: offlineReceipt('https://example.test/other.xlsx'),
+    }),
+    /exactly match the frozen request URL/u,
+  );
+});
+
+test('offline handoff rejects invalid bytes without classifying a source failure', () => {
+  assert.throws(
+    () => retryFrozenMaterializationFromBytes({
+      entry: entry(),
+      bytes: new Uint8Array([1, 2, 3]),
+      receipt: offlineReceipt(),
+    }),
+    /without classifying a source failure/u,
+  );
 });
