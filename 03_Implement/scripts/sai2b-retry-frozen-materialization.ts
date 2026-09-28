@@ -65,6 +65,86 @@ const OFFLINE_ACCEPTED_CONTENT_TYPES = new Set([
   'application/zip',
   'application/octet-stream',
 ]);
+const OFFLINE_RECEIPT_FIELDS = [
+  'schema',
+  'source_id',
+  'request_url',
+  'final_url',
+  'redirect_chain',
+  'http_status',
+  'content_type',
+  'byte_size',
+  'sha256',
+  'retrieved_at_utc',
+  'workbook_semantic_inspection_performed',
+] as const;
+
+function isHttpsUrl(value: unknown): value is string {
+  if (typeof value !== 'string') {
+    return false;
+  }
+  try {
+    return new URL(value).protocol === 'https:';
+  } catch {
+    return false;
+  }
+}
+
+function isSchemaConformantRedirectChain(value: unknown): boolean {
+  if (!Array.isArray(value) || value.length > MAX_REDIRECTS) {
+    return false;
+  }
+  return value.every((item) => {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      return false;
+    }
+    const record = item as Record<string, unknown>;
+    const keys = Object.keys(record).sort();
+    if (
+      keys.length !== 3
+      || keys[0] !== 'from'
+      || keys[1] !== 'status'
+      || keys[2] !== 'to'
+    ) {
+      return false;
+    }
+    return REDIRECT_STATUSES.has(record.status as number)
+      && isHttpsUrl(record.from)
+      && isHttpsUrl(record.to);
+  });
+}
+
+function assertOfflineReceiptSchemaShape(
+  receipt: OfflinePayloadReceipt,
+): void {
+  const keys = Object.keys(receipt).sort();
+  const expected = [...OFFLINE_RECEIPT_FIELDS].sort();
+  if (
+    keys.length !== expected.length
+    || keys.some((key, index) => key !== expected[index])
+  ) {
+    throw new Error(
+      'Offline receipt must contain exactly the frozen schema fields.',
+    );
+  }
+  if (!isHttpsUrl(receipt.final_url)) {
+    throw new Error('Offline receipt final_url must be an HTTPS URL.');
+  }
+  if (!isSchemaConformantRedirectChain(receipt.redirect_chain)) {
+    throw new Error(
+      'Offline receipt redirect_chain must match the frozen schema.',
+    );
+  }
+  if (
+    typeof receipt.retrieved_at_utc !== 'string'
+    || !receipt.retrieved_at_utc.endsWith('Z')
+    || Number.isNaN(Date.parse(receipt.retrieved_at_utc))
+  ) {
+    throw new Error(
+      'Offline receipt retrieved_at_utc must be a valid UTC Z timestamp.',
+    );
+  }
+}
 
 export async function retryFrozenMaterialization(args: {
   entry: ProgressEntry;
@@ -228,6 +308,7 @@ export function retryFrozenMaterializationFromBytes(args: {
       'Offline Stage-A ingest requires a transport_retry_pending entry with a frozen request URL.',
     );
   }
+  assertOfflineReceiptSchemaShape(args.receipt);
   if (args.receipt.schema !== OFFLINE_PAYLOAD_RECEIPT_SCHEMA) {
     throw new Error('Offline receipt schema is not supported.');
   }
@@ -258,9 +339,6 @@ export function retryFrozenMaterializationFromBytes(args: {
       'Offline payload ingest accepts only a successful 2xx transport receipt.',
     );
   }
-  if (!args.receipt.final_url) {
-    throw new Error('Offline receipt final_url is required.');
-  }
   const mediaType = args.receipt.content_type
     .split(';', 1)[0]
     ?.trim()
@@ -268,17 +346,6 @@ export function retryFrozenMaterializationFromBytes(args: {
   if (!mediaType || !OFFLINE_ACCEPTED_CONTENT_TYPES.has(mediaType)) {
     throw new Error(
       'Offline receipt content_type is not an accepted XLSX transport type.',
-    );
-  }
-  if (!Array.isArray(args.receipt.redirect_chain)) {
-    throw new Error('Offline receipt redirect_chain must be an array.');
-  }
-  if (
-    !args.receipt.retrieved_at_utc
-    || Number.isNaN(Date.parse(args.receipt.retrieved_at_utc))
-  ) {
-    throw new Error(
-      'Offline receipt retrieved_at_utc must be a valid timestamp.',
     );
   }
 

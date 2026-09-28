@@ -347,3 +347,60 @@ test('offline handoff rejects semantic inspection and invalid bytes without sour
     /without classifying a source failure/u,
   );
 });
+
+
+test('offline handoff rejects receipts outside the frozen schema shape', () => {
+  const bytes = xlsxFrame();
+
+  assert.throws(
+    () => retryFrozenMaterializationFromBytes({
+      entry: entry(),
+      bytes,
+      receipt: {
+        ...offlineReceipt(),
+        retrieved_at_utc: '2026-09-28T03:00:00+00:00',
+      },
+    }),
+    /UTC Z timestamp/u,
+  );
+
+  assert.throws(
+    () => retryFrozenMaterializationFromBytes({
+      entry: entry(),
+      bytes,
+      receipt: {
+        ...offlineReceipt(),
+        final_url: 'http://example.test/frozen.xlsx',
+      },
+    }),
+    /final_url must be an HTTPS URL/u,
+  );
+
+  assert.throws(
+    () => retryFrozenMaterializationFromBytes({
+      entry: entry(),
+      bytes,
+      receipt: {
+        ...offlineReceipt(),
+        redirect_chain: Array.from({ length: 11 }, () => ({
+          status: 302,
+          from: 'https://example.test/a',
+          to: 'https://example.test/b',
+        })),
+      },
+    }),
+    /redirect_chain must match/u,
+  );
+
+  assert.throws(
+    () => retryFrozenMaterializationFromBytes({
+      entry: entry(),
+      bytes,
+      receipt: {
+        ...offlineReceipt(),
+        unexpected: true,
+      } as unknown as OfflinePayloadReceipt,
+    }),
+    /exactly the frozen schema fields/u,
+  );
+});
