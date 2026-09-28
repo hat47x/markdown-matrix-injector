@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
 import {
   applyOutcomeToProgress,
   retryFrozenMaterialization,
@@ -215,15 +216,23 @@ test('successful retry opens only the next fixed Stage-A ordinal', async () => {
 
 function offlineReceipt(
   requestUrl = 'https://example.test/frozen.xlsx',
+  bytes = xlsxFrame(),
 ): OfflinePayloadReceipt {
   return {
+    schema:
+      'hat47x.structured-artifact-sai2-offline-payload-receipt/v0',
+    source_id: 'sai2b-primary-ons-x01',
     request_url: requestUrl,
     final_url: requestUrl,
     redirect_chain: [],
     http_status: 200,
     content_type:
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    byte_size: bytes.byteLength,
+    sha256:
+      'sha256:' + createHash('sha256').update(bytes).digest('hex'),
     retrieved_at_utc: '2026-09-28T03:00:00.000Z',
+    workbook_semantic_inspection_performed: false,
   };
 }
 
@@ -246,7 +255,20 @@ test('offline handoff hashes a validated payload only when receipt matches the f
     'offline_handoff_receipt',
   );
   assert.equal(
+    outcome.entry.transport_evidence?.receipt_source_id_verified,
+    true,
+  );
+  assert.equal(
     outcome.entry.transport_evidence?.receipt_request_url_verified,
+    true,
+  );
+  assert.equal(
+    outcome.entry.transport_evidence?.receipt_payload_digest_verified,
+    true,
+  );
+  assert.equal(
+    outcome.entry.transport_evidence
+      ?.receipt_semantic_inspection_absent_verified,
     true,
   );
   assert.equal(outcome.entry.workbook_semantic_inspection_performed, false);
@@ -263,12 +285,64 @@ test('offline handoff rejects a receipt for any URL other than the frozen reques
   );
 });
 
-test('offline handoff rejects invalid bytes without classifying a source failure', () => {
+test('offline handoff rejects receipt identity and digest mismatches without source failure', () => {
   assert.throws(
     () => retryFrozenMaterializationFromBytes({
       entry: entry(),
-      bytes: new Uint8Array([1, 2, 3]),
-      receipt: offlineReceipt(),
+      bytes: xlsxFrame(),
+      receipt: {
+        ...offlineReceipt(),
+        source_id: 'other-source',
+      },
+    }),
+    /source_id must exactly match/u,
+  );
+  assert.throws(
+    () => retryFrozenMaterializationFromBytes({
+      entry: entry(),
+      bytes: xlsxFrame(),
+      receipt: {
+        ...offlineReceipt(),
+        byte_size: xlsxFrame().byteLength + 1,
+      },
+    }),
+    /byte_size must exactly match/u,
+  );
+  assert.throws(
+    () => retryFrozenMaterializationFromBytes({
+      entry: entry(),
+      bytes: xlsxFrame(),
+      receipt: {
+        ...offlineReceipt(),
+        sha256: 'sha256:' + '0'.repeat(64),
+      },
+    }),
+    /sha256 must exactly match/u,
+  );
+});
+
+test('offline handoff rejects semantic inspection and invalid bytes without source failure', () => {
+  assert.throws(
+    () => retryFrozenMaterializationFromBytes({
+      entry: entry(),
+      bytes: xlsxFrame(),
+      receipt: {
+        ...offlineReceipt(),
+        workbook_semantic_inspection_performed: true,
+      } as unknown as OfflinePayloadReceipt,
+    }),
+    /semantic inspection was not performed/u,
+  );
+
+  const invalid = new Uint8Array([1, 2, 3]);
+  assert.throws(
+    () => retryFrozenMaterializationFromBytes({
+      entry: entry(),
+      bytes: invalid,
+      receipt: offlineReceipt(
+        'https://example.test/frozen.xlsx',
+        invalid,
+      ),
     }),
     /without classifying a source failure/u,
   );

@@ -33,7 +33,7 @@ test('offline handoff request is bound to authoritative attempt 003 and frozen o
   assert.equal(handoff.frozen_request.reserve_substitution_admitted, false);
 });
 
-test('handoff requests raw bytes plus transport receipt without semantic inspection', () => {
+test('handoff requests digest-bound receipt without semantic inspection', () => {
   const handoff = json(HANDOFF);
 
   assert.equal(handoff.acquisition_constraints.raw_response_bytes_required, true);
@@ -50,13 +50,38 @@ test('handoff requests raw bytes plus transport receipt without semantic inspect
   assert.equal(handoff.acquisition_constraints.metrics_admitted, false);
   assert.equal(handoff.acquisition_constraints.ordinal_2_admitted, false);
 
+  assert.equal(
+    handoff.required_outputs.receipt.schema,
+    'hat47x.structured-artifact-sai2-offline-payload-receipt/v0',
+  );
   assert.deepEqual(handoff.required_outputs.receipt.required_fields, [
+    'schema',
+    'source_id',
     'request_url',
     'final_url',
     'redirect_chain',
     'http_status',
     'content_type',
+    'byte_size',
+    'sha256',
     'retrieved_at_utc',
+    'workbook_semantic_inspection_performed',
+  ]);
+  assert.deepEqual(handoff.required_outputs.receipt.invariants, {
+    source_id_must_equal_handoff_source_id: true,
+    request_url_must_equal_frozen_request_url: true,
+    http_status_must_be_2xx: true,
+    content_type_must_be_xlsx_zip_or_octet_stream: true,
+    byte_size_must_equal_payload_length: true,
+    sha256_must_equal_payload_sha256: true,
+    retrieved_at_utc_must_be_parseable_timestamp: true,
+    workbook_semantic_inspection_performed_must_be_false: true,
+  });
+  assert.deepEqual(handoff.helper.required_arguments, [
+    '--source-id',
+    '--url',
+    '--payload-out',
+    '--receipt-out',
   ]);
 });
 
