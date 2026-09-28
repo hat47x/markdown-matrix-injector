@@ -43,16 +43,28 @@ export type MaterializeOutcome = {
 };
 
 export type OfflinePayloadReceipt = {
+  schema: 'hat47x.structured-artifact-sai2-offline-payload-receipt/v0';
+  source_id: string;
   request_url: string;
   final_url: string;
   redirect_chain: unknown[];
   http_status: number;
-  content_type: string | null;
+  content_type: string;
+  byte_size: number;
+  sha256: string;
   retrieved_at_utc: string;
+  workbook_semantic_inspection_performed: false;
 };
 
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const MAX_REDIRECTS = 10;
+export const OFFLINE_PAYLOAD_RECEIPT_SCHEMA =
+  'hat47x.structured-artifact-sai2-offline-payload-receipt/v0' as const;
+const OFFLINE_ACCEPTED_CONTENT_TYPES = new Set([
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+  'application/zip',
+  'application/octet-stream',
+]);
 
 export async function retryFrozenMaterialization(args: {
   entry: ProgressEntry;
@@ -216,6 +228,19 @@ export function retryFrozenMaterializationFromBytes(args: {
       'Offline Stage-A ingest requires a transport_retry_pending entry with a frozen request URL.',
     );
   }
+  if (args.receipt.schema !== OFFLINE_PAYLOAD_RECEIPT_SCHEMA) {
+    throw new Error('Offline receipt schema is not supported.');
+  }
+  if (args.receipt.source_id !== entry.source_id) {
+    throw new Error(
+      'Offline receipt source_id must exactly match the retry-pending source.',
+    );
+  }
+  if (args.receipt.workbook_semantic_inspection_performed !== false) {
+    throw new Error(
+      'Offline receipt must attest that workbook semantic inspection was not performed.',
+    );
+  }
   if (
     args.receipt.request_url
     !== entry.resolved_request_url_or_identity
@@ -236,6 +261,15 @@ export function retryFrozenMaterializationFromBytes(args: {
   if (!args.receipt.final_url) {
     throw new Error('Offline receipt final_url is required.');
   }
+  const mediaType = args.receipt.content_type
+    .split(';', 1)[0]
+    ?.trim()
+    .toLowerCase();
+  if (!mediaType || !OFFLINE_ACCEPTED_CONTENT_TYPES.has(mediaType)) {
+    throw new Error(
+      'Offline receipt content_type is not an accepted XLSX transport type.',
+    );
+  }
   if (!Array.isArray(args.receipt.redirect_chain)) {
     throw new Error('Offline receipt redirect_chain must be an array.');
   }
@@ -245,6 +279,22 @@ export function retryFrozenMaterializationFromBytes(args: {
   ) {
     throw new Error(
       'Offline receipt retrieved_at_utc must be a valid timestamp.',
+    );
+  }
+
+  const payloadSha256 =
+    'sha256:' + createHash('sha256').update(args.bytes).digest('hex');
+  if (
+    !Number.isInteger(args.receipt.byte_size)
+    || args.receipt.byte_size !== args.bytes.byteLength
+  ) {
+    throw new Error(
+      'Offline receipt byte_size must exactly match the supplied payload.',
+    );
+  }
+  if (args.receipt.sha256 !== payloadSha256) {
+    throw new Error(
+      'Offline receipt sha256 must exactly match the supplied payload.',
     );
   }
 
@@ -263,8 +313,7 @@ export function retryFrozenMaterializationFromBytes(args: {
   entry.http_status = args.receipt.http_status;
   entry.content_type = args.receipt.content_type;
   entry.byte_size = args.bytes.byteLength;
-  entry.sha256 =
-    'sha256:' + createHash('sha256').update(args.bytes).digest('hex');
+  entry.sha256 = payloadSha256;
   entry.retrieved_at_utc = args.receipt.retrieved_at_utc;
   entry.binary_validation =
     'pass_xlsx_package_entries_without_semantic_worksheet_inspection';
@@ -274,7 +323,11 @@ export function retryFrozenMaterializationFromBytes(args: {
     ...(entry.transport_evidence ?? {}),
     current_retry_outcome: 'offline_payload_ingested_and_hashed',
     acquisition_mode: 'offline_handoff_receipt',
+    receipt_schema: args.receipt.schema,
+    receipt_source_id_verified: true,
     receipt_request_url_verified: true,
+    receipt_payload_digest_verified: true,
+    receipt_semantic_inspection_absent_verified: true,
     source_materialization_failure_reason_applied: null,
   };
 

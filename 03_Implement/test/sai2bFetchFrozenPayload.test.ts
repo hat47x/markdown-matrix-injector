@@ -7,23 +7,33 @@ const script = readFileSync(
   'utf8',
 );
 
-test('offline fetch helper is transport-only and emits handoff receipt fields', () => {
+test('offline fetch helper emits provenance-bound transport receipt fields', () => {
   for (const field of [
+    'schema',
+    'source_id',
     'request_url',
     'final_url',
     'redirect_chain',
     'http_status',
     'content_type',
+    'byte_size',
+    'sha256',
     'retrieved_at_utc',
+    'workbook_semantic_inspection_performed',
   ]) {
     assert.match(script, new RegExp(field, 'u'));
   }
 
+  assert.match(script, /--source-id/u);
   assert.match(script, /redirect:\s*'manual'/u);
   assert.match(script, /response\.arrayBuffer\(\)/u);
+  assert.match(script, /createHash\('sha256'\)/u);
+  assert.match(
+    script,
+    /workbook_semantic_inspection_performed:\s*false/u,
+  );
   assert.doesNotMatch(script, /workbook\.xml/u);
   assert.doesNotMatch(script, /worksheet/u);
-  assert.doesNotMatch(script, /sha256/u);
 });
 
 test('offline fetch helper does not substitute the request identity', () => {
