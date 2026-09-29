@@ -60,11 +60,13 @@ const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const MAX_REDIRECTS = 10;
 export const OFFLINE_PAYLOAD_RECEIPT_SCHEMA =
   'hat47x.structured-artifact-sai2-offline-payload-receipt/v0' as const;
-const OFFLINE_ACCEPTED_CONTENT_TYPES = new Set([
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/zip',
-  'application/octet-stream',
-]);
+const FROZEN_CONTENT_TYPE_PATTERN =
+  /^(application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet|application\/zip|application\/octet-stream)(?:\s*;.*)?$/u;
+
+function isFrozenContentType(value: unknown): value is string {
+  return typeof value === 'string'
+    && FROZEN_CONTENT_TYPE_PATTERN.test(value);
+}
 const OFFLINE_RECEIPT_FIELDS = [
   'schema',
   'source_id',
@@ -277,14 +279,7 @@ export async function retryFrozenMaterialization(args: {
     );
   }
 
-  const directMediaType = entry.content_type
-    ?.split(';', 1)[0]
-    ?.trim()
-    .toLowerCase();
-  if (
-    !directMediaType
-    || !OFFLINE_ACCEPTED_CONTENT_TYPES.has(directMediaType)
-  ) {
+  if (!isFrozenContentType(entry.content_type)) {
     entry.binary_validation = 'not_run_unaccepted_content_type';
     return materializationFailure(
       entry,
@@ -391,11 +386,7 @@ export function retryFrozenMaterializationFromBytes(args: {
       'Offline payload ingest accepts only a successful 2xx transport receipt.',
     );
   }
-  const mediaType = args.receipt.content_type
-    .split(';', 1)[0]
-    ?.trim()
-    .toLowerCase();
-  if (!mediaType || !OFFLINE_ACCEPTED_CONTENT_TYPES.has(mediaType)) {
+  if (!isFrozenContentType(args.receipt.content_type)) {
     throw new Error(
       'Offline receipt content_type is not an accepted XLSX transport type.',
     );
