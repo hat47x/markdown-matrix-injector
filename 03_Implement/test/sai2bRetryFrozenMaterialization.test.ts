@@ -179,6 +179,10 @@ test('HTTP failure is classified but never auto-consumes a reserve', async () =>
   assert.equal(next.decision.frozen_replacement_reason_invoked, true);
   assert.equal(next.decision.reserve_materialization_invoked, false);
   assert.equal(next.decision.advance_to_next_ordinal, false);
+  assert.equal(next.aggregate.source_bytes_opened_count, 0);
+  assert.equal(next.aggregate.source_digest_count, 0);
+  assert.equal(next.current_boundary.source_bytes_opened, false);
+  assert.equal(next.current_boundary.source_digests_computed, false);
 });
 
 test('successful retry opens only the next fixed Stage-A ordinal', async () => {
@@ -212,7 +216,17 @@ test('successful retry opens only the next fixed Stage-A ordinal', async () => {
   assert.equal(next.aggregate.succeeded_count, 1);
   assert.equal(next.aggregate.pending_count, 1);
   assert.equal(next.aggregate.source_bytes_opened_count, 1);
+  assert.equal(next.aggregate.source_digest_count, 1);
   assert.equal(next.aggregate.workbook_semantic_inspection_count, 0);
+  assert.equal(next.current_boundary.source_bytes_opened, true);
+  assert.equal(next.current_boundary.source_digests_computed, true);
+  assert.equal(
+    next.current_boundary.workbook_semantic_inspection_admitted,
+    false,
+  );
+  assert.equal(next.current_boundary.target_authoring_admitted, false);
+  assert.equal(next.current_boundary.candidate_generation_admitted, false);
+  assert.equal(next.current_boundary.scoring_admitted, false);
   assert.equal(next.next_gate.name, 'materialize_next_fixed_primary_ordinal');
   assert.equal(next.next_gate.source_id, 'second');
   assert.equal(next.next_gate.candidate_generation_admitted, false);
