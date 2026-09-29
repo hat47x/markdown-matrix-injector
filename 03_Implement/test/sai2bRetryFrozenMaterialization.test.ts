@@ -586,3 +586,29 @@ test('direct retry fail-closes before following a non-HTTPS redirect', async () 
     null,
   );
 });
+
+
+test('direct retry rejects an unaccepted 2xx content type before payload success', async () => {
+  const outcome = await retryFrozenMaterialization({
+    entry: entry(),
+    fetchImpl: async () =>
+      new Response(xlsxFrame(), {
+        status: 200,
+        headers: { 'content-type': 'text/plain; charset=utf-8' },
+      }),
+  });
+
+  assert.equal(outcome.decision, 'materialization_failure');
+  assert.equal(
+    outcome.entry.materialization_failure_reason,
+    'not_exactly_xlsx_or_bytes_unreadable',
+  );
+  assert.equal(outcome.entry.content_type, 'text/plain; charset=utf-8');
+  assert.equal(outcome.entry.sha256, null);
+  assert.equal(outcome.entry.retrieved_at_utc, null);
+  assert.equal(
+    outcome.entry.transport_evidence
+      ?.source_materialization_failure_reason_applied,
+    'not_exactly_xlsx_or_bytes_unreadable',
+  );
+});

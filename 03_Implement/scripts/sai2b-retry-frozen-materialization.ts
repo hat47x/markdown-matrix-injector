@@ -277,6 +277,23 @@ export async function retryFrozenMaterialization(args: {
     );
   }
 
+  const directMediaType = entry.content_type
+    ?.split(';', 1)[0]
+    ?.trim()
+    .toLowerCase();
+  if (
+    !directMediaType
+    || !OFFLINE_ACCEPTED_CONTENT_TYPES.has(directMediaType)
+  ) {
+    entry.binary_validation = 'not_run_unaccepted_content_type';
+    return materializationFailure(
+      entry,
+      response!.status,
+      entry.content_type,
+      'not_exactly_xlsx_or_bytes_unreadable',
+    );
+  }
+
   let bytes: Uint8Array;
   try {
     bytes = new Uint8Array(await response!.arrayBuffer());
