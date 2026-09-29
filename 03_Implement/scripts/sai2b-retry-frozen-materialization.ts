@@ -578,6 +578,52 @@ export function validateZipContainer(
   return { ok: true };
 }
 
+
+export function advanceProgressSnapshotMetadata(args: {
+  baseline: any;
+  next: any;
+  baselineRaw: string;
+  baselineRef: string;
+}): any {
+  const currentSnapshotId = String(args.baseline.snapshot_id ?? '');
+  const match = currentSnapshotId.match(
+    /^(.*)-attempt-(\d{3})$/u,
+  );
+  if (!match || match[1] !== String(args.baseline.run_id ?? '')) {
+    throw new Error(
+      'Baseline snapshot_id must match <run_id>-attempt-###.',
+    );
+  }
+  const sequence = Number(match[2]) + 1;
+  if (!Number.isInteger(sequence) || sequence > 999) {
+    throw new Error('Stage-A snapshot sequence is out of range.');
+  }
+
+  const baselineBytes = Buffer.from(args.baselineRaw, 'utf8');
+  const header = Buffer.from(
+    `blob ${baselineBytes.byteLength}\0`,
+    'utf8',
+  );
+  const predecessorGitBlobSha = createHash('sha1')
+    .update(header)
+    .update(baselineBytes)
+    .digest('hex');
+
+  const next = structuredClone(args.next);
+  next.snapshot_id =
+    `${match[1]}-attempt-${String(sequence).padStart(3, '0')}`;
+  next.predecessor_ref = args.baselineRef;
+  next.predecessor_git_blob_sha = predecessorGitBlobSha;
+  return next;
+}
+
+export function canonicalProgressRef(value: string): string {
+  const normalized = value.replaceAll('\\\\', '/');
+  const marker = '03_Implement/';
+  const index = normalized.lastIndexOf(marker);
+  return index >= 0 ? normalized.slice(index) : basename(normalized);
+}
+
 export function applyOutcomeToProgress(
   progress: any,
   outcome: MaterializeOutcome,
@@ -727,9 +773,8 @@ async function main(): Promise<void> {
     );
   }
 
-  const progress = JSON.parse(
-    readFileSync(resolve(progressPath), 'utf8'),
-  );
+  const progressRaw = readFileSync(resolve(progressPath), 'utf8');
+  const progress = JSON.parse(progressRaw);
   const retryEntries = progress.entries.filter(
     (entry: ProgressEntry) =>
       entry.status === 'transport_retry_pending',
@@ -755,7 +800,12 @@ async function main(): Promise<void> {
     : await retryFrozenMaterialization({
         entry: retryEntries[0],
       });
-  const next = applyOutcomeToProgress(progress, outcome);
+  const next = advanceProgressSnapshotMetadata({
+    baseline: progress,
+    next: applyOutcomeToProgress(progress, outcome),
+    baselineRaw: progressRaw,
+    baselineRef: canonicalProgressRef(progressPath),
+  });
 
   mkdirSync(dirname(resolve(snapshotOut)), { recursive: true });
   writeFileSync(

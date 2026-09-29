@@ -5,7 +5,9 @@ import { pathToFileURL } from 'node:url';
 import { isDeepStrictEqual } from 'node:util';
 
 import {
+  advanceProgressSnapshotMetadata,
   applyOutcomeToProgress,
+  canonicalProgressRef,
   retryFrozenMaterializationFromBytes,
   type OfflinePayloadReceipt,
   type ProgressEntry,
@@ -16,6 +18,7 @@ type VerificationReport = {
   run_id: string;
   source_id: string;
   baseline_snapshot_id: string;
+  returned_snapshot_id: string;
   returned_snapshot_sha256: string;
   payload_sha256: string;
   receipt_sha256: string;
@@ -26,6 +29,7 @@ type VerificationReport = {
   scientific_authority_advanced: false;
   excel_repository_access_required: false;
   mmi_success_snapshot_commit_required_before_ordinal_2: true;
+  predecessor_git_blob_sha_verified: true;
   semantic_stages_admitted: false;
 };
 
@@ -39,6 +43,8 @@ function sha256Text(text: string): string {
 
 export function verifyReturnedOrdinal1Evidence(args: {
   baseline: any;
+  baselineRaw: string;
+  baselineRef: string;
   payload: Uint8Array;
   receipt: OfflinePayloadReceipt;
   returnedSnapshot: any;
@@ -68,7 +74,12 @@ export function verifyReturnedOrdinal1Evidence(args: {
     throw new Error('Returned ordinal-1 evidence did not recompute to success.');
   }
 
-  const expected = applyOutcomeToProgress(args.baseline, outcome);
+  const expected = advanceProgressSnapshotMetadata({
+    baseline: args.baseline,
+    next: applyOutcomeToProgress(args.baseline, outcome),
+    baselineRaw: args.baselineRaw,
+    baselineRef: args.baselineRef,
+  });
   if (!isDeepStrictEqual(args.returnedSnapshot, expected)) {
     throw new Error(
       'Returned snapshot does not exactly match a recomputation from the frozen baseline, payload, and receipt.',
@@ -126,6 +137,7 @@ export function verifyReturnedOrdinal1Evidence(args: {
     run_id: String(args.baseline.run_id),
     source_id: String(ordinal1.source_id),
     baseline_snapshot_id: String(args.baseline.snapshot_id),
+    returned_snapshot_id: String(expected.snapshot_id),
     returned_snapshot_sha256: sha256Text(returnedRaw),
     payload_sha256: sha256Bytes(args.payload),
     receipt_sha256: sha256Text(receiptRaw),
@@ -136,6 +148,7 @@ export function verifyReturnedOrdinal1Evidence(args: {
     scientific_authority_advanced: false,
     excel_repository_access_required: false,
     mmi_success_snapshot_commit_required_before_ordinal_2: true,
+    predecessor_git_blob_sha_verified: true,
     semantic_stages_admitted: false,
   };
 }
@@ -172,6 +185,8 @@ function main(): void {
   const returnedRaw = readFileSync(resolve(snapshotPath), 'utf8');
   const report = verifyReturnedOrdinal1Evidence({
     baseline: JSON.parse(baselineRaw),
+    baselineRaw,
+    baselineRef: canonicalProgressRef(baselinePath),
     payload: new Uint8Array(readFileSync(resolve(payloadPath))),
     receipt: JSON.parse(receiptRaw),
     returnedSnapshot: JSON.parse(returnedRaw),
