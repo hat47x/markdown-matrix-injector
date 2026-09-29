@@ -6,6 +6,7 @@ import { isDeepStrictEqual } from 'node:util';
 
 import {
   advanceProgressSnapshotMetadata,
+  advanceProgressSnapshotMetadata,
   applyOutcomeToProgress,
   retryFrozenMaterializationFromBytes,
   type OfflinePayloadReceipt,
