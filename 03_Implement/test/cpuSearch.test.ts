@@ -491,3 +491,18 @@ test('near misses: offered separately when nothing matches by name; the status s
   // Unsupported requests never get near misses.
   assert.equal(compileQuery('状態管理表を担当者別に集計', { index, method: 'bm25', relativePath }).nearMisses, undefined);
 });
+
+test('near misses: two exact columns can surface a paraphrased table without promoting it to a match', () => {
+  const { index } = buildIndex();
+  const result = compileQuery('業務フローのIDと操作を見せて', { index, method: 'bm25', relativePath });
+  assert.equal(result.status, 'no-match');
+  assert.equal(result.candidates.length, 0);
+  assert.equal(result.nearMisses?.[0].region.a1, 'B3:E6');
+  assert.deepEqual(result.nearMisses?.[0].columns.map((column) => column.header), ['ID', '操作']);
+  assert.match(result.nearMisses?.[0].explanation ?? '', /指定された列名がすべて一致/u);
+
+  // A single common column is too weak to rescue an unrelated description.
+  const weak = compileQuery('業務フローのIDを見せて', { index, method: 'bm25', relativePath });
+  assert.equal(weak.status, 'no-match');
+  assert.equal(weak.nearMisses, undefined);
+});
