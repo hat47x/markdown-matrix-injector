@@ -531,6 +531,18 @@ test('offline handoff rejects WHATWG-normalizable URLs outside frozen HTTPS patt
       bytes,
       receipt: {
         ...offlineReceipt(),
+        request_url: 'https:example.test/frozen.xlsx',
+      },
+    }),
+    /request_url must be an HTTPS URL/u,
+  );
+
+  assert.throws(
+    () => retryFrozenMaterializationFromBytes({
+      entry: entry(),
+      bytes,
+      receipt: {
+        ...offlineReceipt(),
         final_url: 'https:example.test/frozen.xlsx',
       },
     }),

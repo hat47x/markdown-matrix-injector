@@ -142,6 +142,9 @@ function assertOfflineReceiptSchemaShape(
       'Offline receipt must contain exactly the frozen schema fields.',
     );
   }
+  if (!isHttpsUrl(receipt.request_url)) {
+    throw new Error('Offline receipt request_url must be an HTTPS URL.');
+  }
   if (!isHttpsUrl(receipt.final_url)) {
     throw new Error('Offline receipt final_url must be an HTTPS URL.');
   }
