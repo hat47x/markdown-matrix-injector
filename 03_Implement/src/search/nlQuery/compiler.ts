@@ -141,8 +141,6 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
   const nameHints = [ir.source, ir.sheet, ir.table, ...ir.target].filter((hint): hint is Hint => hint !== undefined);
   const synonyms = options.synonyms ?? [];
   const queryAliases = options.queryAliases ?? [];
-  const aliasGroups = triggeredAliasGroups(ir.input, queryAliases);
-  const queryBag = requestFeatureBag(ir, synonyms, queryAliases);
   // Columns are checked by resolution, not coverage; a grep-only request is
   // judged by its term.
   const parts = (nameHints.length > 0 ? nameHints : ir.contains.map((c) => c.term)).flatMap((hint) =>
@@ -156,10 +154,14 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
       : { kept: parts.map((part) => part.variants), dropped: [] as string[] };
   // Qualifiers are never dropped: an unknown 「（会計）」 must still exclude the 受注 table.
   const coverageHints = [...discriminated.kept, ...parts.filter((part) => part.qualifier).map((part) => part.variants)];
+  const aliasGroups = triggeredAliasGroups(ir.input, queryAliases);
   const aliasFallbackAllowed =
     aliasGroups.length > 0
     && !nameHints.some((hint) => hint.quoted)
     && !parts.some((part) => part.qualifier);
+  // Do not even bias retrieval with semantic aliases when the request carries
+  // an explicit quoted name or a required parenthesised qualifier.
+  const queryBag = requestFeatureBag(ir, synonyms, aliasFallbackAllowed ? queryAliases : []);
   const dropped = discriminated.dropped;
   const droppedNotes = [...liftedNotes, ...dropped.map((text) => `「${text}」はどの表の名前にも無いため、絞り込みに使っていません。`)];
 
