@@ -13,7 +13,7 @@
  *   returned; a stale one is dropped and its book re-indexed next time.
  */
 import type { WorkbookData } from '../core/workbookLoader.js';
-import { compileQuery, type CompileResult } from './nlQuery/compiler.js';
+import { compileQuery, type CompileResult, type QueryAliasRule } from './nlQuery/compiler.js';
 import { indexWorkbookFiles, RegionCatalog, type BookStat, type IndexFilesResult } from './regionCatalog.js';
 import { RegionSearchIndex, type RetrievalMethod } from './searchIndex.js';
 import { verifyRegion } from './verify.js';
@@ -29,6 +29,19 @@ export const DEFAULT_SYNONYMS: readonly (readonly string[])[] = [
   ['見積', '見積もり'],
 ];
 
+/**
+ * High-precision directional descriptions for phrases that are not true
+ * synonyms. Each rule needs two independent cues and two canonical terms;
+ * compiler.ts ignores broader rules. This is retrieval assistance only and
+ * never changes column semantics or emitted notation.
+ */
+export const DEFAULT_QUERY_ALIASES: readonly QueryAliasRule[] = [
+  { cues: ['夜間', 'ジョブ'], terms: ['バッチ', '実行時刻'] },
+  { cues: ['費用', '内訳'], terms: ['見積', '工程'] },
+  { cues: ['付ける', 'ルール'], terms: ['ロール', '付与条件'] },
+  { cues: ['バックアップ', 'どこ'], terms: ['バックアップ', '保管場所'] },
+];
+
 /** Shown to the user: what the restricted grammar accepts (design §3.3). */
 export const QUERY_EXAMPLES = [
   '状態遷移表のIDと操作を見せて',
@@ -41,6 +54,7 @@ export interface WorkspaceRegionIndexOptions {
   statFile(path: string): BookStat;
   flyhashThreshold?: number;
   synonyms?: readonly (readonly string[])[];
+  queryAliases?: readonly QueryAliasRule[];
   /** Upper bound on indexed regions (memory cap). */
   maxRegions?: number;
 }
@@ -95,6 +109,7 @@ export class WorkspaceRegionIndex {
       method: this.method,
       relativePath,
       synonyms: this.options.synonyms ?? DEFAULT_SYNONYMS,
+      queryAliases: this.options.queryAliases ?? DEFAULT_QUERY_ALIASES,
       maxCandidates,
     });
     const current = (candidate: CompileResult['candidates'][number]): boolean => {

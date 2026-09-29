@@ -20,6 +20,19 @@ import type { RegionHit, RegionSearchIndex, RetrievalMethod } from '../searchInd
 import { addTextFeatures, bigramDice, normalizeText, segments, textFeatureList, type FeatureBag } from '../textFeatures.js';
 import { parseQuery, type Hint, type QueryIR, type UnsupportedConstruct } from './parser.js';
 
+export interface QueryAliasRule {
+  /**
+   * Every cue must occur in the normalized request. Keep rules narrow: they
+   * are directional descriptions, not general-purpose synonyms.
+   */
+  cues: readonly string[];
+  /**
+   * Canonical name/header terms expected together in one region. Alias-only
+   * acceptance requires at least two terms and full name coverage.
+   */
+  terms: readonly string[];
+}
+
 export interface CompileOptions {
   index: RegionSearchIndex;
   method: RetrievalMethod;
@@ -38,6 +51,11 @@ export interface CompileOptions {
    * group. Hashing cannot invent synonyms absent from the features; this can.
    */
   synonyms?: readonly (readonly string[])[];
+  /**
+   * Directional description -> indexed-name rules used only for region
+   * retrieval/coverage. They never rewrite columns or emitted MMI notation.
+   */
+  queryAliases?: readonly QueryAliasRule[];
 }
 
 export type CompileStatus = 'candidates' | 'unsupported' | 'no-match' | 'needs-more-input';
@@ -122,7 +140,7 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
   const minCoverage = options.minCoverage ?? 0.5;
   const nameHints = [ir.source, ir.sheet, ir.table, ...ir.target].filter((hint): hint is Hint => hint !== undefined);
   const synonyms = options.synonyms ?? [];
-  const queryBag = requestFeatureBag(ir, synonyms);
+  const queryAliases = options.queryAliases ?? [];
   // Columns are checked by resolution, not coverage; a grep-only request is
   // judged by its term.
   const parts = (nameHints.length > 0 ? nameHints : ir.contains.map((c) => c.term)).flatMap((hint) =>
@@ -136,6 +154,14 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
       : { kept: parts.map((part) => part.variants), dropped: [] as string[] };
   // Qualifiers are never dropped: an unknown 「（会計）」 must still exclude the 受注 table.
   const coverageHints = [...discriminated.kept, ...parts.filter((part) => part.qualifier).map((part) => part.variants)];
+  const aliasGroups = triggeredAliasGroups(ir.input, queryAliases);
+  const aliasFallbackAllowed =
+    aliasGroups.length > 0
+    && !nameHints.some((hint) => hint.quoted)
+    && !parts.some((part) => part.qualifier);
+  // Do not even bias retrieval with semantic aliases when the request carries
+  // an explicit quoted name or a required parenthesised qualifier.
+  const queryBag = requestFeatureBag(ir, synonyms, aliasFallbackAllowed ? queryAliases : []);
   const dropped = discriminated.dropped;
   const droppedNotes = [...liftedNotes, ...dropped.map((text) => `「${text}」はどの表の名前にも無いため、絞り込みに使っていません。`)];
 
@@ -166,9 +192,13 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
     // values only count when the request names nothing but a grep term.
     const regionBag = nameHints.length > 0 ? options.index.namesBagOf(hit.doc) : options.index.bagOf(hit.doc);
     const coverage = regionBag ? coverageOf(coverageHints, regionBag) : 0;
+    const aliasMatch = aliasFallbackAllowed
+      ? bestAliasMatch(aliasGroups, hit.region)
+      : undefined;
+    const aliasAccepted = aliasMatch?.coverage === 1;
     const resolved = resolveColumns(hit.region, ir.columns, options.minColumnSimilarity ?? 0.6, synonyms);
     const columnSignature = hasStrongColumnSignature(resolved, ir.columns);
-    if (coverage < minCoverage) {
+    if (coverage < minCoverage && !aliasAccepted) {
       // A paraphrased table description may share no lexical feature with the
       // workbook, while the user still names a distinctive set of columns.
       // Treat >=2 exact/synonym column matches only as *near-miss evidence*:
@@ -186,6 +216,11 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
       continue;
     }
     resolved.notes.push(...droppedNotes);
+    if (coverage < minCoverage && aliasMatch) {
+      resolved.notes.push(
+        `表名そのものではなく、説明句の対応（${aliasMatch.cues.join('・')} → ${aliasMatch.terms.join('・')}）を検索補助に使いました。`,
+      );
+    }
     const emitted = emit(hit.region, ir, resolved.columns, options.relativePath(hit.region.bookPath));
     if (!emitted.ok) {
       rejections.add(emitted.reason);
@@ -241,7 +276,11 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
  * the grep term 0.5 (it may appear among sampled values); dictionary
  * variants get half their hint's weight.
  */
-export function requestFeatureBag(ir: QueryIR, synonyms: readonly (readonly string[])[] = []): FeatureBag {
+export function requestFeatureBag(
+  ir: QueryIR,
+  synonyms: readonly (readonly string[])[] = [],
+  queryAliases: readonly QueryAliasRule[] = [],
+): FeatureBag {
   const bag: FeatureBag = new Map();
   const addVariants = (hint: Hint, weight: number): void => {
     const [original, ...others] = variantsOf(stripExtension(hint.text), hint.quoted ? [] : synonyms);
@@ -251,6 +290,12 @@ export function requestFeatureBag(ir: QueryIR, synonyms: readonly (readonly stri
   for (const hint of [ir.source, ir.sheet, ir.table, ...ir.target]) if (hint) addVariants(hint, 2);
   for (const column of ir.columns) addVariants(column, 1);
   for (const condition of ir.contains) addTextFeatures(bag, condition.term.text, 0.5);
+  // Directional aliases are deliberately weaker than a name hint. They can
+  // retrieve the right region, but acceptance below still requires an exact
+  // match of every canonical term in one triggered rule.
+  for (const group of triggeredAliasGroups(ir.input, queryAliases)) {
+    for (const term of group.terms) addTextFeatures(bag, term, 0.75);
+  }
   return bag;
 }
 
@@ -351,6 +396,57 @@ function coverageFeatures(text: string): string[] {
   const features = [...new Set(textFeatureList(text))];
   const pruned = features.filter((feature) => !wholes.has(feature));
   return pruned.length > 0 ? pruned : features;
+}
+
+
+interface TriggeredAliasGroup {
+  cues: string[];
+  terms: string[];
+}
+
+/**
+ * Directional aliases are intentionally stricter than synonym groups:
+ * - at least two cues must jointly occur in the request;
+ * - at least two canonical terms must be supplied;
+ * - malformed/broad one-term rules are ignored.
+ *
+ * This keeps a phrase such as 「夜間...ジョブ」 able to point toward
+ * 「バッチ」「実行時刻」 without claiming that 夜間 == 実行時刻 everywhere.
+ */
+function triggeredAliasGroups(
+  input: string,
+  rules: readonly QueryAliasRule[],
+): TriggeredAliasGroup[] {
+  const normalized = normalizeText(input);
+  const groups: TriggeredAliasGroup[] = [];
+  for (const rule of rules) {
+    const cues = [...new Set(rule.cues.map(normalizeText).filter(Boolean))];
+    const terms = [...new Set(rule.terms.map(normalizeText).filter(Boolean))];
+    if (cues.length < 2 || terms.length < 2) continue;
+    if (!cues.every((cue) => normalized.includes(cue))) continue;
+    groups.push({ cues, terms });
+    if (groups.length >= 8) break;
+  }
+  return groups;
+}
+
+function bestAliasMatch(
+  groups: readonly TriggeredAliasGroup[],
+  region: RegionRecord,
+): (TriggeredAliasGroup & { coverage: number }) | undefined {
+  // Promotion is stricter than retrieval: every canonical term must occur as
+  // a normalized substring of an actual region name/header. N-gram overlap is
+  // useful for ranking, but is not sufficient evidence for semantic rescue.
+  const names = [region.bookStem, region.sheet, region.title, ...(region.headers ?? [])]
+    .filter((name): name is string => Boolean(name))
+    .map(normalizeText);
+  let best: (TriggeredAliasGroup & { coverage: number }) | undefined;
+  for (const group of groups) {
+    const matched = group.terms.filter((term) => names.some((name) => name.includes(term))).length;
+    const coverage = matched / group.terms.length;
+    if (!best || coverage > best.coverage) best = { ...group, coverage };
+  }
+  return best;
 }
 
 /** The text plus each single-term substitution from its synonym groups. */

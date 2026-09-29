@@ -171,6 +171,7 @@ export function main(argv = process.argv.slice(2)): Record<string, unknown> {
   if (badIds.length > 0) throw new Error(`Queries reference unknown regions:\n${badIds.join('\n')}`);
   const dictionary = JSON.parse(fs.readFileSync(path.join(here, 'dictionary.json'), 'utf8'));
   const synonyms: string[][] = args.dictionary ? dictionary.groups : [];
+  const queryAliases = args.dictionary ? (dictionary.queryAliases ?? []) : [];
 
   const files = [...new Set(manifest.map((region) => region.file))].map((file) => path.resolve(args.corpus, file));
 
@@ -228,7 +229,7 @@ export function main(argv = process.argv.slice(2)): Record<string, unknown> {
   const quality: Record<string, unknown> = {};
   const judgedByMethod: Record<string, Judged[]> = {};
   for (const method of args.methods) {
-    const judged = queries.map((query) => judge(query, compileQuery(query.text, { index, method, relativePath, synonyms })));
+    const judged = queries.map((query) => judge(query, compileQuery(query.text, { index, method, relativePath, synonyms, queryAliases })));
     judgedByMethod[method] = judged;
     quality[method] = summarize(judged);
   }
@@ -243,11 +244,11 @@ export function main(argv = process.argv.slice(2)): Record<string, unknown> {
     for (let iteration = 0; iteration < args.iterations; iteration += 1) {
       for (const query of queries) {
         let t = now();
-        const result = compileQuery(query.text, { index, method, relativePath, synonyms });
+        const result = compileQuery(query.text, { index, method, relativePath, synonyms, queryAliases });
         compile.push(now() - t);
 
         t = now();
-        const again = compileQuery(query.text, { index, method, relativePath, synonyms });
+        const again = compileQuery(query.text, { index, method, relativePath, synonyms, queryAliases });
         for (const candidate of again.candidates) {
           const snapshot = readSnapshot(candidate.region.bookPath);
           const workbook = cache.get(candidate.region.bookPath, snapshot) ?? load(candidate.region.bookPath);
@@ -256,7 +257,7 @@ export function main(argv = process.argv.slice(2)): Record<string, unknown> {
         verified.push(now() - t);
 
         if (result.ir.unsupported.length === 0) {
-          const bag = requestFeatureBag(result.ir, synonyms);
+          const bag = requestFeatureBag(result.ir, synonyms, queryAliases);
           t = now();
           index.search(method, bag, 30);
           retrieval.push(now() - t);
