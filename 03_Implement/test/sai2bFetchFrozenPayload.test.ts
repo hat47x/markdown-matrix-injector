@@ -51,3 +51,13 @@ test('offline fetch helper fail-closes before following a non-HTTPS redirect', (
   );
   assert.match(script, /redirect_non_https_target/u);
 });
+
+
+test('offline fetch helper enforces the literal frozen receipt Content-Type pattern', () => {
+  assert.match(script, /FROZEN_CONTENT_TYPE_PATTERN/u);
+  assert.match(
+    script,
+    /application\\\/zip\|application\\\/octet-stream/u,
+  );
+  assert.doesNotMatch(script, /toLowerCase\(\)/u);
+});

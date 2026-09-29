@@ -618,3 +618,48 @@ test('direct retry rejects an unaccepted 2xx content type before payload success
     'not_exactly_xlsx_or_bytes_unreadable',
   );
 });
+
+
+test('offline handoff rejects content types outside the frozen receipt schema spelling', () => {
+  const bytes = xlsxFrame();
+
+  for (const contentType of [
+    'Application/Zip',
+    ' application/zip',
+  ]) {
+    assert.throws(
+      () => retryFrozenMaterializationFromBytes({
+        entry: entry(),
+        bytes,
+        receipt: {
+          ...offlineReceipt(),
+          content_type: contentType,
+        },
+      }),
+      /content_type is not an accepted XLSX transport type/u,
+    );
+  }
+});
+
+test('direct retry rejects normalized content types outside the frozen spelling', async () => {
+  for (const contentType of [
+    'Application/Zip',
+    ' application/zip',
+  ]) {
+    const outcome = await retryFrozenMaterialization({
+      entry: entry(),
+      fetchImpl: async () =>
+        new Response(xlsxFrame(), {
+          status: 200,
+          headers: { 'content-type': contentType },
+        }),
+    });
+
+    assert.equal(outcome.decision, 'materialization_failure');
+    assert.equal(
+      outcome.entry.binary_validation,
+      'not_run_unaccepted_content_type',
+    );
+    assert.equal(outcome.entry.sha256, null);
+  }
+});
