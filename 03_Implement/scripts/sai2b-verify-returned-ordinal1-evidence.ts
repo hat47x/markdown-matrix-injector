@@ -24,7 +24,8 @@ type VerificationReport = {
   ordinal_1_attempt_count: number;
   next_fixed_primary_source_id: string;
   scientific_authority_advanced: false;
-  cross_repo_exact_mirror_required_before_ordinal_2: true;
+  excel_repository_access_required: false;
+  mmi_success_snapshot_commit_required_before_ordinal_2: true;
   semantic_stages_admitted: false;
 };
 
@@ -133,7 +134,8 @@ export function verifyReturnedOrdinal1Evidence(args: {
     ordinal_1_attempt_count: Number(ordinal1.attempt_count),
     next_fixed_primary_source_id: String(ordinal2.source_id),
     scientific_authority_advanced: false,
-    cross_repo_exact_mirror_required_before_ordinal_2: true,
+    excel_repository_access_required: false,
+    mmi_success_snapshot_commit_required_before_ordinal_2: true,
     semantic_stages_admitted: false,
   };
 }
