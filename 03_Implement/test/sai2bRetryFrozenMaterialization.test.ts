@@ -533,3 +533,56 @@ test('offline handoff rejects WHATWG-normalizable URLs outside frozen HTTPS patt
     /redirect_chain must match the frozen schema/u,
   );
 });
+
+
+test('direct retry rejects a non-HTTPS frozen request as transport-only failure', async () => {
+  const bad = {
+    ...entry(),
+    resolved_request_url_or_identity:
+      'http://example.test/frozen.xlsx',
+  };
+  let called = false;
+
+  const outcome = await retryFrozenMaterialization({
+    entry: bad,
+    fetchImpl: async () => {
+      called = true;
+      throw new Error('must not fetch');
+    },
+  });
+
+  assert.equal(called, false);
+  assert.equal(outcome.decision, 'transport_retry_pending');
+  assert.equal(outcome.entry.status, 'transport_retry_pending');
+  assert.equal(
+    outcome.entry.transport_evidence
+      ?.source_materialization_failure_reason_applied,
+    null,
+  );
+});
+
+test('direct retry fail-closes before following a non-HTTPS redirect', async () => {
+  const seen: string[] = [];
+  const outcome = await retryFrozenMaterialization({
+    entry: entry(),
+    fetchImpl: async (url) => {
+      seen.push(url);
+      return new Response(null, {
+        status: 302,
+        headers: {
+          location: 'http://example.test/downgraded.xlsx',
+        },
+      });
+    },
+  });
+
+  assert.deepEqual(seen, ['https://example.test/frozen.xlsx']);
+  assert.equal(outcome.decision, 'transport_retry_pending');
+  assert.equal(outcome.entry.status, 'transport_retry_pending');
+  assert.equal(outcome.entry.sha256, null);
+  assert.equal(
+    outcome.entry.transport_evidence
+      ?.source_materialization_failure_reason_applied,
+    null,
+  );
+});
