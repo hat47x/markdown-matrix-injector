@@ -609,6 +609,17 @@ export function applyOutcomeToProgress(
     source_digest_count: count('succeeded'),
     workbook_semantic_inspection_count: 0,
   };
+  next.current_boundary = {
+    ...(next.current_boundary ?? {}),
+    source_bytes_opened:
+      next.aggregate.source_bytes_opened_count > 0,
+    source_digests_computed:
+      next.aggregate.source_digest_count > 0,
+    workbook_semantic_inspection_admitted: false,
+    target_authoring_admitted: false,
+    candidate_generation_admitted: false,
+    scoring_admitted: false,
+  };
 
   if (outcome.decision === 'succeeded') {
     const nextPending = next.entries.find(
