@@ -617,7 +617,7 @@ export function advanceProgressSnapshotMetadata(args: {
   return next;
 }
 
-function canonicalProgressRef(value: string): string {
+export function canonicalProgressRef(value: string): string {
   const normalized = value.replaceAll('\\\\', '/');
   const marker = '03_Implement/';
   const index = normalized.lastIndexOf(marker);
