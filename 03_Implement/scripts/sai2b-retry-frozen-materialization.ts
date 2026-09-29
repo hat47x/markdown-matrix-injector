@@ -208,6 +208,9 @@ export async function retryFrozenMaterialization(args: {
   let currentUrl = entry.resolved_request_url_or_identity;
 
   try {
+    if (!isHttpsUrl(currentUrl)) {
+      throw new Error('frozen_request_non_https_url');
+    }
     for (let index = 0; ; index += 1) {
       response = await fetchImpl(currentUrl, {
         redirect: 'manual',
@@ -234,6 +237,9 @@ export async function retryFrozenMaterialization(args: {
         );
       }
       const nextUrl = new URL(location, currentUrl).toString();
+      if (!isHttpsUrl(nextUrl)) {
+        throw new Error('redirect_non_https_target');
+      }
       entry.redirect_chain.push({
         status: response.status,
         from: currentUrl,
