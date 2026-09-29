@@ -167,8 +167,9 @@ test('verifier accepts exact network-free recomputation and preserves stop-lines
   assert.equal(report.ordinal_1_attempt_count, 4);
   assert.equal(report.next_fixed_primary_source_id, 'ordinal-2');
   assert.equal(report.scientific_authority_advanced, false);
+  assert.equal(report.excel_repository_access_required, false);
   assert.equal(
-    report.cross_repo_exact_mirror_required_before_ordinal_2,
+    report.mmi_success_snapshot_commit_required_before_ordinal_2,
     true,
   );
   assert.equal(report.semantic_stages_admitted, false);
