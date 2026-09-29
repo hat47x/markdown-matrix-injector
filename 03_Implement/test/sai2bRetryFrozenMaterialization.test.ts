@@ -185,7 +185,13 @@ test('successful retry opens only the next fixed Stage-A ordinal', async () => {
   const outcome = await retryFrozenMaterialization({
     entry: entry(),
     fetchImpl: async () =>
-      new Response(xlsxFrame(), { status: 200 }),
+      new Response(xlsxFrame(), {
+        status: 200,
+        headers: {
+          'content-type':
+            'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        },
+      }),
   });
   const progress = {
     entries: [
