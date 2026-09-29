@@ -22,11 +22,8 @@ type Receipt = {
 
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const MAX_REDIRECTS = 10;
-const ACCEPTED_CONTENT_TYPES = new Set([
-  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-  'application/zip',
-  'application/octet-stream',
-]);
+const FROZEN_CONTENT_TYPE_PATTERN =
+  /^(application\/vnd\.openxmlformats-officedocument\.spreadsheetml\.sheet|application\/zip|application\/octet-stream)(?:\s*;.*)?$/u;
 
 function parseArgs(argv: string[]): Map<string, string> {
   const result = new Map<string, string>();
@@ -101,14 +98,9 @@ async function main(): Promise<void> {
   }
 
   const contentType = response.headers.get('content-type');
-  const mediaType = contentType
-    ?.split(';', 1)[0]
-    ?.trim()
-    .toLowerCase();
   if (
     !contentType
-    || !mediaType
-    || !ACCEPTED_CONTENT_TYPES.has(mediaType)
+    || !FROZEN_CONTENT_TYPE_PATTERN.test(contentType)
   ) {
     throw new Error(
       'frozen_request_unexpected_content_type value='
