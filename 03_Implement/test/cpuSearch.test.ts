@@ -506,3 +506,53 @@ test('near misses: two exact columns can surface a paraphrased table without pro
   assert.equal(weak.status, 'no-match');
   assert.equal(weak.nearMisses, undefined);
 });
+
+
+test('directional aliases: two cues can retrieve by canonical names without weakening exact-name safety', () => {
+  const { index } = buildIndex();
+  const queryAliases = [
+    { cues: ['業務', 'フロー'], terms: ['状態遷移', '操作'] },
+  ] as const;
+
+  const aliased = compileQuery('業務フローの表', {
+    index,
+    method: 'bm25',
+    relativePath,
+    queryAliases,
+  });
+  assert.equal(aliased.status, 'candidates');
+  assert.equal(aliased.candidates[0].region.a1, 'B3:E6');
+  assert.match(aliased.candidates[0].explanation, /説明句の対応/u);
+  assert.equal(aliased.requiresSelection, true);
+
+  // Quoting asks for an explicit name, so a semantic alias cannot override it.
+  const quoted = compileQuery('「業務フロー」の表', {
+    index,
+    method: 'bm25',
+    relativePath,
+    queryAliases,
+  });
+  assert.equal(quoted.status, 'no-match');
+
+  // Broad/malformed alias rules are ignored: one cue or one canonical term
+  // cannot become a semantic wildcard.
+  const broad = compileQuery('業務フローの表', {
+    index,
+    method: 'bm25',
+    relativePath,
+    queryAliases: [
+      { cues: ['業務'], terms: ['状態遷移', '操作'] },
+      { cues: ['業務', 'フロー'], terms: ['状態遷移'] },
+    ],
+  });
+  assert.equal(broad.status, 'no-match');
+
+  // Retrieval assistance never bypasses unsupported query semantics.
+  const unsupported = compileQuery('業務フローの表を担当者別に集計', {
+    index,
+    method: 'bm25',
+    relativePath,
+    queryAliases,
+  });
+  assert.equal(unsupported.status, 'unsupported');
+});
