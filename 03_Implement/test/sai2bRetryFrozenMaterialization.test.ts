@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import {
+  advanceProgressSnapshotMetadata,
   applyOutcomeToProgress,
   retryFrozenMaterialization,
   retryFrozenMaterializationFromBytes,
@@ -715,5 +716,53 @@ test('direct retry rejects a generated timestamp outside the frozen schema', asy
         }),
     }),
     /retrieved_at_utc_not_schema_conformant/u,
+  );
+});
+
+
+test('materialization snapshot metadata advances lineage from the frozen baseline', () => {
+  const baseline = {
+    run_id: 'sai-2b-real-source-primary-materialization-run-01',
+    snapshot_id:
+      'sai-2b-real-source-primary-materialization-run-01-attempt-003',
+  };
+  const baselineRaw = JSON.stringify(baseline) + '\n';
+  const advanced = advanceProgressSnapshotMetadata({
+    baseline,
+    next: { ...baseline },
+    baselineRaw,
+    baselineRef:
+      '03_Implement/test/fixtures/structured-artifact-sai2-real-source-primary-materialization-run-v0-attempt-003.json',
+  });
+
+  const bytes = Buffer.from(baselineRaw, 'utf8');
+  const expectedBlob = createHash('sha1')
+    .update(Buffer.from(`blob ${bytes.byteLength}\0`, 'utf8'))
+    .update(bytes)
+    .digest('hex');
+
+  assert.equal(
+    advanced.snapshot_id,
+    'sai-2b-real-source-primary-materialization-run-01-attempt-004',
+  );
+  assert.equal(
+    advanced.predecessor_ref,
+    '03_Implement/test/fixtures/structured-artifact-sai2-real-source-primary-materialization-run-v0-attempt-003.json',
+  );
+  assert.equal(advanced.predecessor_git_blob_sha, expectedBlob);
+});
+
+test('materialization snapshot metadata rejects lineage outside the run id', () => {
+  assert.throws(
+    () => advanceProgressSnapshotMetadata({
+      baseline: {
+        run_id: 'run-a',
+        snapshot_id: 'run-b-attempt-003',
+      },
+      next: {},
+      baselineRaw: '{}\n',
+      baselineRef: 'baseline.json',
+    }),
+    /snapshot_id must match/u,
   );
 });
