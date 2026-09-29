@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import {
   advanceProgressSnapshotMetadata,
   applyOutcomeToProgress,
+  canonicalProgressRef,
   retryFrozenMaterializationFromBytes,
   type OfflinePayloadReceipt,
   type ProgressEntry,
@@ -231,5 +232,19 @@ test('verifier rejects attempts to open semantic stages', () => {
       returnedSnapshot: drifted,
     }),
     /does not exactly match a recomputation/u,
+  );
+});
+
+
+test('progress predecessor refs canonicalize Windows and POSIX paths identically', () => {
+  assert.equal(
+    canonicalProgressRef(
+      'C:\\work\\repo\\03_Implement\\test\\fixtures\\attempt-003.json',
+    ),
+    '03_Implement/test/fixtures/attempt-003.json',
+  );
+  assert.equal(
+    canonicalProgressRef('/tmp/attempt-003.json'),
+    'attempt-003.json',
   );
 });
