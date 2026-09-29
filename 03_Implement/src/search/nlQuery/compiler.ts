@@ -192,8 +192,8 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
     // values only count when the request names nothing but a grep term.
     const regionBag = nameHints.length > 0 ? options.index.namesBagOf(hit.doc) : options.index.bagOf(hit.doc);
     const coverage = regionBag ? coverageOf(coverageHints, regionBag) : 0;
-    const aliasMatch = regionBag && aliasFallbackAllowed
-      ? bestAliasMatch(aliasGroups, regionBag)
+    const aliasMatch = aliasFallbackAllowed
+      ? bestAliasMatch(aliasGroups, hit.region)
       : undefined;
     const aliasAccepted = aliasMatch?.coverage === 1;
     const resolved = resolveColumns(hit.region, ir.columns, options.minColumnSimilarity ?? 0.6, synonyms);
@@ -432,11 +432,18 @@ function triggeredAliasGroups(
 
 function bestAliasMatch(
   groups: readonly TriggeredAliasGroup[],
-  region: FeatureBag,
+  region: RegionRecord,
 ): (TriggeredAliasGroup & { coverage: number }) | undefined {
+  // Promotion is stricter than retrieval: every canonical term must occur as
+  // a normalized substring of an actual region name/header. N-gram overlap is
+  // useful for ranking, but is not sufficient evidence for semantic rescue.
+  const names = [region.bookStem, region.sheet, region.title, ...(region.headers ?? [])]
+    .filter((name): name is string => Boolean(name))
+    .map(normalizeText);
   let best: (TriggeredAliasGroup & { coverage: number }) | undefined;
   for (const group of groups) {
-    const coverage = coverageOf(group.terms.map((term) => [term]), region);
+    const matched = group.terms.filter((term) => names.some((name) => name.includes(term))).length;
+    const coverage = matched / group.terms.length;
     if (!best || coverage > best.coverage) best = { ...group, coverage };
   }
   return best;
