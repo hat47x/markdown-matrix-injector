@@ -1,13 +1,79 @@
 {
-  "version": "dev-1",
-  "note": "Business synonym groups. Tuned on queries.dev.json only; never adjusted against queries.test.json.",
+  "version": "dev-2",
+  "note": "Business synonym groups plus bounded directional description aliases. Tuned only as developer fixtures; v1-v3 held-out sets remain consumed and must not be reused as blind evidence.",
   "groups": [
-    ["API", "インターフェース", "IF"],
-    ["障害", "インシデント", "不具合"],
-    ["スケジュール", "日程"],
-    ["テスト", "試験"],
-    ["問い合わせ", "問合せ", "問合わせ"],
-    ["スペック", "構成"],
-    ["見積", "見積もり"]
+    [
+      "API",
+      "インターフェース",
+      "IF"
+    ],
+    [
+      "障害",
+      "インシデント",
+      "不具合"
+    ],
+    [
+      "スケジュール",
+      "日程"
+    ],
+    [
+      "テスト",
+      "試験"
+    ],
+    [
+      "問い合わせ",
+      "問合せ",
+      "問合わせ"
+    ],
+    [
+      "スペック",
+      "構成"
+    ],
+    [
+      "見積",
+      "見積もり"
+    ]
+  ],
+  "queryAliases": [
+    {
+      "cues": [
+        "夜間",
+        "ジョブ"
+      ],
+      "terms": [
+        "バッチ",
+        "実行時刻"
+      ]
+    },
+    {
+      "cues": [
+        "費用",
+        "内訳"
+      ],
+      "terms": [
+        "見積",
+        "工程"
+      ]
+    },
+    {
+      "cues": [
+        "付ける",
+        "ルール"
+      ],
+      "terms": [
+        "ロール",
+        "付与条件"
+      ]
+    },
+    {
+      "cues": [
+        "バックアップ",
+        "どこ"
+      ],
+      "terms": [
+        "バックアップ",
+        "保管場所"
+      ]
+    }
   ]
 }
