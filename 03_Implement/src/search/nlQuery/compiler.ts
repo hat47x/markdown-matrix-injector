@@ -159,19 +159,28 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
 
   const rejections = new Set<string>();
   const candidates: Candidate[] = [];
-  const near: { hit: RegionHit; coverage: number }[] = [];
+  const near: { hit: RegionHit; coverage: number; columnSignature: boolean }[] = [];
   for (const hit of hits) {
     if (candidates.length >= maxCandidates) break;
     // Names must match names (book / sheet / title / headers); sampled cell
     // values only count when the request names nothing but a grep term.
     const regionBag = nameHints.length > 0 ? options.index.namesBagOf(hit.doc) : options.index.bagOf(hit.doc);
     const coverage = regionBag ? coverageOf(coverageHints, regionBag) : 0;
+    const resolved = resolveColumns(hit.region, ir.columns, options.minColumnSimilarity ?? 0.6, synonyms);
+    const columnSignature = hasStrongColumnSignature(resolved, ir.columns);
     if (coverage < minCoverage) {
-      if (coverage >= NEAR_MISS_COVERAGE && near.length < 3) near.push({ hit, coverage });
+      // A paraphrased table description may share no lexical feature with the
+      // workbook, while the user still names a distinctive set of columns.
+      // Treat >=2 exact/synonym column matches only as *near-miss evidence*:
+      // status remains no-match and explicit user selection + preview are
+      // still required. One fuzzy/partial column is never enough to rescue a
+      // mismatching table name.
+      if ((coverage >= NEAR_MISS_COVERAGE || columnSignature) && near.length < 3) {
+        near.push({ hit, coverage, columnSignature });
+      }
       continue;
     }
 
-    const resolved = resolveColumns(hit.region, ir.columns, options.minColumnSimilarity ?? 0.6, synonyms);
     if (!resolved.ok) {
       rejections.add(resolved.reason);
       continue;
@@ -195,12 +204,15 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
   }
 
   if (candidates.length === 0) {
-    const nearMisses = near.flatMap(({ hit, coverage }) => {
+    const nearMisses = near.flatMap(({ hit, coverage, columnSignature }) => {
       const resolved = resolveColumns(hit.region, ir.columns, options.minColumnSimilarity ?? 0.6, synonyms);
       const columns = resolved.ok ? resolved.columns : [];
       const emitted = emit(hit.region, ir, columns, options.relativePath(hit.region.bookPath));
       if (!emitted.ok) return [];
-      const notes = ['名前が一致しないため、確かめてから選んでください。', ...(resolved.ok ? resolved.notes : ['列の指定は反映していません。']), ...emitted.notes];
+      const evidenceNote = columnSignature
+        ? '表名の説明は索引上の名前と一致しませんが、指定された列名がすべて一致します。確認してから選んでください。'
+        : '名前が一致しないため、確かめてから選んでください。';
+      const notes = [evidenceNote, ...(resolved.ok ? resolved.notes : ['列の指定は反映していません。']), ...emitted.notes];
       return [{
         region: hit.region,
         markdown: emitted.markdown,
@@ -362,6 +374,21 @@ function variantsOf(text: string, synonyms: readonly (readonly string[])[]): str
 type ColumnResolution =
   | { ok: true; columns: ResolvedColumn[]; unresolved: string[]; notes: string[] }
   | { ok: false; reason: string };
+
+/**
+ * Strong enough to *suggest* a table whose descriptive name did not match.
+ * This deliberately does not authorize a normal candidate: at least two
+ * requested columns must all resolve without fuzzy matching.
+ */
+function hasStrongColumnSignature(resolved: ColumnResolution, requested: Hint[]): boolean {
+  return (
+    requested.length >= 2 &&
+    resolved.ok &&
+    resolved.unresolved.length === 0 &&
+    resolved.columns.length >= 2 &&
+    resolved.columns.every((column) => column.match === 'exact' || column.match === 'synonym')
+  );
+}
 
 /**
  * Exact normalized header match first (the compound reading 「確認項目」
