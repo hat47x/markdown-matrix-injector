@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 
 import {
+  advanceProgressSnapshotMetadata,
   applyOutcomeToProgress,
   retryFrozenMaterializationFromBytes,
   type OfflinePayloadReceipt,
@@ -145,11 +146,21 @@ function returnedEvidence() {
     bytes,
     receipt: r,
   });
+  const baselineRaw = JSON.stringify(b) + '\n';
+  const baselineRef =
+    '03_Implement/test/fixtures/structured-artifact-sai2-real-source-primary-materialization-run-v0-attempt-003.json';
   return {
     baseline: b,
+    baselineRaw,
+    baselineRef,
     bytes,
     receipt: r,
-    snapshot: applyOutcomeToProgress(b, outcome),
+    snapshot: advanceProgressSnapshotMetadata({
+      baseline: b,
+      next: applyOutcomeToProgress(b, outcome),
+      baselineRaw,
+      baselineRef,
+    }),
   };
 }
 
@@ -157,6 +168,8 @@ test('verifier accepts exact network-free recomputation and preserves stop-lines
   const evidence = returnedEvidence();
   const report = verifyReturnedOrdinal1Evidence({
     baseline: evidence.baseline,
+    baselineRaw: evidence.baselineRaw,
+    baselineRef: evidence.baselineRef,
     payload: evidence.bytes,
     receipt: evidence.receipt,
     returnedSnapshot: evidence.snapshot,
@@ -165,6 +178,16 @@ test('verifier accepts exact network-free recomputation and preserves stop-lines
   assert.equal(report.returned_snapshot_exact_recompute_match, true);
   assert.equal(report.ordinal_1_succeeded, true);
   assert.equal(report.ordinal_1_attempt_count, 4);
+  assert.equal(evidence.snapshot.snapshot_id,
+    'sai-2b-real-source-primary-materialization-run-01-attempt-004');
+  assert.equal(
+    evidence.snapshot.predecessor_ref,
+    evidence.baselineRef,
+  );
+  assert.match(
+    evidence.snapshot.predecessor_git_blob_sha,
+    /^[0-9a-f]{40}$/u,
+  );
   assert.equal(report.next_fixed_primary_source_id, 'ordinal-2');
   assert.equal(report.scientific_authority_advanced, false);
   assert.equal(report.excel_repository_access_required, false);
@@ -183,6 +206,8 @@ test('verifier rejects any returned snapshot drift', () => {
   assert.throws(
     () => verifyReturnedOrdinal1Evidence({
       baseline: evidence.baseline,
+      baselineRaw: evidence.baselineRaw,
+      baselineRef: evidence.baselineRef,
       payload: evidence.bytes,
       receipt: evidence.receipt,
       returnedSnapshot: drifted,
@@ -199,6 +224,8 @@ test('verifier rejects attempts to open semantic stages', () => {
   assert.throws(
     () => verifyReturnedOrdinal1Evidence({
       baseline: evidence.baseline,
+      baselineRaw: evidence.baselineRaw,
+      baselineRef: evidence.baselineRef,
       payload: evidence.bytes,
       receipt: evidence.receipt,
       returnedSnapshot: drifted,
