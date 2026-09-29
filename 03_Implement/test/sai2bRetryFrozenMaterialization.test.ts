@@ -663,3 +663,43 @@ test('direct retry rejects normalized content types outside the frozen spelling'
     assert.equal(outcome.entry.sha256, null);
   }
 });
+
+
+test('offline handoff rejects schema-invalid UTC timestamp spellings', () => {
+  const bytes = xlsxFrame();
+
+  for (const retrievedAtUtc of [
+    '2026-09-28 03:00:00Z',
+    '2026-09-28T03:00Z',
+  ]) {
+    assert.throws(
+      () => retryFrozenMaterializationFromBytes({
+        entry: entry(),
+        bytes,
+        receipt: {
+          ...offlineReceipt(),
+          retrieved_at_utc: retrievedAtUtc,
+        },
+      }),
+      /UTC Z timestamp/u,
+    );
+  }
+});
+
+test('direct retry rejects a generated timestamp outside the frozen schema', async () => {
+  await assert.rejects(
+    () => retryFrozenMaterialization({
+      entry: entry(),
+      now: () => '2026-09-28 03:00:00Z',
+      fetchImpl: async () =>
+        new Response(xlsxFrame(), {
+          status: 200,
+          headers: {
+            'content-type':
+              'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+          },
+        }),
+    }),
+    /retrieved_at_utc_not_schema_conformant/u,
+  );
+});

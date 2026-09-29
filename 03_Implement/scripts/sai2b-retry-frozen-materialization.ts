@@ -67,6 +67,15 @@ function isFrozenContentType(value: unknown): value is string {
   return typeof value === 'string'
     && FROZEN_CONTENT_TYPE_PATTERN.test(value);
 }
+
+const FROZEN_UTC_DATETIME_PATTERN =
+  /^\d{4}-\d{2}-\d{2}[Tt]\d{2}:\d{2}:\d{2}(?:\.\d+)?Z$/u;
+
+function isFrozenUtcDateTime(value: unknown): value is string {
+  return typeof value === 'string'
+    && FROZEN_UTC_DATETIME_PATTERN.test(value)
+    && !Number.isNaN(Date.parse(value));
+}
 const OFFLINE_RECEIPT_FIELDS = [
   'schema',
   'source_id',
@@ -141,11 +150,7 @@ function assertOfflineReceiptSchemaShape(
       'Offline receipt redirect_chain must match the frozen schema.',
     );
   }
-  if (
-    typeof receipt.retrieved_at_utc !== 'string'
-    || !receipt.retrieved_at_utc.endsWith('Z')
-    || Number.isNaN(Date.parse(receipt.retrieved_at_utc))
-  ) {
+  if (!isFrozenUtcDateTime(receipt.retrieved_at_utc)) {
     throw new Error(
       'Offline receipt retrieved_at_utc must be a valid UTC Z timestamp.',
     );
@@ -319,11 +324,16 @@ export async function retryFrozenMaterialization(args: {
     );
   }
 
+  const retrievedAtUtc = now();
+  if (!isFrozenUtcDateTime(retrievedAtUtc)) {
+    throw new Error('retrieved_at_utc_not_schema_conformant');
+  }
+
   entry.status = 'succeeded';
   entry.byte_size = bytes.byteLength;
   entry.sha256 =
     'sha256:' + createHash('sha256').update(bytes).digest('hex');
-  entry.retrieved_at_utc = now();
+  entry.retrieved_at_utc = retrievedAtUtc;
   entry.binary_validation =
     'pass_xlsx_package_entries_without_semantic_worksheet_inspection';
   entry.transport_evidence = {
