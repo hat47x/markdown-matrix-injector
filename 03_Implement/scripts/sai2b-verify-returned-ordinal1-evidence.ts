@@ -186,7 +186,7 @@ function main(): void {
   const report = verifyReturnedOrdinal1Evidence({
     baseline: JSON.parse(baselineRaw),
     baselineRaw,
-    baselineRef: baselinePath.replaceAll('\\\\', '/'),
+    baselineRef: canonicalProgressRef(baselinePath),
     payload: new Uint8Array(readFileSync(resolve(payloadPath))),
     receipt: JSON.parse(receiptRaw),
     returnedSnapshot: JSON.parse(returnedRaw),
