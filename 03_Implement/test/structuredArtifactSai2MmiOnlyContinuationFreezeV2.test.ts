@@ -46,7 +46,7 @@ test('MMI-only continuation v2 binds current MMI-only verifier', () => {
   );
   assert.equal(
     value.authority.active_mmi_returned_evidence_verifier_git_blob_sha,
-    '24e638893d20a9abb4754c2d7024fafe95f2cbcc',
+    'c73d505c7601edd0558c8a7cf5442f2834ad1e30',
   );
 });
 
