@@ -14,7 +14,7 @@ import {
 } from './sai2b-retry-frozen-materialization.js';
 
 type VerificationReport = {
-  schema: 'hat47x.structured-artifact-sai2-returned-ordinal1-evidence-verification/v4';
+  schema: 'hat47x.structured-artifact-sai2-returned-ordinal1-evidence-verification/v5';
   run_id: string;
   source_id: string;
   baseline_snapshot_id: string;
@@ -89,8 +89,8 @@ export function verifyReturnedOrdinal1Evidence(args: {
   payload: Uint8Array;
   receipt: OfflinePayloadReceipt;
   returnedSnapshot: any;
-  returnedSnapshotRaw?: string;
-  receiptRaw?: string;
+  returnedSnapshotRaw: string;
+  receiptRaw: string;
 }): VerificationReport {
   const canonicalBaselineRef = canonicalProgressRef(args.baselineRef);
   if (canonicalBaselineRef !== AUTHORITATIVE_BASELINE_REF) {
@@ -191,10 +191,14 @@ export function verifyReturnedOrdinal1Evidence(args: {
     );
   }
 
-  const returnedRaw = args.returnedSnapshotRaw
-    ?? JSON.stringify(args.returnedSnapshot) + '\n';
-  const receiptRaw = args.receiptRaw
-    ?? JSON.stringify(args.receipt) + '\n';
+  if (typeof args.returnedSnapshotRaw !== 'string') {
+    throw new Error('Returned snapshot raw JSON is required.');
+  }
+  if (typeof args.receiptRaw !== 'string') {
+    throw new Error('Receipt raw JSON is required.');
+  }
+  const returnedRaw = args.returnedSnapshotRaw;
+  const receiptRaw = args.receiptRaw;
   assertRawJsonMatches(
     'Returned snapshot',
     returnedRaw,
@@ -204,7 +208,7 @@ export function verifyReturnedOrdinal1Evidence(args: {
 
   return {
     schema:
-      'hat47x.structured-artifact-sai2-returned-ordinal1-evidence-verification/v4',
+      'hat47x.structured-artifact-sai2-returned-ordinal1-evidence-verification/v5',
     run_id: String(args.baseline.run_id),
     source_id: String(ordinal1.source_id),
     baseline_snapshot_id: String(args.baseline.snapshot_id),
