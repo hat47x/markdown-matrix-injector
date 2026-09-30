@@ -1,7 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 import { buildContentMatchMarkdown, findWorkbookContentMatches, type WorkbookSheetsSource } from '../src/dx/contentMatchSearch.js';
+import { loadWorkbook } from '../src/core/workbookLoader.js';
 import { sheetSourceFromMatrix, type SheetSource } from '../src/core/sheetSource.js';
 import type { WorkbookContentMatch } from '../src/dx/contentMatchSearch.js';
 
@@ -128,4 +132,36 @@ test('findWorkbookContentMatches describes where each identical copy sits', () =
     ['承認', '7|移行|保留'],
   ]);
   assert.deepEqual(matches[0].context?.headers, ['No', '確認項目', '判定']);
+});
+
+
+test('content-match reloads changed source bytes before accepting a pasted fragment', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-content-match-change-'));
+  const filePath = path.join(tempDir, 'source.csv');
+  const asWorkbook = (): WorkbookSheetsSource => ({
+    filepath: './source.csv',
+    // Deliberately use an uncached load, matching extension.ts
+    // loadWorkspaceWorkbooksForContentMatch(): every explicit content-match
+    // search re-reads the current workbook bytes before exact comparison.
+    sheets: loadWorkbook({ absolutePath: filePath }).sheets,
+  });
+
+  fs.writeFileSync(filePath, 'ID\tState\nA-001\tOpen\n'.replaceAll('\t', ','));
+  assert.equal(
+    findWorkbookContentMatches('ID\tState\r\nA-001\tOpen\r\n', [asWorkbook()]).length,
+    1,
+  );
+
+  fs.writeFileSync(filePath, 'ID\tState\nA-001\tClosed\n'.replaceAll('\t', ','));
+
+  // The old clipboard fragment must not survive as a candidate merely because
+  // it matched an earlier read/index state.
+  assert.deepEqual(
+    findWorkbookContentMatches('ID\tState\r\nA-001\tOpen\r\n', [asWorkbook()]),
+    [],
+  );
+  assert.equal(
+    findWorkbookContentMatches('ID\tState\r\nA-001\tClosed\r\n', [asWorkbook()]).length,
+    1,
+  );
 });
