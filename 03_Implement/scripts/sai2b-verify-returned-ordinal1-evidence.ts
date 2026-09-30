@@ -14,7 +14,7 @@ import {
 } from './sai2b-retry-frozen-materialization.js';
 
 type VerificationReport = {
-  schema: 'hat47x.structured-artifact-sai2-returned-ordinal1-evidence-verification/v2';
+  schema: 'hat47x.structured-artifact-sai2-returned-ordinal1-evidence-verification/v3';
   run_id: string;
   source_id: string;
   baseline_snapshot_id: string;
@@ -34,9 +34,25 @@ type VerificationReport = {
   cross_repo_equivalence_claimed: false;
   ordinal_2_admitted_by_verifier: false;
   mmi_success_snapshot_commit_required_before_ordinal_2: true;
+  authoritative_baseline_ref_verified: true;
+  authoritative_baseline_git_blob_sha_verified: true;
+  baseline_object_matches_raw: true;
   predecessor_git_blob_sha_verified: true;
   semantic_stages_admitted: false;
 };
+
+const AUTHORITATIVE_BASELINE_SNAPSHOT_ID =
+  'sai-2b-real-source-primary-materialization-run-01-attempt-003';
+const AUTHORITATIVE_BASELINE_REF =
+  '03_Implement/test/fixtures/structured-artifact-sai2-real-source-primary-materialization-run-v0-attempt-003.json';
+const AUTHORITATIVE_BASELINE_GIT_BLOB_SHA =
+  '0bd83e077beec9825392b44484ff4d6d95026509';
+
+function gitBlobShaText(text: string): string {
+  const bytes = Buffer.from(text, 'utf8');
+  const header = Buffer.from(`blob ${bytes.byteLength}\0`, 'utf8');
+  return createHash('sha1').update(header).update(bytes).digest('hex');
+}
 
 function sha256Bytes(bytes: Uint8Array): string {
   return 'sha256:' + createHash('sha256').update(bytes).digest('hex');
@@ -56,6 +72,40 @@ export function verifyReturnedOrdinal1Evidence(args: {
   returnedSnapshotRaw?: string;
   receiptRaw?: string;
 }): VerificationReport {
+  const canonicalBaselineRef = canonicalProgressRef(args.baselineRef);
+  if (canonicalBaselineRef !== AUTHORITATIVE_BASELINE_REF) {
+    throw new Error(
+      'Baseline ref must exactly identify the authoritative attempt-003 fixture.',
+    );
+  }
+  if (
+    String(args.baseline.snapshot_id)
+    !== AUTHORITATIVE_BASELINE_SNAPSHOT_ID
+  ) {
+    throw new Error(
+      'Baseline snapshot_id must be the authoritative attempt-003 snapshot.',
+    );
+  }
+
+  let baselineFromRaw: any;
+  try {
+    baselineFromRaw = JSON.parse(args.baselineRaw);
+  } catch {
+    throw new Error('Baseline raw bytes must contain valid JSON.');
+  }
+  if (!isDeepStrictEqual(args.baseline, baselineFromRaw)) {
+    throw new Error(
+      'Baseline object must exactly match the supplied baselineRaw JSON.',
+    );
+  }
+
+  const baselineGitBlobSha = gitBlobShaText(args.baselineRaw);
+  if (baselineGitBlobSha !== AUTHORITATIVE_BASELINE_GIT_BLOB_SHA) {
+    throw new Error(
+      'Baseline raw bytes must match the authoritative attempt-003 Git blob.',
+    );
+  }
+
   const retryEntries = args.baseline.entries.filter(
     (entry: ProgressEntry) => entry.status === 'transport_retry_pending',
   );
@@ -138,7 +188,7 @@ export function verifyReturnedOrdinal1Evidence(args: {
 
   return {
     schema:
-      'hat47x.structured-artifact-sai2-returned-ordinal1-evidence-verification/v2',
+      'hat47x.structured-artifact-sai2-returned-ordinal1-evidence-verification/v3',
     run_id: String(args.baseline.run_id),
     source_id: String(ordinal1.source_id),
     baseline_snapshot_id: String(args.baseline.snapshot_id),
@@ -158,6 +208,9 @@ export function verifyReturnedOrdinal1Evidence(args: {
     cross_repo_equivalence_claimed: false,
     ordinal_2_admitted_by_verifier: false,
     mmi_success_snapshot_commit_required_before_ordinal_2: true,
+    authoritative_baseline_ref_verified: true,
+    authoritative_baseline_git_blob_sha_verified: true,
+    baseline_object_matches_raw: true,
     predecessor_git_blob_sha_verified: true,
     semantic_stages_admitted: false,
   };
