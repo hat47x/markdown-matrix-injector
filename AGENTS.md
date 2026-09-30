@@ -1,6 +1,6 @@
 # MMIで作業するエージェントへ
 
-MMIは、Excel・CSV・XMLの表をMarkdownから読み取り専用で参照するVS Code拡張と、その記法仕様です。
+MMIは、レガシー業務文書・構造化データを読み取り専用で扱い、Markdown中心の資産へ段階的にモダナイズする基盤です。現行の参照実装はExcel・CSV・XMLの表参照を中心とするVS Code拡張ですが、製品の中心は共通Core、MMI Notation、検証可能な契約に置きます。
 
 ## 作業を始める
 
