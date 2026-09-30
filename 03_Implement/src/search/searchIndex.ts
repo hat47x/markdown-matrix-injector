@@ -95,7 +95,11 @@ export class RegionSearchIndex {
       result.added += docs.length;
     }
     if (!this.built) {
-      this.cosine.build();
+      // Cosine is also used as a lightweight exact scorer by scoreDocs() and
+      // FlyHash reranking. Its posting lists are needed only when cosine is an
+      // enabled retrieval method; per-document cosine() reads the shared
+      // corpus directly and keeps only lazy norms.
+      if (this.retrievers.get('cosine') === this.cosine) this.cosine.build();
       for (const retriever of this.retrievers.values()) if (retriever !== this.cosine) retriever.build();
       this.built = true;
     }
@@ -178,7 +182,7 @@ export class RegionSearchIndex {
     this.namesBags.set(doc, names);
     for (const feature of names.keys()) this.namesDf.set(feature, (this.namesDf.get(feature) ?? 0) + 1);
     if (this.built) {
-      this.cosine.add(doc);
+      if (this.retrievers.get('cosine') === this.cosine) this.cosine.add(doc);
       for (const retriever of this.retrievers.values()) if (retriever !== this.cosine) retriever.add(doc);
     }
     return doc;
@@ -186,7 +190,7 @@ export class RegionSearchIndex {
 
   private removeDoc(doc: number): void {
     if (this.built) {
-      this.cosine.remove(doc);
+      if (this.retrievers.get('cosine') === this.cosine) this.cosine.remove(doc);
       for (const retriever of this.retrievers.values()) if (retriever !== this.cosine) retriever.remove(doc);
     }
     this.corpus.remove(doc);

@@ -277,6 +277,30 @@ test('incremental sync matches a fresh build for every method', () => {
   assert.deepEqual(after, before);
 });
 
+test('single-method production indexes do not build hidden cosine postings', () => {
+  const catalog = new RegionCatalog();
+  catalog.setBook('/ws/設計.xlsx', { mtimeMs: 1, size: 1 }, DESIGN);
+  catalog.setBook('/ws/リリース判定.xlsx', { mtimeMs: 1, size: 1 }, RELEASE);
+
+  const bm25Only = new RegionSearchIndex(catalog, { methods: ['bm25'] });
+  bm25Only.sync();
+  assert.equal(bm25Only.cosine.memoryEstimate(), 0);
+
+  const bag = new Map<string, number>();
+  addTextFeatures(bag, '状態遷移', 2);
+  assert.equal(bm25Only.search('bm25', bag, 1)[0]?.region.a1, 'B3:E6');
+
+  // Explicit-file scoring still works without a cosine posting index because
+  // scoreDocs() computes exact cosine directly from the shared corpus.
+  const docs = bm25Only.docsOfBook('/ws/設計.xlsx');
+  assert.equal(bm25Only.scoreDocs(bag, docs)[0]?.region.a1, 'B3:E6');
+
+  const withCosine = new RegionSearchIndex(catalog, { methods: ['bm25', 'cosine'] });
+  withCosine.sync();
+  withCosine.scoreDocs(bag, withCosine.docsOfBook('/ws/設計.xlsx'));
+  assert.ok(bm25Only.cosine.memoryEstimate() < withCosine.cosine.memoryEstimate());
+});
+
 test('FlyHash tags are a pure function of seed and feature strings', () => {
   const { index } = buildIndex();
   const bag = new Map<string, number>();
