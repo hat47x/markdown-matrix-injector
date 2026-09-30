@@ -99,6 +99,19 @@ const DUPLICATE: WorkbookData = {
   },
 };
 
+const INTEGRATION_TEST: WorkbookData = {
+  sheets: {
+    テストケース: sheet({
+      A1: '結合テストケース（受注）',
+      ...table('A2', [
+        ['試験ID', '試験項目', '手順', '期待結果', '結果'],
+        ['IT-001', '受注登録から出荷まで', '画面から登録', '出荷済になる', 'OK'],
+        ['IT-002', '在庫不足時の保留', 'APIから登録', '保留になる', 'NG'],
+      ]),
+    }),
+  },
+};
+
 function buildIndex(): { catalog: RegionCatalog; index: RegionSearchIndex } {
   const catalog = new RegionCatalog();
   catalog.setBook('/ws/設計.xlsx', { mtimeMs: 1, size: 1 }, DESIGN);
@@ -407,6 +420,30 @@ test('compile: an unknown name fragment blocks normal promotion and stays visibl
 
   // With no independently matching name at all, even a near miss is too weak.
   assert.equal(compileQuery('給与の設定', { index, method: 'bm25', relativePath }).nearMisses, undefined);
+});
+
+test('compile: a leading one-character name collision is a near miss, not a presumed typo', () => {
+  const catalog = new RegionCatalog();
+  catalog.setBook('/ws/結合テスト仕様書_受注.xlsx', { mtimeMs: 1, size: 1 }, INTEGRATION_TEST);
+  const index = new RegionSearchIndex(catalog);
+  index.sync();
+
+  const result = compileQuery('総合テストケースの試験項目と期待結果', {
+    index,
+    method: 'bm25',
+    relativePath,
+  });
+  assert.equal(result.status, 'no-match');
+  assert.equal(result.candidates.length, 0);
+  assert.equal(result.nearMisses?.[0].region.a1, 'A2:E4');
+  assert.deepEqual(result.nearMisses?.[0].columns.map((column) => column.header), ['試験項目', '期待結果']);
+  assert.match(result.nearMisses?.[0].explanation ?? '', /先頭1文字だけが異なります/u);
+
+  // Internal/trailing one-character typos retain the existing fuzzy behaviour.
+  const { index: designIndex } = buildIndex();
+  const trailingTypo = compileQuery('状態遷移票を見せて', { index: designIndex, method: 'bm25', relativePath });
+  assert.equal(trailingTypo.status, 'candidates');
+  assert.equal(trailingTypo.candidates[0].region.a1, 'B3:E6');
 });
 
 // --- safety regressions found by held-out v2 -----------------------------------
