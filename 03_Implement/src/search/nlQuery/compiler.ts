@@ -163,7 +163,10 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
   // an explicit quoted name or a required parenthesised qualifier.
   const queryBag = requestFeatureBag(ir, synonyms, aliasFallbackAllowed ? queryAliases : []);
   const dropped = discriminated.dropped;
-  const droppedNotes = [...liftedNotes, ...dropped.map((text) => `「${text}」はどの表の名前にも無いため、絞り込みに使っていません。`)];
+  const droppedNotes = [
+    ...liftedNotes,
+    ...dropped.map((text) => `「${text}」は索引上の表名・シート名・見出しに直接一致しません。`),
+  ];
 
   let hits: RegionHit[];
   const fileHint = ir.source && /\.(?:xlsx|xlsm|xls|csv|xml)$/iu.test(ir.source.text) ? ir.source : undefined;
@@ -185,7 +188,7 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
 
   const rejections = new Set<string>();
   const candidates: Candidate[] = [];
-  const near: { hit: RegionHit; coverage: number; columnSignature: boolean }[] = [];
+  const near: { hit: RegionHit; coverage: number; columnSignature: boolean; lexicalConflict: boolean }[] = [];
   for (const hit of hits) {
     if (candidates.length >= maxCandidates) break;
     // Names must match names (book / sheet / title / headers); sampled cell
@@ -198,15 +201,22 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
     const aliasAccepted = aliasMatch?.coverage === 1;
     const resolved = resolveColumns(hit.region, ir.columns, options.minColumnSimilarity ?? 0.6, synonyms);
     const columnSignature = hasStrongColumnSignature(resolved, ir.columns);
-    if (coverage < minCoverage && !aliasAccepted) {
+    const lexicalConflict = hasLeadingSingleCharacterNameConflict(nameHints, hit.region);
+    const unknownNameBlocksPromotion = (dropped.length > 0 || lexicalConflict) && !aliasAccepted;
+    if ((coverage < minCoverage || unknownNameBlocksPromotion) && !aliasAccepted) {
       // A paraphrased table description may share no lexical feature with the
       // workbook, while the user still names a distinctive set of columns.
       // Treat >=2 exact/synonym column matches only as *near-miss evidence*:
       // status remains no-match and explicit user selection + preview are
       // still required. One fuzzy/partial column is never enough to rescue a
       // mismatching table name.
+      //
+      // Likewise, never silently discard an unknown name fragment to promote
+      // a partly matching table. "架空の状態遷移表" may suggest 状態遷移 as a
+      // near miss, but cannot become a normal candidate unless a bounded
+      // directional alias explicitly accounts for the description.
       if ((coverage >= NEAR_MISS_COVERAGE || columnSignature) && near.length < 3) {
-        near.push({ hit, coverage, columnSignature });
+        near.push({ hit, coverage, columnSignature, lexicalConflict });
       }
       continue;
     }
@@ -239,15 +249,22 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
   }
 
   if (candidates.length === 0) {
-    const nearMisses = near.flatMap(({ hit, coverage, columnSignature }) => {
+    const nearMisses = near.flatMap(({ hit, coverage, columnSignature, lexicalConflict }) => {
       const resolved = resolveColumns(hit.region, ir.columns, options.minColumnSimilarity ?? 0.6, synonyms);
       const columns = resolved.ok ? resolved.columns : [];
       const emitted = emit(hit.region, ir, columns, options.relativePath(hit.region.bookPath));
       if (!emitted.ok) return [];
-      const evidenceNote = columnSignature
-        ? '表名の説明は索引上の名前と一致しませんが、指定された列名がすべて一致します。確認してから選んでください。'
-        : '名前が一致しないため、確かめてから選んでください。';
-      const notes = [evidenceNote, ...(resolved.ok ? resolved.notes : ['列の指定は反映していません。']), ...emitted.notes];
+      const evidenceNote = lexicalConflict
+        ? '長い名前の先頭1文字だけが異なります。誤字とは断定せず、別の対象である可能性を残して近い候補として提示します。'
+        : columnSignature
+          ? '表名の説明は索引上の名前と一致しませんが、指定された列名がすべて一致します。確認してから選んでください。'
+          : '名前が一致しないため、確かめてから選んでください。';
+      const notes = [
+        evidenceNote,
+        ...droppedNotes,
+        ...(resolved.ok ? resolved.notes : ['列の指定は反映していません。']),
+        ...emitted.notes,
+      ];
       return [{
         region: hit.region,
         markdown: emitted.markdown,
@@ -447,6 +464,46 @@ function bestAliasMatch(
     if (!best || coverage > best.coverage) best = { ...group, coverage };
   }
   return best;
+}
+
+/**
+ * A one-character conflict at the *front* of an otherwise identical long
+ * name is too semantically risky to auto-treat as a typo. For example,
+ * 「総合テストケース」 and 「結合テストケース」 differ by one character but
+ * refer to different test phases. Demote such matches to near misses.
+ *
+ * This is intentionally narrow: internal/trailing one-character typos keep
+ * the existing fuzzy-name behaviour.
+ */
+function hasLeadingSingleCharacterNameConflict(hints: readonly Hint[], region: RegionRecord): boolean {
+  const requested = hints.flatMap((hint) =>
+    hint.quoted
+      ? []
+      : coverageParts(stripExtension(hint.text))
+          .filter((part) => !part.qualifier)
+          .map((part) => normalizeComparableName(part.text)),
+  ).filter(Boolean);
+  const indexed = [region.bookStem, region.sheet, region.title, ...(region.headers ?? [])]
+    .filter((value): value is string => Boolean(value))
+    .map(normalizeComparableName)
+    .filter(Boolean);
+
+  for (const requestName of requested) {
+    const requestChars = [...requestName];
+    if (requestChars.length < 4) continue;
+    for (const indexedName of indexed) {
+      const indexedChars = [...indexedName];
+      if (indexedChars.length !== requestChars.length) continue;
+      if (indexedChars[0] === requestChars[0]) continue;
+      if (indexedChars.slice(1).join('') === requestChars.slice(1).join('')) return true;
+    }
+  }
+  return false;
+}
+
+function normalizeComparableName(value: string): string {
+  const withoutQualifier = stripExtension(value).replace(/[（(][^）)]*[）)]/gu, '');
+  return normalizeText(withoutQualifier.replace(STRUCTURAL_SUFFIX, ''));
 }
 
 /** The text plus each single-term substitution from its synonym groups. */
