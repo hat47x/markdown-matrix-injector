@@ -115,18 +115,21 @@ function returnedEvidence() {
     bytes,
     receipt: r,
   });
+  const snapshot = advanceProgressSnapshotMetadata({
+    baseline: baseline.parsed,
+    next: applyOutcomeToProgress(baseline.parsed, outcome),
+    baselineRaw: baseline.raw,
+    baselineRef: BASELINE_REF,
+  });
   return {
     baseline: baseline.parsed,
     baselineRaw: baseline.raw,
     baselineRef: BASELINE_REF,
     bytes,
     receipt: r,
-    snapshot: advanceProgressSnapshotMetadata({
-      baseline: baseline.parsed,
-      next: applyOutcomeToProgress(baseline.parsed, outcome),
-      baselineRaw: baseline.raw,
-      baselineRef: BASELINE_REF,
-    }),
+    receiptRaw: JSON.stringify(r) + '\n',
+    snapshot,
+    snapshotRaw: JSON.stringify(snapshot) + '\n',
   };
 }
 
@@ -139,6 +142,8 @@ test('verifier accepts exact authoritative baseline recomputation', () => {
     payload: evidence.bytes,
     receipt: evidence.receipt,
     returnedSnapshot: evidence.snapshot,
+    returnedSnapshotRaw: evidence.snapshotRaw,
+    receiptRaw: evidence.receiptRaw,
   });
 
   assert.equal(report.returned_snapshot_exact_recompute_match, true);
@@ -192,6 +197,8 @@ test('verifier canonicalizes accepted baseline ref before recomputing snapshot l
     payload: evidence.bytes,
     receipt: evidence.receipt,
     returnedSnapshot: evidence.snapshot,
+    returnedSnapshotRaw: evidence.snapshotRaw,
+    receiptRaw: evidence.receiptRaw,
   });
 
   assert.equal(
@@ -268,6 +275,8 @@ test('verifier rejects any returned snapshot drift', () => {
       payload: evidence.bytes,
       receipt: evidence.receipt,
       returnedSnapshot: drifted,
+      returnedSnapshotRaw: JSON.stringify(drifted) + '\n',
+      receiptRaw: evidence.receiptRaw,
     }),
     /does not exactly match a recomputation/u,
   );
@@ -286,6 +295,8 @@ test('verifier rejects attempts to open semantic stages', () => {
       payload: evidence.bytes,
       receipt: evidence.receipt,
       returnedSnapshot: drifted,
+      returnedSnapshotRaw: JSON.stringify(drifted) + '\n',
+      receiptRaw: evidence.receiptRaw,
     }),
     /does not exactly match a recomputation/u,
   );
@@ -319,6 +330,7 @@ test('verifier rejects returned snapshot raw/object mismatch', () => {
       receipt: evidence.receipt,
       returnedSnapshot: evidence.snapshot,
       returnedSnapshotRaw: JSON.stringify(rawDrift) + '\n',
+      receiptRaw: evidence.receiptRaw,
     }),
     /Returned snapshot object must exactly match its supplied raw JSON/u,
   );
@@ -339,6 +351,7 @@ test('verifier rejects receipt raw/object mismatch', () => {
       payload: evidence.bytes,
       receipt: evidence.receipt,
       returnedSnapshot: evidence.snapshot,
+      returnedSnapshotRaw: evidence.snapshotRaw,
       receiptRaw: JSON.stringify(rawDrift) + '\n',
     }),
     /Receipt object must exactly match its supplied raw JSON/u,
