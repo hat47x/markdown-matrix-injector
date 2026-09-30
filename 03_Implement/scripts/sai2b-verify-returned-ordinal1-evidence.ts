@@ -143,7 +143,7 @@ export function verifyReturnedOrdinal1Evidence(args: {
     baseline: args.baseline,
     next: applyOutcomeToProgress(args.baseline, outcome),
     baselineRaw: args.baselineRaw,
-    baselineRef: args.baselineRef,
+    baselineRef: canonicalBaselineRef,
   });
   if (!isDeepStrictEqual(args.returnedSnapshot, expected)) {
     throw new Error(
