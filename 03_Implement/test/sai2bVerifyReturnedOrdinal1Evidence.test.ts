@@ -337,7 +337,6 @@ test('verifier rejects returned snapshot raw/object mismatch', () => {
       returnedSnapshot: evidence.snapshot,
       returnedSnapshotRaw: JSON.stringify(rawDrift) + '\n',
       receiptRaw: evidence.receiptRaw,
-      receiptRaw: evidence.receiptRaw,
     }),
     /Returned snapshot object must exactly match its supplied raw JSON/u,
   );
