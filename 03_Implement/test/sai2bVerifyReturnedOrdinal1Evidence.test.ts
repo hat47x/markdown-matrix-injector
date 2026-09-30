@@ -115,18 +115,21 @@ function returnedEvidence() {
     bytes,
     receipt: r,
   });
+  const snapshot = advanceProgressSnapshotMetadata({
+    baseline: baseline.parsed,
+    next: applyOutcomeToProgress(baseline.parsed, outcome),
+    baselineRaw: baseline.raw,
+    baselineRef: BASELINE_REF,
+  });
   return {
     baseline: baseline.parsed,
     baselineRaw: baseline.raw,
     baselineRef: BASELINE_REF,
     bytes,
     receipt: r,
-    snapshot: advanceProgressSnapshotMetadata({
-      baseline: baseline.parsed,
-      next: applyOutcomeToProgress(baseline.parsed, outcome),
-      baselineRaw: baseline.raw,
-      baselineRef: BASELINE_REF,
-    }),
+    receiptRaw: JSON.stringify(r) + '\n',
+    snapshot,
+    snapshotRaw: JSON.stringify(snapshot) + '\n',
   };
 }
 
@@ -139,6 +142,8 @@ test('verifier accepts exact authoritative baseline recomputation', () => {
     payload: evidence.bytes,
     receipt: evidence.receipt,
     returnedSnapshot: evidence.snapshot,
+    returnedSnapshotRaw: evidence.snapshotRaw,
+    receiptRaw: evidence.receiptRaw,
   });
 
   assert.equal(report.returned_snapshot_exact_recompute_match, true);
@@ -149,7 +154,7 @@ test('verifier accepts exact authoritative baseline recomputation', () => {
   assert.equal(report.receipt_raw_matches_object, true);
   assert.equal(
     report.schema,
-    'hat47x.structured-artifact-sai2-returned-ordinal1-evidence-verification/v4',
+    'hat47x.structured-artifact-sai2-returned-ordinal1-evidence-verification/v5',
   );
   assert.equal(report.ordinal_1_succeeded, true);
   assert.equal(report.ordinal_1_attempt_count, 4);
@@ -192,6 +197,8 @@ test('verifier canonicalizes accepted baseline ref before recomputing snapshot l
     payload: evidence.bytes,
     receipt: evidence.receipt,
     returnedSnapshot: evidence.snapshot,
+    returnedSnapshotRaw: evidence.snapshotRaw,
+    receiptRaw: evidence.receiptRaw,
   });
 
   assert.equal(
@@ -216,6 +223,8 @@ test('verifier rejects baseline raw bytes outside authoritative Git blob', () =>
       payload: evidence.bytes,
       receipt: evidence.receipt,
       returnedSnapshot: evidence.snapshot,
+      returnedSnapshotRaw: evidence.snapshotRaw,
+      receiptRaw: evidence.receiptRaw,
     }),
     /authoritative attempt-003 Git blob/u,
   );
@@ -234,6 +243,8 @@ test('verifier rejects parsed baseline that differs from baselineRaw', () => {
       payload: evidence.bytes,
       receipt: evidence.receipt,
       returnedSnapshot: evidence.snapshot,
+      returnedSnapshotRaw: evidence.snapshotRaw,
+      receiptRaw: evidence.receiptRaw,
     }),
     /exactly match the supplied baselineRaw JSON/u,
   );
@@ -250,6 +261,8 @@ test('verifier rejects non-authoritative baseline ref', () => {
       payload: evidence.bytes,
       receipt: evidence.receipt,
       returnedSnapshot: evidence.snapshot,
+      returnedSnapshotRaw: evidence.snapshotRaw,
+      receiptRaw: evidence.receiptRaw,
     }),
     /authoritative attempt-003 fixture/u,
   );
@@ -268,6 +281,8 @@ test('verifier rejects any returned snapshot drift', () => {
       payload: evidence.bytes,
       receipt: evidence.receipt,
       returnedSnapshot: drifted,
+      returnedSnapshotRaw: JSON.stringify(drifted) + '\n',
+      receiptRaw: evidence.receiptRaw,
     }),
     /does not exactly match a recomputation/u,
   );
@@ -286,6 +301,8 @@ test('verifier rejects attempts to open semantic stages', () => {
       payload: evidence.bytes,
       receipt: evidence.receipt,
       returnedSnapshot: drifted,
+      returnedSnapshotRaw: JSON.stringify(drifted) + '\n',
+      receiptRaw: evidence.receiptRaw,
     }),
     /does not exactly match a recomputation/u,
   );
@@ -319,6 +336,7 @@ test('verifier rejects returned snapshot raw/object mismatch', () => {
       receipt: evidence.receipt,
       returnedSnapshot: evidence.snapshot,
       returnedSnapshotRaw: JSON.stringify(rawDrift) + '\n',
+      receiptRaw: evidence.receiptRaw,
     }),
     /Returned snapshot object must exactly match its supplied raw JSON/u,
   );
@@ -339,8 +357,46 @@ test('verifier rejects receipt raw/object mismatch', () => {
       payload: evidence.bytes,
       receipt: evidence.receipt,
       returnedSnapshot: evidence.snapshot,
+      returnedSnapshotRaw: evidence.snapshotRaw,
       receiptRaw: JSON.stringify(rawDrift) + '\n',
     }),
     /Receipt object must exactly match its supplied raw JSON/u,
+  );
+});
+
+
+test('verifier rejects missing returned snapshot raw JSON at runtime', () => {
+  const evidence = returnedEvidence();
+  const args: any = {
+    baseline: evidence.baseline,
+    baselineRaw: evidence.baselineRaw,
+    baselineRef: evidence.baselineRef,
+    payload: evidence.bytes,
+    receipt: evidence.receipt,
+    receiptRaw: evidence.receiptRaw,
+    returnedSnapshot: evidence.snapshot,
+  };
+
+  assert.throws(
+    () => verifyReturnedOrdinal1Evidence(args),
+    /Returned snapshot raw JSON is required/u,
+  );
+});
+
+test('verifier rejects missing receipt raw JSON at runtime', () => {
+  const evidence = returnedEvidence();
+  const args: any = {
+    baseline: evidence.baseline,
+    baselineRaw: evidence.baselineRaw,
+    baselineRef: evidence.baselineRef,
+    payload: evidence.bytes,
+    receipt: evidence.receipt,
+    returnedSnapshot: evidence.snapshot,
+    returnedSnapshotRaw: evidence.snapshotRaw,
+  };
+
+  assert.throws(
+    () => verifyReturnedOrdinal1Evidence(args),
+    /Receipt raw JSON is required/u,
   );
 });
