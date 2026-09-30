@@ -13,6 +13,7 @@ const value = JSON.parse(
 );
 
 test('Excel repository freeze requires explicit unfreeze and forbids access', () => {
+  assert.equal(value.directive.received_at_utc, '2026-09-29T13:29:09Z');
   assert.equal(
     value.directive.repository,
     'hat47x/excel-houganshi-normalizer',
