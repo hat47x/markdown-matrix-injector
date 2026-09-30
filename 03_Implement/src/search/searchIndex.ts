@@ -49,7 +49,6 @@ export class RegionSearchIndex {
   readonly cosine: CosineRetriever;
   private readonly retrievers = new Map<RetrievalMethod, Retriever>();
   private readonly regionsByDoc = new Map<number, RegionRecord>();
-  private readonly bags = new Map<number, FeatureBag>();
   /** Features of names only (book / sheet / title / headers), and their region frequency. */
   private readonly namesBags = new Map<number, FeatureBag>();
   private readonly namesDf = new Map<string, number>();
@@ -148,8 +147,15 @@ export class RegionSearchIndex {
     return this.namesDf.get(feature) ?? 0;
   }
 
+  /**
+   * Full role-weighted features are reconstructed only for the small retrieval
+   * pool that needs coverage checks. The encoded corpus already stores the
+   * same information for retrieval, so retaining another string-keyed
+   * FeatureBag per region would duplicate the largest part of the index.
+   */
   bagOf(doc: number): FeatureBag | undefined {
-    return this.bags.get(doc);
+    const region = this.regionsByDoc.get(doc);
+    return region ? regionFeatureBag(region, this.weights) : undefined;
   }
 
   region(doc: number): RegionRecord | undefined {
@@ -176,7 +182,6 @@ export class RegionSearchIndex {
     const bag = regionFeatureBag(region, this.weights);
     const doc = this.corpus.add(bag);
     this.regionsByDoc.set(doc, region);
-    this.bags.set(doc, bag);
     const names: FeatureBag = new Map();
     for (const name of regionNames(region)) addTextFeatures(names, name.text, 1);
     this.namesBags.set(doc, names);
@@ -195,7 +200,6 @@ export class RegionSearchIndex {
     }
     this.corpus.remove(doc);
     this.regionsByDoc.delete(doc);
-    this.bags.delete(doc);
     for (const feature of this.namesBags.get(doc)?.keys() ?? []) {
       const left = (this.namesDf.get(feature) ?? 1) - 1;
       if (left > 0) this.namesDf.set(feature, left);
