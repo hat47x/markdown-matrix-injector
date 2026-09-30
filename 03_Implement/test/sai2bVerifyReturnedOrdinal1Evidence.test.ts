@@ -181,6 +181,30 @@ test('verifier accepts exact authoritative baseline recomputation', () => {
   assert.equal(report.semantic_stages_admitted, false);
 });
 
+
+test('verifier canonicalizes accepted baseline ref before recomputing snapshot lineage', () => {
+  const evidence = returnedEvidence();
+  const report = verifyReturnedOrdinal1Evidence({
+    baseline: evidence.baseline,
+    baselineRaw: evidence.baselineRaw,
+    baselineRef:
+      'C:\\work\\repo\\03_Implement\\test\\fixtures\\structured-artifact-sai2-real-source-primary-materialization-run-v0-attempt-003.json',
+    payload: evidence.bytes,
+    receipt: evidence.receipt,
+    returnedSnapshot: evidence.snapshot,
+  });
+
+  assert.equal(
+    report.returned_snapshot_id,
+    'sai-2b-real-source-primary-materialization-run-01-attempt-004',
+  );
+  assert.equal(
+    evidence.snapshot.predecessor_ref,
+    BASELINE_REF,
+  );
+  assert.equal(report.authoritative_baseline_ref_verified, true);
+});
+
 test('verifier rejects baseline raw bytes outside authoritative Git blob', () => {
   const evidence = returnedEvidence();
 
