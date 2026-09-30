@@ -145,6 +145,12 @@ test('verifier accepts exact authoritative baseline recomputation', () => {
   assert.equal(report.authoritative_baseline_ref_verified, true);
   assert.equal(report.authoritative_baseline_git_blob_sha_verified, true);
   assert.equal(report.baseline_object_matches_raw, true);
+  assert.equal(report.returned_snapshot_raw_matches_object, true);
+  assert.equal(report.receipt_raw_matches_object, true);
+  assert.equal(
+    report.schema,
+    'hat47x.structured-artifact-sai2-returned-ordinal1-evidence-verification/v4',
+  );
   assert.equal(report.ordinal_1_succeeded, true);
   assert.equal(report.ordinal_1_attempt_count, 4);
   assert.equal(
@@ -173,6 +179,30 @@ test('verifier accepts exact authoritative baseline recomputation', () => {
     true,
   );
   assert.equal(report.semantic_stages_admitted, false);
+});
+
+
+test('verifier canonicalizes accepted baseline ref before recomputing snapshot lineage', () => {
+  const evidence = returnedEvidence();
+  const report = verifyReturnedOrdinal1Evidence({
+    baseline: evidence.baseline,
+    baselineRaw: evidence.baselineRaw,
+    baselineRef:
+      'C:\\work\\repo\\03_Implement\\test\\fixtures\\structured-artifact-sai2-real-source-primary-materialization-run-v0-attempt-003.json',
+    payload: evidence.bytes,
+    receipt: evidence.receipt,
+    returnedSnapshot: evidence.snapshot,
+  });
+
+  assert.equal(
+    report.returned_snapshot_id,
+    'sai-2b-real-source-primary-materialization-run-01-attempt-004',
+  );
+  assert.equal(
+    evidence.snapshot.predecessor_ref,
+    BASELINE_REF,
+  );
+  assert.equal(report.authoritative_baseline_ref_verified, true);
 });
 
 test('verifier rejects baseline raw bytes outside authoritative Git blob', () => {
@@ -271,5 +301,46 @@ test('progress predecessor refs canonicalize Windows and POSIX paths', () => {
   assert.equal(
     canonicalProgressRef('/tmp/attempt-003.json'),
     'attempt-003.json',
+  );
+});
+
+
+test('verifier rejects returned snapshot raw/object mismatch', () => {
+  const evidence = returnedEvidence();
+  const rawDrift = structuredClone(evidence.snapshot);
+  rawDrift.aggregate.pending_count += 1;
+
+  assert.throws(
+    () => verifyReturnedOrdinal1Evidence({
+      baseline: evidence.baseline,
+      baselineRaw: evidence.baselineRaw,
+      baselineRef: evidence.baselineRef,
+      payload: evidence.bytes,
+      receipt: evidence.receipt,
+      returnedSnapshot: evidence.snapshot,
+      returnedSnapshotRaw: JSON.stringify(rawDrift) + '\n',
+    }),
+    /Returned snapshot object must exactly match its supplied raw JSON/u,
+  );
+});
+
+test('verifier rejects receipt raw/object mismatch', () => {
+  const evidence = returnedEvidence();
+  const rawDrift = {
+    ...evidence.receipt,
+    byte_size: evidence.receipt.byte_size + 1,
+  };
+
+  assert.throws(
+    () => verifyReturnedOrdinal1Evidence({
+      baseline: evidence.baseline,
+      baselineRaw: evidence.baselineRaw,
+      baselineRef: evidence.baselineRef,
+      payload: evidence.bytes,
+      receipt: evidence.receipt,
+      returnedSnapshot: evidence.snapshot,
+      receiptRaw: JSON.stringify(rawDrift) + '\n',
+    }),
+    /Receipt object must exactly match its supplied raw JSON/u,
   );
 });
