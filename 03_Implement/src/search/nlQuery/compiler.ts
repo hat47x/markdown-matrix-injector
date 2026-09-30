@@ -163,7 +163,10 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
   // an explicit quoted name or a required parenthesised qualifier.
   const queryBag = requestFeatureBag(ir, synonyms, aliasFallbackAllowed ? queryAliases : []);
   const dropped = discriminated.dropped;
-  const droppedNotes = [...liftedNotes, ...dropped.map((text) => `「${text}」はどの表の名前にも無いため、絞り込みに使っていません。`)];
+  const droppedNotes = [
+    ...liftedNotes,
+    ...dropped.map((text) => `「${text}」は索引上の表名・シート名・見出しに直接一致しません。`),
+  ];
 
   let hits: RegionHit[];
   const fileHint = ir.source && /\.(?:xlsx|xlsm|xls|csv|xml)$/iu.test(ir.source.text) ? ir.source : undefined;
@@ -198,13 +201,19 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
     const aliasAccepted = aliasMatch?.coverage === 1;
     const resolved = resolveColumns(hit.region, ir.columns, options.minColumnSimilarity ?? 0.6, synonyms);
     const columnSignature = hasStrongColumnSignature(resolved, ir.columns);
-    if (coverage < minCoverage && !aliasAccepted) {
+    const unknownNameBlocksPromotion = dropped.length > 0 && !aliasAccepted;
+    if ((coverage < minCoverage || unknownNameBlocksPromotion) && !aliasAccepted) {
       // A paraphrased table description may share no lexical feature with the
       // workbook, while the user still names a distinctive set of columns.
       // Treat >=2 exact/synonym column matches only as *near-miss evidence*:
       // status remains no-match and explicit user selection + preview are
       // still required. One fuzzy/partial column is never enough to rescue a
       // mismatching table name.
+      //
+      // Likewise, never silently discard an unknown name fragment to promote
+      // a partly matching table. "架空の状態遷移表" may suggest 状態遷移 as a
+      // near miss, but cannot become a normal candidate unless a bounded
+      // directional alias explicitly accounts for the description.
       if ((coverage >= NEAR_MISS_COVERAGE || columnSignature) && near.length < 3) {
         near.push({ hit, coverage, columnSignature });
       }
@@ -247,7 +256,12 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
       const evidenceNote = columnSignature
         ? '表名の説明は索引上の名前と一致しませんが、指定された列名がすべて一致します。確認してから選んでください。'
         : '名前が一致しないため、確かめてから選んでください。';
-      const notes = [evidenceNote, ...(resolved.ok ? resolved.notes : ['列の指定は反映していません。']), ...emitted.notes];
+      const notes = [
+        evidenceNote,
+        ...droppedNotes,
+        ...(resolved.ok ? resolved.notes : ['列の指定は反映していません。']),
+        ...emitted.notes,
+      ];
       return [{
         region: hit.region,
         markdown: emitted.markdown,
