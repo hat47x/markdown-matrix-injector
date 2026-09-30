@@ -13,7 +13,7 @@ function freeze(): any {
 test('MMI-only continuation v2 records explicit Excel freeze', () => {
   const value = freeze();
 
-  assert.equal(value.user_directive.received_at_utc, '2026-09-29T13:29:09Z');
+  assert.equal(value.user_directive.received_at_utc, '2026-09-29T13:32:55Z');
   assert.equal(value.user_directive.excel_repository_frozen, true);
   assert.equal(value.user_directive.excel_repository_access_admitted, false);
   assert.equal(
@@ -27,6 +27,7 @@ test('MMI-only continuation v2 records explicit Excel freeze', () => {
     false,
   );
   assert.equal(value.frozen_consumer.future_mirror_required_while_frozen, false);
+  assert.equal(value.frozen_consumer.explicit_unfreeze_required, true);
 });
 
 test('MMI-only continuation v2 binds current MMI-only verifier', () => {
@@ -65,6 +66,11 @@ test('MMI-only continuation v2 keeps scientific gates closed', () => {
   assert.equal(
     value.scientific_scope.ordinal_2_before_mmi_ordinal_1_success_admitted,
     false,
+  );
+  assert.equal(
+    value.scientific_scope
+      .cross_repo_independent_verification_deferred_until_explicit_unfreeze,
+    true,
   );
 });
 
