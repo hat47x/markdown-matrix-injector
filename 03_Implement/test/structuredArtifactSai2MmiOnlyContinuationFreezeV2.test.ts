@@ -13,7 +13,7 @@ function freeze(): any {
 test('MMI-only continuation v2 records explicit Excel freeze', () => {
   const value = freeze();
 
-  assert.equal(value.user_directive.received_at_utc, '2026-09-29T13:32:55Z');
+  assert.equal(value.user_directive.received_at_utc, '2026-09-29T13:29:09Z');
   assert.equal(value.user_directive.excel_repository_frozen, true);
   assert.equal(value.user_directive.excel_repository_access_admitted, false);
   assert.equal(
