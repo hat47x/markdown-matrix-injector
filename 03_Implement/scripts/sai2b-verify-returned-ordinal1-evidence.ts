@@ -14,7 +14,7 @@ import {
 } from './sai2b-retry-frozen-materialization.js';
 
 type VerificationReport = {
-  schema: 'hat47x.structured-artifact-sai2-returned-ordinal1-evidence-verification/v1';
+  schema: 'hat47x.structured-artifact-sai2-returned-ordinal1-evidence-verification/v2';
   run_id: string;
   source_id: string;
   baseline_snapshot_id: string;
@@ -28,9 +28,9 @@ type VerificationReport = {
   next_fixed_primary_source_id: string;
   scientific_authority_advanced: false;
   consumer_repository: 'hat47x/markdown-matrix-injector';
-  cross_repo_independent_verification_required: true;
+  excel_repository_access_required: false;
   cross_repo_equivalence_claimed: false;
-  local_success_snapshot_commit_required_before_cross_repo_ordinal_2: true;
+  mmi_success_snapshot_commit_required_before_ordinal_2: true;
   predecessor_git_blob_sha_verified: true;
   semantic_stages_admitted: false;
 };
@@ -135,7 +135,7 @@ export function verifyReturnedOrdinal1Evidence(args: {
 
   return {
     schema:
-      'hat47x.structured-artifact-sai2-returned-ordinal1-evidence-verification/v1',
+      'hat47x.structured-artifact-sai2-returned-ordinal1-evidence-verification/v2',
     run_id: String(args.baseline.run_id),
     source_id: String(ordinal1.source_id),
     baseline_snapshot_id: String(args.baseline.snapshot_id),
@@ -149,9 +149,9 @@ export function verifyReturnedOrdinal1Evidence(args: {
     next_fixed_primary_source_id: String(ordinal2.source_id),
     scientific_authority_advanced: false,
     consumer_repository: 'hat47x/markdown-matrix-injector',
-    cross_repo_independent_verification_required: true,
+    excel_repository_access_required: false,
     cross_repo_equivalence_claimed: false,
-    local_success_snapshot_commit_required_before_cross_repo_ordinal_2: true,
+    mmi_success_snapshot_commit_required_before_ordinal_2: true,
     predecessor_git_blob_sha_verified: true,
     semantic_stages_admitted: false,
   };
