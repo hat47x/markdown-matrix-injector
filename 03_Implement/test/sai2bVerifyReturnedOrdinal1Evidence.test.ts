@@ -195,10 +195,16 @@ test('verifier accepts exact network-free recomputation and preserves stop-lines
     report.consumer_repository,
     'hat47x/markdown-matrix-injector',
   );
-  assert.equal(report.cross_repo_independent_verification_required, true);
-  assert.equal(report.cross_repo_equivalence_claimed, false);
+  assert.equal(report.excel_repository_currently_frozen, true);
+  assert.equal(report.excel_repository_access_required, false);
   assert.equal(
-    report.local_success_snapshot_commit_required_before_cross_repo_ordinal_2,
+    report.cross_repo_independent_verification_deferred_until_explicit_unfreeze,
+    true,
+  );
+  assert.equal(report.cross_repo_equivalence_claimed, false);
+  assert.equal(report.ordinal_2_admitted_by_verifier, false);
+  assert.equal(
+    report.mmi_success_snapshot_commit_required_before_ordinal_2,
     true,
   );
   assert.equal(report.semantic_stages_admitted, false);
