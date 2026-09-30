@@ -2,13 +2,23 @@
 
 ## 現況
 
-**方針案（採否待ち）:** [ADR-0019](adr/ADR-0019-ai-era-sier-document-value-and-policy.md)は、製品価値を「AIが書いても、人が書いても、表は正本どおり」と定め、AIエージェント経路とVS Codeでの手動編集経路の2つを育てる案。優先度は、1.AIから使える最小経路（CLI、AI向け指示パック、基本設計書キット、執筆ベンチマーク）、2.研究層の成果を既存文書の取り込み操作へつなぐこと、3.参照台帳・確定版などSIer品質の保証、4.組織への展開の順。要件の範囲は変えない。採否が決まるまで、下の作業順は現行のままとする。
+**製品方針（2026-10-01採択）:** [ADR-0019](adr/ADR-0019-ai-era-sier-document-value-and-policy.md)により、MMIを「表参照プラグイン」から、**レガシー文書を残したまま段階的にモダナイズし、最終的には元文書やMMIからも安全に切り離せる基盤**へ再定義した。既存の表参照・Read-only・決定論的Authority Planeは中核保証として継続する。軽量認知は、表・画像・図形・ツリー・リスト等のSemantic Candidateを発見する非権威的な支援へ一般化する。製品の中心は共通Coreと契約であり、VS Code拡張は人向けクライアント、CLI/機械可読出力はAI・CI向けの第一級入口とする。
 
 VS Code拡張、記法仕様、日本語チュートリアル、実務サンプルを整備している。記法仕様はDraft、配布物は公開準備中の検証版。新しい入力支援はレビュー指摘R1〜R5を設計・ADR・観測ハーネスへ反映済み（[作業A完了](issues/issue-0114-excel-range-paste.md)）、**原本座標の保持（作業B）も実装・自動テスト完了**（2026-09-11、WSL2 Ubuntu環境）、**VS CodeのDataTransfer観測（作業C）も完了**（同日、Windows実機）。**作業D（内容照合による貼り付け）と`editor.action.pasteAs`への統合も完了**（2026-09-16〜17）。**CPUでの範囲探索（issue-0115）は評価実装と実測を終え、FlyHashは条件付き採用**（2026-09-24）。
 
 **解決済みの問題:** Excel読込みで空行と使用範囲の原点が失われ、正しい参照文字列を挿入しても原本と違う位置が表示される問題を、原本座標を保持するソースモデル（`SheetSource`）へ置き換えて修正した。`npm test`全258件成功、実サンプルでの回帰0件、旗艦の再現ケース（`設計.xlsx#状態遷移|C5:F12`）が設計文書どおりの出力になることを実描画で確認済み。
 
 **確定した事実（作業C）:** VS Codeの`DataTransfer`はExcelの出所形式を一切公開しない。実機で`text/plain`・`text/html`・`text/rtf`・`image/png`の4件のみを確認し、`SourceURL`を含むCF_HTMLヘッダーもVS Code側で失われることを確認した。[ADR-0017](adr/ADR-0017-windows-clipboard-provenance-bridge.md)の選択肢1（拡張内だけで完結）は却下確定。選択肢2（Windows補助プロセス）を実装するかは未決定だが、段2の実装（内容照合ベース）はこの判断を待たずに進められる。
+
+## 製品レベルの優先度
+
+1. **CoreとAIから使える入口:** 既存のinspect/check/renderをCore/CLIから使えるようにし、Source Adapter / Candidate / provenanceの共通契約を固定する。
+2. **レガシー文書モダナイズの最小縦切り:** Excelを実証対象に、表に加えて埋め込み画像、anchor、assets化、取込済み判定、初回一括変換と個別取り込みを成立させる。
+3. **Source Adapterの一般化:** Shape、Tree、Choice list、JSON/XML、フラットテキストのStructuralizerへ広げる。
+4. **Detachabilityと長期運用:** materialize、detach check、provenance manifest、変更検出、参照台帳・影響分析を整える。
+5. **組織導入:** SIer文書キット、CI、標準モダナイズ手順、大規模資産での価値確認を進める。
+
+下記の入力支援作業は既存投資として継続し、主に優先度2の候補抽出・レビュー経路へ統合する。新しい研究ブランチを増やす前に、既存のstructured artifact / worksheet format / CPU探索の成果をCandidate / Structuralizerへ対応付ける。
 
 ## 入力支援の作業順
 
