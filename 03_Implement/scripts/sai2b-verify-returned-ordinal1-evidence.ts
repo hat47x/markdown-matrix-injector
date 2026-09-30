@@ -28,8 +28,11 @@ type VerificationReport = {
   next_fixed_primary_source_id: string;
   scientific_authority_advanced: false;
   consumer_repository: 'hat47x/markdown-matrix-injector';
+  excel_repository_currently_frozen: true;
   excel_repository_access_required: false;
+  cross_repo_independent_verification_deferred_until_explicit_unfreeze: true;
   cross_repo_equivalence_claimed: false;
+  ordinal_2_admitted_by_verifier: false;
   mmi_success_snapshot_commit_required_before_ordinal_2: true;
   predecessor_git_blob_sha_verified: true;
   semantic_stages_admitted: false;
@@ -149,8 +152,11 @@ export function verifyReturnedOrdinal1Evidence(args: {
     next_fixed_primary_source_id: String(ordinal2.source_id),
     scientific_authority_advanced: false,
     consumer_repository: 'hat47x/markdown-matrix-injector',
+    excel_repository_currently_frozen: true,
     excel_repository_access_required: false,
+    cross_repo_independent_verification_deferred_until_explicit_unfreeze: true,
     cross_repo_equivalence_claimed: false,
+    ordinal_2_admitted_by_verifier: false,
     mmi_success_snapshot_commit_required_before_ordinal_2: true,
     predecessor_git_blob_sha_verified: true,
     semantic_stages_admitted: false,
