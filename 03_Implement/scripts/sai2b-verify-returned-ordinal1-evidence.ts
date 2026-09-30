@@ -14,7 +14,7 @@ import {
 } from './sai2b-retry-frozen-materialization.js';
 
 type VerificationReport = {
-  schema: 'hat47x.structured-artifact-sai2-returned-ordinal1-evidence-verification/v3';
+  schema: 'hat47x.structured-artifact-sai2-returned-ordinal1-evidence-verification/v4';
   run_id: string;
   source_id: string;
   baseline_snapshot_id: string;
@@ -37,6 +37,8 @@ type VerificationReport = {
   authoritative_baseline_ref_verified: true;
   authoritative_baseline_git_blob_sha_verified: true;
   baseline_object_matches_raw: true;
+  returned_snapshot_raw_matches_object: true;
+  receipt_raw_matches_object: true;
   predecessor_git_blob_sha_verified: true;
   semantic_stages_admitted: false;
 };
@@ -52,6 +54,24 @@ function gitBlobShaText(text: string): string {
   const bytes = Buffer.from(text, 'utf8');
   const header = Buffer.from(`blob ${bytes.byteLength}\0`, 'utf8');
   return createHash('sha1').update(header).update(bytes).digest('hex');
+}
+
+function assertRawJsonMatches(
+  label: string,
+  raw: string,
+  parsed: unknown,
+): void {
+  let parsedRaw: unknown;
+  try {
+    parsedRaw = JSON.parse(raw);
+  } catch {
+    throw new Error(`${label} raw bytes must contain valid JSON.`);
+  }
+  if (!isDeepStrictEqual(parsedRaw, parsed)) {
+    throw new Error(
+      `${label} object must exactly match its supplied raw JSON.`,
+    );
+  }
 }
 
 function sha256Bytes(bytes: Uint8Array): string {
@@ -87,17 +107,7 @@ export function verifyReturnedOrdinal1Evidence(args: {
     );
   }
 
-  let baselineFromRaw: any;
-  try {
-    baselineFromRaw = JSON.parse(args.baselineRaw);
-  } catch {
-    throw new Error('Baseline raw bytes must contain valid JSON.');
-  }
-  if (!isDeepStrictEqual(args.baseline, baselineFromRaw)) {
-    throw new Error(
-      'Baseline object must exactly match the supplied baselineRaw JSON.',
-    );
-  }
+  assertRawJsonMatches('Baseline', args.baselineRaw, args.baseline);
 
   const baselineGitBlobSha = gitBlobShaText(args.baselineRaw);
   if (baselineGitBlobSha !== AUTHORITATIVE_BASELINE_GIT_BLOB_SHA) {
@@ -185,10 +195,16 @@ export function verifyReturnedOrdinal1Evidence(args: {
     ?? JSON.stringify(args.returnedSnapshot) + '\n';
   const receiptRaw = args.receiptRaw
     ?? JSON.stringify(args.receipt) + '\n';
+  assertRawJsonMatches(
+    'Returned snapshot',
+    returnedRaw,
+    args.returnedSnapshot,
+  );
+  assertRawJsonMatches('Receipt', receiptRaw, args.receipt);
 
   return {
     schema:
-      'hat47x.structured-artifact-sai2-returned-ordinal1-evidence-verification/v3',
+      'hat47x.structured-artifact-sai2-returned-ordinal1-evidence-verification/v4',
     run_id: String(args.baseline.run_id),
     source_id: String(ordinal1.source_id),
     baseline_snapshot_id: String(args.baseline.snapshot_id),
@@ -211,6 +227,8 @@ export function verifyReturnedOrdinal1Evidence(args: {
     authoritative_baseline_ref_verified: true,
     authoritative_baseline_git_blob_sha_verified: true,
     baseline_object_matches_raw: true,
+    returned_snapshot_raw_matches_object: true,
+    receipt_raw_matches_object: true,
     predecessor_git_blob_sha_verified: true,
     semantic_stages_admitted: false,
   };
