@@ -301,6 +301,20 @@ test('single-method production indexes do not build hidden cosine postings', () 
   assert.ok(bm25Only.cosine.memoryEstimate() < withCosine.cosine.memoryEstimate());
 });
 
+test('full feature bags are reconstructed on demand instead of retained per region', () => {
+  const { index } = buildIndex();
+  const doc = index.docsOfBook('/ws/設計.xlsx')[0];
+  const first = index.bagOf(doc);
+  const second = index.bagOf(doc);
+  assert.ok(first);
+  assert.ok(second);
+  assert.notStrictEqual(first, second);
+  assert.deepEqual([...first!.entries()], [...second!.entries()]);
+
+  // Value-derived coverage still exists when a request has no structural name.
+  assert.ok([...first!.keys()].some((feature) => feature.includes('申請')));
+});
+
 test('FlyHash tags are a pure function of seed and feature strings', () => {
   const { index } = buildIndex();
   const bag = new Map<string, number>();
