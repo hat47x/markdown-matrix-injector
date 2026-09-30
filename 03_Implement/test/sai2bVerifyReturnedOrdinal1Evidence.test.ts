@@ -223,6 +223,8 @@ test('verifier rejects baseline raw bytes outside authoritative Git blob', () =>
       payload: evidence.bytes,
       receipt: evidence.receipt,
       returnedSnapshot: evidence.snapshot,
+      returnedSnapshotRaw: evidence.snapshotRaw,
+      receiptRaw: evidence.receiptRaw,
     }),
     /authoritative attempt-003 Git blob/u,
   );
@@ -241,6 +243,8 @@ test('verifier rejects parsed baseline that differs from baselineRaw', () => {
       payload: evidence.bytes,
       receipt: evidence.receipt,
       returnedSnapshot: evidence.snapshot,
+      returnedSnapshotRaw: evidence.snapshotRaw,
+      receiptRaw: evidence.receiptRaw,
     }),
     /exactly match the supplied baselineRaw JSON/u,
   );
@@ -257,6 +261,8 @@ test('verifier rejects non-authoritative baseline ref', () => {
       payload: evidence.bytes,
       receipt: evidence.receipt,
       returnedSnapshot: evidence.snapshot,
+      returnedSnapshotRaw: evidence.snapshotRaw,
+      receiptRaw: evidence.receiptRaw,
     }),
     /authoritative attempt-003 fixture/u,
   );
