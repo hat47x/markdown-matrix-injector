@@ -1,0 +1,507 @@
+[
+  {
+    "id": "v4-01",
+    "text": "区分コードの区分と名称を見せて",
+    "category": "exact",
+    "expect": {
+      "regions": [
+        "コード定義書.xlsx#区分コード!A1:C7"
+      ],
+      "columns": [
+        "区分",
+        "名称"
+      ]
+    }
+  },
+  {
+    "id": "v4-02",
+    "text": "運用の監視項目、監視対象と閾値と通知先",
+    "category": "exact",
+    "expect": {
+      "regions": [
+        "運用設計書.xlsx#運用!B4:E8"
+      ],
+      "columns": [
+        "監視対象",
+        "閾値",
+        "通知先"
+      ]
+    }
+  },
+  {
+    "id": "v4-03",
+    "text": "問い合わせ管理の問い合わせ、受付番号と回答状況",
+    "category": "exact",
+    "expect": {
+      "regions": [
+        "問い合わせ管理.xlsx#問い合わせ!A1:D7"
+      ],
+      "columns": [
+        "受付番号",
+        "回答状況"
+      ]
+    }
+  },
+  {
+    "id": "v4-04",
+    "text": "教育計画の研修、研修名と対象者と講師",
+    "category": "exact",
+    "expect": {
+      "regions": [
+        "教育計画.xlsx#研修!A1:D4"
+      ],
+      "columns": [
+        "研修名",
+        "対象者",
+        "講師"
+      ]
+    }
+  },
+  {
+    "id": "v4-05",
+    "text": "外部インターフェース一覧の相手システムと方式と頻度",
+    "category": "exact",
+    "expect": {
+      "regions": [
+        "外部IF一覧.xlsx#Sheet1!A2:E6"
+      ],
+      "columns": [
+        "相手システム",
+        "方式",
+        "頻度"
+      ]
+    }
+  },
+  {
+    "id": "v4-06",
+    "text": "変更要求のCR番号と要求元と承認状態",
+    "category": "exact",
+    "expect": {
+      "regions": [
+        "変更管理台帳.xlsx#変更要求!A1:E6"
+      ],
+      "columns": [
+        "CR番号",
+        "要求元",
+        "承認状態"
+      ]
+    }
+  },
+  {
+    "id": "v4-07",
+    "text": "移行対象のデータ名と移行方式と担当",
+    "category": "exact",
+    "expect": {
+      "regions": [
+        "移行計画書.xlsx#移行対象!A1:D5"
+      ],
+      "columns": [
+        "データ名",
+        "移行方式",
+        "担当"
+      ]
+    }
+  },
+  {
+    "id": "v4-08",
+    "text": "会議体一覧の会議名と頻度と目的",
+    "category": "exact",
+    "expect": {
+      "regions": [
+        "会議体一覧.xlsx#Sheet1!A1:D5"
+      ],
+      "columns": [
+        "会議名",
+        "頻度",
+        "目的"
+      ]
+    }
+  },
+  {
+    "id": "v4-09",
+    "text": "NFRの分類と測定方法",
+    "category": "abbreviation",
+    "expect": {
+      "regions": [
+        "要件定義書.xlsx#非機能要件!A1:D7"
+      ],
+      "columns": [
+        "分類",
+        "測定方法"
+      ]
+    }
+  },
+  {
+    "id": "v4-10",
+    "text": "CR台帳の件名と影響度",
+    "category": "abbreviation",
+    "expect": {
+      "regions": [
+        "変更管理台帳.xlsx#変更要求!A1:E6"
+      ],
+      "columns": [
+        "件名",
+        "影響度"
+      ]
+    }
+  },
+  {
+    "id": "v4-11",
+    "text": "FWの送信元、宛先、許可",
+    "category": "abbreviation",
+    "expect": {
+      "regions": [
+        "ネットワーク設計書.xlsx#FW!A2:E7"
+      ],
+      "columns": [
+        "送信元",
+        "宛先",
+        "許可"
+      ]
+    }
+  },
+  {
+    "id": "v4-12",
+    "text": "WBSのタスクと担当と進捗率",
+    "category": "abbreviation",
+    "expect": {
+      "regions": [
+        "WBS.xlsx#WBS!A2:F8"
+      ],
+      "columns": [
+        "タスク",
+        "担当",
+        "進捗率"
+      ]
+    }
+  },
+  {
+    "id": "v4-13",
+    "text": "外部IFのIF名と方向と方式",
+    "category": "abbreviation",
+    "expect": {
+      "regions": [
+        "外部IF一覧.xlsx#Sheet1!A2:E6"
+      ],
+      "columns": [
+        "IF名",
+        "方向",
+        "方式"
+      ]
+    }
+  },
+  {
+    "id": "v4-14",
+    "text": "N/WのIP割当、用途まで",
+    "category": "abbreviation",
+    "expect": {
+      "regions": [
+        "ネットワーク設計書.xlsx#IP!A2:C7"
+      ],
+      "columns": [
+        "用途"
+      ]
+    }
+  },
+  {
+    "id": "v4-15",
+    "text": "どの会議をどれくらいの頻度で何のために開くか",
+    "category": "paraphrase",
+    "expect": {
+      "regions": [
+        "会議体一覧.xlsx#Sheet1!A1:D5"
+      ],
+      "columns": [
+        "会議名",
+        "頻度",
+        "目的"
+      ]
+    }
+  },
+  {
+    "id": "v4-16",
+    "text": "研修を誰向けにいつやって誰が教えるか",
+    "category": "paraphrase",
+    "expect": {
+      "regions": [
+        "教育計画.xlsx#研修!A1:D4"
+      ]
+    }
+  },
+  {
+    "id": "v4-17",
+    "text": "監視で何を見てどの値を超えたら誰に知らせるか",
+    "category": "paraphrase",
+    "expect": {
+      "regions": [
+        "運用設計書.xlsx#運用!B4:E8"
+      ],
+      "columns": [
+        "監視対象",
+        "閾値",
+        "通知先"
+      ]
+    }
+  },
+  {
+    "id": "v4-18",
+    "text": "移行するデータと件数とやり方を一覧で",
+    "category": "paraphrase",
+    "expect": {
+      "regions": [
+        "移行計画書.xlsx#移行対象!A1:D5"
+      ],
+      "columns": [
+        "データ名",
+        "件数",
+        "移行方式"
+      ]
+    }
+  },
+  {
+    "id": "v4-19",
+    "text": "APIで失敗したときのコードとメッセージと対処",
+    "category": "paraphrase",
+    "expect": {
+      "regions": [
+        "受注_API仕様書.xlsx#エラーコード!A1:D6"
+      ],
+      "columns": [
+        "コード",
+        "メッセージ",
+        "対処"
+      ]
+    }
+  },
+  {
+    "id": "v4-20",
+    "text": "会計で取引を借方と貸方へ起こすルール",
+    "category": "paraphrase",
+    "expect": {
+      "regions": [
+        "会計_基本設計書.xlsx#仕訳パターン!C4:F9"
+      ]
+    }
+  },
+  {
+    "id": "v4-21",
+    "text": "運用でバックアップを何世代残し、どの媒体・場所に置くか",
+    "category": "paraphrase",
+    "expect": {
+      "regions": [
+        "運用設計書.xlsx#運用!H4:K7"
+      ]
+    }
+  },
+  {
+    "id": "v4-22",
+    "text": "変更の申請がどこから来て影響がどれくらいか",
+    "category": "paraphrase",
+    "expect": {
+      "regions": [
+        "変更管理台帳.xlsx#変更要求!A1:E6"
+      ],
+      "columns": [
+        "要求元",
+        "影響度"
+      ]
+    }
+  },
+  {
+    "id": "v4-23",
+    "text": "会議体一欄の会議名と頻度",
+    "category": "typo",
+    "expect": {
+      "regions": [
+        "会議体一覧.xlsx#Sheet1!A1:D5"
+      ],
+      "columns": [
+        "会議名",
+        "頻度"
+      ]
+    }
+  },
+  {
+    "id": "v4-24",
+    "text": "教育計画の研修、対象社と日程",
+    "category": "typo",
+    "expect": {
+      "regions": [
+        "教育計画.xlsx#研修!A1:D4"
+      ],
+      "columns": [
+        "対象者",
+        "日程"
+      ]
+    }
+  },
+  {
+    "id": "v4-25",
+    "text": "移行対像のデータ名と担当",
+    "category": "typo",
+    "expect": {
+      "regions": [
+        "移行計画書.xlsx#移行対象!A1:D5"
+      ],
+      "columns": [
+        "データ名",
+        "担当"
+      ]
+    }
+  },
+  {
+    "id": "v4-26",
+    "text": "外部インターフェス一覧の方式と頻度",
+    "category": "typo",
+    "expect": {
+      "regions": [
+        "外部IF一覧.xlsx#Sheet1!A2:E6"
+      ],
+      "columns": [
+        "方式",
+        "頻度"
+      ]
+    }
+  },
+  {
+    "id": "v4-27",
+    "text": "画面IDと画面名がある画面一覧",
+    "category": "duplicate",
+    "expect": {
+      "regions": [
+        "受注_基本設計書.xlsx#画面一覧!A2:D9",
+        "会計_基本設計書.xlsx#画面一覧!A2:D7"
+      ],
+      "columns": [
+        "画面ID",
+        "画面名"
+      ],
+      "allOf": true
+    }
+  },
+  {
+    "id": "v4-28",
+    "text": "DBテーブルのテーブル名と論理名",
+    "category": "duplicate",
+    "expect": {
+      "regions": [
+        "DB設計書_受注.xlsx#テーブル一覧!A2:C6",
+        "DB設計書_会計.xlsx#テーブル一覧!A2:C5"
+      ],
+      "columns": [
+        "テーブル名",
+        "論理名"
+      ],
+      "allOf": true
+    }
+  },
+  {
+    "id": "v4-29",
+    "text": "インターフェース一覧を参照したい",
+    "category": "duplicate",
+    "expect": {
+      "regions": [
+        "受注_API仕様書.xlsx#IF一覧!C5:G11",
+        "外部IF一覧.xlsx#Sheet1!A2:E6"
+      ],
+      "allOf": true
+    }
+  },
+  {
+    "id": "v4-30",
+    "text": "状態遷移の現在状態・イベント・遷移先",
+    "category": "duplicate",
+    "expect": {
+      "regions": [
+        "受注_基本設計書.xlsx#状態遷移!B4:F10",
+        "受注_基本設計書.xlsx#状態遷移!B14:E18"
+      ],
+      "columns": [
+        "現在状態",
+        "イベント",
+        "遷移先"
+      ],
+      "allOf": true
+    }
+  },
+  {
+    "id": "v4-31",
+    "text": "会議体一覧を頻度が高い順に並べて",
+    "category": "unsupported",
+    "expect": {
+      "reject": "unsupported"
+    }
+  },
+  {
+    "id": "v4-32",
+    "text": "移行対象を件数10万以上だけ",
+    "category": "unsupported",
+    "expect": {
+      "reject": "unsupported"
+    }
+  },
+  {
+    "id": "v4-33",
+    "text": "変更要求を影響度別に件数集計",
+    "category": "unsupported",
+    "expect": {
+      "reject": "unsupported"
+    }
+  },
+  {
+    "id": "v4-34",
+    "text": "研修から管理者研修以外を出して",
+    "category": "unsupported",
+    "expect": {
+      "reject": "unsupported"
+    }
+  },
+  {
+    "id": "v4-35",
+    "text": "外部IFで方式がAPIと完全一致するもの",
+    "category": "unsupported",
+    "expect": {
+      "reject": "unsupported"
+    }
+  },
+  {
+    "id": "v4-36",
+    "text": "購買申請一覧の申請番号と承認者",
+    "category": "none",
+    "expect": {
+      "reject": "no-match"
+    }
+  },
+  {
+    "id": "v4-37",
+    "text": "契約管理台帳の契約番号と更新日",
+    "category": "none",
+    "expect": {
+      "reject": "no-match"
+    }
+  },
+  {
+    "id": "v4-38",
+    "text": "人事評価表の社員番号と評価",
+    "category": "none",
+    "expect": {
+      "reject": "no-match"
+    }
+  },
+  {
+    "id": "v4-39",
+    "text": "棚卸結果の差異一覧",
+    "category": "none",
+    "expect": {
+      "reject": "no-match"
+    }
+  },
+  {
+    "id": "v4-40",
+    "text": "請求DBのテーブル一覧",
+    "category": "none",
+    "expect": {
+      "reject": "no-match"
+    }
+  }
+]
