@@ -77,3 +77,45 @@ test('exclude-imported retains changed occurrences for review', () => {
   );
   assert.deepEqual(view.map((item) => item.ledgerState), ['duplicate', 'changed', 'unimported']);
 });
+
+
+test('stale reviewed Claims stay out of strict unimported but remain in attention view', () => {
+  const staleCandidate: Candidate = {
+    ...imported,
+    claims: imported.claims.map((claim) => ({
+      ...claim,
+      reasonCode: 'changed-review-basis',
+    })),
+  };
+
+  const all = candidateLedgerView(
+    [staleCandidate],
+    ledger,
+    ledgerPath,
+    sourcePath,
+    'all',
+  );
+  assert.equal(all[0].ledgerState, 'stale');
+  assert.deepEqual(all[0].staleClaims, ['digest']);
+
+  assert.equal(
+    candidateLedgerView(
+      [staleCandidate],
+      ledger,
+      ledgerPath,
+      sourcePath,
+      'unimported',
+    ).length,
+    0,
+  );
+  assert.deepEqual(
+    candidateLedgerView(
+      [staleCandidate],
+      ledger,
+      ledgerPath,
+      sourcePath,
+      'exclude-imported',
+    ).map((item) => item.ledgerState),
+    ['stale'],
+  );
+});
