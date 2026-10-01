@@ -64,6 +64,56 @@ const OOXML_OFFICE_DOCUMENT_RELATIONSHIP_TYPES = new Set([
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument',
   'http://purl.oclc.org/ooxml/officeDocument/relationships/officeDocument',
 ]);
+const OOXML_CONTENT_TYPES_NAMESPACES = new Set([
+  'http://schemas.openxmlformats.org/package/2006/content-types',
+  'http://purl.oclc.org/ooxml/package/content-types',
+]);
+const OOXML_RELATIONSHIPS_NAMESPACES = new Set([
+  'http://schemas.openxmlformats.org/package/2006/relationships',
+  'http://purl.oclc.org/ooxml/package/relationships',
+]);
+const OOXML_SPREADSHEET_NAMESPACES = new Set([
+  'http://schemas.openxmlformats.org/spreadsheetml/2006/main',
+  'http://purl.oclc.org/ooxml/spreadsheetml/main',
+]);
+
+function rootElementNamespace(
+  xml: string,
+  expectedLocalName: 'Types' | 'Relationships' | 'workbook',
+): string | null {
+  let rest = xml.trimStart();
+  if (rest.startsWith('<?xml')) {
+    const end = rest.indexOf('?>');
+    if (end < 0) {
+      return null;
+    }
+    rest = rest.slice(end + 2).trimStart();
+  }
+
+  const open = /^<(?:(?<prefix>[A-Za-z_][A-Za-z0-9_-]*):)?(?<local>Types|Relationships|workbook)\b(?<attrs>[^>]*)>/u.exec(rest);
+  if (!open?.groups || open.groups.local !== expectedLocalName) {
+    return null;
+  }
+  const prefix = open.groups.prefix;
+  const attrs = open.groups.attrs ?? '';
+  const namespace = prefix
+    ? new RegExp(
+      `\\bxmlns:${prefix}=(["'])([^"']+)\\1`,
+      'u',
+    ).exec(attrs)?.[2]
+    : /\bxmlns=(["'])([^"']+)\1/u.exec(attrs)?.[2];
+  if (!namespace) {
+    return null;
+  }
+
+  const close = new RegExp(
+    prefix
+      ? `</${prefix}:${expectedLocalName}>\\s*$`
+      : `</${expectedLocalName}>\\s*$`,
+    'u',
+  );
+  return close.test(rest) ? namespace : null;
+}
 export const OFFLINE_PAYLOAD_RECEIPT_SCHEMA =
   'hat47x.structured-artifact-sai2-offline-payload-receipt/v0' as const;
 const FROZEN_CONTENT_TYPE_PATTERN =
@@ -531,9 +581,11 @@ export function validateZipContainer(
       .toString('utf8')
       .replace(/^﻿/u, '');
 
+    const contentTypesNamespace =
+      rootElementNamespace(contentTypes, 'Types');
     if (
-      !/<(?:\\w+:)?Types\\b[^>]*>/u.test(contentTypes)
-      || !/<\\/(?:\\w+:)?Types>\\s*$/u.test(contentTypes)
+      !contentTypesNamespace
+      || !OOXML_CONTENT_TYPES_NAMESPACES.has(contentTypesNamespace)
     ) {
       return { ok: false, reason: 'xlsx_content_types_invalid' };
     }
@@ -548,9 +600,11 @@ export function validateZipContainer(
       return { ok: false, reason: 'xlsx_workbook_content_type_missing' };
     }
 
+    const relationshipsNamespace =
+      rootElementNamespace(rootRels, 'Relationships');
     if (
-      !/<(?:\\w+:)?Relationships\\b[^>]*>/u.test(rootRels)
-      || !/<\\/(?:\\w+:)?Relationships>\\s*$/u.test(rootRels)
+      !relationshipsNamespace
+      || !OOXML_RELATIONSHIPS_NAMESPACES.has(relationshipsNamespace)
     ) {
       return { ok: false, reason: 'xlsx_root_relationships_invalid' };
     }
@@ -568,12 +622,15 @@ export function validateZipContainer(
       return { ok: false, reason: 'xlsx_workbook_relationship_missing' };
     }
 
+    const workbookNamespace =
+      rootElementNamespace(workbook, 'workbook');
     if (
-      !/<(?:\\w+:)?workbook\\b[^>]*>/u.test(workbook)
-      || !/<\\/(?:\\w+:)?workbook>\\s*$/u.test(workbook)
+      !workbookNamespace
+      || !OOXML_SPREADSHEET_NAMESPACES.has(workbookNamespace)
     ) {
       return { ok: false, reason: 'xlsx_workbook_xml_invalid' };
     }
+
 
     return { ok: true };
   } catch (error) {

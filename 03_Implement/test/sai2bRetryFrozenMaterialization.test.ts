@@ -179,6 +179,46 @@ test('XLSX validation rejects non-standard officeDocument relationship types', (
   assert.deepEqual(validateZipContainer(strict), { ok: true });
 });
 
+test('XLSX validation requires standard OOXML root namespaces', () => {
+  const cases: Array<[string, string, string]> = [
+    [
+      '[Content_Types].xml',
+      '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="urn:not-ooxml"><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>',
+      'xlsx_content_types_invalid',
+    ],
+    [
+      '_rels/.rels',
+      '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="urn:not-ooxml"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>',
+      'xlsx_root_relationships_invalid',
+    ],
+    [
+      'xl/workbook.xml',
+      '<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="urn:not-ooxml"></workbook>',
+      'xlsx_workbook_xml_invalid',
+    ],
+  ];
+
+  for (const [part, xml, reason] of cases) {
+    assert.deepEqual(
+      validateZipContainer(xlsxFrame(undefined, { [part]: xml })),
+      { ok: false, reason },
+    );
+  }
+
+  const strict = xlsxFrame(
+    undefined,
+    {
+      '[Content_Types].xml':
+        '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://purl.oclc.org/ooxml/package/content-types"><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>',
+      '_rels/.rels':
+        '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://purl.oclc.org/ooxml/package/relationships"><Relationship Id="rId1" Type="http://purl.oclc.org/ooxml/officeDocument/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>',
+      'xl/workbook.xml':
+        '<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://purl.oclc.org/ooxml/spreadsheetml/main"></workbook>',
+    },
+  );
+  assert.deepEqual(validateZipContainer(strict), { ok: true });
+});
+
 test('XLSX validation rejects corrupt required-entry local data', () => {
   const corrupt = xlsxFrameWithCorruptRequiredEntryOffset();
 
