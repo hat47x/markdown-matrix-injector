@@ -11,44 +11,36 @@
  * The workspace's own workbooks are indexed in memory on first use (with
  * progress and cancel) and refreshed by mtime on every later use.
  */
-import fs from 'node:fs';
 import * as vscode from 'vscode';
 
 import type { CompileResult } from '../search/nlQuery/compiler.js';
-import { QUERY_EXAMPLES, WorkspaceRegionIndex } from '../search/workspaceRegionIndex.js';
+import { QUERY_EXAMPLES } from '../search/workspaceRegionIndex.js';
+import { WorkspaceSearchWorkerClient } from '../search/workspaceSearchWorkerClient.js';
 import { parseEmbedParts, type EmbedParts } from './embedEditor.js';
-import { readWorkbookCached } from './sharedWorkbookCache.js';
-import { toRelativeSuggestion } from './vscodeAdapters.js';
 
 export const FIND_EMBED_COMMAND_ID = 'markdownMatrixInjector.findEmbedByDescription';
 
 /** Same cap as the content-match search: bounds the pathological workspace. */
 const MAX_INDEXED_FILES = 500;
 
-const indexes = new Map<string, WorkspaceRegionIndex>();
+const indexes = new Map<string, WorkspaceSearchWorkerClient>();
 
-function indexFor(workspaceRoot: string): WorkspaceRegionIndex {
+function indexFor(workspaceRoot: string): WorkspaceSearchWorkerClient {
   let index = indexes.get(workspaceRoot);
   if (!index) {
-    index = new WorkspaceRegionIndex({
-      loadWorkbook: (path) => readWorkbookCached(path),
-      statFile: (path) => {
-        const stat = fs.statSync(path);
-        return { mtimeMs: stat.mtimeMs, size: stat.size };
-      },
-    });
+    index = new WorkspaceSearchWorkerClient();
     indexes.set(workspaceRoot, index);
   }
   return index;
 }
 
-/** Drops every in-memory index (the index holds content-derived data). */
+/** Terminates every worker, dropping its in-memory index and workbook cache. */
 export function clearSearchIndexes(): void {
-  for (const index of indexes.values()) index.clear();
+  for (const index of indexes.values()) index.dispose();
   indexes.clear();
 }
 
-async function ensureIndexed(workspaceRoot: string, workbookGlob: string): Promise<WorkspaceRegionIndex | undefined> {
+async function ensureIndexed(workspaceRoot: string, workbookGlob: string): Promise<WorkspaceSearchWorkerClient | undefined> {
   const index = indexFor(workspaceRoot);
   const files = (await vscode.workspace.findFiles(workbookGlob, '**/{node_modules,dist}/**'))
     .map((uri) => uri.fsPath)
@@ -96,7 +88,6 @@ export async function searchEmbedByDescription(document: vscode.TextDocument, wo
   }
   const index = await ensureIndexed(workspaceRoot, workbookGlob);
   if (!index) return undefined;
-  const relative = (bookPath: string): string => toRelativeSuggestion(document.uri.fsPath, bookPath);
 
   return new Promise((resolve) => {
     const quickPick = vscode.window.createQuickPick<ResultItem>();
@@ -108,34 +99,49 @@ export async function searchEmbedByDescription(document: vscode.TextDocument, wo
     quickPick.items = examples();
     let timer: ReturnType<typeof setTimeout> | undefined;
     let settled = false;
+    let queryRevision = 0;
     const finish = (value: EmbedParts | undefined): void => {
       if (settled) return;
       settled = true;
+      queryRevision += 1;
       if (timer) clearTimeout(timer);
       resolve(value);
       quickPick.dispose();
     };
-    const update = (text: string): void => {
+    const update = async (text: string): Promise<void> => {
+      const revision = ++queryRevision;
       if (!text.trim()) {
         quickPick.items = examples();
+        quickPick.busy = false;
         return;
       }
       quickPick.busy = true;
       try {
-        quickPick.items = toItems(index.query(text, relative));
+        const result = await index.query(text, document.uri.fsPath);
+        // Worker responses may arrive after another keystroke. Never let an
+        // older query replace the latest candidate list.
+        if (!settled && revision === queryRevision) quickPick.items = toItems(result);
+      } catch (error) {
+        if (!settled && revision === queryRevision) {
+          quickPick.items = [{
+            label: '$(error) 表の検索に失敗しました',
+            detail: error instanceof Error ? error.message : String(error),
+            alwaysShow: true,
+          }];
+        }
       } finally {
-        quickPick.busy = false;
+        if (!settled && revision === queryRevision) quickPick.busy = false;
       }
     };
     quickPick.onDidChangeValue((text) => {
       if (timer) clearTimeout(timer);
-      timer = setTimeout(() => update(text), 120);
+      timer = setTimeout(() => void update(text), 120);
     });
     quickPick.onDidAccept(() => {
       const chosen = quickPick.activeItems[0];
       if (chosen?.example) {
         quickPick.value = chosen.example;
-        update(chosen.example);
+        void update(chosen.example);
         return;
       }
       if (chosen?.parts) finish(chosen.parts);
@@ -159,7 +165,8 @@ export async function scriptedSearch(
   if (!workspaceRoot) return { items: [] };
   const index = await ensureIndexed(workspaceRoot, workbookGlob);
   if (!index) return { items: [] };
-  const items = toItems(index.query(text, (bookPath) => toRelativeSuggestion(document.uri.fsPath, bookPath)));
+  const result = await index.query(text, document.uri.fsPath);
+  const items = toItems(result);
   return { items: items.map((item) => `${item.label} | ${item.detail ?? ''}`), parts: items[pickIndex]?.parts };
 }
 
