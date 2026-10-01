@@ -100,48 +100,69 @@ export async function searchEmbedByDescription(document: vscode.TextDocument, wo
     let timer: ReturnType<typeof setTimeout> | undefined;
     let settled = false;
     let queryRevision = 0;
+    let pendingText: string | undefined;
+    let queryPump: Promise<void> | undefined;
     const finish = (value: EmbedParts | undefined): void => {
       if (settled) return;
       settled = true;
       queryRevision += 1;
+      pendingText = undefined;
       if (timer) clearTimeout(timer);
       resolve(value);
       quickPick.dispose();
     };
-    const update = async (text: string): Promise<void> => {
-      const revision = ++queryRevision;
-      if (!text.trim()) {
-        quickPick.items = examples();
-        quickPick.busy = false;
-        return;
-      }
-      quickPick.busy = true;
+    const drainQueries = async (): Promise<void> => {
       try {
-        const result = await index.query(text, document.uri.fsPath);
-        // Worker responses may arrive after another keystroke. Never let an
-        // older query replace the latest candidate list.
-        if (!settled && revision === queryRevision) quickPick.items = toItems(result);
-      } catch (error) {
-        if (!settled && revision === queryRevision) {
-          quickPick.items = [{
-            label: '$(error) 表の検索に失敗しました',
-            detail: error instanceof Error ? error.message : String(error),
-            alwaysShow: true,
-          }];
+        while (!settled && pendingText !== undefined) {
+          const text = pendingText;
+          const revision = queryRevision;
+          pendingText = undefined;
+          try {
+            const result = await index.query(text, document.uri.fsPath);
+            // The running request may finish after newer input arrived. Its
+            // result is discarded, and the loop immediately runs only the
+            // latest pending text rather than every intermediate keystroke.
+            if (!settled && revision === queryRevision) quickPick.items = toItems(result);
+          } catch (error) {
+            if (!settled && revision === queryRevision) {
+              quickPick.items = [{
+                label: '$(error) 表の検索に失敗しました',
+                detail: error instanceof Error ? error.message : String(error),
+                alwaysShow: true,
+              }];
+            }
+          }
         }
       } finally {
-        if (!settled && revision === queryRevision) quickPick.busy = false;
+        queryPump = undefined;
+        if (!settled && pendingText !== undefined) {
+          queryPump = drainQueries();
+        } else if (!settled) {
+          quickPick.busy = false;
+        }
       }
+    };
+    const update = (text: string): void => {
+      queryRevision += 1;
+      if (!text.trim()) {
+        pendingText = undefined;
+        quickPick.items = examples();
+        if (!queryPump) quickPick.busy = false;
+        return;
+      }
+      pendingText = text;
+      quickPick.busy = true;
+      if (!queryPump) queryPump = drainQueries();
     };
     quickPick.onDidChangeValue((text) => {
       if (timer) clearTimeout(timer);
-      timer = setTimeout(() => void update(text), 120);
+      timer = setTimeout(() => update(text), 120);
     });
     quickPick.onDidAccept(() => {
       const chosen = quickPick.activeItems[0];
       if (chosen?.example) {
         quickPick.value = chosen.example;
-        void update(chosen.example);
+        update(chosen.example);
         return;
       }
       if (chosen?.parts) finish(chosen.parts);
