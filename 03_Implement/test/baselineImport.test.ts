@@ -229,7 +229,7 @@ test('missing Candidate decisions fail closed before ledger write', async () => 
       candidates,
       converter,
       reconciler,
-    mmiVersion: '0.1.0-test',
+      mmiVersion: '0.1.0-test',
     }),
     /must decide every Candidate exactly once/u,
   );
@@ -294,6 +294,7 @@ test('artifact digest mismatch and path escape are rejected before reconciliatio
       candidates,
       converter: pathEscape,
       reconciler: never,
+      mmiVersion: '0.1.0-test',
     }),
     /escapes outputRoot/u,
   );
