@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Feature
-- Status: In Progress（個別の画像の列挙と取り込みは実装・実Excelで検証済み。変更の検知は issue-0195 待ち）
+- Status: Done
 - Priority: High
 - Scope: src/core（画像のSource Adapter）、src/cli（`inspect`・`extract`）、test/fixtures、docs
 - Expected verification level: integration
@@ -24,7 +24,7 @@ SIerの設計者は、画面ダンプをExcelへ貼り、図表で設計を整�
 - [x] 画像の無いブック、壊れたdrawing、未対応の形式（EMF等）で、黙って失敗せず診断を出す。
 - [x] 既存のセル値の読込み・表示が変わらないことを回帰テストで確かめる。
 - [x] xlsxから取り出した画像はCIで再現できるため、書き出し結果をGitで管理するかは利用者が選べる（ADR-0019 D14）。出典だけは必ず残す。
-- [ ] 取り込んだ後も、人はExcelの画像を差し替え・移動し続けられる。原本の変更は、次回の`inspect`で「変更あり」として示す（issue-0195）。
+- [x] 取り込んだ後も、人はExcelの画像を差し替え・移動し続けられる。原本の変更は、次回の`inspect`で`changed` / `stale`として示す（issue-0195）。
 
 ## Validation plan
 テスト用ブックで`inspect`・`extract`を実行し、書き出した画像のダイジェストがブック内の部品と一致すること、原本のダイジェストが前後で変わらないことを確かめる。Excelで同じブックを開き、anchorが実際の位置と合うことを目視で確かめる（実機確認として記録）。
@@ -36,8 +36,8 @@ SIerの設計者は、画面ダンプをExcelへ貼り、図表で設計を整�
 - **実Excelでの確認（COM、一時フォルダ）:** PNG・JPEG各1種を、2シート・4か所（同じPNGを2回）に貼ったブックを作り、Excel自身が報告する各画像の開始・終了セルと`mmi inspect`のanchorを比べた。4枚すべて完全一致（D1:G6、A7:D12、I9:L14、B2:E7）。書き出したファイルは、貼り付けた元のPNG・JPEGとバイト一致し、原本のsha256は前後で不変。近くの表との関係（右・隣接1セル、下・距離3セル）も位置どおり。
 - 診断は、EMF（列挙するが書き出さない）、欠けたmedia、外部リンク、途中で切れたdrawing、zipでないファイル、CRC不一致で確認した。`.xls`（旧形式）は画像を読まない旨を警告する。
 
-## Remaining work
-- 取り込み後にExcelで画像を差し替え・移動したときに「変更あり」と示す。画像のfingerprint（バイト列のsha256）と台帳が前提なので[issue-0195](issue-0195-import-ledger.md)で行う。
+## Follow-up
+- 画像の変更検知は[issue-0195](issue-0195-import-ledger.md)で完了した。content fingerprint変更は`changed`、同じcontentでreview basisが変わった場合は`stale`、移動候補はlineage evidenceとして提示する。
 - 図形（AutoShape）とconnector、グラフは数だけ記録している。解釈は優先度3（[issue-0199](issue-0199-tree-structured-source-adapters.md)以降）。
 - シートや範囲をそのまま画像として取り込む`Sheet / Region snapshot`は[issue-0198](issue-0198-sheet-region-snapshot.md)。
 - VS Codeで候補を採否するUIは、CLIの動作確認が済んだので[issue-0202](issue-0202-candidate-review-ui.md)で扱える。
