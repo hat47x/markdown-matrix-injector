@@ -42,21 +42,50 @@ export function readZip(bytes: Uint8Array, limits: ZipLimits = DEFAULT_ZIP_LIMIT
   const buf = Buffer.from(bytes.buffer, bytes.byteOffset, bytes.byteLength);
   let eocd = -1;
   for (let i = buf.length - 22; i >= Math.max(0, buf.length - 22 - 0xffff); i -= 1) {
-    if (buf.readUInt32LE(i) === EOCD) {
+    if (
+      buf.readUInt32LE(i) === EOCD
+      && i + 22 <= buf.length
+      && i + 22 + buf.readUInt16LE(i + 20) === buf.length
+    ) {
       eocd = i;
       break;
     }
   }
   if (eocd < 0) throw new ZipError('not-a-zip', 'ZIP end-of-central-directory record not found');
+
+  const diskNumber = buf.readUInt16LE(eocd + 4);
+  const directoryDisk = buf.readUInt16LE(eocd + 6);
+  const entriesOnDisk = buf.readUInt16LE(eocd + 8);
   const total = buf.readUInt16LE(eocd + 10);
+  const directorySize = buf.readUInt32LE(eocd + 12);
   const directoryOffset = buf.readUInt32LE(eocd + 16);
-  if (total === 0xffff || directoryOffset === 0xffffffff) throw new ZipError('unsupported', 'ZIP64 packages are not supported');
+
+  if (
+    total === 0xffff
+    || entriesOnDisk === 0xffff
+    || directorySize === 0xffffffff
+    || directoryOffset === 0xffffffff
+  ) {
+    throw new ZipError('unsupported', 'ZIP64 packages are not supported');
+  }
+  if (diskNumber !== 0 || directoryDisk !== 0 || entriesOnDisk !== total) {
+    throw new ZipError('unsupported', 'multi-disk ZIP packages are not supported');
+  }
   if (total > limits.maxEntries) throw new ZipError('too-large', `package has ${total} entries (limit ${limits.maxEntries})`);
+
+  const directoryEnd = directoryOffset + directorySize;
+  if (
+    directoryOffset > eocd
+    || directoryEnd > eocd
+    || directoryEnd < directoryOffset
+  ) {
+    throw new ZipError('corrupt', 'central directory is outside the ZIP bounds');
+  }
 
   const entries = new Map<string, ZipEntry>();
   let at = directoryOffset;
   for (let n = 0; n < total; n += 1) {
-    if (at + 46 > buf.length || buf.readUInt32LE(at) !== CENTRAL) throw new ZipError('corrupt', 'bad central directory');
+    if (at + 46 > directoryEnd || buf.readUInt32LE(at) !== CENTRAL) throw new ZipError('corrupt', 'bad central directory');
     const flags = buf.readUInt16LE(at + 8);
     const method = buf.readUInt16LE(at + 10);
     const crc = buf.readUInt32LE(at + 16);
@@ -66,8 +95,10 @@ export function readZip(bytes: Uint8Array, limits: ZipLimits = DEFAULT_ZIP_LIMIT
     const extraLength = buf.readUInt16LE(at + 30);
     const commentLength = buf.readUInt16LE(at + 32);
     const localOffset = buf.readUInt32LE(at + 42);
+    const recordEnd = at + 46 + nameLength + extraLength + commentLength;
+    if (recordEnd > directoryEnd) throw new ZipError('corrupt', 'central directory entry exceeds declared size');
     const name = buf.toString(flags & 0x0800 ? 'utf8' : 'latin1', at + 46, at + 46 + nameLength);
-    at += 46 + nameLength + extraLength + commentLength;
+    at = recordEnd;
     if (name.endsWith('/')) continue; // directory
     if (entries.has(name)) {
       throw new ZipError('corrupt', `${name}: duplicate entry`);
@@ -97,6 +128,9 @@ export function readZip(bytes: Uint8Array, limits: ZipLimits = DEFAULT_ZIP_LIMIT
         return data;
       },
     });
+  }
+  if (at !== directoryEnd) {
+    throw new ZipError('corrupt', 'central directory size does not match its entries');
   }
   return entries;
 }

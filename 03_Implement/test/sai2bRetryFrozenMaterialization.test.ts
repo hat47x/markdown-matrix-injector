@@ -154,6 +154,31 @@ test('XLSX validation rejects empty OOXML declaration parts', () => {
   );
 });
 
+test('XLSX validation rejects non-standard officeDocument relationship types', () => {
+  const spoofed = xlsxFrame(
+    undefined,
+    {
+      '_rels/.rels':
+        '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="https://example.invalid/officeDocument" Target="xl/workbook.xml"/></Relationships>',
+    },
+  );
+
+  assert.deepEqual(
+    validateZipContainer(spoofed),
+    { ok: false, reason: 'xlsx_workbook_relationship_missing' },
+  );
+
+  const strict = xlsxFrame(
+    undefined,
+    {
+      '_rels/.rels':
+        '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://purl.oclc.org/ooxml/package/relationships"><Relationship Id="rId1" Type="http://purl.oclc.org/ooxml/officeDocument/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>',
+    },
+  );
+
+  assert.deepEqual(validateZipContainer(strict), { ok: true });
+});
+
 test('XLSX validation rejects corrupt required-entry local data', () => {
   const corrupt = xlsxFrameWithCorruptRequiredEntryOffset();
 
