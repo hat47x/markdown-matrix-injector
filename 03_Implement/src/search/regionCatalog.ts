@@ -1,7 +1,8 @@
 /**
  * Book-level region catalog with diff updates keyed on (mtime, size)
- * (input-assistance-cpu-search.md §2.2). A book is re-read only when its
- * file stat changed, never per keystroke. Indexing is cooperative: it yields
+ * (input-assistance-cpu-search.md §2.2). A complete book is re-read only when
+ * its file stat changed; a cap-truncated book may also be re-read when newly
+ * available capacity lets it expand. Indexing is cooperative: it yields
  * between books, honours an `AbortSignal`, reports progress, and stops at a
  * region cap instead of growing without bound.
  *
