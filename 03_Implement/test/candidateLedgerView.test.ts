@@ -45,15 +45,19 @@ const ledger: Ledger = {
 };
 
 test('all distinguishes imported, duplicate, changed and unimported evidence', () => {
+  const view = candidateLedgerView(
+    [imported, duplicateOccurrence, changedOccurrence, newOccurrence],
+    ledger,
+    ledgerPath,
+    sourcePath,
+  );
   assert.deepEqual(
-    candidateLedgerView(
-      [imported, duplicateOccurrence, changedOccurrence, newOccurrence],
-      ledger,
-      ledgerPath,
-      sourcePath,
-    ).map((item) => item.ledgerState),
+    view.map((item) => item.ledgerState),
     ['imported', 'duplicate', 'changed', 'unimported'],
   );
+  assert.equal(view[1].lineageCandidates.length, 1);
+  assert.deepEqual(view[1].lineageCandidates[0].reasons, ['same-content']);
+  assert.equal(view[1].lineageCandidates[0].place, 'B2:D8');
 });
 
 test('unimported includes never-imported duplicate occurrences but not changed ones', () => {
@@ -97,6 +101,7 @@ test('stale reviewed Claims stay out of strict unimported but remain in attentio
   );
   assert.equal(all[0].ledgerState, 'stale');
   assert.deepEqual(all[0].staleClaims, ['digest']);
+  assert.deepEqual(all[0].lineageCandidates, []);
 
   assert.equal(
     candidateLedgerView(
