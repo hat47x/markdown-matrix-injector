@@ -168,9 +168,11 @@ export function buildXlsxWithImages(sheets: SheetSpec[], media: Record<string, B
 }
 
 /** The reference fixture: a fictional screen-design workbook. */
-export function screenDesignWorkbook(): { bytes: Buffer; media: Record<string, Buffer> } {
-  const login = pngOf(8, 6, [30, 90, 200]);
-  const menu = pngOf(10, 4, [200, 60, 60]);
+export function screenDesignWorkbook(
+  overrides: { login?: Buffer; menu?: Buffer } = {},
+): { bytes: Buffer; media: Record<string, Buffer> } {
+  const login = overrides.login ?? pngOf(8, 6, [30, 90, 200]);
+  const menu = overrides.menu ?? pngOf(10, 4, [200, 60, 60]);
   const media = { 'image1.png': login, 'image2.png': menu };
   const table: [number, number, string][] = [
     [0, 0, '画面ID'], [0, 1, '画面名'],
