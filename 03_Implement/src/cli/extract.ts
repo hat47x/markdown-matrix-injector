@@ -8,32 +8,19 @@ import path from 'node:path';
 
 import { readExcelImages, readImageBytes, type ExcelImage, type ImageDiagnostic } from '../adapters/excelImageAdapter.js';
 import { fingerprintOf } from '../core/candidate.js';
-import { readImportLedger, recordImport, writeImportLedger } from '../core/importLedger.js';
+import { DEFAULT_IMPORT_LEDGER, readImportLedger, recordImport, writeImportLedger } from '../core/importLedger.js';
 
 export interface ExtractOptions {
   sourcePath: string;
-  /** `all` or a 1-based image number as printed by `inspect`. */
   selection: string;
   outDir: string;
-  /** Markdown references are written relative to this document's folder (default: current directory). */
   fromDocument?: string;
-  /** Source as it should be written in provenance/ledger (default: relative to the document folder). */
   sourceLabel?: string;
-  /** When set, successful explicit extractions are recorded here. */
+  /** Defaults to `<cwd>/.mmi/import-ledger.json`; pass an explicit path when the project root differs. */
   ledgerPath?: string;
 }
 
-export interface ExtractedImage {
-  ordinal: number;
-  sheet: string;
-  anchor?: string;
-  digest: string;
-  file: string;
-  status: 'written' | 'unchanged';
-  reference: string;
-  markdown: string;
-}
-
+export interface ExtractedImage { ordinal: number; sheet: string; anchor?: string; digest: string; file: string; status: 'written' | 'unchanged'; reference: string; markdown: string }
 export interface ExtractProblem { ordinal?: number; code: string; message: string }
 export interface ExtractResult { extracted: ExtractedImage[]; problems: ExtractProblem[] }
 
@@ -80,7 +67,8 @@ export function extractImages(options: ExtractOptions): ExtractResult {
   fs.mkdirSync(options.outDir, { recursive: true });
   const outDirectory = fs.realpathSync(options.outDir);
   const sourceReal = fs.realpathSync(options.sourcePath);
-  let ledger = options.ledgerPath ? readImportLedger(options.ledgerPath) : undefined;
+  const ledgerPath = path.resolve(options.ledgerPath ?? DEFAULT_IMPORT_LEDGER);
+  let ledger = readImportLedger(ledgerPath);
 
   for (const image of chosen) {
     if (!image.extractable) {
@@ -111,18 +99,14 @@ export function extractImages(options: ExtractOptions): ExtractResult {
     const reference = /\s/u.test(relative) ? relative.replace(/ /gu, '%20') : relative;
     result.extracted.push({ ordinal: image.ordinal, sheet: image.sheet, ...(image.range ? { anchor: image.range } : {}), digest: image.digest, file, status, reference, markdown: `![${altText(image)}](${reference})\n${provenanceComment(source, image)}` });
 
-    if (ledger && options.ledgerPath) {
-      ledger = recordImport(ledger, {
-        locator: { source, sourceDigest, sheet: image.sheet, ...(image.range ? { range: image.range } : {}) },
-        fingerprint: fingerprintOf('image-media-bytes-v1', image.digest),
-        kind: 'image',
-        output: relative,
-        conversion: { mode: 'raw-image-bytes-v1', format: image.format },
-        confirmation: 'confirmed',
-        importedAt: new Date().toISOString(),
-      });
-      writeImportLedger(options.ledgerPath, ledger);
-    }
+    ledger = recordImport(ledger, {
+      locator: { source, sourceDigest, sheet: image.sheet, ...(image.range ? { range: image.range } : {}) },
+      fingerprint: fingerprintOf('image-media-bytes-v1', image.digest),
+      kind: 'image', output: relative,
+      conversion: { mode: 'raw-image-bytes-v1', format: image.format },
+      confirmation: 'confirmed', importedAt: new Date().toISOString(),
+    });
+    writeImportLedger(ledgerPath, ledger);
   }
   return result;
 }
