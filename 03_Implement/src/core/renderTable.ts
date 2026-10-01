@@ -3,7 +3,18 @@ import { escapeHtml } from './html.js';
 import { columnToIndex, sliceRegion } from './tableGeometry.js';
 import { type WorkbookData } from './workbookLoader.js';
 
-export function renderEmbedTable(query: EmbedQuery, workbook: WorkbookData): string {
+/** The logical table of spec §6: header and body after slice, columns, transpose, header split and grep. */
+export interface LogicalTable {
+  headers?: string[];
+  bodyRows: string[][];
+}
+
+/**
+ * Builds the logical table for `query` exactly as the renderer does. Exposed
+ * so callers that propose references (import assistance) can re-check a
+ * proposal against the real pipeline instead of a copy of it (ADR-0018 D7).
+ */
+export function buildLogicalTable(query: EmbedQuery, workbook: WorkbookData): LogicalTable {
   const sheetName = query.target ?? Object.keys(workbook.sheets)[0];
   const sheet = workbook.sheets[sheetName];
 
@@ -11,13 +22,23 @@ export function renderEmbedTable(query: EmbedQuery, workbook: WorkbookData): str
     throw new Error(`Sheet not found: ${sheetName}`);
   }
 
-  // By the time this is called, Smart Fallback has already accepted the
-  // region's dimensions (measured without touching a cell -- smartFallback.ts)
-  // and decided this reference renders as a table. This is the single point
-  // where the corresponding display rectangle is actually materialised.
+  // By the time the renderer calls this, Smart Fallback has already accepted
+  // the region's dimensions (measured without touching a cell --
+  // smartFallback.ts) and decided this reference renders as a table. This is
+  // the single point where the corresponding display rectangle is actually
+  // materialised.
   const transformed = applyStructuralTransformations(query, sliceRegion(sheet, query.range));
   const { headers, bodyRows } = splitHeaderRows(transformed, query.params.get('header'));
-  const filteredBodyRows = applyRowFilters(query, bodyRows);
+  return { headers, bodyRows: applyRowFilters(query, bodyRows) };
+}
+
+export function renderEmbedTable(query: EmbedQuery, workbook: WorkbookData): string {
+  return renderLogicalTable(query, buildLogicalTable(query, workbook));
+}
+
+/** HTML for an already built logical table; decorations (highlight, formatColumn) come from `query`. */
+export function renderLogicalTable(query: EmbedQuery, logical: LogicalTable): string {
+  const { headers, bodyRows: filteredBodyRows } = logical;
   const highlightColumnIndex = resolveColumnSelector(query.params.get('highlightColumn'), headers);
   const highlightValue = query.params.get('highlightValue');
   const formatColumnSpecs = parseFormatColumns(query.params.getAll('formatColumn'), headers);

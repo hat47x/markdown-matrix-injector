@@ -45,6 +45,12 @@ export interface DetectedRegion {
   valueSample: string[];
   nonEmptyCells: number;
   reasons: RegionReason[];
+  /**
+   * Set only for a table on a merged grid (方眼紙; importAssist/tableRegions.ts):
+   * the physical column holding each logical column's value. `headers` and
+   * `columns` then follow these anchors, not the physical columns.
+   */
+  columnAnchors?: number[];
 }
 
 export interface DetectOptions {

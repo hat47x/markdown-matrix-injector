@@ -15,6 +15,8 @@ import fs from 'node:fs';
 import * as vscode from 'vscode';
 
 import type { WorkbookData } from '../core/workbookLoader.js';
+import { detectTableRegions, gridProjection } from '../importAssist/tableRegions.js';
+import type { DetectedRegion } from '../search/regionDetector.js';
 import { readWorkbookCached } from './sharedWorkbookCache.js';
 import { analyzeCompletionContext } from './completionContext.js';
 import { rangeCandidates } from './completionCandidates.js';
@@ -169,7 +171,14 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
         items.unshift({ label: parts.range, description: '現在の範囲', value: parts.range, picked: true });
       }
       result = await pick(title, '範囲を選ぶ（表題・見出しでも絞り込めます）', items, true);
-      if (result.kind === 'value') parts = { ...parts, range: result.value || undefined };
+      if (result.kind === 'value') {
+        const chosen = result.value || undefined;
+        const region = chosen && chosen !== parts.range && sheet && parts.sheet
+          ? detectTableRegions(parts.sheet, sheet).find((candidate) => candidate.a1 === chosen)
+          : undefined;
+        parts = { ...parts, range: chosen };
+        if (region?.columnAnchors) parts = presetGridProjection(parts, region);
+      }
     } else if (current === 'options') {
       result = await pickOptions(title, parts);
       if (result.kind === 'options') parts = result.parts;
@@ -207,6 +216,21 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
     movingBack = result.kind === 'back';
     step = movingBack ? Math.max(0, step - 1) : step + 1;
   }
+}
+
+/**
+ * A newly chosen table on a merged grid (方眼紙) starts with what makes it
+ * render as a table: its header row, one column per merged cell and, when
+ * the physical width alone would make a card, `mode=table`. Keys the
+ * reference already sets are kept; the options step and the preview follow.
+ */
+function presetGridProjection(parts: EmbedParts, region: DetectedRegion): EmbedParts {
+  const projection = gridProjection(region);
+  let next = parts;
+  if (region.headerConfidence === 'likely' && getParams(next, 'header').length === 0) next = setParam(next, 'header', 'first');
+  if (projection.columns && getParams(next, 'columns').length === 0) next = setParam(next, 'columns', projection.columns);
+  if (projection.mode && getParams(next, 'mode').length === 0) next = setParam(next, 'mode', projection.mode);
+  return next;
 }
 
 type StepResult = { kind: 'value'; value: string } | { kind: 'options'; parts: EmbedParts } | { kind: 'back' } | { kind: 'cancel' };

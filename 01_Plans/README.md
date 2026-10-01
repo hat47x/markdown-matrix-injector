@@ -18,6 +18,8 @@ VS Code拡張、記法仕様、日本語チュートリアル、実務サンプ�
 | 2 | [文脈に応じた補完](issues/issue-0110-contextual-input-completion.md) | In Progress（カーソル区間の置換・値候補・選んだシートの表だけの範囲候補を実装） | 残: 多環境（multi-root・IME・Undo等）の実機確認 |
 | 3 | [参照の作成・編集](issues/issue-0111-reference-authoring-flow.md) | In Progress（案内付きコマンド・部分更新・実エンジンの確認・修正候補・ホバーを実装） | 残: 利用者の実機観測 |
 | 4 | [CPUでの範囲探索](issues/issue-0115-cpu-range-search.md) | In Progress（`MMI: Find Table by Description`として組み込み。最新の未見評価でRecall@5 0.800、FlyHashは条件付き採用） | 次は言い換えへの対応 |
+| 5 | [既存設計書の取り込み候補](issues/issue-0192-import-assistance-prototype.md)（[ADR-0019](adr/ADR-0019-ai-era-sier-document-value-and-policy.md) 優先度2の試作） | In Progress（方眼紙の表を表として描く参照の提案、役割の候補、書式のまとまり、下書き。架空データで評価済み） | 残: VS Code宿主での確認、実在の設計書での観測 |
+| 6 | [Excelを開かずに表・列・行を選ぶ入口（人とAI）](issues/issue-0193-table-navigation-and-agent-interface.md)（ADR-0019 経路A・B） | In Progress（名前・テーブル・非表示の読込み、目録、見出しによる選択、CLI、VS Codeの表の目録） | 残: 目視確認、AIエージェントでの確認、[ADR-0020](adr/ADR-0020-semantic-selection-in-notation.md)の採否 |
 | 任意 | [既存AIへの依頼と結果検証](issues/issue-0112-ai-proposal-handoff.md) | Draft | 主経路外。0115の評価後に要否を再判断 |
 | 保留 | [ローカルLLM評価](issues/issue-0113-local-ai-feasibility.md) | Draft | 着手しない |
 
@@ -25,7 +27,8 @@ VS Code拡張、記法仕様、日本語チュートリアル、実務サンプ�
 
 - [企画](input-assistance-proposal.md): 利用体験と対象範囲。
 - [技術調査](input-assistance-technical-research.md): 確認済みの事実、未確認事項、検証手順。
-- 設計: [ソースモデル](../02_Architecture/input-assistance-source-model.md)、[クリップボード出所と照合](../02_Architecture/input-assistance-paste-provenance.md)、[CPUでの範囲探索](../02_Architecture/input-assistance-cpu-search.md)。
+- 設計: [ソースモデル](../02_Architecture/input-assistance-source-model.md)、[クリップボード出所と照合](../02_Architecture/input-assistance-paste-provenance.md)、[CPUでの範囲探索](../02_Architecture/input-assistance-cpu-search.md)、[取り込み支援](../02_Architecture/import-assistance.md)。
+- [認知機能の仮説カード](cognitive-hypothesis-cards.md): 認知補助の各機能の証拠の段階と次の一手（ADR-0019 D9の形式）。
 - [ADR-0016](adr/ADR-0016-notation-first-input-assistance.md): 入力支援の方針と確定した設計判断。[ADR-0017](adr/ADR-0017-windows-clipboard-provenance-bridge.md): 出所取得の条件付き判断。いずれもProposed。
 
 ## 計画の管理

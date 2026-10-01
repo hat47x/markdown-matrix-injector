@@ -37,10 +37,13 @@
     "qualify:review-route-evaluation-pipeline": "npm run build && npm run test:review-route-evaluation-pipeline",
     "eval:cpu-search": "node --import tsx scripts/cpu-search-eval/evaluate.ts",
     "eval:cpu-search:scale": "node --import tsx scripts/cpu-search-eval/scale.ts",
+    "eval:import-assist": "node --import tsx scripts/import-assist-eval/evaluate.ts",
+    "mmi": "node --import tsx src/cli/mmi.ts",
     "test:phase9-sync": "python3 ../01_Plans/tools/check_phase9_template_sync.py",
     "test:phase9-guide-sync": "python3 ../01_Plans/tools/generate_phase9_pattern_guide.py --check",
     "test:e2e": "npm run build && bash ./scripts/run-vscode-e2e.sh",
     "test:e2e:practical": "npm run build && node --import tsx ./test/e2e/runPractical.ts",
+    "test:e2e:import": "npm run build && node --import tsx ./test/e2e/runImport.ts",
     "test": "npm run test:unit && npm run test:phase9-sync && npm run test:phase9-guide-sync",
     "release:gate": "python3 ../01_Plans/tools/release_gate_check.py --repo-root .. --format json",
     "release:gate:artifacts": "python3 ../01_Plans/tools/release_gate_check.py --repo-root .. --format json --output-file artifacts/release-gate.json --output-markdown-file artifacts/release-gate.md",
@@ -80,6 +83,8 @@
     "onCommand:markdownMatrixInjector.authorEmbed",
     "onCommand:markdownMatrixInjector.findEmbedByDescription",
     "onCommand:markdownMatrixInjector.clearSearchIndex",
+    "onCommand:markdownMatrixInjector.importFromWorkbook",
+    "onView:markdownMatrixInjector.tableCatalog",
     "onLanguage:markdown"
   ],
   "contributes": {
@@ -132,9 +137,76 @@
         "command": "markdownMatrixInjector.clearSearchIndex",
         "title": "%mmi.command.clearSearchIndex%",
         "category": "MMI"
+      },
+      {
+        "command": "markdownMatrixInjector.importFromWorkbook",
+        "title": "%mmi.command.importFromWorkbook%",
+        "category": "MMI"
+      },
+      {
+        "command": "markdownMatrixInjector.catalog.refresh",
+        "title": "%mmi.command.catalog.refresh%",
+        "category": "MMI",
+        "icon": "$(refresh)"
+      },
+      {
+        "command": "markdownMatrixInjector.catalog.insertTable",
+        "title": "%mmi.command.catalog.insertTable%",
+        "category": "MMI",
+        "icon": "$(insert)"
+      },
+      {
+        "command": "markdownMatrixInjector.catalog.selectFromTable",
+        "title": "%mmi.command.catalog.selectFromTable%",
+        "category": "MMI",
+        "icon": "$(filter)"
       }
     ],
+    "views": {
+      "explorer": [
+        {
+          "id": "markdownMatrixInjector.tableCatalog",
+          "name": "%mmi.view.tableCatalog%"
+        }
+      ]
+    },
     "menus": {
+      "view/title": [
+        {
+          "command": "markdownMatrixInjector.catalog.refresh",
+          "when": "view == markdownMatrixInjector.tableCatalog",
+          "group": "navigation"
+        }
+      ],
+      "view/item/context": [
+        {
+          "command": "markdownMatrixInjector.catalog.insertTable",
+          "when": "view == markdownMatrixInjector.tableCatalog && viewItem == mmiTable",
+          "group": "inline@1"
+        },
+        {
+          "command": "markdownMatrixInjector.catalog.selectFromTable",
+          "when": "view == markdownMatrixInjector.tableCatalog && viewItem == mmiTable",
+          "group": "inline@2"
+        }
+      ],
+      "commandPalette": [
+        {
+          "command": "markdownMatrixInjector.catalog.insertTable",
+          "when": "false"
+        },
+        {
+          "command": "markdownMatrixInjector.catalog.selectFromTable",
+          "when": "false"
+        }
+      ],
+      "explorer/context": [
+        {
+          "command": "markdownMatrixInjector.importFromWorkbook",
+          "when": "resourceExtname =~ /^\\.(xlsx|xls|xml)$/i",
+          "group": "mmi@1"
+        }
+      ],
       "editor/context": [
         {
           "command": "markdownMatrixInjector.authorEmbed",

@@ -1,12 +1,11 @@
 import type MarkdownIt from 'markdown-it';
 import { WorkbookCache } from '../cache/workbookCache.js';
+import { evaluateEmbed } from '../core/evaluateEmbed.js';
 import { escapeHtml } from '../core/html.js';
-import { resolveSourcePath } from '../core/pathResolver.js';
 import { renderEmbedCard } from '../core/renderCard.js';
 import { renderEmbedFrame } from '../core/renderEmbedFrame.js';
-import { renderEmbedTable } from '../core/renderTable.js';
-import { shouldRenderAsCardAfterLoad, shouldRenderAsCardImmediately } from '../core/smartFallback.js';
-import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
+import { renderLogicalTable } from '../core/renderTable.js';
+import type { WorkbookData } from '../core/workbookLoader.js';
 import { extractEmbedQueries } from '../parser/embedSyntax.js';
 
 export interface MarkdownMatrixPluginOptions {
@@ -147,22 +146,12 @@ function stripEmbeds(content: string, embeds: ReturnType<typeof extractEmbedQuer
 }
 
 function renderEmbed(embed: ReturnType<typeof extractEmbedQueries>[number], context: EmbedRenderContext): string {
+  // One decision path shared with the command-line interface (core/evaluateEmbed.ts).
+  const outcome = evaluateEmbed(embed, context);
   try {
-    const absolutePath = resolveSourcePath({
-      markdownFilePath: context.markdownFilePath,
-      sourcePath: embed.filepath,
-      workspaceRoot: context.workspaceRoot,
-    });
-    if (shouldRenderAsCardImmediately(embed)) {
-      return renderEmbedFrame(embed, renderEmbedCard(embed, absolutePath, context.uriScheme));
-    }
-
-    const workbook = loadWorkbook({ absolutePath, cache: context.cache });
-    if (shouldRenderAsCardAfterLoad(embed, workbook)) {
-      return renderEmbedFrame(embed, renderEmbedCard(embed, absolutePath, context.uriScheme));
-    }
-
-    return renderEmbedFrame(embed, renderEmbedTable(embed, workbook));
+    if (outcome.kind === 'card') return renderEmbedFrame(embed, renderEmbedCard(embed, outcome.absolutePath, context.uriScheme));
+    if (outcome.kind === 'table') return renderEmbedFrame(embed, renderLogicalTable(embed, outcome.logical));
+    return `<div class="mmi-error">${escapeHtml(outcome.message)}</div>`;
   } catch (error) {
     return `<div class="mmi-error">${escapeHtml(getErrorMessage(error))}</div>`;
   }

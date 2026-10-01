@@ -9,6 +9,8 @@
 | 原本座標を保持する読込みと切り出し（未実装） | [ソースモデル](input-assistance-source-model.md) |
 | Excelコピーの出所取得と照合（未実装） | [クリップボード出所と照合](input-assistance-paste-provenance.md) |
 | 索引・自然言語解析・候補検索（未実装・未測定） | [CPUでの範囲探索](input-assistance-cpu-search.md) |
+| 既存のExcel設計書（方眼紙）の取り込み候補と参照の提案（試作） | [取り込み支援](import-assistance.md) |
+| Excelの機能への対応、目録、見出しによる選択、CLIと表の目録（試作） | [表の走査と選択](table-navigation.md) |
 | 入力支援の一次資料と未確認事項 | [技術調査](../01_Plans/input-assistance-technical-research.md) |
 
 実装は`03_Implement/src/`、テストは`03_Implement/test/`。仕様とコードが食い違う場合は、対象と影響を明示して修正する。過去の構成図を現在の設計として扱わない。

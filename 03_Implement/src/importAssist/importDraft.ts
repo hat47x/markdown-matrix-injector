@@ -1,0 +1,162 @@
+/**
+ * The import draft: a Markdown skeleton of an existing Excel design document
+ * (02_Architecture/import-assistance.md §5). Headings become Markdown
+ * headings, tables become MMI references that the preview renders from the
+ * source, and everything else is listed where it sits with its address, so
+ * the person decides what to move into prose and what to leave out. Table
+ * values are never copied into the draft.
+ */
+import type { WorkbookData } from '../core/workbookLoader.js';
+import { analyzeSheetForImport, type ImportAnalysisOptions, type ImportCandidate } from './importCandidates.js';
+import { describeDifferenceJa, summarizeLayouts, type LayoutSummary, type SheetCandidates, type SheetRef } from './layoutGroups.js';
+import { cellRangeToA1 } from '../core/tableGeometry.js';
+import type { DefinedName, WorkbookStructure } from './workbookStructure.js';
+
+export interface WorkbookImport {
+  /** Display name, usually the file name. */
+  book: string;
+  /** Path written into references, relative to the draft. */
+  referencePath: string;
+  sheets: SheetCandidates[];
+  structure?: WorkbookStructure;
+}
+
+export function analyzeWorkbookForImport(
+  book: string,
+  referencePath: string,
+  workbook: WorkbookData,
+  options: Omit<ImportAnalysisOptions, 'referencePath' | 'workbook'> = {},
+): WorkbookImport {
+  const sheets = Object.entries(workbook.sheets).map(([sheet, source]) => ({
+    book,
+    sheet,
+    candidates: analyzeSheetForImport(sheet, source, { ...options, referencePath, workbook }),
+  }));
+  return { book, referencePath, sheets, ...(options.structure ? { structure: options.structure } : {}) };
+}
+
+const NAME_KIND_JA: Record<DefinedName['kind'], string> = {
+  range: '範囲',
+  cell: 'セル',
+  rows: '行',
+  columns: '列',
+  formula: '数式（位置が計算で決まるため参照にできません）',
+  constant: '定数（表ではありません）',
+  broken: '参照先が失われています（#REF!）',
+};
+
+const ROLE_JA: Record<ImportCandidate['role'], string> = {
+  table: '表',
+  'key-value': '項目と値の組',
+  prose: '文章',
+  heading: '見出し',
+  form: '記入欄',
+  diagram: '図',
+  unknown: '判定できない領域',
+};
+
+const ROLE_ADVICE: Partial<Record<ImportCandidate['role'], string>> = {
+  'key-value': '文書の枠や属性であれば、通常は取り込みません。必要な項目だけ本文へ移してください。',
+  prose: '本文へ移す場合は、原本の文章を確かめてから書いてください。',
+  form: '押印欄などの記入欄です。通常は取り込みません。',
+  diagram: 'セルで描いた図です。画像や図の記法で別に扱ってください。',
+  unknown: '表として読めませんでした。原本を開いて確かめてください。',
+};
+
+export function renderImportDraft(workbookImport: WorkbookImport, layout: LayoutSummary = summarizeLayouts(workbookImport.sheets)): string {
+  const lines: string[] = [];
+  const all = workbookImport.sheets.flatMap((sheet) => sheet.candidates);
+  const tables = all.filter((candidate) => candidate.role === 'table');
+  const withCautions = tables.filter((candidate) => candidate.cautions.length > 0);
+  const others = all.filter((candidate) => candidate.role !== 'table' && candidate.role !== 'heading');
+
+  lines.push(`# 取り込み候補: ${escapeText(workbookImport.book)}`, '');
+  lines.push(
+    '> MMIが原本の構造から推定した候補です。確定ではありません。',
+    '> 表は値を写さず、参照として置いています。プレビューで表示を確かめ、残す参照を選んでください。',
+    '> 表ではない領域は、本文へ移すか取り込まないかを判断してください。この文書を編集しても原本は変わりません。',
+    '',
+  );
+  lines.push(`- 表の候補: ${tables.length}件（注意あり: ${withCautions.length}件）`);
+  const counts = countBy(others.map((candidate) => ROLE_JA[candidate.role]));
+  if (counts.length > 0) lines.push(`- 表ではない領域: ${counts.map(([role, count]) => `${role} ${count}件`).join('、')}`);
+  lines.push('');
+
+  const layoutLines = renderLayout(layout);
+  if (layoutLines.length > 0) lines.push('## 書式のまとまり', '', ...layoutLines, '');
+
+  const names = workbookImport.structure?.names ?? [];
+  if (names.length > 0) {
+    lines.push('## 名前付き範囲', '', '> MMIの参照は名前ではなくA1範囲で書きます。名前の定義が変わっても参照は追従しないため、名前の位置を確かめてから使ってください。', '');
+    for (const name of names) {
+      const where = name.sheet && name.range ? ` ${escapeText(name.sheet)}!${cellRangeToA1(name.range)}` : '';
+      const scope = name.scope ? `（シート「${escapeText(name.scope)}」の中だけで有効）` : '';
+      lines.push(`- ${escapeText(name.name)}${scope}: ${NAME_KIND_JA[name.kind]}${where}`);
+    }
+    lines.push('');
+  }
+
+  for (const sheet of workbookImport.sheets) {
+    const visibility = workbookImport.structure?.sheets.find((entry) => entry.name === sheet.sheet)?.visibility;
+    const hiddenNote = visibility === 'veryHidden' ? '（Excelの画面からは表示できないシート）' : visibility === 'hidden' ? '（非表示のシート）' : '';
+    lines.push('---', '', `## ${escapeText(sheet.sheet)}${hiddenNote}`, '');
+    if (sheet.candidates.length === 0) {
+      lines.push('> 内容がありません。', '');
+      continue;
+    }
+    for (const candidate of sheet.candidates) lines.push(...renderCandidate(candidate));
+  }
+  return `${lines.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd()}\n`;
+}
+
+function renderLayout(layout: LayoutSummary): string[] {
+  const name = (ref: SheetRef, books: ReadonlySet<string>): string => (books.size > 1 ? `${ref.sheet}（${ref.book}）` : ref.sheet);
+  const books = new Set([...layout.groups.flatMap((group) => group.members), ...layout.deviations.map((d) => d.sheet)].map((ref) => ref.book));
+  const out: string[] = [];
+  for (const group of layout.groups) {
+    out.push(`- 同じ書式（${group.members.length}シート）: ${group.members.map((member) => escapeText(name(member, books))).join('、')}`);
+  }
+  for (const deviation of layout.deviations) {
+    const differences = deviation.differences.slice(0, 4).map(describeDifferenceJa);
+    const more = deviation.differences.length > 4 ? `ほか${deviation.differences.length - 4}件` : '';
+    out.push(
+      `- ${escapeText(name(deviation.sheet, books))}: 「${escapeText(name(deviation.nearest.sheet, books))}」に近い書式です。` +
+        `${[...differences, more].filter(Boolean).map(escapeText).join('。')}。`,
+    );
+  }
+  return out;
+}
+
+function renderCandidate(candidate: ImportCandidate): string[] {
+  if (candidate.role === 'heading') return [`### ${escapeText(candidate.excerpt[0] ?? candidate.a1)}`, ''];
+  if (candidate.role !== 'table') {
+    // Frames and forms: show their labels only; the values are the document's attributes.
+    const shown = candidate.labels ?? candidate.excerpt;
+    const excerpt = shown.slice(0, 6).map(escapeText).join(candidate.labels ? '、' : ' / ');
+    const advice = ROLE_ADVICE[candidate.role] ?? '';
+    return [`> ${ROLE_JA[candidate.role]} ${candidate.a1}: ${excerpt}${shown.length > 6 ? ' …' : ''}  `, `> ${advice}`, ''];
+  }
+
+  const out: string[] = [];
+  if (!candidate.title) out.push(`表 ${candidate.a1}`, '');
+  else if (candidate.excelTable) out.push(`### テーブル「${escapeText(candidate.excelTable)}」`, '');
+  if (candidate.names?.length) out.push(`名前付き範囲: ${candidate.names.map(escapeText).join('、')}`, '');
+  for (const caution of candidate.cautions) out.push(`> **注意:** ${escapeText(caution.message)}`, '');
+  if (candidate.proposal) {
+    out.push(candidate.proposal.reference, '');
+  } else {
+    out.push(`> 表 ${candidate.a1} の参照は提案していません。原本を開いて範囲を確かめてください。`, '');
+  }
+  return out;
+}
+
+function countBy(values: readonly string[]): [string, number][] {
+  const counts = new Map<string, number>();
+  for (const value of values) counts.set(value, (counts.get(value) ?? 0) + 1);
+  return [...counts.entries()];
+}
+
+/** Keeps sheet text inert in Markdown: no emphasis, links, HTML or embeds from source cells. */
+function escapeText(text: string): string {
+  return text.replace(/\s+/g, ' ').replace(/([\\`*_[\]<>|#!])/g, '\\$1');
+}
