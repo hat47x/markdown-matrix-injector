@@ -152,13 +152,8 @@ function xmlStartTagEnd(xml: string): number {
 }
 
 function escapeRegExp(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 }
-
-');
-}
-
 function xmlAttributeValue(
   tag: string,
   attribute: string,
