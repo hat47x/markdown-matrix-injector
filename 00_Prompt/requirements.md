@@ -127,6 +127,16 @@ MMIとLLM・認知技術の関係は次の3つを基本とする。
 
 特定の生成AIサービスを製品の必須依存にしない。外部LLMが存在しない環境でも、Authority Planeと主要なモダナイズ機能は成立する。
 
+## AI・認知技術との3経路
+
+MMI自身は、原則としてAPI課金を要する生成AIサービスを直接呼び出さない。API key管理、課金先の選択、自動クラウドfallbackを標準機能に含めない。MMIとLLM・認知技術の関係は次の3経路に整理する。
+
+1. **外部LLMからMMIを利用する:** 利用者が選んだChatGPT、Claude、Codex等の外部LLM / AIエージェントが、CLI、AI向けskill、将来のMCP等からMMIを呼び出す。MMIはinspect / check / render / extract / manifest等の決定論的・機械可読な能力を提供する。
+2. **MMI内部では軽量・ローカルな認知を利用する:** 決定論的規則を第一にし、Fly-inspired matcher、Jev類似のbounded model、必要に応じたローカルLLM等を、Excel解析、構造候補、類似検索、閉集合判断へ利用できる。外部API課金を必須条件にしない。
+3. **外部LLMへ作業提案と判断材料を渡す:** MMIは、未解決診断、曖昧なCandidate、source locator、provenance、必要最小限の抜粋から、外部LLMへ渡せるprompt / evidence packageをローカル生成できる。送信、LLM選択、課金は利用者側の責務とし、戻された提案はAuthority Planeで再検証する。
+
+外部LLMが無くても、MMIの基本機能とローカル認知は動作しなければならない。将来MMI自身から課金型生成AIサービスを直接呼ぶ必要が生じた場合は、標準機能へ暗黙に追加せず、別ADRで費用、privacy、再現性、fallback、無効時の挙動を定める。
+
 ## 認知支援
 
 MMIの決定論的なAuthority Plane（parser、resolver、query semantics、containment、Read-only、diagnostics、rendering、conformance）は認知処理から独立を保つ。
