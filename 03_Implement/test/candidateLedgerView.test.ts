@@ -124,3 +124,19 @@ test('stale reviewed Claims stay out of strict unimported but remain in attentio
     ['stale'],
   );
 });
+
+
+test('lineage evidence is exposed without inheriting review state', () => {
+  const view = candidateLedgerView(
+    [duplicateOccurrence],
+    ledger,
+    ledgerPath,
+    sourcePath,
+    'all',
+  );
+
+  assert.equal(view[0].ledgerState, 'duplicate');
+  assert.equal(view[0].lineageCandidates.length, 1);
+  assert.equal(view[0].lineageCandidates[0].place, 'B2:D8');
+  assert.deepEqual(view[0].lineageCandidates[0].reasons, ['same-content']);
+});
