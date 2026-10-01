@@ -147,6 +147,7 @@ model weight、prototype、index、embedding、Format Profile等の認知資産�
 - GitHub repository、GitHub Release / LFS、model hub、object storage等を差し替え可能なartifact sourceとして扱う。特定サービスをCore契約に埋め込まない。
 - 認知方式を比較するときは、モデル精度だけでなくdownload size、disk size、更新差分、cold start / cold availability、offline usabilityも評価する。
 - 外部model repositoryからweightを取得することと、外部生成AI APIへsourceを送信することを明確に区別する。
+- Ollama等、導入済みのローカルmodel runtimeがある場合は、その既存model/cacheを再利用できる経路を優先的に評価する。runtimeやmodelの自動インストール・自動pullは行わない。localhost以外への接続は明示設定を必要とする。
 
 ## AI / LLMとの関係
 
