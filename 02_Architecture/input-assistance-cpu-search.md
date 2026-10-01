@@ -45,7 +45,7 @@ flowchart LR
 ### 2.2 更新とキャンセル
 
 - ファイルのmtime・サイズをキーに差分更新する。1キー入力ごとに全ブックを再読込しない。
-- Workerで初回解析と検索を実行し、キャンセルと更新競合を扱う。
+- Workerで初回解析と検索を実行し、キャンセルと更新競合を扱う。**2026-10-01実装:** VS Code Extension Hostは対象ファイル列挙とUIだけを行い、Node Workerが`WorkspaceRegionIndex`とmtimeキャッシュを所有する。refresh/queryはWorker内で直列化し、cancelだけは待ち行列外から進行中refreshのAbortControllerへ届ける。索引構築後は全Workbookキャッシュを破棄し、検索候補の原本再検証で触れたブックだけ遅延再キャッシュする。入力欄側はquery revisionを持ち、古いWorker応答で新しい候補を上書きしない。**
 - 候補確定時に原本を再確認する。索引はブック更新で失効させる。
 
 ### 2.3 切り出しの実測値
