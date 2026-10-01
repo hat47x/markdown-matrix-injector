@@ -83,6 +83,27 @@ test('createDiagnosticsForDocument maps missing file, invalid xml, and missing s
 });
 
 
+test('createDiagnosticsForDocument maps an oversized forced-table range to a coded line-aware problem', async () => {
+  const raw = '![[./huge.csv#Sheet1|A1:A100001?mode=table]]';
+  const text = ['Before', raw, 'After'].join('\n');
+  const rangeText = 'A1:A100001';
+
+  const items = await createDiagnosticsForDocument(text, '/workspace/docs/spec.md', '/workspace', {
+    fileExists: async () => true,
+    readFile: async () => '',
+    readWorkbookSheetNames: async () => ['Sheet1'],
+  });
+
+  assert.equal(items.length, 1);
+  assert.equal(items[0].diagnostic.code, 'MMI_TABLE_TOO_LARGE');
+  assert.equal(items[0].diagnostic.priority, 3);
+  assert.match(items[0].diagnostic.message, /100001 cells exceeds the 100000-cell limit/);
+  assert.deepEqual(
+    [items[0].range.start.line, items[0].range.start.character, items[0].range.end.line, items[0].range.end.character],
+    [1, raw.indexOf(rangeText), 1, raw.indexOf(rangeText) + rangeText.length],
+  );
+});
+
 test('createDiagnosticsForDocument falls back to workspace-root relative path when markdown-relative path is missing', async () => {
   const text = '![[shared/data.xlsx#Sheet1|A1:B2]]';
 
