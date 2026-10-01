@@ -1094,3 +1094,31 @@ test('package identity admits correctly-prefixed OPC direct-child declarations',
   });
   assert.deepEqual(validateZipContainer(prefixed), { ok: true });
 });
+
+
+test('package identity rejects malformed nested workbook XML', () => {
+  const malformed = xlsxFrame(undefined, {
+    'xl/workbook.xml':
+      '<?xml version="1.0" encoding="UTF-8"?>'
+      + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+      + '<bookViews>'
+      + '</workbook>',
+  });
+
+  assert.deepEqual(validateZipContainer(malformed), {
+    ok: false,
+    reason: 'xlsx_workbook_xml_invalid',
+  });
+});
+
+test('package identity accepts balanced workbook XML without opening semantics', () => {
+  const balanced = xlsxFrame(undefined, {
+    'xl/workbook.xml':
+      '<?xml version="1.0" encoding="UTF-8"?>'
+      + '<workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+      + '<bookViews><workbookView/></bookViews>'
+      + '</workbook>',
+  });
+
+  assert.deepEqual(validateZipContainer(balanced), { ok: true });
+});

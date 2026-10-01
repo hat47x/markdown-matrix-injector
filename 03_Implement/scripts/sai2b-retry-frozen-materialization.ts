@@ -253,7 +253,7 @@ function xmlQualifiedName(
 
 function xmlDirectChildStartTags(
   xml: string,
-  expectedRootLocalName: 'Types' | 'Relationships',
+  expectedRootLocalName: 'Types' | 'Relationships' | 'workbook',
 ): XmlElementStart[] | null {
   const leadingStripped = stripLeadingXmlMisc(xml);
   if (leadingStripped === null || !leadingStripped.startsWith('<')) {
@@ -273,6 +273,15 @@ function xmlDirectChildStartTags(
     rootNamespaces.get(rootName.prefix ?? '') ?? null;
   if (!rootNamespace) {
     return null;
+  }
+
+  if (/\/\s*>$/u.test(rootTag)) {
+    const remainder = stripTrailingXmlMisc(
+      leadingStripped.slice(rootEnd + 1),
+    );
+    return remainder !== null && remainder.trim().length === 0
+      ? []
+      : null;
   }
 
   const children: XmlElementStart[] = [];
@@ -900,7 +909,9 @@ export function validateZipContainer(
     ) {
       return { ok: false, reason: 'xlsx_workbook_xml_invalid' };
     }
-
+    if (xmlDirectChildStartTags(workbook, 'workbook') === null) {
+      return { ok: false, reason: 'xlsx_workbook_xml_invalid' };
+    }
 
     return { ok: true };
   } catch (error) {
