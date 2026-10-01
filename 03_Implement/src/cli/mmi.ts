@@ -10,6 +10,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import XLSX from 'xlsx';
 import { WorkbookCache } from '../cache/workbookCache.js';
+import { imageCandidates, readExcelImages, relationToTables, type ImageDiagnostic, type TableRect } from '../adapters/excelImageAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import type { Candidate } from '../core/candidate.js';
 import { readSourceFileIdentity } from '../core/sourceIdentity.js';
@@ -18,6 +19,7 @@ import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
 import { createDiagnosticsForDocument } from '../dx/vscodeAdapters.js';
 import { buildDeliveryManifestCsv } from '../manifest/collectDeliveryManifest.js';
 import { detectRegions } from '../search/regionDetector.js';
+import { extractImages, formatImageDiagnostics } from './extract.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './render.js';
 
 const USAGE = `Usage: mmi <command> [options]
@@ -28,6 +30,12 @@ Commands:
                             method, provenance and fingerprint)
       --values <n>            also print the first n body rows of each region
       --from <doc.md>         write suggested references relative to this document
+                            For .xlsx/.xlsm it also lists embedded pictures (sheet, anchor, format, size,
+                            digest, nearest table) and names any that cannot be read.
+  extract <source.xlsx>     Write workbook pictures to an assets folder and print Markdown references
+      --image <n|all>         the picture number shown by inspect, or all (required)
+      --out-dir <dir>         assets folder (default: assets); files are named by content digest
+      --from <doc.md>         write references relative to this document
   check <path...>           Validate MMI references in Markdown files or directories
                             (exit code 1 when any error is found)
   render <doc.md>           Expand references into Markdown tables (default) or HTML
@@ -51,6 +59,8 @@ export async function main(argv: string[]): Promise<number> {
       to: { type: 'string', default: 'md' },
       values: { type: 'string', default: '0' },
       from: { type: 'string' },
+      image: { type: 'string' },
+      'out-dir': { type: 'string', default: 'assets' },
       help: { type: 'boolean', short: 'h', default: false },
     },
   });
@@ -68,6 +78,20 @@ export async function main(argv: string[]): Promise<number> {
       const result = inspectSource(path.resolve(args[0]), Number(values.values) || 0, values.from);
       emit(values.json ? JSON.stringify(result, null, 2) : formatInspect(result));
       return 0;
+    }
+    case 'extract': {
+      if (args.length !== 1) return usageError('extract takes one workbook');
+      if (!values.image) return usageError('extract needs --image <n|all>');
+      const result = extractImages({
+        sourcePath: path.resolve(args[0]),
+        selection: values.image,
+        outDir: path.resolve(values['out-dir'] ?? 'assets'),
+        fromDocument: values.from,
+      });
+      if (values.json) emit(JSON.stringify(result, null, 2));
+      else if (result.extracted.length > 0) emit(result.extracted.map((item) => item.markdown).join('\n\n'));
+      for (const problem of result.problems) console.error(`mmi: ${problem.code}${problem.ordinal ? ` (image ${problem.ordinal})` : ''}: ${problem.message}`);
+      return result.problems.length > 0 ? 1 : 0;
     }
     case 'check': {
       if (args.length === 0) return usageError('check needs at least one file or directory');
@@ -127,19 +151,68 @@ export interface InspectResult {
   sheets: { name: string; usedRange?: string; regions: InspectRegion[] }[];
   /** The same structure as Semantic Candidates (issue-0193). `--json` only; the text output is unchanged. */
   candidates: Candidate[];
+  /** Embedded pictures of an .xlsx/.xlsm (empty for other sources). */
+  images: InspectImage[];
+  /** Pictures or drawings that could not be read, by name. */
+  imageDiagnostics: ImageDiagnostic[];
+}
+
+export interface InspectImage {
+  ordinal: number;
+  sheet: string;
+  name?: string;
+  description?: string;
+  range?: string;
+  anchorKind: string;
+  format: string;
+  bytes: number;
+  digest: string;
+  extractable: boolean;
+  nearbyTable?: { range: string; relation: string; gap: number };
 }
 
 export function inspectSource(absolutePath: string, sampleRows: number, fromDocument?: string): InspectResult {
   const workbook = loadWorkbook({ absolutePath });
   const sourceDigest = readSourceFileIdentity(absolutePath).digest;
+  const isPackage = /\.(xlsx|xlsm)$/iu.test(absolutePath);
+  const imageRead = isPackage
+    ? readExcelImages(fs.readFileSync(absolutePath))
+    : {
+        images: [],
+        diagnostics: /\.xls$/iu.test(absolutePath)
+          ? [{ code: 'MMI_IMAGE_PACKAGE_UNSUPPORTED' as const, severity: 'warning' as const, message: 'binary .xls: embedded pictures are not read' }]
+          : [],
+      };
+  const detected = Object.entries(workbook.sheets).map(([name, sheet]) => ({ name, sheet, regions: detectRegions(name, sheet, { maxValueSample: 0 }) }));
+  const tablesBySheet: Record<string, TableRect[]> = Object.fromEntries(
+    detected.map(({ name, regions }) => [name, regions.map((r) => ({ a1: r.a1, startRow: r.range.startRow, startCol: r.range.startCol, endRow: r.range.endRow, endCol: r.range.endCol }))]),
+  );
   const base = fromDocument ? path.dirname(path.resolve(fromDocument)) : process.cwd();
   let relative = path.relative(base, absolutePath).split(path.sep).join('/');
   if (!relative.startsWith('.')) relative = `./${relative}`;
   return {
     source: relative,
-    candidates: Object.entries(workbook.sheets).flatMap(([sheetName, sheet]) =>
-      tableCandidates({ source: relative, sourceDigest, sheetName, sheet }),
-    ),
+    candidates: [
+      ...Object.entries(workbook.sheets).flatMap(([sheetName, sheet]) => tableCandidates({ source: relative, sourceDigest, sheetName, sheet })),
+      ...imageCandidates({ source: relative, sourceDigest, images: imageRead.images, tablesBySheet }),
+    ],
+    images: imageRead.images.map((image) => {
+      const near = relationToTables(image, tablesBySheet[image.sheet] ?? []);
+      return {
+        ordinal: image.ordinal,
+        sheet: image.sheet,
+        ...(image.name ? { name: image.name } : {}),
+        ...(image.description ? { description: image.description } : {}),
+        ...(image.range ? { range: image.range } : {}),
+        anchorKind: image.anchor.kind,
+        format: image.format,
+        bytes: image.bytes,
+        digest: image.digest,
+        extractable: image.extractable,
+        ...(near ? { nearbyTable: { range: near.table.a1, relation: near.relation, gap: near.gap } } : {}),
+      };
+    }),
+    imageDiagnostics: imageRead.diagnostics,
     sheets: Object.entries(workbook.sheets).map(([name, sheet]) => ({
       name,
       ...(sheet.usedRange ? { usedRange: a1Of(sheet.usedRange) } : {}),
@@ -177,7 +250,12 @@ function formatInspect(result: InspectResult): string {
       lines.push(`    ${region.reference}`);
       for (const row of region.sample ?? []) lines.push(`    | ${row.join(' | ')} |`);
     }
+    for (const image of result.images.filter((item) => item.sheet === sheet.name)) {
+      const near = image.nearbyTable ? `  near table ${image.nearbyTable.range} (${image.nearbyTable.relation}, gap ${image.nearbyTable.gap})` : '';
+      lines.push(`  image #${image.ordinal}  ${image.range ?? '(no cell anchor)'}  ${image.format}  ${image.bytes} bytes  ${image.digest.slice(0, 19)}…${image.name ? `  "${image.name}"` : ''}${near}${image.extractable ? '' : '  (not extractable)'}`);
+    }
   }
+  if (result.imageDiagnostics.length > 0) lines.push('', 'image problems:', ...formatImageDiagnostics(result.imageDiagnostics).map((line) => `  ${line}`));
   return lines.join('\n');
 }
 

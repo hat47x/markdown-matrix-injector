@@ -18,11 +18,11 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 | 1 | [CLIの配布](issues/issue-0197-cli-distribution.md) | Draft | 配布形態の決定 |
 | 1 | [portable coreと最小バイナリ](issues/issue-0203-portable-core-minimum-binary.md) | Draft | VS Code非依存Core境界を固定し、標準Go/TinyGo/native/WASMを同一契約で実測比較 |
 | 1〜3（横断） | [認知model/profile資産の配布](issues/issue-0204-cognitive-artifact-distribution.md) | Draft | Coreと大型artifactを分離し、既存local runtime/cacheと外部model置き場を交換可能にする |
-| **2 モダナイズの最小縦切り** | [Excel画像の候補化と取り込み](issues/issue-0194-excel-image-candidates.md) | Open | 画像入りテスト用ブックの作成。issue-0193の型を待つ |
-| 2 | [取り込み台帳と未取込の表示](issues/issue-0195-import-ledger.md) | Draft | issue-0194の後 |
+| **2 モダナイズの最小縦切り** | [Excel画像の候補化と取り込み](issues/issue-0194-excel-image-candidates.md) | **CLIで実装済み**（`inspect`の画像一覧、`mmi extract`。実Excelで位置・バイト一致を確認） | 残: 変更検知は台帳（issue-0195）。VS Code上の採否UI（issue-0202） |
+| 2 | [取り込み台帳と未取込の表示](issues/issue-0195-import-ledger.md) | Draft | **次の一手**。issue-0194が済んだ。Candidateのfingerprint（表は暫定、画像はバイト列）の使い方と、「未取込のみ」「変更あり」の表示を決める |
 | 2 | [初回一括変換とCandidate基盤の接続](issues/issue-0200-baseline-bulk-import.md) | Draft | issue-0193・0195の契約を使い、MarkItDown等をbaseline converterとして比較 |
 | 2 | [シート・範囲の画像化](issues/issue-0198-sheet-region-snapshot.md) | Draft | CIで動く描画方式（MMI自身の描画、LibreOffice）の比較。COMは手元の補助 |
-| 2 | [人の作業を止めないCandidateレビューUI](issues/issue-0202-candidate-review-ui.md) | Draft | issue-0194のCLI動作確認後、同じCoreのextract経路へ接続 |
+| 2 | [人の作業を止めないCandidateレビューUI](issues/issue-0202-candidate-review-ui.md) | Draft | issue-0194のCLI動作確認は済み。同じCoreのextract経路へ接続できる |
 | 2（既存） | [Excel範囲貼り付け](issues/issue-0114-excel-range-paste.md) | Open | 残: pasteAs経路のe2e。表Candidateを`confirmed`にする経路として扱う |
 | 2（既存） | [CPUでの範囲探索](issues/issue-0115-cpu-range-search.md) | In Progress | 言い換え対応。Candidateの検索として扱う |
 | 2（既存） | [文脈に応じた補完](issues/issue-0110-contextual-input-completion.md)、[参照の作成・編集](issues/issue-0111-reference-authoring-flow.md) | In Progress | 多環境の実機確認、利用者の観測 |

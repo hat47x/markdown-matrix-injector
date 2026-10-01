@@ -1,6 +1,6 @@
 # Semantic Candidate 契約 v1
 
-- 状態: 実装済み（型・不変条件・表のSource Adapter・`mmi inspect --json`）。表以外の種別のAdapterは未実装。
+- 状態: 実装済み（型・不変条件・表と画像のSource Adapter・`mmi inspect --json`・`mmi extract`）。図形・木構造・メモ・リスト・見出しのAdapterは未実装。
 - 関連: [ADR-0019](../01_Plans/adr/ADR-0019-ai-era-sier-document-value-and-policy.md) D4・D6・D8、[ADR-0018](../01_Plans/adr/ADR-0018-cognitive-assistance-plane.md) D1〜D5、[ADR-0020](../01_Plans/adr/ADR-0020-requirement-oriented-cognition-method-selection.md)、[issue-0193](../01_Plans/issues/issue-0193-candidate-source-adapter-contract.md)
 - 実装: `src/core/candidate.ts`（型と不変条件）、`src/adapters/tableRegionAdapter.ts`（最初のAdapter）、`test/candidate.test.ts`
 
@@ -58,6 +58,23 @@ run       deterministic       { inputDigest, config, implementationVersion }
 - 実行特性はすべて`deterministic`、`scores`は空。`config`は`maxScanCells`、実装版は`TABLE_ADAPTER_VERSION`（検出規則を変えて出力が変わり得るときに上げる）。
 - `reference`は既存のMMI記法（見出しが確かなときだけ`?header=first`）。`mmi inspect`の既存の`reference`と一致する。
 - アダプタは`src/adapters`に置く。領域検出が`src/search`にあるため`src/core`に置くと依存が逆になる。検出器を`core`へ移すのは[issue-0203](../01_Plans/issues/issue-0203-portable-core-minimum-binary.md)の範囲。
+
+## 3b. Excel画像のSource Adapter（issue-0194）
+
+`readExcelImages()`は.xlsxのOOXMLパッケージ（ワークブック → シート → drawing → media の関係）を直接読み、`image`のCandidateへ変換する（`src/adapters/excelImageAdapter.ts`、zip読込は`src/core/zipReader.ts`）。SheetJS community版は画像を解釈しないため、依存を足さずに自前で読む。
+
+| 主張 | 状態 | method | 根拠 |
+| --- | --- | --- | --- |
+| `location`（anchorのA1範囲） | `observed` | M0 | drawingのanchor。2セルanchorは終端が前のセル（オフセット0のとき）。1セルanchorは開始セルのみ、絶対anchorはセルを持たず`location`を主張しない |
+| `media`・`format`・`bytes`・`digest`・`name`・`description` | `observed` | M0 | パッケージの部品名、シグネチャ、サイズ、sha256、図形のプロパティ |
+| `nearby-table` | `inferred` | M1 | セル矩形の重なり・隣接だけ（`overlaps`/`above`/`below`/`left`/`right`、距離10セルまで。斜めは無関係）。モデルは使わない |
+
+- Candidate全体は`observed`（画像とその位置はパッケージが述べている）、実行特性は`deterministic`。fingerprintは**画像バイト列**のsha256（`image-media-bytes-v1`）で、同じ画像は置き場所が違っても同じfingerprintになる。
+- 診断（黙って失敗しない）: `MMI_IMAGE_NOT_A_PACKAGE`・`PACKAGE_UNSUPPORTED`（ZIP64・暗号化・旧`.xls`）、`DRAWING_UNREADABLE`、`MEDIA_MISSING`（CRC不一致を含む）、`EXTERNAL_LINK`、`UNSUPPORTED_FORMAT`（EMF/WMF/TIFFは列挙するが書き出さない）。1枚の失敗が他の画像を止めない。
+- zip読込は、エントリ数・展開サイズに上限があり、CRCとサイズを検証する（巨大な展開で記憶域を使い切らない）。
+- 図形（AutoShape・connector）とグラフは数だけ記録し解釈しない（issue-0199以降）。
+
+`mmi extract`は画像を`assets/<ダイジェスト先頭12桁>.<拡張子>`へ書き出し、`![代替文](相対パス)`と出典コメントを出す。名前を内容由来にしたので、同じ画像は1ファイルに集約され、Excelで画像を動かしても名前が変わらない。同名で内容が違えば上書きせず拒否する。
 
 ### fingerprint（暫定）
 

@@ -23,9 +23,9 @@ MMIは「Linked（参照）」の状態だけを実装しており、その品�
 | 製品要求の能力 | 状態 | 現在あるもの（証拠） | 不足 | 優先度 |
 | --- | --- | --- | --- | --- |
 | 参照 | ● | MMI Notation v1、VS Codeプレビュー、CLI `render` | 表以外のCandidateの参照 | 2〜3 |
-| 目録 | ◐ | CLI `inspect`（表の領域・見出し・行数。`src/cli/mmi.ts`） | 画像・図形・注記・リンクの列挙。Candidate形式の出力 | 1〜2 |
+| 目録 | ◐ | CLI `inspect`（表の領域・見出し・行数、Excel画像の位置・形式・ダイジェスト・近くの表、`--json`のCandidate形式。`src/cli/mmi.ts`） | 図形・注記・リンクの列挙 | 2〜3 |
 | 候補抽出 | ◐ | 製品: 表の領域検出（`src/search/regionDetector.ts`）。研究: 表らしさ・見出し境界（structured artifact）、既知書式（worksheet format） | 共通Candidate型、`observed/inferred`と`deterministic/provider-dependent`の2軸、method class（ADR-0020 M0〜M5）、研究成果の製品接続 | 1 |
-| 個別取り込み | ○ | なし | Candidateをassets・Markdown・構造化データへ書き出す`extract` | 2 |
+| 個別取り込み | ◐ | CLI `extract`（Excel画像をassetsへ、Markdown参照と出典つき。実Excelで検証済み。`src/cli/extract.ts`） | 表・図形・構造化データの`extract`、VS Code上の採否UI（issue-0202） | 2 |
 | 一括変換 | ○ | なし | 既存変換器をbaseline converterとして評価し、Candidate・取り込み台帳へ接続（[issue-0200](issues/issue-0200-baseline-bulk-import.md)） | 2（後半） |
 | 重複回避 | ○ | 原本の同一性（`src/core/sourceIdentity.ts`、ファイル全体のsha256） | Candidate単位のfingerprint、取り込み台帳、「未取込のみ」の表示 | 2 |
 | シートの画像化 | ○ | Windows補助プロセスの前例（ADR-0017、クリップボード） | 図形・レイアウトに意味があるシート・範囲を画像として取り込む`Sheet / Region snapshot`（ADR-0019 D0）。CIで再現できる描画を優先し、COMは手元の補助（ADR-0019 D14。いずれも未検証） | 2 |
