@@ -8,7 +8,7 @@
 - Expected verification level: integration
 
 ## Traceability
-- Related ADR/Spec: ADR-0019 優先度2・D2（Extracted）・D8
+- Related ADR/Spec: ADR-0019 優先度2・D2（Extracted）・D8、ADR-0020
 - Related analysis: [製品価値と現行実装のギャップ](../product-gap-analysis.md) §2「個別取り込み」、§3「画像の読み取り」
 - Dependency: issue-0193（Candidateの型）
 
@@ -18,8 +18,8 @@ SIerの設計者は、画面ダンプをExcelへ貼り、図表で設計を整�
 
 ## Acceptance criteria
 - [ ] 画像を含むテスト用のブックを用意する（架空の画面ダンプ。シート2枚以上、同じ画像の重複を含む）。作成手順を残す。
-- [ ] `mmi inspect`が、画像ごとにシート、anchor（開始セル・終了セル）、元の部品名、形式、バイト数、ダイジェストを示す。画像は`Image / Screenshot`のCandidate（`observed`）とする。
-- [ ] 画像の近くにある表の領域を、位置関係として示す（例: 表の直下の画像）。関係は`inferred`とする。
+- [ ] `mmi inspect`が、画像ごとにシート、anchor（開始セル・終了セル）、元の部品名、形式、バイト数、ダイジェストを示す。OOXML relation / media / anchorから得る情報はM0の`observed + deterministic`とする。
+- [ ] 画像の近くにある表の領域を、まずM1の決定論的な幾何（距離・重なり・包含等）で位置関係として示す。関係は`inferred + deterministic`とする。fixtureで不足が確認されるまでM3/M4へ上げない。
 - [ ] `mmi extract`が、指定した画像を`assets/`へ書き出し、Markdownの画像参照と出典（ブック、シート、anchor、ダイジェスト）を出力する。原本は変更しない。
 - [ ] 画像の無いブック、壊れたdrawing、未対応の形式（EMF等）で、黙って失敗せず診断を出す。
 - [ ] 既存のセル値の読込み・表示が変わらないことを回帰テストで確かめる。
