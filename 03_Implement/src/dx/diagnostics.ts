@@ -1,3 +1,6 @@
+
+import { parseRangeToCellRange, rangeDimensions } from '../core/tableGeometry.js';
+import { MAX_CELLS_HARD_LIMIT } from '../core/smartFallback.js';
 export type DiagnosticSeverity = 'error' | 'warning' | 'information';
 export type XmlMode = 'none' | 'spreadsheet2003' | 'invalid';
 export type DiagnosticCode =
@@ -6,6 +9,7 @@ export type DiagnosticCode =
   | 'MMI_SHEET_NOT_FOUND'
   | 'MMI_PATH_OUTSIDE_BOUNDARY'
   | 'MMI_INVALID_PARAM_VALUE'
+  | 'MMI_TABLE_TOO_LARGE'
   | 'MMI_UNKNOWN_PARAM';
 
 export interface DiagnosticRange {
@@ -26,6 +30,8 @@ export interface DiagnosticsQuery {
   raw: string;
   filepath: string;
   target?: string;
+  range?: string;
+  mode?: string;
 }
 
 export interface ValidateEmbedDiagnosticsInput {
@@ -46,8 +52,9 @@ const DIAGNOSTIC_PRIORITY: Record<DiagnosticCode, number> = {
   MMI_PATH_OUTSIDE_BOUNDARY: 0,
   MMI_INVALID_XML: 1,
   MMI_SHEET_NOT_FOUND: 2,
-  MMI_INVALID_PARAM_VALUE: 3,
-  MMI_UNKNOWN_PARAM: 4,
+  MMI_TABLE_TOO_LARGE: 3,
+  MMI_INVALID_PARAM_VALUE: 4,
+  MMI_UNKNOWN_PARAM: 5,
 };
 
 export function validateEmbedDiagnostics(input: ValidateEmbedDiagnosticsInput): EmbedDiagnostic[] {
@@ -97,7 +104,30 @@ export function validateEmbedDiagnostics(input: ValidateEmbedDiagnosticsInput): 
     );
   }
 
+  const tableSize = explicitTableSizeIssue(input.query);
+  if (input.fileExists && input.sheetExists !== false && tableSize) {
+    diagnostics.push(
+      createDiagnostic(
+        'MMI_TABLE_TOO_LARGE',
+        `Reference too large to render as a table (${tableSize.cellCount} cells exceeds the ${MAX_CELLS_HARD_LIMIT}-cell limit). mode=table does not lift this limit -- narrow the range or split the reference.`,
+        buildSubjectRange(input.query.raw, input.query.range ?? '', fallbackRange),
+      ),
+    );
+  }
+
   return diagnostics.sort(compareDiagnostics);
+}
+
+function explicitTableSizeIssue(query: DiagnosticsQuery): { cellCount: number } | undefined {
+  if (query.mode?.trim().toLowerCase() !== 'table' || !query.range) return undefined;
+  try {
+    const { cellCount } = rangeDimensions(parseRangeToCellRange(query.range));
+    return cellCount > MAX_CELLS_HARD_LIMIT ? { cellCount } : undefined;
+  } catch {
+    // Invalid ranges are handled by the render/parser path; do not let this
+    // resource preflight create a second, misleading diagnostic.
+    return undefined;
+  }
 }
 
 function createDiagnostic(code: DiagnosticCode, message: string, range: DiagnosticRange): EmbedDiagnostic {
