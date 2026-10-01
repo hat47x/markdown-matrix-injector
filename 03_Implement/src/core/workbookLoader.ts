@@ -79,8 +79,9 @@ export function loadWorkbookFromBytes(absolutePath: string, bytes: Buffer): Work
   // number format (e.g. "yyyy/mm/dd") is unaffected by dateNF either way --
   // it already renders unambiguously via its own format. Text cells that
   // merely look like dates, and non-date numeric cells, are untouched.
-  // Read bytes ourselves: the SheetJS ESM build does not bind Node's fs.
-  // This also keeps the production integration explicitly read-only.
+  // The production caller reads bytes explicitly because the SheetJS ESM
+  // build does not bind Node's fs. This function then performs only
+  // decode/parse/model construction, which is also the benchmark boundary.
   const workbook = XLSX.read(bytes, {
     type: 'buffer', dense: true, cellDates: true, dateNF: 'yyyy-mm-dd',
   });
