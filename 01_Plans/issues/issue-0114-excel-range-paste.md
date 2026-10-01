@@ -62,7 +62,7 @@
 
 **未対応で残る点**（正直な区分）:
 - `mode=table`で強制された場合のサイズ上限は**実装済み（2026-09-14、下記「`mode=table`強制時のサイズ上限」節）**。構造化された診断コードは**2026-10-02に `MMI_TABLE_TOO_LARGE` として実装済み**。明示 `range` + `mode=table` はセルを読まずにProblemsへ事前表示し、レンダリング時も同じコードをpreview HTMLの `data-code` に保持する。タイムアウト（時間上限）のみ未実装のまま。
-- 冷読込み・モデル構築自体の時間計測（切り出し時間とは別）は未実施。**参考値**: 2026-09-16、内容照合の性能検証で`loadWorkbook`単体のコストをネイティブファイルシステム上で実測（実サンプル30ファイル平均、JITウォームアップ後）——1ファイルあたり概ね1ms未満〜数ms。ただし単一ファイルの「冷読込み」を意図した計測ではなく、複数ファイル横断のバッチ計測から逆算した参考値に留まる。厳密な計測は別途必要。
+- 読込み・モデル構築の**分離計測ハーネスは2026-10-02に追加済み**。`loadWorkbookFromBytes()` を本番ローダーから切り出し、`npm run bench:workbook-load` で `initialReadMs` / warm read / bytes→decode・parse・`SheetSource`構築 / WorkbookCacheなしend-to-endを別々に記録する。既定入力は同梱 practical data、任意ファイル/ディレクトリと反復回数も指定可能。**ただしOSページキャッシュは制御しないため `initialReadMs` を「cold cache」とは呼ばない。Windows実機でOS-cold条件を含む数値取得は未実施**。参考値として、2026-09-16の内容照合バッチでは実サンプル30ファイル平均の`loadWorkbook`がJITウォームアップ後おおむね1ms未満〜数msだった。
 - CSVの`trim()`起因の座標ずれは、コードコメントで明記したのみで実装は変更していない（別問題として意図的に対象外）。
 - ユーザーへの表示挙動変更の確認（空行保持・エラーセル表示）は、走査結果（該当0件）を提示したのみで、実際の確認は未取得。
 
@@ -365,7 +365,7 @@ powershell -ExecutionPolicy Bypass -File .\03_Implement\scripts\clipboard-probe\
 
 - **作業Dは実装完了（2026-09-16）。自動貼り付け統合も完了した。** `editor.action.pasteAs`（既定Ctrl+.）経由で、内容照合の候補がVS Code標準の「貼り付け方法を選ぶ」ドロップダウンに並ぶ。通常のCtrl+V（`triggerKind: Automatic`）の挙動は変更していない——VS Codeの複数`DocumentPasteEdit`は`Automatic`だと最初の1件を即座に自動適用してしまうため、そこに含めるとR1（自動確定しない）に反するリスクがあった。`PasteAs`は挿入前に選ばせる契機のため、ここへ限定して組み込んだ。ワークスペース全体検索の性能懸念は実測（ネイティブファイルシステムで30ファイル約20ms、300ファイル約65〜140ms）により大幅に緩和されたことを確認済み。**2026-09-17、実VS Code（1.138.0）でのe2e確認をWSLg（xvfb不要）経由で実施し、明示コマンド経路（`insertEmbedByContentMatch`）の全パイプラインを実証した。** この過程で本物のバグを2件発見・修正した：(1) e2eテスト自体の期待値が2026-09-14の変更（シート名・範囲推測の撤去）に追従しておらず旧`#Sheet|Range`形式のままだった、(2) `insertEmbedByContentMatch`が`registerTextEditorCommand`で登録されていたが、これは非同期コールバックを一切サポートしないVS Codeの既知の制約（microsoft/vscode#178931等）に該当し、**実運用でも常にコマンドが何も挿入できていなかった可能性が高い**（`registerCommand`＋`vscode.window.activeTextEditor`の自前解決へ修正）。**2026-10-01、OSクリップボードへHTMLを注入できない環境でも宿主dispatchを自動検証できるよう、paste providerの対象へ`text/plain`を追加し、`vscode.env.clipboard.writeText`でExcel互換TSVを置いたうえでVS Code組み込み`editor.action.pasteAs`をcontent-match edit kind指定で実行するExtension Host E2Eを追加した。** pure `text/plain` の通常Pasteでは直接MMI editを返さないガードを併設し、同じTSVを`editor.action.clipboardPasteAction`で貼った場合は生テキストのままであることもE2Eで対にしている。**このWeb作業環境ではE2E自体は未実行**のため通過済みとは数えない。また、この自動化が証明するのはVS CodeのPaste As宿主dispatch＋plain TSV内容照合までであり、実Excelが供給する`text/html`、Windows clipboard helper由来のconfirmed provenance、視覚pickerを人が選ぶ操作は引き続きWindows実機証拠が必要。候補一覧は2026-10-02に、表題・見出し・直前/直後の行を1行へ圧縮して識別できるよう改善した。先頭数行の値そのもののプレビューはなお未実装。
 - `mode=table`強制時のサイズ上限は実装済み（2026-09-14）。構造化診断 `MMI_TABLE_TOO_LARGE` も2026-10-02に実装済み。残る資源制御は、同期処理を実際に中断できる非同期/キャンセル基盤を伴う時間上限（タイムアウト）。
-- 読込み・モデル構築自体の時間計測（切り出し時間とは別）が未実施。
+- 読込み・モデル構築の分離計測ハーネスは実装済み。残: Windows実機での数値取得、とくにOSページキャッシュを制御したcold-read証拠。
 - CSVの`trim()`起因の座標ずれの依存テスト洗い出しは完了（2026-09-15、下記節）。**修正するかどうかの判断自体は未着手のまま**（既存テストへの影響は無いことが分かっただけで、CSVにXLSXと同じ原点保持契約を広げるべきかは別途の製品判断）。
 - 空行保持・エラーセル表示の既存文書への影響（走査では該当0件）について、ユーザーへの確認取得。
 - 最低対応版でのDataTransfer観測の再現（今回は現行版1.137.0のみ）。**2026-09-24、宣言していた`^1.96.0`では拡張機能自体が起動しない（ESM配布のためVS Code 1.99以前は`ERR_REQUIRE_ESM`）ことを実測し、`engines.vscode`を`^1.100.0`へ改めた。** 1.100.0では実サンプルの全参照・補完・複数ルートの確認がすべて通る（`npm run test:e2e:practical`、`VSCODE_VERSION=1.100.0`）。
