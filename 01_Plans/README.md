@@ -17,17 +17,20 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 | 1 | [CLIの配布](issues/issue-0197-cli-distribution.md) | Draft | 配布形態の決定 |
 | **2 モダナイズの最小縦切り** | [Excel画像の候補化と取り込み](issues/issue-0194-excel-image-candidates.md) | Open | 画像入りテスト用ブックの作成。issue-0193の型を待つ |
 | 2 | [取り込み台帳と未取込の表示](issues/issue-0195-import-ledger.md) | Draft | issue-0194の後 |
+| 2 | [初回一括変換とCandidate基盤の接続](issues/issue-0200-baseline-bulk-import.md) | Draft | issue-0193・0195の契約を使い、MarkItDown等をbaseline converterとして比較 |
 | 2 | [シート・範囲の画像化](issues/issue-0198-sheet-region-snapshot.md) | Draft | CIで動く描画方式（MMI自身の描画、LibreOffice）の比較。COMは手元の補助 |
-| 2 | 候補を採否するVS CodeのUI | 未起票 | issue-0194のCLIの動作確認後に起票 |
+| 2 | [人の作業を止めないCandidateレビューUI](issues/issue-0202-candidate-review-ui.md) | Draft | issue-0194のCLI動作確認後、同じCoreのextract経路へ接続 |
 | 2（既存） | [Excel範囲貼り付け](issues/issue-0114-excel-range-paste.md) | Open | 残: pasteAs経路のe2e。表Candidateを`confirmed`にする経路として扱う |
 | 2（既存） | [CPUでの範囲探索](issues/issue-0115-cpu-range-search.md) | In Progress | 言い換え対応。Candidateの検索として扱う |
 | 2（既存） | [文脈に応じた補完](issues/issue-0110-contextual-input-completion.md)、[参照の作成・編集](issues/issue-0111-reference-authoring-flow.md) | In Progress | 多環境の実機確認、利用者の観測 |
-| **3 Source Adapterの一般化** | Shape、Tree、Choice list、JSON/XML、フラットテキスト | 未起票 | issue-0193の対応表で、研究の`hierarchy_relation`等をどこから使うか決めてから起票 |
+| **3 Source Adapterの一般化** | [Tree / Hierarchy、JSON/XML、フラットテキスト](issues/issue-0199-tree-structured-source-adapters.md) | Draft | issue-0193の共通契約後に、明示構造→推定構造の順で縦切り |
+| 3 | Shape、Choice list | 未起票 | issue-0193・0199でNode/Candidate表現を固めてから起票 |
 | 3（研究） | structured artifact（SAI）、worksheet format、[review route](issues/issue-0190-review-route-evaluation-pipeline-regression.md) | In Progress | 新しい研究段階は、issue-0193の対応表のどの行を強くするかを示してから始める |
 | **4 Detachability** | [実体化とdetach check](issues/issue-0196-materialize-detach-check.md) | Draft | 別紙カードの実体化は依存なしで着手できる |
 | 4 | 参照台帳と影響分析 | 未起票 | issue-0195の台帳と合わせて設計 |
 | **5 組織導入** | 文書キットの追加、CI関門、執筆ベンチマーク v1（大きな表・複数シート・本文と表の矛盾） | 未起票 | 優先度2の縦切りの後 |
 | 5 | [外部の判断記録からの根拠の固定（SEI）](issues/issue-0192-sei-decision-basis-table-binding.md) | Draft | CLIの契約が固まった後 |
+| 横断 | [上位プロダクト名とMMI互換層の整理](issues/issue-0201-product-name-and-compatibility-layer.md) | Draft | 実装を止めずに検討。決定前はrepo/package/CLI名を変更しない |
 | 保留 | [既存AIへの依頼と結果検証](issues/issue-0112-ai-proposal-handoff.md) | Draft | CLIと指示パックで代替できるか、ベンチマークで判断 |
 | 保留 | [ローカルLLM評価](issues/issue-0113-local-ai-feasibility.md) | Draft | ADR-0019 D7の3番目。規則と軽量認知で足りない箇所が分かってから |
 
