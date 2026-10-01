@@ -250,7 +250,7 @@ flowchart TD
 - 見出し・caption・grepを勝手に付けない。挿入するのは既存文法のみ。
 - 一般のテキスト、対象外のファイル、境界外、未信頼workspace、読み込み失敗では通常の貼り付けを妨げない。
 
-**未達のまま残る点**: 候補には現状ファイル・シート・範囲のみを表示し、**先頭数行の値プレビューは表示しない**(一致は常に完全一致なので根拠自体は自明だが、値を見ての確認はできない)。出所(provenance)は常に取得不能なため、「出所あり」区分は発生せず、「出所あり」と「推定」の画面上の区別も実装していない(常に内容照合による「推定」)。**明示コマンド経路（経路3）は実VS Code（1.138.0）でのe2e確認済み（2026-09-17）**——WSLg由来の実表示によりxvfb無しでExtension Host e2eが動作した。**`editor.action.pasteAs`（経路2）はplain TSVを使うExtension Host自動E2Eを2026-10-01に追加済みだが、このWeb作業環境では未実行。** これが通ればVS Code組み込みPaste As→登録provider→内容照合→挿入の宿主dispatchは自動証拠化できる。一方、実Excelの`text/html`、Windows helperが返すconfirmed provenance、Ctrl+./視覚pickerを人が選ぶ実操作は引き続きWindows実機確認が必要（[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)参照）。
+**未達のまま残る点**: 2026-10-02時点で、候補にはファイル・シート・範囲に加え、原本側の`MatchContext`（表題・見出し・直前/直後の行）を短い1行へ圧縮して表示する。`Paste As`では全体72文字、各行は先頭3セル・1セル18文字までに制限し、改行・連続空白を正規化するため、重複一致を周辺文脈で識別できる。ただし**コピーした値そのものの先頭数行プレビューは表示しない**。**明示コマンド経路（経路3）は実VS Code（1.138.0）でのe2e確認済み（2026-09-17）**——WSLg由来の実表示によりxvfb無しでExtension Host e2eが動作した。**`editor.action.pasteAs`（経路2）はplain TSVを使うExtension Host自動E2Eを2026-10-01に追加済みだが、このWeb作業環境では未実行。** これが通ればVS Code組み込みPaste As→登録provider→内容照合→挿入の宿主dispatchは自動証拠化できる。一方、実Excelの`text/html`、Windows helperが返すconfirmed provenance、Ctrl+./視覚pickerを人が選ぶ実操作は引き続きWindows実機確認が必要（[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)参照）。
 
 ## 8. 未確認事項
 

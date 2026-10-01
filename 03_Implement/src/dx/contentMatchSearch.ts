@@ -120,6 +120,44 @@ function matchesForSheet(
   }));
 }
 
+/**
+ * Compact, single-line context for the host Paste As picker. Exact copied
+ * values are already the matching evidence; this summary exists only to help
+ * a human distinguish multiple identical occurrences before choosing one.
+ *
+ * Title/header/neighbor text is source-derived, whitespace-normalized and
+ * bounded so a large or multiline cell cannot flood the picker label.
+ */
+export function summarizeContentMatchContext(match: WorkbookContentMatch, maxLength = 96): string {
+  const context = match.context;
+  if (!context || maxLength <= 0) return '';
+
+  const clean = (value: string): string => value.replace(/\s+/gu, ' ').trim() || '（空）';
+  const values = (input?: readonly string[]): string | undefined => {
+    if (!input || input.length === 0) return undefined;
+    const shown = input.slice(0, 3).map((value) => truncate(clean(value), 18)).join('|');
+    return input.length > 3 ? `${shown}|…` : shown;
+  };
+  const headers = values(context.headers);
+  const rowAbove = values(context.rowAbove);
+  const rowBelow = values(context.rowBelow);
+  const parts = [
+    context.title ? `表:${clean(context.title)}` : undefined,
+    headers ? `見出し:${headers}` : undefined,
+    rowAbove ? `前:${rowAbove}` : undefined,
+    rowBelow ? `後:${rowBelow}` : undefined,
+  ].filter((part): part is string => Boolean(part));
+
+  return truncate(parts.join(' / '), maxLength);
+}
+
+function truncate(value: string, maxLength: number): string {
+  const chars = [...value];
+  if (chars.length <= maxLength) return value;
+  if (maxLength <= 1) return '…'.slice(0, maxLength);
+  return `${chars.slice(0, maxLength - 1).join('')}…`;
+}
+
 /** Renders a content match as the `![[file#sheet|range]]` text to insert. */
 export function buildContentMatchMarkdown(match: WorkbookContentMatch): string {
   return `![[${match.filepath}#${match.sheet}|${cellRangeToA1(match.range)}]]`;

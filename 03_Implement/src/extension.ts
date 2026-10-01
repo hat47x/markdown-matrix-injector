@@ -37,6 +37,7 @@ import {
 import {
   buildContentMatchMarkdown,
   findWorkbookContentMatches,
+  summarizeContentMatchContext,
   type WorkbookContentMatch,
   type WorkbookSheetsSource,
 } from './dx/contentMatchSearch.js';
@@ -550,8 +551,11 @@ async function getContentMatchPasteEdits(
 
   const matches = withSource(source.match, findWorkbookContentMatches(plainText, workbooks));
   return matches.map((match) => {
-    // One line only in the Paste As dropdown: the containing table's title tells identical copies apart.
-    const where = match.context?.title ? ` ${match.context.title}` : '';
+    // Paste As offers one compact line per edit. Reuse the source-derived
+    // table/header/neighbor context so identical copies can be distinguished
+    // before insertion without inventing confidence or auto-picking one.
+    const context = summarizeContentMatchContext(match, 72);
+    const where = context ? ` ${context}` : '';
     const how = isConfirmedSource(match) ? '（コピー元を確認済み）' : '（内容から推定）';
     const title = `MMI: ${match.filepath}#${match.sheet} (${cellRangeToA1(match.range)})${where}${how}`;
     return new vscode.DocumentPasteEdit(buildContentMatchMarkdown(match), title, CONTENT_MATCH_PASTE_EDIT_KIND);
