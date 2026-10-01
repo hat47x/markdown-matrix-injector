@@ -15,16 +15,16 @@
 
 Fly/Jev類似方式やローカルLLMを実用化すると、実行コードよりmodel weight、prototype、index、embedding等の方が大きくなる場合がある。MMI本体を最小配布に保つには、認知資産をCore/CLI/VS Code拡張から分離し、必要な機能だけ取得できる必要がある。
 
-保存先はGitHubだけに固定しない。GitHub Release / LFS、model hub、object storage等を利用可能にし、Coreはcontent digestとmanifestを基準にartifactを扱う。
+保存先はGitHubだけに固定しない。GitHub Release / LFS、model hub、object storage等を利用可能にし、Coreはcontent digestとmanifestを基準にartifactを扱う。またOllama等の導入済みlocal runtimeがmodel/cacheを管理している場合は、それを外部artifact source / runtime-managed cacheとして再利用し、MMI側へ重複保存しない。
 
 ## Acceptance criteria
 
 - [ ] Cognitive Artifact Manifest v0を定義し、artifact id / kind / version / sha256 / byte size / license / source URI / compatible provider version / schema versionを持たせる。
-- [ ] artifact sourceをinterface化し、少なくともlocal fileとHTTPS取得を同じ契約で扱える。特定model hub SDKをCore必須依存にしない。
+- [ ] artifact sourceをinterface化し、少なくともlocal fileとHTTPS取得を同じ契約で扱える。加えてruntime-managed artifact（例: 導入済みOllamaのmodel/cache）を参照する場合のidentity/digest取得方法を分離する。特定model hub/runtime SDKをCore必須依存にしない。
 - [ ] GitHub Release / LFSとmodel hubを候補として比較し、model weightの版管理、取得、private asset、cache、license表示の違いを記録する。
 - [ ] 大型artifactは初回起動時に自動取得せず、該当認知機能の利用時に取得サイズ・取得元を提示できる設計にする。
 - [ ] download後にdigestを検証し、不一致をfail-closedする。
-- [ ] local cache pathと失効規則を定義し、同じdigestを複数provider / projectで重複downloadしない。
+- [ ] local cache pathと失効規則を定義し、同じdigestを複数provider / projectで重複downloadしない。runtime-managed cacheが既に同一artifactを持つ場合はMMI cacheへ複製しない。
 - [ ] offline時にcacheがあれば利用し、無ければ認知providerだけを `unavailable` とする。Authority Planeは動作を継続する。
 - [ ] modelの更新はcode updateと独立可能にするが、互換provider/schema versionを満たさないmodelはロードしない。
 - [ ] artifact size、download量、disk cache、cold availabilityを認知方式の評価結果へ含める。
