@@ -113,6 +113,7 @@ SheetJSはこの4項目を再計算なしに提供する。実測した例。
 - `range`があれば、その住所の矩形を`cellAt`で走査し、欠落セルは`''`で埋めて**必ず矩形**を返す。
 - `range`省略時は`usedRange`を範囲とみなし、同じ順序で評価する。
 - `mode=table`で強制された場合も上限を外さない。超過は記法仕様P2に沿う可視エラーとする。
+- 10万セルのhard limit超過は `MMI_TABLE_TOO_LARGE` という安定した構造化コードを持つ。明示rangeならProblemsで算術的に事前検出し、previewの可視エラーにも同じcodeを`data-code`として残す。範囲省略時はused range確定後のレンダリング経路で同じcodeを返す。
 - 返す文字列は`SourceCell.text`。既存の変換パイプライン（記法仕様§6のcolumns→transpose→header→grep）は現在と同じ順序でこの矩形に適用する。転置は行列数を入れ替えるだけなので、判定は実体化前に済ませる。
 
 **表示・カード判定・納品マニフェストは同じ範囲解釈を共有する。** 現行の[smartFallback.ts](../03_Implement/src/core/smartFallback.ts)は寸法を得るために`sliceRange`を先に呼ぶため、`sliceRegion`へ差し替えるだけでは巨大範囲の実体化を防げない。寸法算出を切り出しから分離することが前提になる。

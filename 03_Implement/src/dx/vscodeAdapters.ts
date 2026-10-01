@@ -156,11 +156,14 @@ export async function createDiagnosticsForDocument(
 
     const xmlMode = fileExists ? await detectXmlMode(resolvedFilepath, dependencies) : 'none';
     const sheetExists = fileExists && match.target ? await hasSheet(resolvedFilepath, match.target, dependencies) : undefined;
+    const parsedQuery = extractEmbedQueries(match.raw)[0];
     const embedDiagnostics = validateEmbedDiagnostics({
       query: {
         raw: match.raw,
         filepath: match.filepath,
         ...(match.target ? { target: match.target } : {}),
+        ...(parsedQuery?.range ? { range: parsedQuery.range } : {}),
+        ...(parsedQuery?.params.get('mode') ? { mode: parsedQuery.params.get('mode') ?? undefined } : {}),
       },
       fileExists,
       sheetExists,
@@ -185,7 +188,7 @@ export async function createDiagnosticsForDocument(
           message: issue.message,
           range: { start: issue.start, end: Math.max(issue.start, issue.end - 1) },
           source: 'markdown-matrix-injector',
-          priority: issue.code === 'MMI_INVALID_PARAM_VALUE' ? 3 : 4,
+          priority: issue.code === 'MMI_INVALID_PARAM_VALUE' ? 4 : 5,
         },
         range: rangeFromOffsets(text, match.absoluteStart + issue.start, match.absoluteStart + Math.max(issue.start + 1, issue.end)),
       });

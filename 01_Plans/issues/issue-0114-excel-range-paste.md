@@ -61,7 +61,7 @@
 **実機検証**: 同梱の`04_Documentation/samples/practical/data/design.xlsx`3シートをフルパイプラインで再描画し、range指定あり・省略ありの両方で出力が変化しないことを確認（走査による事前予測と一致）。旗艦の再現ケース（`設計.xlsx#状態遷移|C5:F12`、C5起点・9行目空行・先頭ゼロ・日付・数式・エラー値混在）を実際の`markdownMatrixPlugin`経由でレンダリングし、設計文書が示す正しい8行×4列（空行を含む・`#DIV/0!`表示）と完全一致する出力を確認済み。
 
 **未対応で残る点**（正直な区分）:
-- `mode=table`で強制された場合のサイズ上限は**実装済み（2026-09-14、下記「`mode=table`強制時のサイズ上限」節）**。ただしタイムアウト（時間上限）と構造化された診断コードは未実装のまま。
+- `mode=table`で強制された場合のサイズ上限は**実装済み（2026-09-14、下記「`mode=table`強制時のサイズ上限」節）**。構造化された診断コードは**2026-10-02に `MMI_TABLE_TOO_LARGE` として実装済み**。明示 `range` + `mode=table` はセルを読まずにProblemsへ事前表示し、レンダリング時も同じコードをpreview HTMLの `data-code` に保持する。タイムアウト（時間上限）のみ未実装のまま。
 - 冷読込み・モデル構築自体の時間計測（切り出し時間とは別）は未実施。**参考値**: 2026-09-16、内容照合の性能検証で`loadWorkbook`単体のコストをネイティブファイルシステム上で実測（実サンプル30ファイル平均、JITウォームアップ後）——1ファイルあたり概ね1ms未満〜数ms。ただし単一ファイルの「冷読込み」を意図した計測ではなく、複数ファイル横断のバッチ計測から逆算した参考値に留まる。厳密な計測は別途必要。
 - CSVの`trim()`起因の座標ずれは、コードコメントで明記したのみで実装は変更していない（別問題として意図的に対象外）。
 - ユーザーへの表示挙動変更の確認（空行保持・エラーセル表示）は、走査結果（該当0件）を提示したのみで、実際の確認は未取得。
@@ -72,7 +72,7 @@
 
 - **`MAX_CELLS_HARD_LIMIT`（10万セル）を新設し、`mode=table`分岐だけに適用した。** 自動判定（`mode`省略）と`mode=card`は、`MAX_CELLS_BEFORE_CARD`（500セル）で既にカードへ落ちるため`sliceRegion`まで到達せず、この上限は不要（対象外）。超過時は`Error`を投げる——記法仕様P2「可視のエラー表示（`mmi-error`ブロック）」は`markdownMatrixPlugin.ts`の`renderEmbed`が既に持つ包括的catchでそのまま満たされる（新規の配線は不要だった）。
 - **上限値は暫定値。** 実測パフォーマンスデータが無い状態で選んだプレースホルダであり（読込み自体の時間計測は別途未実施のまま残っている）、実機計測の結果次第で調整が必要。
-- **タイムアウト（時間上限）と構造化された診断コード（エラーコード体系）は範囲外。** 前者は非同期・キャンセル基盤を要する別種の変更、後者はこのコードベースに前例のない仕組みで、いずれも本変更には含めていない。
+- **構造化診断は2026-10-02に追加。** `mode=table` の10万セル上限超過は `SmartFallbackLimitError(code='MMI_TABLE_TOO_LARGE')` としてcoreから伝播し、明示範囲ならProblemsでも同じコードを事前表示、previewでは `data-code="MMI_TABLE_TOO_LARGE"` を出す。範囲省略時はused rangeが読込み後に確定するためProblemsの事前判定対象外だが、レンダリング時のcoded errorは維持される。**時間上限はなお未実装**で、同期処理へ単純な時計判定を足しても実処理を中断できないため、非同期/キャンセル基盤と併せて扱う。
 
 **テスト**: `test/smartFallback.test.ts`へ3件追加（`mode=table`が上限超過で例外を投げる、上限境界（10万セルちょうど）ではtableのまま、`shouldRenderAsCardAfterLoad`が`cellAt`を一切呼ばずに例外を伝播することを`cellAt`が例外を投げる`SheetSource`で確認）。`test/markdownMatrixPlugin.test.ts`へ1件追加（宣言範囲のみで10万セルを超えさせ、実際に`mmi-error`が描画されることをプラグイン経由で確認）。`npm test`は343件全成功。
 
@@ -364,7 +364,7 @@ powershell -ExecutionPolicy Bypass -File .\03_Implement\scripts\clipboard-probe\
 段1（作業B）は実装・テスト完了。作業C（DataTransfer観測）も完了し、出所はDataTransfer単独では取得できないと確定した。作業Cで採取した実データにより、`pasteDrop.ts`の壊れたファイルパス誤認識（Excelの一時ステージング参照を原本と誤認）を発見・修正し、続けてシート名・範囲の誤った推測も撤去して占有グリッド方式の形状抽出（`extractHtmlTableShape`）へ置き換え、TSVの値行列抽出（`parseTsv`）、単一の原本`SheetSource`内を検索する内容照合アルゴリズム本体（`findContentMatches`）、複数ワークブック横断の集約（`findWorkbookContentMatches`）、そして新規コマンド`markdownMatrixInjector.insertEmbedByContentMatch`としての`extension.ts`配線までを実装した（2026-09-14〜15、「作業D: 内容照合コマンドの実装」節）。**段2（作業D）はこれで実装完了。** 残るのは次の点。
 
 - **作業Dは実装完了（2026-09-16）。自動貼り付け統合も完了した。** `editor.action.pasteAs`（既定Ctrl+.）経由で、内容照合の候補がVS Code標準の「貼り付け方法を選ぶ」ドロップダウンに並ぶ。通常のCtrl+V（`triggerKind: Automatic`）の挙動は変更していない——VS Codeの複数`DocumentPasteEdit`は`Automatic`だと最初の1件を即座に自動適用してしまうため、そこに含めるとR1（自動確定しない）に反するリスクがあった。`PasteAs`は挿入前に選ばせる契機のため、ここへ限定して組み込んだ。ワークスペース全体検索の性能懸念は実測（ネイティブファイルシステムで30ファイル約20ms、300ファイル約65〜140ms）により大幅に緩和されたことを確認済み。**2026-09-17、実VS Code（1.138.0）でのe2e確認をWSLg（xvfb不要）経由で実施し、明示コマンド経路（`insertEmbedByContentMatch`）の全パイプラインを実証した。** この過程で本物のバグを2件発見・修正した：(1) e2eテスト自体の期待値が2026-09-14の変更（シート名・範囲推測の撤去）に追従しておらず旧`#Sheet|Range`形式のままだった、(2) `insertEmbedByContentMatch`が`registerTextEditorCommand`で登録されていたが、これは非同期コールバックを一切サポートしないVS Codeの既知の制約（microsoft/vscode#178931等）に該当し、**実運用でも常にコマンドが何も挿入できていなかった可能性が高い**（`registerCommand`＋`vscode.window.activeTextEditor`の自前解決へ修正）。**2026-10-01、OSクリップボードへHTMLを注入できない環境でも宿主dispatchを自動検証できるよう、paste providerの対象へ`text/plain`を追加し、`vscode.env.clipboard.writeText`でExcel互換TSVを置いたうえでVS Code組み込み`editor.action.pasteAs`をcontent-match edit kind指定で実行するExtension Host E2Eを追加した。** pure `text/plain` の通常Pasteでは直接MMI editを返さないガードを併設し、同じTSVを`editor.action.clipboardPasteAction`で貼った場合は生テキストのままであることもE2Eで対にしている。**このWeb作業環境ではE2E自体は未実行**のため通過済みとは数えない。また、この自動化が証明するのはVS CodeのPaste As宿主dispatch＋plain TSV内容照合までであり、実Excelが供給する`text/html`、Windows clipboard helper由来のconfirmed provenance、視覚pickerを人が選ぶ操作は引き続きWindows実機証拠が必要。候補一覧は2026-10-02に、表題・見出し・直前/直後の行を1行へ圧縮して識別できるよう改善した。先頭数行の値そのもののプレビューはなお未実装。
-- `mode=table`強制時のサイズ上限は実装済み（2026-09-14）。時間上限（タイムアウト）と構造化された診断コードは未実装のまま。
+- `mode=table`強制時のサイズ上限は実装済み（2026-09-14）。構造化診断 `MMI_TABLE_TOO_LARGE` も2026-10-02に実装済み。残る資源制御は、同期処理を実際に中断できる非同期/キャンセル基盤を伴う時間上限（タイムアウト）。
 - 読込み・モデル構築自体の時間計測（切り出し時間とは別）が未実施。
 - CSVの`trim()`起因の座標ずれの依存テスト洗い出しは完了（2026-09-15、下記節）。**修正するかどうかの判断自体は未着手のまま**（既存テストへの影響は無いことが分かっただけで、CSVにXLSXと同じ原点保持契約を広げるべきかは別途の製品判断）。
 - 空行保持・エラーセル表示の既存文書への影響（走査では該当0件）について、ユーザーへの確認取得。

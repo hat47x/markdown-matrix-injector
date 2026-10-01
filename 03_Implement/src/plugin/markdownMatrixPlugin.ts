@@ -151,7 +151,8 @@ function renderEmbed(embed: ReturnType<typeof extractEmbedQueries>[number], cont
   try {
     if (outcome.kind === 'card') return renderEmbedFrame(embed, renderEmbedCard(embed, outcome.absolutePath, context.uriScheme));
     if (outcome.kind === 'table') return renderEmbedFrame(embed, renderLogicalTable(embed, outcome.logical));
-    return `<div class="mmi-error">${escapeHtml(outcome.message)}</div>`;
+    const code = outcome.code ? ` data-code="${escapeHtml(outcome.code)}"` : '';
+    return `<div class="mmi-error"${code}>${escapeHtml(outcome.message)}</div>`;
   } catch (error) {
     return `<div class="mmi-error">${escapeHtml(getErrorMessage(error))}</div>`;
   }
