@@ -4,7 +4,7 @@
 
 **製品方針:** [ADR-0019](adr/ADR-0019-ai-era-sier-document-value-and-policy.md)（2026-10-01採択・同日改訂）により、MMIは**人が慣れた道具で書き続けたまま、その内容をAIと機械が扱える形へ緩やかに移し、最終的には元文書やMMIからも安全に切り離せる基盤**である。MMIは、Excel方眼紙をレガシーとみなす見方と既存のスタイルの両方を否定せず、両者の橋になる。Excelで書き続ける人はそのままAIと協業でき、Markdownへ移りたい人は資産を失わずに移れる。図形やレイアウトに意味があるシート・範囲は、そのまま画像として取り込んでよい（D0）。Linked（参照）・Extracted（取り込み）・Detached（切り離し）は情報単位ごとに選ぶ状態で、順に進む段階ではない。人の作業を止めないことを移行の速さより優先する（D13）。表参照・Read-only・決定論的なAuthority Planeは中核の保証として継続し、軽量認知は表・画像・図形・ツリー等の候補（Semantic Candidate）を見つける非権威的な支援とする。
 
-**実装の到達点:** Linkedだけが実装済みで、対象は表に限る。VS Code拡張（プレビュー、補完、貼り付け、説明からの検索、案内付きの作成、診断）と、CLI（`inspect`・`check`・`render`・`manifest`）、AI向け指示パック（`skills/mmi`）、基本設計書キット、執筆ベンチマーク v0がある。ExtractedとDetachedの経路はまだない。記法仕様はDraft、配布物は公開準備中の検証版。差分の詳細は[ギャップ分析](product-gap-analysis.md)を参照する。
+**実装の到達点:** Linkedは表で実装済み。ExtractedはExcel埋込画像の最小縦切りがCLIで成立し、`inspect`で画像Candidateを列挙し、`extract`でassetsへ取り込み、`mmi-ledger.json`でoccurrence/content/review basis・変更・lineage・研究類似Evidenceを追跡できる。表・図形・Tree等のExtracted一般化とDetachedは未実装。VS Code拡張（プレビュー、補完、貼り付け、説明からの検索、案内付きの作成、診断）と、CLI（`inspect`・`extract`・`check`・`render`・`manifest`）、AI向け指示パック（`skills/mmi`）、基本設計書キット、執筆ベンチマーク v0がある。記法仕様はDraft、配布物は公開準備中の検証版。差分の詳細は[ギャップ分析](product-gap-analysis.md)を参照する。
 
 ## 優先度と作業
 
@@ -12,14 +12,14 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 
 | 優先度 | 作業 | 状態 | 次の一手 |
 | --- | --- | --- | --- |
-| **1 Coreと入口** | [Candidate・Source Adapter・provenanceの契約](issues/issue-0193-candidate-source-adapter-contract.md) | **契約 v1 実装済み**（[契約](../02_Architecture/candidate-contract-v1.md)。表のAdapterと`mmi inspect --json`） | 次: 台帳（issue-0195）でfingerprintを確定。画像のAdapter（issue-0194）がこの契約の最初の利用者 |
+| **1 Coreと入口** | [Candidate・Source Adapter・provenanceの契約](issues/issue-0193-candidate-source-adapter-contract.md) | **Done**（契約 v1。表・画像Candidateが利用） | 次の一般化はTree/Shape等のSource Adapterへ |
 | 1 | CLI（inspect/check/render/manifest）、AI向け指示パック、基本設計書キット、[執筆ベンチマーク](../04_Documentation/benchmarks/ai-writing/README.md) | 実装済み | ベンチマーク v0は実施済み。表を大きくした v1は優先度5 |
 | 1 | [外部LLMへの作業提案と判断材料](issues/issue-0112-ai-proposal-handoff.md) | Open | issue-0193のCandidate/provenanceを使い、送信しないprompt/evidence packageを作る |
 | 1 | [CLIの配布](issues/issue-0197-cli-distribution.md) | Draft | 配布形態の決定 |
 | 1 | [portable coreと最小バイナリ](issues/issue-0203-portable-core-minimum-binary.md) | Draft | VS Code非依存Core境界を固定し、標準Go/TinyGo/native/WASMを同一契約で実測比較 |
 | 1〜3（横断） | [認知model/profile資産の配布](issues/issue-0204-cognitive-artifact-distribution.md) | Draft | Coreと大型artifactを分離し、既存local runtime/cacheと外部model置き場を交換可能にする |
-| **2 モダナイズの最小縦切り** | [Excel画像の候補化と取り込み](issues/issue-0194-excel-image-candidates.md) | **CLIで実装済み**（`inspect`の画像一覧、`mmi extract`。実Excelで位置・バイト一致を確認） | 残: 変更検知は台帳（issue-0195）。VS Code上の採否UI（issue-0202） |
-| 2 | [取り込み台帳と未取込の表示](issues/issue-0195-import-ledger.md) | Draft | **次の一手**。issue-0194が済んだ。Candidateのfingerprint（表は暫定、画像はバイト列）の使い方と、「未取込のみ」「変更あり」の表示を決める |
+| **2 モダナイズの最小縦切り** | [Excel画像の候補化と取り込み](issues/issue-0194-excel-image-candidates.md) | **Done**（`inspect`の画像一覧、`mmi extract`、実Excel検証、issue-0195による変更検知） | 次: VS Code上の採否UI（issue-0202）、他Candidate種別への展開 |
+| 2 | [取り込み台帳と未取込の表示](issues/issue-0195-import-ledger.md) | **Done**（`mmi.ledger/v1`、未取込/変更/stale、lineage、研究similarity Evidence） | 次: issue-0200のbaseline converter、issue-0202のレビューUIが同じ台帳契約を利用 |
 | 2 | [初回一括変換とCandidate基盤の接続](issues/issue-0200-baseline-bulk-import.md) | Draft | issue-0193・0195の契約を使い、MarkItDown等をbaseline converterとして比較 |
 | 2 | [シート・範囲の画像化](issues/issue-0198-sheet-region-snapshot.md) | Draft | CIで動く描画方式（MMI自身の描画、LibreOffice）の比較。COMは手元の補助 |
 | 2 | [人の作業を止めないCandidateレビューUI](issues/issue-0202-candidate-review-ui.md) | Draft | issue-0194のCLI動作確認は済み。同じCoreのextract経路へ接続できる |
@@ -48,7 +48,7 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 
 - **原本座標:** Excel読込みは原本座標を保持するソースモデル（`SheetSource`）で、使用範囲の原点と空行を失わない。
 - **クリップボード:** VS Codeの`DataTransfer`はExcelの出所形式を公開しない。Windowsの補助プロセスで出所を取得する[ADR-0017](adr/ADR-0017-windows-clipboard-provenance-bridge.md)の選択肢2を採用し、設定付き・既定オンで実装・実機検証済み（2026-09-25）。
-- **画像:** SheetJS（コミュニティ版）は画像を解釈しないが、`bookFiles`でxlsx内の部品を取り出せる。画像入りの実物ブックでは未確認。
+- **画像:** SheetJS（コミュニティ版）の`bookFiles`からOOXML drawing/mediaを読み、画像Candidate化・抽出を実装済み。実Excelブックでanchorと抽出bytesを照合済み。
 
 ## 開発環境
 
