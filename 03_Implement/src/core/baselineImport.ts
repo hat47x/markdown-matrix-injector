@@ -83,6 +83,8 @@ export interface BaselineImportOptions {
   candidates: readonly Candidate[];
   converter: BaselineConverter;
   reconciler: CandidateReconciler;
+  /** MMI build/package version executing the orchestration. */
+  mmiVersion: string;
   conversionOptions?: Readonly<Record<string, string | number | boolean>>;
 }
 
@@ -110,6 +112,7 @@ export async function runBaselineImport(
 ): Promise<BaselineImportResult> {
   assertText('converter.id', options.converter.descriptor.id);
   assertText('converter.version', options.converter.descriptor.version);
+  assertText('mmiVersion', options.mmiVersion);
 
   const sourcePath = path.resolve(options.sourcePath);
   const outputRoot = path.resolve(options.outputRoot);
@@ -130,6 +133,9 @@ export async function runBaselineImport(
     outputRoot,
     options: conversionOptions,
   });
+  if (!conversion || !Array.isArray(conversion.artifacts)) {
+    throw new Error('converter output must contain an artifacts array');
+  }
   const artifacts = validateArtifacts(conversion.artifacts, outputRoot);
   const decisions = await options.reconciler.reconcile({
     sourcePath,
@@ -154,12 +160,14 @@ export async function runBaselineImport(
         outputFile,
         `baseline converter reconciliation: ${options.converter.descriptor.id}@${options.converter.descriptor.version}`,
         {
+          ...conversionOptions,
           mode: 'baseline-converter-v1',
           converterId: options.converter.descriptor.id,
           converterVersion: options.converter.descriptor.version,
+          mmiVersion: options.mmiVersion,
           artifactId: artifact.id,
           artifactDigest: artifact.contentDigest,
-          ...conversionOptions,
+          reconciliationEvidence: JSON.stringify(decision.evidence),
         },
       );
     });
@@ -260,8 +268,23 @@ function validateDecisions(
 }
 
 function resolveOutputPath(outputRoot: string, relativePath: string): string {
-  if (path.isAbsolute(relativePath)) throw new Error('artifact relativePath must be relative');
-  const resolved = path.resolve(outputRoot, relativePath);
+  // Converter receipts are portable contracts. Reject both POSIX and Windows
+  // absolute/traversal syntax regardless of the host running MMI.
+  if (path.posix.isAbsolute(relativePath) || path.win32.isAbsolute(relativePath)) {
+    throw new Error('artifact relativePath must be relative');
+  }
+  const portable = relativePath.replace(/\\/gu, '/');
+  const normalized = path.posix.normalize(portable);
+  if (
+    normalized === '.'
+    || normalized === '..'
+    || normalized.startsWith('../')
+    || normalized.includes('\0')
+  ) {
+    throw new Error('artifact relativePath escapes outputRoot');
+  }
+
+  const resolved = path.resolve(outputRoot, ...normalized.split('/'));
   const relative = path.relative(outputRoot, resolved);
   if (relative === '..' || relative.startsWith(`..${path.sep}`) || path.isAbsolute(relative)) {
     throw new Error('artifact relativePath escapes outputRoot');
