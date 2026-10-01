@@ -47,11 +47,14 @@ const index = new WorkspaceRegionIndex({
 });
 
 const refreshControllers = new Map<number, AbortController>();
+const cancelledRefreshes = new Set<number>();
 let queue = Promise.resolve();
 
 port.on('message', (request: Request) => {
   if (request.kind === 'cancel') {
-    refreshControllers.get(request.requestId)?.abort();
+    const controller = refreshControllers.get(request.requestId);
+    if (controller) controller.abort();
+    else cancelledRefreshes.add(request.requestId);
     return;
   }
   queue = queue.then(() => handle(request)).catch((error) => {
@@ -67,6 +70,7 @@ async function handle(request: RefreshRequest | QueryRequest): Promise<void> {
   if (request.kind === 'refresh') {
     const controller = new AbortController();
     refreshControllers.set(request.id, controller);
+    if (cancelledRefreshes.delete(request.id)) controller.abort();
     try {
       const value = await index.refresh(request.paths, {
         signal: controller.signal,
@@ -75,6 +79,7 @@ async function handle(request: RefreshRequest | QueryRequest): Promise<void> {
       port.postMessage({ kind: 'result', id: request.id, op: 'refresh', value });
     } finally {
       refreshControllers.delete(request.id);
+      cancelledRefreshes.delete(request.id);
     }
     return;
   }
