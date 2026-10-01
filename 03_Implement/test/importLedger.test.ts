@@ -337,3 +337,35 @@ test('lineage can propose changed moved content from source-object hints without
     ['same-sheet', 'same-object-name', 'same-source-object'],
   );
 });
+
+
+test('newly discovered Claims do not retroactively stale an earlier review basis', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-ledger-'));
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const source = path.join(root, 'design.xlsx');
+  const reviewed = candidate('image-a');
+  recordEntries(ledgerPath, [
+    entryFor(ledgerPath, source, reviewed, path.join(root, 'assets', 'image-a.png'), 'mmi extract'),
+  ]);
+
+  const richerCandidate: Candidate = {
+    ...reviewed,
+    claims: [
+      ...reviewed.claims,
+      {
+        aspect: 'nearby-table',
+        value: 'A1:B3',
+        status: 'inferred',
+        execution: 'deterministic',
+        method: 'M1',
+        reasonCode: 'geometry-right',
+        evidence: [{ code: 'right', detail: 'gap=1 cells' }],
+      },
+    ],
+  };
+
+  assert.equal(
+    classify(readLedger(ledgerPath), ledgerPath, source, richerCandidate),
+    'imported',
+  );
+});
