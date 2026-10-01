@@ -196,13 +196,12 @@ export function lineageHintsOf(candidate: Candidate): LedgerLineageHints {
 
 function staleClaimAspects(previous: readonly ClaimBasis[], current: readonly ClaimBasis[]): string[] {
   const changed = new Set<string>();
-  const count = Math.max(previous.length, current.length);
-  for (let index = 0; index < count; index += 1) {
-    const before = previous[index];
-    const after = current[index];
-    if (!before || !after || before.index !== after.index || before.aspect !== after.aspect || before.digest !== after.digest) {
-      changed.add(after?.aspect ?? before?.aspect ?? `claim-${index}`);
-    }
+  for (const before of previous) {
+    // Revalidate only the Claims that formed the recorded review basis.
+    // A newly discovered Claim must not retroactively invalidate the earlier
+    // decision merely because a later adapter can describe more evidence.
+    const after = current.find((item) => item.aspect === before.aspect);
+    if (!after || before.digest !== after.digest) changed.add(before.aspect);
   }
   return [...changed];
 }
