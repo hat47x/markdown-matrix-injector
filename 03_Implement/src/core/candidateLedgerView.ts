@@ -1,4 +1,4 @@
-import type { Candidate } from './candidate.js';
+import type { Candidate, ProviderScore } from './candidate.js';
 import {
   assessLedger,
   lineageCandidates,
@@ -14,6 +14,11 @@ export interface CandidateLedgerViewItem {
   ledgerState: LedgerState;
   staleClaims?: string[];
   lineageCandidates: LineageCandidate[];
+  /**
+   * Research/provider evidence stays separate from exact ledger identity.
+   * Provider/scale values are preserved verbatim and never merged here.
+   */
+  researchScores: readonly ProviderScore[];
 }
 
 /**
@@ -35,6 +40,7 @@ export function candidateLedgerView(
       ledgerState: assessment.state,
       ...(assessment.staleClaims ? { staleClaims: assessment.staleClaims } : {}),
       lineageCandidates: lineageCandidates(ledger, ledgerPath, absoluteSource, candidate),
+      researchScores: candidate.scores,
     };
   });
 
