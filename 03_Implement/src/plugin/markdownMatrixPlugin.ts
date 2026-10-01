@@ -1,5 +1,6 @@
 import type MarkdownIt from 'markdown-it';
 import { WorkbookCache } from '../cache/workbookCache.js';
+import { CooperativeTimeBudgetExceededError, type CooperativeTimeBudget } from '../core/cooperativeTimeBudget.js';
 import { evaluateEmbed } from '../core/evaluateEmbed.js';
 import { escapeHtml } from '../core/html.js';
 import { renderEmbedCard } from '../core/renderCard.js';
@@ -18,6 +19,8 @@ export interface MarkdownMatrixPluginOptions {
   workspaceRoot?: string;
   cache?: WorkbookCache<WorkbookData>;
   uriScheme?: string;
+  /** Optional per-embed cooperative budget factory; no production default is enabled yet. */
+  createTimeBudget?: () => CooperativeTimeBudget;
   /**
    * Resolves the workspace root for a given Markdown file path at render time.
    * Injected by the VS Code integration layer so the plugin stays free of any
@@ -31,6 +34,7 @@ interface EmbedRenderContext {
   workspaceRoot?: string;
   cache?: WorkbookCache<WorkbookData>;
   uriScheme?: string;
+  createTimeBudget?: () => CooperativeTimeBudget;
 }
 
 export function markdownMatrixPlugin(md: MarkdownIt, options: MarkdownMatrixPluginOptions): void {
@@ -40,7 +44,13 @@ export function markdownMatrixPlugin(md: MarkdownIt, options: MarkdownMatrixPlug
       return;
     }
     const workspaceRoot = options.resolveWorkspaceRoot?.(markdownFilePath) ?? options.workspaceRoot;
-    return { markdownFilePath, workspaceRoot, cache: options.cache, uriScheme: options.uriScheme };
+    return {
+      markdownFilePath,
+      workspaceRoot,
+      cache: options.cache,
+      uriScheme: options.uriScheme,
+      createTimeBudget: options.createTimeBudget,
+    };
   };
 
   // VS Code caches parsed tokens without a document URI, then supplies the URI
@@ -147,13 +157,22 @@ function stripEmbeds(content: string, embeds: ReturnType<typeof extractEmbedQuer
 
 function renderEmbed(embed: ReturnType<typeof extractEmbedQueries>[number], context: EmbedRenderContext): string {
   // One decision path shared with the command-line interface (core/evaluateEmbed.ts).
-  const outcome = evaluateEmbed(embed, context);
+  const budget = context.createTimeBudget?.();
+  const outcome = evaluateEmbed(embed, {
+    markdownFilePath: context.markdownFilePath,
+    workspaceRoot: context.workspaceRoot,
+    cache: context.cache,
+    budget,
+  });
   try {
     if (outcome.kind === 'card') return renderEmbedFrame(embed, renderEmbedCard(embed, outcome.absolutePath, context.uriScheme));
-    if (outcome.kind === 'table') return renderEmbedFrame(embed, renderLogicalTable(embed, outcome.logical));
+    if (outcome.kind === 'table') return renderEmbedFrame(embed, renderLogicalTable(embed, outcome.logical, budget));
     const code = outcome.code ? ` data-code="${escapeHtml(outcome.code)}"` : '';
     return `<div class="mmi-error"${code}>${escapeHtml(outcome.message)}</div>`;
   } catch (error) {
+    if (error instanceof CooperativeTimeBudgetExceededError) {
+      return `<div class="mmi-error" data-code="${escapeHtml(error.code)}">${escapeHtml(error.message)}</div>`;
+    }
     return `<div class="mmi-error">${escapeHtml(getErrorMessage(error))}</div>`;
   }
 }
