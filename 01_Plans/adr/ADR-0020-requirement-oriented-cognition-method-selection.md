@@ -151,7 +151,7 @@ M5は「M4でも解けないから自動fallbackする先」ではない。利�
 
 ### D10. 導入済みローカルruntimeを優先的に再利用する
 
-M3 / M4相当のmodel実行が必要な場合、MMI専用runtimeやmodelを先に配布せず、Ollama等の**既に導入済みのローカルmodel runtime**を発見して再利用できるかを先に評価する。
+M3 / M4相当のmodel実行が必要な場合、MMI専用runtimeやmodelを先に配布せず、Ollama、LM Studio等の**既に導入済みのローカルmodel runtime**を発見して再利用できるかを先に評価する。
 
 - runtime discoveryは任意で、未導入でもMMIの基本機能を壊さない。
 - runtimeが存在しても勝手にmodelをpullしない。利用可能model、capability、disk size等を確認し、利用者の明示操作なしに大型artifactを追加しない。
@@ -161,7 +161,14 @@ M3 / M4相当のmodel実行が必要な場合、MMI専用runtimeやmodelを先�
 - localhost以外のruntime endpointは外部通信として扱い、明示設定なしに探索・接続しない。
 - runtime不在、model不在、version不一致は `unavailable` として扱い、自動的に課金型cloudへ切り替えない。
 
-2026-09-29時点のOllama 0.35はJev API由来のtyped decision向け `/v1/systemone` をローカル提供しており、M3の実装候補になり得る。これはOllamaを必須依存にする決定ではなく、既存runtime再利用の有効性を評価する具体例として扱う。
+2026-10-01時点では、Ollamaはtyped decision向けのローカルAPIを持ちM3の実装候補になり得る。LM Studioはlocalhost上でOpenAI互換APIと独自REST APIを提供し、既存modelの列挙・load/unload等が可能なためM4の有力なruntime候補である。これらは必須依存にする決定ではなく、既存runtime再利用の有効性を評価する具体例として扱う。
+
+runtime連携は、可能な限り次の2層へ分ける。
+
+1. **共通local inference adapter:** OpenAI互換等の共通APIでchat / responses / embeddings等を呼ぶ。
+2. **runtime capability adapter:** model inventory、load/unload、typed decision、runtime status等、各runtime固有能力だけを扱う。
+
+これにより新しいlocal runtimeを追加しても、Candidate / Structuralizer側へruntime固有APIを漏らさない。
 
 ## Consequences
 
