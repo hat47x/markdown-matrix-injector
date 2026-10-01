@@ -76,9 +76,16 @@ export function classify(ledger: Ledger, ledgerPath: string, absoluteSource: str
   const source = sourceKey(ledgerPath, absoluteSource);
   const place = placeOf(candidate);
   const here = ledger.entries.find((entry) => sameOccurrence(entry, candidate.kind, source, candidate.locator.sheet, place));
-  if (here) return here.fingerprint.digest === candidate.fingerprint.digest ? 'imported' : 'changed';
+  if (here) {
+    return here.fingerprint.representation === candidate.fingerprint.representation
+      && here.fingerprint.digest === candidate.fingerprint.digest
+      ? 'imported'
+      : 'changed';
+  }
   const elsewhere = ledger.entries.some(
-    (entry) => entry.kind === candidate.kind && entry.fingerprint.representation === candidate.fingerprint.representation && entry.fingerprint.digest === candidate.fingerprint.digest,
+    (entry) => entry.kind === candidate.kind
+      && entry.fingerprint.representation === candidate.fingerprint.representation
+      && entry.fingerprint.digest === candidate.fingerprint.digest,
   );
   return elsewhere ? 'duplicate' : 'unimported';
 }
