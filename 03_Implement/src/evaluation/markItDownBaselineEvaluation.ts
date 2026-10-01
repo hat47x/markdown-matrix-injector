@@ -11,6 +11,7 @@ import path from 'node:path';
 
 import type { BaselineConverter } from '../core/baselineImport.js';
 import { inspectSource } from '../cli/mmi.js';
+import { readSourceFileIdentity } from '../core/sourceIdentity.js';
 
 export interface MarkItDownSheetEvidence {
   sheet: string;
@@ -28,7 +29,9 @@ export interface MarkItDownBaselineEvaluation {
   schema: 'mmi.baseline-converter-evaluation/v1';
   converter: { id: string; version: string };
   source: {
-    path: string;
+    /** Stable report label, not a machine-local absolute path. */
+    label: string;
+    digest: string;
     sheetCount: number;
     candidateCounts: Readonly<Record<string, number>>;
     images: MarkItDownSourceImageEvidence[];
@@ -52,9 +55,13 @@ export async function evaluateMarkItDownBaseline(options: {
   sourcePath: string;
   outputRoot: string;
   converter: BaselineConverter;
+  sourceLabel?: string;
 }): Promise<MarkItDownBaselineEvaluation> {
   const sourcePath = path.resolve(options.sourcePath);
   const outputRoot = path.resolve(options.outputRoot);
+  const sourceLabel = options.sourceLabel ?? path.basename(sourcePath);
+  if (!sourceLabel.trim()) throw new Error('baseline evaluation sourceLabel must not be empty');
+  const sourceDigest = readSourceFileIdentity(sourcePath).digest;
   const inspected = inspectSource(sourcePath, 0);
 
   const conversion = await options.converter.convert({
@@ -94,7 +101,8 @@ export async function evaluateMarkItDownBaseline(options: {
     schema: 'mmi.baseline-converter-evaluation/v1',
     converter: { ...options.converter.descriptor },
     source: {
-      path: sourcePath,
+      label: sourceLabel,
+      digest: sourceDigest,
       sheetCount: inspected.sheets.length,
       candidateCounts,
       images: inspected.images.map((image) => ({
