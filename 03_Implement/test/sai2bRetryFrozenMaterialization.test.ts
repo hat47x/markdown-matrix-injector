@@ -265,6 +265,37 @@ test('XLSX validation requires standard OOXML root namespaces', () => {
   assert.deepEqual(validateZipContainer(strict), { ok: true });
 });
 
+test('XLSX validation accepts legal XML Misc, dotted prefixes, and spaced namespace attributes', () => {
+  const decorated = xlsxFrame(
+    undefined,
+    {
+      '[Content_Types].xml':
+        '<?xml version="1.0" encoding="UTF-8"?><!--before--><?mso-application test?><ct.v1:Types xmlns:ct.v1 = "http://schemas.openxmlformats.org/package/2006/content-types"><ct.v1:Override PartName = "/xl/workbook.xml" ContentType = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></ct.v1:Types><?after test?><!--after-->',
+      '_rels/.rels':
+        '<?xml version="1.0" encoding="UTF-8"?><?before test?><!--before--><r.v1:Relationships xmlns:r.v1 = "http://schemas.openxmlformats.org/package/2006/relationships"><r.v1:Relationship Id = "rId1" Type = "http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target = "xl/workbook.xml" /></r.v1:Relationships><!--after--><?after test?>',
+      'xl/workbook.xml':
+        '<?xml version="1.0" encoding="UTF-8"?><!--before--><ss.v1:workbook xmlns:ss.v1 = "http://schemas.openxmlformats.org/spreadsheetml/2006/main"></ss.v1:workbook><?after test?><!--after-->',
+    },
+  );
+
+  assert.deepEqual(validateZipContainer(decorated), { ok: true });
+});
+
+test('XLSX validation still rejects a DTD before an OOXML package root', () => {
+  const withDtd = xlsxFrame(
+    undefined,
+    {
+      '[Content_Types].xml':
+        '<?xml version="1.0" encoding="UTF-8"?><!DOCTYPE Types><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>',
+    },
+  );
+
+  assert.deepEqual(
+    validateZipContainer(withDtd),
+    { ok: false, reason: 'xlsx_content_types_invalid' },
+  );
+});
+
 test('XLSX validation rejects corrupt required-entry local data', () => {
   const corrupt = xlsxFrameWithCorruptRequiredEntryOffset();
 
