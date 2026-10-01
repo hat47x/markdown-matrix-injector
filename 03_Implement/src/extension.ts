@@ -51,6 +51,19 @@ import {
 } from './dx/authoringFlow.js';
 import { readWorkbookCached } from './dx/sharedWorkbookCache.js';
 import { clearSearchIndexes, FIND_EMBED_COMMAND_ID, scriptedSearch, searchEmbedByDescription } from './dx/searchFlow.js';
+import { IMPORT_WORKBOOK_COMMAND_ID, importFromWorkbook } from './dx/importFlow.js';
+import {
+  CATALOG_INSERT_TABLE_COMMAND_ID,
+  CATALOG_REFRESH_COMMAND_ID,
+  CATALOG_SELECT_COMMAND_ID,
+  CATALOG_VIEW_ID,
+  chooseSelection,
+  partsFromResult,
+  selectForActiveDocument,
+  TableCatalogProvider,
+} from './dx/tableCatalogView.js';
+import type { CatalogTable } from './navigate/catalog.js';
+import type { SelectionRequest } from './navigate/select.js';
 import { createEmbedHoverProvider } from './dx/embedHover.js';
 import { confirmedCopySource, isConfirmedSource, warmCopySource, withSource } from './dx/copySource.js';
 import { stopClipboardHelper } from './dx/windowsClipboard.js';
@@ -180,6 +193,10 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
       // A chosen candidate goes to preview & confirm, never straight into the document (R1).
       if (parts) await runAuthoringFlow(authoringDependencies(), { parts, step: 'confirm' });
     }),
+    vscode.commands.registerCommand(IMPORT_WORKBOOK_COMMAND_ID, (target?: vscode.Uri) =>
+      importFromWorkbook(WORKBOOK_FILE_GLOB, target instanceof vscode.Uri ? target : undefined),
+    ),
+    ...registerTableCatalog(),
     vscode.commands.registerCommand(CLEAR_SEARCH_INDEX_COMMAND_ID, () => {
       clearSearchIndexes();
       void vscode.window.showInformationMessage('MMI: 表の検索索引を消去しました（メモリ上のみに保持していました）。');
@@ -228,6 +245,48 @@ async function renderEmbedCached(markdown: string, markdownFilePath: string, wor
   const md = new MarkdownIt();
   md.use(markdownMatrixPlugin, { markdownFilePath, workspaceRoot, cache: previewRenderCache });
   return md.render(markdown);
+}
+
+/** The Explorer's table catalog and its actions (dx/tableCatalogView.ts). */
+function registerTableCatalog(): vscode.Disposable[] {
+  const catalog = new TableCatalogProvider(WORKBOOK_FILE_GLOB);
+  const watcher = vscode.workspace.createFileSystemWatcher(WORKBOOK_FILE_GLOB);
+  const refresh = (): void => catalog.refresh();
+  // Selected parts go to the confirm step (real rendering), never straight into the document.
+  const confirm = async (parts: ReturnType<typeof partsFromResult>): Promise<void> => {
+    if (parts) await runAuthoringFlow(authoringDependencies(), { parts, step: 'confirm' });
+  };
+  return [
+    vscode.window.registerTreeDataProvider(CATALOG_VIEW_ID, catalog),
+    watcher,
+    watcher.onDidChange(refresh),
+    watcher.onDidCreate(refresh),
+    watcher.onDidDelete(refresh),
+    vscode.commands.registerCommand(CATALOG_REFRESH_COMMAND_ID, refresh),
+    vscode.commands.registerCommand(CATALOG_INSERT_TABLE_COMMAND_ID, async (node?: { bookPath: string; table: CatalogTable }) => {
+      if (node?.table) await confirm(partsFromResult(selectForActiveDocument(node.bookPath, { table: node.table.id })));
+    }),
+    vscode.commands.registerCommand(CATALOG_SELECT_COMMAND_ID, async (node?: { bookPath: string; table: CatalogTable }) => {
+      if (node?.table) await confirm(await chooseSelection(node.bookPath, node.table));
+    }),
+    // Extension Host e2e: the tree as labels/descriptions, walked through the real provider.
+    ...(process.env[ENABLE_TEST_COMMANDS_ENV_VAR] === '1'
+      ? [
+          vscode.commands.registerCommand('markdownMatrixInjector.__test.tableCatalogTree', async () => {
+            const walk = async (node?: Parameters<typeof catalog.getChildren>[0], depth = 0): Promise<string[]> => {
+              const lines: string[] = [];
+              for (const child of await catalog.getChildren(node)) {
+                const item = catalog.getTreeItem(child);
+                lines.push(`${'  '.repeat(depth)}${String(item.label)}${item.description ? ` | ${String(item.description)}` : ''}`);
+                if (depth < 3) lines.push(...(await walk(child, depth + 1)));
+              }
+              return lines;
+            };
+            return walk();
+          }),
+        ]
+      : []),
+  ];
 }
 
 function authoringDependencies(): AuthoringDependencies {
@@ -578,6 +637,20 @@ function registerTestCommands(nativePasteDropState: NativePasteDropState): vscod
           : [];
         return { items: found.items, transcript };
       },
+    ),
+    vscode.commands.registerCommand(
+      'markdownMatrixInjector.__test.selectAndAuthorScripted',
+      async (args: { bookPath: string; request: SelectionRequest; answers: ScriptedAnswer[] }) => {
+        const result = selectForActiveDocument(args.bookPath, args.request);
+        const parts = result?.ok && result.reference ? partsFromResult(result) : undefined;
+        const transcript = parts ? await runScriptedAuthoringFlow(authoringDependencies(), args.answers, { parts, step: 'confirm' }) : [];
+        return { result, transcript };
+      },
+    ),
+    vscode.commands.registerCommand(
+      'markdownMatrixInjector.__test.importFromWorkbook',
+      async (args: { workbook: string; draft: string }) =>
+        (await importFromWorkbook(WORKBOOK_FILE_GLOB, vscode.Uri.file(args.workbook), vscode.Uri.file(args.draft)))?.fsPath,
     ),
     vscode.commands.registerCommand(
       'markdownMatrixInjector.__test.getPasteInsertTextFromDataTransfer',

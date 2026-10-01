@@ -11,7 +11,8 @@
  * and nothing here writes to disk.
  */
 import type { WorkbookData } from '../core/workbookLoader.js';
-import { detectRegions, type DetectOptions, type DetectedRegion } from './regionDetector.js';
+import { detectTableRegions } from '../importAssist/tableRegions.js';
+import type { DetectOptions, DetectedRegion } from './regionDetector.js';
 import { addTextFeatures, DEFAULT_ROLE_WEIGHTS, type FeatureBag } from './textFeatures.js';
 
 export interface RegionRecord extends DetectedRegion {
@@ -46,7 +47,7 @@ export class RegionCatalog {
     const stem = bookStemOf(path);
     const regions: RegionRecord[] = [];
     for (const [sheetName, sheet] of Object.entries(workbook.sheets)) {
-      for (const region of detectRegions(sheetName, sheet, options)) {
+      for (const region of detectTableRegions(sheetName, sheet, options)) {
         regions.push({ ...region, id: `${path}#${sheetName}!${region.a1}`, bookPath: path, bookStem: stem });
       }
     }

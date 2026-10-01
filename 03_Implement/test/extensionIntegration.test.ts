@@ -400,6 +400,8 @@ test('extension integration boundaries keep canonical native providers and compa
       'onCommand:markdownMatrixInjector.authorEmbed',
       'onCommand:markdownMatrixInjector.findEmbedByDescription',
       'onCommand:markdownMatrixInjector.clearSearchIndex',
+      'onCommand:markdownMatrixInjector.importFromWorkbook',
+      'onView:markdownMatrixInjector.tableCatalog',
       'onLanguage:markdown',
     ],
   );
@@ -415,6 +417,10 @@ test('extension integration boundaries keep canonical native providers and compa
       'markdownMatrixInjector.authorEmbed',
       'markdownMatrixInjector.findEmbedByDescription',
       'markdownMatrixInjector.clearSearchIndex',
+      'markdownMatrixInjector.importFromWorkbook',
+      'markdownMatrixInjector.catalog.refresh',
+      'markdownMatrixInjector.catalog.insertTable',
+      'markdownMatrixInjector.catalog.selectFromTable',
     ],
   );
 });
@@ -434,13 +440,20 @@ test('native provider metadata stays API-visible without collapsing command fall
     authorEmbed: 'Create or Edit Embed (file, sheet, range, preview, confirm)',
     findEmbedByDescription: 'Find Table by Description (e.g. 状態遷移表のIDと操作を見せて)',
     clearSearchIndex: 'Clear Table Search Index',
+    importFromWorkbook: 'Import Tables from Workbook (draft with references to the tables of an existing Excel design document)',
+    'catalog.refresh': 'Refresh Table Catalog',
+    'catalog.insertTable': 'Insert Reference to This Table',
+    'catalog.selectFromTable': 'Choose Columns and Rows, Then Insert Reference',
   };
+  // Table catalog commands carry an icon for the view's title and item buttons.
+  const icons: Record<string, string> = { 'catalog.refresh': '$(refresh)', 'catalog.insertTable': '$(insert)', 'catalog.selectFromTable': '$(filter)' };
   assert.deepEqual(
     packageJson.contributes.commands,
     Object.keys(englishTitles).map((id) => ({
       command: `markdownMatrixInjector.${id}`,
       title: `%mmi.command.${id}%`,
       category: 'MMI',
+      ...(icons[id] ? { icon: icons[id] } : {}),
     })),
   );
   const nlsModule = await import('../package.nls.json', { with: { type: 'json' } });

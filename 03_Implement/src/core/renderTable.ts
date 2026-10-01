@@ -27,7 +27,12 @@ export function buildLogicalTable(query: EmbedQuery, workbook: WorkbookData): Lo
 }
 
 export function renderEmbedTable(query: EmbedQuery, workbook: WorkbookData): string {
-  const { headers, bodyRows: filteredBodyRows } = buildLogicalTable(query, workbook);
+  return renderLogicalTable(query, buildLogicalTable(query, workbook));
+}
+
+/** HTML for an already built logical table; decorations (highlight, formatColumn) come from `query`. */
+export function renderLogicalTable(query: EmbedQuery, logical: LogicalTable): string {
+  const { headers, bodyRows: filteredBodyRows } = logical;
   const highlightColumnIndex = resolveColumnSelector(query.params.get('highlightColumn'), headers);
   const highlightValue = query.params.get('highlightValue');
   const formatColumnSpecs = parseFormatColumns(query.params.getAll('formatColumn'), headers);

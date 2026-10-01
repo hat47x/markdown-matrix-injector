@@ -14,7 +14,8 @@
  * - The output is existing MMI notation only; the IR is never emitted.
  */
 import { parseEmbedSyntax } from '../../parser/embedSyntax.js';
-import { indexToColumn, parseRangeToCellRange } from '../../core/tableGeometry.js';
+import { parseRangeToCellRange } from '../../core/tableGeometry.js';
+import { gridProjection, logicalColumnLetter } from '../../importAssist/tableRegions.js';
 import type { RegionRecord } from '../regionCatalog.js';
 import type { RegionHit, RegionSearchIndex, RetrievalMethod } from '../searchIndex.js';
 import { addTextFeatures, bigramDice, normalizeText, segments, textFeatureList, type FeatureBag } from '../textFeatures.js';
@@ -65,6 +66,8 @@ export interface ResolvedColumn {
   header: string;
   /** Letter relative to the emitted range (spec §6: columns apply after slice). */
   letter: string;
+  /** Index into the region's (logical) columns. */
+  index: number;
   match: 'exact' | 'synonym' | 'fuzzy';
 }
 
@@ -602,8 +605,9 @@ function resolveColumns(
       unresolved.push(hint.raw);
       continue;
     }
-    if (!columns.some((column) => column.letter === indexToColumn(index))) {
-      columns.push({ requested: hint.raw, header: headers[index], letter: indexToColumn(index), match });
+    const letter = logicalColumnLetter(region, index);
+    if (!columns.some((column) => column.letter === letter)) {
+      columns.push({ requested: hint.raw, header: headers[index], letter, index, match });
     }
   }
   if (unresolved.length > 0) {
@@ -632,8 +636,15 @@ function emit(region: RegionRecord, ir: QueryIR, columns: ResolvedColumn[], path
     }
   }
 
+  // A table on a merged grid (方眼紙) is shown through its anchor columns,
+  // and asks for a table when its physical width alone would make a card.
+  const projection = region.columnAnchors && range === region.a1
+    ? gridProjection(region, useColumns.length > 0 ? useColumns.map((column) => column.index) : undefined)
+    : {};
+  if (region.columnAnchors && range !== region.a1) notes.push('結合したセルの表の一部を範囲で指定したため、結合の分だけ空の列が表示されます。');
+  const columnsParam = projection.columns ?? (useColumns.length > 0 ? useColumns.map((column) => column.letter).join(',') : undefined);
   const params: string[] = [];
-  if (useColumns.length > 0) params.push(`columns=${useColumns.map((column) => column.letter).join(',')}`);
+  if (columnsParam !== undefined) params.push(`columns=${columnsParam}`);
   const grep = ir.contains[0]?.term.raw;
   const headerLikely = region.headerConfidence === 'likely' && range === region.a1;
   if (headerLikely) params.push('header=first');
@@ -641,6 +652,7 @@ function emit(region: RegionRecord, ir: QueryIR, columns: ResolvedColumn[], path
     notes.push('見出し行の判定が不確かなため header を指定していません（見出し行もgrepの対象になります）。');
   }
   if (grep !== undefined) params.push(`grep=${grep.replace(PARAM_ESCAPE, (ch) => encodeURIComponent(ch))}`);
+  if (projection.mode) params.push(`mode=${projection.mode}`);
 
   const markdown = `![[${path}#${region.sheet}|${range}${params.length > 0 ? `?${params.join('&')}` : ''}]]`;
 
@@ -652,7 +664,8 @@ function emit(region: RegionRecord, ir: QueryIR, columns: ResolvedColumn[], path
     parsed.target === region.sheet.trim() &&
     parsed.range === range &&
     (grep === undefined || parsed.params.get('grep') === grep) &&
-    (useColumns.length === 0 || parsed.params.get('columns') === useColumns.map((column) => column.letter).join(','));
+    (columnsParam === undefined ? !parsed.params.has('columns') : parsed.params.get('columns') === columnsParam) &&
+    parsed.params.get('mode') === (projection.mode ?? null);
   if (!valid) return { ok: false, reason: `「${region.sheet}」の参照を既存記法として検証できませんでした。` };
   return { ok: true, markdown, range, notes };
 }

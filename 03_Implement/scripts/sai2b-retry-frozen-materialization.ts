@@ -7,6 +7,8 @@ import {
 import { basename, dirname, resolve } from 'node:path';
 import { pathToFileURL } from 'node:url';
 
+import { readZip, ZipError } from '../src/core/zipReader.js';
+
 export type ProgressEntry = {
   ordinal: number;
   source_id: string;
@@ -490,97 +492,92 @@ function materializationFailure(
 export function validateZipContainer(
   bytes: Uint8Array,
 ): { ok: true } | { ok: false; reason: string } {
-  if (bytes.byteLength < 22) {
-    return { ok: false, reason: 'zip_too_short' };
-  }
-
-  const view = new DataView(
-    bytes.buffer,
-    bytes.byteOffset,
-    bytes.byteLength,
-  );
-  if (view.getUint32(0, true) !== 0x04034b50) {
-    return { ok: false, reason: 'zip_local_header_missing' };
-  }
-
-  const lowerBound = Math.max(0, bytes.byteLength - 65_557);
-  let eocd = -1;
-  for (let offset = bytes.byteLength - 22; offset >= lowerBound; offset -= 1) {
-    if (view.getUint32(offset, true) === 0x06054b50) {
-      eocd = offset;
-      break;
+  try {
+    const entries = readZip(bytes);
+    for (const required of [
+      '[Content_Types].xml',
+      '_rels/.rels',
+      'xl/workbook.xml',
+    ]) {
+      if (!entries.has(required)) {
+        return {
+          ok: false,
+          reason: 'xlsx_required_entry_missing:' + required,
+        };
+      }
     }
-  }
-  if (eocd < 0) {
-    return { ok: false, reason: 'zip_eocd_missing' };
-  }
-  if (
-    view.getUint16(eocd + 4, true) !== 0
-    || view.getUint16(eocd + 6, true) !== 0
-  ) {
-    return { ok: false, reason: 'zip_multi_disk_not_supported' };
-  }
 
-  const entryCount = view.getUint16(eocd + 10, true);
-  const centralDirectorySize = view.getUint32(eocd + 12, true);
-  const centralDirectoryOffset = view.getUint32(eocd + 16, true);
-  if (entryCount === 0) {
-    return { ok: false, reason: 'zip_has_no_entries' };
-  }
-  if (
-    centralDirectoryOffset + centralDirectorySize > eocd
-    || centralDirectoryOffset + 4 > bytes.byteLength
-  ) {
-    return { ok: false, reason: 'zip_central_directory_bounds_invalid' };
-  }
+    // Package validation is intentionally non-semantic: read every ZIP entry
+    // only to verify local headers, decompression, declared sizes, and CRCs.
+    const packageParts = new Map<string, Buffer>();
+    for (const entry of entries.values()) {
+      packageParts.set(entry.name, entry.read());
+    }
 
-  const names = new Set<string>();
-  let offset = centralDirectoryOffset;
-  for (let index = 0; index < entryCount; index += 1) {
+    const contentTypes = packageParts
+      .get('[Content_Types].xml')!
+      .toString('utf8')
+      .replace(/^﻿/u, '');
+    const rootRels = packageParts
+      .get('_rels/.rels')!
+      .toString('utf8')
+      .replace(/^﻿/u, '');
+    const workbook = packageParts
+      .get('xl/workbook.xml')!
+      .toString('utf8')
+      .replace(/^﻿/u, '');
+
     if (
-      offset + 46 > eocd
-      || view.getUint32(offset, true) !== 0x02014b50
+      !/<(?:\\w+:)?Types\\b[^>]*>/u.test(contentTypes)
+      || !/<\\/(?:\\w+:)?Types>\\s*$/u.test(contentTypes)
     ) {
-      return { ok: false, reason: 'zip_central_directory_entry_invalid' };
+      return { ok: false, reason: 'xlsx_content_types_invalid' };
     }
-    const nameLength = view.getUint16(offset + 28, true);
-    const extraLength = view.getUint16(offset + 30, true);
-    const commentLength = view.getUint16(offset + 32, true);
-    const nameStart = offset + 46;
-    const nameEnd = nameStart + nameLength;
-    if (nameEnd > eocd) {
-      return { ok: false, reason: 'zip_filename_bounds_invalid' };
+    const workbookContentTypeDeclared = [
+      ...contentTypes.matchAll(/<(?:\\w+:)?Override\\b[^>]*\\/?>/gu),
+    ].some((match) => {
+      const tag = match[0];
+      return /\\bPartName=(["'])\\/xl\\/workbook\\.xml\\1/u.test(tag)
+        && /\\bContentType=(["'])application\\/vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet\\.main\\+xml\\1/u.test(tag);
+    });
+    if (!workbookContentTypeDeclared) {
+      return { ok: false, reason: 'xlsx_workbook_content_type_missing' };
     }
-    names.add(
-      Buffer.from(
-        bytes.buffer,
-        bytes.byteOffset + nameStart,
-        nameLength,
-      ).toString('utf8'),
-    );
-    offset = nameEnd + extraLength + commentLength;
-  }
 
-  if (offset !== centralDirectoryOffset + centralDirectorySize) {
-    return { ok: false, reason: 'zip_central_directory_size_mismatch' };
-  }
-
-  for (const required of [
-    '[Content_Types].xml',
-    '_rels/.rels',
-    'xl/workbook.xml',
-  ]) {
-    if (!names.has(required)) {
-      return {
-        ok: false,
-        reason: 'xlsx_required_entry_missing:' + required,
-      };
+    if (
+      !/<(?:\\w+:)?Relationships\\b[^>]*>/u.test(rootRels)
+      || !/<\\/(?:\\w+:)?Relationships>\\s*$/u.test(rootRels)
+    ) {
+      return { ok: false, reason: 'xlsx_root_relationships_invalid' };
     }
-  }
+    const workbookRelationshipDeclared = [
+      ...rootRels.matchAll(/<(?:\\w+:)?Relationship\\b[^>]*\\/?>/gu),
+    ].some((match) => {
+      const tag = match[0];
+      const type = /\\bType=(["'])([^"']+)\\1/u.exec(tag)?.[2];
+      const target = /\\bTarget=(["'])([^"']+)\\1/u.exec(tag)?.[2];
+      return type?.endsWith('/officeDocument') === true
+        && (target === 'xl/workbook.xml' || target === '/xl/workbook.xml');
+    });
+    if (!workbookRelationshipDeclared) {
+      return { ok: false, reason: 'xlsx_workbook_relationship_missing' };
+    }
 
-  return { ok: true };
+    if (
+      !/<(?:\\w+:)?workbook\\b[^>]*>/u.test(workbook)
+      || !/<\\/(?:\\w+:)?workbook>\\s*$/u.test(workbook)
+    ) {
+      return { ok: false, reason: 'xlsx_workbook_xml_invalid' };
+    }
+
+    return { ok: true };
+  } catch (error) {
+    if (error instanceof ZipError) {
+      return { ok: false, reason: `zip_${error.code}` };
+    }
+    return { ok: false, reason: 'zip_validation_exception' };
+  }
 }
-
 
 export function advanceProgressSnapshotMetadata(args: {
   baseline: any;

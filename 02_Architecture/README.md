@@ -9,6 +9,8 @@
 | 原本座標を保持する読込みと切り出し | [ソースモデル](input-assistance-source-model.md) |
 | Excelコピーの出所取得と照合（Windowsの出所取得を含む） | [クリップボード出所と照合](input-assistance-paste-provenance.md) |
 | 索引・自然言語解析・候補検索（実装・実測済み） | [CPUでの範囲探索](input-assistance-cpu-search.md) |
+| 既存のExcel設計書（方眼紙）の取り込み候補と参照の提案（試作） | [取り込み支援](import-assistance.md) |
+| Excelの機能への対応、目録、見出しによる選択、表の目録（試作） | [表の走査と選択](table-navigation.md) |
 | Semantic Candidate・Source Adapter・provenanceの共通契約（表のAdapter実装済み） | [Candidate契約 v1](candidate-contract-v1.md) |
 | 入力支援の一次資料と未確認事項 | [技術調査](../01_Plans/input-assistance-technical-research.md) |
 

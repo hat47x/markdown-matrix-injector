@@ -30,7 +30,7 @@ export function verifyRegion(region: DetectedRegion, sheet: SheetSource | undefi
   }
   if (region.headers) {
     region.headers.forEach((header, offset) => {
-      const actual = text(startRow, startCol + offset);
+      const actual = text(startRow, region.columnAnchors?.[offset] ?? startCol + offset);
       if (actual !== header.trim()) mismatches.push(`見出し ${offset + 1} 列目: 索引「${header}」/ 現在「${actual}」`);
     });
   }

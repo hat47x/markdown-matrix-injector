@@ -26,19 +26,17 @@
 
 ## Implementation checkpoint (2026-10-01)
 
-`src/core/importLedger.ts` にschema version 1の可読JSON台帳を追加した。既定名は `.mmi/import-ledger.json`。entryは `locator / fingerprint / kind / output / conversion / reviewState / reviewBasis / importedAt` を保持する。
+`src/core/importLedger.ts` に可読JSON台帳 `mmi.ledger/v1` を追加した。既定名は `mmi-ledger.json`。entryはsource / sheet / place（occurrence identity）、fingerprint（content identity）、kind、output、review state、basisを保持する。
 
-ADR-0021に合わせ、occurrence identityとcontent identityは分離する。同じlocator・同じfingerprintだけを `exact-occurrence`、同じlocatorで内容が変わったものを `changed-occurrence`、別locatorの同じfingerprintは `same-content` とする。`same-content` は証拠として示すだけで、review stateを継承せず未取込occurrenceとして保持できる。`recordImport` も同じoccurrenceだけを置換し、同一contentの別occurrenceを消さない。
+ADR-0021に合わせ、occurrence identityとcontent identityは分離する。同じoccurrence・同じfingerprintは `imported`、同じoccurrenceで内容が変わったものは `changed`、別occurrenceの同じfingerprintは `duplicate`、該当なしは `unimported` とする。duplicateは証拠であり、そのoccurrenceへreview stateを継承しない。
 
-画像の `mmi extract` 成功時は、raw image bytesを書いた後に台帳へ登録する。変換条件は `raw-image-bytes-v1` とformat、review stateは `confirmed`、review basisは `explicit-cli-extract` とする。
-
-残りは `inspect` の照合・フィルタ、Claim/evidence freshness、lineage reconciliation、およびissue-0194 fixtureを使うintegration testである。
+画像の `extractImages` はledger pathを与えた場合、取り込み成功後にそのoccurrenceを記録できる。次段でCLIの既定ledgerと `inspect` filterへ接続する。
 
 ## Validation plan
 issue-0194のテスト用ブックで、画像を1件取り込んだ後に`inspect --unimported`から外れること、ブック内の別シートにある同じ画像が「完全一致」と示されること、画像を差し替えると「変更あり」と示されることを確かめる。
 
 ## Remaining work
-- `inspect`へ台帳照合結果と`--unimported`を接続する。
+- CLIの `extract` を既定ledgerへ接続し、`inspect --unimported` / exact-imported除外を実装する。
 - Claim/evidence単位のfresh/staleとlineage候補の表現を追加する。
 - issue-0194 fixtureでextract→inspectのintegration testを追加する。
 - 納品物一覧（delivery manifest）との統合の要否。

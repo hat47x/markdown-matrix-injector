@@ -1,35 +1,36 @@
 import type { Candidate } from './candidate.js';
-import type { ImportLedger, LedgerMatch } from './importLedger.js';
-import { matchLedger } from './importLedger.js';
+import { classify, type Ledger, type LedgerState } from './importLedger.js';
 
-export type CandidateLedgerFilter = 'all' | 'unimported' | 'exclude-exact';
+export type CandidateLedgerFilter = 'all' | 'unimported' | 'exclude-imported';
 
-export interface CandidateLedgerView {
+export interface CandidateLedgerViewItem {
   candidate: Candidate;
-  ledger: LedgerMatch;
+  ledgerState: LedgerState;
 }
 
 /**
  * Join discovered Candidates with the project import ledger without mutating
- * either side. `same-content` remains visible: equal bytes at another
- * occurrence are evidence, not permission to inherit review state.
+ * either side. Content equality at a different occurrence stays actionable:
+ * it is duplicate evidence, not inherited review state (ADR-0021 D3).
  */
 export function candidateLedgerView(
   candidates: readonly Candidate[],
-  ledger: ImportLedger,
+  ledger: Ledger,
+  ledgerPath: string,
+  absoluteSource: string,
   filter: CandidateLedgerFilter = 'all',
-): CandidateLedgerView[] {
-  const joined = candidates.map((candidate) => ({ candidate, ledger: matchLedger(candidate, ledger) }));
+): CandidateLedgerViewItem[] {
+  const joined = candidates.map((candidate) => ({
+    candidate,
+    ledgerState: classify(ledger, ledgerPath, absoluteSource, candidate),
+  }));
+
   switch (filter) {
     case 'unimported':
-      // Changed occurrences need review again, and same-content occurrences
-      // have never themselves been reviewed, so both remain actionable.
-      return joined.filter(({ ledger: match }) => match.state !== 'exact-occurrence');
-    case 'exclude-exact':
-      // Today exact means exact occurrence. This named mode is kept separate
-      // from `unimported` so future review/freshness states can diverge without
-      // changing CLI semantics silently.
-      return joined.filter(({ ledger: match }) => match.state !== 'exact-occurrence');
+      return joined.filter(({ ledgerState }) =>
+        ledgerState === 'unimported' || ledgerState === 'duplicate');
+    case 'exclude-imported':
+      return joined.filter(({ ledgerState }) => ledgerState !== 'imported');
     case 'all':
       return joined;
   }

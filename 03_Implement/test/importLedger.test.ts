@@ -5,43 +5,88 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { fingerprintOf, type Candidate } from '../src/core/candidate.js';
-import { emptyImportLedger, matchLedger, readImportLedger, recordImport, writeImportLedger } from '../src/core/importLedger.js';
+import {
+  classify,
+  entryFor,
+  readLedger,
+  recordEntries,
+} from '../src/core/importLedger.js';
 
-function candidate(content: string, source = 'source-a'): Candidate {
+function candidate(content: string, sheet = '画面', range = 'B2:D8'): Candidate {
   const fingerprint = fingerprintOf('image-media-bytes-v1', content);
-  const sourceFingerprint = fingerprintOf('source-bytes-v1', source);
-  return { kind: 'image', locator: { source: './design.xlsx', sourceDigest: sourceFingerprint.digest, sheet: '画面', range: 'B2:D8' }, status: 'observed', execution: 'deterministic', method: 'M0', claims: [{ aspect: 'digest', value: fingerprint.digest, status: 'observed', execution: 'deterministic', method: 'M0', reasonCode: 'test' }], provenance: { algorithm: 'test', run: { execution: 'deterministic', inputDigest: sourceFingerprint.digest, config: {}, implementationVersion: '1' } }, fingerprint, scores: [] };
+  const sourceDigest = fingerprintOf('source-bytes-v1', 'source').digest;
+  return {
+    kind: 'image',
+    locator: { source: './design.xlsx', sourceDigest, sheet, range },
+    status: 'observed',
+    execution: 'deterministic',
+    method: 'M0',
+    claims: [{
+      aspect: 'digest',
+      value: fingerprint.digest,
+      status: 'observed',
+      execution: 'deterministic',
+      method: 'M0',
+      reasonCode: 'test',
+    }],
+    provenance: {
+      algorithm: 'test',
+      run: { execution: 'deterministic', inputDigest: sourceDigest, config: {}, implementationVersion: '1' },
+    },
+    fingerprint,
+    scores: [],
+  };
 }
 
-function entry(first: Candidate) {
-  return { locator: first.locator, fingerprint: first.fingerprint, kind: first.kind, output: 'assets/image-a.png', conversion: { mode: 'raw-image-bytes-v1' }, reviewState: 'confirmed' as const, reviewBasis: 'explicit-cli-extract', importedAt: '2026-10-01T00:00:00.000Z' };
-}
-
-test('ledger separates exact occurrence, changed occurrence, and unimported content', () => {
+test('ledger classifies occurrence identity separately from content identity', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-ledger-'));
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const source = path.join(root, 'design.xlsx');
+  const output = path.join(root, 'assets', 'image.png');
   const first = candidate('image-a');
-  const ledger = recordImport(emptyImportLedger(), entry(first));
-  assert.equal(matchLedger(first, ledger).state, 'exact-occurrence');
-  assert.equal(matchLedger(candidate('image-b', 'source-b'), ledger).state, 'changed-occurrence');
-  assert.equal(matchLedger({ ...candidate('image-c'), locator: { ...first.locator, range: 'J2:L8' } }, ledger).state, 'unimported');
+
+  recordEntries(ledgerPath, [entryFor(ledgerPath, source, first, output, 'mmi extract')]);
+  const ledger = readLedger(ledgerPath);
+
+  assert.equal(classify(ledger, ledgerPath, source, first), 'imported');
+  assert.equal(classify(ledger, ledgerPath, source, candidate('image-b')), 'changed');
+  assert.equal(classify(ledger, ledgerPath, source, candidate('image-a', '別画面', 'A1:C7')), 'duplicate');
+  assert.equal(classify(ledger, ledgerPath, source, candidate('image-c', '別画面', 'A1:C7')), 'unimported');
 });
 
-test('same content at another occurrence is evidence, not inherited review state', () => {
+test('recording equal content at another occurrence keeps both review records', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-ledger-'));
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const source = path.join(root, 'design.xlsx');
   const first = candidate('image-a');
-  const ledger = recordImport(emptyImportLedger(), entry(first));
-  const duplicate = { ...first, locator: { ...first.locator, sheet: '別画面', range: 'A1:C7' } };
-  assert.equal(matchLedger(duplicate, ledger).state, 'same-content');
-  const both = recordImport(ledger, { ...entry(duplicate), output: 'assets/image-a-copy.png', reviewBasis: 'explicit-cli-extract-second-occurrence' });
-  assert.equal(both.entries.length, 2);
-  assert.equal(matchLedger(duplicate, both).state, 'exact-occurrence');
+  const duplicate = candidate('image-a', '別画面', 'A1:C7');
+
+  recordEntries(ledgerPath, [
+    entryFor(ledgerPath, source, first, path.join(root, 'assets', 'a.png'), 'mmi extract'),
+  ]);
+  recordEntries(ledgerPath, [
+    entryFor(ledgerPath, source, duplicate, path.join(root, 'assets', 'a.png'), 'mmi extract'),
+  ]);
+
+  const ledger = readLedger(ledgerPath);
+  assert.equal(ledger.entries.length, 2);
+  assert.equal(classify(ledger, ledgerPath, source, first), 'imported');
+  assert.equal(classify(ledger, ledgerPath, source, duplicate), 'imported');
 });
 
 test('ledger is readable JSON and survives a write/read round trip', () => {
-  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-ledger-'));
-  const file = path.join(dir, '.mmi', 'import-ledger.json');
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-ledger-'));
+  const ledgerPath = path.join(root, 'nested', 'mmi-ledger.json');
+  const source = path.join(root, 'design.xlsx');
   const first = candidate('image-a');
-  const ledger = recordImport(emptyImportLedger(), entry(first));
-  writeImportLedger(file, ledger);
-  assert.deepEqual(readImportLedger(file), ledger);
-  assert.match(fs.readFileSync(file, 'utf8'), /"version": 1/u);
-  assert.match(fs.readFileSync(file, 'utf8'), /"reviewBasis": "explicit-cli-extract"/u);
+
+  const recorded = recordEntries(ledgerPath, [
+    entryFor(ledgerPath, source, first, path.join(root, 'assets', 'image-a.png'), 'mmi extract'),
+  ]);
+
+  assert.deepEqual(readLedger(ledgerPath), recorded);
+  const raw = fs.readFileSync(ledgerPath, 'utf8');
+  assert.match(raw, /"schema": "mmi\.ledger\/v1"/u);
+  assert.match(raw, /"reviewState": "confirmed"/u);
+  assert.match(raw, /"basis": "mmi extract"/u);
 });

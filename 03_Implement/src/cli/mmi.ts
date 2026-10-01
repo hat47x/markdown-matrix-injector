@@ -19,6 +19,7 @@ import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
 import { createDiagnosticsForDocument } from '../dx/vscodeAdapters.js';
 import { buildDeliveryManifestCsv } from '../manifest/collectDeliveryManifest.js';
 import { detectRegions } from '../search/regionDetector.js';
+import { runFind, runSelect } from './navigateCommands.js';
 import { extractImages, formatImageDiagnostics } from './extract.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './render.js';
 
@@ -36,6 +37,16 @@ Commands:
       --image <n|all>         the picture number shown by inspect, or all (required)
       --out-dir <dir>         assets folder (default: assets); files are named by content digest
       --from <doc.md>         write references relative to this document
+  select <workbook>         Print the reference for a table chosen by name, with columns/rows chosen by heading
+      --table <name|range>    Excel table, name, title or A1 range (required)
+      --sheet <name>  --columns <h1,h2>  --contains <text> [--in <heading>]  --first <n>
+      --from <doc.md>         write the reference relative to this document
+  find <description...>     Search workbooks under --root for tables matching a description
+  select <workbook>         Print the reference for a table chosen by name, columns/rows by heading
+      --table <name|range>    Excel table, name, title or A1 range (required)
+      --sheet <name>  --columns <h1,h2>  --contains <text> [--in <heading>]  --first <n>
+      --from <doc.md>         write the reference relative to this document
+  find <description...>     Search workbooks under --root for tables matching a description
   check <path...>           Validate MMI references in Markdown files or directories
                             (exit code 1 when any error is found)
   render <doc.md>           Expand references into Markdown tables (default) or HTML
@@ -61,6 +72,12 @@ export async function main(argv: string[]): Promise<number> {
       from: { type: 'string' },
       image: { type: 'string' },
       'out-dir': { type: 'string', default: 'assets' },
+      table: { type: 'string' },
+      sheet: { type: 'string' },
+      columns: { type: 'string' },
+      contains: { type: 'string' },
+      in: { type: 'string' },
+      first: { type: 'string' },
       help: { type: 'boolean', short: 'h', default: false },
     },
   });
@@ -93,6 +110,10 @@ export async function main(argv: string[]): Promise<number> {
       for (const problem of result.problems) console.error(`mmi: ${problem.code}${problem.ordinal ? ` (image ${problem.ordinal})` : ''}: ${problem.message}`);
       return result.problems.length > 0 ? 1 : 0;
     }
+    case 'select':
+      return runSelect(args, { ...values, json: values.json }, { out: emit, err: (text) => console.error(text), cwd: process.cwd() });
+    case 'find':
+      return runFind(args, { ...values, json: values.json }, { out: emit, err: (text) => console.error(text), cwd: process.cwd() });
     case 'check': {
       if (args.length === 0) return usageError('check needs at least one file or directory');
       const problems = await checkPaths(args.flatMap(collectMarkdownFiles), root);

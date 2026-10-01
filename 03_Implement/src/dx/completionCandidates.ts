@@ -11,9 +11,10 @@
  *   Nothing is guessed from other sheets.
  */
 import type { SheetSource } from '../core/sheetSource.js';
-import { cellRangeToA1, indexToColumn } from '../core/tableGeometry.js';
+import { cellRangeToA1 } from '../core/tableGeometry.js';
+import { detectTableRegions, gridProjection, logicalColumnLetter } from '../importAssist/tableRegions.js';
 import { MMI_KNOWN_PARAMETER_CONTRACT, type KnownEmbedQueryParameter } from '../parser/parameterContract.js';
-import { detectRegions, type DetectedRegion } from '../search/regionDetector.js';
+import type { DetectedRegion } from '../search/regionDetector.js';
 import type { CompletionContext } from './completionContext.js';
 
 export type CandidateKind = 'file' | 'sheet' | 'range' | 'param-key' | 'param-value';
@@ -86,8 +87,11 @@ export function paramValueCandidates(context: CompletionContext, region?: Detect
       // Append to an existing list: only the last comma-separated item is being typed.
       const done = context.typed.split(',').slice(0, -1).map((item) => item.trim().toUpperCase());
       const prefix = context.typed.includes(',') ? context.typed.slice(0, context.typed.lastIndexOf(',') + 1) : '';
+      // A merged-grid (方眼紙) table: offer every anchor column at once, then one by one.
+      const all = region ? gridProjection(region).columns : undefined;
+      if (all && prefix === '') out.push({ label: all, insertText: all, kind: 'param-value', detail: `結合した列ごとに1列ずつ表示（${headers.join('・')}）` });
       headers.forEach((header, index) => {
-        const letter = indexToColumn(index);
+        const letter = logicalColumnLetter(region!, index);
         if (done.includes(letter)) return;
         out.push({ label: `${prefix}${letter}`, insertText: `${prefix}${letter}`, kind: 'param-value', detail: header });
       });
@@ -104,13 +108,19 @@ export function paramValueCandidates(context: CompletionContext, region?: Detect
 
 /** Detected regions of the selected sheet, then its used range. */
 export function rangeCandidates(context: CompletionContext, sheetName: string, sheet: SheetSource): CompletionCandidate[] {
-  const out: CompletionCandidate[] = detectRegions(sheetName, sheet).map((region, index) => ({
-    label: region.a1,
-    insertText: region.a1,
-    kind: 'range' as const,
-    detail: [region.title, region.headers?.slice(0, 4).join('・')].filter(Boolean).join(' / ') || '表領域',
-    sortText: `0${String(index).padStart(4, '0')}`,
-  }));
+  const out: CompletionCandidate[] = detectTableRegions(sheetName, sheet).map((region, index) => {
+    const projection = gridProjection(region);
+    const needs = [projection.columns ? `columns=${projection.columns}` : '', projection.mode ? `mode=${projection.mode}` : ''].filter(Boolean).join('&');
+    return {
+      label: region.a1,
+      insertText: region.a1,
+      kind: 'range' as const,
+      detail:
+        [region.title, region.headers?.slice(0, 4).join('・')].filter(Boolean).join(' / ') +
+          (needs ? `（結合した表: 表として見せるには ${needs}）` : '') || '表領域',
+      sortText: `0${String(index).padStart(4, '0')}`,
+    };
+  });
   if (sheet.usedRange) {
     const used = cellRangeToA1(sheet.usedRange);
     if (!out.some((candidate) => candidate.label === used)) {
@@ -123,7 +133,7 @@ export function rangeCandidates(context: CompletionContext, sheetName: string, s
 /** The detected region whose range equals the embed's range, for column suggestions. */
 export function regionForRange(sheetName: string, sheet: SheetSource, range: string | undefined): DetectedRegion | undefined {
   if (!range) return undefined;
-  return detectRegions(sheetName, sheet).find((region) => region.a1 === range.toUpperCase());
+  return detectTableRegions(sheetName, sheet).find((region) => region.a1 === range.toUpperCase());
 }
 
 export function simpleCandidates(values: readonly string[], typed: string, kind: 'file' | 'sheet'): CompletionCandidate[] {
