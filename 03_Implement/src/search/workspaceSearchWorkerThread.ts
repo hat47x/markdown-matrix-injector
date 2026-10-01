@@ -76,6 +76,10 @@ async function handle(request: RefreshRequest | QueryRequest): Promise<void> {
         signal: controller.signal,
         onProgress: (done, total) => port.postMessage({ kind: 'progress', id: request.id, done, total }),
       });
+      // RegionCatalog retains only bounded structural/search evidence. Drop the
+      // full workbooks used to build it; source verification will lazily cache
+      // only the books that actual candidates touch.
+      workbookCache.clear();
       port.postMessage({ kind: 'result', id: request.id, op: 'refresh', value });
     } finally {
       refreshControllers.delete(request.id);
