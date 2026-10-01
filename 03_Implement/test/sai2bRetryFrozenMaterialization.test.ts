@@ -1078,6 +1078,47 @@ test('package identity rejects foreign-namespace and nested lookalike declaratio
   });
 });
 
+test('package identity rejects namespace and required attributes spoofed inside quoted values', () => {
+  const spoofedRootNamespace = xlsxFrame(undefined, {
+    '[Content_Types].xml':
+      '<?xml version="1.0" encoding="UTF-8"?>'
+      + '<Types note=\' xmlns="http://schemas.openxmlformats.org/package/2006/content-types"\'>'
+      + '<Override PartName="/xl/workbook.xml" '
+      + 'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+      + '</Types>',
+  });
+  assert.deepEqual(validateZipContainer(spoofedRootNamespace), {
+    ok: false,
+    reason: 'xlsx_content_types_invalid',
+  });
+
+  const spoofedOverrideAttributes = xlsxFrame(undefined, {
+    '[Content_Types].xml':
+      '<?xml version="1.0" encoding="UTF-8"?>'
+      + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+      + '<Override note=\' PartName="/xl/workbook.xml" '
+      + 'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"\'/>'
+      + '</Types>',
+  });
+  assert.deepEqual(validateZipContainer(spoofedOverrideAttributes), {
+    ok: false,
+    reason: 'xlsx_workbook_content_type_missing',
+  });
+
+  const spoofedRelationshipAttributes = xlsxFrame(undefined, {
+    '_rels/.rels':
+      '<?xml version="1.0" encoding="UTF-8"?>'
+      + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      + '<Relationship note=\' Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" '
+      + 'Target="xl/workbook.xml"\'/>'
+      + '</Relationships>',
+  });
+  assert.deepEqual(validateZipContainer(spoofedRelationshipAttributes), {
+    ok: false,
+    reason: 'xlsx_workbook_relationship_missing',
+  });
+});
+
 test('package identity admits correctly-prefixed OPC direct-child declarations', () => {
   const prefixed = xlsxFrame(undefined, {
     '[Content_Types].xml':
