@@ -77,17 +77,9 @@ const OOXML_SPREADSHEET_NAMESPACES = new Set([
   'http://purl.oclc.org/ooxml/spreadsheetml/main',
 ]);
 
-function escapeRegex(value: string): string {
-  return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\const OOXML_OFFICE_DOCUMENT_RELATIONSHIP_TYPES = new Set([
-  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument',
-  'http://purl.oclc.org/ooxml/officeDocument/relationships/officeDocument',
-]);
-');
-}
-
 function rootElementNamespace(
   xml: string,
-  localName: string,
+  expectedLocalName: 'Types' | 'Relationships' | 'workbook',
 ): string | null {
   let rest = xml.trimStart();
   if (rest.startsWith('<?xml')) {
@@ -98,154 +90,26 @@ function rootElementNamespace(
     rest = rest.slice(end + 2).trimStart();
   }
 
-  const escapedName = escapeRegex(localName);
-  const open = new RegExp(
-    `^<(?:(?<prefix>[A-Za-z_][\\w.-]*):)?${escapedName}\\b(?<attrs>[^>]*)>`,
-    'u',
-  ).exec(rest);
-  if (!open?.groups) {
+  const open = /^<(?:(?<prefix>[A-Za-z_][A-Za-z0-9_-]*):)?(?<local>Types|Relationships|workbook)\b(?<attrs>[^>]*)>/u.exec(rest);
+  if (!open?.groups || open.groups.local !== expectedLocalName) {
     return null;
   }
   const prefix = open.groups.prefix;
   const attrs = open.groups.attrs ?? '';
   const namespace = prefix
     ? new RegExp(
-      `\\bxmlns:${escapeRegex(prefix)}=(["'])([^"']+)\\1`,
+      `\\bxmlns:${prefix}=(["'])([^"']+)\\1`,
       'u',
     ).exec(attrs)?.[2]
-    : /\\bxmlns=(["'])([^"']+)\\1/u.exec(attrs)?.[2];
+    : /\bxmlns=(["'])([^"']+)\1/u.exec(attrs)?.[2];
   if (!namespace) {
     return null;
   }
 
   const close = new RegExp(
     prefix
-      ? `</${escapeRegex(prefix)}:${escapedName}>\\s*import { createHash } from 'node:crypto';
-import {
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from 'node:fs';
-import { basename, dirname, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
-
-import { readZip, ZipError } from '../src/core/zipReader.js';
-
-export type ProgressEntry = {
-  ordinal: number;
-  source_id: string;
-  publisher_id: string;
-  requested_stratum: string;
-  status: string;
-  attempt_count: number;
-  resolved_request_url_or_identity: string | null;
-  final_url: string | null;
-  redirect_chain: unknown[];
-  http_status: number | null;
-  content_type: string | null;
-  byte_size: number | null;
-  sha256: string | null;
-  retrieved_at_utc: string | null;
-  binary_validation: string;
-  workbook_semantic_inspection_performed: false;
-  transport_evidence?: Record<string, unknown>;
-  materialization_failure_reason?: string | null;
-};
-
-export type FetchLike = (
-  input: string,
-  init?: RequestInit,
-) => Promise<Response>;
-
-export type MaterializeOutcome = {
-  entry: ProgressEntry;
-  bytes: Uint8Array | null;
-  decision:
-    | 'succeeded'
-    | 'transport_retry_pending'
-    | 'materialization_failure';
-};
-
-export type OfflinePayloadReceipt = {
-  schema: 'hat47x.structured-artifact-sai2-offline-payload-receipt/v0';
-  source_id: string;
-  request_url: string;
-  final_url: string;
-  redirect_chain: unknown[];
-  http_status: number;
-  content_type: string;
-  byte_size: number;
-  sha256: string;
-  retrieved_at_utc: string;
-  workbook_semantic_inspection_performed: false;
-};
-
-const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
-const MAX_REDIRECTS = 10;
-
-      : `</${escapedName}>\\s*import { createHash } from 'node:crypto';
-import {
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from 'node:fs';
-import { basename, dirname, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
-
-import { readZip, ZipError } from '../src/core/zipReader.js';
-
-export type ProgressEntry = {
-  ordinal: number;
-  source_id: string;
-  publisher_id: string;
-  requested_stratum: string;
-  status: string;
-  attempt_count: number;
-  resolved_request_url_or_identity: string | null;
-  final_url: string | null;
-  redirect_chain: unknown[];
-  http_status: number | null;
-  content_type: string | null;
-  byte_size: number | null;
-  sha256: string | null;
-  retrieved_at_utc: string | null;
-  binary_validation: string;
-  workbook_semantic_inspection_performed: false;
-  transport_evidence?: Record<string, unknown>;
-  materialization_failure_reason?: string | null;
-};
-
-export type FetchLike = (
-  input: string,
-  init?: RequestInit,
-) => Promise<Response>;
-
-export type MaterializeOutcome = {
-  entry: ProgressEntry;
-  bytes: Uint8Array | null;
-  decision:
-    | 'succeeded'
-    | 'transport_retry_pending'
-    | 'materialization_failure';
-};
-
-export type OfflinePayloadReceipt = {
-  schema: 'hat47x.structured-artifact-sai2-offline-payload-receipt/v0';
-  source_id: string;
-  request_url: string;
-  final_url: string;
-  redirect_chain: unknown[];
-  http_status: number;
-  content_type: string;
-  byte_size: number;
-  sha256: string;
-  retrieved_at_utc: string;
-  workbook_semantic_inspection_performed: false;
-};
-
-const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
-const MAX_REDIRECTS = 10;
-,
+      ? `</${prefix}:${expectedLocalName}>\\s*$`
+      : `</${expectedLocalName}>\\s*$`,
     'u',
   );
   return close.test(rest) ? namespace : null;
@@ -766,6 +630,7 @@ export function validateZipContainer(
     ) {
       return { ok: false, reason: 'xlsx_workbook_xml_invalid' };
     }
+
 
     return { ok: true };
   } catch (error) {
