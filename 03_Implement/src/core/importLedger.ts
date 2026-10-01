@@ -354,13 +354,12 @@ export function claimBasisOf(candidate: Candidate): ClaimBasis[] {
 
 function staleClaimAspects(previous: readonly ClaimBasis[], current: readonly ClaimBasis[]): string[] {
   const changed = new Set<string>();
-  const count = Math.max(previous.length, current.length);
-  for (let index = 0; index < count; index += 1) {
-    const before = previous[index];
-    const after = current[index];
-    if (!before || !after || before.index !== after.index || before.aspect !== after.aspect || before.digest !== after.digest) {
-      changed.add(after?.aspect ?? before?.aspect ?? `claim-${index}`);
-    }
+  for (const before of previous) {
+    // Review basis is intentionally a subset: claims discovered later do not
+    // retroactively invalidate the original decision. Current Candidate kinds
+    // use one claim per aspect; index is retained for readable audit/debugging.
+    const after = current.find((item) => item.aspect === before.aspect);
+    if (!after || before.digest !== after.digest) changed.add(before.aspect);
   }
   return [...changed];
 }
