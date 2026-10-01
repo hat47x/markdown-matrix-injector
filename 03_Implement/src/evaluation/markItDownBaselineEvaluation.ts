@@ -5,6 +5,7 @@
  * observed from the source. It does not infer Candidate reconciliation from
  * Markdown text.
  */
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -71,8 +72,16 @@ export async function evaluateMarkItDownBaseline(options: {
   }
 
   const artifact = markdownArtifacts[0];
-  const artifactPath = path.resolve(outputRoot, ...artifact.relativePath.split('/'));
-  const markdown = fs.readFileSync(artifactPath, 'utf8');
+  const artifactPath = resolveContainedArtifact(outputRoot, artifact.relativePath);
+  if (!fs.existsSync(artifactPath) || !fs.statSync(artifactPath).isFile()) {
+    throw new Error('baseline evaluation Markdown artifact does not exist');
+  }
+  const artifactBytes = fs.readFileSync(artifactPath);
+  const actualDigest = `sha256:${createHash('sha256').update(artifactBytes).digest('hex')}`;
+  if (actualDigest !== artifact.contentDigest) {
+    throw new Error('baseline evaluation Markdown artifact digest mismatch');
+  }
+  const markdown = artifactBytes.toString('utf8');
   const lines = markdown.split(/\r?\n/u);
   const normalizedLines = new Set(lines.map((line) => line.trim()));
 
@@ -98,7 +107,7 @@ export async function evaluateMarkItDownBaseline(options: {
     markdown: {
       artifact: artifact.relativePath,
       digest: artifact.contentDigest,
-      bytes: Buffer.byteLength(markdown, 'utf8'),
+      bytes: artifactBytes.byteLength,
       sheetEvidence: inspected.sheets.map((sheet) => ({
         sheet: sheet.name,
         markdownHeadingPresent: normalizedLines.has(`## ${sheet.name}`),
@@ -124,4 +133,34 @@ function countImageReferences(markdown: string): number {
   const markdownImages = markdown.match(/!\[[^\]]*\]\([^\n)]*\)/gu)?.length ?? 0;
   const htmlImages = markdown.match(/<img\b/giu)?.length ?? 0;
   return markdownImages + htmlImages;
+}
+
+
+function resolveContainedArtifact(outputRoot: string, relativePath: string): string {
+  if (
+    path.posix.isAbsolute(relativePath)
+    || path.win32.isAbsolute(relativePath)
+  ) {
+    throw new Error('baseline evaluation artifact path must be relative');
+  }
+  const portable = relativePath.replace(/\\/gu, '/');
+  const normalized = path.posix.normalize(portable);
+  if (
+    normalized === '.'
+    || normalized === '..'
+    || normalized.startsWith('../')
+    || normalized.includes('\0')
+  ) {
+    throw new Error('baseline evaluation artifact path escapes outputRoot');
+  }
+  const resolved = path.resolve(outputRoot, ...normalized.split('/'));
+  const relative = path.relative(outputRoot, resolved);
+  if (
+    relative === '..'
+    || relative.startsWith(`..${path.sep}`)
+    || path.isAbsolute(relative)
+  ) {
+    throw new Error('baseline evaluation artifact path escapes outputRoot');
+  }
+  return resolved;
 }
