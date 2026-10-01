@@ -10,13 +10,15 @@
 ## Traceability
 - Related ADR/Spec: ADR-0019 D9・D10、製品要求「一括変換」「個別取り込み」「provenance」
 - Related analysis: [製品価値と現行実装のギャップ](../product-gap-analysis.md) §2「一括変換」
-- Dependency: issue-0193（Candidate契約）、issue-0195（取り込み台帳）。Excel画像を含む評価はissue-0194も利用する
+- Dependency: issue-0193（Candidate契約、Done）、issue-0195（取り込み台帳、Done）。Excel画像を含む評価はissue-0194（Done）も利用する
 
 ## 背景
 
 新規プロジェクトへ既存資産を持ち込む初回だけは、1件ずつCandidateを選ぶより文書全体のベースライン変換が合理的である。一方、外部Converterの出力をそのまま正本にすると、画像のanchor、空間関係、候補状態、取り込み済み判定、provenanceが失われる。
 
 既存Converterは「初期Markdownを作る部品」として利用し、MMIのSource Adapter / Candidate / import ledgerと統合する。ConverterをMMIのExcel解析基盤そのものにはしない。
+
+issue-0195で確定した`mmi.ledger/v1`を再利用する。一括変換専用の第二台帳は作らず、Converter固有情報は`conversion`とprovenanceへ記録する。delivery manifestはLinkedの納品一覧で責務が異なるため、一括変換の取込済み判定には使わない。
 
 ## Acceptance criteria
 
