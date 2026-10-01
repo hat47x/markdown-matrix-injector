@@ -6,6 +6,7 @@ import path from 'node:path';
 
 import { fingerprintOf, type Candidate } from '../src/core/candidate.js';
 import {
+  assessLedger,
   classify,
   entryFor,
   readLedger,
@@ -121,4 +122,139 @@ test('same digest under a different fingerprint representation is changed, not i
   };
 
   assert.equal(classify(ledger, ledgerPath, source, changedRepresentation), 'changed');
+});
+
+
+test('same content becomes stale when a recorded Claim basis changes', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-ledger-'));
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const source = path.join(root, 'design.xlsx');
+  const first = candidate('image-a');
+  recordEntries(ledgerPath, [
+    entryFor(ledgerPath, source, first, path.join(root, 'assets', 'image-a.png'), 'mmi extract'),
+  ]);
+
+  const changedClaim: Candidate = {
+    ...first,
+    claims: first.claims.map((claim) => ({
+      ...claim,
+      reasonCode: 'different-evidence-rule',
+    })),
+  };
+  const assessment = assessLedger(readLedger(ledgerPath), ledgerPath, source, changedClaim);
+
+  assert.equal(assessment.state, 'stale');
+  assert.deepEqual(assessment.staleClaims, ['digest']);
+  assert.equal(classify(readLedger(ledgerPath), ledgerPath, source, changedClaim), 'stale');
+});
+
+test('whole-source digest changes do not stale unchanged local Claim basis', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-ledger-'));
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const source = path.join(root, 'design.xlsx');
+  const first = candidate('image-a');
+  recordEntries(ledgerPath, [
+    entryFor(ledgerPath, source, first, path.join(root, 'assets', 'image-a.png'), 'mmi extract'),
+  ]);
+
+  const newSourceDigest = fingerprintOf('source-bytes-v1', 'source-with-unrelated-sheet-change').digest;
+  const sameLocalEvidence: Candidate = {
+    ...first,
+    locator: { ...first.locator, sourceDigest: newSourceDigest },
+    provenance: {
+      ...first.provenance,
+      run: {
+        ...first.provenance.run,
+        inputDigest: newSourceDigest,
+      },
+    },
+  };
+
+  assert.equal(
+    classify(readLedger(ledgerPath), ledgerPath, source, sameLocalEvidence),
+    'imported',
+  );
+});
+
+test('method/config changes stale a reviewed Claim even when value and content fingerprint match', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-ledger-'));
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const source = path.join(root, 'design.xlsx');
+  const first = candidate('image-a');
+  recordEntries(ledgerPath, [
+    entryFor(ledgerPath, source, first, path.join(root, 'assets', 'image-a.png'), 'mmi extract'),
+  ]);
+
+  assert.equal(first.provenance.run.execution, 'deterministic');
+  const changedMethod: Candidate = {
+    ...first,
+    provenance: {
+      ...first.provenance,
+      run: {
+        ...first.provenance.run,
+        implementationVersion: '2',
+      },
+    },
+  };
+
+  const assessment = assessLedger(readLedger(ledgerPath), ledgerPath, source, changedMethod);
+  assert.equal(assessment.state, 'stale');
+  assert.deepEqual(assessment.staleClaims, ['digest']);
+});
+
+test('legacy v1 entries without claimBasis remain fingerprint-compatible', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-ledger-'));
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const source = path.join(root, 'design.xlsx');
+  const first = candidate('image-a');
+  const legacyEntry = entryFor(
+    ledgerPath,
+    source,
+    first,
+    path.join(root, 'assets', 'image-a.png'),
+    'mmi extract',
+  );
+  delete legacyEntry.claimBasis;
+
+  fs.writeFileSync(
+    ledgerPath,
+    JSON.stringify({ schema: 'mmi.ledger/v1', entries: [legacyEntry] }, null, 2) + '\n',
+    'utf8',
+  );
+
+  assert.equal(classify(readLedger(ledgerPath), ledgerPath, source, first), 'imported');
+});
+
+test('Claim basis canonicalization ignores object key insertion order', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-ledger-'));
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const source = path.join(root, 'design.xlsx');
+  const first = candidate('image-a');
+  assert.equal(first.provenance.run.execution, 'deterministic');
+  const reviewed: Candidate = {
+    ...first,
+    provenance: {
+      ...first.provenance,
+      run: {
+        ...first.provenance.run,
+        config: { beta: 2, alpha: 1 },
+      },
+    },
+  };
+  recordEntries(ledgerPath, [
+    entryFor(ledgerPath, source, reviewed, path.join(root, 'assets', 'image-a.png'), 'mmi extract'),
+  ]);
+
+  const reordered: Candidate = {
+    ...reviewed,
+    provenance: {
+      ...reviewed.provenance,
+      run: {
+        ...reviewed.provenance.run,
+        config: { alpha: 1, beta: 2 },
+      },
+    },
+  };
+
+  assert.equal(classify(readLedger(ledgerPath), ledgerPath, source, reordered), 'imported');
 });
