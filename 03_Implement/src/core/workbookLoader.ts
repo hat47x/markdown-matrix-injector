@@ -40,6 +40,16 @@ export function readSnapshot(absolutePath: string): FileSnapshot {
 }
 
 function loadWorkbookUncached(absolutePath: string): WorkbookData {
+  return loadWorkbookFromBytes(absolutePath, fs.readFileSync(absolutePath));
+}
+
+/**
+ * Parses already-read workbook bytes into the same WorkbookData used by the
+ * production loader. Keeping this boundary public lets performance evidence
+ * measure filesystem I/O separately from decode/parse/model construction
+ * without duplicating the loader in a benchmark-only implementation.
+ */
+export function loadWorkbookFromBytes(absolutePath: string, bytes: Buffer): WorkbookData {
   const extension = path.extname(absolutePath).toLowerCase();
 
   if (extension === '.csv') {
@@ -48,13 +58,13 @@ function loadWorkbookUncached(absolutePath: string): WorkbookData {
     // A1-origin and dense. Wrapping it is enough; see sheetSource.ts.
     return {
       sheets: {
-        Sheet1: sheetSourceFromMatrix(parseCsv(decodeCsv(fs.readFileSync(absolutePath)))),
+        Sheet1: sheetSourceFromMatrix(parseCsv(decodeCsv(bytes))),
       },
     };
   }
 
   if (extension === '.xml') {
-    const xml = fs.readFileSync(absolutePath, 'utf8');
+    const xml = bytes.toString('utf8');
     if (!XML_SPREADSHEET_SIGNATURES.some((signature) => xml.includes(signature))) {
       throw new Error('Unsupported XML format: only XML Spreadsheet 2003 is allowed.');
     }
@@ -71,7 +81,7 @@ function loadWorkbookUncached(absolutePath: string): WorkbookData {
   // merely look like dates, and non-date numeric cells, are untouched.
   // Read bytes ourselves: the SheetJS ESM build does not bind Node's fs.
   // This also keeps the production integration explicitly read-only.
-  const workbook = XLSX.read(fs.readFileSync(absolutePath), {
+  const workbook = XLSX.read(bytes, {
     type: 'buffer', dense: true, cellDates: true, dateNF: 'yyyy-mm-dd',
   });
   const sheets = Object.fromEntries(
