@@ -14,10 +14,10 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 | --- | --- | --- | --- |
 | **1 Coreと入口** | [Candidate・Source Adapter・provenanceの契約](issues/issue-0193-candidate-source-adapter-contract.md) | Open | 型の設計と、表の領域検出のAdapter化。研究成果の対応付け |
 | 1 | CLI（inspect/check/render/manifest）、AI向け指示パック、基本設計書キット、[執筆ベンチマーク](../04_Documentation/benchmarks/ai-writing/README.md) | 実装済み | ベンチマーク v0は実施済み。表を大きくした v1は優先度5 |
-| 1 | [外部LLMへの作業提案と判断材料](issues/issue-0112-ai-proposal-handoff.md) | Open | prompt / evidence packageの契約を定め、送信は行わず戻り提案をAuthority Planeで検証 |
-| 1 | [外部LLMへの作業提案・判断材料handoff](issues/issue-0112-ai-proposal-handoff.md) | Open | issue-0193のCandidate/provenanceを使い、送信しないprompt/evidence packageを作る |
+| 1 | [外部LLMへの作業提案と判断材料](issues/issue-0112-ai-proposal-handoff.md) | Open | issue-0193のCandidate/provenanceを使い、送信しないprompt/evidence packageを作る |
 | 1 | [CLIの配布](issues/issue-0197-cli-distribution.md) | Draft | 配布形態の決定 |
 | 1 | [portable coreと最小バイナリ](issues/issue-0203-portable-core-minimum-binary.md) | Draft | VS Code非依存Core境界を固定し、標準Go/TinyGo/native/WASMを同一契約で実測比較 |
+| 1〜3（横断） | [認知model/profile資産の配布](issues/issue-0204-cognitive-artifact-distribution.md) | Draft | Coreと大型artifactを分離し、既存local runtime/cacheと外部model置き場を交換可能にする |
 | **2 モダナイズの最小縦切り** | [Excel画像の候補化と取り込み](issues/issue-0194-excel-image-candidates.md) | Open | 画像入りテスト用ブックの作成。issue-0193の型を待つ |
 | 2 | [取り込み台帳と未取込の表示](issues/issue-0195-import-ledger.md) | Draft | issue-0194の後 |
 | 2 | [初回一括変換とCandidate基盤の接続](issues/issue-0200-baseline-bulk-import.md) | Draft | issue-0193・0195の契約を使い、MarkItDown等をbaseline converterとして比較 |
@@ -34,11 +34,13 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 | **5 組織導入** | 文書キットの追加、CI関門、執筆ベンチマーク v1（大きな表・複数シート・本文と表の矛盾） | 未起票 | 優先度2の縦切りの後 |
 | 5 | [外部の判断記録からの根拠の固定（SEI）](issues/issue-0192-sei-decision-basis-table-binding.md) | Draft | CLIの契約が固まった後 |
 | 横断 | [上位プロダクト名とMMI互換層の整理](issues/issue-0201-product-name-and-compatibility-layer.md) | Draft | 実装を止めずに検討。決定前はrepo/package/CLI名を変更しない |
-| 3（認知候補） | [ローカルLLM評価](issues/issue-0113-local-ai-feasibility.md) | Draft | 主経路にはしない。Fly/Jev類似方式等で不足するbounded taskが定まったら比較評価 |
+| 3（認知候補） | [ローカル認知runtime評価](issues/issue-0113-local-ai-feasibility.md) | Draft | M0〜M2で不足する具体的taskが定まったら、Ollama / LM Studio等の導入済みruntimeを含め比較評価 |
 
 **優先度の根拠:** 執筆ベンチマーク v0では、小さな表をAIが誤って写すことはなく、MMIの差は正本の変更への追従に出た（[結果](../04_Documentation/benchmarks/ai-writing/results/2026-09-30-v0.md)）。人がExcelで書き続けても追従する（Linked）ことは、それだけで価値がある。そのうえで、人がExcelに置いた画像や図をそのままAIと機械が扱えるようにするExtractedの経路が、次に価値が大きい。Detachedは、原本を廃止すると決めた範囲のための経路として優先度4に置く。その入口がCandidateの契約（issue-0193）で、研究の成果を製品へ合流させる唯一の経路でもあるため、最上位に置く。
 
 **AI境界:** MMI自身は原則として課金型生成AIサービスを呼ばない。外部LLMはMMIを利用する側に置き、MMI内部の認知はFly-inspired、Jev類似技術、ローカルLLM等の軽量・ローカル方式を候補とする。外部LLMの判断が有用な場合は、MMIがprompt / evidence packageをローカル生成し、送信は利用者側へ委ねる（ADR-0018 D8・D11、ADR-0019 D15）。
+
+**認知方式:** [ADR-0020](adr/ADR-0020-requirement-oriented-cognition-method-selection.md)により、認知はLLM等に限定せず、M0明示抽出 → M1決定論的推定 → M2軽量類似 → M3 bounded Judgment → M4 local generative → M5 external handoffを要件ごとに比較する。最も単純で十分な方式を優先し、`observed/inferred`と`deterministic/provider-dependent`を直交して扱う。provider-dependent処理は編集・CIの主経路から外す。
 
 ## 確定した事実
 
