@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { buildContentMatchMarkdown, findWorkbookContentMatches, type WorkbookSheetsSource } from '../src/dx/contentMatchSearch.js';
+import { buildContentMatchMarkdown, findWorkbookContentMatches, summarizeContentMatchContext, type WorkbookSheetsSource } from '../src/dx/contentMatchSearch.js';
 import { loadWorkbook } from '../src/core/workbookLoader.js';
 import { sheetSourceFromMatrix, type SheetSource } from '../src/core/sheetSource.js';
 import type { WorkbookContentMatch } from '../src/dx/contentMatchSearch.js';
@@ -132,6 +132,43 @@ test('findWorkbookContentMatches describes where each identical copy sits', () =
     ['承認', '7|移行|保留'],
   ]);
   assert.deepEqual(matches[0].context?.headers, ['No', '確認項目', '判定']);
+});
+
+test('summarizeContentMatchContext gives Paste As a bounded one-line duplicate discriminator', () => {
+  const matches = findWorkbookContentMatches(
+    '2\t脆弱性診断\tNG\r\n',
+    [
+      workbook('./release.xlsx', {
+        Sheet1: [
+          ['リリース判定', '', ''],
+          ['No', '確認項目', '判定'],
+          ['1', '性能試験', 'OK'],
+          ['2', '脆弱性診断', 'NG'],
+        ],
+      }),
+    ],
+  );
+  assert.equal(
+    summarizeContentMatchContext(matches[0]),
+    '表:リリース判定 / 見出し:No|確認項目|判定 / 前:1|性能試験|OK',
+  );
+
+  const long = summarizeContentMatchContext(
+    {
+      filepath: './x.xlsx',
+      sheet: 'Sheet1',
+      range: { startRow: 1, startCol: 0, endRow: 1, endCol: 1 },
+      context: {
+        title: '複数\n行 の   タイトル',
+        headers: ['非常に長い見出しABCDEFGHIJKLMN', '次の見出し'],
+        rowAbove: ['前の行', '値'],
+      },
+    },
+    24,
+  );
+  assert.ok([...long].length <= 24);
+  assert.doesNotMatch(long, /[\r\n]/u);
+  assert.match(long, /…$/u);
 });
 
 
