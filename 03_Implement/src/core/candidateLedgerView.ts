@@ -1,5 +1,10 @@
 import type { Candidate, ProviderScore } from './candidate.js';
 import {
+  similarityEvidenceForCandidate,
+  type CandidateSimilarityEvidenceDocument,
+  type CandidateSimilarityEvidenceEntry,
+} from './candidateSimilarityEvidence.js';
+import {
   assessLedger,
   lineageCandidates,
   type Ledger,
@@ -19,6 +24,13 @@ export interface CandidateLedgerViewItem {
    * Provider/scale values are preserved verbatim and never merged here.
    */
   researchScores: readonly ProviderScore[];
+  /** Pairwise similarity evidence from an optional research sidecar. */
+  similarityEvidence: readonly CandidateSimilarityEvidenceEntry[];
+}
+
+export interface CandidateSimilarityEvidenceSource {
+  document: CandidateSimilarityEvidenceDocument;
+  evidencePath: string;
 }
 
 /**
@@ -32,6 +44,7 @@ export function candidateLedgerView(
   ledgerPath: string,
   absoluteSource: string,
   filter: CandidateLedgerFilter = 'all',
+  similarity?: CandidateSimilarityEvidenceSource,
 ): CandidateLedgerViewItem[] {
   const joined = candidates.map((candidate) => {
     const assessment = assessLedger(ledger, ledgerPath, absoluteSource, candidate);
@@ -41,6 +54,14 @@ export function candidateLedgerView(
       ...(assessment.staleClaims ? { staleClaims: assessment.staleClaims } : {}),
       lineageCandidates: lineageCandidates(ledger, ledgerPath, absoluteSource, candidate),
       researchScores: candidate.scores,
+      similarityEvidence: similarity
+        ? similarityEvidenceForCandidate(
+            similarity.document,
+            similarity.evidencePath,
+            absoluteSource,
+            candidate,
+          )
+        : [],
     };
   });
 
