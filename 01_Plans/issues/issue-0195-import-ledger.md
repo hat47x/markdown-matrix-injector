@@ -19,7 +19,7 @@
 ## Acceptance criteria
 - [x] 取り込んだCandidateごとに、occurrence identity（source locator）、content identity（fingerprint）、種別、出力先、変換条件、review state、review basisを、可読なファイル（JSONまたはCSV）としてプロジェクトに記録する。MMIを外しても読める形式にする。
 - [x] `inspect`で「すべて」「未取込のみ」「完全一致の取込済みを除く」を選べる。
-- [ ] 完全一致（同じfingerprint）と類似（研究層の類似判定）を別の証拠として示す。類似を取込済みとして自動で除外しない。
+- [x] 完全一致（同じfingerprint）と類似（研究層の類似判定）を別の証拠として示す。類似を取込済みとして自動で除外しない。
 - [x] 原本が更新されたとき、Candidate全体ではなく可能な範囲でClaim/evidence単位にfresh/staleを判定し、review basisが変わった判断を`stale`として示す。
 - [x] 同じcontent fingerprintを持つ別occurrenceを別物として保持し、semantic roleやreview stateを自動継承しない。
 - [x] source更新後のlineage reconciliationは、fingerprint一致だけでなくlocator・近傍・object id等の証拠を保持し、自動同一視できない場合は候補として提示する。
@@ -36,10 +36,11 @@ ADR-0021 D2/D4に合わせ、review時にはClaimごとのlocal evidence digest�
 
 lineage reconciliationは自動同一視を行わず、過去entryを候補として提示するだけにする。`same-content`に加え、同一sheet、object name、source-native media/object identity、nearby-tableをEvidenceとして保持し、候補ごとにreasonsを出す。review stateやsemantic roleはlineage候補から継承しない。
 
+研究層の類似・ranking結果はSemantic Candidateの`provider / scale / value`付き`scores[]`を`researchScores`としてinspect ledger viewへそのまま載せる。provider間・scale間で平均や正規化をせず、ledger state判定とfilterは従来どおりoccurrence/content/Claim review basisだけで決める。高いcosine等も`imported`や`duplicate`の証明にはならず、`--unimported`から自動除外しない。
+
 ## Validation plan
 issue-0194のテスト用ブックで、画像を1件取り込んだ後に`inspect --unimported`から外れること、ブック内の別シートにある同じ画像が「完全一致」と示されること、画像を差し替えると「変更あり」と示されることを確かめる。
 
 ## Remaining work
-- 完全一致と研究層similarity evidenceを同じinspect面で並べるが、自動除外へ使わないことを固定する。
 - 納品物一覧（delivery manifest）との統合の要否。
 - 一括変換（ADR-0019 D9）の結果を台帳へ登録する方法は、変換器の評価後に決める。
