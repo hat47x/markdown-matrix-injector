@@ -113,3 +113,60 @@ test('evaluation records missing sheet headings and explicit image references as
   assert.equal(report.markdown.imageReferenceCount, 2);
   assert.equal(report.reconciliation.automaticImportDecision, 'none');
 });
+
+
+test('evaluation rejects converter artifact digest mismatches', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-markitdown-eval-'));
+  const sourcePath = path.join(root, 'screen-design.xlsx');
+  const outputRoot = path.join(root, 'out');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+
+  const converter: BaselineConverter = {
+    descriptor: { id: 'fixture.converter', version: '1' },
+    async convert() {
+      fs.mkdirSync(outputRoot, { recursive: true });
+      fs.writeFileSync(path.join(outputRoot, 'baseline.md'), '# changed\n');
+      return {
+        artifacts: [{
+          id: 'document',
+          kind: 'markdown',
+          relativePath: 'baseline.md',
+          contentDigest: sha256(Buffer.from('different')),
+        }],
+      };
+    },
+  };
+
+  await assert.rejects(
+    evaluateMarkItDownBaseline({ sourcePath, outputRoot, converter }),
+    /artifact digest mismatch/u,
+  );
+});
+
+test('evaluation rejects converter artifact path escape', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-markitdown-eval-'));
+  const sourcePath = path.join(root, 'screen-design.xlsx');
+  const outputRoot = path.join(root, 'out');
+  const outside = path.join(root, 'outside.md');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+  fs.writeFileSync(outside, '# outside\n');
+
+  const converter: BaselineConverter = {
+    descriptor: { id: 'fixture.converter', version: '1' },
+    async convert() {
+      return {
+        artifacts: [{
+          id: 'document',
+          kind: 'markdown',
+          relativePath: '../outside.md',
+          contentDigest: sha256(fs.readFileSync(outside)),
+        }],
+      };
+    },
+  };
+
+  await assert.rejects(
+    evaluateMarkItDownBaseline({ sourcePath, outputRoot, converter }),
+    /escapes outputRoot/u,
+  );
+});
