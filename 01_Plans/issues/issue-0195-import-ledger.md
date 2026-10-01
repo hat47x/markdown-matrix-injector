@@ -36,7 +36,7 @@ ADR-0021 D2/D4に合わせ、review時にはClaimごとのlocal evidence digest�
 
 lineage reconciliationは自動同一視を行わず、過去entryを候補として提示するだけにする。`same-content`に加え、同一sheet、object name、source-native media/object identity、nearby-tableをEvidenceとして保持し、候補ごとにreasonsを出す。review stateやsemantic roleはlineage候補から継承しない。
 
-研究層の類似・ranking結果はSemantic Candidateの`provider / scale / value`付き`scores[]`を`researchScores`としてinspect ledger viewへそのまま載せる。provider間・scale間で平均や正規化をせず、ledger state判定とfilterは従来どおりoccurrence/content/Claim review basisだけで決める。高いcosine等も`imported`や`duplicate`の証明にはならず、`--unimported`から自動除外しない。
+研究層のEvidenceは二層を明示する。Candidate自身に属する`provider / scale / value`付き`scores[]`は`researchScores`としてそのまま載せる。別occurrenceとのpairwise similarityは`mmi.candidate-similarity-evidence/v1` sidecarにcurrent occurrence、target occurrence、provider/version、metric namespace/name/semantics/value/rangeを保持し、`mmi inspect --similarity-evidence <file>`で同じinspect面へ表示する。provider間・scale/namespace間で平均や正規化をせず、ledger state判定とfilterは従来どおりoccurrence/content/Claim review basisだけで決める。高いcosine等も`imported`や`duplicate`の証明にはならず、`--unimported`から自動除外しない。
 
 ## Validation plan
 issue-0194のテスト用ブックで、画像を1件取り込んだ後に`inspect --unimported`から外れること、ブック内の別シートにある同じ画像が「完全一致」と示されること、画像を差し替えると「変更あり」と示されることを確かめる。
