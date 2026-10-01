@@ -10,16 +10,7 @@ import { readExcelImages, readImageBytes, type ExcelImage, type ImageDiagnostic 
 import { fingerprintOf } from '../core/candidate.js';
 import { DEFAULT_IMPORT_LEDGER, readImportLedger, recordImport, writeImportLedger } from '../core/importLedger.js';
 
-export interface ExtractOptions {
-  sourcePath: string;
-  selection: string;
-  outDir: string;
-  fromDocument?: string;
-  sourceLabel?: string;
-  /** Defaults to `<cwd>/.mmi/import-ledger.json`; pass an explicit path when the project root differs. */
-  ledgerPath?: string;
-}
-
+export interface ExtractOptions { sourcePath: string; selection: string; outDir: string; fromDocument?: string; sourceLabel?: string; ledgerPath?: string }
 export interface ExtractedImage { ordinal: number; sheet: string; anchor?: string; digest: string; file: string; status: 'written' | 'unchanged'; reference: string; markdown: string }
 export interface ExtractProblem { ordinal?: number; code: string; message: string }
 export interface ExtractResult { extracted: ExtractedImage[]; problems: ExtractProblem[] }
@@ -27,23 +18,13 @@ export interface ExtractResult { extracted: ExtractedImage[]; problems: ExtractP
 const EXTENSION: Record<string, string> = { png: 'png', jpeg: 'jpg', gif: 'gif', bmp: 'bmp', svg: 'svg' };
 const sha256 = (data: Buffer): string => `sha256:${createHash('sha256').update(data).digest('hex')}`;
 
-function altText(image: ExcelImage): string {
-  const raw = image.description ?? image.name ?? `${image.sheet} 画像${image.ordinal}`;
-  return raw.replace(/[\r\n]+/gu, ' ').replace(/[[\]]/gu, '').trim();
-}
-
-function provenanceComment(source: string, image: ExcelImage): string {
-  const value = (text: string) => text.replace(/--/gu, '- -').replace(/"/gu, "'").replace(/[\r\n]+/gu, ' ');
-  return `<!-- mmi:extracted source="${value(source)}" sheet="${value(image.sheet)}"${image.range ? ` anchor="${value(image.range)}"` : ''} sha256="${image.digest.slice(7)}" -->`;
-}
+function altText(image: ExcelImage): string { const raw = image.description ?? image.name ?? `${image.sheet} 画像${image.ordinal}`; return raw.replace(/[\r\n]+/gu, ' ').replace(/[[\]]/gu, '').trim(); }
+function provenanceComment(source: string, image: ExcelImage): string { const value = (text: string) => text.replace(/--/gu, '- -').replace(/"/gu, "'").replace(/[\r\n]+/gu, ' '); return `<!-- mmi:extracted source="${value(source)}" sheet="${value(image.sheet)}"${image.range ? ` anchor="${value(image.range)}"` : ''} sha256="${image.digest.slice(7)}" -->`; }
 
 export function extractImages(options: ExtractOptions): ExtractResult {
   const result: ExtractResult = { extracted: [], problems: [] };
   const packageBytes = fs.readFileSync(options.sourcePath);
-  if (!/\.(xlsx|xlsm)$/iu.test(options.sourcePath)) {
-    result.problems.push({ code: 'MMI_IMAGE_PACKAGE_UNSUPPORTED', message: 'images can only be extracted from .xlsx / .xlsm workbooks' });
-    return result;
-  }
+  if (!/\.(xlsx|xlsm)$/iu.test(options.sourcePath)) { result.problems.push({ code: 'MMI_IMAGE_PACKAGE_UNSUPPORTED', message: 'images can only be extracted from .xlsx / .xlsm workbooks' }); return result; }
   const sourceDigest = sha256(packageBytes);
   const read = readExcelImages(packageBytes);
   for (const diagnostic of read.diagnostics.filter((d) => d.severity === 'error')) result.problems.push({ code: diagnostic.code, message: diagnostic.message });
@@ -51,15 +32,7 @@ export function extractImages(options: ExtractOptions): ExtractResult {
 
   let chosen: ExcelImage[];
   if (options.selection === 'all') chosen = read.images;
-  else {
-    const ordinal = Number(options.selection);
-    const found = Number.isInteger(ordinal) ? read.images.find((image) => image.ordinal === ordinal) : undefined;
-    if (!found) {
-      result.problems.push({ code: 'MMI_IMAGE_NOT_FOUND', message: `no image ${options.selection} in the workbook (it has ${read.images.length}; run \`mmi inspect\` to list them)` });
-      return result;
-    }
-    chosen = [found];
-  }
+  else { const ordinal = Number(options.selection); const found = Number.isInteger(ordinal) ? read.images.find((image) => image.ordinal === ordinal) : undefined; if (!found) { result.problems.push({ code: 'MMI_IMAGE_NOT_FOUND', message: `no image ${options.selection} in the workbook (it has ${read.images.length}; run \`mmi inspect\` to list them)` }); return result; } chosen = [found]; }
   if (chosen.length === 0) result.problems.push({ code: 'MMI_IMAGE_NONE', message: 'the workbook contains no images' });
 
   const documentDirectory = path.dirname(path.resolve(options.fromDocument ?? path.join(process.cwd(), 'x.md')));
@@ -71,29 +44,13 @@ export function extractImages(options: ExtractOptions): ExtractResult {
   let ledger = readImportLedger(ledgerPath);
 
   for (const image of chosen) {
-    if (!image.extractable) {
-      result.problems.push({ ordinal: image.ordinal, code: 'MMI_IMAGE_UNSUPPORTED_FORMAT', message: `image ${image.ordinal} (${image.name ?? image.sheet}) is ${image.format}; Markdown cannot show it, so it was not extracted` });
-      continue;
-    }
+    if (!image.extractable) { result.problems.push({ ordinal: image.ordinal, code: 'MMI_IMAGE_UNSUPPORTED_FORMAT', message: `image ${image.ordinal} (${image.name ?? image.sheet}) is ${image.format}; Markdown cannot show it, so it was not extracted` }); continue; }
     let data: Buffer;
-    try { data = readImageBytes(packageBytes, image); }
-    catch (error) {
-      result.problems.push({ ordinal: image.ordinal, code: 'MMI_IMAGE_MEDIA_MISSING', message: error instanceof Error ? error.message : String(error) });
-      continue;
-    }
+    try { data = readImageBytes(packageBytes, image); } catch (error) { result.problems.push({ ordinal: image.ordinal, code: 'MMI_IMAGE_MEDIA_MISSING', message: error instanceof Error ? error.message : String(error) }); continue; }
     const file = path.join(outDirectory, `${image.digest.slice(7, 19)}.${EXTENSION[image.format]}`);
-    if (file === sourceReal) {
-      result.problems.push({ ordinal: image.ordinal, code: 'MMI_EXTRACT_TARGET_IS_SOURCE', message: 'refusing to write over the source workbook' });
-      continue;
-    }
+    if (file === sourceReal) { result.problems.push({ ordinal: image.ordinal, code: 'MMI_EXTRACT_TARGET_IS_SOURCE', message: 'refusing to write over the source workbook' }); continue; }
     let status: ExtractedImage['status'] = 'written';
-    if (fs.existsSync(file)) {
-      if (sha256(fs.readFileSync(file)) !== image.digest) {
-        result.problems.push({ ordinal: image.ordinal, code: 'MMI_EXTRACT_NAME_COLLISION', message: `${file} exists with different content; it was not overwritten` });
-        continue;
-      }
-      status = 'unchanged';
-    } else fs.writeFileSync(file, data);
+    if (fs.existsSync(file)) { if (sha256(fs.readFileSync(file)) !== image.digest) { result.problems.push({ ordinal: image.ordinal, code: 'MMI_EXTRACT_NAME_COLLISION', message: `${file} exists with different content; it was not overwritten` }); continue; } status = 'unchanged'; } else fs.writeFileSync(file, data);
 
     const relative = path.relative(documentDirectory, file).split(path.sep).join('/');
     const reference = /\s/u.test(relative) ? relative.replace(/ /gu, '%20') : relative;
@@ -101,16 +58,13 @@ export function extractImages(options: ExtractOptions): ExtractResult {
 
     ledger = recordImport(ledger, {
       locator: { source, sourceDigest, sheet: image.sheet, ...(image.range ? { range: image.range } : {}) },
-      fingerprint: fingerprintOf('image-media-bytes-v1', image.digest),
-      kind: 'image', output: relative,
+      fingerprint: fingerprintOf('image-media-bytes-v1', image.digest), kind: 'image', output: relative,
       conversion: { mode: 'raw-image-bytes-v1', format: image.format },
-      confirmation: 'confirmed', importedAt: new Date().toISOString(),
+      reviewState: 'confirmed', reviewBasis: 'explicit-cli-extract', importedAt: new Date().toISOString(),
     });
     writeImportLedger(ledgerPath, ledger);
   }
   return result;
 }
 
-export function formatImageDiagnostics(diagnostics: readonly ImageDiagnostic[]): string[] {
-  return diagnostics.map((d) => `${d.severity} ${d.code}${d.sheet ? ` [${d.sheet}]` : ''}: ${d.message}`);
-}
+export function formatImageDiagnostics(diagnostics: readonly ImageDiagnostic[]): string[] { return diagnostics.map((d) => `${d.severity} ${d.code}${d.sheet ? ` [${d.sheet}]` : ''}: ${d.message}`); }
