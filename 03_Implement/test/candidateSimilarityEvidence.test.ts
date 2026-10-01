@@ -151,3 +151,31 @@ test('different provider namespaces remain separate entries', () => {
     'research.other-v0',
   ]);
 });
+
+
+test('sidecar rejects unsupported Candidate kinds and malformed optional fields', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-similarity-'));
+  const evidencePath = path.join(root, 'evidence.json');
+  const entry = evidenceEntry();
+
+  fs.writeFileSync(evidencePath, JSON.stringify({
+    schema: CANDIDATE_SIMILARITY_EVIDENCE_SCHEMA,
+    entries: [{ ...entry, kind: 'unknown-kind' }],
+  }));
+  assert.throws(
+    () => readCandidateSimilarityEvidence(evidencePath),
+    /must be a supported Candidate kind/u,
+  );
+
+  fs.writeFileSync(evidencePath, JSON.stringify({
+    schema: CANDIDATE_SIMILARITY_EVIDENCE_SCHEMA,
+    entries: [{
+      ...entry,
+      metric: { ...entry.metric, higherIsStronger: 'yes' },
+    }],
+  }));
+  assert.throws(
+    () => readCandidateSimilarityEvidence(evidencePath),
+    /higherIsStronger must be boolean/u,
+  );
+});
