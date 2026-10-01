@@ -10,8 +10,11 @@
  * Measured separately, each with p50/p95 where it is a distribution:
  * cold load (per book), region detection (per book), index build (per
  * method), diff update (one book touched), warm retrieval, warm compile, and
- * compile + exact re-verification against the source. The OS page cache is
- * warm (files were just written); dropping it needs root and is not done.
+ * compile + exact re-verification against the source. Memory reports both the
+ * comparison harness (all retrieval methods) and product-like single-method
+ * BM25/FlyHash indexes so production memory optimizations are measurable.
+ * The OS page cache is warm (files were just written); dropping it needs root
+ * and is not done.
  */
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
@@ -29,6 +32,7 @@ import { detectRegions } from '../../src/search/regionDetector.js';
 import { Bm25Retriever, CosineRetriever, ExactTokenRetriever, FlyHashRetriever, type Retriever } from '../../src/search/retrievers.js';
 import { RegionSearchIndex, RETRIEVAL_METHODS, type RetrievalMethod } from '../../src/search/searchIndex.js';
 import { verifyRegion } from '../../src/search/verify.js';
+import { addTextFeatures, type FeatureBag } from '../../src/search/textFeatures.js';
 import { environment, percentile } from './evaluate.js';
 
 const SEED = 20260924;
@@ -118,6 +122,40 @@ const heap = (): number => {
   return process.memoryUsage().heapUsed;
 };
 
+function profileProductIndex(
+  catalog: RegionCatalog,
+  method: 'bm25' | 'flyhash',
+  warmBag: FeatureBag,
+): Record<string, unknown> {
+  const before = heap();
+  const index = new RegionSearchIndex(catalog, { methods: [method] });
+  const started = now();
+  index.sync();
+  const buildMs = now() - started;
+  const afterBuild = heap();
+
+  // Warm one real retrieval. FlyHash exact reranking lazily materializes
+  // cosine document norms, so warm steady-state memory must include them even
+  // though cosine is not itself an enabled retrieval method.
+  index.search(method, warmBag, 30);
+  const afterWarm = heap();
+
+  const structural = index.memoryEstimate();
+  const retrieverBytes = structural.byMethod[method] ?? 0;
+  const auxiliaryCosineBytes = index.cosine.memoryEstimate();
+  return {
+    buildMs: round(buildMs),
+    buildHeapBytes: afterBuild - before,
+    warmHeapBytes: afterWarm - before,
+    structuralBytes: {
+      corpus: structural.corpus,
+      retriever: retrieverBytes,
+      auxiliaryCosine: auxiliaryCosineBytes,
+      total: structural.corpus + retrieverBytes + auxiliaryCosineBytes,
+    },
+  };
+}
+
 function worker(books: number, regions: number, queryCount: number, iterations: number): Record<string, unknown> {
   const { dir, truth } = writeSynthetic(books, regions);
   const files = [...new Set(truth.map((region) => region.file))].map((file) => path.join(dir, file));
@@ -143,9 +181,18 @@ function worker(books: number, regions: number, queryCount: number, iterations: 
     const stat = fs.statSync(file);
     return { mtimeMs: stat.mtimeMs, size: stat.size };
   };
+  const heapBeforeCatalog = heap();
   let t = now();
   for (const file of files) catalog.setBook(file, statOf(file), workbooks.get(file)!);
   const catalogMs = now() - t;
+  const heapCatalog = heap() - heapBeforeCatalog;
+
+  const warmBag: FeatureBag = new Map();
+  if (truth[0]?.title) addTextFeatures(warmBag, truth[0].title, 2);
+  const productIndexes = {
+    bm25: profileProductIndex(catalog, 'bm25', warmBag),
+    flyhash: profileProductIndex(catalog, 'flyhash', warmBag),
+  };
 
   const heapBeforeIndex = heap();
   const index = new RegionSearchIndex(catalog);
@@ -267,9 +314,11 @@ function worker(books: number, regions: number, queryCount: number, iterations: 
     },
     memory: {
       workbooksHeapBytes: heapWorkbooks,
+      catalogHeapBytes: heapCatalog,
+      productSingleMethod: productIndexes,
       indexAllMethodsHeapBytes: heapIndexAll,
       perMethod,
-      structural: index.memoryEstimate(),
+      structuralAllMethods: index.memoryEstimate(),
       peakRssKiB: process.resourceUsage().maxRSS,
     },
     methods: results,
