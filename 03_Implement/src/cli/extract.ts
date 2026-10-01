@@ -145,7 +145,14 @@ export function extractImages(options: ExtractOptions): ExtractResult {
     for (const item of result.extracted) {
       const image = chosen.find((candidateImage) => candidateImage.ordinal === item.ordinal)!;
       const [candidate] = imageCandidates({ source: source, sourceDigest, images: [image] });
-      entries.push(entryFor(options.ledgerPath, options.sourcePath, candidate, item.file, 'mmi extract'));
+      entries.push(entryFor(
+        options.ledgerPath,
+        options.sourcePath,
+        candidate,
+        item.file,
+        'mmi extract',
+        { mode: 'raw-image-bytes-v1', format: image.format },
+      ));
     }
     recordEntries(options.ledgerPath, entries);
   }
