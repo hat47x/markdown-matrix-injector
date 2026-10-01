@@ -86,6 +86,22 @@ function xlsxFrame(): Uint8Array {
   return output;
 }
 
+function xlsxFrameWithCorruptRequiredEntryOffset(): Uint8Array {
+  const bytes = xlsxFrame().slice();
+  const view = new DataView(
+    bytes.buffer,
+    bytes.byteOffset,
+    bytes.byteLength,
+  );
+  for (let offset = 0; offset + 46 <= bytes.byteLength; offset += 1) {
+    if (view.getUint32(offset, true) === 0x02014b50) {
+      view.setUint32(offset + 42, bytes.byteLength - 1, true);
+      return bytes;
+    }
+  }
+  throw new Error('test XLSX central directory not found');
+}
+
 test('XLSX validation requires OOXML package entries without worksheet semantics', () => {
   assert.deepEqual(validateZipContainer(xlsxFrame()), { ok: true });
   assert.equal(validateZipContainer(new Uint8Array(10)).ok, false);
@@ -95,6 +111,26 @@ test('XLSX validation requires OOXML package entries without worksheet semantics
   const markerOffset = Buffer.from(generic).lastIndexOf(marker);
   generic.set(Buffer.alloc(marker.length, 0x78), markerOffset);
   assert.equal(validateZipContainer(generic).ok, false);
+});
+
+test('XLSX validation rejects corrupt required-entry local data', () => {
+  const corrupt = xlsxFrameWithCorruptRequiredEntryOffset();
+
+  assert.deepEqual(
+    validateZipContainer(corrupt),
+    { ok: false, reason: 'zip_corrupt' },
+  );
+  assert.throws(
+    () => retryFrozenMaterializationFromBytes({
+      entry: entry(),
+      bytes: corrupt,
+      receipt: offlineReceipt(
+        'https://example.test/frozen.xlsx',
+        corrupt,
+      ),
+    }),
+    /Offline payload validation failed without classifying a source failure: zip_corrupt/u,
+  );
 });
 
 test('retry uses the exact frozen URL and records a successful binary hash', async () => {
