@@ -6,7 +6,11 @@ import os from 'node:os';
 import path from 'node:path';
 
 import type { BaselineConverter } from '../src/core/baselineImport.js';
-import { evaluateMarkItDownBaseline } from '../src/evaluation/markItDownBaselineEvaluation.js';
+import {
+  evaluateMarkItDownBaseline,
+  parseMarkItDownBaselineEvaluation,
+  verifyMarkItDownBaselineEvaluationArtifact,
+} from '../src/evaluation/markItDownBaselineEvaluation.js';
 import { screenDesignWorkbook } from './helpers/buildXlsxWithImages.js';
 
 const sha256 = (bytes: Buffer): string =>
@@ -198,5 +202,105 @@ test('evaluation rejects an empty portable source label', async () => {
       sourceLabel: '   ',
     }),
     /sourceLabel must not be empty/u,
+  );
+});
+
+
+test('portable report can be parsed and re-verifies its paired Markdown artifact', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-markitdown-eval-'));
+  const sourcePath = path.join(root, 'screen-design.xlsx');
+  const outputRoot = path.join(root, 'out');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+
+  const converter: BaselineConverter = {
+    descriptor: { id: 'fixture.converter', version: '1' },
+    async convert() {
+      fs.mkdirSync(outputRoot, { recursive: true });
+      const artifactPath = path.join(outputRoot, 'baseline.md');
+      fs.writeFileSync(artifactPath, '## 画面一覧\n\n## 遷移図\n\n## メモ\n');
+      return {
+        artifacts: [{
+          id: 'document',
+          kind: 'markdown',
+          relativePath: 'baseline.md',
+          contentDigest: sha256(fs.readFileSync(artifactPath)),
+          mediaType: 'text/markdown',
+        }],
+      };
+    },
+  };
+
+  const generated = await evaluateMarkItDownBaseline({
+    sourcePath,
+    outputRoot,
+    converter,
+    sourceLabel: 'issue-0194-screen-design-v1',
+  });
+  const parsed = parseMarkItDownBaselineEvaluation(JSON.stringify(generated));
+  assert.deepEqual(parsed, generated);
+  assert.doesNotThrow(() =>
+    verifyMarkItDownBaselineEvaluationArtifact(parsed, outputRoot));
+
+  fs.appendFileSync(path.join(outputRoot, 'baseline.md'), 'tampered\n');
+  assert.throws(
+    () => verifyMarkItDownBaselineEvaluationArtifact(parsed, outputRoot),
+    /digest mismatch/u,
+  );
+});
+
+test('external report parser rejects schema drift and automatic import authority', () => {
+  const valid = {
+    schema: 'mmi.baseline-converter-evaluation/v1',
+    converter: { id: 'microsoft.markitdown-cli', version: '0.1.8' },
+    source: {
+      label: 'issue-0194-screen-design-v1',
+      digest: 'sha256:' + 'a'.repeat(64),
+      sheetCount: 1,
+      candidateCounts: { image: 0 },
+      images: [],
+    },
+    markdown: {
+      artifact: 'baseline.md',
+      digest: 'sha256:' + 'b'.repeat(64),
+      bytes: 10,
+      sheetEvidence: [{ sheet: 'Sheet1', markdownHeadingPresent: true }],
+      tableSeparatorLineCount: 1,
+      imageReferenceCount: 0,
+    },
+    reconciliation: {
+      candidateAddressability: 'not-provided-by-baseline-artifact',
+      automaticImportDecision: 'none',
+    },
+  };
+
+  assert.doesNotThrow(() =>
+    parseMarkItDownBaselineEvaluation(JSON.stringify(valid)));
+
+  assert.throws(
+    () => parseMarkItDownBaselineEvaluation(JSON.stringify({
+      ...valid,
+      unexpected: true,
+    })),
+    /unexpected field/u,
+  );
+  assert.throws(
+    () => parseMarkItDownBaselineEvaluation(JSON.stringify({
+      ...valid,
+      reconciliation: {
+        ...valid.reconciliation,
+        automaticImportDecision: 'imported',
+      },
+    })),
+    /must not carry an automatic import decision/u,
+  );
+  assert.throws(
+    () => parseMarkItDownBaselineEvaluation(JSON.stringify({
+      ...valid,
+      markdown: {
+        ...valid.markdown,
+        artifact: '..\\outside.md',
+      },
+    })),
+    /must stay within its artifact root/u,
   );
 });
