@@ -18,7 +18,7 @@ const ISSUE_0010_ACCEPTANCE_TRACE = {
 const AUTOCOMPLETE_ISOLATION_BOUNDARY =
   'Known unstable autocomplete remains outside the paste/drop proof boundary and must be triaged independently.';
 const PASTE_DROP_E2E_BOUNDARY =
-  'E2E proves provider registration surface, fallback compatibility, and shared logic reuse; it does not prove final OS-native paste/drop UX dispatch.';
+  'E2E proves provider registration surface, fallback compatibility, shared logic reuse, and the built-in Paste As command dispatch for text/plain TSV; it does not prove real Excel HTML/Windows-helper clipboard formats or visual picker interaction.';
 const HEADLESS_ENTRY_CONDITION_GUIDANCE =
   'If Extension Host cannot start because headless prerequisites such as xvfb-run/display wiring are missing, treat it as a verification entry-condition failure rather than a provider regression.';
 // Filepath-only, no `#sheet|range` -- pasteDrop.ts stopped guessing sheet name
@@ -62,6 +62,9 @@ export async function runIntegrationTests(): Promise<void> {
   const pasteDropBoundary = await runStage('paste-drop-observation', () => observePasteDropBoundary());
   await runStage('paste-drop-boundary', () => verifyPasteDropCoverage(markdownFilePath, pasteDropBoundary));
   await runStage('content-match-standalone-command', () => verifyContentMatchStandaloneCommand(markdownFilePath));
+  await runStage('content-match-paste-as-host-command', () =>
+    verifyContentMatchPasteAsHostCommand(markdownFilePath, pasteDropBoundary.integrationState),
+  );
   const autocompleteResult = await runStage('autocomplete-boundary', () => verifyAutocompleteIntegration(markdownFilePath));
   await runStage('diagnostics', () => verifyDiagnosticsIntegration(workspaceRoot));
   await runStage('hover-and-authoring', () => verifyHoverAndAuthoringEntry(workspaceRoot));
@@ -74,9 +77,9 @@ export async function runIntegrationTests(): Promise<void> {
   });
   logStage('paste-drop-proof-boundary:summary', {
     whatThisE2EProves:
-      'This Extension Host E2E proves provider registration surface, fallback compatibility, and shared logic reuse.',
+      'This Extension Host E2E proves provider registration surface, fallback compatibility, shared logic reuse, and built-in editor.action.pasteAs dispatch into the MMI content-match provider for a text/plain TSV clipboard.',
     whatThisE2EDoesNotProve:
-      'It does not prove headless prerequisites are installed, nor final OS-native paste/drop event dispatch or visual editor UX behavior.',
+      'It does not prove real Excel text/html or Windows-helper clipboard formats, the visual Paste As picker interaction, nor drag-and-drop OS dispatch.',
     autocompleteIsolationBoundary: AUTOCOMPLETE_ISOLATION_BOUNDARY,
     headlessEntryConditionGuidance: HEADLESS_ENTRY_CONDITION_GUIDANCE,
   });
@@ -368,6 +371,7 @@ interface PasteDropObservationState {
 interface PasteDropIntegrationState {
   readonly fallbackCommandIds: readonly string[];
   readonly nativeEditKind: string;
+  readonly contentMatchPasteEditKind: string;
   readonly pasteMimeTypes: readonly string[];
   readonly dropMimeTypes: readonly string[];
   readonly hostSupportsPasteProvider: boolean;
@@ -742,6 +746,80 @@ async function verifyContentMatchStandaloneCommand(markdownFilePath: string): Pr
     `Expected the content-match command to find the unique "Alice,Admin" row in data/roles.csv and insert it after an explicit (auto-selected single-item) pick. documentText=${textAfterContentMatch}`,
   );
 }
+
+async function verifyContentMatchPasteAsHostCommand(
+  markdownFilePath: string,
+  integrationState: PasteDropIntegrationState,
+): Promise<void> {
+  assert.equal(
+    integrationState.contentMatchPasteEditKind,
+    'text.markdownMatrixInjector.embed.contentMatch',
+    'Expected the content-match Paste As kind to remain stable for targeted host dispatch.',
+  );
+  assert.ok(
+    integrationState.pasteMimeTypes.includes('text/plain'),
+    'Paste As content matching must be invokable from a plain TSV clipboard so Extension Host E2E can exercise the real built-in command path.',
+  );
+
+  const filePath = markdownFilePath.replace(/\.md$/u, '-paste-as-content-match.md');
+  const document = await openMarkdownDocument(filePath, '# PasteAsContentMatch\n\n');
+  const editor = await vscode.window.showTextDocument(document);
+  editor.selection = new vscode.Selection(new vscode.Position(1, 0), new vscode.Position(1, 0));
+
+  await vscode.env.clipboard.writeText('Alice\tAdmin');
+  await vscode.commands.executeCommand('editor.action.pasteAs', {
+    preferences: [integrationState.contentMatchPasteEditKind],
+  });
+
+  const pasteAsText = await waitForDocumentText(
+    document,
+    (text) => /!\[\[\.\.\/data\/roles\.csv#Sheet1\|A2:B2\]\]/u.test(text),
+  );
+  assert.match(
+    pasteAsText,
+    /!\[\[\.\.\/data\/roles\.csv#Sheet1\|A2:B2\]\]/u,
+    'Expected editor.action.pasteAs to dispatch through the registered MMI provider and insert the unique content-match reference.',
+  );
+
+  // Registering text/plain as a provider trigger must not turn ordinary
+  // Automatic Ctrl+V semantics into an MMI auto-insert. Reset the document,
+  // paste the same TSV normally, and require the literal clipboard text.
+  const fullRange = new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length));
+  await editor.edit((editBuilder) => editBuilder.replace(fullRange, '# AutomaticPaste\n\n'));
+  editor.selection = new vscode.Selection(new vscode.Position(1, 0), new vscode.Position(1, 0));
+  await vscode.env.clipboard.writeText('Alice\tAdmin');
+  await vscode.commands.executeCommand('editor.action.clipboardPasteAction');
+
+  const automaticText = await waitForDocumentText(document, (text) => text.includes('Alice\tAdmin'));
+  assert.match(automaticText, /Alice\tAdmin/u, 'Normal paste must keep inserting the literal TSV.');
+  assert.doesNotMatch(
+    automaticText,
+    /!\[\[/u,
+    'Normal Automatic paste must not auto-confirm a content-match MMI reference.',
+  );
+
+  logStage('content-match-paste-as-host-command:result', {
+    contentMatchPasteEditKind: integrationState.contentMatchPasteEditKind,
+    pasteMimeTypes: integrationState.pasteMimeTypes,
+    pasteAsText,
+    automaticText,
+    boundary:
+      'Built-in Paste As dispatch is covered with text/plain TSV; real Excel HTML/Windows helper formats and visual picker interaction remain manual evidence.',
+  });
+}
+
+async function waitForDocumentText(
+  document: vscode.TextDocument,
+  predicate: (text: string) => boolean,
+): Promise<string> {
+  for (let attempt = 0; attempt < 30; attempt += 1) {
+    const text = document.getText();
+    if (predicate(text)) return text;
+    await delay(100);
+  }
+  return document.getText();
+}
+
 
 async function verifyNativeProviderAdapterCoverage(
   markdownFilePath: string,
