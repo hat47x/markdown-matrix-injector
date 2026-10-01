@@ -173,6 +173,16 @@ function assertAssessmentSpec(value: unknown): asserts value is MarkItDownAssess
     throw new Error('MarkItDown assessment spec must be an object');
   }
   const spec = value as Record<string, unknown>;
+  assertExactKeys('assessment spec', spec, [
+    'schema',
+    'assessment_id',
+    'handoff_request_id',
+    'source_label',
+    'text_sentinels',
+    'source_facts',
+    'observations',
+    'interpretation_boundary',
+  ]);
   if (spec.schema !== 'mmi.baseline-converter-assessment-spec/v1') {
     throw new Error('unsupported MarkItDown assessment spec schema');
   }
@@ -184,19 +194,38 @@ function assertAssessmentSpec(value: unknown): asserts value is MarkItDownAssess
     || !spec.text_sentinels.every((item) => typeof item === 'string' && item.length > 0)) {
     throw new Error('text_sentinels must be a non-empty string array');
   }
+  if (new Set(spec.text_sentinels).size !== spec.text_sentinels.length) {
+    throw new Error('text_sentinels must not contain duplicates');
+  }
 
   const facts = asRecord(spec.source_facts, 'source_facts');
+  assertExactKeys('source_facts', facts, ['sheet_count', 'image_occurrence_count', 'known_table']);
   positiveInteger(facts.sheet_count, 'source_facts.sheet_count');
   positiveInteger(facts.image_occurrence_count, 'source_facts.image_occurrence_count');
   const knownTable = asRecord(facts.known_table, 'source_facts.known_table');
+  assertExactKeys('source_facts.known_table', knownTable, ['sheet', 'range']);
   nonEmpty(knownTable.sheet, 'source_facts.known_table.sheet');
   nonEmpty(knownTable.range, 'source_facts.known_table.range');
 
+  const expectedObservations = [
+    'sheet_heading_presence',
+    'text_sentinel_presence',
+    'markdown_table_separator_line_count',
+    'markdown_image_reference_count',
+    'candidate_addressability',
+  ];
   if (!Array.isArray(spec.observations)
-    || !spec.observations.every((item) => typeof item === 'string' && item.length > 0)) {
-    throw new Error('observations must be a string array');
+    || spec.observations.length !== expectedObservations.length
+    || !spec.observations.every((item, index) => item === expectedObservations[index])) {
+    throw new Error('observations must match the frozen descriptive observation set');
   }
   const boundary = asRecord(spec.interpretation_boundary, 'interpretation_boundary');
+  assertExactKeys('interpretation_boundary', boundary, [
+    'no_quality_score',
+    'no_pass_fail_threshold',
+    'no_automatic_import_decision',
+    'findings_are_descriptive',
+  ]);
   for (const key of [
     'no_quality_score',
     'no_pass_fail_threshold',
@@ -206,6 +235,21 @@ function assertAssessmentSpec(value: unknown): asserts value is MarkItDownAssess
     if (boundary[key] !== true) {
       throw new Error(`interpretation_boundary.${key} must be true`);
     }
+  }
+}
+
+
+function assertExactKeys(
+  name: string,
+  record: Record<string, unknown>,
+  expected: readonly string[],
+): void {
+  const expectedSet = new Set(expected);
+  for (const key of Object.keys(record)) {
+    if (!expectedSet.has(key)) throw new Error(`${name} has unexpected field: ${key}`);
+  }
+  for (const key of expected) {
+    if (!(key in record)) throw new Error(`${name} is missing field: ${key}`);
   }
 }
 
