@@ -476,11 +476,12 @@ test('extension integration state remains source-visible for native edit kind mi
   assert.match(source, /function createPasteDropIntegrationTestMetadata\(\): PasteDropIntegrationTestMetadata \{/);
   assert.match(source, /fallbackCommandIds: \[\.\.\.FALLBACK_COMMAND_IDS\]/);
   assert.match(source, /nativeEditKind: NATIVE_PASTE_DROP_EDIT_KIND\.value/);
+  assert.match(source, /contentMatchPasteEditKind: CONTENT_MATCH_PASTE_EDIT_KIND\.value/);
   assert.match(source, /pasteMimeTypes: \[\.\.\.PASTE_MIME_TYPES\]/);
   assert.match(source, /dropMimeTypes: \[\.\.\.DROP_MIME_TYPES\]/);
   assert.match(source, /vscode\.commands\.registerCommand\('markdownMatrixInjector\.__test\.getPasteDropIntegrationState', \(\) => \(\{\s*\.\.\.createPasteDropIntegrationTestMetadata\(\),\s*\.\.\.nativePasteDropState,\s*\}\)\)/s);
   assert.match(source, /const NATIVE_PASTE_DROP_EDIT_KIND = vscode\.DocumentDropOrPasteEditKind\.Text\.append\('markdownMatrixInjector', 'embed'\);/);
-  assert.match(source, /const PASTE_MIME_TYPES = \['text\/html', 'files'\] as const;/);
+  assert.match(source, /const PASTE_MIME_TYPES = \['text\/html', 'text\/plain', 'files'\] as const;/);
   assert.match(source, /const DROP_MIME_TYPES = \['text\/html', 'text\/uri-list', 'files'\] as const;/);
   assert.match(source, /hostSupportsPasteProvider: typeof vscode\.languages\.registerDocumentPasteEditProvider === 'function'/);
   assert.match(source, /hostSupportsDropProvider: typeof vscode\.languages\.registerDocumentDropEditProvider === 'function'/);
@@ -567,6 +568,14 @@ test('content-match search integrates into paste via the PasteAs trigger only, n
   // gate can genuinely distinguish Automatic from PasteAs, not just always-on
   // or always-off by construction.
   assert.match(source, /async provideDocumentPasteEdits\(document, _ranges, dataTransfer, context, token\)/);
+  assert.match(
+    source,
+    /const hasDirectEmbedSource = dataTransfer\.get\('text\/html'\) !== undefined \|\| dataTransfer\.get\('files'\) !== undefined;/,
+  );
+  assert.match(
+    source,
+    /const edit = hasDirectEmbedSource\s*\? await getPasteEditFromDataTransfer\(dataTransfer,/s,
+  );
 
   assert.match(
     source,
