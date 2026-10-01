@@ -491,15 +491,11 @@ test('extension integration state remains source-visible for native edit kind mi
   assert.match(source, /providedDropEditKinds: \[NATIVE_PASTE_DROP_EDIT_KIND\],\s*dropMimeTypes: \[\.\.\.DROP_MIME_TYPES\]/s);
 });
 
-// issue-0114 作業D: content-matching command wiring. Real end-to-end
-// verification (does invoking this command in an actual VS Code window find
-// matches and insert correctly) has NOT been done via GUI interaction --
-// `showQuickPick` cannot be driven from an automated e2e test without
-// monkey-patching `vscode.window`, which this codebase's e2e suite does not
-// currently do for any command. This test instead pins the structural
-// contract at the source level, matching the verification depth already used
-// above for the other thin VS Code glue in this file (native provider
-// registration, compatibility fallback commands).
+// issue-0114 作業D: content-matching command wiring. The explicit command
+// path has real Extension Host coverage (2026-09-17), and the built-in Paste
+// As host-dispatch path has an automated E2E stage as of 2026-10-01. This
+// source-level test remains useful as a fast structural guard for the thin VS
+// Code glue even when the Extension Host lane cannot be entered.
 test('standalone content-match command exists and never auto-inserts', async () => {
   const { default: fs } = await import('node:fs/promises');
   const source = await fs.readFile(new URL('../src/extension.ts', import.meta.url), 'utf8');
@@ -588,6 +584,7 @@ test('content-match search integrates into paste via the PasteAs trigger only, n
     /if \(!plainText \|\| !looksLikeTabularClipboard\(plainText\)\) \{\s*return \[\];\s*\}/s,
   );
   assert.match(source, /function looksLikeTabularClipboard\(plainText: string\): boolean \{/);
+  assert.match(source, /summarizeContentMatchContext\(match, 72\)/);
   // Cancellation is honoured mid-search (VS Code can cancel a PasteAs request,
   // e.g. the user pressing Escape or starting another edit).
   assert.match(source, /if \(token\?\.isCancellationRequested\) \{\s*break;\s*\}/s);
