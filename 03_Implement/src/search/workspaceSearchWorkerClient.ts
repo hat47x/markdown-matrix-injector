@@ -64,7 +64,7 @@ export class WorkspaceSearchWorkerClient {
     this.worker.on('message', (message: WorkerMessage) => this.onMessage(message));
     this.worker.on('error', (error) => this.failAll(error));
     this.worker.on('exit', (code) => {
-      if (!this.disposed && code !== 0) this.failAll(new Error(`MMI table-search worker exited with code ${code}.`));
+      if (!this.disposed) this.failAll(new Error(`MMI table-search worker exited unexpectedly with code ${code}.`));
     });
   }
 
