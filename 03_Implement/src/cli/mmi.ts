@@ -13,6 +13,8 @@ import { WorkbookCache } from '../cache/workbookCache.js';
 import { imageCandidates, readExcelImages, relationToTables, type ImageDiagnostic, type TableRect } from '../adapters/excelImageAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import type { Candidate } from '../core/candidate.js';
+import { candidateLedgerView, type CandidateLedgerFilter } from '../core/candidateLedgerView.js';
+import { DEFAULT_LEDGER_FILE, placeOf, readLedger, type LedgerState } from '../core/importLedger.js';
 import { readSourceFileIdentity } from '../core/sourceIdentity.js';
 import { sliceRegion } from '../core/tableGeometry.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
@@ -31,12 +33,16 @@ Commands:
                             method, provenance and fingerprint)
       --values <n>            also print the first n body rows of each region
       --from <doc.md>         write suggested references relative to this document
+      --ledger <file>         import ledger (default: <root>/mmi-ledger.json when ledger filtering is used)
+      --unimported            show only occurrences never imported (duplicates remain separate)
+      --exclude-imported      hide exact imported occurrences; keep changed/duplicate/unimported
                             For .xlsx/.xlsm it also lists embedded pictures (sheet, anchor, format, size,
                             digest, nearest table) and names any that cannot be read.
   extract <source.xlsx>     Write workbook pictures to an assets folder and print Markdown references
       --image <n|all>         the picture number shown by inspect, or all (required)
       --out-dir <dir>         assets folder (default: assets); files are named by content digest
       --from <doc.md>         write references relative to this document
+      --ledger <file>         import ledger (default: <root>/mmi-ledger.json)
   select <workbook>         Print the reference for a table chosen by name, with columns/rows chosen by heading
       --table <name|range>    Excel table, name, title or A1 range (required)
       --sheet <name>  --columns <h1,h2>  --contains <text> [--in <heading>]  --first <n>
@@ -72,6 +78,9 @@ export async function main(argv: string[]): Promise<number> {
       from: { type: 'string' },
       image: { type: 'string' },
       'out-dir': { type: 'string', default: 'assets' },
+      ledger: { type: 'string' },
+      unimported: { type: 'boolean', default: false },
+      'exclude-imported': { type: 'boolean', default: false },
       table: { type: 'string' },
       sheet: { type: 'string' },
       columns: { type: 'string' },
@@ -92,7 +101,19 @@ export async function main(argv: string[]): Promise<number> {
   switch (command) {
     case 'inspect': {
       if (args.length !== 1) return usageError('inspect takes one source file');
-      const result = inspectSource(path.resolve(args[0]), Number(values.values) || 0, values.from);
+      if (values.unimported && values['exclude-imported']) {
+        return usageError('inspect accepts only one of --unimported or --exclude-imported');
+      }
+      const absoluteSource = path.resolve(args[0]);
+      const raw = inspectSource(absoluteSource, Number(values.values) || 0, values.from);
+      const ledgerPath = path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE);
+      const filter: CandidateLedgerFilter = values.unimported
+        ? 'unimported'
+        : values['exclude-imported']
+          ? 'exclude-imported'
+          : 'all';
+      const useLedger = Boolean(values.ledger || values.unimported || values['exclude-imported'] || fs.existsSync(ledgerPath));
+      const result = useLedger ? applyLedgerView(raw, absoluteSource, ledgerPath, filter) : raw;
       emit(values.json ? JSON.stringify(result, null, 2) : formatInspect(result));
       return 0;
     }
@@ -104,6 +125,7 @@ export async function main(argv: string[]): Promise<number> {
         selection: values.image,
         outDir: path.resolve(values['out-dir'] ?? 'assets'),
         fromDocument: values.from,
+        ledgerPath: path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE),
       });
       if (values.json) emit(JSON.stringify(result, null, 2));
       else if (result.extracted.length > 0) emit(result.extracted.map((item) => item.markdown).join('\n\n'));
@@ -176,6 +198,21 @@ export interface InspectResult {
   images: InspectImage[];
   /** Pictures or drawings that could not be read, by name. */
   imageDiagnostics: ImageDiagnostic[];
+  /** Present when the CLI joined Candidates with an import ledger. */
+  ledger?: InspectLedgerView;
+}
+
+export interface InspectLedgerCandidate {
+  kind: Candidate['kind'];
+  sheet?: string;
+  place: string;
+  state: LedgerState;
+}
+
+export interface InspectLedgerView {
+  file: string;
+  filter: CandidateLedgerFilter;
+  candidates: InspectLedgerCandidate[];
 }
 
 export interface InspectImage {
@@ -255,17 +292,69 @@ export function inspectSource(absolutePath: string, sampleRows: number, fromDocu
   };
 }
 
+
+function candidateDisplayKey(candidate: Candidate): string {
+  return `${candidate.kind}\u0000${candidate.locator.sheet ?? ''}\u0000${placeOf(candidate)}`;
+}
+
+function applyLedgerView(
+  result: InspectResult,
+  absoluteSource: string,
+  ledgerPath: string,
+  filter: CandidateLedgerFilter,
+): InspectResult {
+  const ledger = readLedger(ledgerPath);
+  const view = candidateLedgerView(result.candidates, ledger, ledgerPath, absoluteSource, filter);
+  const allowed = new Set(view.map(({ candidate }) => candidateDisplayKey(candidate)));
+  const states = new Map(view.map(({ candidate, ledgerState }) => [candidateDisplayKey(candidate), ledgerState] as const));
+
+  return {
+    ...result,
+    candidates: view.map(({ candidate }) => candidate),
+    images: result.images.filter((image) => {
+      const place = image.range ?? `name:${image.name ?? ''}`;
+      return allowed.has(`image\u0000${image.sheet}\u0000${place}`);
+    }),
+    sheets: result.sheets.map((sheet) => ({
+      ...sheet,
+      regions: sheet.regions.filter((region) =>
+        allowed.has(`table-range\u0000${sheet.name}\u0000${region.a1}`)),
+    })),
+    ledger: {
+      file: path.relative(process.cwd(), ledgerPath).split(path.sep).join('/') || path.basename(ledgerPath),
+      filter,
+      candidates: view.map(({ candidate }) => ({
+        kind: candidate.kind,
+        ...(candidate.locator.sheet ? { sheet: candidate.locator.sheet } : {}),
+        place: placeOf(candidate),
+        state: states.get(candidateDisplayKey(candidate))!,
+      })),
+    },
+  };
+}
+
 function a1Of(range: { startRow: number; startCol: number; endRow: number; endCol: number }): string {
   return XLSX.utils.encode_range({ s: { r: range.startRow, c: range.startCol }, e: { r: range.endRow, c: range.endCol } });
 }
 
 function formatInspect(result: InspectResult): string {
+  const ledgerStates = new Map(
+    (result.ledger?.candidates ?? []).map((item) => [
+      `${item.kind}\u0000${item.sheet ?? ''}\u0000${item.place}`,
+      item.state,
+    ] as const),
+  );
+  const ledgerSuffix = (kind: Candidate['kind'], sheet: string, place: string): string => {
+    const state = ledgerStates.get(`${kind}\u0000${sheet}\u0000${place}`);
+    return state ? `  ledger: ${state}` : '';
+  };
   const lines = [`source: ${result.source}`];
+  if (result.ledger) lines.push(`ledger: ${result.ledger.file} (${result.ledger.filter})`);
   for (const sheet of result.sheets) {
     lines.push('', `sheet: ${sheet.name}${sheet.usedRange ? ` (used ${sheet.usedRange})` : ''}`);
     if (sheet.regions.length === 0) lines.push('  (no table regions)');
     for (const region of sheet.regions) {
-      lines.push(`  ${region.a1}  ${region.rows} rows x ${region.columns} cols  header: ${region.headerConfidence}${region.title ? `  title: ${region.title}` : ''}`);
+      lines.push(`  ${region.a1}  ${region.rows} rows x ${region.columns} cols  header: ${region.headerConfidence}${region.title ? `  title: ${region.title}` : ''}${ledgerSuffix('table-range', sheet.name, region.a1)}`);
       if (region.headers) lines.push(`    columns: ${region.headers.map((h, i) => `${XLSX.utils.encode_col(i)}=${h}`).join(', ')}`);
       if (region.notes.length) lines.push(`    notes: ${region.notes.join(', ')}`);
       lines.push(`    ${region.reference}`);
@@ -273,7 +362,8 @@ function formatInspect(result: InspectResult): string {
     }
     for (const image of result.images.filter((item) => item.sheet === sheet.name)) {
       const near = image.nearbyTable ? `  near table ${image.nearbyTable.range} (${image.nearbyTable.relation}, gap ${image.nearbyTable.gap})` : '';
-      lines.push(`  image #${image.ordinal}  ${image.range ?? '(no cell anchor)'}  ${image.format}  ${image.bytes} bytes  ${image.digest.slice(0, 19)}…${image.name ? `  "${image.name}"` : ''}${near}${image.extractable ? '' : '  (not extractable)'}`);
+      const place = image.range ?? `name:${image.name ?? ''}`;
+      lines.push(`  image #${image.ordinal}  ${image.range ?? '(no cell anchor)'}  ${image.format}  ${image.bytes} bytes  ${image.digest.slice(0, 19)}…${image.name ? `  "${image.name}"` : ''}${near}${image.extractable ? '' : '  (not extractable)'}${ledgerSuffix('image', sheet.name, place)}`);
     }
   }
   if (result.imageDiagnostics.length > 0) lines.push('', 'image problems:', ...formatImageDiagnostics(result.imageDiagnostics).map((line) => `  ${line}`));

@@ -132,7 +132,7 @@ test('CLI exit codes and text output: usage errors are 2, failures 1; a workbook
   };
   assert.equal((await quiet(['extract', book])).code, 2);
   const outDir = path.join(root, 'assets');
-  const ok = await quiet(['extract', book, '--image', '1', '--out-dir', outDir, '--from', doc]);
+  const ok = await quiet(['extract', book, '--image', '1', '--out-dir', outDir, '--from', doc, '--root', root]);
   assert.equal(ok.code, 0);
   assert.match(ok.output, /^!\[ログイン画面のダンプ\]\(\.\.\/assets\/[0-9a-f]{12}\.png\)\n<!-- mmi:extracted /u);
   assert.equal((await quiet(['extract', book, '--image', '99', '--out-dir', outDir])).code, 1);
@@ -141,4 +141,104 @@ test('CLI exit codes and text output: usage errors are 2, failures 1; a workbook
   const csv = path.join(root, 'r.csv');
   fs.writeFileSync(csv, 'a,b\n1,2\n');
   assert.doesNotMatch((await quiet(['inspect', csv])).output, /image/u);
+});
+
+
+test('extract records the project ledger and inspect keeps occurrence/content identity separate', async () => {
+  const { root, book, doc } = workspace();
+  fs.mkdirSync(path.dirname(doc), { recursive: true });
+  const outDir = path.join(root, 'docs', 'assets');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+
+  const quiet = async (argv: string[]) => {
+    const written: string[] = [];
+    const out = process.stdout.write.bind(process.stdout);
+    const err = console.error;
+    process.stdout.write = ((chunk: string) => (written.push(String(chunk)), true)) as typeof process.stdout.write;
+    console.error = () => undefined;
+    try {
+      return { code: await main(argv), output: written.join('') };
+    } finally {
+      process.stdout.write = out;
+      console.error = err;
+    }
+  };
+
+  const extracted = await quiet([
+    'extract', book,
+    '--image', '1',
+    '--out-dir', outDir,
+    '--from', doc,
+    '--root', root,
+    '--json',
+  ]);
+  assert.equal(extracted.code, 0);
+  assert.equal(fs.existsSync(ledgerPath), true);
+
+  const all = JSON.parse((await quiet([
+    'inspect', book,
+    '--from', doc,
+    '--root', root,
+    '--json',
+  ])).output);
+  assert.equal(all.ledger.file, path.relative(process.cwd(), ledgerPath).split(path.sep).join('/'));
+  assert.equal(all.ledger.filter, 'all');
+  const allImageStates = all.ledger.candidates
+    .filter((item: any) => item.kind === 'image')
+    .map((item: any) => [item.sheet, item.place, item.state]);
+  assert.deepEqual(allImageStates, [
+    ['画面一覧', 'D1:F4', 'imported'],
+    ['画面一覧', 'A6', 'unimported'],
+    ['画面一覧', 'I9:K11', 'duplicate'],
+    ['遷移図', 'name:遷移', 'unimported'],
+  ]);
+
+  const unimported = JSON.parse((await quiet([
+    'inspect', book,
+    '--from', doc,
+    '--root', root,
+    '--unimported',
+    '--json',
+  ])).output);
+  assert.equal(
+    unimported.images.some((image: any) => image.sheet === '画面一覧' && image.range === 'D1:F4'),
+    false,
+  );
+  assert.equal(
+    unimported.ledger.candidates.some(
+      (item: any) => item.kind === 'image' && item.place === 'I9:K11' && item.state === 'duplicate',
+    ),
+    true,
+  );
+
+  const replacement = pngOf(8, 6, [20, 180, 80]);
+  fs.writeFileSync(book, screenDesignWorkbook({ login: replacement }).bytes);
+
+  const attention = JSON.parse((await quiet([
+    'inspect', book,
+    '--from', doc,
+    '--root', root,
+    '--exclude-imported',
+    '--json',
+  ])).output);
+  assert.equal(
+    attention.ledger.candidates.some(
+      (item: any) => item.kind === 'image' && item.place === 'D1:F4' && item.state === 'changed',
+    ),
+    true,
+  );
+
+  const neverImported = JSON.parse((await quiet([
+    'inspect', book,
+    '--from', doc,
+    '--root', root,
+    '--unimported',
+    '--json',
+  ])).output);
+  assert.equal(
+    neverImported.ledger.candidates.some(
+      (item: any) => item.kind === 'image' && item.place === 'D1:F4',
+    ),
+    false,
+  );
 });
