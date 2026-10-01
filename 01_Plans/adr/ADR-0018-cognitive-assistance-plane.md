@@ -26,7 +26,7 @@ Cognitive Assistance Planeは候補、判断、説明、提案を返せるが、
 1. **Authority — deterministic core**: 事実、規約、パス解決、構文、検証、描画。
 2. **Perception — local sparse cognition**: Fly-inspired matcher等による類似候補、novelty、逸脱、候補順位。
 3. **Judgment — typed bounded decision**: Jev等による閉集合分類、レビュー経路、意図カテゴリ等の原子的判断。
-4. **Reasoning / Generation — generative model**: LLMによる説明、自然言語からの候補生成、未定義パターンの草案。
+4. **Reasoning / Generation — local generative model or external handoff**: ローカルLLMによる限定的な説明・候補生成、または外部LLMへ渡すための依頼文・判断材料の生成。外部LLMの実行自体はMMIの責務にしない。
 
 これは4種類の実装を必須とするものではなく、providerが担う責務と出力の性質を明示する境界である。
 
@@ -56,9 +56,13 @@ worksheet format prototypeは、将来的に**Format Profile**として明示的
 
 Jev / LLM等がNotation候補を直接または間接に生成した場合、適用前に既存parser、schema / known parameter catalog、resolver、containment check、source existence check、preview / deterministic evaluationを必ず通す。認知出力をAuthority Planeの検証代替にしない。
 
-### D8. privacy / networkは明示opt-inとする
+### D8. MMI自身は原則として課金型生成AIサービスを呼び出さない
 
-ローカルで完結できる認知はローカルを優先する。外部providerへの送信は明示opt-inとし、MMIが自動的に有料クラウドや別providerへfallbackしてはならない。既定ではfeature・候補ID・必要なメタデータを中心にし、セル値本文や機密情報を暗黙送信しない。
+ローカルで完結できる認知はローカルを優先する。MMIのCore、CLI、VS Code参照実装は、原則としてAPI課金を要する生成AIサービスを直接呼び出さない。APIキー管理、課金先の選択、自動クラウドfallbackを標準機能に含めない。
+
+外部LLMを使う場合は、利用者が選んだLLM・エージェントがMMIを呼び出すか、MMIが依頼文と判断材料をローカルに生成して利用者側へ渡す。MMI自身が外部providerへ送信しない。
+
+将来、特定用途でMMI自身から外部生成AIを呼ぶ必要が生じた場合は、この原則の例外として別ADRで費用、privacy、機密情報、再現性、fallback、無効時の挙動を明示する。少なくとも暗黙の送信、自動有料fallback、必須依存にはしない。
 
 ### D9. MMI Notation v1のconformanceを変更しない
 
@@ -73,6 +77,16 @@ Cognitive Assistance Planeは参照実装側の補助能力であり、MMI Notat
 5. provenance / review UIとの統合
 
 Jev接続を先に行わず、provider交換・停止・不在でもAuthority Planeが不変である契約を先に固定する。
+
+### D11. MMIとLLM・認知技術の関係を3経路に限定する
+
+MMIのAI利用は、原則として次の3経路に整理する。
+
+1. **外部LLMからMMIを利用する:** ChatGPT、Claude、Codex等、利用者が選んだ外部LLM / AIエージェントがCLI、skill、将来のMCP等を通じてMMIを呼ぶ。MMIはinspect / check / render / extract / manifest等の決定論的・機械可読な能力を提供する。
+2. **MMI内部では軽量・ローカルな認知を使う:** Fly-inspired matcher、Jev類似のbounded model、ローカルLLM等を、Excel解析、構造候補、類似検索、閉集合判断に利用できる。これらはCognitive Assistance Planeに置き、外部API課金を前提にしない。
+3. **外部LLMへ作業提案と判断材料を渡す:** MMIは、曖昧なCandidate、未解決診断、source locator、provenance、限定した抜粋等から、外部LLMへ渡せる作業依頼・prompt・evidence packageを生成できる。送信とLLM選択は利用者側が行う。戻された提案はAuthority Planeで再検証する。
+
+この3経路により、MMIは生成AIサービスそのものにはならず、生成AIから安全に使える道具、ローカルで動く認知補助、外部AIへ良質な問題設定を渡す境界として価値を持つ。
 
 ## 受け入れるトレードオフ
 
