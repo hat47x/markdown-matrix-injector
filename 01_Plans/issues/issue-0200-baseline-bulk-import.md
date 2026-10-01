@@ -24,11 +24,11 @@ issue-0195で確定した`mmi.ledger/v1`を再利用する。一括変換専用�
 
 - [x] 初回一括変換の処理境界を設計する。少なくとも `source → baseline conversion → Candidate reconciliation → Markdown/assets → import ledger` を分離する。
 - [ ] MarkItDown等、Office文書からMarkdownを生成できる既存Converterを1つ以上評価する。表、本文、画像、シート境界、失われる情報をfixtureで記録する。
-- [ ] Converter由来の内容とMMIがsourceから直接観測したCandidateを対応付け、対応できないものを黙って「取込済み」にしない。
-- [ ] 一括変換で作った画像・表もissue-0195の台帳へ登録でき、後の `inspect --unimported` と整合する。
-- [ ] Converterを利用できない環境でも個別のinspect / extract経路は動作する。
+- [x] Converter由来の内容とMMIがsourceから直接観測したCandidateを対応付け、対応できないものを黙って「取込済み」にしない。
+- [x] 一括変換で作った画像・表もissue-0195の台帳へ登録でき、後の `inspect --unimported` と整合する。
+- [x] Converterを利用できない環境でも個別のinspect / extract経路は動作する。
 - [ ] 外部Converter固有の記法を最終成果物へ必須にしない。materialize後のMarkdown/assetsは通常のツールで読める。
-- [ ] 変換結果にはsource、Converter名・版、MMI版、変換条件をprovenanceとして残す。
+- [x] 変換結果にはsource、Converter名・版、MMI版、変換条件をprovenanceとして残す。
 
 ## Implementation checkpoint（2026-10-02）
 
@@ -43,7 +43,7 @@ issue-0195で確定した`mmi.ledger/v1`を再利用する。一括変換専用�
 - ledger provenanceにはsource/sourceDigestに加えて、Converter ID/版、MMI版、artifact ID/digest、conversion options、reconciliation Evidenceを残す。呼出側optionsより予約provenanceを優先し、偽装上書きを許さない。
 - artifact pathは実行OSに依存せずPOSIX/Windows双方のabsolute path・traversalを拒否する。
 
-`test/baselineImport.test.ts` では、画像だけmatched・表はunmatchedのrun、全件ambiguous、decision欠落、artifact digest不一致、POSIX/Windows双方のoutputRoot escape、stale Candidate、予約provenance上書き、malformed converter outputを固定した。実Converterをまだ呼ばない段階でも「対応できないものを黙って取込済みにしない」契約を検証できる。
+`test/baselineImport.test.ts` では、画像だけmatched・表はunmatchedのrun、表と画像の両方をmatchedしてstrict `unimported`が空になるrun、全件ambiguous、decision欠落、artifact digest不一致、POSIX/Windows双方のoutputRoot escape、stale Candidate、予約provenance上書き、malformed converter outputを固定した。実Converterをまだ呼ばない段階でも「対応できないものを黙って取込済みにしない」契約を検証できる。
 
 ### MarkItDown preliminary evaluation
 
@@ -54,6 +54,21 @@ issue-0195で確定した`mmi.ledger/v1`を再利用する。一括変換専用�
 - OCR extensionのXLSX説明: https://github.com/microsoft/markitdown/blob/main/packages/markitdown-ocr/README.md
 
 現行XLSX converterはpandas/openpyxlを使い、各sheetをMarkdown tableへ変換する。画像処理hookはあるがcore converterでは既定で有効化されず、画像を扱うextensionでもsheet tableの後に画像群を置く方式で、元anchorとの空間関係をMarkdown出力へ保持するものではない。したがって**baseline Markdown生成器としては候補になるが、MMIの画像Candidate/anchor/provenanceを置き換えられない**。次段ではissue-0194 fixtureを0.1.8へ通し、表・画像・sheet境界・情報落ちを実測する。
+
+### MarkItDown CLI adapter / evaluation runner
+
+`src/converters/markItDownCliConverter.ts` はMarkItDownを**optional local executable**として扱う。MMIのnpm dependencyには追加せず、`markitdown --version`で実際の版を取得してから、shellを介さない`execFile`で `markitdown <source> -o <output>` を呼ぶ。plugins、Document Intelligence、Content Understandingは自動で有効化しない。`keepDataUris`だけを明示opt-in optionとして許可する。失敗runでは既存outputを消してから実行するため、古いMarkdownを成功結果として再利用しない。
+
+`src/evaluation/markItDownBaselineEvaluation.ts` と `scripts/baseline-converter-eval/markitdown.ts` はissue-0194のコード生成fixtureを使い、MMIが観測するsheet/Candidate/画像と、MarkItDownが生成したMarkdownのsheet heading・table separator・image referenceを同じJSON reportへ記録する。report自身はCandidate reconciliationを行わず、`automaticImportDecision: none`を固定する。converter artifactは評価時にもcontainmentと実bytes digestを再検証する。
+
+実行経路:
+
+```sh
+cd 03_Implement
+node --import tsx scripts/baseline-converter-eval/markitdown.ts
+```
+
+現在のこの作業実行環境ではMarkItDown package/CLIが未導入で、`importlib.metadata`上も`PackageNotFoundError`だった。このため**実fixture変換結果はまだ記録しない**。runnerは未導入時に`status: unavailable`を返し、既存の`mmi inspect` / `mmi extract`とは依存関係を持たない。受入条件「既存Converterをfixtureで評価」は、0.1.8実行結果を取得するまで未完了のままとする。
 
 ## Validation plan
 

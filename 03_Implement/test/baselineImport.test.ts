@@ -11,6 +11,7 @@ import {
   type CandidateReconciler,
 } from '../src/core/baselineImport.js';
 import { fingerprintOf, type Candidate } from '../src/core/candidate.js';
+import { candidateLedgerView } from '../src/core/candidateLedgerView.js';
 import { classify, readLedger } from '../src/core/importLedger.js';
 import { readSourceFileIdentity } from '../src/core/sourceIdentity.js';
 
@@ -474,4 +475,77 @@ test('malformed converter output fails before reconciliation and ledger mutation
 
   assert.equal(reconciled, false);
   assert.equal(fs.existsSync(ledgerPath), false);
+});
+
+
+test('bulk conversion can register both table and image Candidates into the shared ledger', async () => {
+  const { sourcePath, outputRoot, ledgerPath, candidates } = workspace();
+  const tableOutput = path.join(outputRoot, 'table.md');
+  const imageOutput = path.join(outputRoot, 'screen.png');
+
+  const converter: BaselineConverter = {
+    descriptor: { id: 'fixture.multi-artifact', version: '1' },
+    async convert() {
+      fs.mkdirSync(outputRoot, { recursive: true });
+      fs.writeFileSync(tableOutput, '| A |\n|---|\n| 1 |\n');
+      fs.writeFileSync(imageOutput, 'image-bytes');
+      return {
+        artifacts: [
+          {
+            id: 'table',
+            kind: 'markdown',
+            relativePath: 'table.md',
+            contentDigest: sha256(fs.readFileSync(tableOutput)),
+          },
+          {
+            id: 'image',
+            kind: 'asset',
+            relativePath: 'screen.png',
+            contentDigest: sha256(fs.readFileSync(imageOutput)),
+          },
+        ],
+      };
+    },
+  };
+
+  await runBaselineImport({
+    sourcePath,
+    outputRoot,
+    ledgerPath,
+    candidates,
+    converter,
+    reconciler: {
+      async reconcile() {
+        return [
+          {
+            candidateIndex: 0,
+            status: 'matched',
+            artifactId: 'table',
+            evidence: [{ code: 'exact-table-fixture-map' }],
+          },
+          {
+            candidateIndex: 1,
+            status: 'matched',
+            artifactId: 'image',
+            evidence: [{ code: 'same-image-bytes' }],
+          },
+        ];
+      },
+    },
+    mmiVersion: '0.1.0-test',
+  });
+
+  const ledger = readLedger(ledgerPath);
+  assert.equal(classify(ledger, ledgerPath, sourcePath, candidates[0]), 'imported');
+  assert.equal(classify(ledger, ledgerPath, sourcePath, candidates[1]), 'imported');
+  assert.deepEqual(
+    candidateLedgerView(
+      candidates,
+      ledger,
+      ledgerPath,
+      sourcePath,
+      'unimported',
+    ),
+    [],
+  );
 });
