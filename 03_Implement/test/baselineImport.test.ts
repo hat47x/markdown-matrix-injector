@@ -133,6 +133,7 @@ test('only explicitly reconciled converter artifacts become imported', async () 
     candidates,
     converter,
     reconciler,
+    mmiVersion: '0.1.0-test',
     conversionOptions: { mode: 'fixture' },
   });
 
@@ -141,6 +142,11 @@ test('only explicitly reconciled converter artifacts become imported', async () 
   assert.equal(result.ledgerEntries[0].conversion.converterId, 'fixture.converter');
   assert.equal(result.ledgerEntries[0].conversion.converterVersion, '1.2.3');
   assert.equal(result.ledgerEntries[0].conversion.artifactId, 'screen');
+  assert.equal(result.ledgerEntries[0].conversion.mmiVersion, '0.1.0-test');
+  assert.match(
+    String(result.ledgerEntries[0].conversion.reconciliationEvidence),
+    /same-image-bytes/u,
+  );
 
   const ledger = readLedger(ledgerPath);
   assert.equal(classify(ledger, ledgerPath, sourcePath, candidates[0]), 'unimported');
@@ -181,6 +187,7 @@ test('ambiguous converter output never becomes imported', async () => {
     candidates,
     converter,
     reconciler,
+    mmiVersion: '0.1.0-test',
   });
 
   assert.equal(result.ledgerEntries.length, 0);
@@ -222,6 +229,7 @@ test('missing Candidate decisions fail closed before ledger write', async () => 
       candidates,
       converter,
       reconciler,
+    mmiVersion: '0.1.0-test',
     }),
     /must decide every Candidate exactly once/u,
   );
@@ -258,6 +266,7 @@ test('artifact digest mismatch and path escape are rejected before reconciliatio
       candidates,
       converter: badDigest,
       reconciler: never,
+      mmiVersion: '0.1.0-test',
     }),
     /contentDigest does not match output bytes/u,
   );
@@ -324,9 +333,144 @@ test('stale Candidate source digests are rejected before converter execution', a
       candidates: [stale],
       converter,
       reconciler: { async reconcile() { return []; } },
+      mmiVersion: '0.1.0-test',
     }),
     /sourceDigest does not match current source bytes/u,
   );
   assert.equal(called, false);
+  assert.equal(fs.existsSync(ledgerPath), false);
+});
+
+
+test('caller conversion options cannot spoof reserved provenance fields', async () => {
+  const { sourcePath, outputRoot, ledgerPath, candidates } = workspace();
+  const output = path.join(outputRoot, 'screen.png');
+  const converter: BaselineConverter = {
+    descriptor: { id: 'trusted.converter', version: '2.0' },
+    async convert() {
+      fs.writeFileSync(output, 'image');
+      return {
+        artifacts: [{
+          id: 'screen',
+          kind: 'asset',
+          relativePath: 'screen.png',
+          contentDigest: sha256(fs.readFileSync(output)),
+        }],
+      };
+    },
+  };
+
+  const result = await runBaselineImport({
+    sourcePath,
+    outputRoot,
+    ledgerPath,
+    candidates: [candidates[1]],
+    converter,
+    reconciler: {
+      async reconcile() {
+        return [{
+          candidateIndex: 0,
+          status: 'matched',
+          artifactId: 'screen',
+          evidence: [{ code: 'same-image-bytes' }],
+        }];
+      },
+    },
+    mmiVersion: '0.1.0-test',
+    conversionOptions: {
+      converterId: 'spoofed',
+      converterVersion: 'spoofed',
+      mmiVersion: 'spoofed',
+      artifactId: 'spoofed',
+      artifactDigest: 'spoofed',
+      reconciliationEvidence: 'spoofed',
+      userOption: 'kept',
+    },
+  });
+
+  assert.deepEqual(
+    {
+      converterId: result.ledgerEntries[0].conversion.converterId,
+      converterVersion: result.ledgerEntries[0].conversion.converterVersion,
+      mmiVersion: result.ledgerEntries[0].conversion.mmiVersion,
+      artifactId: result.ledgerEntries[0].conversion.artifactId,
+      userOption: result.ledgerEntries[0].conversion.userOption,
+    },
+    {
+      converterId: 'trusted.converter',
+      converterVersion: '2.0',
+      mmiVersion: '0.1.0-test',
+      artifactId: 'screen',
+      userOption: 'kept',
+    },
+  );
+  assert.notEqual(result.ledgerEntries[0].conversion.artifactDigest, 'spoofed');
+  assert.notEqual(result.ledgerEntries[0].conversion.reconciliationEvidence, 'spoofed');
+});
+
+test('portable artifact paths reject Windows absolute and backslash traversal syntax', async () => {
+  const { sourcePath, outputRoot, ledgerPath, candidates } = workspace();
+  const outside = path.join(path.dirname(outputRoot), 'outside.md');
+  fs.writeFileSync(outside, '# outside\n');
+
+  const run = async (relativePath: string) => {
+    const converter: BaselineConverter = {
+      descriptor: { id: 'fixture.converter', version: '1' },
+      async convert() {
+        return {
+          artifacts: [{
+            id: 'document',
+            kind: 'markdown',
+            relativePath,
+            contentDigest: sha256(fs.readFileSync(outside)),
+          }],
+        };
+      },
+    };
+    return runBaselineImport({
+      sourcePath,
+      outputRoot,
+      ledgerPath,
+      candidates,
+      converter,
+      reconciler: { async reconcile() { throw new Error('must not run'); } },
+      mmiVersion: '0.1.0-test',
+    });
+  };
+
+  await assert.rejects(run('C:\\temp\\outside.md'), /must be relative/u);
+  await assert.rejects(run('..\\outside.md'), /escapes outputRoot/u);
+  assert.equal(fs.existsSync(ledgerPath), false);
+});
+
+test('malformed converter output fails before reconciliation and ledger mutation', async () => {
+  const { sourcePath, outputRoot, ledgerPath, candidates } = workspace();
+  let reconciled = false;
+  const converter = {
+    descriptor: { id: 'fixture.converter', version: '1' },
+    async convert() {
+      return {} as any;
+    },
+  } satisfies BaselineConverter;
+
+  await assert.rejects(
+    runBaselineImport({
+      sourcePath,
+      outputRoot,
+      ledgerPath,
+      candidates,
+      converter,
+      reconciler: {
+        async reconcile() {
+          reconciled = true;
+          return [];
+        },
+      },
+      mmiVersion: '0.1.0-test',
+    }),
+    /artifacts array/u,
+  );
+
+  assert.equal(reconciled, false);
   assert.equal(fs.existsSync(ledgerPath), false);
 });
