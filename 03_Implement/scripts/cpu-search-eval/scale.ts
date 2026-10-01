@@ -318,7 +318,7 @@ function worker(books: number, regions: number, queryCount: number, iterations: 
       productSingleMethod: productIndexes,
       indexAllMethodsHeapBytes: heapIndexAll,
       perMethod,
-      structuralAllMethods: index.memoryEstimate(),
+      structural: index.memoryEstimate(),
       peakRssKiB: process.resourceUsage().maxRSS,
     },
     methods: results,
