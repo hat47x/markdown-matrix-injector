@@ -82,7 +82,7 @@ const SUPPORTED_COMPLETION_TRIGGER_CHARACTERS = ['[', '#', '|', '?', '&', '=', '
 const WORKBOOK_FILE_GLOB = '**/*.{xlsx,xls,csv,xml}';
 const NATIVE_PASTE_DROP_EDIT_KIND = vscode.DocumentDropOrPasteEditKind.Text.append('markdownMatrixInjector', 'embed');
 const CONTENT_MATCH_PASTE_EDIT_KIND = NATIVE_PASTE_DROP_EDIT_KIND.append('contentMatch');
-const PASTE_MIME_TYPES = ['text/html', 'files'] as const;
+const PASTE_MIME_TYPES = ['text/html', 'text/plain', 'files'] as const;
 const DROP_MIME_TYPES = ['text/html', 'text/uri-list', 'files'] as const;
 const FALLBACK_COMMAND_IDS = [
   'markdownMatrixInjector.insertEmbedFromPaste',
@@ -109,6 +109,7 @@ const DEV_EXPORT_QUERY_EVIDENCE_COMMAND_ID = 'markdownMatrixInjector.__dev.expor
 interface PasteDropIntegrationTestMetadata {
   fallbackCommandIds: string[];
   nativeEditKind: string;
+  contentMatchPasteEditKind: string;
   pasteMimeTypes: string[];
   dropMimeTypes: string[];
 }
@@ -147,6 +148,7 @@ function createPasteDropIntegrationTestMetadata(): PasteDropIntegrationTestMetad
   return {
     fallbackCommandIds: [...FALLBACK_COMMAND_IDS],
     nativeEditKind: NATIVE_PASTE_DROP_EDIT_KIND.value,
+    contentMatchPasteEditKind: CONTENT_MATCH_PASTE_EDIT_KIND.value,
     pasteMimeTypes: [...PASTE_MIME_TYPES],
     dropMimeTypes: [...DROP_MIME_TYPES],
   };
@@ -753,10 +755,18 @@ function registerNativePasteProvider(context: vscode.ExtensionContext, nativePas
       MARKDOWN_SELECTOR,
       {
         async provideDocumentPasteEdits(document, _ranges, dataTransfer, context, token) {
-          const edit = await getPasteEditFromDataTransfer(dataTransfer, {
-            createEdit: (insertText) =>
-              new vscode.DocumentPasteEdit(insertText, NATIVE_PASTE_DROP_COMMAND_NAME, NATIVE_PASTE_DROP_EDIT_KIND),
-          });
+          // Adding text/plain to pasteMimeTypes lets the explicit Paste As
+          // command exercise content matching from TSV even when the host
+          // clipboard API cannot synthesize Excel's text/html. Preserve normal
+          // Ctrl+V semantics: a plain-text-only Automatic paste must not gain a
+          // direct MMI embed edit merely because the provider is now invoked.
+          const hasDirectEmbedSource = dataTransfer.get('text/html') !== undefined || dataTransfer.get('files') !== undefined;
+          const edit = hasDirectEmbedSource
+            ? await getPasteEditFromDataTransfer(dataTransfer, {
+                createEdit: (insertText) =>
+                  new vscode.DocumentPasteEdit(insertText, NATIVE_PASTE_DROP_COMMAND_NAME, NATIVE_PASTE_DROP_EDIT_KIND),
+              })
+            : undefined;
           const edits = edit ? [edit] : [];
 
           // Content-match search only runs for the explicit `Paste As...` /
