@@ -54,16 +54,23 @@ function git(...args: string[]): string {
   return execFileSync('git', args, { cwd: repoRoot, encoding: 'utf8' }).trim();
 }
 
-function argValue(argv: readonly string[], name: string): string | undefined {
-  const at = argv.indexOf(name);
-  return at >= 0 ? argv[at + 1] : undefined;
+function parseOutput(argv: readonly string[]): string {
+  let output = defaultOutput;
+  let seenOut = false;
+  for (let i = 0; i < argv.length; i += 1) {
+    if (argv[i] !== '--out') throw new Error(`Unknown argument: ${argv[i]}`);
+    if (seenOut) throw new Error('--out may be specified only once.');
+    const value = argv[i + 1];
+    if (!value || value.startsWith('--')) throw new Error('--out requires a file path.');
+    output = value;
+    seenOut = true;
+    i += 1;
+  }
+  return path.resolve(output);
 }
 
 export function runFirstTest4(argv = process.argv.slice(2)): Record<string, unknown> {
-  const unknown = argv.filter((arg, i) => !(arg === '--out' || (i > 0 && argv[i - 1] === '--out')));
-  if (unknown.length > 0) throw new Error(`Unknown argument(s): ${unknown.join(', ')}`);
-
-  const output = path.resolve(argValue(argv, '--out') ?? defaultOutput);
+  const output = parseOutput(argv);
   if (fs.existsSync(output)) {
     throw new Error(`First-run evidence already exists: ${output}. Refusing to overwrite it.`);
   }
@@ -78,7 +85,16 @@ export function runFirstTest4(argv = process.argv.slice(2)): Record<string, unkn
   }
   const categoryCounts: Record<string, number> = {};
   for (const query of queries) categoryCounts[query.category] = (categoryCounts[query.category] ?? 0) + 1;
-  if (JSON.stringify(categoryCounts) !== JSON.stringify(TEST4_CATEGORY_COUNTS)) {
+  const actualCategories = Object.keys(categoryCounts).sort();
+  const expectedCategories = Object.keys(TEST4_CATEGORY_COUNTS).sort();
+  const countsMatch =
+    actualCategories.length === expectedCategories.length &&
+    actualCategories.every(
+      (category, i) =>
+        category === expectedCategories[i] &&
+        categoryCounts[category] === TEST4_CATEGORY_COUNTS[category],
+    );
+  if (!countsMatch) {
     throw new Error(`Frozen test4 category counts changed: ${JSON.stringify(categoryCounts)}.`);
   }
   if (dictionary.version !== TEST4_DICTIONARY_VERSION) {
