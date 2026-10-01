@@ -14,7 +14,13 @@ import { imageCandidates, readExcelImages, relationToTables, type ImageDiagnosti
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import type { Candidate } from '../core/candidate.js';
 import { candidateLedgerView, type CandidateLedgerFilter } from '../core/candidateLedgerView.js';
-import { DEFAULT_LEDGER_FILE, placeOf, readLedger, type LedgerState } from '../core/importLedger.js';
+import {
+  DEFAULT_LEDGER_FILE,
+  placeOf,
+  readLedger,
+  type LedgerState,
+  type LineageCandidate,
+} from '../core/importLedger.js';
 import { readSourceFileIdentity } from '../core/sourceIdentity.js';
 import { sliceRegion } from '../core/tableGeometry.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
@@ -208,6 +214,8 @@ export interface InspectLedgerCandidate {
   place: string;
   state: LedgerState;
   staleClaims?: string[];
+  /** Evidence-only predecessor proposals; never an automatic identity/review transfer. */
+  lineageCandidates?: LineageCandidate[];
 }
 
 export interface InspectLedgerView {
@@ -322,12 +330,13 @@ function applyLedgerView(
     ledger: {
       file: path.relative(process.cwd(), ledgerPath).split(path.sep).join('/') || path.basename(ledgerPath),
       filter,
-      candidates: view.map(({ candidate, ledgerState, staleClaims }) => ({
+      candidates: view.map(({ candidate, ledgerState, staleClaims, lineageCandidates }) => ({
         kind: candidate.kind,
         ...(candidate.locator.sheet ? { sheet: candidate.locator.sheet } : {}),
         place: placeOf(candidate),
         state: ledgerState,
         ...(staleClaims ? { staleClaims } : {}),
+        ...(lineageCandidates.length > 0 ? { lineageCandidates } : {}),
       })),
     },
   };
@@ -345,8 +354,9 @@ function formatInspect(result: InspectResult): string {
         && candidate.place === place,
     );
     if (!item) return '';
-    const claims = item.staleClaims?.length ? ` [${item.staleClaims.join(', ')}]` : '';
-    return `  ledger: ${item.state}${claims}`;
+    const claims = item.staleClaims?.length ? ` [stale: ${item.staleClaims.join(', ')}]` : '';
+    const lineage = item.lineageCandidates?.length ? ` [lineage: ${item.lineageCandidates.length}]` : '';
+    return `  ledger: ${item.state}${claims}${lineage}`;
   };
   const lines = [`source: ${result.source}`];
   if (result.ledger) lines.push(`ledger: ${result.ledger.file} (${result.ledger.filter})`);
