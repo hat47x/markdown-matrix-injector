@@ -104,6 +104,32 @@ Candidateは少なくとも2軸を持つ。
 
 この表は実装済みを意味しない。各Issueは該当方式をfixtureで比較し、採用方式を記録する。
 
+### D5b. 製品能力ごとの認知適用方針
+
+Candidate種別だけでなく、製品要求の各能力についても認知方式の適用範囲を定める。
+
+| 製品能力 | 主経路 | 認知適用 | 制約 |
+| --- | --- | --- | --- |
+| 参照 | M0 | M2で候補検索、M3で利用者意図のclosed-choice | 参照意味・containmentは認知で変更しない |
+| 目録 | M0 + M1 | M2/M3で重要候補・非定型区画を補助 | observedとinferredを混在表示しない |
+| 候補抽出 | M0/M1 | M2〜M4を要件別に比較 | provider-dependent結果はproposal-only |
+| 個別取り込み | M0 | M2/M3で取り込み対象・既存資産対応候補 | write対象とsource locatorはAuthorityで確定 |
+| 一括変換 | M0 | M1〜M3でconverter出力とCandidateをreconcile | converter/認知結果を原本事実としない |
+| 重複回避 | M0 exact digest | M2 near-duplicate / semantic similarity | exactとsimilarを別stateにする |
+| 構造化 | M0/M1 | M2/M3、必要時M4 | 明示構造を生成モデルで再推測しない |
+| 変換 | M0のみ | 原則なし | 変換順序・意味論はconformance対象 |
+| 表示 | M0 | M1でレイアウト候補は可 | 表示の意味を認知で暗黙変更しない |
+| 検証 | M0のみ | 修復提案はM1〜M5で可 | pass/failをprovider-dependent結果だけで決めない |
+| provenance | M0のみ | 説明文生成だけM4/M5可 | locator/digest/versionは生成しない |
+| materialize | M0 | M1で不足候補探索 | 成果物の実体化結果は決定論的に再検証 |
+| detach check | M0 | M1で見落とし候補探索、M5で作業計画 | detach可否の正本判定はM0 |
+| 執筆支援 | M0/M1 | M2/M3を積極利用、M4は局所限定 | provider-dependent処理で入力を止めない |
+| AI/CI利用 | M0 machine-readable API | M5 handoff package | CI必須判定を外部LLMへ委譲しない |
+| 応答性 | M0 cache/index | M2で探索高速化 | 認知のために編集latencyを悪化させない |
+| 利用文書 | M0の実測事実 | M4/M5で草案補助可 | 対応範囲・保証を生成結果から決めない |
+
+各Issueは、上表の主経路を基準に、より複雑な方式を使う場合はfixtureまたは利用観測で必要性を示す。
+
 ### D6. 認知方式の比較軸を固定する
 
 方式選定では最低限、次を比較する。
