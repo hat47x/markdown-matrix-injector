@@ -3,7 +3,9 @@ import assert from 'node:assert/strict';
 
 import {
   evaluateSmartFallback,
+  MAX_CELLS_HARD_LIMIT,
   shouldRenderAsCardAfterLoad,
+  SmartFallbackLimitError,
   type SmartFallbackInput,
 } from '../src/core/smartFallback.js';
 import { type EmbedQuery } from '../src/parser/embedSyntax.js';
@@ -125,10 +127,17 @@ test('evaluateSmartFallback switches to card mode when no sheet target is provid
 // ── mode=table's hard resource ceiling (input-assistance-source-model.md §3:
 // "mode=tableで強制された場合も上限を外さない") ───────────────────────────
 
-test('evaluateSmartFallback throws when mode=table exceeds the hard cell limit instead of silently rendering it', () => {
+test('evaluateSmartFallback throws a coded error when mode=table exceeds the hard cell limit', () => {
   assert.throws(
     () => evaluateSmartFallback(createInput({ mode: 'table', rowCount: 1, columnCount: 100_001, cellCount: 100_001 })),
-    /100001 cells exceeds the 100000-cell limit/,
+    (error: unknown) => {
+      assert.ok(error instanceof SmartFallbackLimitError);
+      assert.equal(error.code, 'MMI_TABLE_TOO_LARGE');
+      assert.equal(error.cellCount, 100_001);
+      assert.equal(error.limit, MAX_CELLS_HARD_LIMIT);
+      assert.match(error.message, /100001 cells exceeds the 100000-cell limit/);
+      return true;
+    },
   );
 });
 
