@@ -81,7 +81,14 @@ test('ledger is readable JSON and survives a write/read round trip', () => {
   const first = candidate('image-a');
 
   const recorded = recordEntries(ledgerPath, [
-    entryFor(ledgerPath, source, first, path.join(root, 'assets', 'image-a.png'), 'mmi extract'),
+    entryFor(
+      ledgerPath,
+      source,
+      first,
+      path.join(root, 'assets', 'image-a.png'),
+      'mmi extract',
+      { mode: 'raw-image-bytes-v1', format: 'png' },
+    ),
   ]);
 
   assert.deepEqual(readLedger(ledgerPath), recorded);
@@ -89,6 +96,9 @@ test('ledger is readable JSON and survives a write/read round trip', () => {
   assert.match(raw, /"schema": "mmi\.ledger\/v1"/u);
   assert.match(raw, /"reviewState": "confirmed"/u);
   assert.match(raw, /"basis": "mmi extract"/u);
+  assert.match(raw, /"mode": "raw-image-bytes-v1"/u);
+  assert.match(raw, /"sourceDigest": "sha256:/u);
+  assert.match(raw, /"reviewedAt": "/u);
 });
 
 
