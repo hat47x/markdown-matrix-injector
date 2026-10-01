@@ -228,14 +228,14 @@ flowchart TD
 
 `registerNativePasteProvider`の`provideDocumentPasteEdits`に`context.triggerKind === vscode.DocumentPasteTriggerKind.PasteAs`のガードを追加し、この条件でだけ`getContentMatchPasteEdits`（`findWorkbookContentMatches`のVS Code側ラッパー）を呼んで候補を追加で返すようにした。通常のCtrl+V（`Automatic`）の挙動は一切変更していない。単語1つ・URL1つのような明らかに矩形照合し得ない貼り付け（`looksLikeTabularClipboard`で判定）では、ワークスペースへのアクセスすら発生しない。病的に大きいワークスペース向けに`MAX_CONTENT_MATCH_WORKSPACE_FILES`（500件、暫定値）の安全弁も追加した。既存の明示コマンドはそのまま維持している（貼り付け操作を経由せず検索したい場合に有用なため）。
 
-`extension.ts`は`text/html`と`files`を貼り付けのMIMEとして宣言している。宣言している最低VS Codeは`^1.96.0`だが調査環境の型定義は`1.110.0`である。最低版と現在版の両方で宿主テストを行う。
+`extension.ts`は`text/html`・`text/plain`・`files`を貼り付けのMIMEとして宣言している。`text/plain`追加はPaste Asの内容照合を実OSクリップボードのTSVだけで宿主E2Eできるようにするためで、pure `text/plain` の通常Pasteでは直接MMI editを返さないためAutomaticの挿入意味は変えない。宣言している最低VS Codeは`^1.100.0`である。
 
 **2026-09-17の変更のまとめ（実VS Code e2e確認、xvfb不要と判明）:** この開発環境（WSL2）には元からWSLgによる実表示（`DISPLAY`/`WAYLAND_DISPLAY`）があり、`xvfb`のインストールなしに`test/e2e/runTest.ts`を直接実行してExtension Host e2eが動くことが分かった。実VS Code（1.138.0）でテストを走らせたところ、本物のバグを2件発見・修正した。
 
 1. **e2eテスト自体の期待値が2026-09-14の変更に追従していなかった。** `test/e2e/suite/extensionHost.test.ts`の`PASTE_FALLBACK_EXPECTED_INSERT`等が旧`#Summary|A1:B2`形式のままだった。e2eがこの環境で一度も成功実行できていなかったため検出されず、修正した。
 2. **`insertEmbedByContentMatch`が`registerTextEditorCommand`で登録されていた——これは非同期コールバックを一切サポートしないVS Codeの既知の制約**（`editor`/`edit`引数は同期区間のみ有効、`executeCommand`はコールバックの返すPromiseを待たない。microsoft/vscode#178931・#2933・#16814・#90834）。実e2eで観測した挙動は「コマンドは開始するが最初の`await`（クリップボード読込み）以降が孤立し、`executeCommand`は即座に解決、ドキュメントは変化しない」——**このコマンドは実運用でも常に何も挿入できていなかった可能性が高い。** `registerCommand`（引数を取らず`vscode.window.activeTextEditor`を関数内で自前解決、最終編集の直前にも再解決）へ修正した。
 
-修正後、明示コマンド経路（`insertEmbedByContentMatch`）の全パイプライン——クリップボードのTSV値→`findWorkbookContentMatches`による実ワークスペース内の実ファイル検索→`showQuickPick`（テスト内で最初の項目を自動選択するよう一時的に差し替え）→`![[...]]`の挿入——を実VS Code上で確認した（`test/e2e/suite/extensionHost.test.ts`の新規ステージ`content-match-standalone-command`）。**`editor.action.pasteAs`経路のみ未確認**——実OSクリップボードへ`text/html`を設定する手段（xclip等）がこの環境になく、追加インストールもsudo認証キャッシュ失効のため行えない。
+修正後、明示コマンド経路（`insertEmbedByContentMatch`）の全パイプライン——クリップボードのTSV値→`findWorkbookContentMatches`による実ワークスペース内の実ファイル検索→`showQuickPick`（テスト内で最初の項目を自動選択するよう一時的に差し替え）→`![[...]]`の挿入——を実VS Code上で確認した（`test/e2e/suite/extensionHost.test.ts`のステージ`content-match-standalone-command`）。**2026-10-01には`editor.action.pasteAs`自体を通すExtension Host E2Eも追加した。** `vscode.env.clipboard.writeText`で`Alice\tAdmin`を置き、`preferences: [text.markdownMatrixInjector.embed.contentMatch]`で組み込みPaste Asを実行し、登録providerが実ワークスペースの`roles.csv#Sheet1|A2:B2`を内容照合して挿入するまでを対象とする。同じTSVを通常の`editor.action.clipboardPasteAction`で貼る対照ケースも置き、生TSVのままでMMI参照へ自動変換されないことを検査する。**このWeb作業環境では新E2Eは未実行**であり、実Excelの`text/html`、Windows helperが与えるconfirmed provenance、視覚pickerを人が選ぶ操作はなおWindows実機で確認する。
 
 ## 7. 利用者に見える動作
 
@@ -250,7 +250,7 @@ flowchart TD
 - 見出し・caption・grepを勝手に付けない。挿入するのは既存文法のみ。
 - 一般のテキスト、対象外のファイル、境界外、未信頼workspace、読み込み失敗では通常の貼り付けを妨げない。
 
-**未達のまま残る点**: 候補には現状ファイル・シート・範囲のみを表示し、**先頭数行の値プレビューは表示しない**(一致は常に完全一致なので根拠自体は自明だが、値を見ての確認はできない)。出所(provenance)は常に取得不能なため、「出所あり」区分は発生せず、「出所あり」と「推定」の画面上の区別も実装していない(常に内容照合による「推定」)。**明示コマンド経路（経路3）は実VS Code（1.138.0）でのe2e確認済み（2026-09-17）**——WSLg由来の実表示によりxvfb無しでExtension Host e2eが動作した。**`editor.action.pasteAs`（経路2、Ctrl+.）のみ実機確認が未達のまま**——実OSクリップボードへ`text/html`を設定する手段（xclip等）が開発環境に無く、追加インストールもsudo認証キャッシュ失効のため行えない（[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)「実VS Code GUI確認」節）。
+**未達のまま残る点**: 候補には現状ファイル・シート・範囲のみを表示し、**先頭数行の値プレビューは表示しない**(一致は常に完全一致なので根拠自体は自明だが、値を見ての確認はできない)。出所(provenance)は常に取得不能なため、「出所あり」区分は発生せず、「出所あり」と「推定」の画面上の区別も実装していない(常に内容照合による「推定」)。**明示コマンド経路（経路3）は実VS Code（1.138.0）でのe2e確認済み（2026-09-17）**——WSLg由来の実表示によりxvfb無しでExtension Host e2eが動作した。**`editor.action.pasteAs`（経路2）はplain TSVを使うExtension Host自動E2Eを2026-10-01に追加済みだが、このWeb作業環境では未実行。** これが通ればVS Code組み込みPaste As→登録provider→内容照合→挿入の宿主dispatchは自動証拠化できる。一方、実Excelの`text/html`、Windows helperが返すconfirmed provenance、Ctrl+./視覚pickerを人が選ぶ実操作は引き続きWindows実機確認が必要（[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)参照）。
 
 ## 8. 未確認事項
 
