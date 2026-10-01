@@ -6,7 +6,7 @@ import path from 'node:path';
 import XLSX from 'xlsx';
 import { WorkbookCache } from '../src/cache/workbookCache.js';
 import { resolveSourcePath } from '../src/core/pathResolver.js';
-import { loadWorkbook, type SheetSource } from '../src/core/workbookLoader.js';
+import { loadWorkbook, loadWorkbookFromBytes, type SheetSource } from '../src/core/workbookLoader.js';
 import { sliceRegion } from '../src/core/tableGeometry.js';
 
 /** Materialises a whole `SheetSource` (its used range) as a display matrix, for
@@ -65,6 +65,25 @@ test('loadWorkbook parses csv content into Sheet1', () => {
 });
 
 
+
+test('loadWorkbookFromBytes matches the production path loader for CSV and XLSX', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-workbook-bytes-'));
+
+  const csvPath = path.join(tempDir, 'matrix.csv');
+  fs.writeFileSync(csvPath, 'Name,Role\nAlice,Admin\n');
+  assert.deepEqual(
+    sheetToMatrix(loadWorkbookFromBytes(csvPath, fs.readFileSync(csvPath)).sheets.Sheet1),
+    sheetToMatrix(loadWorkbook({ absolutePath: csvPath }).sheets.Sheet1),
+  );
+
+  const xlsxPath = path.join(tempDir, 'matrix.xlsx');
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([['ID', 'State'], ['1', 'Open']]), 'States');
+  fs.writeFileSync(xlsxPath, XLSX.write(book, { type: 'buffer', bookType: 'xlsx' }));
+  const fromBytes = loadWorkbookFromBytes(xlsxPath, fs.readFileSync(xlsxPath));
+  const fromPath = loadWorkbook({ absolutePath: xlsxPath });
+  assert.deepEqual(sheetToMatrix(fromBytes.sheets.States), sheetToMatrix(fromPath.sheets.States));
+});
 
 test('loadWorkbook accepts XML Spreadsheet 2003 files', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-xml-ok-'));

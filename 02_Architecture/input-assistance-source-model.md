@@ -194,4 +194,4 @@ ELECTRON_RUN_AS_NODE=1 "<VS Codeのインストール先>/Code.exe" 03_Implement
 
 `measureRegion`がセルへ一切触れずに寸法を返すことは、`cellAt`が呼ばれたら例外を投げるテスト用`SheetSource`で保証した（`test/tableGeometry.test.ts`）。詳細な変更内容とテスト一覧は[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)の「Bの完了内容」節を参照。
 
-未対応で残る点: `mode=table`強制時の**時間**上限（サイズ上限は2026-09-14実装済み。[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)「`mode=table`強制時のサイズ上限」節）、読込み自体の性能計測、CSVの`trim()`起因の座標ずれの**改修判断そのもの**（影響範囲調査は2026-09-15完了、上記参照）。
+未対応で残る点: `mode=table`強制時の**時間**上限（サイズ上限は2026-09-14実装済み。[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)「`mode=table`強制時のサイズ上限」節）、Windows実機でOSページキャッシュを制御したcold-read性能値、CSVの`trim()`起因の座標ずれの**改修判断そのもの**（影響範囲調査は2026-09-15完了、上記参照）。読込みとモデル構築を分ける計測経路自体は2026-10-02に`loadWorkbookFromBytes()`と`bench:workbook-load`で用意済み。
