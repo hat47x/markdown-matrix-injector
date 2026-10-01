@@ -64,6 +64,192 @@ const OOXML_OFFICE_DOCUMENT_RELATIONSHIP_TYPES = new Set([
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument',
   'http://purl.oclc.org/ooxml/officeDocument/relationships/officeDocument',
 ]);
+const OOXML_CONTENT_TYPES_NAMESPACES = new Set([
+  'http://schemas.openxmlformats.org/package/2006/content-types',
+  'http://purl.oclc.org/ooxml/package/content-types',
+]);
+const OOXML_RELATIONSHIPS_NAMESPACES = new Set([
+  'http://schemas.openxmlformats.org/package/2006/relationships',
+  'http://purl.oclc.org/ooxml/package/relationships',
+]);
+const OOXML_SPREADSHEET_NAMESPACES = new Set([
+  'http://schemas.openxmlformats.org/spreadsheetml/2006/main',
+  'http://purl.oclc.org/ooxml/spreadsheetml/main',
+]);
+
+function escapeRegex(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\const OOXML_OFFICE_DOCUMENT_RELATIONSHIP_TYPES = new Set([
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument',
+  'http://purl.oclc.org/ooxml/officeDocument/relationships/officeDocument',
+]);
+');
+}
+
+function rootElementNamespace(
+  xml: string,
+  localName: string,
+): string | null {
+  let rest = xml.trimStart();
+  if (rest.startsWith('<?xml')) {
+    const end = rest.indexOf('?>');
+    if (end < 0) {
+      return null;
+    }
+    rest = rest.slice(end + 2).trimStart();
+  }
+
+  const escapedName = escapeRegex(localName);
+  const open = new RegExp(
+    `^<(?:(?<prefix>[A-Za-z_][\\w.-]*):)?${escapedName}\\b(?<attrs>[^>]*)>`,
+    'u',
+  ).exec(rest);
+  if (!open?.groups) {
+    return null;
+  }
+  const prefix = open.groups.prefix;
+  const attrs = open.groups.attrs ?? '';
+  const namespace = prefix
+    ? new RegExp(
+      `\\bxmlns:${escapeRegex(prefix)}=(["'])([^"']+)\\1`,
+      'u',
+    ).exec(attrs)?.[2]
+    : /\\bxmlns=(["'])([^"']+)\\1/u.exec(attrs)?.[2];
+  if (!namespace) {
+    return null;
+  }
+
+  const close = new RegExp(
+    prefix
+      ? `</${escapeRegex(prefix)}:${escapedName}>\\s*import { createHash } from 'node:crypto';
+import {
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
+import { basename, dirname, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+import { readZip, ZipError } from '../src/core/zipReader.js';
+
+export type ProgressEntry = {
+  ordinal: number;
+  source_id: string;
+  publisher_id: string;
+  requested_stratum: string;
+  status: string;
+  attempt_count: number;
+  resolved_request_url_or_identity: string | null;
+  final_url: string | null;
+  redirect_chain: unknown[];
+  http_status: number | null;
+  content_type: string | null;
+  byte_size: number | null;
+  sha256: string | null;
+  retrieved_at_utc: string | null;
+  binary_validation: string;
+  workbook_semantic_inspection_performed: false;
+  transport_evidence?: Record<string, unknown>;
+  materialization_failure_reason?: string | null;
+};
+
+export type FetchLike = (
+  input: string,
+  init?: RequestInit,
+) => Promise<Response>;
+
+export type MaterializeOutcome = {
+  entry: ProgressEntry;
+  bytes: Uint8Array | null;
+  decision:
+    | 'succeeded'
+    | 'transport_retry_pending'
+    | 'materialization_failure';
+};
+
+export type OfflinePayloadReceipt = {
+  schema: 'hat47x.structured-artifact-sai2-offline-payload-receipt/v0';
+  source_id: string;
+  request_url: string;
+  final_url: string;
+  redirect_chain: unknown[];
+  http_status: number;
+  content_type: string;
+  byte_size: number;
+  sha256: string;
+  retrieved_at_utc: string;
+  workbook_semantic_inspection_performed: false;
+};
+
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const MAX_REDIRECTS = 10;
+
+      : `</${escapedName}>\\s*import { createHash } from 'node:crypto';
+import {
+  mkdirSync,
+  readFileSync,
+  writeFileSync,
+} from 'node:fs';
+import { basename, dirname, resolve } from 'node:path';
+import { pathToFileURL } from 'node:url';
+
+import { readZip, ZipError } from '../src/core/zipReader.js';
+
+export type ProgressEntry = {
+  ordinal: number;
+  source_id: string;
+  publisher_id: string;
+  requested_stratum: string;
+  status: string;
+  attempt_count: number;
+  resolved_request_url_or_identity: string | null;
+  final_url: string | null;
+  redirect_chain: unknown[];
+  http_status: number | null;
+  content_type: string | null;
+  byte_size: number | null;
+  sha256: string | null;
+  retrieved_at_utc: string | null;
+  binary_validation: string;
+  workbook_semantic_inspection_performed: false;
+  transport_evidence?: Record<string, unknown>;
+  materialization_failure_reason?: string | null;
+};
+
+export type FetchLike = (
+  input: string,
+  init?: RequestInit,
+) => Promise<Response>;
+
+export type MaterializeOutcome = {
+  entry: ProgressEntry;
+  bytes: Uint8Array | null;
+  decision:
+    | 'succeeded'
+    | 'transport_retry_pending'
+    | 'materialization_failure';
+};
+
+export type OfflinePayloadReceipt = {
+  schema: 'hat47x.structured-artifact-sai2-offline-payload-receipt/v0';
+  source_id: string;
+  request_url: string;
+  final_url: string;
+  redirect_chain: unknown[];
+  http_status: number;
+  content_type: string;
+  byte_size: number;
+  sha256: string;
+  retrieved_at_utc: string;
+  workbook_semantic_inspection_performed: false;
+};
+
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+const MAX_REDIRECTS = 10;
+,
+    'u',
+  );
+  return close.test(rest) ? namespace : null;
+}
 export const OFFLINE_PAYLOAD_RECEIPT_SCHEMA =
   'hat47x.structured-artifact-sai2-offline-payload-receipt/v0' as const;
 const FROZEN_CONTENT_TYPE_PATTERN =
@@ -531,9 +717,11 @@ export function validateZipContainer(
       .toString('utf8')
       .replace(/^﻿/u, '');
 
+    const contentTypesNamespace =
+      rootElementNamespace(contentTypes, 'Types');
     if (
-      !/<(?:\\w+:)?Types\\b[^>]*>/u.test(contentTypes)
-      || !/<\\/(?:\\w+:)?Types>\\s*$/u.test(contentTypes)
+      !contentTypesNamespace
+      || !OOXML_CONTENT_TYPES_NAMESPACES.has(contentTypesNamespace)
     ) {
       return { ok: false, reason: 'xlsx_content_types_invalid' };
     }
@@ -548,9 +736,11 @@ export function validateZipContainer(
       return { ok: false, reason: 'xlsx_workbook_content_type_missing' };
     }
 
+    const relationshipsNamespace =
+      rootElementNamespace(rootRels, 'Relationships');
     if (
-      !/<(?:\\w+:)?Relationships\\b[^>]*>/u.test(rootRels)
-      || !/<\\/(?:\\w+:)?Relationships>\\s*$/u.test(rootRels)
+      !relationshipsNamespace
+      || !OOXML_RELATIONSHIPS_NAMESPACES.has(relationshipsNamespace)
     ) {
       return { ok: false, reason: 'xlsx_root_relationships_invalid' };
     }
@@ -568,9 +758,11 @@ export function validateZipContainer(
       return { ok: false, reason: 'xlsx_workbook_relationship_missing' };
     }
 
+    const workbookNamespace =
+      rootElementNamespace(workbook, 'workbook');
     if (
-      !/<(?:\\w+:)?workbook\\b[^>]*>/u.test(workbook)
-      || !/<\\/(?:\\w+:)?workbook>\\s*$/u.test(workbook)
+      !workbookNamespace
+      || !OOXML_SPREADSHEET_NAMESPACES.has(workbookNamespace)
     ) {
       return { ok: false, reason: 'xlsx_workbook_xml_invalid' };
     }
