@@ -1,5 +1,6 @@
 import { parseRangeToCellRange, rangeDimensions } from '../core/tableGeometry.js';
 import { MAX_CELLS_HARD_LIMIT, tableTooLargeMessage } from '../core/smartFallback.js';
+
 export type DiagnosticSeverity = 'error' | 'warning' | 'information';
 export type XmlMode = 'none' | 'spreadsheet2003' | 'invalid';
 export type DiagnosticCode =
