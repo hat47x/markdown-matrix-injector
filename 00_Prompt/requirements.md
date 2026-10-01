@@ -136,6 +136,18 @@ VS Code拡張だけをプロダクト本体としない。同じCore engineと�
 
 新しい能力は可能な限りCoreへ置き、特定UIにだけ存在する実装を避ける。
 
+## 認知資産の配布
+
+model weight、prototype、index、embedding、Format Profile等の認知資産は、Core binaryとは別に管理・配布できること。
+
+- 小さな規則・schema・profileは同梱可能とするが、大型modelを基本配布へ無条件に埋め込まない。
+- 認知資産はartifact id、kind、version、digest、byte size、license、取得元、provider互換version、schema versionをmanifestで識別する。
+- 大型artifactは機能利用時の明示取得を基本とし、初回起動時に暗黙downloadしない。
+- download後はdigestを検証し、local cacheを利用する。offline時にartifactが無い場合は認知機能だけを `unavailable` とし、Authority Planeを継続する。
+- GitHub repository、GitHub Release / LFS、model hub、object storage等を差し替え可能なartifact sourceとして扱う。特定サービスをCore契約に埋め込まない。
+- 認知方式を比較するときは、モデル精度だけでなくdownload size、disk size、更新差分、cold start / cold availability、offline usabilityも評価する。
+- 外部model repositoryからweightを取得することと、外部生成AI APIへsourceを送信することを明確に区別する。
+
 ## AI / LLMとの関係
 
 MMI自体が課金を要する生成AIサービスを利用することは原則としない。Core、CLI、VS Code参照実装はAPIキー管理、課金型LLMへの自動送信、自動クラウドfallbackを標準機能に含めない。例外が必要になった場合は別ADRで判断する。
