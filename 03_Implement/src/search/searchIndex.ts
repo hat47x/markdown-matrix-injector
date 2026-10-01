@@ -49,7 +49,6 @@ export class RegionSearchIndex {
   readonly cosine: CosineRetriever;
   private readonly retrievers = new Map<RetrievalMethod, Retriever>();
   private readonly regionsByDoc = new Map<number, RegionRecord>();
-  private readonly bags = new Map<number, FeatureBag>();
   /** Features of names only (book / sheet / title / headers), and their region frequency. */
   private readonly namesBags = new Map<number, FeatureBag>();
   private readonly namesDf = new Map<string, number>();
@@ -95,7 +94,11 @@ export class RegionSearchIndex {
       result.added += docs.length;
     }
     if (!this.built) {
-      this.cosine.build();
+      // Cosine is also used as a lightweight exact scorer by scoreDocs() and
+      // FlyHash reranking. Its posting lists are needed only when cosine is an
+      // enabled retrieval method; per-document cosine() reads the shared
+      // corpus directly and keeps only lazy norms.
+      if (this.retrievers.get('cosine') === this.cosine) this.cosine.build();
       for (const retriever of this.retrievers.values()) if (retriever !== this.cosine) retriever.build();
       this.built = true;
     }
@@ -144,8 +147,15 @@ export class RegionSearchIndex {
     return this.namesDf.get(feature) ?? 0;
   }
 
+  /**
+   * Full role-weighted features are reconstructed only for the small retrieval
+   * pool that needs coverage checks. The encoded corpus already stores the
+   * same information for retrieval, so retaining another string-keyed
+   * FeatureBag per region would duplicate the largest part of the index.
+   */
   bagOf(doc: number): FeatureBag | undefined {
-    return this.bags.get(doc);
+    const region = this.regionsByDoc.get(doc);
+    return region ? regionFeatureBag(region, this.weights) : undefined;
   }
 
   region(doc: number): RegionRecord | undefined {
@@ -172,13 +182,12 @@ export class RegionSearchIndex {
     const bag = regionFeatureBag(region, this.weights);
     const doc = this.corpus.add(bag);
     this.regionsByDoc.set(doc, region);
-    this.bags.set(doc, bag);
     const names: FeatureBag = new Map();
     for (const name of regionNames(region)) addTextFeatures(names, name.text, 1);
     this.namesBags.set(doc, names);
     for (const feature of names.keys()) this.namesDf.set(feature, (this.namesDf.get(feature) ?? 0) + 1);
     if (this.built) {
-      this.cosine.add(doc);
+      if (this.retrievers.get('cosine') === this.cosine) this.cosine.add(doc);
       for (const retriever of this.retrievers.values()) if (retriever !== this.cosine) retriever.add(doc);
     }
     return doc;
@@ -186,12 +195,11 @@ export class RegionSearchIndex {
 
   private removeDoc(doc: number): void {
     if (this.built) {
-      this.cosine.remove(doc);
+      if (this.retrievers.get('cosine') === this.cosine) this.cosine.remove(doc);
       for (const retriever of this.retrievers.values()) if (retriever !== this.cosine) retriever.remove(doc);
     }
     this.corpus.remove(doc);
     this.regionsByDoc.delete(doc);
-    this.bags.delete(doc);
     for (const feature of this.namesBags.get(doc)?.keys() ?? []) {
       const left = (this.namesDf.get(feature) ?? 1) - 1;
       if (left > 0) this.namesDf.set(feature, left);

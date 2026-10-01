@@ -8,9 +8,9 @@
 - Expected verification level: unit / integration / manual-e2e
 
 ## Traceability
-- Related ADR/Spec: [ADR-0019](../adr/ADR-0019-ai-era-sier-document-value-and-policy.md)（経路A・Bと優先度1のCLI）、[ADR-0020](../adr/ADR-0020-semantic-selection-in-notation.md)（記法での扱い、Proposed）、[ADR-0018](../adr/ADR-0018-cognitive-assistance-plane.md)
+- Related ADR/Spec: [ADR-0019](../adr/ADR-0019-ai-era-sier-document-value-and-policy.md)（経路A・Bと優先度1のCLI）、[ADR-0022](../adr/ADR-0022-semantic-selection-in-notation.md)（記法での扱い、Proposed）、[ADR-0018](../adr/ADR-0018-cognitive-assistance-plane.md)
 - Related Design: [表の走査と選択](../../02_Architecture/table-navigation.md)、[取り込み支援](../../02_Architecture/import-assistance.md)
-- Dependency: [issue-0192](issue-0192-import-assistance-prototype.md)（表の候補）
+- Dependency: [issue-0205](issue-0205-import-assistance-prototype.md)（表の候補）
 
 ## Acceptance criteria
 - [x] 名前付き範囲、Excelテーブル、シートの表示状態、非表示の行・列、オートフィルターを、Excelで作ったブック（.xlsx・.xlsb・.xls）から読む。読めないもの（.xlsb/.xlsのテーブル）は「取得できなかった情報」として示す。
@@ -47,5 +47,5 @@ node --import tsx ./test/e2e/runImport.ts   # VSCODE_EXECUTABLE_PATH で既存�
 - 画面操作の目視確認と、AIエージェントでの実環境の確認。
 - セル内画像が空欄になることの検出。Microsoft 365で作ったファイルでの確認。
 - 補完・検索・取り込み・目録の対象に.xlsm・.xlsbを加えるかの判断。
-- [ADR-0020](../adr/ADR-0020-semantic-selection-in-notation.md)の採否（見出し・名前・テーブルの記法での扱い、列を指定した行の選択、非表示の扱い）。
+- [ADR-0022](../adr/ADR-0022-semantic-selection-in-notation.md)の採否（見出し・名前・テーブルの記法での扱い、列を指定した行の選択、非表示の扱い）。
 - CLIの配布形態（ADR-0019の未解決事項）。

@@ -1,10 +1,10 @@
-# ADR-0020: 列見出し・名前付き範囲・Excelテーブルによる指定を記法でどう扱うか
+# ADR-0022: 列見出し・名前付き範囲・Excelテーブルによる指定を記法でどう扱うか
 
 - Status: Proposed
 - Date: 2026-09-27
 - Deciders: Human Sponsor（採否）、MMI Lead Agent（起案）
 - Scope: MMI Notation v1（§3・§6・§9・§11）、参照実装の入力支援・診断
-- Related: [ADR-0012](ADR-0012-mission-redefinition-notation-as-governance-boundary.md)、[ADR-0018](ADR-0018-cognitive-assistance-plane.md)、[ADR-0019](ADR-0019-ai-era-sier-document-value-and-policy.md)、[表の走査と選択](../../02_Architecture/table-navigation.md)、[issue-0193](../issues/issue-0193-table-navigation-and-agent-interface.md)
+- Related: [ADR-0012](ADR-0012-mission-redefinition-notation-as-governance-boundary.md)、[ADR-0018](ADR-0018-cognitive-assistance-plane.md)、[ADR-0019](ADR-0019-ai-era-sier-document-value-and-policy.md)、[表の走査と選択](../../02_Architecture/table-navigation.md)、[issue-0206](../issues/issue-0206-table-navigation-and-agent-interface.md)
 
 ## Context
 

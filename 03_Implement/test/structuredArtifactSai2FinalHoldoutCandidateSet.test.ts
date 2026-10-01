@@ -1,0 +1,10 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
+import type { SheetSource, SourceCell } from '../src/core/sheetSource.js';
+import { createMmiSai2CandidateSet } from '../src/experimental/structuredArtifactSai2CandidateSet.js';
+const R=new URL('./fixtures/',import.meta.url);const M='structured-artifact-sai2-final-holdout-mmi-v0.json';const C='structured-artifact-sai2-final-holdout-mmi-candidate-sets-v0.json';
+function j(n:string):any{return JSON.parse(readFileSync(new URL(n,R),'utf8'));}
+function sheet(s:any):SheetSource{const cells=new Map<string,SourceCell>();let mr=-1,mc=-1;s.rows.forEach((row:any[],ri:number)=>{mr=Math.max(mr,ri);row.forEach((v,ci)=>{mc=Math.max(mc,ci);if(v!==null)cells.set(`${ri}:${ci}`,{text:String(v),type:'s',value:v});});});return{usedRange:{startRow:0,startCol:0,endRow:mr,endCol:mc},merges:s.merges.map((m:any)=>({startRow:m.start_row-1,startCol:m.start_col-1,endRow:m.end_row-1,endCol:m.end_col-1})),cellAt(r,c){return cells.get(`${r}:${c}`);}};}
+test('final holdout candidate sets reproduce source-only',()=>{const m=j(M),c=j(C),by=new Map(c.cases.map((x:any)=>[x.source_family_id,x]));let n=0;for(const x of m.cases){const s=j(x.source_ref.split('/').at(-1));const a=createMmiSai2CandidateSet({sheetName:s.sheet_name,sheet:sheet(s),sourceDigest:x.source_digest,sourceFamilyId:x.source_family_id});const f:any=by.get(x.source_family_id);assert.equal(a.status,'ok');assert.deepEqual(a.candidates,f.candidates);n+=a.candidate_count;}assert.equal(n,7);});
+test('holdout candidate capture remains unscored',()=>{const c=j(C);assert.equal(c.boundary.target_fields_supplied,false);assert.equal(c.boundary.winner_scores_used,false);assert.equal(c.boundary.final_holdout_scoring_performed,false);assert.equal(c.aggregate.candidate_count_total,7);});

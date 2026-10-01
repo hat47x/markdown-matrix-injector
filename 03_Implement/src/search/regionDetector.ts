@@ -60,7 +60,7 @@ export interface DetectOptions {
   maxValueSample?: number;
 }
 
-const DEFAULT_MAX_SCAN_CELLS = 1_000_000;
+export const DEFAULT_MAX_SCAN_CELLS = 1_000_000;
 const DEFAULT_MAX_VALUE_SAMPLE = 200;
 const MAX_VALUE_LENGTH = 64;
 

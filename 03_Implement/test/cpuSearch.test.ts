@@ -99,6 +99,19 @@ const DUPLICATE: WorkbookData = {
   },
 };
 
+const INTEGRATION_TEST: WorkbookData = {
+  sheets: {
+    テストケース: sheet({
+      A1: '結合テストケース（受注）',
+      ...table('A2', [
+        ['試験ID', '試験項目', '手順', '期待結果', '結果'],
+        ['IT-001', '受注登録から出荷まで', '画面から登録', '出荷済になる', 'OK'],
+        ['IT-002', '在庫不足時の保留', 'APIから登録', '保留になる', 'NG'],
+      ]),
+    }),
+  },
+};
+
 function buildIndex(): { catalog: RegionCatalog; index: RegionSearchIndex } {
   const catalog = new RegionCatalog();
   catalog.setBook('/ws/設計.xlsx', { mtimeMs: 1, size: 1 }, DESIGN);
@@ -264,6 +277,44 @@ test('incremental sync matches a fresh build for every method', () => {
   assert.deepEqual(after, before);
 });
 
+test('single-method production indexes do not build hidden cosine postings', () => {
+  const catalog = new RegionCatalog();
+  catalog.setBook('/ws/設計.xlsx', { mtimeMs: 1, size: 1 }, DESIGN);
+  catalog.setBook('/ws/リリース判定.xlsx', { mtimeMs: 1, size: 1 }, RELEASE);
+
+  const bm25Only = new RegionSearchIndex(catalog, { methods: ['bm25'] });
+  bm25Only.sync();
+  assert.equal(bm25Only.cosine.memoryEstimate(), 0);
+
+  const bag = new Map<string, number>();
+  addTextFeatures(bag, '状態遷移', 2);
+  assert.equal(bm25Only.search('bm25', bag, 1)[0]?.region.a1, 'B3:E6');
+
+  // Explicit-file scoring still works without a cosine posting index because
+  // scoreDocs() computes exact cosine directly from the shared corpus.
+  const docs = bm25Only.docsOfBook('/ws/設計.xlsx');
+  assert.equal(bm25Only.scoreDocs(bag, docs)[0]?.region.a1, 'B3:E6');
+
+  const withCosine = new RegionSearchIndex(catalog, { methods: ['bm25', 'cosine'] });
+  withCosine.sync();
+  withCosine.scoreDocs(bag, withCosine.docsOfBook('/ws/設計.xlsx'));
+  assert.ok(bm25Only.cosine.memoryEstimate() < withCosine.cosine.memoryEstimate());
+});
+
+test('full feature bags are reconstructed on demand instead of retained per region', () => {
+  const { index } = buildIndex();
+  const doc = index.docsOfBook('/ws/設計.xlsx')[0];
+  const first = index.bagOf(doc);
+  const second = index.bagOf(doc);
+  assert.ok(first);
+  assert.ok(second);
+  assert.notStrictEqual(first, second);
+  assert.deepEqual([...first!.entries()], [...second!.entries()]);
+
+  // Value-derived coverage still exists when a request has no structural name.
+  assert.ok([...first!.keys()].some((feature) => feature.includes('申請')));
+});
+
 test('FlyHash tags are a pure function of seed and feature strings', () => {
   const { index } = buildIndex();
   const bag = new Map<string, number>();
@@ -392,12 +443,45 @@ test('compile: an unknown column word is reported, not silently dropped, and nev
   assert.equal(none.status, 'no-match');
 });
 
-test('compile: a hint absent from every name is reported and not used to filter', () => {
+test('compile: an unknown name fragment blocks normal promotion and stays visible as a near miss', () => {
   const { index } = buildIndex();
   const result = compileQuery('設定の状態遷移表', { index, method: 'bm25', relativePath });
-  assert.equal(result.candidates[0].region.a1, 'B3:E6');
-  assert.match(result.candidates[0].explanation, /「設定」はどの表の名前にも無い/u);
-  assert.equal(compileQuery('給与の設定', { index, method: 'bm25', relativePath }).status, 'no-match');
+  assert.equal(result.status, 'no-match');
+  assert.equal(result.candidates.length, 0);
+  assert.equal(result.nearMisses?.[0].region.a1, 'B3:E6');
+  assert.match(result.nearMisses?.[0].explanation ?? '', /「設定」は索引上の表名・シート名・見出しに直接一致しません/u);
+
+  const invented = compileQuery('架空の状態遷移表', { index, method: 'bm25', relativePath });
+  assert.equal(invented.status, 'no-match');
+  assert.equal(invented.candidates.length, 0);
+  assert.equal(invented.nearMisses?.[0].region.a1, 'B3:E6');
+
+  // With no independently matching name at all, even a near miss is too weak.
+  assert.equal(compileQuery('給与の設定', { index, method: 'bm25', relativePath }).nearMisses, undefined);
+});
+
+test('compile: a leading one-character name collision is a near miss, not a presumed typo', () => {
+  const catalog = new RegionCatalog();
+  catalog.setBook('/ws/結合テスト仕様書_受注.xlsx', { mtimeMs: 1, size: 1 }, INTEGRATION_TEST);
+  const index = new RegionSearchIndex(catalog);
+  index.sync();
+
+  const result = compileQuery('総合テストケースの試験項目と期待結果', {
+    index,
+    method: 'bm25',
+    relativePath,
+  });
+  assert.equal(result.status, 'no-match');
+  assert.equal(result.candidates.length, 0);
+  assert.equal(result.nearMisses?.[0].region.a1, 'A2:E4');
+  assert.deepEqual(result.nearMisses?.[0].columns.map((column) => column.header), ['試験項目', '期待結果']);
+  assert.match(result.nearMisses?.[0].explanation ?? '', /先頭1文字だけが異なります/u);
+
+  // Internal/trailing one-character typos retain the existing fuzzy behaviour.
+  const { index: designIndex } = buildIndex();
+  const trailingTypo = compileQuery('状態遷移票を見せて', { index: designIndex, method: 'bm25', relativePath });
+  assert.equal(trailingTypo.status, 'candidates');
+  assert.equal(trailingTypo.candidates[0].region.a1, 'B3:E6');
 });
 
 // --- safety regressions found by held-out v2 -----------------------------------
@@ -490,4 +574,73 @@ test('near misses: offered separately when nothing matches by name; the status s
   assert.equal(compileQuery('給与明細の支給額を見せて', { index, method: 'bm25', relativePath }).nearMisses, undefined);
   // Unsupported requests never get near misses.
   assert.equal(compileQuery('状態管理表を担当者別に集計', { index, method: 'bm25', relativePath }).nearMisses, undefined);
+});
+
+test('near misses: two exact columns can surface a paraphrased table without promoting it to a match', () => {
+  const { index } = buildIndex();
+  const result = compileQuery('業務フローのIDと操作を見せて', { index, method: 'bm25', relativePath });
+  assert.equal(result.status, 'no-match');
+  assert.equal(result.candidates.length, 0);
+  assert.equal(result.nearMisses?.[0].region.a1, 'B3:E6');
+  assert.deepEqual(result.nearMisses?.[0].columns.map((column) => column.header), ['ID', '操作']);
+  assert.match(result.nearMisses?.[0].explanation ?? '', /指定された列名がすべて一致/u);
+
+  // A single common column is too weak to rescue an unrelated description.
+  const weak = compileQuery('業務フローのIDを見せて', { index, method: 'bm25', relativePath });
+  assert.equal(weak.status, 'no-match');
+  assert.equal(weak.nearMisses, undefined);
+});
+
+
+test('directional aliases: two cues can retrieve by canonical names without weakening exact-name safety', () => {
+  const { index } = buildIndex();
+  const queryAliases = [
+    { cues: ['業務', 'フロー'], terms: ['状態遷移', '操作'] },
+  ] as const;
+
+  const aliased = compileQuery('業務フローの表', {
+    index,
+    method: 'bm25',
+    relativePath,
+    queryAliases,
+  });
+  assert.equal(aliased.status, 'candidates');
+  assert.equal(aliased.candidates[0].region.a1, 'B3:E6');
+  assert.match(aliased.candidates[0].explanation, /説明句の対応/u);
+  assert.equal(aliased.requiresSelection, true);
+  // The explicit bounded alias is the only semantic escape hatch for unknown
+  // description words; without it the same request is not a normal match.
+  const withoutAlias = compileQuery('業務フローの表', { index, method: 'bm25', relativePath });
+  assert.equal(withoutAlias.status, 'no-match');
+
+  // Quoting asks for an explicit name, so a semantic alias cannot override it.
+  const quoted = compileQuery('「業務フロー」の表', {
+    index,
+    method: 'bm25',
+    relativePath,
+    queryAliases,
+  });
+  assert.equal(quoted.status, 'no-match');
+
+  // Broad/malformed alias rules are ignored: one cue or one canonical term
+  // cannot become a semantic wildcard.
+  const broad = compileQuery('業務フローの表', {
+    index,
+    method: 'bm25',
+    relativePath,
+    queryAliases: [
+      { cues: ['業務'], terms: ['状態遷移', '操作'] },
+      { cues: ['業務', 'フロー'], terms: ['状態遷移'] },
+    ],
+  });
+  assert.equal(broad.status, 'no-match');
+
+  // Retrieval assistance never bypasses unsupported query semantics.
+  const unsupported = compileQuery('業務フローの表を担当者別に集計', {
+    index,
+    method: 'bm25',
+    relativePath,
+    queryAliases,
+  });
+  assert.equal(unsupported.status, 'unsupported');
 });

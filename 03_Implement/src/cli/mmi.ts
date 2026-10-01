@@ -1,393 +1,332 @@
 #!/usr/bin/env node
 /**
- * `mmi` -- the command-line interface for AI agents, CI and people who work
- * in a terminal (ADR-0019 D7 優先度1; 02_Architecture/table-navigation.md §5).
- *
- *   mmi inspect <book> [--doc <md>] [--sample <n>] [--values] [--json]
- *   mmi select <book> --table <name|id|range> [--sheet <s>] [--columns <h1,h2>]
- *              [--contains <text> [--in <header>] | --first <n>] [--doc <md>] [--json]
- *   mmi find "<description>" [--root <dir>] [--doc <md>] [--json]
- *   mmi check <md>... [--root <dir>] [--json]
- *   mmi render <md> [--root <dir>] [--format md|html] [--out <file>]
- *
- * Every command reads only. `check` exits 1 when a reference has an error,
- * `select` when the selection cannot be made; 2 is a usage error. With
- * --json the output is one JSON object carrying a `schema` field. `inspect`
- * returns structure only (headers, titles, names) unless --sample/--values
- * ask for cell values: the output may be sent to an AI provider, and what
- * may be sent is for the user's organization to decide.
+ * `mmi` -- the MMI engine without VS Code, for AI agents, CI and scripts.
+ * Every command is read-only: it never writes to a source workbook, and only
+ * writes a file when `-o` is given.
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import process from 'node:process';
 import { fileURLToPath } from 'node:url';
-import MarkdownIt from 'markdown-it';
+import { parseArgs } from 'node:util';
+import XLSX from 'xlsx';
 import { WorkbookCache } from '../cache/workbookCache.js';
-import { evaluateEmbed } from '../core/evaluateEmbed.js';
+import { imageCandidates, readExcelImages, relationToTables, type ImageDiagnostic, type TableRect } from '../adapters/excelImageAdapter.js';
+import { tableCandidates } from '../adapters/tableRegionAdapter.js';
+import type { Candidate } from '../core/candidate.js';
+import { readSourceFileIdentity } from '../core/sourceIdentity.js';
+import { sliceRegion } from '../core/tableGeometry.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
-import { createDiagnosticsForDocument, toRelativeSuggestion } from '../dx/vscodeAdapters.js';
-import { analyzeBook, describeWorkbook, type WorkbookCatalog } from '../navigate/catalog.js';
-import { selectFromBook, type RowSelection, type SelectionResult } from '../navigate/select.js';
-import { parseEmbedSyntax } from '../parser/embedSyntax.js';
-import { markdownMatrixPlugin } from '../plugin/markdownMatrixPlugin.js';
-import { WorkspaceRegionIndex } from '../search/workspaceRegionIndex.js';
+import { createDiagnosticsForDocument } from '../dx/vscodeAdapters.js';
+import { buildDeliveryManifestCsv } from '../manifest/collectDeliveryManifest.js';
+import { detectRegions } from '../search/regionDetector.js';
+import { runFind, runSelect } from './navigateCommands.js';
+import { extractImages, formatImageDiagnostics } from './extract.js';
+import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './render.js';
 
-export const CLI_SCHEMA = 'mmi.cli/v0';
-const WORKBOOK = /\.(xlsx|xlsm|xlsb|xls|csv|xml)$/i;
-const EMBED = /!\[\[([^\]\n]+?)\]\]/g;
+const USAGE = `Usage: mmi <command> [options]
 
-interface Parsed {
-  command: string;
-  positional: string[];
-  flags: Map<string, string | true>;
-}
+Commands:
+  inspect <source>          List sheets and table regions of a workbook/CSV (structure only by default;
+                            --json adds "candidates": the same regions as Semantic Candidates with status,
+                            method, provenance and fingerprint)
+      --values <n>            also print the first n body rows of each region
+      --from <doc.md>         write suggested references relative to this document
+                            For .xlsx/.xlsm it also lists embedded pictures (sheet, anchor, format, size,
+                            digest, nearest table) and names any that cannot be read.
+  extract <source.xlsx>     Write workbook pictures to an assets folder and print Markdown references
+      --image <n|all>         the picture number shown by inspect, or all (required)
+      --out-dir <dir>         assets folder (default: assets); files are named by content digest
+      --from <doc.md>         write references relative to this document
+  select <workbook>         Print the reference for a table chosen by name, with columns/rows chosen by heading
+      --table <name|range>    Excel table, name, title or A1 range (required)
+      --sheet <name>  --columns <h1,h2>  --contains <text> [--in <heading>]  --first <n>
+      --from <doc.md>         write the reference relative to this document
+  find <description...>     Search workbooks under --root for tables matching a description
+  select <workbook>         Print the reference for a table chosen by name, columns/rows by heading
+      --table <name|range>    Excel table, name, title or A1 range (required)
+      --sheet <name>  --columns <h1,h2>  --contains <text> [--in <heading>]  --first <n>
+      --from <doc.md>         write the reference relative to this document
+  find <description...>     Search workbooks under --root for tables matching a description
+  check <path...>           Validate MMI references in Markdown files or directories
+                            (exit code 1 when any error is found)
+  render <doc.md>           Expand references into Markdown tables (default) or HTML
+      --to md|html
+  manifest <doc.md>         List references that fall back to 別紙 cards as CSV
 
-class UsageError extends Error {}
+Common options:
+  --root <dir>              workspace boundary for references (default: current directory)
+  --json                    machine-readable output
+  -o, --out <file>          write output to a file instead of stdout
+  -h, --help`;
 
-export interface CliIo {
-  out(text: string): void;
-  err(text: string): void;
-  cwd: string;
-}
-
-function parse(argv: readonly string[]): Parsed {
-  const [command = 'help', ...rest] = argv;
-  const positional: string[] = [];
-  const flags = new Map<string, string | true>();
-  for (let i = 0; i < rest.length; i += 1) {
-    const arg = rest[i];
-    if (!arg.startsWith('--')) {
-      positional.push(arg);
-      continue;
-    }
-    const key = arg.slice(2);
-    const next = rest[i + 1];
-    if (['json', 'values', 'strict'].includes(key) || next === undefined || next.startsWith('--')) flags.set(key, true);
-    else {
-      flags.set(key, next);
-      i += 1;
-    }
-  }
-  return { command, positional, flags };
-}
-
-const flag = (parsed: Parsed, key: string): string | undefined => {
-  const value = parsed.flags.get(key);
-  return typeof value === 'string' ? value : undefined;
-};
-
-export async function runCli(argv: readonly string[], io: CliIo): Promise<number> {
-  let parsed: Parsed;
-  try {
-    parsed = parse(argv);
-    const json = parsed.flags.has('json');
-    switch (parsed.command) {
-      case 'inspect':
-        return inspect(parsed, io, json);
-      case 'select':
-        return select(parsed, io, json);
-      case 'find':
-        return await find(parsed, io, json);
-      case 'check':
-        return await check(parsed, io, json);
-      case 'render':
-        return render(parsed, io);
-      case 'help':
-      case '--help':
-        io.out(HELP);
-        return 0;
-      default:
-        throw new UsageError(`不明なコマンドです: ${parsed.command}`);
-    }
-  } catch (error) {
-    if (error instanceof UsageError) {
-      io.err(`${error.message}\n\n${HELP}`);
-      return 2;
-    }
-    io.err(`mmi: ${(error as Error).message}`);
-    return 1;
-  }
-}
-
-const HELP = `使い方:
-  mmi inspect <ブック> [--doc <md>] [--sample <行数>] [--values] [--json]
-  mmi select <ブック> --table <表名|範囲> [--sheet <シート>] [--columns <見出し,見出し>]
-             [--contains <文字列> [--in <見出し>] | --first <行数>] [--doc <md>] [--json]
-  mmi find "<説明>" [--root <フォルダ>] [--doc <md>] [--json]
-  mmi check <md>... [--root <フォルダ>] [--json]
-  mmi render <md> [--root <フォルダ>] [--format md|html] [--out <ファイル>]`;
-
-function resolve(io: CliIo, file: string): string {
-  return path.resolve(io.cwd, file);
-}
-
-function referencePathFor(io: CliIo, bookPath: string, doc?: string): string {
-  return doc ? toRelativeSuggestion(resolve(io, doc), bookPath) : `./${path.basename(bookPath)}`;
-}
-
-// ---------------------------------------------------------------------------
-
-function inspect(parsed: Parsed, io: CliIo, json: boolean): number {
-  const file = parsed.positional[0];
-  if (!file) throw new UsageError('inspect にはブックを指定してください。');
-  const bookPath = resolve(io, file);
-  const catalog = describeWorkbook(bookPath, {
-    referencePath: referencePathFor(io, bookPath, flag(parsed, 'doc')),
-    sampleRows: Number(flag(parsed, 'sample') ?? 0),
-    includeValues: parsed.flags.has('values'),
-  });
-  io.out(json ? JSON.stringify({ schema: CLI_SCHEMA, command: 'inspect', catalog }, null, 2) : describeCatalog(catalog));
-  return 0;
-}
-
-function describeCatalog(catalog: WorkbookCatalog): string {
-  const lines = [catalog.book];
-  for (const sheet of catalog.sheets) {
-    const visibility = sheet.visibility === 'visible' ? '' : sheet.visibility === 'hidden' ? '（非表示）' : '（Excelの画面から表示できない）';
-    lines.push(`  シート ${sheet.name}${visibility}${sheet.usedRange ? ` 使用範囲 ${sheet.usedRange}` : ''}`);
-    for (const table of sheet.tables) {
-      const label = table.excelTable ? `テーブル「${table.excelTable}」` : table.title ? `「${table.title}」` : '';
-      lines.push(`    表 ${table.id} ${label} 本体${table.bodyRows}行`);
-      lines.push(`      列: ${table.columns.map((column) => column.header || `(${column.sheetColumn}列)`).join('、')}`);
-      if (table.names.length > 0) lines.push(`      名前: ${table.names.join('、')}`);
-      if (table.reference) lines.push(`      参照: ${table.reference}${table.renderMode === 'card' ? '（別紙）' : ''}`);
-      for (const caution of table.cautions) lines.push(`      注意: ${caution.message}`);
-      for (const row of table.sample ?? []) lines.push(`      | ${row.join(' | ')} |`);
-    }
-    for (const block of sheet.otherBlocks) {
-      lines.push(`    ${ROLE_JA[block.role] ?? block.role} ${block.range}${block.labels ? ` ${block.labels.join('、')}` : ''}${block.excerpt ? ` ${block.excerpt.join(' / ')}` : ''}`);
-    }
-  }
-  if (catalog.names.length > 0) {
-    lines.push('  名前付き範囲');
-    for (const name of catalog.names) lines.push(`    ${name.name}${name.scope ? `（${name.scope}）` : ''}: ${name.kind}${name.range ? ` ${name.sheet}!${name.range}` : ''}`);
-  }
-  if (catalog.unavailable.length > 0) lines.push(`  取得できなかった情報: ${catalog.unavailable.join('、')}`);
-  return lines.join('\n');
-}
-
-const ROLE_JA: Record<string, string> = { 'key-value': '項目と値の組', prose: '文章', heading: '見出し', form: '記入欄', diagram: '図', unknown: '判定できない領域' };
-
-// ---------------------------------------------------------------------------
-
-function select(parsed: Parsed, io: CliIo, json: boolean): number {
-  const file = parsed.positional[0];
-  const table = flag(parsed, 'table');
-  if (!file || !table) throw new UsageError('select にはブックと --table を指定してください。');
-  const contains = flag(parsed, 'contains');
-  const first = flag(parsed, 'first');
-  if (contains !== undefined && first !== undefined) throw new UsageError('--contains と --first は同時に使えません。');
-  const rows: RowSelection | undefined =
-    contains !== undefined ? { contains, ...(flag(parsed, 'in') ? { column: flag(parsed, 'in') } : {}) } : first !== undefined ? { first: Number(first) } : undefined;
-  const bookPath = resolve(io, file);
-  const referencePath = referencePathFor(io, bookPath, flag(parsed, 'doc'));
-  const result = selectFromBook(analyzeBook(bookPath, referencePath), referencePath, {
-    table,
-    ...(flag(parsed, 'sheet') ? { sheet: flag(parsed, 'sheet') } : {}),
-    ...(flag(parsed, 'columns') ? { columns: flag(parsed, 'columns')!.split(',').map((column) => column.trim()).filter(Boolean) } : {}),
-    ...(rows ? { rows } : {}),
-  });
-  if (json) {
-    io.out(JSON.stringify({ schema: CLI_SCHEMA, command: 'select', result }, null, 2));
-  } else {
-    // stdout carries the reference alone, so it can be pasted or piped; everything else goes to stderr.
-    if (result.reference) io.out(result.reference);
-    const notes = describeSelection(result);
-    if (notes) io.err(notes);
-  }
-  return result.ok ? 0 : 1;
-}
-
-function describeSelection(result: SelectionResult): string {
-  const lines: string[] = [];
-  for (const error of result.errors) lines.push(`エラー: ${error.message}${error.suggestions?.length ? `（候補: ${error.suggestions.join('、')}）` : ''}`);
-  for (const warning of result.warnings) lines.push(`注意: ${warning.message}`);
-  if (result.rows) lines.push(`行: ${result.rows.shown}/${result.rows.ofTotal}${result.rows.exact ? '' : '（指定した列だけの絞り込みと一致しません）'}${result.renderMode === 'card' ? '・別紙として表示' : ''}`);
-  return lines.join('\n');
-}
-
-// ---------------------------------------------------------------------------
-
-async function find(parsed: Parsed, io: CliIo, json: boolean): Promise<number> {
-  const text = parsed.positional.join(' ').trim();
-  if (!text) throw new UsageError('find には説明を指定してください。');
-  const root = resolve(io, flag(parsed, 'root') ?? '.');
-  const doc = flag(parsed, 'doc');
-  const index = new WorkspaceRegionIndex({
-    loadWorkbook: (file) => loadWorkbook({ absolutePath: file }),
-    statFile: (file) => {
-      const stat = fs.statSync(file);
-      return { mtimeMs: stat.mtimeMs, size: stat.size };
+export async function main(argv: string[]): Promise<number> {
+  const { values, positionals } = parseArgs({
+    args: argv,
+    allowPositionals: true,
+    options: {
+      root: { type: 'string' },
+      json: { type: 'boolean', default: false },
+      out: { type: 'string', short: 'o' },
+      to: { type: 'string', default: 'md' },
+      values: { type: 'string', default: '0' },
+      from: { type: 'string' },
+      image: { type: 'string' },
+      'out-dir': { type: 'string', default: 'assets' },
+      table: { type: 'string' },
+      sheet: { type: 'string' },
+      columns: { type: 'string' },
+      contains: { type: 'string' },
+      in: { type: 'string' },
+      first: { type: 'string' },
+      help: { type: 'boolean', short: 'h', default: false },
     },
   });
-  await index.refresh(listWorkbooks(root));
-  const relative = (bookPath: string): string => (doc ? toRelativeSuggestion(resolve(io, doc), bookPath) : toRelativeSuggestion(path.join(root, 'x.md'), bookPath));
-  const result = index.query(text, relative);
-  const candidates = result.candidates.map((candidate) => ({ reference: candidate.markdown, explanation: candidate.explanation, notes: candidate.notes }));
-  if (json) {
-    io.out(JSON.stringify({ schema: CLI_SCHEMA, command: 'find', status: result.status, reasons: result.reasons, candidates, requiresSelection: true }, null, 2));
-  } else {
-    io.out([...candidates.map((c, i) => `${i + 1}. ${c.reference}\n   ${c.explanation}`), ...result.reasons.map((reason) => `理由: ${reason}`)].join('\n') || '候補はありません。');
+  const [command, ...args] = positionals;
+  if (values.help || !command) {
+    console.log(USAGE);
+    return command || values.help ? 0 : 2;
   }
-  return result.status === 'candidates' ? 0 : 1;
-}
+  const root = path.resolve(values.root ?? process.cwd());
+  const emit = (text: string) => (values.out ? fs.writeFileSync(values.out, text) : process.stdout.write(text.endsWith('\n') ? text : `${text}\n`));
 
-function listWorkbooks(root: string): string[] {
-  const out: string[] = [];
-  const walk = (dir: string): void => {
-    for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
-      if (entry.name.startsWith('.') || entry.name === 'node_modules' || entry.name.startsWith('~$')) continue;
-      const full = path.join(dir, entry.name);
-      if (entry.isDirectory()) walk(full);
-      else if (WORKBOOK.test(entry.name)) out.push(full);
+  switch (command) {
+    case 'inspect': {
+      if (args.length !== 1) return usageError('inspect takes one source file');
+      const result = inspectSource(path.resolve(args[0]), Number(values.values) || 0, values.from);
+      emit(values.json ? JSON.stringify(result, null, 2) : formatInspect(result));
+      return 0;
     }
-  };
-  walk(root);
-  return out.sort();
+    case 'extract': {
+      if (args.length !== 1) return usageError('extract takes one workbook');
+      if (!values.image) return usageError('extract needs --image <n|all>');
+      const result = extractImages({
+        sourcePath: path.resolve(args[0]),
+        selection: values.image,
+        outDir: path.resolve(values['out-dir'] ?? 'assets'),
+        fromDocument: values.from,
+      });
+      if (values.json) emit(JSON.stringify(result, null, 2));
+      else if (result.extracted.length > 0) emit(result.extracted.map((item) => item.markdown).join('\n\n'));
+      for (const problem of result.problems) console.error(`mmi: ${problem.code}${problem.ordinal ? ` (image ${problem.ordinal})` : ''}: ${problem.message}`);
+      return result.problems.length > 0 ? 1 : 0;
+    }
+    case 'select':
+      return runSelect(args, { ...values, json: values.json }, { out: emit, err: (text) => console.error(text), cwd: process.cwd() });
+    case 'find':
+      return runFind(args, { ...values, json: values.json }, { out: emit, err: (text) => console.error(text), cwd: process.cwd() });
+    case 'check': {
+      if (args.length === 0) return usageError('check needs at least one file or directory');
+      const problems = await checkPaths(args.flatMap(collectMarkdownFiles), root);
+      const errors = problems.filter((problem) => problem.severity === 'error').length;
+      emit(values.json
+        ? JSON.stringify({ errors, problems }, null, 2)
+        : problems.map((p) => `${p.file}:${p.line}:${p.column} ${p.severity} ${p.code} ${p.message}`).concat(`${errors} error(s), ${problems.length - errors} other problem(s)`).join('\n'));
+      return errors > 0 ? 1 : 0;
+    }
+    case 'render': {
+      if (args.length !== 1) return usageError('render takes one Markdown file');
+      if (values.to !== 'md' && values.to !== 'html') return usageError('--to must be md or html');
+      const options = { markdownFilePath: path.resolve(args[0]), workspaceRoot: root };
+      try {
+        emit(values.to === 'html' ? renderDocumentHtml(options) : renderDocumentMarkdown(options));
+      } catch (error) {
+        if (!(error instanceof RenderError)) throw error;
+        console.error(error.message);
+        return 1;
+      }
+      return 0;
+    }
+    case 'manifest': {
+      if (args.length !== 1) return usageError('manifest takes one Markdown file');
+      const markdownFilePath = path.resolve(args[0]);
+      const { records, csvText } = buildDeliveryManifestCsv({
+        markdownText: fs.readFileSync(markdownFilePath, 'utf8'), markdownFilePath, workspaceRoot: root,
+      });
+      emit(values.json ? JSON.stringify(records, null, 2) : csvText);
+      return 0;
+    }
+    default:
+      return usageError(`unknown command: ${command}`);
+  }
 }
 
-// ---------------------------------------------------------------------------
+function usageError(message: string): number {
+  console.error(`mmi: ${message}\n\n${USAGE}`);
+  return 2;
+}
 
-interface CheckItem {
+export interface InspectRegion {
+  a1: string;
+  rows: number;
+  columns: number;
+  title?: string;
+  headers?: string[];
+  headerConfidence: string;
+  notes: string[];
+  reference: string;
+  sample?: string[][];
+}
+
+export interface InspectResult {
+  source: string;
+  sheets: { name: string; usedRange?: string; regions: InspectRegion[] }[];
+  /** The same structure as Semantic Candidates (issue-0193). `--json` only; the text output is unchanged. */
+  candidates: Candidate[];
+  /** Embedded pictures of an .xlsx/.xlsm (empty for other sources). */
+  images: InspectImage[];
+  /** Pictures or drawings that could not be read, by name. */
+  imageDiagnostics: ImageDiagnostic[];
+}
+
+export interface InspectImage {
+  ordinal: number;
+  sheet: string;
+  name?: string;
+  description?: string;
+  range?: string;
+  anchorKind: string;
+  format: string;
+  bytes: number;
+  digest: string;
+  extractable: boolean;
+  nearbyTable?: { range: string; relation: string; gap: number };
+}
+
+export function inspectSource(absolutePath: string, sampleRows: number, fromDocument?: string): InspectResult {
+  const workbook = loadWorkbook({ absolutePath });
+  const sourceDigest = readSourceFileIdentity(absolutePath).digest;
+  const isPackage = /\.(xlsx|xlsm)$/iu.test(absolutePath);
+  const imageRead = isPackage
+    ? readExcelImages(fs.readFileSync(absolutePath))
+    : {
+        images: [],
+        diagnostics: /\.xls$/iu.test(absolutePath)
+          ? [{ code: 'MMI_IMAGE_PACKAGE_UNSUPPORTED' as const, severity: 'warning' as const, message: 'binary .xls: embedded pictures are not read' }]
+          : [],
+      };
+  const detected = Object.entries(workbook.sheets).map(([name, sheet]) => ({ name, sheet, regions: detectRegions(name, sheet, { maxValueSample: 0 }) }));
+  const tablesBySheet: Record<string, TableRect[]> = Object.fromEntries(
+    detected.map(({ name, regions }) => [name, regions.map((r) => ({ a1: r.a1, startRow: r.range.startRow, startCol: r.range.startCol, endRow: r.range.endRow, endCol: r.range.endCol }))]),
+  );
+  const base = fromDocument ? path.dirname(path.resolve(fromDocument)) : process.cwd();
+  let relative = path.relative(base, absolutePath).split(path.sep).join('/');
+  if (!relative.startsWith('.')) relative = `./${relative}`;
+  return {
+    source: relative,
+    candidates: [
+      ...Object.entries(workbook.sheets).flatMap(([sheetName, sheet]) => tableCandidates({ source: relative, sourceDigest, sheetName, sheet })),
+      ...imageCandidates({ source: relative, sourceDigest, images: imageRead.images, tablesBySheet }),
+    ],
+    images: imageRead.images.map((image) => {
+      const near = relationToTables(image, tablesBySheet[image.sheet] ?? []);
+      return {
+        ordinal: image.ordinal,
+        sheet: image.sheet,
+        ...(image.name ? { name: image.name } : {}),
+        ...(image.description ? { description: image.description } : {}),
+        ...(image.range ? { range: image.range } : {}),
+        anchorKind: image.anchor.kind,
+        format: image.format,
+        bytes: image.bytes,
+        digest: image.digest,
+        extractable: image.extractable,
+        ...(near ? { nearbyTable: { range: near.table.a1, relation: near.relation, gap: near.gap } } : {}),
+      };
+    }),
+    imageDiagnostics: imageRead.diagnostics,
+    sheets: Object.entries(workbook.sheets).map(([name, sheet]) => ({
+      name,
+      ...(sheet.usedRange ? { usedRange: a1Of(sheet.usedRange) } : {}),
+      regions: detectRegions(name, sheet, { maxValueSample: 0 }).map((region) => {
+        const header = region.headerConfidence === 'likely' ? '?header=first' : '';
+        return {
+          a1: region.a1,
+          rows: region.range.endRow - region.range.startRow + 1,
+          columns: region.range.endCol - region.range.startCol + 1,
+          ...(region.title ? { title: region.title } : {}),
+          ...(region.headers ? { headers: region.headers } : {}),
+          headerConfidence: region.headerConfidence,
+          notes: region.reasons,
+          reference: `![[${relative}#${name}|${region.a1}${header}]]`,
+          ...(sampleRows > 0 ? { sample: sliceRegion(sheet, region.a1).slice(region.headers ? 1 : 0, (region.headers ? 1 : 0) + sampleRows) } : {}),
+        };
+      }),
+    })),
+  };
+}
+
+function a1Of(range: { startRow: number; startCol: number; endRow: number; endCol: number }): string {
+  return XLSX.utils.encode_range({ s: { r: range.startRow, c: range.startCol }, e: { r: range.endRow, c: range.endCol } });
+}
+
+function formatInspect(result: InspectResult): string {
+  const lines = [`source: ${result.source}`];
+  for (const sheet of result.sheets) {
+    lines.push('', `sheet: ${sheet.name}${sheet.usedRange ? ` (used ${sheet.usedRange})` : ''}`);
+    if (sheet.regions.length === 0) lines.push('  (no table regions)');
+    for (const region of sheet.regions) {
+      lines.push(`  ${region.a1}  ${region.rows} rows x ${region.columns} cols  header: ${region.headerConfidence}${region.title ? `  title: ${region.title}` : ''}`);
+      if (region.headers) lines.push(`    columns: ${region.headers.map((h, i) => `${XLSX.utils.encode_col(i)}=${h}`).join(', ')}`);
+      if (region.notes.length) lines.push(`    notes: ${region.notes.join(', ')}`);
+      lines.push(`    ${region.reference}`);
+      for (const row of region.sample ?? []) lines.push(`    | ${row.join(' | ')} |`);
+    }
+    for (const image of result.images.filter((item) => item.sheet === sheet.name)) {
+      const near = image.nearbyTable ? `  near table ${image.nearbyTable.range} (${image.nearbyTable.relation}, gap ${image.nearbyTable.gap})` : '';
+      lines.push(`  image #${image.ordinal}  ${image.range ?? '(no cell anchor)'}  ${image.format}  ${image.bytes} bytes  ${image.digest.slice(0, 19)}…${image.name ? `  "${image.name}"` : ''}${near}${image.extractable ? '' : '  (not extractable)'}`);
+    }
+  }
+  if (result.imageDiagnostics.length > 0) lines.push('', 'image problems:', ...formatImageDiagnostics(result.imageDiagnostics).map((line) => `  ${line}`));
+  return lines.join('\n');
+}
+
+export interface CheckProblem {
   file: string;
   line: number;
   column: number;
-  severity: 'error' | 'warning' | 'information';
+  severity: string;
   code: string;
   message: string;
-  reference: string;
 }
 
-async function check(parsed: Parsed, io: CliIo, json: boolean): Promise<number> {
-  if (parsed.positional.length === 0) throw new UsageError('check には Markdown ファイルを指定してください。');
-  const root = flag(parsed, 'root') ? resolve(io, flag(parsed, 'root')!) : undefined;
-  const items: CheckItem[] = [];
-  let references = 0;
-  for (const file of parsed.positional) {
-    const markdownFilePath = resolve(io, file);
-    const text = fs.readFileSync(markdownFilePath, 'utf8');
-    const workspaceRoot = root ?? path.dirname(markdownFilePath);
-    const diagnostics = await createDiagnosticsForDocument(text, markdownFilePath, workspaceRoot, {
-      fileExists: async (candidate) => fs.existsSync(candidate),
-      readFile: async (candidate) => fs.readFileSync(candidate),
-      readWorkbookSheetNames: async (candidate) => Object.keys(loadWorkbook({ absolutePath: candidate }).sheets),
+export async function checkPaths(files: string[], root: string): Promise<CheckProblem[]> {
+  const cache = new WorkbookCache<WorkbookData>();
+  const problems: CheckProblem[] = [];
+  for (const file of files) {
+    const absolute = path.resolve(file);
+    const items = await createDiagnosticsForDocument(fs.readFileSync(absolute, 'utf8'), absolute, root, {
+      fileExists: async (filepath) => fs.existsSync(filepath) && fs.statSync(filepath).isFile(),
+      readFile: async (filepath) => fs.readFileSync(filepath),
+      readWorkbookSheetNames: async (filepath) => Object.keys(loadWorkbook({ absolutePath: filepath, cache }).sheets),
     });
-    for (const item of diagnostics) {
-      items.push({
-        file,
-        line: item.range.start.line + 1,
-        column: item.range.start.character + 1,
-        severity: item.diagnostic.severity,
-        code: item.diagnostic.code,
-        message: item.diagnostic.message,
-        reference: lineText(text, item.range.start.line),
+    for (const { diagnostic, range } of items) {
+      problems.push({
+        file: path.relative(process.cwd(), absolute).split(path.sep).join('/'),
+        line: range.start.line + 1,
+        column: range.start.character + 1,
+        severity: diagnostic.severity,
+        code: diagnostic.code,
+        message: diagnostic.message,
       });
     }
-    // What the preview would show: failures that only rendering reveals (a range, a header row).
-    const cache = new WorkbookCache<WorkbookData>();
-    for (const match of text.matchAll(EMBED)) {
-      const embed = parseEmbedSyntax(match[0]);
-      if (!embed) continue;
-      references += 1;
-      const at = position(text, match.index ?? 0);
-      if (items.some((item) => item.file === file && item.line === at.line && item.severity === 'error')) continue;
-      const outcome = evaluateEmbed(embed, { markdownFilePath, workspaceRoot, cache });
-      if (outcome.kind === 'error') {
-        items.push({ file, ...at, severity: 'error', code: 'MMI_RENDER_ERROR', message: outcome.message, reference: match[0] });
-      }
-    }
   }
-  const errors = items.filter((item) => item.severity === 'error').length;
-  if (json) {
-    io.out(JSON.stringify({ schema: CLI_SCHEMA, command: 'check', references, errors, warnings: items.length - errors, items }, null, 2));
-  } else {
-    for (const item of items) io.out(`${item.file}:${item.line}:${item.column} ${item.severity} ${item.code} ${item.message}`);
-    io.out(`参照 ${references}件、エラー ${errors}件、警告・情報 ${items.length - errors}件`);
-  }
-  return errors > 0 || (parsed.flags.has('strict') && items.length > 0) ? 1 : 0;
+  return problems;
 }
 
-function position(text: string, offset: number): { line: number; column: number } {
-  const before = text.slice(0, offset).split('\n');
-  return { line: before.length, column: before[before.length - 1].length + 1 };
-}
-
-function lineText(text: string, line: number): string {
-  return text.split('\n')[line] ?? '';
-}
-
-// ---------------------------------------------------------------------------
-
-function render(parsed: Parsed, io: CliIo): number {
-  const file = parsed.positional[0];
-  if (!file) throw new UsageError('render には Markdown ファイルを指定してください。');
-  const markdownFilePath = resolve(io, file);
-  const workspaceRoot = flag(parsed, 'root') ? resolve(io, flag(parsed, 'root')!) : path.dirname(markdownFilePath);
-  const text = fs.readFileSync(markdownFilePath, 'utf8');
-  const format = flag(parsed, 'format') ?? 'md';
-  let output: string;
-  let failures = 0;
-  if (format === 'html') {
-    const md = new MarkdownIt({ html: true }).use(markdownMatrixPlugin, { markdownFilePath, workspaceRoot, cache: new WorkbookCache() });
-    output = md.render(text);
-    failures = (output.match(/class="mmi-error"/g) ?? []).length;
-  } else if (format === 'md') {
-    const expanded = expandToMarkdown(text, markdownFilePath, workspaceRoot);
-    output = expanded.text;
-    failures = expanded.failures;
-  } else {
-    throw new UsageError(`--format は md か html です: ${format}`);
-  }
-  const out = flag(parsed, 'out');
-  if (out) fs.writeFileSync(resolve(io, out), output);
-  else io.out(output);
-  if (failures > 0) io.err(`mmi: ${failures}件の参照を表示できませんでした。`);
-  return failures > 0 ? 1 : 0;
-}
-
-/**
- * Each reference becomes a plain Markdown table (or a note for a card or an
- * error), so an agent can read back what the document shows. Code fences are
- * left as they are.
- */
-export function expandToMarkdown(text: string, markdownFilePath: string, workspaceRoot?: string): { text: string; failures: number } {
-  const cache = new WorkbookCache<WorkbookData>();
-  let failures = 0;
-  let fence: string | undefined;
-  const lines = text.split('\n').flatMap((line) => {
-    const marker = /^\s*(`{3,}|~{3,})/.exec(line)?.[1];
-    if (marker && (!fence || marker.startsWith(fence))) {
-      fence = fence ? undefined : marker;
-      return [line];
-    }
-    if (fence || !line.includes('![[')) return [line];
-    const embeds = [...line.matchAll(EMBED)];
-    const rest = embeds.reduce((remaining, match) => remaining.replace(match[0], ''), line).trim();
-    const blocks = embeds.flatMap((match) => {
-      const embed = parseEmbedSyntax(match[0]);
-      if (!embed) return [match[0]];
-      const outcome = evaluateEmbed(embed, { markdownFilePath, workspaceRoot, cache });
-      if (outcome.kind === 'error') {
-        failures += 1;
-        return [`> MMIエラー: ${outcome.message}（${match[0]}）`];
-      }
-      if (outcome.kind === 'card') return [`> 別紙: ${embed.filepath}${embed.target ? ` / ${embed.target}` : ''}${embed.range ? ` ${embed.range}` : ''}（表が大きいため本文には載せません）`];
-      const { headers, bodyRows } = outcome.logical;
-      const width = Math.max(headers?.length ?? 0, ...bodyRows.map((row) => row.length), 1);
-      const cell = (value: string | undefined): string => (value ?? '').replace(/\|/g, '\\|').replace(/\r?\n/g, '<br>');
-      const row = (cells: readonly string[] | undefined): string => `| ${Array.from({ length: width }, (_, i) => cell(cells?.[i])).join(' | ')} |`;
-      return ['', row(headers ?? Array.from({ length: width }, () => '')), `|${' --- |'.repeat(width)}`, ...bodyRows.map(row), ''];
+function collectMarkdownFiles(target: string): string[] {
+  const stat = fs.statSync(target);
+  if (stat.isFile()) return [target];
+  return fs.readdirSync(target, { withFileTypes: true })
+    .filter((entry) => !entry.name.startsWith('.') && entry.name !== 'node_modules')
+    .flatMap((entry) => {
+      const child = path.join(target, entry.name);
+      return entry.isDirectory() ? collectMarkdownFiles(child) : entry.name.toLowerCase().endsWith('.md') ? [child] : [];
     });
-    return [...(rest ? [rest] : []), ...blocks];
-  });
-  return { text: lines.join('\n').replace(/\n{3,}/g, '\n\n'), failures };
 }
 
-if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
-  const code = await runCli(process.argv.slice(2), {
-    out: (text) => process.stdout.write(`${text}\n`),
-    err: (text) => process.stderr.write(`${text}\n`),
-    cwd: process.cwd(),
+if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))) {
+  main(process.argv.slice(2)).then((code) => { process.exitCode = code; }, (error) => {
+    console.error(`mmi: ${error instanceof Error ? error.message : String(error)}`);
+    process.exitCode = 2;
   });
-  process.exitCode = code;
 }

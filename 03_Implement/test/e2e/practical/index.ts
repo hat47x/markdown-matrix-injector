@@ -125,9 +125,12 @@ async function checkCompletionByFileType(samples: string): Promise<void> {
   const range = table?.range instanceof vscode.Range ? table.range : (table?.range as { replacing: vscode.Range } | undefined)?.replacing;
   expect(Boolean(table && range), 'value completion carries a replace range');
   if (table && range) {
-    await editor.edit((edit) => edit.replace(range, String(table.insertText)));
+    // Own undo stop on both sides, so this edit is one step distinct from the setup edit above.
+    await editor.edit((edit) => edit.replace(range, String(table.insertText)), { undoStopBefore: true, undoStopAfter: true });
     expect(document.lineAt(0).text === text.replace('mode=ta', 'mode=table'), `accepting a value rewrote more than the value: ${document.lineAt(0).text}`);
     await vscode.commands.executeCommand('undo');
+    // `undo` resolves before the model change is always visible; wait for it rather than race it.
+    for (let i = 0; i < 20 && document.lineAt(0).text !== text; i += 1) await sleep(50);
     expect(document.lineAt(0).text === text, `one Undo did not restore: ${document.lineAt(0).text}`);
   }
   await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');

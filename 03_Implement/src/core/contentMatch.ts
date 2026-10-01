@@ -18,8 +18,11 @@
  *   matches must never auto-confirm). This module only reports candidates;
  *   it never picks one.
  *
- * Neither is wired into any VS Code paste path yet -- see issue-0114
- * "Remaining work".
+ * Host integration lives in `extension.ts`: explicit
+ * `MMI: Insert Embed by Content Match` and `Paste As...` both load the
+ * current workbook bytes and present the returned exact matches for explicit
+ * user selection. Normal Ctrl+V deliberately does not run this inferred
+ * content-match path.
  */
 import type { CellRange, SheetSource } from './sheetSource.js';
 import { rangeDimensions } from './tableGeometry.js';

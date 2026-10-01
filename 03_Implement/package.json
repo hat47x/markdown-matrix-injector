@@ -32,6 +32,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "mmi": "node --import tsx src/cli/mmi.ts",
     "test:unit": "node --import tsx --test ./test/*.test.ts",
     "test:review-route-evaluation-pipeline": "node --import tsx --test ./test/worksheetReviewRouteEvaluationPipeline.test.ts",
     "qualify:review-route-evaluation-pipeline": "npm run build && npm run test:review-route-evaluation-pipeline",
@@ -69,6 +70,9 @@
     "typescript": "^5.9.2"
   },
   "main": "./dist/src/extension.js",
+  "bin": {
+    "mmi": "./dist/src/cli/mmi.js"
+  },
   "engines": {
     "vscode": "^1.100.0"
   },

@@ -1,7 +1,7 @@
 # 表の走査と選択（Excelを開かずに）
 
 - 状態: 試作（エンジン・CLI・VS Codeの表の目録・単体テスト・拡張機能ホストでの確認まで）。画面操作の目視確認と、利用者・AIエージェントでの価値確認は未実施。
-- 関連: [ADR-0019](../01_Plans/adr/ADR-0019-ai-era-sier-document-value-and-policy.md)（経路A・B）、[ADR-0020](../01_Plans/adr/ADR-0020-semantic-selection-in-notation.md)（記法での扱い、Proposed）、[ADR-0018](../01_Plans/adr/ADR-0018-cognitive-assistance-plane.md)、[取り込み支援](import-assistance.md)、[issue-0193](../01_Plans/issues/issue-0193-table-navigation-and-agent-interface.md)
+- 関連: [ADR-0019](../01_Plans/adr/ADR-0019-ai-era-sier-document-value-and-policy.md)（経路A・B）、[ADR-0022](../01_Plans/adr/ADR-0022-semantic-selection-in-notation.md)（記法での扱い、Proposed）、[ADR-0018](../01_Plans/adr/ADR-0018-cognitive-assistance-plane.md)、[取り込み支援](import-assistance.md)、[issue-0206](../01_Plans/issues/issue-0206-table-navigation-and-agent-interface.md)
 
 人もAIエージェントも、Excelを開かずにブックの表を見渡し、表を名前で、列を見出しで、行を文字列や件数で選び、描画で確かめた参照を得られるようにする。同じエンジンを、人はVS Codeの表の目録から、AIはCLIから使う。入力支援と診断も、人とAIの両方に開く。
 
@@ -74,7 +74,7 @@ Excel 2016（Professional Plus）で作ったブック（`test/fixtures/excel-au
 
 `grep`は表示する列だけを対象にする（§6の順序）。そのため、絞り込みに使う列を表示しない選択はできない（理由を示して止める）。論理表が表示の閾値に収まり、切り出しが閾値を超える場合だけ`mode=table`を付ける。
 
-記法に意味による指定を加えるかは[ADR-0020](../01_Plans/adr/ADR-0020-semantic-selection-in-notation.md)で判断する。
+記法に意味による指定を加えるかは[ADR-0022](../01_Plans/adr/ADR-0022-semantic-selection-in-notation.md)で判断する。
 
 ## 5. AIエージェントとCIの入口（CLI）
 
@@ -106,7 +106,7 @@ mmi render <md> [--root <フォルダ>] [--format md|html] [--out <ファイル>
 
 ## 7. 残ることと判断が要ること
 
-- **記法:** 列の見出し名・名前・テーブルによる指定、列を指定した行の選択、非表示の扱い（[ADR-0020](../01_Plans/adr/ADR-0020-semantic-selection-in-notation.md)）。
+- **記法:** 列の見出し名・名前・テーブルによる指定、列を指定した行の選択、非表示の扱い（[ADR-0022](../01_Plans/adr/ADR-0022-semantic-selection-in-notation.md)）。
 - **拡張子:** 補完・検索・取り込み・目録の対象に.xlsm・.xlsbを加えるか。読込み・描画は4形式とも同じ値で確認済み。
   - `.xlsm`はマクロ付きのOOXMLで、MMIはマクロを実行しない。
   - 現在は、補完・検索・取り込み・目録のいずれも`xlsx/xls/csv/xml`を対象にしている。CLIは.xlsm・.xlsbも受け付ける。

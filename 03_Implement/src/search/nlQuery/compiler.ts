@@ -21,6 +21,19 @@ import type { RegionHit, RegionSearchIndex, RetrievalMethod } from '../searchInd
 import { addTextFeatures, bigramDice, normalizeText, segments, textFeatureList, type FeatureBag } from '../textFeatures.js';
 import { parseQuery, type Hint, type QueryIR, type UnsupportedConstruct } from './parser.js';
 
+export interface QueryAliasRule {
+  /**
+   * Every cue must occur in the normalized request. Keep rules narrow: they
+   * are directional descriptions, not general-purpose synonyms.
+   */
+  cues: readonly string[];
+  /**
+   * Canonical name/header terms expected together in one region. Alias-only
+   * acceptance requires at least two terms and full name coverage.
+   */
+  terms: readonly string[];
+}
+
 export interface CompileOptions {
   index: RegionSearchIndex;
   method: RetrievalMethod;
@@ -39,6 +52,11 @@ export interface CompileOptions {
    * group. Hashing cannot invent synonyms absent from the features; this can.
    */
   synonyms?: readonly (readonly string[])[];
+  /**
+   * Directional description -> indexed-name rules used only for region
+   * retrieval/coverage. They never rewrite columns or emitted MMI notation.
+   */
+  queryAliases?: readonly QueryAliasRule[];
 }
 
 export type CompileStatus = 'candidates' | 'unsupported' | 'no-match' | 'needs-more-input';
@@ -125,7 +143,7 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
   const minCoverage = options.minCoverage ?? 0.5;
   const nameHints = [ir.source, ir.sheet, ir.table, ...ir.target].filter((hint): hint is Hint => hint !== undefined);
   const synonyms = options.synonyms ?? [];
-  const queryBag = requestFeatureBag(ir, synonyms);
+  const queryAliases = options.queryAliases ?? [];
   // Columns are checked by resolution, not coverage; a grep-only request is
   // judged by its term.
   const parts = (nameHints.length > 0 ? nameHints : ir.contains.map((c) => c.term)).flatMap((hint) =>
@@ -139,8 +157,19 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
       : { kept: parts.map((part) => part.variants), dropped: [] as string[] };
   // Qualifiers are never dropped: an unknown 「（会計）」 must still exclude the 受注 table.
   const coverageHints = [...discriminated.kept, ...parts.filter((part) => part.qualifier).map((part) => part.variants)];
+  const aliasGroups = triggeredAliasGroups(ir.input, queryAliases);
+  const aliasFallbackAllowed =
+    aliasGroups.length > 0
+    && !nameHints.some((hint) => hint.quoted)
+    && !parts.some((part) => part.qualifier);
+  // Do not even bias retrieval with semantic aliases when the request carries
+  // an explicit quoted name or a required parenthesised qualifier.
+  const queryBag = requestFeatureBag(ir, synonyms, aliasFallbackAllowed ? queryAliases : []);
   const dropped = discriminated.dropped;
-  const droppedNotes = [...liftedNotes, ...dropped.map((text) => `「${text}」はどの表の名前にも無いため、絞り込みに使っていません。`)];
+  const droppedNotes = [
+    ...liftedNotes,
+    ...dropped.map((text) => `「${text}」は索引上の表名・シート名・見出しに直接一致しません。`),
+  ];
 
   let hits: RegionHit[];
   const fileHint = ir.source && /\.(?:xlsx|xlsm|xls|csv|xml)$/iu.test(ir.source.text) ? ir.source : undefined;
@@ -162,24 +191,49 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
 
   const rejections = new Set<string>();
   const candidates: Candidate[] = [];
-  const near: { hit: RegionHit; coverage: number }[] = [];
+  const near: { hit: RegionHit; coverage: number; columnSignature: boolean; lexicalConflict: boolean }[] = [];
   for (const hit of hits) {
     if (candidates.length >= maxCandidates) break;
     // Names must match names (book / sheet / title / headers); sampled cell
     // values only count when the request names nothing but a grep term.
     const regionBag = nameHints.length > 0 ? options.index.namesBagOf(hit.doc) : options.index.bagOf(hit.doc);
     const coverage = regionBag ? coverageOf(coverageHints, regionBag) : 0;
-    if (coverage < minCoverage) {
-      if (coverage >= NEAR_MISS_COVERAGE && near.length < 3) near.push({ hit, coverage });
+    const aliasMatch = aliasFallbackAllowed
+      ? bestAliasMatch(aliasGroups, hit.region)
+      : undefined;
+    const aliasAccepted = aliasMatch?.coverage === 1;
+    const resolved = resolveColumns(hit.region, ir.columns, options.minColumnSimilarity ?? 0.6, synonyms);
+    const columnSignature = hasStrongColumnSignature(resolved, ir.columns);
+    const lexicalConflict = hasLeadingSingleCharacterNameConflict(nameHints, hit.region);
+    const unknownNameBlocksPromotion = (dropped.length > 0 || lexicalConflict) && !aliasAccepted;
+    if ((coverage < minCoverage || unknownNameBlocksPromotion) && !aliasAccepted) {
+      // A paraphrased table description may share no lexical feature with the
+      // workbook, while the user still names a distinctive set of columns.
+      // Treat >=2 exact/synonym column matches only as *near-miss evidence*:
+      // status remains no-match and explicit user selection + preview are
+      // still required. One fuzzy/partial column is never enough to rescue a
+      // mismatching table name.
+      //
+      // Likewise, never silently discard an unknown name fragment to promote
+      // a partly matching table. "架空の状態遷移表" may suggest 状態遷移 as a
+      // near miss, but cannot become a normal candidate unless a bounded
+      // directional alias explicitly accounts for the description.
+      if ((coverage >= NEAR_MISS_COVERAGE || columnSignature) && near.length < 3) {
+        near.push({ hit, coverage, columnSignature, lexicalConflict });
+      }
       continue;
     }
 
-    const resolved = resolveColumns(hit.region, ir.columns, options.minColumnSimilarity ?? 0.6, synonyms);
     if (!resolved.ok) {
       rejections.add(resolved.reason);
       continue;
     }
     resolved.notes.push(...droppedNotes);
+    if (coverage < minCoverage && aliasMatch) {
+      resolved.notes.push(
+        `表名そのものではなく、説明句の対応（${aliasMatch.cues.join('・')} → ${aliasMatch.terms.join('・')}）を検索補助に使いました。`,
+      );
+    }
     const emitted = emit(hit.region, ir, resolved.columns, options.relativePath(hit.region.bookPath));
     if (!emitted.ok) {
       rejections.add(emitted.reason);
@@ -198,12 +252,22 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
   }
 
   if (candidates.length === 0) {
-    const nearMisses = near.flatMap(({ hit, coverage }) => {
+    const nearMisses = near.flatMap(({ hit, coverage, columnSignature, lexicalConflict }) => {
       const resolved = resolveColumns(hit.region, ir.columns, options.minColumnSimilarity ?? 0.6, synonyms);
       const columns = resolved.ok ? resolved.columns : [];
       const emitted = emit(hit.region, ir, columns, options.relativePath(hit.region.bookPath));
       if (!emitted.ok) return [];
-      const notes = ['名前が一致しないため、確かめてから選んでください。', ...(resolved.ok ? resolved.notes : ['列の指定は反映していません。']), ...emitted.notes];
+      const evidenceNote = lexicalConflict
+        ? '長い名前の先頭1文字だけが異なります。誤字とは断定せず、別の対象である可能性を残して近い候補として提示します。'
+        : columnSignature
+          ? '表名の説明は索引上の名前と一致しませんが、指定された列名がすべて一致します。確認してから選んでください。'
+          : '名前が一致しないため、確かめてから選んでください。';
+      const notes = [
+        evidenceNote,
+        ...droppedNotes,
+        ...(resolved.ok ? resolved.notes : ['列の指定は反映していません。']),
+        ...emitted.notes,
+      ];
       return [{
         region: hit.region,
         markdown: emitted.markdown,
@@ -232,7 +296,11 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
  * the grep term 0.5 (it may appear among sampled values); dictionary
  * variants get half their hint's weight.
  */
-export function requestFeatureBag(ir: QueryIR, synonyms: readonly (readonly string[])[] = []): FeatureBag {
+export function requestFeatureBag(
+  ir: QueryIR,
+  synonyms: readonly (readonly string[])[] = [],
+  queryAliases: readonly QueryAliasRule[] = [],
+): FeatureBag {
   const bag: FeatureBag = new Map();
   const addVariants = (hint: Hint, weight: number): void => {
     const [original, ...others] = variantsOf(stripExtension(hint.text), hint.quoted ? [] : synonyms);
@@ -242,6 +310,12 @@ export function requestFeatureBag(ir: QueryIR, synonyms: readonly (readonly stri
   for (const hint of [ir.source, ir.sheet, ir.table, ...ir.target]) if (hint) addVariants(hint, 2);
   for (const column of ir.columns) addVariants(column, 1);
   for (const condition of ir.contains) addTextFeatures(bag, condition.term.text, 0.5);
+  // Directional aliases are deliberately weaker than a name hint. They can
+  // retrieve the right region, but acceptance below still requires an exact
+  // match of every canonical term in one triggered rule.
+  for (const group of triggeredAliasGroups(ir.input, queryAliases)) {
+    for (const term of group.terms) addTextFeatures(bag, term, 0.75);
+  }
   return bag;
 }
 
@@ -344,6 +418,97 @@ function coverageFeatures(text: string): string[] {
   return pruned.length > 0 ? pruned : features;
 }
 
+
+interface TriggeredAliasGroup {
+  cues: string[];
+  terms: string[];
+}
+
+/**
+ * Directional aliases are intentionally stricter than synonym groups:
+ * - at least two cues must jointly occur in the request;
+ * - at least two canonical terms must be supplied;
+ * - malformed/broad one-term rules are ignored.
+ *
+ * This keeps a phrase such as 「夜間...ジョブ」 able to point toward
+ * 「バッチ」「実行時刻」 without claiming that 夜間 == 実行時刻 everywhere.
+ */
+function triggeredAliasGroups(
+  input: string,
+  rules: readonly QueryAliasRule[],
+): TriggeredAliasGroup[] {
+  const normalized = normalizeText(input);
+  const groups: TriggeredAliasGroup[] = [];
+  for (const rule of rules) {
+    const cues = [...new Set(rule.cues.map(normalizeText).filter(Boolean))];
+    const terms = [...new Set(rule.terms.map(normalizeText).filter(Boolean))];
+    if (cues.length < 2 || terms.length < 2) continue;
+    if (!cues.every((cue) => normalized.includes(cue))) continue;
+    groups.push({ cues, terms });
+    if (groups.length >= 8) break;
+  }
+  return groups;
+}
+
+function bestAliasMatch(
+  groups: readonly TriggeredAliasGroup[],
+  region: RegionRecord,
+): (TriggeredAliasGroup & { coverage: number }) | undefined {
+  // Promotion is stricter than retrieval: every canonical term must occur as
+  // a normalized substring of an actual region name/header. N-gram overlap is
+  // useful for ranking, but is not sufficient evidence for semantic rescue.
+  const names = [region.bookStem, region.sheet, region.title, ...(region.headers ?? [])]
+    .filter((name): name is string => Boolean(name))
+    .map(normalizeText);
+  let best: (TriggeredAliasGroup & { coverage: number }) | undefined;
+  for (const group of groups) {
+    const matched = group.terms.filter((term) => names.some((name) => name.includes(term))).length;
+    const coverage = matched / group.terms.length;
+    if (!best || coverage > best.coverage) best = { ...group, coverage };
+  }
+  return best;
+}
+
+/**
+ * A one-character conflict at the *front* of an otherwise identical long
+ * name is too semantically risky to auto-treat as a typo. For example,
+ * 「総合テストケース」 and 「結合テストケース」 differ by one character but
+ * refer to different test phases. Demote such matches to near misses.
+ *
+ * This is intentionally narrow: internal/trailing one-character typos keep
+ * the existing fuzzy-name behaviour.
+ */
+function hasLeadingSingleCharacterNameConflict(hints: readonly Hint[], region: RegionRecord): boolean {
+  const requested = hints.flatMap((hint) =>
+    hint.quoted
+      ? []
+      : coverageParts(stripExtension(hint.text))
+          .filter((part) => !part.qualifier)
+          .map((part) => normalizeComparableName(part.text)),
+  ).filter(Boolean);
+  const indexed = [region.bookStem, region.sheet, region.title, ...(region.headers ?? [])]
+    .filter((value): value is string => Boolean(value))
+    .map(normalizeComparableName)
+    .filter(Boolean);
+
+  for (const requestName of requested) {
+    const requestChars = [...requestName];
+    if (requestChars.length < 4) continue;
+    for (const indexedName of indexed) {
+      const indexedChars = [...indexedName];
+      if (indexedChars.length !== requestChars.length) continue;
+      if (indexedChars[0] === requestChars[0]) continue;
+      if (indexedChars.slice(1).join('') === requestChars.slice(1).join('')) return true;
+    }
+  }
+  return false;
+}
+
+function normalizeComparableName(value: string): string {
+  const withoutQualifier = stripExtension(value).replace(/[（(][^）)]*[）)]/gu, '');
+  return normalizeText(withoutQualifier.replace(STRUCTURAL_SUFFIX, ''));
+}
+
 /** The text plus each single-term substitution from its synonym groups. */
 function variantsOf(text: string, synonyms: readonly (readonly string[])[]): string[] {
   const variants = [text];
@@ -365,6 +530,21 @@ function variantsOf(text: string, synonyms: readonly (readonly string[])[]): str
 type ColumnResolution =
   | { ok: true; columns: ResolvedColumn[]; unresolved: string[]; notes: string[] }
   | { ok: false; reason: string };
+
+/**
+ * Strong enough to *suggest* a table whose descriptive name did not match.
+ * This deliberately does not authorize a normal candidate: at least two
+ * requested columns must all resolve without fuzzy matching.
+ */
+function hasStrongColumnSignature(resolved: ColumnResolution, requested: Hint[]): boolean {
+  return (
+    requested.length >= 2 &&
+    resolved.ok &&
+    resolved.unresolved.length === 0 &&
+    resolved.columns.length >= 2 &&
+    resolved.columns.every((column) => column.match === 'exact' || column.match === 'synonym')
+  );
+}
 
 /**
  * Exact normalized header match first (the compound reading 「確認項目」

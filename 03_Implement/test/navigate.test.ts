@@ -5,7 +5,7 @@ import path from 'node:path';
 import test from 'node:test';
 import { fileURLToPath } from 'node:url';
 import XLSX from 'xlsx';
-import { runCli } from '../src/cli/mmi.js';
+import { runSelect } from '../src/cli/navigateCommands.js';
 import { analyzeBook, describeWorkbook } from '../src/navigate/catalog.js';
 import { selectFromBook } from '../src/navigate/select.js';
 
@@ -97,36 +97,22 @@ test('on a 方眼紙 grid, header names map to the merge anchors and the first r
   assert.equal(top.reference, '![[./画面定義書.xlsx#受注登録|B2:N4?columns=C&header=first&mode=table]]');
 });
 
-test('the CLI inspects, selects, checks and renders for agents, with exit codes', async () => {
+test('the CLI select prints the reference alone and signals failure with exit codes', () => {
   const dir = tmp();
   const bookPath = gridBook(dir);
   fs.mkdirSync(path.join(dir, 'docs'));
-  const run = async (...argv: string[]) => {
+  const run = (args: string[], options: Parameters<typeof runSelect>[1]) => {
     const out: string[] = [];
     const err: string[] = [];
-    const code = await runCli(argv, { out: (t) => out.push(t), err: (t) => err.push(t), cwd: dir });
+    const code = runSelect(args, options, { out: (t) => out.push(t), err: (t) => err.push(t), cwd: dir });
     return { code, out: out.join('\n'), err: err.join('\n') };
   };
 
-  const inspected = await run('inspect', bookPath, '--json');
-  assert.equal(inspected.code, 0);
-  assert.equal(JSON.parse(inspected.out).catalog.sheets[0].tables[0].title, '2. 画面項目');
-
-  const selected = await run('select', bookPath, '--sheet', '受注登録', '--table', '画面項目', '--columns', '項目名,型', '--doc', 'docs/設計.md');
+  const selected = run([bookPath], { sheet: '受注登録', table: '画面項目', columns: '項目名,型', from: 'docs/設計.md' });
   assert.equal(selected.code, 0);
   assert.equal(selected.out, '![[../画面定義書.xlsx#受注登録|B2:N6?columns=C,H&header=first&mode=table]]');
 
-  fs.writeFileSync(path.join(dir, 'docs/設計.md'), `# 画面\n\n${selected.out}\n\n![[../画面定義書.xlsx#無いシート|A1:B2]]\n`);
-  const checked = await run('check', 'docs/設計.md', '--root', dir, '--json');
-  assert.equal(checked.code, 1);
-  const report = JSON.parse(checked.out);
-  assert.deepEqual([report.references, report.errors, report.items[0].code, report.items[0].line], [2, 1, 'MMI_SHEET_NOT_FOUND', 5]);
-
-  const rendered = await run('render', 'docs/設計.md', '--root', dir);
-  assert.equal(rendered.code, 1, 'a reference that cannot be shown fails the render');
-  assert.match(rendered.out, /\| 項目名 \| 型 \|\n\| --- \| --- \|\n\| 受注番号 \| 文字 \|/);
-  assert.match(rendered.out, /> MMIエラー: /);
-
-  const usage = await run('select', bookPath);
-  assert.equal(usage.code, 2);
+  assert.equal(run([bookPath], {}).code, 2);
+  assert.equal(run([bookPath], { table: 'x', contains: 'a', first: '1' }).code, 2);
+  assert.equal(run([bookPath], { table: '存在しない表' }).code, 1);
 });
