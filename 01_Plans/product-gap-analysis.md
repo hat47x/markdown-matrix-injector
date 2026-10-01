@@ -1,7 +1,7 @@
 # 製品価値と現行実装のギャップ
 
 - 基準: [ADR-0019](adr/ADR-0019-ai-era-sier-document-value-and-policy.md)（2026-10-01 Accepted）と[製品要求](../00_Prompt/requirements.md)
-- 測定日: 2026-10-01（`main`の`67d6e4b`まで再取得し、その後の計画Issue 0199〜0202を反映）
+- 測定日: 2026-10-01（ADR-0020、Issue 0204、local runtime再利用方針まで反映）
 - 本書は差分の地図であり、作業順の正本は[現在の作業](README.md)とする。差分が解消したら行を消し、経緯は書き足さない。
 
 ## 1. 要約
@@ -24,7 +24,7 @@ MMIは「Linked（参照）」の状態だけを実装しており、その品�
 | --- | --- | --- | --- | --- |
 | 参照 | ● | MMI Notation v1、VS Codeプレビュー、CLI `render` | 表以外のCandidateの参照 | 2〜3 |
 | 目録 | ◐ | CLI `inspect`（表の領域・見出し・行数。`src/cli/mmi.ts`） | 画像・図形・注記・リンクの列挙。Candidate形式の出力 | 1〜2 |
-| 候補抽出 | ◐ | 製品: 表の領域検出（`src/search/regionDetector.ts`）。研究: 表らしさ・見出し境界（structured artifact）、既知書式（worksheet format） | 共通のCandidate型、`observed`/`inferred`/`confirmed`の区別、研究成果の製品への接続 | 1 |
+| 候補抽出 | ◐ | 製品: 表の領域検出（`src/search/regionDetector.ts`）。研究: 表らしさ・見出し境界（structured artifact）、既知書式（worksheet format） | 共通Candidate型、`observed/inferred`と`deterministic/provider-dependent`の2軸、method class（ADR-0020 M0〜M5）、研究成果の製品接続 | 1 |
 | 個別取り込み | ○ | なし | Candidateをassets・Markdown・構造化データへ書き出す`extract` | 2 |
 | 一括変換 | ○ | なし | 既存変換器をbaseline converterとして評価し、Candidate・取り込み台帳へ接続（[issue-0200](issues/issue-0200-baseline-bulk-import.md)） | 2（後半） |
 | 重複回避 | ○ | 原本の同一性（`src/core/sourceIdentity.ts`、ファイル全体のsha256） | Candidate単位のfingerprint、取り込み台帳、「未取込のみ」の表示 | 2 |
@@ -38,8 +38,14 @@ MMIは「Linked（参照）」の状態だけを実装しており、その品�
 | 執筆支援 | ● | 補完、貼り付け（Windowsの出所取得を含む）、説明からの検索、案内付きの作成、ホバー | 多環境の実機確認（issue-0110）、利用者の観測（issue-0111）、Candidateを非同期に採否するレビューUI（[issue-0202](issues/issue-0202-candidate-review-ui.md)） | 継続〜2 |
 | AI/CI利用 | ◐ | CLI 4コマンド、AI向け指示パック（`skills/mmi`）、基本設計書キット、執筆ベンチマーク v0 | 配布（npm等）、`extract`、Candidate形式のJSON、将来のMCP。外部LLMはMMIを呼ぶ側に置く | 1 |
 | 外部LLM handoff | ○ | issue-0112に安全境界のみ定義済み | Candidate・provenance・診断からprompt/evidence packageをローカル生成し、MMIからは送信しない | 1 |
-| 軽量認知 | ◐ | Fly-inspired matcher、worksheet format、Cognitive Contract等の研究資産 | Candidate解析への接続、Jev類似方式・ローカルLLMのbounded task比較。課金型外部LLMを内部providerにしない | 1〜3 |
+| 軽量認知 | ◐ | Fly-inspired matcher、worksheet format、Cognitive Contract等の研究資産 | 要件ごとのM0〜M4比較、deterministic/provider-dependent実行分離、Ollama/LM Studio等の既存local runtime再利用、model/profile artifact配布（issue-0204） | 1〜3 |
 | 応答性 | ● | 読込みの再利用と失効、検索索引の差分更新 | 画像を含む大きなブックでの測定 | 2 |
+
+## 認知方式の差分
+
+ADR-0020で、認知方式をモデル種別ではなく要件ごとに選ぶ方針を採用した。明示抽出（M0）、決定論的推定（M1）、軽量類似（M2）、bounded Judgment（M3）、local generative（M4）、external handoff（M5）を比較し、最も単純で十分な方式を優先する。
+
+特に未実装なのは、Candidate contractで `observed/inferred/confirmed/abstained` と `deterministic/provider-dependent` を直交して保持すること、provider-dependent処理を編集・CIの主経路から分離すること、model/profile artifactをCoreから分離すること、導入済みOllama/LM Studio等のruntime/model cacheを再利用することである。
 
 ## AI利用境界の差分
 
