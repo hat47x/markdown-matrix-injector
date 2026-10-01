@@ -509,9 +509,67 @@ export function validateZipContainer(
 
     // Package validation is intentionally non-semantic: read every ZIP entry
     // only to verify local headers, decompression, declared sizes, and CRCs.
+    const packageParts = new Map<string, Buffer>();
     for (const entry of entries.values()) {
-      entry.read();
+      packageParts.set(entry.name, entry.read());
     }
+
+    const contentTypes = packageParts
+      .get('[Content_Types].xml')!
+      .toString('utf8')
+      .replace(/^﻿/u, '');
+    const rootRels = packageParts
+      .get('_rels/.rels')!
+      .toString('utf8')
+      .replace(/^﻿/u, '');
+    const workbook = packageParts
+      .get('xl/workbook.xml')!
+      .toString('utf8')
+      .replace(/^﻿/u, '');
+
+    if (
+      !/<(?:\\w+:)?Types\\b[^>]*>/u.test(contentTypes)
+      || !/<\\/(?:\\w+:)?Types>\\s*$/u.test(contentTypes)
+    ) {
+      return { ok: false, reason: 'xlsx_content_types_invalid' };
+    }
+    const workbookContentTypeDeclared = [
+      ...contentTypes.matchAll(/<(?:\\w+:)?Override\\b[^>]*\\/?>/gu),
+    ].some((match) => {
+      const tag = match[0];
+      return /\\bPartName=(["'])\\/xl\\/workbook\\.xml\\1/u.test(tag)
+        && /\\bContentType=(["'])application\\/vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet\\.main\\+xml\\1/u.test(tag);
+    });
+    if (!workbookContentTypeDeclared) {
+      return { ok: false, reason: 'xlsx_workbook_content_type_missing' };
+    }
+
+    if (
+      !/<(?:\\w+:)?Relationships\\b[^>]*>/u.test(rootRels)
+      || !/<\\/(?:\\w+:)?Relationships>\\s*$/u.test(rootRels)
+    ) {
+      return { ok: false, reason: 'xlsx_root_relationships_invalid' };
+    }
+    const workbookRelationshipDeclared = [
+      ...rootRels.matchAll(/<(?:\\w+:)?Relationship\\b[^>]*\\/?>/gu),
+    ].some((match) => {
+      const tag = match[0];
+      const type = /\\bType=(["'])([^"']+)\\1/u.exec(tag)?.[2];
+      const target = /\\bTarget=(["'])([^"']+)\\1/u.exec(tag)?.[2];
+      return type?.endsWith('/officeDocument') === true
+        && (target === 'xl/workbook.xml' || target === '/xl/workbook.xml');
+    });
+    if (!workbookRelationshipDeclared) {
+      return { ok: false, reason: 'xlsx_workbook_relationship_missing' };
+    }
+
+    if (
+      !/<(?:\\w+:)?workbook\\b[^>]*>/u.test(workbook)
+      || !/<\\/(?:\\w+:)?workbook>\\s*$/u.test(workbook)
+    ) {
+      return { ok: false, reason: 'xlsx_workbook_xml_invalid' };
+    }
+
     return { ok: true };
   } catch (error) {
     if (error instanceof ZipError) {
