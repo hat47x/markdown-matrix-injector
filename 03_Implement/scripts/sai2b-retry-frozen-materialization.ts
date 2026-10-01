@@ -64,14 +64,10 @@ const OOXML_OFFICE_DOCUMENT_RELATIONSHIP_TYPES = new Set([
   'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument',
   'http://purl.oclc.org/ooxml/officeDocument/relationships/officeDocument',
 ]);
-const OOXML_CONTENT_TYPES_NAMESPACES = new Set([
-  'http://schemas.openxmlformats.org/package/2006/content-types',
-  'http://purl.oclc.org/ooxml/package/content-types',
-]);
-const OOXML_RELATIONSHIPS_NAMESPACES = new Set([
-  'http://schemas.openxmlformats.org/package/2006/relationships',
-  'http://purl.oclc.org/ooxml/package/relationships',
-]);
+const OPC_CONTENT_TYPES_NAMESPACE =
+  'http://schemas.openxmlformats.org/package/2006/content-types';
+const OPC_RELATIONSHIPS_NAMESPACE =
+  'http://schemas.openxmlformats.org/package/2006/relationships';
 const OOXML_SPREADSHEET_NAMESPACES = new Set([
   'http://schemas.openxmlformats.org/spreadsheetml/2006/main',
   'http://purl.oclc.org/ooxml/spreadsheetml/main',
@@ -584,8 +580,7 @@ export function validateZipContainer(
     const contentTypesNamespace =
       rootElementNamespace(contentTypes, 'Types');
     if (
-      !contentTypesNamespace
-      || !OOXML_CONTENT_TYPES_NAMESPACES.has(contentTypesNamespace)
+      contentTypesNamespace !== OPC_CONTENT_TYPES_NAMESPACE
     ) {
       return { ok: false, reason: 'xlsx_content_types_invalid' };
     }
@@ -603,8 +598,7 @@ export function validateZipContainer(
     const relationshipsNamespace =
       rootElementNamespace(rootRels, 'Relationships');
     if (
-      !relationshipsNamespace
-      || !OOXML_RELATIONSHIPS_NAMESPACES.has(relationshipsNamespace)
+      relationshipsNamespace !== OPC_RELATIONSHIPS_NAMESPACE
     ) {
       return { ok: false, reason: 'xlsx_root_relationships_invalid' };
     }
