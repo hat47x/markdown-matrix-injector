@@ -31,6 +31,8 @@ export interface BookStat {
 interface BookEntry {
   stat: BookStat;
   regions: RegionRecord[];
+  /** False when the book was intentionally truncated by the retained-region cap. */
+  complete: boolean;
 }
 
 export class RegionCatalog {
@@ -43,15 +45,34 @@ export class RegionCatalog {
     return !entry || entry.stat.mtimeMs !== stat.mtimeMs || entry.stat.size !== stat.size;
   }
 
-  setBook(path: string, stat: BookStat, workbook: WorkbookData, options: DetectOptions = {}): RegionRecord[] {
+  /** False only when the retained-region cap truncated this book. */
+  isBookComplete(path: string): boolean {
+    return this.books.get(path)?.complete ?? false;
+  }
+
+  setBook(
+    path: string,
+    stat: BookStat,
+    workbook: WorkbookData,
+    options: DetectOptions = {},
+    maxRegions = Number.POSITIVE_INFINITY,
+  ): RegionRecord[] {
     const stem = bookStemOf(path);
     const regions: RegionRecord[] = [];
+    const limit = Number.isFinite(maxRegions) ? Math.max(0, Math.floor(maxRegions)) : Number.POSITIVE_INFINITY;
+    let complete = true;
+
+    outer:
     for (const [sheetName, sheet] of Object.entries(workbook.sheets)) {
       for (const region of detectTableRegions(sheetName, sheet, options)) {
+        if (regions.length >= limit) {
+          complete = false;
+          break outer;
+        }
         regions.push({ ...region, id: `${path}#${sheetName}!${region.a1}`, bookPath: path, bookStem: stem });
       }
     }
-    this.books.set(path, { stat, regions });
+    this.books.set(path, { stat, regions, complete });
     this.version += 1;
     return regions;
   }
@@ -96,7 +117,7 @@ export interface IndexFilesOptions {
   loadWorkbook(path: string): WorkbookData;
   signal?: AbortSignal;
   onProgress?: (done: number, total: number, path: string) => void;
-  /** Stop adding books once the catalog holds this many regions. */
+  /** Hard upper bound on regions retained by the catalog across all books. */
   maxRegions?: number;
   detect?: DetectOptions;
 }
@@ -130,17 +151,32 @@ export async function indexWorkbookFiles(
       result.cancelled = true;
       break;
     }
-    if (options.maxRegions !== undefined && catalog.regionCount >= options.maxRegions) {
-      result.capped = true;
-      break;
-    }
     try {
       const stat = options.statFile(path);
-      if (catalog.needsUpdate(path, stat)) {
-        catalog.setBook(path, stat, options.loadWorkbook(path), options.detect);
-        result.updated.push(path);
-      } else {
+      const changed = catalog.needsUpdate(path, stat);
+      const complete = catalog.isBookComplete(path);
+
+      if (!changed && complete) {
         result.unchanged.push(path);
+      } else {
+        const currentCount = catalog.regionsOf(path).length;
+        const retainedWithoutCurrent = catalog.regionCount - currentCount;
+        const roomForBook =
+          options.maxRegions === undefined
+            ? Number.POSITIVE_INFINITY
+            : Math.max(0, options.maxRegions - retainedWithoutCurrent);
+
+        // An unchanged, already-truncated book cannot grow until another book
+        // is removed (or the configured cap increases). Avoid re-reading it on
+        // every refresh while still reporting that the catalog is capped.
+        if (roomForBook <= 0 || (!changed && !complete && roomForBook <= currentCount)) {
+          result.capped = true;
+          break;
+        }
+
+        catalog.setBook(path, stat, options.loadWorkbook(path), options.detect, roomForBook);
+        result.updated.push(path);
+        if (!catalog.isBookComplete(path)) result.capped = true;
       }
     } catch (error) {
       catalog.removeBook(path);
@@ -148,6 +184,7 @@ export async function indexWorkbookFiles(
     }
     done += 1;
     options.onProgress?.(done, paths.length, path);
+    if (result.capped) break;
     await new Promise((resolve) => setImmediate(resolve));
   }
   return result;
