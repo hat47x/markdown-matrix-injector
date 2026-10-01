@@ -136,6 +136,74 @@ test('validateEmbedDiagnostics keeps root-cause priority stable when multiple er
   );
 });
 
+
+test('validateEmbedDiagnostics reports an oversized explicit mode=table range with a stable code', () => {
+  const raw = '![[fixtures/sample.xml#Sheet1|A1:A100001?mode=table]]';
+  const range = 'A1:A100001';
+  const diagnostics = validateEmbedDiagnostics({
+    query: {
+      raw,
+      filepath: 'fixtures/sample.xml',
+      target: 'Sheet1',
+      range,
+      mode: 'table',
+    },
+    fileExists: true,
+    sheetExists: true,
+    xmlMode: 'spreadsheet2003',
+  });
+
+  assert.deepEqual(diagnostics, [
+    {
+      severity: 'error',
+      code: 'MMI_TABLE_TOO_LARGE',
+      message:
+        'Reference too large to render as a table (100001 cells exceeds the 100000-cell limit). mode=table does not lift this limit -- narrow the range or split the reference.',
+      range: {
+        start: raw.indexOf(range),
+        end: raw.indexOf(range) + range.length - 1,
+      },
+      source: 'markdown-matrix-injector',
+      priority: 3,
+    },
+  ]);
+});
+
+test('validateEmbedDiagnostics accepts the explicit mode=table hard-limit boundary', () => {
+  assert.deepEqual(
+    validateEmbedDiagnostics({
+      query: {
+        raw: '![[fixtures/sample.xml#Sheet1|A1:A100000?mode=table]]',
+        filepath: 'fixtures/sample.xml',
+        target: 'Sheet1',
+        range: 'A1:A100000',
+        mode: 'table',
+      },
+      fileExists: true,
+      sheetExists: true,
+      xmlMode: 'spreadsheet2003',
+    }),
+    [],
+  );
+});
+
+test('validateEmbedDiagnostics does not apply the forced-table hard limit when mode is not table', () => {
+  assert.deepEqual(
+    validateEmbedDiagnostics({
+      query: {
+        raw: '![[fixtures/sample.xml#Sheet1|A1:A100001]]',
+        filepath: 'fixtures/sample.xml',
+        target: 'Sheet1',
+        range: 'A1:A100001',
+      },
+      fileExists: true,
+      sheetExists: true,
+      xmlMode: 'spreadsheet2003',
+    }),
+    [],
+  );
+});
+
 // ── Containment diagnostics (spec P4 Containment MUST) ──────────────────
 
 test('validateEmbedDiagnostics reports boundary violation when containmentOk is explicitly false', () => {
