@@ -19,6 +19,14 @@ const MAX_CELLS_BEFORE_CARD = 500;
  */
 export const MAX_CELLS_HARD_LIMIT = 100_000;
 
+export function tableTooLargeMessage(cellCount: number, limit = MAX_CELLS_HARD_LIMIT): string {
+  return (
+    `Reference too large to render as a table (${cellCount} cells exceeds the ` +
+    `${limit}-cell limit). mode=table does not lift this limit -- narrow ` +
+    'the range or split the reference.'
+  );
+}
+
 export class SmartFallbackLimitError extends Error {
   readonly code = 'MMI_TABLE_TOO_LARGE' as const;
 
@@ -26,11 +34,7 @@ export class SmartFallbackLimitError extends Error {
     readonly cellCount: number,
     readonly limit: number,
   ) {
-    super(
-      `Reference too large to render as a table (${cellCount} cells exceeds the ` +
-        `${limit}-cell limit). mode=table does not lift this limit -- narrow ` +
-        'the range or split the reference.',
-    );
+    super(tableTooLargeMessage(cellCount, limit));
     this.name = 'SmartFallbackLimitError';
   }
 }
