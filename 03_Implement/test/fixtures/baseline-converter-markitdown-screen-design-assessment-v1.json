@@ -1,0 +1,37 @@
+{
+  "schema": "mmi.baseline-converter-assessment-spec/v1",
+  "assessment_id": "issue-0200-markitdown-screen-design-assessment-v1",
+  "handoff_request_id": "issue-0200-markitdown-0.1.8-screen-design-v1",
+  "source_label": "issue-0194-screen-design-v1",
+  "text_sentinels": [
+    "画面ID",
+    "画面名",
+    "S01",
+    "ログイン",
+    "S02",
+    "メニュー",
+    "遷移図",
+    "画像なし"
+  ],
+  "source_facts": {
+    "sheet_count": 3,
+    "image_occurrence_count": 4,
+    "known_table": {
+      "sheet": "画面一覧",
+      "range": "A1:B3"
+    }
+  },
+  "observations": [
+    "sheet_heading_presence",
+    "text_sentinel_presence",
+    "markdown_table_separator_line_count",
+    "markdown_image_reference_count",
+    "candidate_addressability"
+  ],
+  "interpretation_boundary": {
+    "no_quality_score": true,
+    "no_pass_fail_threshold": true,
+    "no_automatic_import_decision": true,
+    "findings_are_descriptive": true
+  }
+}
