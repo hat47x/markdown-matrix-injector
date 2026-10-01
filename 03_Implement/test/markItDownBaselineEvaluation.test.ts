@@ -54,9 +54,13 @@ test('evaluation compares converter Markdown with MMI source observations withou
     sourcePath,
     outputRoot,
     converter,
+    sourceLabel: 'issue-0194-screen-design-v1',
   });
 
   assert.equal(report.schema, 'mmi.baseline-converter-evaluation/v1');
+  assert.equal(report.source.label, 'issue-0194-screen-design-v1');
+  assert.match(report.source.digest, /^sha256:[0-9a-f]{64}$/u);
+  assert.equal(JSON.stringify(report).includes(root), false);
   assert.equal(report.source.sheetCount, 3);
   assert.equal(report.source.candidateCounts.image, 4);
   assert.equal(report.source.images.length, 4);
@@ -106,6 +110,7 @@ test('evaluation records missing sheet headings and explicit image references as
     converter,
   });
 
+  assert.equal(report.source.label, 'screen-design.xlsx');
   assert.deepEqual(
     report.markdown.sheetEvidence.map((item) => [item.sheet, item.markdownHeadingPresent]),
     [['画面一覧', true], ['遷移図', false], ['メモ', false]],
@@ -168,5 +173,30 @@ test('evaluation rejects converter artifact path escape', async () => {
   await assert.rejects(
     evaluateMarkItDownBaseline({ sourcePath, outputRoot, converter }),
     /escapes outputRoot/u,
+  );
+});
+
+
+test('evaluation rejects an empty portable source label', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-markitdown-eval-'));
+  const sourcePath = path.join(root, 'screen-design.xlsx');
+  const outputRoot = path.join(root, 'out');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+
+  const converter: BaselineConverter = {
+    descriptor: { id: 'fixture.converter', version: '1' },
+    async convert() {
+      throw new Error('converter must not run');
+    },
+  };
+
+  await assert.rejects(
+    evaluateMarkItDownBaseline({
+      sourcePath,
+      outputRoot,
+      converter,
+      sourceLabel: '   ',
+    }),
+    /sourceLabel must not be empty/u,
   );
 });
