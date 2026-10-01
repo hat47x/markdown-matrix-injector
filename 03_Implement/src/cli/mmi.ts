@@ -47,7 +47,7 @@ Commands:
       --similarity-evidence <file>
                               optional research similarity sidecar; display only, never import identity
       --unimported            show only occurrences never imported (duplicates remain separate)
-      --exclude-imported      hide exact imported occurrences; keep changed/duplicate/unimported
+      --exclude-imported      hide exact imported occurrences; keep changed/stale/duplicate/unimported
                             For .xlsx/.xlsm it also lists embedded pictures (sheet, anchor, format, size,
                             digest, nearest table) and names any that cannot be read.
   extract <source.xlsx>     Write workbook pictures to an assets folder and print Markdown references
