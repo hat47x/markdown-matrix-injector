@@ -18,6 +18,7 @@ async function main(argv: string[]): Promise<number> {
       source: { type: 'string' },
       'out-dir': { type: 'string' },
       'report-out': { type: 'string' },
+      'expected-version': { type: 'string' },
     },
   });
 
@@ -45,6 +46,12 @@ async function main(argv: string[]): Promise<number> {
 
   try {
     const converter = await createMarkItDownCliConverter();
+    const expectedVersion = values['expected-version'];
+    if (expectedVersion && converter.descriptor.version !== expectedVersion) {
+      throw new Error(
+        `MarkItDown version mismatch: expected ${expectedVersion}, got ${converter.descriptor.version}`,
+      );
+    }
     const report = await evaluateMarkItDownBaseline({
       sourcePath,
       outputRoot: workRoot,
