@@ -27,7 +27,7 @@ issue-0195で確定した`mmi.ledger/v1`を再利用する。一括変換専用�
 - [x] Converter由来の内容とMMIがsourceから直接観測したCandidateを対応付け、対応できないものを黙って「取込済み」にしない。
 - [x] 一括変換で作った画像・表もissue-0195の台帳へ登録でき、後の `inspect --unimported` と整合する。
 - [x] Converterを利用できない環境でも個別のinspect / extract経路は動作する。
-- [ ] 外部Converter固有の記法を最終成果物へ必須にしない。materialize後のMarkdown/assetsは通常のツールで読める。
+- [x] 外部Converter固有の記法を最終成果物へ必須にしない。materialize後のMarkdown/assetsは通常のツールで読める。
 - [x] 変換結果にはsource、Converter名・版、MMI版、変換条件をprovenanceとして残す。
 
 ## Implementation checkpoint（2026-10-02）
@@ -42,6 +42,8 @@ issue-0195で確定した`mmi.ledger/v1`を再利用する。一括変換専用�
 - 外部Converter固有の依存はCoreへ入れず、Converter interfaceの外側へ閉じ込める。
 - ledger provenanceにはsource/sourceDigestに加えて、Converter ID/版、MMI版、artifact ID/digest、conversion options、reconciliation Evidenceを残す。呼出側optionsより予約provenanceを優先し、偽装上書きを許さない。
 - artifact pathは実行OSに依存せずPOSIX/Windows双方のabsolute path・traversalを拒否する。
+
+成果物contractは`markdown`または`asset`の通常ファイルに限定し、Candidate identity/reconciliation/provenanceは成果物本文へ埋め込まず`mmi.ledger/v1`へ分離する。したがってMMIを外してもmaterialize済みMarkdown/assetsは通常のツールで読め、外部Converter固有の記法をMMI側の必須記法にはしない。
 
 `test/baselineImport.test.ts` では、画像だけmatched・表はunmatchedのrun、表と画像の両方をmatchedしてstrict `unimported`が空になるrun、全件ambiguous、decision欠落、artifact digest不一致、POSIX/Windows双方のoutputRoot escape、stale Candidate、予約provenance上書き、malformed converter outputを固定した。実Converterをまだ呼ばない段階でも「対応できないものを黙って取込済みにしない」契約を検証できる。
 
@@ -61,14 +63,25 @@ issue-0195で確定した`mmi.ledger/v1`を再利用する。一括変換専用�
 
 `src/evaluation/markItDownBaselineEvaluation.ts` と `scripts/baseline-converter-eval/markitdown.ts` はissue-0194のコード生成fixtureを使い、MMIが観測するsheet/Candidate/画像と、MarkItDownが生成したMarkdownのsheet heading・table separator・image referenceを同じJSON reportへ記録する。report自身はCandidate reconciliationを行わず、`automaticImportDecision: none`を固定する。converter artifactは評価時にもcontainmentと実bytes digestを再検証する。
 
-実行経路:
+実行経路。外部実行ではreportと実Markdownを同じartifact rootへ残し、受領側で再検証する。
 
 ```sh
 cd 03_Implement
-node --import tsx scripts/baseline-converter-eval/markitdown.ts
+mkdir -p ../artifacts/markitdown-0.1.8
+
+node --import tsx scripts/baseline-converter-eval/markitdown.ts \
+  --out-dir ../artifacts/markitdown-0.1.8 \
+  --report-out ../artifacts/markitdown-0.1.8/report.json \
+  --expected-version 0.1.8
+
+node --import tsx scripts/baseline-converter-eval/validate-markitdown-report.ts \
+  --report ../artifacts/markitdown-0.1.8/report.json \
+  --artifact-root ../artifacts/markitdown-0.1.8
 ```
 
-現在のこの作業実行環境ではMarkItDown package/CLIが未導入で、`importlib.metadata`上も`PackageNotFoundError`だった。このため**実fixture変換結果はまだ記録しない**。runnerは未導入時に`status: unavailable`を返し、既存の`mmi inspect` / `mmi extract`とは依存関係を持たない。受入条件「既存Converterをfixtureで評価」は、0.1.8実行結果を取得するまで未完了のままとする。
+成功時の`report.json`はmachine-local absolute pathを含まず、fixture label、source SHA-256、Converter ID/実version、MMI観測Candidate/画像、sheet heading、table/image evidence、Markdown artifact digest/byte sizeを持つ。`validate-markitdown-report.ts` はschemaの余分なfieldも拒否し、`automaticImportDecision: none`を必須とし、実Markdownを再hashしてdigest/byte sizeを照合する。外部評価結果だけでCandidateを取込済みに昇格させない。
+
+現在のこの作業実行環境ではMarkItDown package/CLIが未導入で、`importlib.metadata`上も`PackageNotFoundError`だった。PyPIからの一時導入もDNS名前解決でpayload取得前に失敗した。このため**実fixture変換結果はまだ記録しない**。runnerは未導入時にexit code 2と`status: unavailable`をstderrへ返し、既存の`mmi inspect` / `mmi extract`とは依存関係を持たない。受入条件「既存Converterをfixtureで評価」は、0.1.8のreport+Markdownを上記validatorで受理するまで未完了のままとする。
 
 ## Validation plan
 
