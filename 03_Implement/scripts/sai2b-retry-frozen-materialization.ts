@@ -608,9 +608,12 @@ export function validateZipContainer(
       const tag = match[0];
       const type = /\\bType=(["'])([^"']+)\\1/u.exec(tag)?.[2];
       const target = /\\bTarget=(["'])([^"']+)\\1/u.exec(tag)?.[2];
+      const targetMode =
+        /\\bTargetMode=(["'])([^"']+)\\1/u.exec(tag)?.[2];
       return typeof type === 'string'
         && OOXML_OFFICE_DOCUMENT_RELATIONSHIP_TYPES.has(type)
-        && (target === 'xl/workbook.xml' || target === '/xl/workbook.xml');
+        && (target === 'xl/workbook.xml' || target === '/xl/workbook.xml')
+        && (targetMode === undefined || targetMode === 'Internal');
     });
     if (!workbookRelationshipDeclared) {
       return { ok: false, reason: 'xlsx_workbook_relationship_missing' };

@@ -201,6 +201,30 @@ test('XLSX validation rejects invented Strict aliases for OPC package root names
   }
 });
 
+test('XLSX validation rejects an external root officeDocument relationship', () => {
+  const external = xlsxFrame(
+    undefined,
+    {
+      '_rels/.rels':
+        '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml" TargetMode="External"/></Relationships>',
+    },
+  );
+
+  assert.deepEqual(
+    validateZipContainer(external),
+    { ok: false, reason: 'xlsx_workbook_relationship_missing' },
+  );
+
+  const explicitInternal = xlsxFrame(
+    undefined,
+    {
+      '_rels/.rels':
+        '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml" TargetMode="Internal"/></Relationships>',
+    },
+  );
+  assert.deepEqual(validateZipContainer(explicitInternal), { ok: true });
+});
+
 test('XLSX validation requires standard OOXML root namespaces', () => {
   const cases: Array<[string, string, string]> = [
     [
