@@ -115,6 +115,18 @@ VS Code拡張だけをプロダクト本体としない。同じCore engineと�
 
 新しい能力は可能な限りCoreへ置き、特定UIにだけ存在する実装を避ける。
 
+## AI / LLMとの関係
+
+MMI自体が課金を要する生成AIサービスを利用することは原則としない。Core、CLI、VS Code参照実装はAPIキー管理、課金型LLMへの自動送信、自動クラウドfallbackを標準機能に含めない。例外が必要になった場合は別ADRで判断する。
+
+MMIとLLM・認知技術の関係は次の3つを基本とする。
+
+1. **外部LLMから利用される:** 利用者が選んだLLM / AIエージェントがCLI、skill、将来のMCP等からMMIを呼び、inspect / check / render / extract / manifest等を利用する。外部AIの契約・課金はMMIの外側に置く。
+2. **軽量・ローカルな認知を内部で使う:** Fly-inspiredな疎表現、Jev類似技術、bounded classifier、ローカルLLM等を、Excel解析、構造候補、類似検索、限定判断へ利用できる。外部API課金を前提にしない。
+3. **外部LLM向けに作業提案と判断材料を生成する:** Candidate、source locator、provenance、診断、限定した抜粋から、利用者が外部LLMへ渡せる依頼文・prompt・evidence packageを生成する。MMI自身は送信しない。外部LLMから戻った提案はAuthority Planeで再検証する。
+
+特定の生成AIサービスを製品の必須依存にしない。外部LLMが存在しない環境でも、Authority Planeと主要なモダナイズ機能は成立する。
+
 ## 認知支援
 
 MMIの決定論的なAuthority Plane（parser、resolver、query semantics、containment、Read-only、diagnostics、rendering、conformance）は認知処理から独立を保つ。
@@ -124,10 +136,10 @@ Cognitive Assistance Planeは、レガシー文書の暗黙構造を低コスト
 優先順は次とする。
 
 1. 決定論的parser、metadata、layout規則
-2. ローカルCPUで動く疎表現、類似検索、bounded classifier
-3. 必要箇所だけを扱うLLM（明示opt-in）
+2. ローカルCPUで動く疎表現、類似検索、bounded classifier（Fly-inspired、Jev類似技術等）
+3. 必要箇所だけを扱うローカルLLM
 
-同じsourceとMMI記法に対し、認知機能のON/OFFでAuthority Planeの論理表・診断が変化してはならない。外部providerへの送信は明示opt-inとし、自動クラウドfallbackは行わない。決定正本は[ADR-0018](../01_Plans/adr/ADR-0018-cognitive-assistance-plane.md)とする。
+同じsourceとMMI記法に対し、認知機能のON/OFFでAuthority Planeの論理表・診断が変化してはならない。外部LLMはCognitive Assistance Planeの標準providerとしてMMIから呼び出さず、上記「AI / LLMとの関係」の1または3の経路で利用する。決定正本は[ADR-0018](../01_Plans/adr/ADR-0018-cognitive-assistance-plane.md)とする。
 
 ## 公開品質
 
