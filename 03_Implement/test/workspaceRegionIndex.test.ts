@@ -76,3 +76,22 @@ test('workspace index: switches to FlyHash only above the region threshold', asy
   assert.equal((await index.refresh(Object.keys(books))).method, 'flyhash');
   assert.equal(index.query('状態遷移表', relative).status, 'candidates');
 });
+
+test('workspace index: maxRegions is a hard retained-region bound even within one workbook', async () => {
+  const multi: WorkbookData = {
+    sheets: {
+      A: sheet({ A1: '表A', A2: 'ID', B2: '名称', A3: '1', B3: 'a' }),
+      B: sheet({ A1: '表B', A2: 'ID', B2: '名称', A3: '2', B3: 'b' }),
+    },
+  };
+  const index = new WorkspaceRegionIndex({
+    statFile: () => ({ mtimeMs: 1, size: 1 }),
+    loadWorkbook: () => multi,
+    maxRegions: 1,
+  });
+
+  const refreshed = await index.refresh(['/ws/multi.xlsx']);
+  assert.equal(refreshed.capped, true);
+  assert.equal(refreshed.regions, 1);
+  assert.equal(index.regionCount, 1);
+});
