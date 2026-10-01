@@ -14,6 +14,7 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 | --- | --- | --- | --- |
 | **1 Coreと入口** | [Candidate・Source Adapter・provenanceの契約](issues/issue-0193-candidate-source-adapter-contract.md) | Open | 型の設計と、表の領域検出のAdapter化。研究成果の対応付け |
 | 1 | CLI（inspect/check/render/manifest）、AI向け指示パック、基本設計書キット、[執筆ベンチマーク](../04_Documentation/benchmarks/ai-writing/README.md) | 実装済み | ベンチマーク v0は実施済み。表を大きくした v1は優先度5 |
+| 1 | [外部LLMへの作業提案と判断材料](issues/issue-0112-ai-proposal-handoff.md) | Open | prompt / evidence packageの契約を定め、送信は行わず戻り提案をAuthority Planeで検証 |
 | 1 | [外部LLMへの作業提案・判断材料handoff](issues/issue-0112-ai-proposal-handoff.md) | Open | issue-0193のCandidate/provenanceを使い、送信しないprompt/evidence packageを作る |
 | 1 | [CLIの配布](issues/issue-0197-cli-distribution.md) | Draft | 配布形態の決定 |
 | **2 モダナイズの最小縦切り** | [Excel画像の候補化と取り込み](issues/issue-0194-excel-image-candidates.md) | Open | 画像入りテスト用ブックの作成。issue-0193の型を待つ |
