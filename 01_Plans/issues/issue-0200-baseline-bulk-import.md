@@ -27,7 +27,7 @@ issue-0195で確定した`mmi.ledger/v1`を再利用する。一括変換専用�
 - [x] Converter由来の内容とMMIがsourceから直接観測したCandidateを対応付け、対応できないものを黙って「取込済み」にしない。
 - [x] 一括変換で作った画像・表もissue-0195の台帳へ登録でき、後の `inspect --unimported` と整合する。
 - [x] Converterを利用できない環境でも個別のinspect / extract経路は動作する。
-- [ ] 外部Converter固有の記法を最終成果物へ必須にしない。materialize後のMarkdown/assetsは通常のツールで読める。
+- [x] 外部Converter固有の記法を最終成果物へ必須にしない。materialize後のMarkdown/assetsは通常のツールで読める。
 - [x] 変換結果にはsource、Converter名・版、MMI版、変換条件をprovenanceとして残す。
 
 ## Implementation checkpoint（2026-10-02）
@@ -42,6 +42,8 @@ issue-0195で確定した`mmi.ledger/v1`を再利用する。一括変換専用�
 - 外部Converter固有の依存はCoreへ入れず、Converter interfaceの外側へ閉じ込める。
 - ledger provenanceにはsource/sourceDigestに加えて、Converter ID/版、MMI版、artifact ID/digest、conversion options、reconciliation Evidenceを残す。呼出側optionsより予約provenanceを優先し、偽装上書きを許さない。
 - artifact pathは実行OSに依存せずPOSIX/Windows双方のabsolute path・traversalを拒否する。
+
+成果物contractは`markdown`または`asset`の通常ファイルに限定し、Candidate identity/reconciliation/provenanceは成果物本文へ埋め込まず`mmi.ledger/v1`へ分離する。したがってMMIを外してもmaterialize済みMarkdown/assetsは通常のツールで読め、外部Converter固有の記法をMMI側の必須記法にはしない。
 
 `test/baselineImport.test.ts` では、画像だけmatched・表はunmatchedのrun、表と画像の両方をmatchedしてstrict `unimported`が空になるrun、全件ambiguous、decision欠落、artifact digest不一致、POSIX/Windows双方のoutputRoot escape、stale Candidate、予約provenance上書き、malformed converter outputを固定した。実Converterをまだ呼ばない段階でも「対応できないものを黙って取込済みにしない」契約を検証できる。
 
