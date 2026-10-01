@@ -116,6 +116,7 @@ async function convertWithMarkItDown(
     throw new Error('MarkItDown outputFileName must stay under outputRoot');
   }
 
+  fs.mkdirSync(path.dirname(outputPath), { recursive: true });
   // Never accept a stale output left by a previous failed converter run.
   fs.rmSync(outputPath, { force: true });
 
@@ -175,18 +176,22 @@ function resolveOptions(options: MarkItDownCliOptions): ResolvedMarkItDownCliOpt
 
   const outputFileName = options.outputFileName ?? 'baseline.md';
   if (!outputFileName.trim()) throw new Error('MarkItDown outputFileName must not be empty');
+  const portableOutput = outputFileName.replace(/\\/gu, '/');
+  const normalizedOutput = path.posix.normalize(portableOutput);
   if (
     path.posix.isAbsolute(outputFileName)
     || path.win32.isAbsolute(outputFileName)
-    || outputFileName.replace(/\\/gu, '/').split('/').includes('..')
+    || portableOutput.split('/').includes('..')
+    || normalizedOutput === '.'
+    || normalizedOutput.endsWith('/')
   ) {
-    throw new Error('MarkItDown outputFileName must be a contained relative path');
+    throw new Error('MarkItDown outputFileName must be a contained relative file path');
   }
 
   return {
     executable,
     timeoutMs,
-    outputFileName,
+    outputFileName: normalizedOutput,
     runner: options.runner ?? defaultCommandRunner,
   };
 }
@@ -199,8 +204,8 @@ const defaultCommandRunner: CommandRunner = async (executable, args, options) =>
     encoding: 'utf8',
   });
   return {
-    stdout: result.stdout,
-    stderr: result.stderr,
+    stdout: String(result.stdout),
+    stderr: String(result.stderr),
   };
 };
 
