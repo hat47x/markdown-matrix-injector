@@ -169,7 +169,7 @@ export function buildXlsxWithImages(sheets: SheetSpec[], media: Record<string, B
 
 /** The reference fixture: a fictional screen-design workbook. */
 export function screenDesignWorkbook(
-  overrides: { login?: Buffer; menu?: Buffer } = {},
+  overrides: { login?: Buffer; menu?: Buffer; loginName?: string; memoText?: string } = {},
 ): { bytes: Buffer; media: Record<string, Buffer> } {
   const login = overrides.login ?? pngOf(8, 6, [30, 90, 200]);
   const menu = overrides.menu ?? pngOf(10, 4, [200, 60, 60]);
@@ -186,7 +186,7 @@ export function screenDesignWorkbook(
         cells: table,
         anchors: [
           // Right of the table, same rows.
-          { kind: 'two', from: [3, 0], to: [6, 4], name: 'ログイン画面', descr: 'ログイン画面のダンプ', media: 'image1.png' },
+          { kind: 'two', from: [3, 0], to: [6, 4], name: overrides.loginName ?? 'ログイン画面', descr: 'ログイン画面のダンプ', media: 'image1.png' },
           // Two rows below the table (a gap of 1 empty row), one-cell anchor.
           { kind: 'one', from: [0, 5], media: 'image2.png', name: 'メニュー画面' },
           // The same media placed again: a duplicate by content.
@@ -194,7 +194,7 @@ export function screenDesignWorkbook(
         ],
       },
       { name: '遷移図', cells: [[0, 0, '遷移図']], anchors: [{ kind: 'abs', media: 'image2.png', name: '遷移' }] },
-      { name: 'メモ', cells: [[0, 0, '画像なし']] },
+      { name: 'メモ', cells: [[0, 0, overrides.memoText ?? '画像なし']] },
     ],
     media,
   );

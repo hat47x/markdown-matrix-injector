@@ -1,11 +1,19 @@
 import type { Candidate } from './candidate.js';
-import { classify, type Ledger, type LedgerState } from './importLedger.js';
+import {
+  assessLedger,
+  lineageCandidates,
+  type Ledger,
+  type LedgerState,
+  type LineageCandidate,
+} from './importLedger.js';
 
 export type CandidateLedgerFilter = 'all' | 'unimported' | 'exclude-imported';
 
 export interface CandidateLedgerViewItem {
   candidate: Candidate;
   ledgerState: LedgerState;
+  staleClaims?: string[];
+  lineageCandidates: LineageCandidate[];
 }
 
 /**
@@ -20,10 +28,15 @@ export function candidateLedgerView(
   absoluteSource: string,
   filter: CandidateLedgerFilter = 'all',
 ): CandidateLedgerViewItem[] {
-  const joined = candidates.map((candidate) => ({
-    candidate,
-    ledgerState: classify(ledger, ledgerPath, absoluteSource, candidate),
-  }));
+  const joined = candidates.map((candidate) => {
+    const assessment = assessLedger(ledger, ledgerPath, absoluteSource, candidate);
+    return {
+      candidate,
+      ledgerState: assessment.state,
+      ...(assessment.staleClaims ? { staleClaims: assessment.staleClaims } : {}),
+      lineageCandidates: lineageCandidates(ledger, ledgerPath, absoluteSource, candidate),
+    };
+  });
 
   switch (filter) {
     case 'unimported':

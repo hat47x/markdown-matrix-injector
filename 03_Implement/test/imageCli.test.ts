@@ -211,6 +211,39 @@ test('extract records the project ledger and inspect keeps occurrence/content id
     true,
   );
 
+  // Whole-source digest changes alone do not stale the image review basis.
+  fs.writeFileSync(book, screenDesignWorkbook({ memoText: '無関係なメモ変更' }).bytes);
+  const unrelatedChange = JSON.parse((await quiet([
+    'inspect', book,
+    '--from', doc,
+    '--root', root,
+    '--json',
+  ])).output);
+  assert.equal(
+    unrelatedChange.ledger.candidates.find(
+      (item: any) => item.kind === 'image' && item.place === 'D1:F4',
+    ).state,
+    'imported',
+  );
+
+  // Same content and occurrence, but an observed Claim used at review time changed.
+  fs.writeFileSync(book, screenDesignWorkbook({
+    loginName: 'ログイン画面（改名）',
+    memoText: '無関係なメモ変更',
+  }).bytes);
+  const stale = JSON.parse((await quiet([
+    'inspect', book,
+    '--from', doc,
+    '--root', root,
+    '--exclude-imported',
+    '--json',
+  ])).output);
+  const staleImage = stale.ledger.candidates.find(
+    (item: any) => item.kind === 'image' && item.place === 'D1:F4',
+  );
+  assert.equal(staleImage.state, 'stale');
+  assert.deepEqual(staleImage.staleClaims, ['name']);
+
   const replacement = pngOf(8, 6, [20, 180, 80]);
   fs.writeFileSync(book, screenDesignWorkbook({ login: replacement }).bytes);
 

@@ -14,7 +14,13 @@ import { imageCandidates, readExcelImages, relationToTables, type ImageDiagnosti
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import type { Candidate } from '../core/candidate.js';
 import { candidateLedgerView, type CandidateLedgerFilter } from '../core/candidateLedgerView.js';
-import { DEFAULT_LEDGER_FILE, placeOf, readLedger, type LedgerState } from '../core/importLedger.js';
+import {
+  DEFAULT_LEDGER_FILE,
+  placeOf,
+  readLedger,
+  type LedgerState,
+  type LineageCandidate,
+} from '../core/importLedger.js';
 import { readSourceFileIdentity } from '../core/sourceIdentity.js';
 import { sliceRegion } from '../core/tableGeometry.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
@@ -207,6 +213,9 @@ export interface InspectLedgerCandidate {
   sheet?: string;
   place: string;
   state: LedgerState;
+  staleClaims?: string[];
+  /** Evidence-only predecessor proposals; never an automatic identity/review transfer. */
+  lineageCandidates?: LineageCandidate[];
 }
 
 export interface InspectLedgerView {
@@ -306,8 +315,6 @@ function applyLedgerView(
   const ledger = readLedger(ledgerPath);
   const view = candidateLedgerView(result.candidates, ledger, ledgerPath, absoluteSource, filter);
   const allowed = new Set(view.map(({ candidate }) => candidateDisplayKey(candidate)));
-  const states = new Map(view.map(({ candidate, ledgerState }) => [candidateDisplayKey(candidate), ledgerState] as const));
-
   return {
     ...result,
     candidates: view.map(({ candidate }) => candidate),
@@ -323,11 +330,13 @@ function applyLedgerView(
     ledger: {
       file: path.relative(process.cwd(), ledgerPath).split(path.sep).join('/') || path.basename(ledgerPath),
       filter,
-      candidates: view.map(({ candidate }) => ({
+      candidates: view.map(({ candidate, ledgerState, staleClaims, lineageCandidates }) => ({
         kind: candidate.kind,
         ...(candidate.locator.sheet ? { sheet: candidate.locator.sheet } : {}),
         place: placeOf(candidate),
-        state: states.get(candidateDisplayKey(candidate))!,
+        state: ledgerState,
+        ...(staleClaims ? { staleClaims } : {}),
+        ...(lineageCandidates.length > 0 ? { lineageCandidates } : {}),
       })),
     },
   };
@@ -338,15 +347,16 @@ function a1Of(range: { startRow: number; startCol: number; endRow: number; endCo
 }
 
 function formatInspect(result: InspectResult): string {
-  const ledgerStates = new Map(
-    (result.ledger?.candidates ?? []).map((item) => [
-      `${item.kind}\u0000${item.sheet ?? ''}\u0000${item.place}`,
-      item.state,
-    ] as const),
-  );
   const ledgerSuffix = (kind: Candidate['kind'], sheet: string, place: string): string => {
-    const state = ledgerStates.get(`${kind}\u0000${sheet}\u0000${place}`);
-    return state ? `  ledger: ${state}` : '';
+    const item = (result.ledger?.candidates ?? []).find(
+      (candidate) => candidate.kind === kind
+        && (candidate.sheet ?? '') === sheet
+        && candidate.place === place,
+    );
+    if (!item) return '';
+    const claims = item.staleClaims?.length ? ` [stale: ${item.staleClaims.join(', ')}]` : '';
+    const lineage = item.lineageCandidates?.length ? ` [lineage: ${item.lineageCandidates.length}]` : '';
+    return `  ledger: ${item.state}${claims}${lineage}`;
   };
   const lines = [`source: ${result.source}`];
   if (result.ledger) lines.push(`ledger: ${result.ledger.file} (${result.ledger.filter})`);
