@@ -1,6 +1,5 @@
-
 import { parseRangeToCellRange, rangeDimensions } from '../core/tableGeometry.js';
-import { MAX_CELLS_HARD_LIMIT } from '../core/smartFallback.js';
+import { MAX_CELLS_HARD_LIMIT, tableTooLargeMessage } from '../core/smartFallback.js';
 export type DiagnosticSeverity = 'error' | 'warning' | 'information';
 export type XmlMode = 'none' | 'spreadsheet2003' | 'invalid';
 export type DiagnosticCode =
@@ -109,7 +108,7 @@ export function validateEmbedDiagnostics(input: ValidateEmbedDiagnosticsInput): 
     diagnostics.push(
       createDiagnostic(
         'MMI_TABLE_TOO_LARGE',
-        `Reference too large to render as a table (${tableSize.cellCount} cells exceeds the ${MAX_CELLS_HARD_LIMIT}-cell limit). mode=table does not lift this limit -- narrow the range or split the reference.`,
+        tableTooLargeMessage(tableSize.cellCount),
         buildSubjectRange(input.query.raw, input.query.range ?? '', fallbackRange),
       ),
     );
