@@ -162,6 +162,10 @@ export async function searchEmbedByDescription(document: vscode.TextDocument, wo
       const chosen = quickPick.activeItems[0];
       if (chosen?.example) {
         quickPick.value = chosen.example;
+        // Setting value fires onDidChangeValue as well; cancel that debounce
+        // because this explicit selection is searched immediately.
+        if (timer) clearTimeout(timer);
+        timer = undefined;
         update(chosen.example);
         return;
       }
