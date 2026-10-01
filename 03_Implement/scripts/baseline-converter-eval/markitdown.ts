@@ -22,6 +22,7 @@ async function main(): Promise<number> {
       sourcePath,
       outputRoot,
       converter,
+      sourceLabel: 'issue-0194-screen-design-v1',
     });
     process.stdout.write(`${JSON.stringify({ status: 'evaluated', ...report }, null, 2)}\n`);
     return 0;
