@@ -10,6 +10,9 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import XLSX from 'xlsx';
 import { WorkbookCache } from '../cache/workbookCache.js';
+import { tableCandidates } from '../adapters/tableRegionAdapter.js';
+import type { Candidate } from '../core/candidate.js';
+import { readSourceFileIdentity } from '../core/sourceIdentity.js';
 import { sliceRegion } from '../core/tableGeometry.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
 import { createDiagnosticsForDocument } from '../dx/vscodeAdapters.js';
@@ -20,7 +23,9 @@ import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './rende
 const USAGE = `Usage: mmi <command> [options]
 
 Commands:
-  inspect <source>          List sheets and table regions of a workbook/CSV (structure only by default)
+  inspect <source>          List sheets and table regions of a workbook/CSV (structure only by default;
+                            --json adds "candidates": the same regions as Semantic Candidates with status,
+                            method, provenance and fingerprint)
       --values <n>            also print the first n body rows of each region
       --from <doc.md>         write suggested references relative to this document
   check <path...>           Validate MMI references in Markdown files or directories
@@ -120,15 +125,21 @@ export interface InspectRegion {
 export interface InspectResult {
   source: string;
   sheets: { name: string; usedRange?: string; regions: InspectRegion[] }[];
+  /** The same structure as Semantic Candidates (issue-0193). `--json` only; the text output is unchanged. */
+  candidates: Candidate[];
 }
 
 export function inspectSource(absolutePath: string, sampleRows: number, fromDocument?: string): InspectResult {
   const workbook = loadWorkbook({ absolutePath });
+  const sourceDigest = readSourceFileIdentity(absolutePath).digest;
   const base = fromDocument ? path.dirname(path.resolve(fromDocument)) : process.cwd();
   let relative = path.relative(base, absolutePath).split(path.sep).join('/');
   if (!relative.startsWith('.')) relative = `./${relative}`;
   return {
     source: relative,
+    candidates: Object.entries(workbook.sheets).flatMap(([sheetName, sheet]) =>
+      tableCandidates({ source: relative, sourceDigest, sheetName, sheet }),
+    ),
     sheets: Object.entries(workbook.sheets).map(([name, sheet]) => ({
       name,
       ...(sheet.usedRange ? { usedRange: a1Of(sheet.usedRange) } : {}),

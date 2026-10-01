@@ -12,7 +12,7 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 
 | 優先度 | 作業 | 状態 | 次の一手 |
 | --- | --- | --- | --- |
-| **1 Coreと入口** | [Candidate・Source Adapter・provenanceの契約](issues/issue-0193-candidate-source-adapter-contract.md) | Open | 型の設計と、表の領域検出のAdapter化。研究成果の対応付け |
+| **1 Coreと入口** | [Candidate・Source Adapter・provenanceの契約](issues/issue-0193-candidate-source-adapter-contract.md) | **契約 v1 実装済み**（[契約](../02_Architecture/candidate-contract-v1.md)。表のAdapterと`mmi inspect --json`） | 次: 台帳（issue-0195）でfingerprintを確定。画像のAdapter（issue-0194）がこの契約の最初の利用者 |
 | 1 | CLI（inspect/check/render/manifest）、AI向け指示パック、基本設計書キット、[執筆ベンチマーク](../04_Documentation/benchmarks/ai-writing/README.md) | 実装済み | ベンチマーク v0は実施済み。表を大きくした v1は優先度5 |
 | 1 | [外部LLMへの作業提案と判断材料](issues/issue-0112-ai-proposal-handoff.md) | Open | issue-0193のCandidate/provenanceを使い、送信しないprompt/evidence packageを作る |
 | 1 | [CLIの配布](issues/issue-0197-cli-distribution.md) | Draft | 配布形態の決定 |

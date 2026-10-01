@@ -77,17 +77,15 @@ ADR-0020で、認知方式をモデル種別ではなく要件ごとに選ぶ方
 | `xlsx`の依存がCDNのtarball | CLIをnpmで配布するときの障害になり得る | issue-0197で配布形態と合わせて判断 |
 | プロダクト名「Markdown Matrix Injector」が現在の価値範囲より狭い | 表注入ツールと誤解され、Core / Agent / detachabilityの価値が伝わりにくい | [issue-0201](issues/issue-0201-product-name-and-compatibility-layer.md)で、MMIをNotation/compatibility layerとして残す案を含めて比較。決定前は実装名を変えない |
 
-## 5. 既存の研究とCandidateの対応（案）
+## 5. 既存の研究とCandidateの対応
 
-研究の成果を捨てず、ADR-0019 D4・D6の枠へ置き直す。確定はissue-0193で行う。
+対応表は[Semantic Candidate契約 v1](../02_Architecture/candidate-contract-v1.md)§6に確定した（2026-10-01、実コードを確認）。研究コードの移動・削除はしない。ここには、計画に影響する要点だけを残す。
 
-| 研究の成果 | 対応するCandidate | 層（ADR-0018） | 状態 |
-| --- | --- | --- | --- |
-| 表の領域検出（製品、`regionDetector`） | Table / Range | Authority（規則） | `observed`に近い。見出しの確度は`inferred` |
-| structured artifact の`table_like`・`header_boundary`・`repeated_block` | Table / Range、Section | Perception | `inferred` |
-| structured artifact の`hierarchy_relation` | Tree / Hierarchy | Perception | `inferred` |
-| structured artifact の`ambiguous_or_non_table`（連絡先カード、箇条書き等） | Note、List、Section | Perception | `inferred`または`abstained` |
-| worksheet format（既知書式の一致・曖昧・新規） | Candidateの書式プロファイル | Perception | `inferred` |
-| review route（inspect / routine） | Candidateのレビュー優先度 | Judgment | 候補の属性。確定はしない |
-| CPU範囲探索（FlyHash等） | Candidateの検索 | Perception | 候補順位 |
-| Excel貼り付けの出所照合 | Table / Rangeの確定 | Authority（照合） | `confirmed`への経路 |
+| 研究の成果 | 対応するCandidate | 状態 |
+| --- | --- | --- |
+| 表の領域検出（製品、`regionDetector`） | Table / Range | **Candidate化済み**（`mmi inspect --json`）。座標`observed`、境界・見出し`inferred` |
+| Excel貼り付けの出所照合 | Table / Rangeの確定 | `confirmed`への唯一の製品経路 |
+| CPU範囲探索（FlyHash等） | Candidateの検索 | 候補順位（`scores`はprovider別） |
+| worksheet format、review route | Candidateの属性（書式プロファイル、レビュー優先度） | Candidate種別ではない |
+| structured artifact（SAI）の`table_like`・本文らしさの特徴 | Table / Rangeの特徴 | 合成18グループのみの結果。実データ検証が先 |
+| structured artifact の`hierarchy_relation`・`repeated_block`・`ambiguous_or_non_table` | Tree / Hierarchy、Note、List、Section | **未着手**。ラベル名の宣言があるだけで、出力を生成するコードは`src`にも`test`にも無い（旧版はこの3つを研究済みと誤記していた） |
