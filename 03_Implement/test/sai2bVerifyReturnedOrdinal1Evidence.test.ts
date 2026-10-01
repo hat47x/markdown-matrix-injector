@@ -323,11 +323,19 @@ test('verifier rejects attempts to open semantic stages', () => {
   );
 });
 
-test('progress predecessor refs canonicalize Windows and POSIX paths', () => {
+test('progress predecessor refs canonicalize repo and 03_Implement-relative paths', () => {
   assert.equal(
     canonicalProgressRef(
       'C:\\work\\repo\\03_Implement\\test\\fixtures\\attempt-003.json',
     ),
+    '03_Implement/test/fixtures/attempt-003.json',
+  );
+  assert.equal(
+    canonicalProgressRef('test/fixtures/attempt-003.json'),
+    '03_Implement/test/fixtures/attempt-003.json',
+  );
+  assert.equal(
+    canonicalProgressRef('./test/fixtures/attempt-003.json'),
     '03_Implement/test/fixtures/attempt-003.json',
   );
   assert.equal(
