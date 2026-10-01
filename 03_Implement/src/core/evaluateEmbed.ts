@@ -9,7 +9,7 @@ import type { WorkbookCache } from '../cache/workbookCache.js';
 import type { EmbedQuery } from '../parser/embedSyntax.js';
 import { resolveSourcePath } from './pathResolver.js';
 import { buildLogicalTable, type LogicalTable } from './renderTable.js';
-import { shouldRenderAsCardAfterLoad, shouldRenderAsCardImmediately } from './smartFallback.js';
+import { shouldRenderAsCardAfterLoad, shouldRenderAsCardImmediately, SmartFallbackLimitError } from './smartFallback.js';
 import { loadWorkbook, type WorkbookData } from './workbookLoader.js';
 
 export interface EmbedContext {
@@ -21,7 +21,7 @@ export interface EmbedContext {
 export type EmbedOutcome =
   | { kind: 'card'; absolutePath: string }
   | { kind: 'table'; absolutePath: string; workbook: WorkbookData; logical: LogicalTable }
-  | { kind: 'error'; message: string };
+  | { kind: 'error'; message: string; code?: 'MMI_TABLE_TOO_LARGE' };
 
 export function evaluateEmbed(embed: EmbedQuery, context: EmbedContext): EmbedOutcome {
   try {
@@ -35,6 +35,9 @@ export function evaluateEmbed(embed: EmbedQuery, context: EmbedContext): EmbedOu
     if (shouldRenderAsCardAfterLoad(embed, workbook)) return { kind: 'card', absolutePath };
     return { kind: 'table', absolutePath, workbook, logical: buildLogicalTable(embed, workbook) };
   } catch (error) {
+    if (error instanceof SmartFallbackLimitError) {
+      return { kind: 'error', message: error.message, code: error.code };
+    }
     return { kind: 'error', message: error instanceof Error ? error.message : 'Unknown embed error' };
   }
 }
