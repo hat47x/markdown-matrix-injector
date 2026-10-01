@@ -60,6 +60,10 @@ export type OfflinePayloadReceipt = {
 
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 const MAX_REDIRECTS = 10;
+const OOXML_OFFICE_DOCUMENT_RELATIONSHIP_TYPES = new Set([
+  'http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument',
+  'http://purl.oclc.org/ooxml/officeDocument/relationships/officeDocument',
+]);
 export const OFFLINE_PAYLOAD_RECEIPT_SCHEMA =
   'hat47x.structured-artifact-sai2-offline-payload-receipt/v0' as const;
 const FROZEN_CONTENT_TYPE_PATTERN =
@@ -556,7 +560,8 @@ export function validateZipContainer(
       const tag = match[0];
       const type = /\\bType=(["'])([^"']+)\\1/u.exec(tag)?.[2];
       const target = /\\bTarget=(["'])([^"']+)\\1/u.exec(tag)?.[2];
-      return type?.endsWith('/officeDocument') === true
+      return typeof type === 'string'
+        && OOXML_OFFICE_DOCUMENT_RELATIONSHIP_TYPES.has(type)
         && (target === 'xl/workbook.xml' || target === '/xl/workbook.xml');
     });
     if (!workbookRelationshipDeclared) {
