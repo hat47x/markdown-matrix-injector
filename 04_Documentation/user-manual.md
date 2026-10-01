@@ -197,7 +197,7 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 
 参照を検証する範囲（ワークスペース）は、実行したフォルダーです。`--root`で変えられます。`--json`を付けると機械可読な出力になります。
 
-**取り込み台帳について。** 台帳は通常のJSONで、MMIを外しても読めます。セル位置や画像のanchorなどのoccurrence identityと、画像bytesや表内容のcontent fingerprintは分けて記録します。同じ画像bytesが別の場所にあっても、その場所を「取込済み」にはしません（`duplicate`）。同じ場所の内容が変わった場合は`changed`として再確認対象にします。内容fingerprintが同じでも、review時に根拠にしたClaim・evidence・methodが変わった場合は`stale`として示し、変わったClaim名を確認できます。別の場所へ移動した可能性があるCandidateは、同一content、同一sheet、object名、source-native object、近傍表などをlineage evidenceとして候補表示しますが、自動的に同一物とはみなしません。研究層の類似判定は完全一致・lineage evidenceとは別の証拠として扱い、類似だけを理由に自動除外しません。
+**取り込み台帳について。** 台帳は通常のJSONで、MMIを外しても読めます。セル位置や画像のanchorなどのoccurrence identityと、画像bytesや表内容のcontent fingerprintは分けて記録します。同じ画像bytesが別の場所にあっても、その場所を「取込済み」にはしません（`duplicate`）。同じ場所の内容が変わった場合は`changed`として再確認対象にします。内容fingerprintが同じでも、review時に根拠にしたClaim・evidence・methodが変わった場合は`stale`として示し、変わったClaim名を確認できます。別の場所へ移動した可能性があるCandidateは、同一content、同一sheet、object名、source-native object、近傍表などをlineage evidenceとして候補表示しますが、自動的に同一物とはみなしません。研究層の類似判定は完全一致・lineage evidenceとは別の証拠として扱います。`--json`ではCandidateが持つprovider別・scale別の値を`researchScores`として確認できます。異なるprovider/scaleの値を平均したり、scoreが高いという理由だけで`imported`・`duplicate`へ変更したり、`--unimported`から自動除外したりしません。
 
 **画像について。** Excelに画面ダンプなどを貼って設計を整理する書き方は、そのまま続けられます。`extract`は画像を取り出して参照できる形にするだけで、Excel側の画像は変わりません。Excelで画像を差し替えたり動かしたりしても、次に`inspect`を実行すれば現在の位置と内容が分かります。取り出せるのはPNG・JPEG・GIF・BMP・SVGです。EMF・WMF・TIFF、外部ファイルへのリンク、壊れた図形は、取り出さずに理由を表示します。`.xls`（旧形式）の画像は読めません。
 
