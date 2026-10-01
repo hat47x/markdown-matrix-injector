@@ -1022,3 +1022,75 @@ test('materialization snapshot metadata rejects lineage outside the run id', () 
     /snapshot_id must match/u,
   );
 });
+
+
+test('package identity ignores fake required declarations inside comments and CDATA', () => {
+  const commentedOverride = xlsxFrame(undefined, {
+    '[Content_Types].xml':
+      '<?xml version="1.0" encoding="UTF-8"?>'
+      + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+      + '<!-- <Override PartName="/xl/workbook.xml" '
+      + 'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/> -->'
+      + '</Types>',
+  });
+  assert.deepEqual(validateZipContainer(commentedOverride), {
+    ok: false,
+    reason: 'xlsx_workbook_content_type_missing',
+  });
+
+  const cdataRelationship = xlsxFrame(undefined, {
+    '_rels/.rels':
+      '<?xml version="1.0" encoding="UTF-8"?>'
+      + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      + '<![CDATA[<Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>]]>'
+      + '</Relationships>',
+  });
+  assert.deepEqual(validateZipContainer(cdataRelationship), {
+    ok: false,
+    reason: 'xlsx_workbook_relationship_missing',
+  });
+});
+
+test('package identity rejects foreign-namespace and nested lookalike declarations', () => {
+  const foreignOverride = xlsxFrame(undefined, {
+    '[Content_Types].xml':
+      '<?xml version="1.0" encoding="UTF-8"?>'
+      + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types" xmlns:e="urn:evil">'
+      + '<e:Override PartName="/xl/workbook.xml" '
+      + 'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+      + '</Types>',
+  });
+  assert.deepEqual(validateZipContainer(foreignOverride), {
+    ok: false,
+    reason: 'xlsx_workbook_content_type_missing',
+  });
+
+  const nestedRelationship = xlsxFrame(undefined, {
+    '_rels/.rels':
+      '<?xml version="1.0" encoding="UTF-8"?>'
+      + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+      + '<Wrapper><Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Wrapper>'
+      + '</Relationships>',
+  });
+  assert.deepEqual(validateZipContainer(nestedRelationship), {
+    ok: false,
+    reason: 'xlsx_workbook_relationship_missing',
+  });
+});
+
+test('package identity admits correctly-prefixed OPC direct-child declarations', () => {
+  const prefixed = xlsxFrame(undefined, {
+    '[Content_Types].xml':
+      '<?xml version="1.0" encoding="UTF-8"?>'
+      + '<ct:Types xmlns:ct="http://schemas.openxmlformats.org/package/2006/content-types">'
+      + '<ct:Override PartName="/xl/workbook.xml" '
+      + 'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+      + '</ct:Types>',
+    '_rels/.rels':
+      '<?xml version="1.0" encoding="UTF-8"?>'
+      + '<r:Relationships xmlns:r="http://schemas.openxmlformats.org/package/2006/relationships">'
+      + '<r:Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+      + '</r:Relationships>',
+  });
+  assert.deepEqual(validateZipContainer(prefixed), { ok: true });
+});
