@@ -12,7 +12,7 @@ import XLSX from 'xlsx';
 import { WorkbookCache } from '../cache/workbookCache.js';
 import { imageCandidates, readExcelImages, relationToTables, type ImageDiagnostic, type TableRect } from '../adapters/excelImageAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
-import type { Candidate } from '../core/candidate.js';
+import type { Candidate, ProviderScore } from '../core/candidate.js';
 import { candidateLedgerView, type CandidateLedgerFilter } from '../core/candidateLedgerView.js';
 import {
   DEFAULT_LEDGER_FILE,
@@ -216,6 +216,8 @@ export interface InspectLedgerCandidate {
   staleClaims?: string[];
   /** Evidence-only predecessor proposals; never an automatic identity/review transfer. */
   lineageCandidates?: LineageCandidate[];
+  /** Research/provider scores; never used as exact import/identity evidence. */
+  researchScores?: readonly ProviderScore[];
 }
 
 export interface InspectLedgerView {
@@ -330,13 +332,14 @@ function applyLedgerView(
     ledger: {
       file: path.relative(process.cwd(), ledgerPath).split(path.sep).join('/') || path.basename(ledgerPath),
       filter,
-      candidates: view.map(({ candidate, ledgerState, staleClaims, lineageCandidates }) => ({
+      candidates: view.map(({ candidate, ledgerState, staleClaims, lineageCandidates, researchScores }) => ({
         kind: candidate.kind,
         ...(candidate.locator.sheet ? { sheet: candidate.locator.sheet } : {}),
         place: placeOf(candidate),
         state: ledgerState,
         ...(staleClaims ? { staleClaims } : {}),
         ...(lineageCandidates.length > 0 ? { lineageCandidates } : {}),
+        ...(researchScores.length > 0 ? { researchScores } : {}),
       })),
     },
   };
@@ -356,7 +359,8 @@ function formatInspect(result: InspectResult): string {
     if (!item) return '';
     const claims = item.staleClaims?.length ? ` [stale: ${item.staleClaims.join(', ')}]` : '';
     const lineage = item.lineageCandidates?.length ? ` [lineage: ${item.lineageCandidates.length}]` : '';
-    return `  ledger: ${item.state}${claims}${lineage}`;
+    const scores = item.researchScores?.length ? ` [research scores: ${item.researchScores.length}]` : '';
+    return `  ledger: ${item.state}${claims}${lineage}${scores}`;
   };
   const lines = [`source: ${result.source}`];
   if (result.ledger) lines.push(`ledger: ${result.ledger.file} (${result.ledger.filter})`);
