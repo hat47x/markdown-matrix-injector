@@ -1,17 +1,14 @@
 /**
  * `mmi extract`: write chosen workbook images to an assets folder and print
- * Markdown that references them, with provenance (issue-0194).
- *
- * Read-only toward the source: the workbook is only read. It writes only
- * files named after the image's own digest inside `outDir`, so the same
- * picture is one file however many places use it, and a re-run is a no-op.
- * An existing file with that name but different bytes is never overwritten.
+ * Markdown that references them, with provenance (issue-0194/0195).
  */
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
 import { readExcelImages, readImageBytes, type ExcelImage, type ImageDiagnostic } from '../adapters/excelImageAdapter.js';
+import { fingerprintOf } from '../core/candidate.js';
+import { readImportLedger, recordImport, writeImportLedger } from '../core/importLedger.js';
 
 export interface ExtractOptions {
   sourcePath: string;
@@ -20,8 +17,10 @@ export interface ExtractOptions {
   outDir: string;
   /** Markdown references are written relative to this document's folder (default: current directory). */
   fromDocument?: string;
-  /** Source as it should be written in provenance (default: relative to the document folder). */
+  /** Source as it should be written in provenance/ledger (default: relative to the document folder). */
   sourceLabel?: string;
+  /** When set, successful explicit extractions are recorded here. */
+  ledgerPath?: string;
 }
 
 export interface ExtractedImage {
@@ -30,25 +29,15 @@ export interface ExtractedImage {
   anchor?: string;
   digest: string;
   file: string;
-  /** `written`, or `unchanged` when the same bytes were already there. */
   status: 'written' | 'unchanged';
   reference: string;
   markdown: string;
 }
 
-export interface ExtractProblem {
-  ordinal?: number;
-  code: string;
-  message: string;
-}
-
-export interface ExtractResult {
-  extracted: ExtractedImage[];
-  problems: ExtractProblem[];
-}
+export interface ExtractProblem { ordinal?: number; code: string; message: string }
+export interface ExtractResult { extracted: ExtractedImage[]; problems: ExtractProblem[] }
 
 const EXTENSION: Record<string, string> = { png: 'png', jpeg: 'jpg', gif: 'gif', bmp: 'bmp', svg: 'svg' };
-
 const sha256 = (data: Buffer): string => `sha256:${createHash('sha256').update(data).digest('hex')}`;
 
 function altText(image: ExcelImage): string {
@@ -56,10 +45,9 @@ function altText(image: ExcelImage): string {
   return raw.replace(/[\r\n]+/gu, ' ').replace(/[[\]]/gu, '').trim();
 }
 
-/** Provenance as an HTML comment: invisible in rendered Markdown, greppable, and `--` is escaped so it cannot end the comment early. */
 function provenanceComment(source: string, image: ExcelImage): string {
   const value = (text: string) => text.replace(/--/gu, '- -').replace(/"/gu, "'").replace(/[\r\n]+/gu, ' ');
-  return `<!-- mmi:extracted source="${value(source)}" sheet="${value(image.sheet)}"${image.range ? ` anchor="${image.range}"` : ''} sha256="${image.digest.slice(7)}" -->`;
+  return `<!-- mmi:extracted source="${value(source)}" sheet="${value(image.sheet)}"${image.range ? ` anchor="${value(image.range)}"` : ''} sha256="${image.digest.slice(7)}" -->`;
 }
 
 export function extractImages(options: ExtractOptions): ExtractResult {
@@ -69,10 +57,9 @@ export function extractImages(options: ExtractOptions): ExtractResult {
     result.problems.push({ code: 'MMI_IMAGE_PACKAGE_UNSUPPORTED', message: 'images can only be extracted from .xlsx / .xlsm workbooks' });
     return result;
   }
+  const sourceDigest = sha256(packageBytes);
   const read = readExcelImages(packageBytes);
-  for (const diagnostic of read.diagnostics.filter((d) => d.severity === 'error')) {
-    result.problems.push({ code: diagnostic.code, message: diagnostic.message });
-  }
+  for (const diagnostic of read.diagnostics.filter((d) => d.severity === 'error')) result.problems.push({ code: diagnostic.code, message: diagnostic.message });
   if (result.problems.length > 0) return result;
 
   let chosen: ExcelImage[];
@@ -93,6 +80,7 @@ export function extractImages(options: ExtractOptions): ExtractResult {
   fs.mkdirSync(options.outDir, { recursive: true });
   const outDirectory = fs.realpathSync(options.outDir);
   const sourceReal = fs.realpathSync(options.sourcePath);
+  let ledger = options.ledgerPath ? readImportLedger(options.ledgerPath) : undefined;
 
   for (const image of chosen) {
     if (!image.extractable) {
@@ -100,9 +88,8 @@ export function extractImages(options: ExtractOptions): ExtractResult {
       continue;
     }
     let data: Buffer;
-    try {
-      data = readImageBytes(packageBytes, image);
-    } catch (error) {
+    try { data = readImageBytes(packageBytes, image); }
+    catch (error) {
       result.problems.push({ ordinal: image.ordinal, code: 'MMI_IMAGE_MEDIA_MISSING', message: error instanceof Error ? error.message : String(error) });
       continue;
     }
@@ -118,21 +105,24 @@ export function extractImages(options: ExtractOptions): ExtractResult {
         continue;
       }
       status = 'unchanged';
-    } else {
-      fs.writeFileSync(file, data);
-    }
+    } else fs.writeFileSync(file, data);
+
     const relative = path.relative(documentDirectory, file).split(path.sep).join('/');
     const reference = /\s/u.test(relative) ? relative.replace(/ /gu, '%20') : relative;
-    result.extracted.push({
-      ordinal: image.ordinal,
-      sheet: image.sheet,
-      ...(image.range ? { anchor: image.range } : {}),
-      digest: image.digest,
-      file,
-      status,
-      reference,
-      markdown: `![${altText(image)}](${reference})\n${provenanceComment(source, image)}`,
-    });
+    result.extracted.push({ ordinal: image.ordinal, sheet: image.sheet, ...(image.range ? { anchor: image.range } : {}), digest: image.digest, file, status, reference, markdown: `![${altText(image)}](${reference})\n${provenanceComment(source, image)}` });
+
+    if (ledger && options.ledgerPath) {
+      ledger = recordImport(ledger, {
+        locator: { source, sourceDigest, sheet: image.sheet, ...(image.range ? { range: image.range } : {}) },
+        fingerprint: fingerprintOf('image-media-bytes-v1', image.digest),
+        kind: 'image',
+        output: relative,
+        conversion: { mode: 'raw-image-bytes-v1', format: image.format },
+        confirmation: 'confirmed',
+        importedAt: new Date().toISOString(),
+      });
+      writeImportLedger(options.ledgerPath, ledger);
+    }
   }
   return result;
 }
