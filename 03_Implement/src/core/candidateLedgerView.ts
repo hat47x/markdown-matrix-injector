@@ -1,5 +1,11 @@
 import type { Candidate } from './candidate.js';
-import { assessLedger, type Ledger, type LedgerState } from './importLedger.js';
+import {
+  assessLedger,
+  lineageCandidates,
+  type Ledger,
+  type LedgerState,
+  type LineageCandidate,
+} from './importLedger.js';
 
 export type CandidateLedgerFilter = 'all' | 'unimported' | 'exclude-imported';
 
@@ -7,6 +13,7 @@ export interface CandidateLedgerViewItem {
   candidate: Candidate;
   ledgerState: LedgerState;
   staleClaims?: string[];
+  lineageCandidates: LineageCandidate[];
 }
 
 /**
@@ -27,6 +34,7 @@ export function candidateLedgerView(
       candidate,
       ledgerState: assessment.state,
       ...(assessment.staleClaims ? { staleClaims: assessment.staleClaims } : {}),
+      lineageCandidates: lineageCandidates(ledger, ledgerPath, absoluteSource, candidate),
     };
   });
 
