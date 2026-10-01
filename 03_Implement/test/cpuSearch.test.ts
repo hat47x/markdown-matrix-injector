@@ -241,6 +241,53 @@ test('indexWorkbookFiles re-reads only books whose stat changed and honours canc
   assert.equal(cancelled.cancelled, true);
 });
 
+test('indexWorkbookFiles enforces maxRegions inside a book and can later expand a truncated book', async () => {
+  const catalog = new RegionCatalog();
+  const stats: Record<string, BookStat> = {
+    '/release.xlsx': { mtimeMs: 1, size: 10 },
+    '/design.xlsx': { mtimeMs: 1, size: 10 },
+  };
+  const books: Record<string, WorkbookData> = {
+    '/release.xlsx': RELEASE,
+    '/design.xlsx': DESIGN,
+  };
+  let loads = 0;
+  const options = {
+    statFile: (path: string) => stats[path],
+    loadWorkbook: (path: string) => {
+      loads += 1;
+      return books[path];
+    },
+    maxRegions: 2,
+  };
+
+  // RELEASE consumes one slot; DESIGN has two regions but only one may be
+  // retained. The configured cap is therefore a hard retained-region bound.
+  const capped = await indexWorkbookFiles(catalog, ['/release.xlsx', '/design.xlsx'], options);
+  assert.equal(capped.capped, true);
+  assert.equal(catalog.regionCount, 2);
+  assert.equal(catalog.regionsOf('/design.xlsx').length, 1);
+  assert.equal(catalog.isBookComplete('/design.xlsx'), false);
+  assert.equal(loads, 2);
+
+  // With no newly available capacity, the same partial book is not re-read on
+  // every refresh.
+  const stillCapped = await indexWorkbookFiles(catalog, ['/release.xlsx', '/design.xlsx'], options);
+  assert.equal(stillCapped.capped, true);
+  assert.equal(loads, 2);
+  assert.equal(catalog.regionCount, 2);
+
+  // Removing the other book frees one slot. The unchanged partial DESIGN book
+  // is re-read and expands to its full two regions without exceeding the cap.
+  const expanded = await indexWorkbookFiles(catalog, ['/design.xlsx'], options);
+  assert.equal(expanded.capped, false);
+  assert.deepEqual(expanded.updated, ['/design.xlsx']);
+  assert.equal(loads, 3);
+  assert.equal(catalog.regionCount, 2);
+  assert.equal(catalog.regionsOf('/design.xlsx').length, 2);
+  assert.equal(catalog.isBookComplete('/design.xlsx'), true);
+});
+
 // --- retrievers ---------------------------------------------------------------
 
 test('every retrieval method ranks the named table first on the shared corpus', () => {
