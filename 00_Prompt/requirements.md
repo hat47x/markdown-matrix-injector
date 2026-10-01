@@ -127,6 +127,18 @@ MMIとLLM・認知技術の関係は次の3つを基本とする。
 
 特定の生成AIサービスを製品の必須依存にしない。外部LLMが存在しない環境でも、Authority Planeと主要なモダナイズ機能は成立する。
 
+
+## 配布サイズとランタイム
+
+MMIは、CLI、Core、IDE連携、WASM等の各経路で、必要な機能・安全性・互換性を満たす範囲では**最小の配布物と最小の実行時依存**を優先する。
+
+- Core実装を特定のコンパイラ固有機能へ強く依存させない。
+- Go採用時は、標準Goを基準にしつつTinyGo等のsmall-binary toolchainでもビルド可能なportable coreを優先する。
+- 標準GoとTinyGoで挙動差がある場合は、conformance corpusと公開契約の一致を優先し、サイズのためにAuthority Planeの保証を弱めない。
+- VS Code Web等ではWASMを選択できる構造にする。Desktopではnative binaryとWASMを実測比較し、機能要件を満たす最小経路を採用する。
+- 将来、標準Goに近い互換性を持ちながらより小さなnative/WASMを生成できるtoolchainが成熟した場合、同じ契約で評価して置換可能にする。
+- toolchainの採否はバイナリサイズだけでなく、対応標準ライブラリ、性能、メモリ、デバッグ性、保守性、ライセンス、OS/WASM対応を含めて判断する。
+
 ## AI・認知技術との3経路
 
 MMI自身は、原則としてAPI課金を要する生成AIサービスを直接呼び出さない。API key管理、課金先の選択、自動クラウドfallbackを標準機能に含めない。MMIとLLM・認知技術の関係は次の3経路に整理する。
