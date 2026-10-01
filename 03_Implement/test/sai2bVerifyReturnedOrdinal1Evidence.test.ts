@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
+import { crc32 } from 'node:zlib';
 
 import {
   advanceProgressSnapshotMetadata,
@@ -22,27 +23,41 @@ const BASELINE_REF =
   '03_Implement/test/fixtures/structured-artifact-sai2-real-source-primary-materialization-run-v0-attempt-003.json';
 
 function xlsxFrame(): Uint8Array {
-  const names = [
-    '[Content_Types].xml',
-    '_rels/.rels',
-    'xl/workbook.xml',
-  ];
+  const parts: Record<string, string> = {
+    '[Content_Types].xml':
+      '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>',
+    '_rels/.rels':
+      '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>',
+    'xl/workbook.xml':
+      '<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"></workbook>',
+  };
+  const names = Object.keys(parts);
   const locals: Uint8Array[] = [];
   const centrals: Uint8Array[] = [];
   let localOffset = 0;
 
   for (const name of names) {
     const nameBytes = Buffer.from(name);
-    const local = new Uint8Array(30 + nameBytes.length);
+    const data = Buffer.from(parts[name], 'utf8');
+    const checksum = crc32(data) >>> 0;
+
+    const local = new Uint8Array(30 + nameBytes.length + data.length);
     const localView = new DataView(local.buffer);
     localView.setUint32(0, 0x04034b50, true);
+    localView.setUint32(14, checksum, true);
+    localView.setUint32(18, data.length, true);
+    localView.setUint32(22, data.length, true);
     localView.setUint16(26, nameBytes.length, true);
     local.set(nameBytes, 30);
+    local.set(data, 30 + nameBytes.length);
     locals.push(local);
 
     const central = new Uint8Array(46 + nameBytes.length);
     const centralView = new DataView(central.buffer);
     centralView.setUint32(0, 0x02014b50, true);
+    centralView.setUint32(16, checksum, true);
+    centralView.setUint32(20, data.length, true);
+    centralView.setUint32(24, data.length, true);
     centralView.setUint16(28, nameBytes.length, true);
     centralView.setUint32(42, localOffset, true);
     central.set(nameBytes, 46);

@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
+import { crc32 } from 'node:zlib';
 import {
   advanceProgressSnapshotMetadata,
   applyOutcomeToProgress,
@@ -40,23 +41,42 @@ function xlsxFrame(
     '_rels/.rels',
     'xl/workbook.xml',
   ],
+  overrides: Partial<Record<string, string>> = {},
 ): Uint8Array {
+  const defaultParts: Record<string, string> = {
+    '[Content_Types].xml':
+      '<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/></Types>',
+    '_rels/.rels':
+      '<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>',
+    'xl/workbook.xml':
+      '<?xml version="1.0" encoding="UTF-8"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"></workbook>',
+  };
   const locals: Uint8Array[] = [];
   const centrals: Uint8Array[] = [];
   let localOffset = 0;
 
   for (const name of names) {
     const nameBytes = Buffer.from(name);
-    const local = new Uint8Array(30 + nameBytes.length);
+    const data = Buffer.from(overrides[name] ?? defaultParts[name] ?? '', 'utf8');
+    const checksum = crc32(data) >>> 0;
+
+    const local = new Uint8Array(30 + nameBytes.length + data.length);
     const localView = new DataView(local.buffer);
     localView.setUint32(0, 0x04034b50, true);
+    localView.setUint32(14, checksum, true);
+    localView.setUint32(18, data.length, true);
+    localView.setUint32(22, data.length, true);
     localView.setUint16(26, nameBytes.length, true);
     local.set(nameBytes, 30);
+    local.set(data, 30 + nameBytes.length);
     locals.push(local);
 
     const central = new Uint8Array(46 + nameBytes.length);
     const centralView = new DataView(central.buffer);
     centralView.setUint32(0, 0x02014b50, true);
+    centralView.setUint32(16, checksum, true);
+    centralView.setUint32(20, data.length, true);
+    centralView.setUint32(24, data.length, true);
     centralView.setUint16(28, nameBytes.length, true);
     centralView.setUint32(42, localOffset, true);
     central.set(nameBytes, 46);
@@ -112,6 +132,26 @@ test('XLSX validation requires OOXML package entries without worksheet semantics
   const markerOffset = Buffer.from(generic).lastIndexOf(marker);
   generic.set(Buffer.alloc(marker.length, 0x78), markerOffset);
   assert.equal(validateZipContainer(generic).ok, false);
+});
+
+test('XLSX validation rejects empty OOXML declaration parts', () => {
+  const genericZip = xlsxFrame(
+    [
+      '[Content_Types].xml',
+      '_rels/.rels',
+      'xl/workbook.xml',
+    ],
+    {
+      '[Content_Types].xml': '',
+      '_rels/.rels': '',
+      'xl/workbook.xml': '',
+    },
+  );
+
+  assert.deepEqual(
+    validateZipContainer(genericZip),
+    { ok: false, reason: 'xlsx_content_types_invalid' },
+  );
 });
 
 test('XLSX validation rejects corrupt required-entry local data', () => {
