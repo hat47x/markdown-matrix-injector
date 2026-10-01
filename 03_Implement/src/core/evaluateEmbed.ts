@@ -6,6 +6,7 @@
  * into Markdown tables and diagnostics. Both call this one function.
  */
 import type { WorkbookCache } from '../cache/workbookCache.js';
+import { CooperativeTimeBudgetExceededError, type CooperativeTimeBudget } from './cooperativeTimeBudget.js';
 import type { EmbedQuery } from '../parser/embedSyntax.js';
 import { resolveSourcePath } from './pathResolver.js';
 import { buildLogicalTable, type LogicalTable } from './renderTable.js';
@@ -16,12 +17,13 @@ export interface EmbedContext {
   markdownFilePath: string;
   workspaceRoot?: string;
   cache?: WorkbookCache<WorkbookData>;
+  budget?: CooperativeTimeBudget;
 }
 
 export type EmbedOutcome =
   | { kind: 'card'; absolutePath: string }
   | { kind: 'table'; absolutePath: string; workbook: WorkbookData; logical: LogicalTable }
-  | { kind: 'error'; message: string; code?: 'MMI_TABLE_TOO_LARGE' };
+  | { kind: 'error'; message: string; code?: 'MMI_TABLE_TOO_LARGE' | 'MMI_TABLE_TIME_BUDGET_EXCEEDED' };
 
 export function evaluateEmbed(embed: EmbedQuery, context: EmbedContext): EmbedOutcome {
   try {
@@ -33,9 +35,9 @@ export function evaluateEmbed(embed: EmbedQuery, context: EmbedContext): EmbedOu
     if (shouldRenderAsCardImmediately(embed)) return { kind: 'card', absolutePath };
     const workbook = loadWorkbook({ absolutePath, cache: context.cache });
     if (shouldRenderAsCardAfterLoad(embed, workbook)) return { kind: 'card', absolutePath };
-    return { kind: 'table', absolutePath, workbook, logical: buildLogicalTable(embed, workbook) };
+    return { kind: 'table', absolutePath, workbook, logical: buildLogicalTable(embed, workbook, { budget: context.budget }) };
   } catch (error) {
-    if (error instanceof SmartFallbackLimitError) {
+    if (error instanceof SmartFallbackLimitError || error instanceof CooperativeTimeBudgetExceededError) {
       return { kind: 'error', message: error.message, code: error.code };
     }
     return { kind: 'error', message: error instanceof Error ? error.message : 'Unknown embed error' };
