@@ -2,52 +2,53 @@
 
 ## 現況
 
-**製品方針（2026-10-01採択）:** [ADR-0019](adr/ADR-0019-ai-era-sier-document-value-and-policy.md)により、MMIを「表参照プラグイン」から、**レガシー文書を残したまま段階的にモダナイズし、最終的には元文書やMMIからも安全に切り離せる基盤**へ再定義した。既存の表参照・Read-only・決定論的Authority Planeは中核保証として継続する。軽量認知は、表・画像・図形・ツリー・リスト等のSemantic Candidateを発見する非権威的な支援へ一般化する。製品の中心は共通Coreと契約であり、VS Code拡張は人向けクライアント、CLI/機械可読出力はAI・CI向けの第一級入口とする。
+**製品方針:** [ADR-0019](adr/ADR-0019-ai-era-sier-document-value-and-policy.md)（2026-10-01採択・同日改訂）により、MMIは**人が慣れた道具で書き続けたまま、その内容をAIと機械が扱える形へ緩やかに移し、最終的には元文書やMMIからも安全に切り離せる基盤**である。MMIは、Excel方眼紙をレガシーとみなす見方と既存のスタイルの両方を否定せず、両者の橋になる。Excelで書き続ける人はそのままAIと協業でき、Markdownへ移りたい人は資産を失わずに移れる。図形やレイアウトに意味があるシート・範囲は、そのまま画像として取り込んでよい（D0）。Linked（参照）・Extracted（取り込み）・Detached（切り離し）は情報単位ごとに選ぶ状態で、順に進む段階ではない。人の作業を止めないことを移行の速さより優先する（D13）。表参照・Read-only・決定論的なAuthority Planeは中核の保証として継続し、軽量認知は表・画像・図形・ツリー等の候補（Semantic Candidate）を見つける非権威的な支援とする。
 
-VS Code拡張、記法仕様、日本語チュートリアル、実務サンプルを整備している。記法仕様はDraft、配布物は公開準備中の検証版。新しい入力支援はレビュー指摘R1〜R5を設計・ADR・観測ハーネスへ反映済み（[作業A完了](issues/issue-0114-excel-range-paste.md)）、**原本座標の保持（作業B）も実装・自動テスト完了**（2026-09-11、WSL2 Ubuntu環境）、**VS CodeのDataTransfer観測（作業C）も完了**（同日、Windows実機）。**作業D（内容照合による貼り付け）と`editor.action.pasteAs`への統合も完了**（2026-09-16〜17）。**CPUでの範囲探索（issue-0115）は評価実装と実測を終え、FlyHashは条件付き採用**（2026-09-24）。
+**実装の到達点:** Linkedだけが実装済みで、対象は表に限る。VS Code拡張（プレビュー、補完、貼り付け、説明からの検索、案内付きの作成、診断）と、CLI（`inspect`・`check`・`render`・`manifest`）、AI向け指示パック（`skills/mmi`）、基本設計書キット、執筆ベンチマーク v0がある。ExtractedとDetachedの経路はまだない。記法仕様はDraft、配布物は公開準備中の検証版。差分の詳細は[ギャップ分析](product-gap-analysis.md)を参照する。
 
-**解決済みの問題:** Excel読込みで空行と使用範囲の原点が失われ、正しい参照文字列を挿入しても原本と違う位置が表示される問題を、原本座標を保持するソースモデル（`SheetSource`）へ置き換えて修正した。`npm test`全258件成功、実サンプルでの回帰0件、旗艦の再現ケース（`設計.xlsx#状態遷移|C5:F12`）が設計文書どおりの出力になることを実描画で確認済み。
+## 優先度と作業
 
-**確定した事実（作業C）:** VS Codeの`DataTransfer`はExcelの出所形式を一切公開しない。実機で`text/plain`・`text/html`・`text/rtf`・`image/png`の4件のみを確認し、`SourceURL`を含むCF_HTMLヘッダーもVS Code側で失われることを確認した。[ADR-0017](adr/ADR-0017-windows-clipboard-provenance-bridge.md)の選択肢1（拡張内だけで完結）は却下確定。選択肢2（Windows補助プロセス）を実装するかは未決定だが、段2の実装（内容照合ベース）はこの判断を待たずに進められる。
+ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から順に割り当てるが、下位の作業を禁止しない。
 
-## 製品レベルの優先度
-
-1. **CoreとAIから使える入口:** 既存のinspect/check/renderをCore/CLIから使えるようにし、Source Adapter / Candidate / provenanceの共通契約を固定する。
-2. **レガシー文書モダナイズの最小縦切り:** Excelを実証対象に、表に加えて埋め込み画像、anchor、assets化、取込済み判定、初回一括変換と個別取り込みを成立させる。
-3. **Source Adapterの一般化:** Shape、Tree、Choice list、JSON/XML、フラットテキストのStructuralizerへ広げる。
-4. **Detachabilityと長期運用:** materialize、detach check、provenance manifest、変更検出、参照台帳・影響分析を整える。
-5. **組織導入:** SIer文書キット、CI、標準モダナイズ手順、大規模資産での価値確認を進める。
-
-下記の入力支援作業は既存投資として継続し、主に優先度2の候補抽出・レビュー経路へ統合する。新しい研究ブランチを増やす前に、既存のstructured artifact / worksheet format / CPU探索の成果をCandidate / Structuralizerへ対応付ける。
-
-## 入力支援の作業順
-
-| 順序 | 作業 | 状態 | 着手できるか |
+| 優先度 | 作業 | 状態 | 次の一手 |
 | --- | --- | --- | --- |
-| 1 | [Excel範囲貼り付け・座標保持](issues/issue-0114-excel-range-paste.md) | Open（作業B・C・D完了。残: pasteAs経路のe2e、ADR-0017の判断） | 残作業のみ |
-| 2 | [文脈に応じた補完](issues/issue-0110-contextual-input-completion.md) | In Progress（カーソル区間の置換・値候補・選んだシートの表だけの範囲候補を実装） | 残: 多環境（multi-root・IME・Undo等）の実機確認 |
-| 3 | [参照の作成・編集](issues/issue-0111-reference-authoring-flow.md) | In Progress（案内付きコマンド・部分更新・実エンジンの確認・修正候補・ホバーを実装） | 残: 利用者の実機観測 |
-| 4 | [CPUでの範囲探索](issues/issue-0115-cpu-range-search.md) | In Progress（`MMI: Find Table by Description`として組み込み。最新の未見評価でRecall@5 0.800、FlyHashは条件付き採用） | 次は言い換えへの対応 |
-| 任意 | [既存AIへの依頼と結果検証](issues/issue-0112-ai-proposal-handoff.md) | Draft | 主経路外。0115の評価後に要否を再判断 |
-| 保留 | [ローカルLLM評価](issues/issue-0113-local-ai-feasibility.md) | Draft | 着手しない |
+| **1 Coreと入口** | [Candidate・Source Adapter・provenanceの契約](issues/issue-0193-candidate-source-adapter-contract.md) | Open | 型の設計と、表の領域検出のAdapter化。研究成果の対応付け |
+| 1 | CLI（inspect/check/render/manifest）、AI向け指示パック、基本設計書キット、[執筆ベンチマーク](../04_Documentation/benchmarks/ai-writing/README.md) | 実装済み | ベンチマーク v0は実施済み。表を大きくした v1は優先度5 |
+| 1 | [CLIの配布](issues/issue-0197-cli-distribution.md) | Draft | 配布形態の決定 |
+| **2 モダナイズの最小縦切り** | [Excel画像の候補化と取り込み](issues/issue-0194-excel-image-candidates.md) | Open | 画像入りテスト用ブックの作成。issue-0193の型を待つ |
+| 2 | [取り込み台帳と未取込の表示](issues/issue-0195-import-ledger.md) | Draft | issue-0194の後 |
+| 2 | [シート・範囲の画像化](issues/issue-0198-sheet-region-snapshot.md) | Draft | CIで動く描画方式（MMI自身の描画、LibreOffice）の比較。COMは手元の補助 |
+| 2 | 候補を採否するVS CodeのUI | 未起票 | issue-0194のCLIの動作確認後に起票 |
+| 2（既存） | [Excel範囲貼り付け](issues/issue-0114-excel-range-paste.md) | Open | 残: pasteAs経路のe2e。表Candidateを`confirmed`にする経路として扱う |
+| 2（既存） | [CPUでの範囲探索](issues/issue-0115-cpu-range-search.md) | In Progress | 言い換え対応。Candidateの検索として扱う |
+| 2（既存） | [文脈に応じた補完](issues/issue-0110-contextual-input-completion.md)、[参照の作成・編集](issues/issue-0111-reference-authoring-flow.md) | In Progress | 多環境の実機確認、利用者の観測 |
+| **3 Source Adapterの一般化** | Shape、Tree、Choice list、JSON/XML、フラットテキスト | 未起票 | issue-0193の対応表で、研究の`hierarchy_relation`等をどこから使うか決めてから起票 |
+| 3（研究） | structured artifact（SAI）、worksheet format、[review route](issues/issue-0190-review-route-evaluation-pipeline-regression.md) | In Progress | 新しい研究段階は、issue-0193の対応表のどの行を強くするかを示してから始める |
+| **4 Detachability** | [実体化とdetach check](issues/issue-0196-materialize-detach-check.md) | Draft | 別紙カードの実体化は依存なしで着手できる |
+| 4 | 参照台帳と影響分析 | 未起票 | issue-0195の台帳と合わせて設計 |
+| **5 組織導入** | 文書キットの追加、CI関門、執筆ベンチマーク v1（大きな表・複数シート・本文と表の矛盾） | 未起票 | 優先度2の縦切りの後 |
+| 5 | [外部の判断記録からの根拠の固定（SEI）](issues/issue-0192-sei-decision-basis-table-binding.md) | Draft | CLIの契約が固まった後 |
+| 保留 | [既存AIへの依頼と結果検証](issues/issue-0112-ai-proposal-handoff.md) | Draft | CLIと指示パックで代替できるか、ベンチマークで判断 |
+| 保留 | [ローカルLLM評価](issues/issue-0113-local-ai-feasibility.md) | Draft | ADR-0019 D7の3番目。規則と軽量認知で足りない箇所が分かってから |
 
-**開発環境:** WSL2 Ubuntu（Node v20.20.2、npm 10.8.2、Python 3.12.3、git 2.43.0）で`npm ci`／`npm run build`／`npm test`を実行できることを確認済み。Windows側のこの調査環境自体にはNode.js・npm・実体のあるPython 3が無い（`python`はMicrosoft Storeのスタブ）。実装はWSL2側で行う。VS Code実機操作（DataTransfer観測・GUIでの貼り付け）はWindows側でのみ可能で、こちらは動作確認済み。
+**優先度の根拠:** 執筆ベンチマーク v0では、小さな表をAIが誤って写すことはなく、MMIの差は正本の変更への追従に出た（[結果](../04_Documentation/benchmarks/ai-writing/results/2026-09-30-v0.md)）。人がExcelで書き続けても追従する（Linked）ことは、それだけで価値がある。そのうえで、人がExcelに置いた画像や図をそのままAIと機械が扱えるようにするExtractedの経路が、次に価値が大きい。Detachedは、原本を廃止すると決めた範囲のための経路として優先度4に置く。その入口がCandidateの契約（issue-0193）で、研究の成果を製品へ合流させる唯一の経路でもあるため、最上位に置く。
 
-- [企画](input-assistance-proposal.md): 利用体験と対象範囲。
-- [技術調査](input-assistance-technical-research.md): 確認済みの事実、未確認事項、検証手順。
-- 設計: [ソースモデル](../02_Architecture/input-assistance-source-model.md)、[クリップボード出所と照合](../02_Architecture/input-assistance-paste-provenance.md)、[CPUでの範囲探索](../02_Architecture/input-assistance-cpu-search.md)。
-- [ADR-0016](adr/ADR-0016-notation-first-input-assistance.md): 入力支援の方針と確定した設計判断。[ADR-0017](adr/ADR-0017-windows-clipboard-provenance-bridge.md): 出所取得の条件付き判断。いずれもProposed。
+## 確定した事実
+
+- **原本座標:** Excel読込みは原本座標を保持するソースモデル（`SheetSource`）で、使用範囲の原点と空行を失わない。
+- **クリップボード:** VS Codeの`DataTransfer`はExcelの出所形式を公開しない。Windowsの補助プロセスで出所を取得する[ADR-0017](adr/ADR-0017-windows-clipboard-provenance-bridge.md)の選択肢2を採用し、設定付き・既定オンで実装・実機検証済み（2026-09-25）。
+- **画像:** SheetJS（コミュニティ版）は画像を解釈しないが、`bookFiles`でxlsx内の部品を取り出せる。画像入りの実物ブックでは未確認。
+
+## 開発環境
+
+WSL2 Ubuntu（Node v20、npm 10、Python 3.12）で`npm ci`・`npm run build`・`npm test`を実行する。Windows側のこの環境にはNode.jsと実体のあるPython 3が無い。VS Code実機の操作はWindows側で行う。`npm test`では、研究層の26件が実装の変更と無関係に失敗する（2026-09-27時点。変更前のHEADでも同じ）。
 
 ## 計画の管理
 
-依頼に該当するIssueを読み、受入条件と次の作業を確認する。作業一覧が必要な場合だけ、リポジトリルートで実行する。
+依頼に該当するIssueを読み、受入条件と次の作業を確認する。一覧が必要な場合はリポジトリルートで実行する。
 
 ```sh
 python 01_Plans/tools/planning_queue.py
 ```
 
-Draftは検討中であり、採用・実装済みを意味しない。ユーザーの依頼範囲と依存関係を確認して着手する。重要な選択は[ADR](adr/TEMPLATE.md)、実行内容は[Issue](issues/README.md)へ記す。日々の経緯や完了作業の一覧はこのページへ追加しない。
-
-## 次の着手条件
-
-[設計レビューと作業指示](input-assistance-design-review.md)のA〜Fを作業順とする。A〜Dは完了（作業Dは内容照合＋明示候補選択。自動確定はしない）。自動確定とWindows橋渡し（作業E、[ADR-0017](adr/ADR-0017-windows-clipboard-provenance-bridge.md)選択肢2）はR1/R4を満たすまで着手しない。CPU探索の次の作業は[issue-0115](issues/issue-0115-cpu-range-search.md)の「残り」を参照。
+Draftは検討中であり、採用・実装済みを意味しない。重要な選択は[ADR](adr/TEMPLATE.md)、実行内容は[Issue](issues/README.md)へ記す。入力支援の経緯は[企画](input-assistance-proposal.md)・[設計レビュー](input-assistance-design-review.md)・[技術調査](input-assistance-technical-research.md)にある。日々の経緯や完了作業の一覧はこのページへ追加しない。
