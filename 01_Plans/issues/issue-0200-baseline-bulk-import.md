@@ -40,8 +40,10 @@ issue-0195で確定した`mmi.ledger/v1`を再利用する。一括変換専用�
 - `matched`だけがartifactを指せる。`unmatched / ambiguous`はConverterがファイルを生成していてもledgerへ入らない。
 - matched artifactは既存`mmi.ledger/v1`へ登録し、`converterId / converterVersion / artifactId / artifactDigest / conversion options`を変換条件として残す。
 - 外部Converter固有の依存はCoreへ入れず、Converter interfaceの外側へ閉じ込める。
+- ledger provenanceにはsource/sourceDigestに加えて、Converter ID/版、MMI版、artifact ID/digest、conversion options、reconciliation Evidenceを残す。呼出側optionsより予約provenanceを優先し、偽装上書きを許さない。
+- artifact pathは実行OSに依存せずPOSIX/Windows双方のabsolute path・traversalを拒否する。
 
-`test/baselineImport.test.ts` では、画像だけmatched・表はunmatchedのrun、全件ambiguous、decision欠落、artifact digest不一致、outputRoot escape、stale Candidateを固定した。実Converterをまだ呼ばない段階でも「対応できないものを黙って取込済みにしない」契約を検証できる。
+`test/baselineImport.test.ts` では、画像だけmatched・表はunmatchedのrun、全件ambiguous、decision欠落、artifact digest不一致、POSIX/Windows双方のoutputRoot escape、stale Candidate、予約provenance上書き、malformed converter outputを固定した。実Converterをまだ呼ばない段階でも「対応できないものを黙って取込済みにしない」契約を検証できる。
 
 ### MarkItDown preliminary evaluation
 
