@@ -218,6 +218,159 @@ function rootElementNamespace(
   );
   return close.test(trailingStripped) ? namespace : null;
 }
+
+type XmlElementStart = {
+  raw: string;
+  prefix: string | null;
+  local: string;
+  namespace: string | null;
+  selfClosing: boolean;
+};
+
+function xmlNamespaceDeclarations(tag: string): Map<string, string> {
+  const result = new Map<string, string>();
+  for (const match of tag.matchAll(
+    /(?:^|\s)xmlns(?::([A-Za-z_][A-Za-z0-9_.-]*))?\s*=\s*(["'])([^"']+)\2/gu,
+  )) {
+    result.set(match[1] ?? '', match[3]);
+  }
+  return result;
+}
+
+function xmlQualifiedName(
+  tag: string,
+): { prefix: string | null; local: string } | null {
+  const match = /^<(?:(?<prefix>[A-Za-z_][A-Za-z0-9_.-]*):)?(?<local>[A-Za-z_][A-Za-z0-9_.-]*)(?=\s|\/?>)/u.exec(
+    tag,
+  );
+  return match?.groups
+    ? {
+        prefix: match.groups.prefix ?? null,
+        local: match.groups.local,
+      }
+    : null;
+}
+
+function xmlDirectChildStartTags(
+  xml: string,
+  expectedRootLocalName: 'Types' | 'Relationships',
+): XmlElementStart[] | null {
+  const leadingStripped = stripLeadingXmlMisc(xml);
+  if (leadingStripped === null || !leadingStripped.startsWith('<')) {
+    return null;
+  }
+  const rootEnd = xmlStartTagEnd(leadingStripped);
+  if (rootEnd < 0) {
+    return null;
+  }
+  const rootTag = leadingStripped.slice(0, rootEnd + 1);
+  const rootName = xmlQualifiedName(rootTag);
+  if (!rootName || rootName.local !== expectedRootLocalName) {
+    return null;
+  }
+  const rootNamespaces = xmlNamespaceDeclarations(rootTag);
+  const rootNamespace =
+    rootNamespaces.get(rootName.prefix ?? '') ?? null;
+  if (!rootNamespace) {
+    return null;
+  }
+
+  const children: XmlElementStart[] = [];
+  const stack: string[] = [];
+  let index = rootEnd + 1;
+
+  while (index < leadingStripped.length) {
+    if (leadingStripped[index] !== '<') {
+      index += 1;
+      continue;
+    }
+    if (leadingStripped.startsWith('<!--', index)) {
+      const end = leadingStripped.indexOf('-->', index + 4);
+      if (end < 0) return null;
+      index = end + 3;
+      continue;
+    }
+    if (leadingStripped.startsWith('<?', index)) {
+      const end = leadingStripped.indexOf('?>', index + 2);
+      if (end < 0) return null;
+      index = end + 2;
+      continue;
+    }
+    if (leadingStripped.startsWith('<![CDATA[', index)) {
+      const end = leadingStripped.indexOf(']]>', index + 9);
+      if (end < 0) return null;
+      index = end + 3;
+      continue;
+    }
+    if (leadingStripped.startsWith('<!', index)) {
+      return null;
+    }
+    if (leadingStripped.startsWith('</', index)) {
+      const end = leadingStripped.indexOf('>', index + 2);
+      if (end < 0) return null;
+      const closeRaw = leadingStripped.slice(index, end + 1);
+      const closeMatch =
+        /^<\/(?:(?<prefix>[A-Za-z_][A-Za-z0-9_.-]*):)?(?<local>[A-Za-z_][A-Za-z0-9_.-]*)\s*>$/u.exec(
+          closeRaw,
+        );
+      if (!closeMatch?.groups) return null;
+      const closeName = closeMatch.groups.prefix
+        ? closeMatch.groups.prefix + ':' + closeMatch.groups.local
+        : closeMatch.groups.local;
+      if (stack.length === 0) {
+        const expectedRootName = rootName.prefix
+          ? rootName.prefix + ':' + rootName.local
+          : rootName.local;
+        if (closeName !== expectedRootName) return null;
+        const remainder = stripTrailingXmlMisc(
+          leadingStripped.slice(end + 1),
+        );
+        return remainder !== null && remainder.trim().length === 0
+          ? children
+          : null;
+      }
+      if (stack.pop() !== closeName) return null;
+      index = end + 1;
+      continue;
+    }
+
+    const relativeEnd =
+      xmlStartTagEnd(leadingStripped.slice(index));
+    if (relativeEnd < 0) return null;
+    const end = index + relativeEnd;
+    const raw = leadingStripped.slice(index, end + 1);
+    const name = xmlQualifiedName(raw);
+    if (!name) return null;
+    const qualifiedName = name.prefix
+      ? name.prefix + ':' + name.local
+      : name.local;
+    const selfClosing = /\/\s*>$/u.test(raw);
+
+    if (stack.length === 0) {
+      const localNamespaces = new Map(rootNamespaces);
+      for (
+        const [prefix, namespace]
+        of xmlNamespaceDeclarations(raw)
+      ) {
+        localNamespaces.set(prefix, namespace);
+      }
+      children.push({
+        raw,
+        prefix: name.prefix,
+        local: name.local,
+        namespace:
+          localNamespaces.get(name.prefix ?? '') ?? null,
+        selfClosing,
+      });
+    }
+    if (!selfClosing) {
+      stack.push(qualifiedName);
+    }
+    index = end + 1;
+  }
+  return null;
+}
+
 export const OFFLINE_PAYLOAD_RECEIPT_SCHEMA =
   'hat47x.structured-artifact-sai2-offline-payload-receipt/v0' as const;
 const FROZEN_CONTENT_TYPE_PATTERN =
@@ -692,14 +845,16 @@ export function validateZipContainer(
     ) {
       return { ok: false, reason: 'xlsx_content_types_invalid' };
     }
-    const workbookContentTypeDeclared = [
-      ...contentTypes.matchAll(
-        /<(?:[A-Za-z_][A-Za-z0-9_.-]*:)?Override\b[^>]*\/?>/gu,
-      ),
-    ].some((match) => {
-      const tag = match[0];
-      return xmlAttributeValue(tag, 'PartName') === '/xl/workbook.xml'
-        && xmlAttributeValue(tag, 'ContentType')
+    const contentTypeChildren =
+      xmlDirectChildStartTags(contentTypes, 'Types');
+    if (!contentTypeChildren) {
+      return { ok: false, reason: 'xlsx_content_types_invalid' };
+    }
+    const workbookContentTypeDeclared = contentTypeChildren.some((child) => {
+      return child.local === 'Override'
+        && child.namespace === OPC_CONTENT_TYPES_NAMESPACE
+        && xmlAttributeValue(child.raw, 'PartName') === '/xl/workbook.xml'
+        && xmlAttributeValue(child.raw, 'ContentType')
           === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml';
     });
     if (!workbookContentTypeDeclared) {
@@ -713,15 +868,21 @@ export function validateZipContainer(
     ) {
       return { ok: false, reason: 'xlsx_root_relationships_invalid' };
     }
-    const workbookRelationshipDeclared = [
-      ...rootRels.matchAll(
-        /<(?:[A-Za-z_][A-Za-z0-9_.-]*:)?Relationship\b[^>]*\/?>/gu,
-      ),
-    ].some((match) => {
-      const tag = match[0];
-      const type = xmlAttributeValue(tag, 'Type');
-      const target = xmlAttributeValue(tag, 'Target');
-      const targetMode = xmlAttributeValue(tag, 'TargetMode');
+    const relationshipChildren =
+      xmlDirectChildStartTags(rootRels, 'Relationships');
+    if (!relationshipChildren) {
+      return { ok: false, reason: 'xlsx_root_relationships_invalid' };
+    }
+    const workbookRelationshipDeclared = relationshipChildren.some((child) => {
+      if (
+        child.local !== 'Relationship'
+        || child.namespace !== OPC_RELATIONSHIPS_NAMESPACE
+      ) {
+        return false;
+      }
+      const type = xmlAttributeValue(child.raw, 'Type');
+      const target = xmlAttributeValue(child.raw, 'Target');
+      const targetMode = xmlAttributeValue(child.raw, 'TargetMode');
       return typeof type === 'string'
         && OOXML_OFFICE_DOCUMENT_RELATIONSHIP_TYPES.has(type)
         && (target === 'xl/workbook.xml' || target === '/xl/workbook.xml')
