@@ -69,6 +69,9 @@ export function readZip(bytes: Uint8Array, limits: ZipLimits = DEFAULT_ZIP_LIMIT
     const name = buf.toString(flags & 0x0800 ? 'utf8' : 'latin1', at + 46, at + 46 + nameLength);
     at += 46 + nameLength + extraLength + commentLength;
     if (name.endsWith('/')) continue; // directory
+    if (entries.has(name)) {
+      throw new ZipError('corrupt', `${name}: duplicate entry`);
+    }
     entries.set(name, {
       name,
       compressedSize,

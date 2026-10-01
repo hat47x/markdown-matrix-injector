@@ -34,12 +34,13 @@ function entry(): ProgressEntry {
   };
 }
 
-function xlsxFrame(): Uint8Array {
-  const names = [
+function xlsxFrame(
+  names: string[] = [
     '[Content_Types].xml',
     '_rels/.rels',
     'xl/workbook.xml',
-  ];
+  ],
+): Uint8Array {
   const locals: Uint8Array[] = [];
   const centrals: Uint8Array[] = [];
   let localOffset = 0;
@@ -127,6 +128,31 @@ test('XLSX validation rejects corrupt required-entry local data', () => {
       receipt: offlineReceipt(
         'https://example.test/frozen.xlsx',
         corrupt,
+      ),
+    }),
+    /Offline payload validation failed without classifying a source failure: zip_corrupt/u,
+  );
+});
+
+test('XLSX validation rejects duplicate OOXML part names', () => {
+  const duplicate = xlsxFrame([
+    '[Content_Types].xml',
+    '_rels/.rels',
+    'xl/workbook.xml',
+    'xl/workbook.xml',
+  ]);
+
+  assert.deepEqual(
+    validateZipContainer(duplicate),
+    { ok: false, reason: 'zip_corrupt' },
+  );
+  assert.throws(
+    () => retryFrozenMaterializationFromBytes({
+      entry: entry(),
+      bytes: duplicate,
+      receipt: offlineReceipt(
+        'https://example.test/frozen.xlsx',
+        duplicate,
       ),
     }),
     /Offline payload validation failed without classifying a source failure: zip_corrupt/u,
