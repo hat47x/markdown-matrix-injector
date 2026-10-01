@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Regression / integration qualification
-- Status: Implementation complete; local execution pending
+- Status: In Progress（実装完了。ローカルでの実行確認が残り）
 - Priority: High
 - Scope: existing issue-0171/0172/0174/0176/0177/0179/0183/0186/0187/0188/0189 contract composition
 - Production runtime: no changes

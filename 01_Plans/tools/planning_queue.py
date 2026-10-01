@@ -64,6 +64,11 @@ def first_match(lines: Iterable[str], pattern: re.Pattern[str], default: str = "
     return default
 
 
+def status_key(status: str) -> str:
+    """Leading status word(s): `In Progress（2026-09-24 実装…）` -> `in progress`."""
+    return re.split(r"[（(:;、,]", status, maxsplit=1)[0].strip().lower()
+
+
 def parse_adr(path: Path, repo_root: Path) -> AdrItem:
     lines = read_head_lines(path)
     title = first_match(lines, TITLE_RE, path.stem)
@@ -72,7 +77,7 @@ def parse_adr(path: Path, repo_root: Path) -> AdrItem:
         path=str(path.relative_to(repo_root)),
         title=title,
         status=status,
-        pending=status.lower() in ADR_PENDING_STATUSES,
+        pending=status_key(status) in ADR_PENDING_STATUSES,
     )
 
 
@@ -91,7 +96,7 @@ def parse_issue(path: Path, repo_root: Path) -> IssueItem:
         priority=priority,
         scope=scope,
         related_adrs=related_adrs,
-        pending=status.lower() in ISSUE_PENDING_STATUSES,
+        pending=status_key(status) in ISSUE_PENDING_STATUSES,
     )
 
 
