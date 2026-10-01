@@ -599,13 +599,15 @@ test('e2e lane keeps paste/drop observation ahead of autocomplete to isolate kno
   const source = await fs.readFile(new URL('./e2e/suite/extensionHost.test.ts', import.meta.url), 'utf8');
 
   assert.match(source, /runStage\('paste-drop-observation', \(\) => observePasteDropBoundary\(\)\);\s*await runStage\('paste-drop-boundary'/s);
-  // content-match-standalone-command (issue-0114 作業D続き、2026-09-16) runs
-  // after paste-drop-boundary but still ahead of autocomplete-boundary, so it
-  // does not disturb the isolation this test protects.
+  // Both content-match stages (standalone command and the real built-in
+  // editor.action.pasteAs dispatch) run after paste-drop-boundary but still
+  // ahead of autocomplete-boundary, so they do not disturb this isolation.
   assert.match(
     source,
-    /await runStage\('paste-drop-boundary', \(\) => verifyPasteDropCoverage\(markdownFilePath, pasteDropBoundary\)\);\s*await runStage\('content-match-standalone-command', \(\) => verifyContentMatchStandaloneCommand\(markdownFilePath\)\);\s*const autocompleteResult = await runStage\('autocomplete-boundary'/s,
+    /await runStage\('paste-drop-boundary', \(\) => verifyPasteDropCoverage\(markdownFilePath, pasteDropBoundary\)\);\s*await runStage\('content-match-standalone-command', \(\) => verifyContentMatchStandaloneCommand\(markdownFilePath\)\);\s*await runStage\('content-match-paste-as-host-command',[\s\S]*?verifyContentMatchPasteAsHostCommand\(markdownFilePath, pasteDropBoundary\.integrationState\),\s*\);\s*const autocompleteResult = await runStage\('autocomplete-boundary'/s,
   );
+  assert.match(source, /vscode\.commands\.executeCommand\('editor\.action\.pasteAs', \{\s*preferences: \[integrationState\.contentMatchPasteEditKind\],\s*\}\)/s);
+  assert.match(source, /vscode\.commands\.executeCommand\('editor\.action\.clipboardPasteAction'\)/);
   assert.match(source, /markdownMatrixInjector\.__test\.getPasteInsertTextFromDataTransfer/);
   assert.match(source, /markdownMatrixInjector\.__test\.getDropInsertTextFromDataTransfer/);
   assert.match(source, /markdownMatrixInjector\.__test\.getPasteDropIntegrationState/);
