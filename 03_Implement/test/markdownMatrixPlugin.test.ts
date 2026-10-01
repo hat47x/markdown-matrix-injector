@@ -345,6 +345,7 @@ test('markdownMatrixPlugin renders a visible mmi-error, not a huge table, when m
   const html = md.render('![[./roles.csv#Sheet1|A1:A100001?mode=table]]');
 
   assert.match(html, /class="mmi-error"/);
+  assert.match(html, /data-code="MMI_TABLE_TOO_LARGE"/);
   assert.match(html, /100001 cells exceeds the 100000-cell limit/);
   assert.doesNotMatch(html, /class="mmi-table"/);
 });
