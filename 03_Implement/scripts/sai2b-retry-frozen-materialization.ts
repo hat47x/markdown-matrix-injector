@@ -73,10 +73,7 @@ const OOXML_SPREADSHEET_NAMESPACES = new Set([
   'http://purl.oclc.org/ooxml/spreadsheetml/main',
 ]);
 
-function rootElementNamespace(
-  xml: string,
-  expectedLocalName: 'Types' | 'Relationships' | 'workbook',
-): string | null {
+function stripLeadingXmlMisc(xml: string): string | null {
   let rest = xml.trimStart();
   if (rest.startsWith('<?xml')) {
     const end = rest.indexOf('?>');
@@ -86,29 +83,140 @@ function rootElementNamespace(
     rest = rest.slice(end + 2).trimStart();
   }
 
-  const open = /^<(?:(?<prefix>[A-Za-z_][A-Za-z0-9_-]*):)?(?<local>Types|Relationships|workbook)\b(?<attrs>[^>]*)>/u.exec(rest);
+  for (;;) {
+    if (rest.startsWith('<!--')) {
+      const end = rest.indexOf('-->');
+      if (end < 0) {
+        return null;
+      }
+      rest = rest.slice(end + 3).trimStart();
+      continue;
+    }
+    if (rest.startsWith('<?')) {
+      if (/^<\?xml(?:\s|\?)/iu.test(rest)) {
+        return null;
+      }
+      const end = rest.indexOf('?>');
+      if (end < 0) {
+        return null;
+      }
+      rest = rest.slice(end + 2).trimStart();
+      continue;
+    }
+    return rest;
+  }
+}
+
+function stripTrailingXmlMisc(xml: string): string | null {
+  let rest = xml.trimEnd();
+  for (;;) {
+    if (rest.endsWith('-->')) {
+      const start = rest.lastIndexOf('<!--');
+      if (start < 0) {
+        return null;
+      }
+      rest = rest.slice(0, start).trimEnd();
+      continue;
+    }
+    if (rest.endsWith('?>')) {
+      const start = rest.lastIndexOf('<?');
+      if (start < 0) {
+        return null;
+      }
+      rest = rest.slice(0, start).trimEnd();
+      continue;
+    }
+    return rest;
+  }
+}
+
+function xmlStartTagEnd(xml: string): number {
+  let quote: '"' | "'" | null = null;
+  for (let index = 1; index < xml.length; index += 1) {
+    const char = xml[index];
+    if (quote) {
+      if (char === quote) {
+        quote = null;
+      }
+      continue;
+    }
+    if (char === '"' || char === "'") {
+      quote = char;
+      continue;
+    }
+    if (char === '>') {
+      return index;
+    }
+  }
+  return -1;
+}
+
+function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+}
+function xmlAttributeValue(
+  tag: string,
+  attribute: string,
+): string | undefined {
+  return new RegExp(
+    `(?:^|\\s)${escapeRegExp(attribute)}\\s*=\\s*(["'])([^"']*)\\1`,
+    'u',
+  ).exec(tag)?.[2];
+}
+function rootElementNamespace(
+  xml: string,
+  expectedLocalName: 'Types' | 'Relationships' | 'workbook',
+): string | null {
+  const leadingStripped = stripLeadingXmlMisc(xml);
+  if (leadingStripped === null || !leadingStripped.startsWith('<')) {
+    return null;
+  }
+  const tagEnd = xmlStartTagEnd(leadingStripped);
+  if (tagEnd < 0) {
+    return null;
+  }
+
+  const startTag = leadingStripped.slice(0, tagEnd + 1);
+  const open = /^<(?:(?<prefix>[A-Za-z_][A-Za-z0-9_.-]*):)?(?<local>Types|Relationships|workbook)(?=\s|\/?>)/u.exec(
+    startTag,
+  );
   if (!open?.groups || open.groups.local !== expectedLocalName) {
     return null;
   }
+
   const prefix = open.groups.prefix;
-  const attrs = open.groups.attrs ?? '';
-  const namespace = prefix
+  const attrs = startTag.slice(open[0].length, -1);
+  const namespacePattern = prefix
     ? new RegExp(
-      `\\bxmlns:${prefix}=(["'])([^"']+)\\1`,
+      `(?:^|\\s)xmlns:${escapeRegExp(prefix)}\\s*=\\s*(["'])([^"']+)\\1`,
       'u',
-    ).exec(attrs)?.[2]
-    : /\bxmlns=(["'])([^"']+)\1/u.exec(attrs)?.[2];
+    )
+    : /(?:^|\s)xmlns\s*=\s*(["'])([^"']+)\1/u;
+  const namespace = namespacePattern.exec(attrs)?.[2];
   if (!namespace) {
     return null;
   }
 
+  const afterStartTag = leadingStripped.slice(tagEnd + 1);
+  if (/\/\s*>$/u.test(startTag)) {
+    const remainder = stripTrailingXmlMisc(afterStartTag);
+    return remainder !== null && remainder.trim().length === 0
+      ? namespace
+      : null;
+  }
+
+  const trailingStripped = stripTrailingXmlMisc(leadingStripped);
+  if (trailingStripped === null) {
+    return null;
+  }
+  const escapedPrefix = prefix ? escapeRegExp(prefix) : null;
   const close = new RegExp(
-    prefix
-      ? `</${prefix}:${expectedLocalName}>\\s*$`
+    escapedPrefix
+      ? `</${escapedPrefix}:${expectedLocalName}>\\s*$`
       : `</${expectedLocalName}>\\s*$`,
     'u',
   );
-  return close.test(rest) ? namespace : null;
+  return close.test(trailingStripped) ? namespace : null;
 }
 export const OFFLINE_PAYLOAD_RECEIPT_SCHEMA =
   'hat47x.structured-artifact-sai2-offline-payload-receipt/v0' as const;
@@ -585,11 +693,14 @@ export function validateZipContainer(
       return { ok: false, reason: 'xlsx_content_types_invalid' };
     }
     const workbookContentTypeDeclared = [
-      ...contentTypes.matchAll(/<(?:\\w+:)?Override\\b[^>]*\\/?>/gu),
+      ...contentTypes.matchAll(
+        /<(?:[A-Za-z_][A-Za-z0-9_.-]*:)?Override\b[^>]*\/?>/gu,
+      ),
     ].some((match) => {
       const tag = match[0];
-      return /\\bPartName=(["'])\\/xl\\/workbook\\.xml\\1/u.test(tag)
-        && /\\bContentType=(["'])application\\/vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet\\.main\\+xml\\1/u.test(tag);
+      return xmlAttributeValue(tag, 'PartName') === '/xl/workbook.xml'
+        && xmlAttributeValue(tag, 'ContentType')
+          === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml';
     });
     if (!workbookContentTypeDeclared) {
       return { ok: false, reason: 'xlsx_workbook_content_type_missing' };
@@ -603,13 +714,14 @@ export function validateZipContainer(
       return { ok: false, reason: 'xlsx_root_relationships_invalid' };
     }
     const workbookRelationshipDeclared = [
-      ...rootRels.matchAll(/<(?:\\w+:)?Relationship\\b[^>]*\\/?>/gu),
+      ...rootRels.matchAll(
+        /<(?:[A-Za-z_][A-Za-z0-9_.-]*:)?Relationship\b[^>]*\/?>/gu,
+      ),
     ].some((match) => {
       const tag = match[0];
-      const type = /\\bType=(["'])([^"']+)\\1/u.exec(tag)?.[2];
-      const target = /\\bTarget=(["'])([^"']+)\\1/u.exec(tag)?.[2];
-      const targetMode =
-        /\\bTargetMode=(["'])([^"']+)\\1/u.exec(tag)?.[2];
+      const type = xmlAttributeValue(tag, 'Type');
+      const target = xmlAttributeValue(tag, 'Target');
+      const targetMode = xmlAttributeValue(tag, 'TargetMode');
       return typeof type === 'string'
         && OOXML_OFFICE_DOCUMENT_RELATIONSHIP_TYPES.has(type)
         && (target === 'xl/workbook.xml' || target === '/xl/workbook.xml')
