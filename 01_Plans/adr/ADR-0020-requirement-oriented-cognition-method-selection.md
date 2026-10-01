@@ -115,6 +115,7 @@ Candidateは少なくとも2軸を持つ。
 - evidenceを説明できるか
 - CPU、memory、latency
 - binary size / runtime dependency
+- model / profile artifact size、download、disk cache、更新差分
 - training dataまたはprofile管理の必要性
 - source全文を必要とするか
 - privacy / network dependency
@@ -132,6 +133,21 @@ Fly-inspired方式、ローカルLLM、将来の別の認知技術も同様と�
 ### D8. 外部LLMは比較対象の最後ではなく別経路とする
 
 M5は「M4でも解けないから自動fallbackする先」ではない。利用者が外部LLMを使いたい作業について、MMIが十分なevidence packageを作るための境界である。MMI自身は課金型LLMへ送信しない。
+
+### D9. 認知資産をCoreから分離する
+
+認知方式の評価には、実行コードだけでなくmodel weight、prototype、index、embedding、profile、training/evaluation metadata等の**認知資産**のサイズと配布コストを含める。
+
+- 小さい規則、schema、Format Profile等はCoreまたは通常の配布物へ同梱してよい。
+- 大きなmodel weightや再生成コストの高いindexはCore binaryへ埋め込まず、独立artifactとして扱う。
+- artifactは少なくとも `artifact id / kind / version / digest / byte size / license / source URI / compatible provider / schema version` をmanifestで識別する。
+- 初回起動時に暗黙で大型modelを取得しない。必要な機能を利用者が有効化した時点で、取得サイズと取得元を示せるようにする。
+- download後はdigestを検証し、ローカルcacheを再利用する。offline時は既存cacheを使い、無ければ `unavailable` として基本機能を継続する。
+- GitHub repository本体を大型modelの唯一の保存先にしない。GitHub Releases / LFS、model hub、object storage等を交換可能なartifact sourceとして扱う。
+- 外部model repositoryを利用しても、実行時にそのサービスへ推論要求を送ることとは分離する。モデルをローカル取得してオフライン推論する経路を維持できる。
+- source URIが消失しても、digestとlicense、互換versionをmanifestから追跡できるようにする。
+
+認知方式の比較では、model / profile artifactの**download size、disk cache size、更新差分、cold availability、offline usability**も評価する。小型モデルで十分な要件では、大型モデルの精度向上だけを理由に標準依存へ昇格させない。
 
 ## Consequences
 
@@ -158,6 +174,7 @@ M5は「M4でも解けないから自動fallbackする先」ではない。利�
   - [issue-0199](../issues/issue-0199-tree-structured-source-adapters.md)
   - [issue-0202](../issues/issue-0202-candidate-review-ui.md)
   - [issue-0203](../issues/issue-0203-portable-core-minimum-binary.md)
+  - [issue-0204](../issues/issue-0204-cognitive-artifact-distribution.md)
 - Related Docs:
   - [製品要求](../../00_Prompt/requirements.md)
   - [製品価値と現行実装のギャップ](../product-gap-analysis.md)
