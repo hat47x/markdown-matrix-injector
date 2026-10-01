@@ -152,9 +152,22 @@ function xmlStartTagEnd(xml: string): number {
 }
 
 function escapeRegExp(value: string): string {
+  return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 }
 
+');
+}
+
+function xmlAttributeValue(
+  tag: string,
+  attribute: string,
+): string | undefined {
+  return new RegExp(
+    `(?:^|\\s)${escapeRegExp(attribute)}\\s*=\\s*(["'])([^"']*)\\1`,
+    'u',
+  ).exec(tag)?.[2];
+}
 function rootElementNamespace(
   xml: string,
   expectedLocalName: 'Types' | 'Relationships' | 'workbook',
@@ -685,11 +698,14 @@ export function validateZipContainer(
       return { ok: false, reason: 'xlsx_content_types_invalid' };
     }
     const workbookContentTypeDeclared = [
-      ...contentTypes.matchAll(/<(?:\\w+:)?Override\\b[^>]*\\/?>/gu),
+      ...contentTypes.matchAll(
+        /<(?:[A-Za-z_][A-Za-z0-9_.-]*:)?Override\b[^>]*\/?>/gu,
+      ),
     ].some((match) => {
       const tag = match[0];
-      return /\\bPartName=(["'])\\/xl\\/workbook\\.xml\\1/u.test(tag)
-        && /\\bContentType=(["'])application\\/vnd\\.openxmlformats-officedocument\\.spreadsheetml\\.sheet\\.main\\+xml\\1/u.test(tag);
+      return xmlAttributeValue(tag, 'PartName') === '/xl/workbook.xml'
+        && xmlAttributeValue(tag, 'ContentType')
+          === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml';
     });
     if (!workbookContentTypeDeclared) {
       return { ok: false, reason: 'xlsx_workbook_content_type_missing' };
@@ -703,13 +719,14 @@ export function validateZipContainer(
       return { ok: false, reason: 'xlsx_root_relationships_invalid' };
     }
     const workbookRelationshipDeclared = [
-      ...rootRels.matchAll(/<(?:\\w+:)?Relationship\\b[^>]*\\/?>/gu),
+      ...rootRels.matchAll(
+        /<(?:[A-Za-z_][A-Za-z0-9_.-]*:)?Relationship\b[^>]*\/?>/gu,
+      ),
     ].some((match) => {
       const tag = match[0];
-      const type = /\\bType=(["'])([^"']+)\\1/u.exec(tag)?.[2];
-      const target = /\\bTarget=(["'])([^"']+)\\1/u.exec(tag)?.[2];
-      const targetMode =
-        /\\bTargetMode=(["'])([^"']+)\\1/u.exec(tag)?.[2];
+      const type = xmlAttributeValue(tag, 'Type');
+      const target = xmlAttributeValue(tag, 'Target');
+      const targetMode = xmlAttributeValue(tag, 'TargetMode');
       return typeof type === 'string'
         && OOXML_OFFICE_DOCUMENT_RELATIONSHIP_TYPES.has(type)
         && (target === 'xl/workbook.xml' || target === '/xl/workbook.xml')
