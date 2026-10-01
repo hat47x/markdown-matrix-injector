@@ -149,6 +149,20 @@ M5は「M4でも解けないから自動fallbackする先」ではない。利�
 
 認知方式の比較では、model / profile artifactの**download size、disk cache size、更新差分、cold availability、offline usability**も評価する。小型モデルで十分な要件では、大型モデルの精度向上だけを理由に標準依存へ昇格させない。
 
+### D10. 導入済みローカルruntimeを優先的に再利用する
+
+M3 / M4相当のmodel実行が必要な場合、MMI専用runtimeやmodelを先に配布せず、Ollama等の**既に導入済みのローカルmodel runtime**を発見して再利用できるかを先に評価する。
+
+- runtime discoveryは任意で、未導入でもMMIの基本機能を壊さない。
+- runtimeが存在しても勝手にmodelをpullしない。利用可能model、capability、disk size等を確認し、利用者の明示操作なしに大型artifactを追加しない。
+- runtimeが保持する既存model/cacheを再利用できる場合、MMI独自cacheへ重複downloadしない。
+- provider adapterはruntime固有APIをCognitive Contractへ写像し、CoreのAuthority Planeへ直接依存させない。
+- 同一runtimeがbounded decisionとgenerative reasoningの双方を提供しても、M3とM4のcapabilityを区別する。
+- localhost以外のruntime endpointは外部通信として扱い、明示設定なしに探索・接続しない。
+- runtime不在、model不在、version不一致は `unavailable` として扱い、自動的に課金型cloudへ切り替えない。
+
+2026-09-29時点のOllama 0.35はJev API由来のtyped decision向け `/v1/systemone` をローカル提供しており、M3の実装候補になり得る。これはOllamaを必須依存にする決定ではなく、既存runtime再利用の有効性を評価する具体例として扱う。
+
 ## Consequences
 
 ### Good
