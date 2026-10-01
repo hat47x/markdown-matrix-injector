@@ -1,7 +1,8 @@
 /**
- * One mtime-keyed workbook cache for the interactive features (completion,
- * guided authoring, search), so a book is parsed once per change rather than
- * once per feature. The preview renderer keeps its own cache.
+ * One mtime-keyed workbook cache for extension-host interactive features
+ * (completion and guided authoring), so a book is parsed once per change
+ * rather than once per feature. Table search owns a separate worker-local
+ * cache; the preview renderer keeps its own cache.
  */
 import { WorkbookCache } from '../cache/workbookCache.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
