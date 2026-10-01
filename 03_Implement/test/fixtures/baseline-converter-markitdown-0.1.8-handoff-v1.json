@@ -1,0 +1,118 @@
+{
+  "schema": "mmi.baseline-converter-evaluation-handoff/v1",
+  "request_id": "issue-0200-markitdown-0.1.8-screen-design-v1",
+  "status": "ready_for_external_execution",
+  "converter": {
+    "id": "microsoft.markitdown-cli",
+    "requested_version": "0.1.8",
+    "upstream_release_tag": "v0.1.8",
+    "upstream_tag_commit": "b8f79c57ebc0044be41323d89b2a45d3fda8460e",
+    "upstream_release_published_at_utc": "2026-09-21T21:22:51Z",
+    "upstream_reference_blobs": {
+      "cli": {
+        "path": "packages/markitdown/src/markitdown/__main__.py",
+        "sha": "51b775ff74ca8801594648ed683c07ad05787c53"
+      },
+      "xlsx_converter": {
+        "path": "packages/markitdown/src/markitdown/converters/_xlsx_converter.py",
+        "sha": "9f794a3b77e34c84b67358c21001ad7a87f3b9c4"
+      },
+      "pyproject": {
+        "path": "packages/markitdown/pyproject.toml",
+        "sha": "43144043da5706adcc0263dcb2218acbd8af8fcd"
+      },
+      "ocr_readme": {
+        "path": "packages/markitdown-ocr/README.md",
+        "sha": "f5c0162c8db704f492577da02413f32f205071d3"
+      }
+    }
+  },
+  "mmi": {
+    "retained_branch": "feature/baseline-bulk-import-0200",
+    "fixture_generator": {
+      "path": "03_Implement/test/helpers/buildXlsxWithImages.ts",
+      "sha": "75aca457c683b67ad8556688b877699b182b1e58",
+      "function": "screenDesignWorkbook"
+    },
+    "runner": {
+      "path": "03_Implement/scripts/baseline-converter-eval/markitdown.ts",
+      "sha": "13418fe716981caa40ff402676138c46008d0a34"
+    },
+    "report_validator": {
+      "path": "03_Implement/scripts/baseline-converter-eval/validate-markitdown-report.ts",
+      "sha": "7806ca64b8cd7ea58907bec904e102da8ecf90af"
+    },
+    "evaluation_core": {
+      "path": "03_Implement/src/evaluation/markItDownBaselineEvaluation.ts",
+      "sha": "2c6951f4d28b0fa3d0aee25bdae331aa5e5fdc02"
+    },
+    "converter_adapter": {
+      "path": "03_Implement/src/converters/markItDownCliConverter.ts",
+      "sha": "81c508c6b853371fd52b957eebfa911780014cae"
+    }
+  },
+  "fixture": {
+    "source_label": "issue-0194-screen-design-v1",
+    "generated_binary_committed": false,
+    "source_digest_known_before_execution": false,
+    "expected_sheet_count": 3,
+    "expected_sheets": [
+      "画面一覧",
+      "遷移図",
+      "メモ"
+    ],
+    "expected_images": [
+      {
+        "sheet": "画面一覧",
+        "name": "ログイン画面",
+        "range": "D1:F4"
+      },
+      {
+        "sheet": "画面一覧",
+        "name": "メニュー画面",
+        "range": "A6"
+      },
+      {
+        "sheet": "画面一覧",
+        "name": "ログイン画面(再掲)",
+        "range": "I9:K11"
+      },
+      {
+        "sheet": "遷移図",
+        "name": "遷移",
+        "range": null
+      }
+    ],
+    "known_table_range": {
+      "sheet": "画面一覧",
+      "range": "A1:B3"
+    }
+  },
+  "execution": {
+    "plugins_enabled": false,
+    "cloud_modes_enabled": false,
+    "keep_data_uris": false,
+    "output_root": "../artifacts/markitdown-0.1.8",
+    "report_file": "report.json",
+    "markdown_artifact": "baseline.md",
+    "command": "node --import tsx scripts/baseline-converter-eval/markitdown.ts --out-dir ../artifacts/markitdown-0.1.8 --report-out ../artifacts/markitdown-0.1.8/report.json --expected-version 0.1.8",
+    "validation_command": "node --import tsx scripts/baseline-converter-eval/validate-markitdown-report.ts --report ../artifacts/markitdown-0.1.8/report.json --artifact-root ../artifacts/markitdown-0.1.8"
+  },
+  "acceptance": {
+    "report_schema": "mmi.baseline-converter-evaluation/v1",
+    "require_exact_converter_id": true,
+    "require_exact_converter_version": true,
+    "require_exact_source_label": true,
+    "require_fixture_sheet_identity": true,
+    "require_fixture_image_identity": true,
+    "require_artifact_digest_and_size_match": true,
+    "automatic_import_decision_must_be": "none",
+    "result_metrics_are_observations_not_thresholds": true
+  },
+  "boundary": {
+    "does_not_authorize_candidate_reconciliation": true,
+    "does_not_write_import_ledger": true,
+    "does_not_enable_plugins_or_cloud": true,
+    "no_result_claim_until_report_and_artifact_validate": true
+  }
+}
