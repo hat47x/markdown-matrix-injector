@@ -104,7 +104,7 @@ export function validateEmbedDiagnostics(input: ValidateEmbedDiagnosticsInput): 
   }
 
   const tableSize = explicitTableSizeIssue(input.query);
-  if (input.fileExists && input.sheetExists !== false && tableSize) {
+  if (input.fileExists && input.containmentOk !== false && input.xmlMode !== 'invalid' && input.sheetExists !== false && tableSize) {
     diagnostics.push(
       createDiagnostic(
         'MMI_TABLE_TOO_LARGE',
