@@ -14,6 +14,7 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 | --- | --- | --- | --- |
 | **1 Coreと入口** | [Candidate・Source Adapter・provenanceの契約](issues/issue-0193-candidate-source-adapter-contract.md) | Open | 型の設計と、表の領域検出のAdapter化。研究成果の対応付け |
 | 1 | CLI（inspect/check/render/manifest）、AI向け指示パック、基本設計書キット、[執筆ベンチマーク](../04_Documentation/benchmarks/ai-writing/README.md) | 実装済み | ベンチマーク v0は実施済み。表を大きくした v1は優先度5 |
+| 1 | [外部LLMへの作業提案・判断材料handoff](issues/issue-0112-ai-proposal-handoff.md) | Open | issue-0193のCandidate/provenanceを使い、送信しないprompt/evidence packageを作る |
 | 1 | [CLIの配布](issues/issue-0197-cli-distribution.md) | Draft | 配布形態の決定 |
 | **2 モダナイズの最小縦切り** | [Excel画像の候補化と取り込み](issues/issue-0194-excel-image-candidates.md) | Open | 画像入りテスト用ブックの作成。issue-0193の型を待つ |
 | 2 | [取り込み台帳と未取込の表示](issues/issue-0195-import-ledger.md) | Draft | issue-0194の後 |
@@ -31,10 +32,11 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 | **5 組織導入** | 文書キットの追加、CI関門、執筆ベンチマーク v1（大きな表・複数シート・本文と表の矛盾） | 未起票 | 優先度2の縦切りの後 |
 | 5 | [外部の判断記録からの根拠の固定（SEI）](issues/issue-0192-sei-decision-basis-table-binding.md) | Draft | CLIの契約が固まった後 |
 | 横断 | [上位プロダクト名とMMI互換層の整理](issues/issue-0201-product-name-and-compatibility-layer.md) | Draft | 実装を止めずに検討。決定前はrepo/package/CLI名を変更しない |
-| 保留 | [既存AIへの依頼と結果検証](issues/issue-0112-ai-proposal-handoff.md) | Draft | CLIと指示パックで代替できるか、ベンチマークで判断 |
-| 保留 | [ローカルLLM評価](issues/issue-0113-local-ai-feasibility.md) | Draft | ADR-0019 D7の3番目。規則と軽量認知で足りない箇所が分かってから |
+| 3（認知候補） | [ローカルLLM評価](issues/issue-0113-local-ai-feasibility.md) | Draft | 主経路にはしない。Fly/Jev類似方式等で不足するbounded taskが定まったら比較評価 |
 
 **優先度の根拠:** 執筆ベンチマーク v0では、小さな表をAIが誤って写すことはなく、MMIの差は正本の変更への追従に出た（[結果](../04_Documentation/benchmarks/ai-writing/results/2026-09-30-v0.md)）。人がExcelで書き続けても追従する（Linked）ことは、それだけで価値がある。そのうえで、人がExcelに置いた画像や図をそのままAIと機械が扱えるようにするExtractedの経路が、次に価値が大きい。Detachedは、原本を廃止すると決めた範囲のための経路として優先度4に置く。その入口がCandidateの契約（issue-0193）で、研究の成果を製品へ合流させる唯一の経路でもあるため、最上位に置く。
+
+**AI境界:** MMI自身は原則として課金型生成AIサービスを呼ばない。外部LLMはMMIを利用する側に置き、MMI内部の認知はFly-inspired、Jev類似技術、ローカルLLM等の軽量・ローカル方式を候補とする。外部LLMの判断が有用な場合は、MMIがprompt / evidence packageをローカル生成し、送信は利用者側へ委ねる（ADR-0018 D8・D11、ADR-0019 D15）。
 
 ## 確定した事実
 
