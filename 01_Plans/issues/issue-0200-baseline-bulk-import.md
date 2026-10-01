@@ -82,13 +82,21 @@ node --import tsx scripts/baseline-converter-eval/validate-markitdown-handoff.ts
   --handoff test/fixtures/baseline-converter-markitdown-0.1.8-handoff-v1.json \
   --report ../artifacts/markitdown-0.1.8/report.json \
   --artifact-root ../artifacts/markitdown-0.1.8
+
+node --import tsx scripts/baseline-converter-eval/assess-markitdown-handoff.ts \
+  --handoff test/fixtures/baseline-converter-markitdown-0.1.8-handoff-v1.json \
+  --spec test/fixtures/baseline-converter-markitdown-screen-design-assessment-v1.json \
+  --report ../artifacts/markitdown-0.1.8/report.json \
+  --artifact-root ../artifacts/markitdown-0.1.8
 ```
+
+`baseline-converter-markitdown-screen-design-assessment-v1.json` は、fixture内の文字列sentinel、既知表`画面一覧!A1:B3`、source sheet/image件数と、観測する軸を固定する。assessmentはsheet headingのpresent/missing、文字列sentinelのpresent/missing、Markdown table separator行数、source画像occurrence数、Markdown画像参照数、Candidate addressabilityだけを出す。quality score、合否閾値、automatic import decisionは持たない。実測結果を受け取った後の解釈を、都合のよい閾値へ寄せないためである。
 
 正本の外部実行requestは`test/fixtures/baseline-converter-markitdown-0.1.8-handoff-v1.json`とする。ここでupstream tag/commit、0.1.8のCLI/XLSX converter等のGit blob、MMI側fixture generator/runner/evaluator/validator/adapterのGit blob、fixtureの3 sheet・4画像occurrence identity、出力名、禁止境界を固定した。`test/markItDownEvaluationHandoff.test.ts`はMMI側5ファイルの実Git blob SHAを再計算し、request作成後の変更を検出する。
 
 成功時の`report.json`はmachine-local absolute pathを含まず、fixture label、source SHA-256、Converter ID/実version、MMI観測Candidate/画像、sheet heading、table/image evidence、Markdown artifact digest/byte sizeを持つ。`validate-markitdown-report.ts` は汎用schemaとartifact integrityを検証し、`validate-markitdown-handoff.ts` はさらにrequested version、fixture label、sheet identity、4画像のsheet/name/range、expected artifact名まで凍結requestと照合する。いずれも`automaticImportDecision: none`を必須とし、外部評価結果だけでCandidateを取込済みに昇格させない。
 
-現在のこの作業実行環境ではMarkItDown package/CLIが未導入で、`importlib.metadata`上も`PackageNotFoundError`だった。PyPIからの一時導入もDNS名前解決でpayload取得前に失敗した。このため**実fixture変換結果はまだ記録しない**。runnerは未導入時にexit code 2と`status: unavailable`をstderrへ返し、既存の`mmi inspect` / `mmi extract`とは依存関係を持たない。受入条件「既存Converterをfixtureで評価」は、凍結handoff requestどおりに生成した0.1.8のreport+Markdownをhandoff validatorで受理し、その実測値を本Issueへ記録するまで未完了のままとする。
+現在のこの作業実行環境ではMarkItDown package/CLIが未導入で、`importlib.metadata`上も`PackageNotFoundError`だった。PyPIからの一時導入もDNS名前解決でpayload取得前に失敗した。このため**実fixture変換結果はまだ記録しない**。runnerは未導入時にexit code 2と`status: unavailable`をstderrへ返し、既存の`mmi inspect` / `mmi extract`とは依存関係を持たない。受入条件「既存Converterをfixtureで評価」は、凍結handoff requestどおりに生成した0.1.8のreport+Markdownをhandoff validatorで受理し、assessment runnerの記述的観測値を本Issueへ記録するまで未完了のままとする。
 
 ## Validation plan
 
