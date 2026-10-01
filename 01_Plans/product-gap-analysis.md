@@ -36,8 +36,20 @@ MMIは「Linked（参照）」の状態だけを実装しており、その品�
 | materialize | ◐ | CLI `render --to md`（表をGFM表へ展開） | 別紙カードの実体化（現在は「別紙: パス」の1行）、画像の実体化 | 4 |
 | detach check | ○ | なし | 未展開参照・未取込資産・壊れたリンクの列挙 | 4 |
 | 執筆支援 | ● | 補完、貼り付け（Windowsの出所取得を含む）、説明からの検索、案内付きの作成、ホバー | 多環境の実機確認（issue-0110）、利用者の観測（issue-0111）、Candidateを非同期に採否するレビューUI（[issue-0202](issues/issue-0202-candidate-review-ui.md)） | 継続〜2 |
-| AI/CI利用 | ◐ | CLI 4コマンド、AI向け指示パック（`skills/mmi`）、基本設計書キット、執筆ベンチマーク v0 | 配布（npm等）、`extract`、Candidate形式のJSON、MCP | 1 |
+| AI/CI利用 | ◐ | CLI 4コマンド、AI向け指示パック（`skills/mmi`）、基本設計書キット、執筆ベンチマーク v0 | 配布（npm等）、`extract`、Candidate形式のJSON、将来のMCP。外部LLMはMMIを呼ぶ側に置く | 1 |
+| 外部LLM handoff | ○ | issue-0112に安全境界のみ定義済み | Candidate・provenance・診断からprompt/evidence packageをローカル生成し、MMIからは送信しない | 1 |
+| 軽量認知 | ◐ | Fly-inspired matcher、worksheet format、Cognitive Contract等の研究資産 | Candidate解析への接続、Jev類似方式・ローカルLLMのbounded task比較。課金型外部LLMを内部providerにしない | 1〜3 |
 | 応答性 | ● | 読込みの再利用と失効、検索索引の差分更新 | 画像を含む大きなブックでの測定 | 2 |
+
+## AI利用境界の差分
+
+製品方針は、MMIと生成AIの関係を次の3つに固定した。
+
+1. 外部LLM / AIエージェントからMMIを呼ぶ。
+2. MMI内部ではFly-inspired、Jev類似技術、ローカルLLM等の軽量・ローカル認知を使う。
+3. MMIが外部LLM向けの作業依頼・判断材料を生成するが、自ら送信しない。
+
+したがって、課金型生成AI APIの組み込み、APIキー管理、自動クラウドfallbackは製品ギャップとして追わない。必要なのは外部AIから使いやすい機械可読契約と、handoff package、ローカル認知の実用性である。
 
 ## 3. 測定で分かったこと
 
