@@ -17,6 +17,7 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 | 1 | [外部LLMへの作業提案と判断材料](issues/issue-0112-ai-proposal-handoff.md) | Open | prompt / evidence packageの契約を定め、送信は行わず戻り提案をAuthority Planeで検証 |
 | 1 | [外部LLMへの作業提案・判断材料handoff](issues/issue-0112-ai-proposal-handoff.md) | Open | issue-0193のCandidate/provenanceを使い、送信しないprompt/evidence packageを作る |
 | 1 | [CLIの配布](issues/issue-0197-cli-distribution.md) | Draft | 配布形態の決定 |
+| 1 | [portable coreと最小バイナリ](issues/issue-0203-portable-core-minimum-binary.md) | Draft | VS Code非依存Core境界を固定し、標準Go/TinyGo/native/WASMを同一契約で実測比較 |
 | **2 モダナイズの最小縦切り** | [Excel画像の候補化と取り込み](issues/issue-0194-excel-image-candidates.md) | Open | 画像入りテスト用ブックの作成。issue-0193の型を待つ |
 | 2 | [取り込み台帳と未取込の表示](issues/issue-0195-import-ledger.md) | Draft | issue-0194の後 |
 | 2 | [初回一括変換とCandidate基盤の接続](issues/issue-0200-baseline-bulk-import.md) | Draft | issue-0193・0195の契約を使い、MarkItDown等をbaseline converterとして比較 |
