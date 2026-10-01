@@ -61,7 +61,7 @@
 **実機検証**: 同梱の`04_Documentation/samples/practical/data/design.xlsx`3シートをフルパイプラインで再描画し、range指定あり・省略ありの両方で出力が変化しないことを確認（走査による事前予測と一致）。旗艦の再現ケース（`設計.xlsx#状態遷移|C5:F12`、C5起点・9行目空行・先頭ゼロ・日付・数式・エラー値混在）を実際の`markdownMatrixPlugin`経由でレンダリングし、設計文書が示す正しい8行×4列（空行を含む・`#DIV/0!`表示）と完全一致する出力を確認済み。
 
 **未対応で残る点**（正直な区分）:
-- `mode=table`で強制された場合のサイズ上限は**実装済み（2026-09-14、下記「`mode=table`強制時のサイズ上限」節）**。構造化された診断コードは**2026-10-02に `MMI_TABLE_TOO_LARGE` として実装済み**。明示 `range` + `mode=table` はセルを読まずにProblemsへ事前表示し、レンダリング時も同じコードをpreview HTMLの `data-code` に保持する。タイムアウト（時間上限）のみ未実装のまま。
+- `mode=table`で強制された場合のサイズ上限は**実装済み（2026-09-14、下記「`mode=table`強制時のサイズ上限」節）**。構造化された診断コードは**2026-10-02に `MMI_TABLE_TOO_LARGE` として実装済み**。明示 `range` + `mode=table` はセルを読まずにProblemsへ事前表示し、レンダリング時も同じコードをpreview HTMLの `data-code` に保持する。**同日、表の実体化・変換・HTML化が期限を自ら確認して中断できる協調型time-budget基盤も追加した**（`MMI_TABLE_TIME_BUDGET_EXCEEDED`）。ただし本番の既定時間値はまだ設定せず、SheetJSの同期parseや単一の遅い`cellAt`を外からpreemptする厳密な壁時計タイムアウトは未実装のまま。
 - 読込み・モデル構築の**分離計測ハーネスは2026-10-02に追加済み**。`loadWorkbookFromBytes()` を本番ローダーから切り出し、`npm run bench:workbook-load` で `initialReadMs` / warm read / bytes→decode・parse・`SheetSource`構築 / WorkbookCacheなしend-to-endを別々に記録する。既定入力は同梱 practical data、任意ファイル/ディレクトリと反復回数も指定可能。**ただしOSページキャッシュは制御しないため `initialReadMs` を「cold cache」とは呼ばない。Windows実機でOS-cold条件を含む数値取得は未実施**。参考値として、2026-09-16の内容照合バッチでは実サンプル30ファイル平均の`loadWorkbook`がJITウォームアップ後おおむね1ms未満〜数msだった。
 - CSVの`trim()`起因の座標ずれは、コードコメントで明記したのみで実装は変更していない（別問題として意図的に対象外）。
 - ユーザーへの表示挙動変更の確認（空行保持・エラーセル表示）は、走査結果（該当0件）を提示したのみで、実際の確認は未取得。
@@ -72,7 +72,7 @@
 
 - **`MAX_CELLS_HARD_LIMIT`（10万セル）を新設し、`mode=table`分岐だけに適用した。** 自動判定（`mode`省略）と`mode=card`は、`MAX_CELLS_BEFORE_CARD`（500セル）で既にカードへ落ちるため`sliceRegion`まで到達せず、この上限は不要（対象外）。超過時は`Error`を投げる——記法仕様P2「可視のエラー表示（`mmi-error`ブロック）」は`markdownMatrixPlugin.ts`の`renderEmbed`が既に持つ包括的catchでそのまま満たされる（新規の配線は不要だった）。
 - **上限値は暫定値。** 実測パフォーマンスデータが無い状態で選んだプレースホルダであり（読込み自体の時間計測は別途未実施のまま残っている）、実機計測の結果次第で調整が必要。
-- **構造化診断は2026-10-02に追加。** `mode=table` の10万セル上限超過は `SmartFallbackLimitError(code='MMI_TABLE_TOO_LARGE')` としてcoreから伝播し、明示範囲ならProblemsでも同じコードを事前表示、previewでは `data-code="MMI_TABLE_TOO_LARGE"` を出す。範囲省略時はused rangeが読込み後に確定するためProblemsの事前判定対象外だが、レンダリング時のcoded errorは維持される。**時間上限はなお未実装**で、同期処理へ単純な時計判定を足しても実処理を中断できないため、非同期/キャンセル基盤と併せて扱う。
+- **構造化診断は2026-10-02に追加。** `mode=table` の10万セル上限超過は `SmartFallbackLimitError(code='MMI_TABLE_TOO_LARGE')` としてcoreから伝播し、明示範囲ならProblemsでも同じコードを事前表示、previewでは `data-code="MMI_TABLE_TOO_LARGE"` を出す。範囲省略時はused rangeが読込み後に確定するためProblemsの事前判定対象外だが、レンダリング時のcoded errorは維持される。**協調型の時間予算基盤は2026-10-02に実装済み**。`sliceRegion`、columns/transpose/grep、HTML化の各bounded loopが同一budgetを消費し、超過時は`MMI_TABLE_TIME_BUDGET_EXCEEDED`で中断できる。previewにはembed単位のbudget factoryを注入できる。ただし**本番既定値は未設定**で、SheetJS同期parseや単一の遅い`cellAt`を強制終了するstrict wall-clock timeoutは別途worker/process境界が必要。
 
 **テスト**: `test/smartFallback.test.ts`へ3件追加（`mode=table`が上限超過で例外を投げる、上限境界（10万セルちょうど）ではtableのまま、`shouldRenderAsCardAfterLoad`が`cellAt`を一切呼ばずに例外を伝播することを`cellAt`が例外を投げる`SheetSource`で確認）。`test/markdownMatrixPlugin.test.ts`へ1件追加（宣言範囲のみで10万セルを超えさせ、実際に`mmi-error`が描画されることをプラグイン経由で確認）。`npm test`は343件全成功。
 
@@ -329,7 +329,7 @@ powershell -ExecutionPolicy Bypass -File .\03_Implement\scripts\clipboard-probe\
 - [x] `設計.xlsx#状態遷移|C5:F12`（使用範囲C5開始・9行目が空行）が、ヘッダ`ID/操作/遷移後状態/判定`から始まる8行×4列として表示される。実機（フルパイプライン経由のレンダリング）で確認済み。
 - [x] 空行が`["","","",""]`として保持され、エラーセルが`#DIV/0!`として表示され、全行の列数がそろう。`sliceRegion`が矩形を保証するため構造的に成立し、テストで固定済み。
 - [x] 原点が遠方の疎なシート（例`ZZ5000`開始）で、要求した矩形だけを実体化する。全体をA1から展開しない。`measureRegion`は寸法計算にセルへ一切触れないことをテストで保証（`cellAt`呼び出しで例外を投げる`SheetSource`を使用）。`sliceRegion`は要求範囲のみ走査する実装で、A1拡張は行わない。
-- [x] **R3: 実体化の前に寸法を算術評価する。** `measureRegion`→カード判定→（table確定後のみ）`sliceRegion`の順序で実装済み。範囲省略・使用範囲外・0/逆順の住所はテストで確認。`mode=table`でのセル数上限は実装済み（2026-09-14、「`mode=table`強制時のサイズ上限」節）。**時間上限（タイムアウト）は未実装のまま**（下記「未対応で残る点」）。
+- [x] **R3: 実体化の前に寸法を算術評価する。** `measureRegion`→カード判定→（table確定後のみ）`sliceRegion`の順序で実装済み。範囲省略・使用範囲外・0/逆順の住所はテストで確認。`mode=table`でのセル数上限は実装済み（2026-09-14、「`mode=table`強制時のサイズ上限」節）。**協調型budgetは実装済みだが、strict wall-clock timeoutは未実装のまま**（下記「未対応で残る点」）。
 - [x] **R3: 表示・カード判定・納品マニフェストが同じ範囲解釈を使う。** `smartFallback`・`renderTable`は同じ`measureRegion`/`sliceRegion`を呼び、`collectDeliveryManifest`は`smartFallback`の関数を経由するため同一の範囲解釈を共有する。
 - [ ] 読込みとモデル構築の費用を切り出し時間と別に計測する。切り出し時間を「照合が安価」の根拠に流用しない。**未実施**（性能計測は本セッションの範囲外）。
 - [x] **新しい挙動を覆うケースを追加する。** `test/tableGeometry.test.ts`（新規19件）、`test/workbookCache.test.ts`（+7件: 非A1起点+空行、エラーセル、宣言済み結合の取得と非推定、range省略）、conformanceコーパス+1件（宣言範囲幅が実データ幅を上回る場合のカード化）。
@@ -364,7 +364,7 @@ powershell -ExecutionPolicy Bypass -File .\03_Implement\scripts\clipboard-probe\
 段1（作業B）は実装・テスト完了。作業C（DataTransfer観測）も完了し、出所はDataTransfer単独では取得できないと確定した。作業Cで採取した実データにより、`pasteDrop.ts`の壊れたファイルパス誤認識（Excelの一時ステージング参照を原本と誤認）を発見・修正し、続けてシート名・範囲の誤った推測も撤去して占有グリッド方式の形状抽出（`extractHtmlTableShape`）へ置き換え、TSVの値行列抽出（`parseTsv`）、単一の原本`SheetSource`内を検索する内容照合アルゴリズム本体（`findContentMatches`）、複数ワークブック横断の集約（`findWorkbookContentMatches`）、そして新規コマンド`markdownMatrixInjector.insertEmbedByContentMatch`としての`extension.ts`配線までを実装した（2026-09-14〜15、「作業D: 内容照合コマンドの実装」節）。**段2（作業D）はこれで実装完了。** 残るのは次の点。
 
 - **作業Dは実装完了（2026-09-16）。自動貼り付け統合も完了した。** `editor.action.pasteAs`（既定Ctrl+.）経由で、内容照合の候補がVS Code標準の「貼り付け方法を選ぶ」ドロップダウンに並ぶ。通常のCtrl+V（`triggerKind: Automatic`）の挙動は変更していない——VS Codeの複数`DocumentPasteEdit`は`Automatic`だと最初の1件を即座に自動適用してしまうため、そこに含めるとR1（自動確定しない）に反するリスクがあった。`PasteAs`は挿入前に選ばせる契機のため、ここへ限定して組み込んだ。ワークスペース全体検索の性能懸念は実測（ネイティブファイルシステムで30ファイル約20ms、300ファイル約65〜140ms）により大幅に緩和されたことを確認済み。**2026-09-17、実VS Code（1.138.0）でのe2e確認をWSLg（xvfb不要）経由で実施し、明示コマンド経路（`insertEmbedByContentMatch`）の全パイプラインを実証した。** この過程で本物のバグを2件発見・修正した：(1) e2eテスト自体の期待値が2026-09-14の変更（シート名・範囲推測の撤去）に追従しておらず旧`#Sheet|Range`形式のままだった、(2) `insertEmbedByContentMatch`が`registerTextEditorCommand`で登録されていたが、これは非同期コールバックを一切サポートしないVS Codeの既知の制約（microsoft/vscode#178931等）に該当し、**実運用でも常にコマンドが何も挿入できていなかった可能性が高い**（`registerCommand`＋`vscode.window.activeTextEditor`の自前解決へ修正）。**2026-10-01、OSクリップボードへHTMLを注入できない環境でも宿主dispatchを自動検証できるよう、paste providerの対象へ`text/plain`を追加し、`vscode.env.clipboard.writeText`でExcel互換TSVを置いたうえでVS Code組み込み`editor.action.pasteAs`をcontent-match edit kind指定で実行するExtension Host E2Eを追加した。** pure `text/plain` の通常Pasteでは直接MMI editを返さないガードを併設し、同じTSVを`editor.action.clipboardPasteAction`で貼った場合は生テキストのままであることもE2Eで対にしている。**このWeb作業環境ではE2E自体は未実行**のため通過済みとは数えない。また、この自動化が証明するのはVS CodeのPaste As宿主dispatch＋plain TSV内容照合までであり、実Excelが供給する`text/html`、Windows clipboard helper由来のconfirmed provenance、視覚pickerを人が選ぶ操作は引き続きWindows実機証拠が必要。候補一覧は2026-10-02に、表題・見出し・直前/直後の行を1行へ圧縮して識別できるよう改善した。先頭数行の値そのもののプレビューはなお未実装。
-- `mode=table`強制時のサイズ上限は実装済み（2026-09-14）。構造化診断 `MMI_TABLE_TOO_LARGE` も2026-10-02に実装済み。残る資源制御は、同期処理を実際に中断できる非同期/キャンセル基盤を伴う時間上限（タイムアウト）。
+- `mode=table`強制時のサイズ上限は実装済み（2026-09-14）。構造化診断 `MMI_TABLE_TOO_LARGE` も2026-10-02に実装済み。時間制御は協調型budget基盤まで実装済み。残るのは、計測に基づく本番既定値の決定と、SheetJS同期parse等の非協調処理をpreemptできるworker/process境界によるstrict wall-clock timeout。
 - 読込み・モデル構築の分離計測ハーネスは実装済み。残: Windows実機での数値取得、とくにOSページキャッシュを制御したcold-read証拠。
 - CSVの`trim()`起因の座標ずれの依存テスト洗い出しは完了（2026-09-15、下記節）。**修正するかどうかの判断自体は未着手のまま**（既存テストへの影響は無いことが分かっただけで、CSVにXLSXと同じ原点保持契約を広げるべきかは別途の製品判断）。
 - 空行保持・エラーセル表示の既存文書への影響（走査では該当0件）について、ユーザーへの確認取得。
@@ -378,7 +378,7 @@ powershell -ExecutionPolicy Bypass -File .\03_Implement\scripts\clipboard-probe\
 
 - [x] R1: 同一内容の別コピーを自動確定しない。初期提供では出所情報も候補として明示選択する。**明示コマンド（2026-09-15）・自動貼り付け統合（2026-09-16）の両方で実装済み**——明示コマンドは`showQuickPick`、`editor.action.pasteAs`（Ctrl+.）はVS Code標準のドロップダウンで、結果が1件でも複数件でも必ず明示選択を経る。通常のCtrl+V（`triggerKind: Automatic`）には一切組み込んでいない——VS Codeの複数`DocumentPasteEdit`は`Automatic`だと最初の1件を自動適用してしまうため（実測・公式ドキュメントで確認済み）。**明示コマンド経路は実VS Code上のe2eで実証済み**（2026-09-17、「実VS Code GUI確認」節）。**ただし出所（provenance）自体は依然として取得不能**（作業C確定、DataTransferは出所形式を運ばない）ため、常に「推定」区分としての明示選択になる。
 - [x] R2: 結合セルを占有位置付きで復元し、断片外の行・複数表を誤って採用しない。**`extractHtmlTableShape`（作業C後）とソースモデル側の宣言済みmerges取得（作業B）で実装・テスト済み**。
-- [x] R3: 巨大範囲を実体化する前に寸法と資源上限を評価する。表示・カード・マニフェストで範囲契約を共有する。**作業Bで実装しテストで保証**（`measureRegion`はセル無接触、3経路が同一関数を共有）。`mode=table`強制時のセル数上限も実装済み（2026-09-14）。時間上限（タイムアウト）のみ未実装で残る。
+- [x] R3: 巨大範囲を実体化する前に寸法と資源上限を評価する。表示・カード・マニフェストで範囲契約を共有する。**作業Bで実装しテストで保証**（`measureRegion`はセル無接触、3経路が同一関数を共有）。`mode=table`強制時のセル数上限も実装済み（2026-09-14）。協調型budget基盤は実装済み。本番既定値と、非協調処理まで強制中断するstrict wall-clock timeoutは未実装で残る。
 - [x] R4: Object Descriptorのサイズ・オフセット・終端を検証し、URIを一度だけ復号して実パス境界を確認する。（観測ハーネス側、作業Aで完了）
 - [x] R5: 日付比較を独立したセルで再現し、providerが呼ばれない観測を不成功として扱う。（観測ハーネス側、作業Aで完了。**日付の実効範囲に関する誤った説明はワークブックローダーのコード上のコメントでも作業Bで訂正済み。この設計は2026-09-11の作業Cで実際に機能した**——`pasteMimeTypes: ['*']`の不具合でproviderが呼ばれなかった際、ハーネスは終了コード2で失敗し「出所形式なし」という誤った結論を防いだ）
 - [x] 現行CP932の読込みと既存UTF-8の回帰を維持する。作業B実装後も`test/csvEncoding.test.ts`全件成功を確認。

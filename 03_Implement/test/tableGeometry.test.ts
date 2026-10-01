@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
+import { createCooperativeTimeBudget } from '../src/core/cooperativeTimeBudget.js';
 import {
   cellRangeToA1,
   columnToIndex,
@@ -206,6 +207,31 @@ test('sliceRegion preserves a genuinely blank row inside the range instead of dr
 test('sliceRegion on an empty sheet (no used range, no range given) returns no rows', () => {
   const sheet: SheetSource = { usedRange: undefined, merges: [], cellAt: () => undefined };
   assert.deepEqual(sliceRegion(sheet), []);
+});
+
+test('sliceRegion cooperatively stops before reading the rest of an expired range', () => {
+  let clock = 0;
+  let reads = 0;
+  const sheet: SheetSource = {
+    usedRange: { startRow: 0, startCol: 0, endRow: 0, endCol: 3 },
+    merges: [],
+    cellAt: () => {
+      reads += 1;
+      clock += 2;
+      return { text: String(reads), type: 's', value: String(reads) };
+    },
+  };
+  const budget = createCooperativeTimeBudget({
+    limitMs: 2,
+    checkEveryUnits: 1,
+    now: () => clock,
+  });
+
+  assert.throws(
+    () => sliceRegion(sheet, 'A1:D1', { budget }),
+    /cooperative time budget/,
+  );
+  assert.equal(reads, 2, 'deadline is observed between cells instead of after materialising the full range');
 });
 
 // ── sheetSourceFromMatrix: the CSV / test-fixture wrapper ───────────────────

@@ -6,15 +6,21 @@ import path from 'node:path';
 import MarkdownIt from 'markdown-it';
 import XLSX from 'xlsx';
 import { WorkbookCache } from '../src/cache/workbookCache.js';
+import { CooperativeTimeBudgetExceededError, type CooperativeTimeBudget } from '../src/core/cooperativeTimeBudget.js';
 import { markdownMatrixPlugin } from '../src/plugin/markdownMatrixPlugin.js';
 import { parseCsv } from '../src/core/workbookLoader.js';
 
-function createMarkdownIt(markdownFilePath: string, workspaceRoot?: string): MarkdownIt {
+function createMarkdownIt(
+  markdownFilePath: string,
+  workspaceRoot?: string,
+  createTimeBudget?: () => CooperativeTimeBudget,
+): MarkdownIt {
   const md = new MarkdownIt();
   md.use(markdownMatrixPlugin, {
     markdownFilePath,
     workspaceRoot,
     cache: new WorkbookCache(),
+    createTimeBudget,
   });
   return md;
 }
@@ -347,6 +353,32 @@ test('markdownMatrixPlugin renders a visible mmi-error, not a huge table, when m
   assert.match(html, /class="mmi-error"/);
   assert.match(html, /data-code="MMI_TABLE_TOO_LARGE"/);
   assert.match(html, /100001 cells exceeds the 100000-cell limit/);
+  assert.doesNotMatch(html, /class="mmi-table"/);
+});
+
+test('markdownMatrixPlugin exposes a coded cooperative-budget error when HTML rendering overruns', () => {
+  const fixture = createCsvFixture([
+    ['Name', 'Role'],
+    ['Alice', 'Admin'],
+  ]);
+
+  let consumed = 0;
+  const budget: CooperativeTimeBudget = {
+    check() {},
+    consume() {
+      consumed += 1;
+      if (consumed > 10) {
+        throw new CooperativeTimeBudgetExceededError(11, 10);
+      }
+    },
+  };
+  const md = createMarkdownIt(fixture.markdownFilePath, undefined, () => budget);
+  const html = md.render('![[./roles.csv#Sheet1|A1:B2?header=first&mode=table]]');
+
+  assert.ok(consumed > 10, 'budget must remain active after logical-table construction');
+  assert.match(html, /class="mmi-error"/);
+  assert.match(html, /data-code="MMI_TABLE_TIME_BUDGET_EXCEEDED"/);
+  assert.match(html, /cooperative time budget/);
   assert.doesNotMatch(html, /class="mmi-table"/);
 });
 

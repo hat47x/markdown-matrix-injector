@@ -1,4 +1,5 @@
 import { type EmbedQuery } from '../parser/embedSyntax.js';
+import type { CooperativeTimeBudget } from './cooperativeTimeBudget.js';
 import { escapeHtml } from './html.js';
 import { columnToIndex, sliceRegion } from './tableGeometry.js';
 import { type WorkbookData } from './workbookLoader.js';
@@ -8,8 +9,16 @@ export interface LogicalTable {
   bodyRows: string[][];
 }
 
+export interface LogicalTableWorkOptions {
+  budget?: CooperativeTimeBudget;
+}
+
 /** The logical table of spec §6 (range → columns → transpose → header → grep), shared by every output format. */
-export function buildLogicalTable(query: EmbedQuery, workbook: WorkbookData): LogicalTable {
+export function buildLogicalTable(
+  query: EmbedQuery,
+  workbook: WorkbookData,
+  options: LogicalTableWorkOptions = {},
+): LogicalTable {
   const sheetName = query.target ?? Object.keys(workbook.sheets)[0];
   const sheet = workbook.sheets[sheetName];
 
@@ -21,24 +30,44 @@ export function buildLogicalTable(query: EmbedQuery, workbook: WorkbookData): Lo
   // region's dimensions (measured without touching a cell -- smartFallback.ts)
   // and decided this reference renders as a table. This is the single point
   // where the corresponding display rectangle is actually materialised.
-  const transformed = applyStructuralTransformations(query, sliceRegion(sheet, query.range));
+  const budget = options.budget;
+  budget?.check();
+  const transformed = applyStructuralTransformations(
+    query,
+    sliceRegion(sheet, query.range, { budget }),
+    budget,
+  );
   const { headers, bodyRows } = splitHeaderRows(transformed, query.params.get('header'));
-  return { headers, bodyRows: applyRowFilters(query, bodyRows) };
+  const filteredBodyRows = applyRowFilters(query, bodyRows, budget);
+  budget?.check();
+  return { headers, bodyRows: filteredBodyRows };
 }
 
-export function renderEmbedTable(query: EmbedQuery, workbook: WorkbookData): string {
-  return renderLogicalTable(query, buildLogicalTable(query, workbook));
+export function renderEmbedTable(
+  query: EmbedQuery,
+  workbook: WorkbookData,
+  options: LogicalTableWorkOptions = {},
+): string {
+  return renderLogicalTable(query, buildLogicalTable(query, workbook, options), options.budget);
 }
 
 /** HTML for an already built logical table; decorations (highlight, formatColumn) come from `query`. */
-export function renderLogicalTable(query: EmbedQuery, logical: LogicalTable): string {
+export function renderLogicalTable(
+  query: EmbedQuery,
+  logical: LogicalTable,
+  budget?: CooperativeTimeBudget,
+): string {
   const { headers, bodyRows: filteredBodyRows } = logical;
   const highlightColumnIndex = resolveColumnSelector(query.params.get('highlightColumn'), headers);
   const highlightValue = query.params.get('highlightValue');
   const formatColumnSpecs = parseFormatColumns(query.params.getAll('formatColumn'), headers);
 
+  budget?.check();
   const headerHtml = headers
-    ? `<thead><tr>${headers.map((cell) => `<th>${escapeHtml(cell)}</th>`).join('')}</tr></thead>`
+    ? `<thead><tr>${headers.map((cell) => {
+        budget?.consume();
+        return `<th>${escapeHtml(cell)}</th>`;
+      }).join('')}</tr></thead>`
     : '';
   const bodyHtml = filteredBodyRows
     .map((row) => {
@@ -47,42 +76,63 @@ export function renderLogicalTable(query: EmbedQuery, logical: LogicalTable): st
         rowClasses.push('mmi-table__row--highlight');
       }
       const cells = row
-        .map((cell, cellIndex) => renderBodyCell(cell, cellIndex, formatColumnSpecs))
+        .map((cell, cellIndex) => {
+          budget?.consume();
+          return renderBodyCell(cell, cellIndex, formatColumnSpecs);
+        })
         .join('');
 
       return `<tr class="${rowClasses.join(' ')}">${cells}</tr>`;
     })
     .join('');
 
+  budget?.check();
   return `<table class="mmi-table">${headerHtml}<tbody>${bodyHtml}</tbody></table>`;
 }
 
-function applyStructuralTransformations(query: EmbedQuery, rows: string[][]): string[][] {
-  let transformed = rows.map((row) => [...row]);
+function applyStructuralTransformations(
+  query: EmbedQuery,
+  rows: string[][],
+  budget?: CooperativeTimeBudget,
+): string[][] {
+  let transformed = rows.map((row) => {
+    budget?.consume(row.length);
+    return [...row];
+  });
 
   const columns = query.params.get('columns');
   if (columns) {
     const columnIndexes = columns
       .split(',')
       .map((column) => columnToIndex(column.trim().toUpperCase()));
-    transformed = transformed.map((row) => columnIndexes.map((index) => row[index] ?? ''));
+    transformed = transformed.map((row) =>
+      columnIndexes.map((index) => {
+        budget?.consume();
+        return row[index] ?? '';
+      }),
+    );
   }
 
   const transpose = query.params.get('transpose');
   if (transpose === 'true') {
-    transformed = transposeRows(transformed);
+    transformed = transposeRows(transformed, budget);
   }
 
   return transformed;
 }
 
-function applyRowFilters(query: EmbedQuery, rows: string[][]): string[][] {
+function applyRowFilters(query: EmbedQuery, rows: string[][], budget?: CooperativeTimeBudget): string[][] {
   const grep = query.params.get('grep')?.toLowerCase();
   if (!grep) {
     return rows;
   }
 
-  return rows.filter((row) => row.some((cell) => cell.toLowerCase().includes(grep)));
+  return rows.filter((row) =>
+    row.some((cell) => {
+      budget?.consume();
+      return cell.toLowerCase().includes(grep);
+    }),
+  );
 }
 
 function splitHeaderRows(rows: string[][], headerMode: string | null): { headers?: string[]; bodyRows: string[][] } {
@@ -113,9 +163,14 @@ function splitHeaderRows(rows: string[][], headerMode: string | null): { headers
   return { bodyRows: rows };
 }
 
-function transposeRows(rows: string[][]): string[][] {
+function transposeRows(rows: string[][], budget?: CooperativeTimeBudget): string[][] {
   const width = rows.reduce((max, row) => Math.max(max, row.length), 0);
-  return Array.from({ length: width }, (_, columnIndex) => rows.map((row) => row[columnIndex] ?? ''));
+  return Array.from({ length: width }, (_, columnIndex) =>
+    rows.map((row) => {
+      budget?.consume();
+      return row[columnIndex] ?? '';
+    }),
+  );
 }
 
 function resolveColumnSelector(column: string | null, headers?: string[]): number | undefined {

@@ -114,6 +114,7 @@ SheetJSはこの4項目を再計算なしに提供する。実測した例。
 - `range`省略時は`usedRange`を範囲とみなし、同じ順序で評価する。
 - `mode=table`で強制された場合も上限を外さない。超過は記法仕様P2に沿う可視エラーとする。
 - 10万セルのhard limit超過は `MMI_TABLE_TOO_LARGE` という安定した構造化コードを持つ。明示rangeならProblemsで算術的に事前検出し、previewの可視エラーにも同じcodeを`data-code`として残す。範囲省略時はused range確定後のレンダリング経路で同じcodeを返す。
+- 時間制御は協調型とstrict timeoutを分ける。`CooperativeTimeBudget` は実体化・columns/transpose/grep・HTML化のbounded loopへ同一budgetを渡し、期限超過を `MMI_TABLE_TIME_BUDGET_EXCEEDED` として可視化する。これは同期ループ間で実際に中断できるが、SheetJSの同期parseや単一の遅い`cellAt`呼び出しを途中でpreemptする保証ではない。strict wall-clock上限にはworker/process境界が必要で、本番既定時間値は性能計測後に決める。
 - 返す文字列は`SourceCell.text`。既存の変換パイプライン（記法仕様§6のcolumns→transpose→header→grep）は現在と同じ順序でこの矩形に適用する。転置は行列数を入れ替えるだけなので、判定は実体化前に済ませる。
 
 **表示・カード判定・納品マニフェストは同じ範囲解釈を共有する。** 現行の[smartFallback.ts](../03_Implement/src/core/smartFallback.ts)は寸法を得るために`sliceRange`を先に呼ぶため、`sliceRegion`へ差し替えるだけでは巨大範囲の実体化を防げない。寸法算出を切り出しから分離することが前提になる。
@@ -194,4 +195,4 @@ ELECTRON_RUN_AS_NODE=1 "<VS Codeのインストール先>/Code.exe" 03_Implement
 
 `measureRegion`がセルへ一切触れずに寸法を返すことは、`cellAt`が呼ばれたら例外を投げるテスト用`SheetSource`で保証した（`test/tableGeometry.test.ts`）。詳細な変更内容とテスト一覧は[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)の「Bの完了内容」節を参照。
 
-未対応で残る点: `mode=table`強制時の**時間**上限（サイズ上限は2026-09-14実装済み。[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)「`mode=table`強制時のサイズ上限」節）、Windows実機でOSページキャッシュを制御したcold-read性能値、CSVの`trim()`起因の座標ずれの**改修判断そのもの**（影響範囲調査は2026-09-15完了、上記参照）。読込みとモデル構築を分ける計測経路自体は2026-10-02に`loadWorkbookFromBytes()`と`bench:workbook-load`で用意済み。
+未対応で残る点: `mode=table`の**strict wall-clock時間上限と本番既定budget値**（協調型budget基盤は2026-10-02、サイズ上限は2026-09-14に実装済み。[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)参照）、Windows実機でOSページキャッシュを制御したcold-read性能値、CSVの`trim()`起因の座標ずれの**改修判断そのもの**（影響範囲調査は2026-09-15完了、上記参照）。読込みとモデル構築を分ける計測経路自体は2026-10-02に`loadWorkbookFromBytes()`と`bench:workbook-load`で用意済み。
