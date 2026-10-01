@@ -23,11 +23,16 @@ export interface LedgerEntry {
   /** A1 range, or `name:<object name>` for an object without a cell anchor. */
   place: string;
   fingerprint: Pick<Fingerprint, 'representation' | 'digest'>;
+  /** Source bytes on which this review/import was based; freshness evidence, not occurrence identity. */
+  sourceDigest: string;
   /** Where the imported asset was written, relative to the ledger file. */
   output: string;
+  /** Conversion/extraction conditions that produced the output. */
+  conversion: Readonly<Record<string, string | number | boolean>>;
   /** The decision recorded: a person ran the import command. */
   reviewState: 'confirmed';
   basis: string;
+  reviewedAt: string;
 }
 
 export interface Ledger {
@@ -90,16 +95,26 @@ export function classify(ledger: Ledger, ledgerPath: string, absoluteSource: str
   return elsewhere ? 'duplicate' : 'unimported';
 }
 
-export function entryFor(ledgerPath: string, absoluteSource: string, candidate: Candidate, outputFile: string, basis: string): LedgerEntry {
+export function entryFor(
+  ledgerPath: string,
+  absoluteSource: string,
+  candidate: Candidate,
+  outputFile: string,
+  basis: string,
+  conversion: Readonly<Record<string, string | number | boolean>> = {},
+): LedgerEntry {
   return {
     kind: candidate.kind,
     source: sourceKey(ledgerPath, absoluteSource),
     ...(candidate.locator.sheet ? { sheet: candidate.locator.sheet } : {}),
     place: placeOf(candidate),
     fingerprint: { representation: candidate.fingerprint.representation, digest: candidate.fingerprint.digest },
+    sourceDigest: candidate.locator.sourceDigest,
     output: path.relative(path.dirname(path.resolve(ledgerPath)), path.resolve(outputFile)).split(path.sep).join('/'),
+    conversion,
     reviewState: 'confirmed',
     basis,
+    reviewedAt: new Date().toISOString(),
   };
 }
 
