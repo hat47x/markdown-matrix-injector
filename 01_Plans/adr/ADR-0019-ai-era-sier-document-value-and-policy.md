@@ -3,7 +3,7 @@
 - Status: Accepted
 - Proposed: 2026-09-27
 - Accepted: 2026-10-01
-- Amended: 2026-10-01（D0・D13・D14を追加。生成物をCIで再現できるかで仕分ける。Excel方眼紙をレガシーとみなす見方と既存のスタイルの両方を否定せず、両者の橋になる。人の作業速度と認知基盤の維持を移行より優先する）
+- Amended: 2026-10-01（D0・D13・D14・D15を追加。生成物のCI再現性、人の作業速度、最小ランタイム優先を明文化）
 - Deciders: Human Sponsor、MMI Lead Agent
 - Scope: 製品価値、モダナイズの境界、利用経路、中核概念、優先度、評価方法
 - Related: [ADR-0012](ADR-0012-mission-redefinition-notation-as-governance-boundary.md)（正本参照規約）、[ADR-0016](ADR-0016-notation-first-input-assistance.md)（入力支援）、[ADR-0018](ADR-0018-cognitive-assistance-plane.md)（認知補助の境界）、[製品要求](../../00_Prompt/requirements.md)
@@ -279,6 +279,24 @@ MMIは生成AIサービスそのものを内包するのではなく、次の3�
 3. **外部LLMに作業提案と判断材料を渡す。** MMIが解けない、または人・LLMの判断が適する箇所について、source locator、Candidate、evidence、provenance、診断、限定した抜粋から作業依頼やprompt packageを生成する。MMI自身は送信せず、利用者または外部AIがそれを使う。戻された提案はAuthority Planeで再検証する。
 
 この境界により、外部LLMが進化してもMMIの価値は失われない。MMIは「推論モデル」ではなく、文書資産と人・AIの間で、構造、根拠、検証可能な操作を提供する基盤であり続ける。
+
+### D15. 配布は最小ランタイムを優先する
+
+MMIのCore・CLI・IDE連携・WASM等の各経路では、**必要な機能、安全性、再現性、互換性を満たす候補のうち、実行時依存と配布バイナリが最小になる方式を優先する。**
+
+この原則は特定コンパイラへの固定を意味しない。GoをCore実装の有力候補としつつ、同じ契約とconformance corpusを満たせる場合はTinyGo等のsmall-binary toolchainを優先してよい。将来、標準Goに近い言語互換性・標準ライブラリ互換性を保ちながら、より小さなnative/WASMを生成できるHike類似の実装が十分成熟した場合も、比較対象に加える。
+
+ただし「小さいこと」を機能・安全性より上位に置かない。次の条件を満たさないtoolchainへ合わせてCore機能を削らない。
+
+- Authority Planeの同一入力・同一結果
+- Read-only / Containment / Stable diagnostics
+- Candidate / provenance / manifest等の公開契約
+- 必要なSource Adapterとファイル処理
+- 対応OS・WASM hostでの安定動作
+- ライセンスと保守性
+- conformance corpusの一致
+
+実装はportable coreとhost-specific adapterを分離し、標準Go、TinyGo、将来の代替toolchainを差し替えて比較できる構造を保つ。VS Code拡張はTypeScriptの薄いhost adapterとして残してよい。
 
 ## 製品の優先度
 
