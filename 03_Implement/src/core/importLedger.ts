@@ -9,9 +9,10 @@
  * nothing here copies a role or a review decision from one to another.
  */
 import { createHash } from 'node:crypto';
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import type { Candidate, CandidateKind, Fingerprint } from './candidate.js';
+import type { Candidate, CandidateKind, Claim, Fingerprint } from './candidate.js';
 
 export const LEDGER_SCHEMA = 'mmi.ledger/v1';
 export const DEFAULT_LEDGER_FILE = 'mmi-ledger.json';
@@ -22,6 +23,20 @@ export interface ClaimBasis {
   aspect: string;
   /** Digest of claim/evidence + method provenance, excluding whole-source inputDigest. */
   digest: string;
+}
+
+export interface LedgerClaimBasis {
+  aspect: string;
+  /** 0-based among claims with the same aspect. */
+  ordinal: number;
+  /** Digest of the local claim evidence + method/runtime identity, excluding whole-source digest. */
+  evidenceDigest: string;
+}
+
+export interface LedgerLineageHints {
+  objectName?: string;
+  sourceObject?: string;
+  nearbyTable?: string;
 }
 
 export interface LedgerEntry {
@@ -44,6 +59,14 @@ export interface LedgerEntry {
   reviewState: 'confirmed';
   basis: string;
   reviewedAt: string;
+  /**
+   * Optional for backward-compatible reading of early v1 ledgers. New entries
+   * retain local review basis so unrelated source changes do not stale every
+   * claim (ADR-0021 D2/D4).
+   */
+  claimBasis?: readonly LedgerClaimBasis[];
+  /** Non-authoritative clues used only to propose lineage after source edits/moves. */
+  lineageHints?: LedgerLineageHints;
 }
 
 export interface Ledger {
@@ -92,8 +115,182 @@ export function sourceKey(ledgerPath: string, absoluteSource: string): string {
   return relative;
 }
 
+
+function stable(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stable);
+  if (value && typeof value === 'object') {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, item]) => [key, stable(item)]),
+    );
+  }
+  return value;
+}
+
+function sha256Json(value: unknown): string {
+  return `sha256:${createHash('sha256').update(JSON.stringify(stable(value)), 'utf8').digest('hex')}`;
+}
+
+function runIdentity(candidate: Candidate): unknown {
+  const run = candidate.provenance.run;
+  return run.execution === 'deterministic'
+    ? {
+        execution: run.execution,
+        config: run.config,
+        implementationVersion: run.implementationVersion,
+      }
+    : {
+        execution: run.execution,
+        provider: run.provider,
+        model: run.model,
+        artifactVersion: run.artifactVersion,
+        parameters: run.parameters,
+      };
+}
+
+/**
+ * Local review basis deliberately excludes sourceDigest/inputDigest. A change
+ * elsewhere in the workbook must not stale an unchanged claim. Claim value,
+ * evidence, method and algorithm/runtime identity are still bound.
+ */
+export function claimBasisOf(candidate: Candidate): LedgerClaimBasis[] {
+  const ordinalByAspect = new Map<string, number>();
+  return candidate.claims.map((claim) => {
+    const ordinal = ordinalByAspect.get(claim.aspect) ?? 0;
+    ordinalByAspect.set(claim.aspect, ordinal + 1);
+    return {
+      aspect: claim.aspect,
+      ordinal,
+      evidenceDigest: claimEvidenceDigest(candidate, claim),
+    };
+  });
+}
+
+function claimEvidenceDigest(candidate: Candidate, claim: Claim): string {
+  return sha256Json({
+    aspect: claim.aspect,
+    value: claim.value ?? null,
+    status: claim.status,
+    execution: claim.execution,
+    method: claim.method,
+    reasonCode: claim.reasonCode,
+    evidence: claim.evidence ?? [],
+    algorithm: candidate.provenance.algorithm,
+    run: runIdentity(candidate),
+  });
+}
+
+export function lineageHintsOf(candidate: Candidate): LedgerLineageHints {
+  const stringClaim = (aspect: string): string | undefined => {
+    const value = candidate.claims.find((claim) => claim.aspect === aspect)?.value;
+    return typeof value === 'string' ? value : undefined;
+  };
+  return {
+    ...(stringClaim('name') ? { objectName: stringClaim('name') } : {}),
+    ...(stringClaim('media') ? { sourceObject: stringClaim('media') } : {}),
+    ...(stringClaim('nearby-table') ? { nearbyTable: stringClaim('nearby-table') } : {}),
+  };
+}
+
 function sameOccurrence(entry: LedgerEntry, kind: CandidateKind, source: string, sheet: string | undefined, place: string): boolean {
   return entry.kind === kind && entry.source === source && (entry.sheet ?? '') === (sheet ?? '') && entry.place === place;
+}
+
+
+function occurrenceEntry(
+  ledger: Ledger,
+  ledgerPath: string,
+  absoluteSource: string,
+  candidate: Candidate,
+): LedgerEntry | undefined {
+  const source = sourceKey(ledgerPath, absoluteSource);
+  return ledger.entries.find((entry) =>
+    sameOccurrence(entry, candidate.kind, source, candidate.locator.sheet, placeOf(candidate)));
+}
+
+export function reviewFreshness(
+  ledger: Ledger,
+  ledgerPath: string,
+  absoluteSource: string,
+  candidate: Candidate,
+): ReviewFreshness {
+  const entry = occurrenceEntry(ledger, ledgerPath, absoluteSource, candidate);
+  if (!entry?.claimBasis) return { state: 'unknown', claims: [] };
+
+  const recorded = new Map(entry.claimBasis.map((basis) => [`${basis.aspect}\u0000${basis.ordinal}`, basis]));
+  const currentList = claimBasisOf(candidate);
+  const current = new Map(currentList.map((basis) => [`${basis.aspect}\u0000${basis.ordinal}`, basis]));
+  const claims: ClaimFreshness[] = [];
+
+  for (const basis of entry.claimBasis) {
+    const now = current.get(`${basis.aspect}\u0000${basis.ordinal}`);
+    claims.push({
+      aspect: basis.aspect,
+      ordinal: basis.ordinal,
+      state: !now ? 'missing' : now.evidenceDigest === basis.evidenceDigest ? 'fresh' : 'stale',
+    });
+  }
+  for (const basis of currentList) {
+    if (!recorded.has(`${basis.aspect}\u0000${basis.ordinal}`)) {
+      claims.push({ aspect: basis.aspect, ordinal: basis.ordinal, state: 'new' });
+    }
+  }
+
+  const changed = claims.filter((claim) => claim.state !== 'fresh').length;
+  const fresh = claims.length - changed;
+  return {
+    state: changed === 0 ? 'fresh' : fresh === 0 ? 'stale' : 'partially-stale',
+    claims,
+  };
+}
+
+/**
+ * Suggest old occurrences that may be the lineage predecessor of the current
+ * Candidate. These are evidence-only proposals: no review state is inherited.
+ */
+export function lineageCandidates(
+  ledger: Ledger,
+  ledgerPath: string,
+  absoluteSource: string,
+  candidate: Candidate,
+): LineageCandidate[] {
+  const source = sourceKey(ledgerPath, absoluteSource);
+  const place = placeOf(candidate);
+  const hints = lineageHintsOf(candidate);
+  const sameContent = (entry: LedgerEntry): boolean =>
+    entry.fingerprint.representation === candidate.fingerprint.representation
+    && entry.fingerprint.digest === candidate.fingerprint.digest;
+
+  return ledger.entries
+    .filter((entry) =>
+      entry.kind === candidate.kind
+      && entry.source === source
+      && !sameOccurrence(entry, candidate.kind, source, candidate.locator.sheet, place))
+    .map((entry) => {
+      const reasons: string[] = [];
+      if (sameContent(entry)) reasons.push('same-content');
+      if ((entry.sheet ?? '') === (candidate.locator.sheet ?? '')) reasons.push('same-sheet');
+      if (hints.objectName && entry.lineageHints?.objectName === hints.objectName) reasons.push('same-object-name');
+      if (hints.sourceObject && entry.lineageHints?.sourceObject === hints.sourceObject) reasons.push('same-source-object');
+      if (hints.nearbyTable && entry.lineageHints?.nearbyTable === hints.nearbyTable) reasons.push('same-nearby-table');
+      return { entry, reasons };
+    })
+    .filter(({ reasons }) =>
+      reasons.some((reason) =>
+        reason === 'same-content'
+        || reason === 'same-object-name'
+        || reason === 'same-source-object'
+        || reason === 'same-nearby-table'))
+    .sort((a, b) => b.reasons.length - a.reasons.length
+      || `${a.entry.sheet ?? ''}\u0000${a.entry.place}`.localeCompare(`${b.entry.sheet ?? ''}\u0000${b.entry.place}`))
+    .map(({ entry, reasons }) => ({
+      source: entry.source,
+      ...(entry.sheet ? { sheet: entry.sheet } : {}),
+      place: entry.place,
+      output: entry.output,
+      reasons,
+    }));
 }
 
 function sha256Json(value: unknown): string {
@@ -214,6 +411,8 @@ export function entryFor(
     reviewState: 'confirmed',
     basis,
     reviewedAt: new Date().toISOString(),
+    claimBasis: claimBasisOf(candidate),
+    lineageHints: lineageHintsOf(candidate),
   };
 }
 
