@@ -5,6 +5,14 @@
  */
 import fs from 'node:fs';
 import type { Candidate, CandidateKind, Fingerprint } from './candidate.js';
+
+const CANDIDATE_KINDS = new Set<CandidateKind>([
+  'table-range',
+  'image',
+  'text-block',
+  'key-value',
+  'diagram',
+]);
 import { placeOf, sourceKey } from './importLedger.js';
 
 export const CANDIDATE_SIMILARITY_EVIDENCE_SCHEMA =
@@ -94,7 +102,8 @@ export function similarityEvidenceForCandidate(
 function assertEntry(entry: CandidateSimilarityEvidenceEntry, index: number): void {
   const prefix = `similarity entry ${index}`;
   assertText(`${prefix}.source`, entry.source);
-  assertText(`${prefix}.kind`, entry.kind);
+  assertCandidateKind(`${prefix}.kind`, entry.kind);
+  if (entry.sheet !== undefined) assertText(`${prefix}.sheet`, entry.sheet);
   assertText(`${prefix}.place`, entry.place);
   assertText(`${prefix}.provider.id`, entry.provider?.id);
   assertText(`${prefix}.provider.version`, entry.provider?.version);
@@ -103,6 +112,12 @@ function assertEntry(entry: CandidateSimilarityEvidenceEntry, index: number): vo
   assertText(`${prefix}.metric.semantics`, entry.metric?.semantics);
   if (!Number.isFinite(entry.metric?.value)) {
     throw new Error(`${prefix}.metric.value must be finite`);
+  }
+  if (
+    entry.metric.higherIsStronger !== undefined
+    && typeof entry.metric.higherIsStronger !== 'boolean'
+  ) {
+    throw new Error(`${prefix}.metric.higherIsStronger must be boolean`);
   }
   if (entry.metric.range) {
     const { min, max } = entry.metric.range;
@@ -117,15 +132,38 @@ function assertEntry(entry: CandidateSimilarityEvidenceEntry, index: number): vo
     }
   }
   assertText(`${prefix}.target.source`, entry.target?.source);
-  assertText(`${prefix}.target.kind`, entry.target?.kind);
+  assertCandidateKind(`${prefix}.target.kind`, entry.target?.kind);
+  if (entry.target?.sheet !== undefined) {
+    assertText(`${prefix}.target.sheet`, entry.target.sheet);
+  }
   assertText(`${prefix}.target.place`, entry.target?.place);
+  if (entry.target?.fingerprint) {
+    assertText(
+      `${prefix}.target.fingerprint.representation`,
+      entry.target.fingerprint.representation,
+    );
+    assertText(
+      `${prefix}.target.fingerprint.digest`,
+      entry.target.fingerprint.digest,
+    );
+  }
   for (const item of entry.evidence ?? []) {
     assertText(`${prefix}.evidence.code`, item.code);
+    if (item.detail !== undefined) {
+      assertText(`${prefix}.evidence.detail`, item.detail);
+    }
   }
 }
 
 function assertText(name: string, value: unknown): asserts value is string {
   if (typeof value !== 'string' || value.trim().length === 0) {
     throw new Error(`${name} must be a non-empty string`);
+  }
+}
+
+
+function assertCandidateKind(name: string, value: unknown): asserts value is CandidateKind {
+  if (typeof value !== 'string' || !CANDIDATE_KINDS.has(value as CandidateKind)) {
+    throw new Error(`${name} must be a supported Candidate kind`);
   }
 }
