@@ -204,6 +204,42 @@ test('validateEmbedDiagnostics does not apply the forced-table hard limit when m
   );
 });
 
+test('validateEmbedDiagnostics suppresses table-size noise behind earlier root causes', () => {
+  const query = {
+    raw: '![[fixtures/sample.xml#Sheet1|A1:A100001?mode=table]]',
+    filepath: 'fixtures/sample.xml',
+    target: 'Sheet1',
+    range: 'A1:A100001',
+    mode: 'table',
+  };
+
+  assert.deepEqual(
+    validateEmbedDiagnostics({ query, fileExists: true, sheetExists: true, containmentOk: false }),
+    [
+      {
+        severity: 'error',
+        code: 'MMI_PATH_OUTSIDE_BOUNDARY',
+        message: 'Source file is outside workspace boundary: fixtures/sample.xml',
+        range: {
+          start: query.raw.indexOf(query.filepath),
+          end: query.raw.indexOf(query.filepath) + query.filepath.length - 1,
+        },
+        source: 'markdown-matrix-injector',
+        priority: 0,
+      },
+    ],
+  );
+
+  assert.deepEqual(
+    validateEmbedDiagnostics({ query, fileExists: true, sheetExists: true, xmlMode: 'invalid' }).map((d) => d.code),
+    ['MMI_INVALID_XML'],
+  );
+  assert.deepEqual(
+    validateEmbedDiagnostics({ query, fileExists: true, sheetExists: false }).map((d) => d.code),
+    ['MMI_SHEET_NOT_FOUND'],
+  );
+});
+
 // ── Containment diagnostics (spec P4 Containment MUST) ──────────────────
 
 test('validateEmbedDiagnostics reports boundary violation when containmentOk is explicitly false', () => {
