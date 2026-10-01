@@ -58,6 +58,27 @@ Detachedはプロジェクト全体の一括移行を要求しない。3状態�
 
 Candidateは `observed` / `inferred` / `confirmed` を区別できること。推定候補はmethod、evidence、provider/version、provenanceを保持し、曖昧な場合はabstainできること。
 
+## 認知方式と実行特性
+
+認知機能は機械学習やLLMに限定しない。要件ごとに、明示構造の抽出、決定論的な規則・幾何・グラフ・統計、軽量類似、bounded Judgment、local generative reasoning、外部LLM handoffを比較し、**最も単純で十分な方式**を選ぶ。決定正本は[ADR-0020](../01_Plans/adr/ADR-0020-requirement-oriented-cognition-method-selection.md)とする。
+
+Candidateや認知結果は、少なくとも次の2軸を分けて表現できること。
+
+| 軸 | 値 | 意味 |
+| --- | --- | --- |
+| 認識論上の状態 | `observed` / `inferred` / `confirmed` / `abstained` | 原本事実か、推定か、確認済みか、判断保留か |
+| 実行特性 | `deterministic` / `provider-dependent` | 同じ入力・設定・実装versionで結果を固定できるか |
+
+決定論的な推定であっても原本事実とは限らない。例えば、OOXMLから取得した画像anchorは `observed + deterministic`、固定した近接規則による「画像と表の関連」は `inferred + deterministic` とする。
+
+実行モデルは決定論性に応じて分ける。
+
+- **deterministic path:** Coreの通常経路に置ける。入力digest・設定・実装versionをcache keyにでき、CI/conformanceで完全一致を検証できる。Authority仕様に属するものだけ自動適用してよい。
+- **provider-dependent path:** 編集をブロックしない任意経路とする。provider/model/version/parametersをprovenanceへ残し、`abstained` / `unavailable`を正常系にする。結果はproposal-onlyで、Authority Planeで再検証する。
+- provider-dependent処理が利用できなくても、参照・検証・抽出等の基本経路を壊さない。
+- 高コストな方式へ自動fallbackしない。より複雑な方式を採用する場合は、下位の方式では不足するfixtureまたは利用実績を示す。
+- 外部LLM handoffは内部fallbackではなく別経路とし、MMI自身は送信しない。
+
 ## データソース
 
 ### 現行の保証対象
