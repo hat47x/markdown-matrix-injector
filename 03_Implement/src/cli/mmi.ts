@@ -12,8 +12,12 @@ import XLSX from 'xlsx';
 import { WorkbookCache } from '../cache/workbookCache.js';
 import { imageCandidates, readExcelImages, relationToTables, type ImageDiagnostic, type TableRect } from '../adapters/excelImageAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
-import type { Candidate } from '../core/candidate.js';
+import type { Candidate, ProviderScore } from '../core/candidate.js';
 import { candidateLedgerView, type CandidateLedgerFilter } from '../core/candidateLedgerView.js';
+import {
+  readCandidateSimilarityEvidence,
+  type CandidateSimilarityEvidenceEntry,
+} from '../core/candidateSimilarityEvidence.js';
 import {
   DEFAULT_LEDGER_FILE,
   placeOf,
@@ -40,8 +44,10 @@ Commands:
       --values <n>            also print the first n body rows of each region
       --from <doc.md>         write suggested references relative to this document
       --ledger <file>         import ledger (default: <root>/mmi-ledger.json when ledger filtering is used)
+      --similarity-evidence <file>
+                              optional research similarity sidecar; display only, never import identity
       --unimported            show only occurrences never imported (duplicates remain separate)
-      --exclude-imported      hide exact imported occurrences; keep changed/duplicate/unimported
+      --exclude-imported      hide exact imported occurrences; keep changed/stale/duplicate/unimported
                             For .xlsx/.xlsm it also lists embedded pictures (sheet, anchor, format, size,
                             digest, nearest table) and names any that cannot be read.
   extract <source.xlsx>     Write workbook pictures to an assets folder and print Markdown references
@@ -85,6 +91,7 @@ export async function main(argv: string[]): Promise<number> {
       image: { type: 'string' },
       'out-dir': { type: 'string', default: 'assets' },
       ledger: { type: 'string' },
+      'similarity-evidence': { type: 'string' },
       unimported: { type: 'boolean', default: false },
       'exclude-imported': { type: 'boolean', default: false },
       table: { type: 'string' },
@@ -118,8 +125,19 @@ export async function main(argv: string[]): Promise<number> {
         : values['exclude-imported']
           ? 'exclude-imported'
           : 'all';
-      const useLedger = Boolean(values.ledger || values.unimported || values['exclude-imported'] || fs.existsSync(ledgerPath));
-      const result = useLedger ? applyLedgerView(raw, absoluteSource, ledgerPath, filter) : raw;
+      const similarityEvidencePath = values['similarity-evidence']
+        ? path.resolve(root, values['similarity-evidence'])
+        : undefined;
+      const useLedger = Boolean(
+        values.ledger
+        || values.unimported
+        || values['exclude-imported']
+        || similarityEvidencePath
+        || fs.existsSync(ledgerPath)
+      );
+      const result = useLedger
+        ? applyLedgerView(raw, absoluteSource, ledgerPath, filter, similarityEvidencePath)
+        : raw;
       emit(values.json ? JSON.stringify(result, null, 2) : formatInspect(result));
       return 0;
     }
@@ -216,12 +234,17 @@ export interface InspectLedgerCandidate {
   staleClaims?: string[];
   /** Evidence-only predecessor proposals; never an automatic identity/review transfer. */
   lineageCandidates?: LineageCandidate[];
+  /** Research/provider scores; never used as exact import/identity evidence. */
+  researchScores?: readonly ProviderScore[];
+  /** Explicit pairwise similarity comparisons loaded from a research sidecar. */
+  similarityEvidence?: readonly CandidateSimilarityEvidenceEntry[];
 }
 
 export interface InspectLedgerView {
   file: string;
   filter: CandidateLedgerFilter;
   candidates: InspectLedgerCandidate[];
+  similarityEvidenceFile?: string;
 }
 
 export interface InspectImage {
@@ -311,9 +334,23 @@ function applyLedgerView(
   absoluteSource: string,
   ledgerPath: string,
   filter: CandidateLedgerFilter,
+  similarityEvidencePath?: string,
 ): InspectResult {
   const ledger = readLedger(ledgerPath);
-  const view = candidateLedgerView(result.candidates, ledger, ledgerPath, absoluteSource, filter);
+  const similarity = similarityEvidencePath
+    ? {
+        document: readCandidateSimilarityEvidence(similarityEvidencePath),
+        evidencePath: similarityEvidencePath,
+      }
+    : undefined;
+  const view = candidateLedgerView(
+    result.candidates,
+    ledger,
+    ledgerPath,
+    absoluteSource,
+    filter,
+    similarity,
+  );
   const allowed = new Set(view.map(({ candidate }) => candidateDisplayKey(candidate)));
   return {
     ...result,
@@ -330,13 +367,18 @@ function applyLedgerView(
     ledger: {
       file: path.relative(process.cwd(), ledgerPath).split(path.sep).join('/') || path.basename(ledgerPath),
       filter,
-      candidates: view.map(({ candidate, ledgerState, staleClaims, lineageCandidates }) => ({
+      ...(similarityEvidencePath
+        ? { similarityEvidenceFile: path.relative(process.cwd(), similarityEvidencePath).split(path.sep).join('/') || path.basename(similarityEvidencePath) }
+        : {}),
+      candidates: view.map(({ candidate, ledgerState, staleClaims, lineageCandidates, researchScores, similarityEvidence }) => ({
         kind: candidate.kind,
         ...(candidate.locator.sheet ? { sheet: candidate.locator.sheet } : {}),
         place: placeOf(candidate),
         state: ledgerState,
         ...(staleClaims ? { staleClaims } : {}),
         ...(lineageCandidates.length > 0 ? { lineageCandidates } : {}),
+        ...(researchScores.length > 0 ? { researchScores } : {}),
+        ...(similarityEvidence.length > 0 ? { similarityEvidence } : {}),
       })),
     },
   };
@@ -356,7 +398,9 @@ function formatInspect(result: InspectResult): string {
     if (!item) return '';
     const claims = item.staleClaims?.length ? ` [stale: ${item.staleClaims.join(', ')}]` : '';
     const lineage = item.lineageCandidates?.length ? ` [lineage: ${item.lineageCandidates.length}]` : '';
-    return `  ledger: ${item.state}${claims}${lineage}`;
+    const scores = item.researchScores?.length ? ` [research scores: ${item.researchScores.length}]` : '';
+    const similarity = item.similarityEvidence?.length ? ` [similarity: ${item.similarityEvidence.length}]` : '';
+    return `  ledger: ${item.state}${claims}${lineage}${scores}${similarity}`;
   };
   const lines = [`source: ${result.source}`];
   if (result.ledger) lines.push(`ledger: ${result.ledger.file} (${result.ledger.filter})`);

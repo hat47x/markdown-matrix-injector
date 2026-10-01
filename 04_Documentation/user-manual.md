@@ -189,7 +189,7 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 
 | コマンド | 内容 |
 | --- | --- |
-| `mmi inspect <正本>` | シートごとの表の範囲・見出し・行数と、そのまま使える参照の例を表示。既定ではセル値を出さない（`--values 3`で先頭3行を表示）。`.xlsx`では画像も一覧に出す。取り込み台帳がある場合は `imported / changed / stale / duplicate / unimported` を照合し、`--unimported`で一度も取り込んでいないoccurrenceだけ、`--exclude-imported`で完全一致の取込済み以外を表示できる。台帳は`--ledger`で指定可能 |
+| `mmi inspect <正本>` | シートごとの表の範囲・見出し・行数と、そのまま使える参照の例を表示。既定ではセル値を出さない（`--values 3`で先頭3行を表示）。`.xlsx`では画像も一覧に出す。取り込み台帳がある場合は `imported / changed / stale / duplicate / unimported` を照合し、`--unimported`で一度も取り込んでいないoccurrenceだけ、`--exclude-imported`で完全一致の取込済み以外を表示できる。台帳は`--ledger`で指定可能。研究用のpairwise similarity sidecarは`--similarity-evidence <file>`で併記できるが、取込済み判定には使わない |
 | `mmi extract <ブック.xlsx> --image <番号\|all>` | Excelに貼られた画像を`assets/`（`--out-dir`で変更）へ書き出し、Markdownの画像参照と出典を出力する。CLIでは同時に`<root>/mmi-ledger.json`へoccurrence・content fingerprint・出力先・変換条件・review basisを記録する（`--ledger`で変更）。同じ画像が別の場所にもある場合は別occurrenceとして残し、review stateを自動継承しない |
 | `mmi check <文書またはフォルダー>` | 参照の誤りを「問題」パネルと同じ診断コードで表示。誤りがあれば終了コード1 |
 | `mmi render <文書>` | 参照を展開したMarkdownを出力。`--to html`でPDF変換用のHTML |
@@ -197,7 +197,7 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 
 参照を検証する範囲（ワークスペース）は、実行したフォルダーです。`--root`で変えられます。`--json`を付けると機械可読な出力になります。
 
-**取り込み台帳について。** 台帳は通常のJSONで、MMIを外しても読めます。セル位置や画像のanchorなどのoccurrence identityと、画像bytesや表内容のcontent fingerprintは分けて記録します。同じ画像bytesが別の場所にあっても、その場所を「取込済み」にはしません（`duplicate`）。同じ場所の内容が変わった場合は`changed`として再確認対象にします。内容fingerprintが同じでも、review時に根拠にしたClaim・evidence・methodが変わった場合は`stale`として示し、変わったClaim名を確認できます。別の場所へ移動した可能性があるCandidateは、同一content、同一sheet、object名、source-native object、近傍表などをlineage evidenceとして候補表示しますが、自動的に同一物とはみなしません。研究層の類似判定は完全一致・lineage evidenceとは別の証拠として扱い、類似だけを理由に自動除外しません。
+**取り込み台帳について。** 台帳は通常のJSONで、MMIを外しても読めます。セル位置や画像のanchorなどのoccurrence identityと、画像bytesや表内容のcontent fingerprintは分けて記録します。同じ画像bytesが別の場所にあっても、その場所を「取込済み」にはしません（`duplicate`）。同じ場所の内容が変わった場合は`changed`として再確認対象にします。内容fingerprintが同じでも、review時に根拠にしたClaim・evidence・methodが変わった場合は`stale`として示し、変わったClaim名を確認できます。別の場所へ移動した可能性があるCandidateは、同一content、同一sheet、object名、source-native object、近傍表などをlineage evidenceとして候補表示しますが、自動的に同一物とはみなしません。研究層の類似判定は完全一致・lineage evidenceとは別の証拠として扱います。`--json`ではCandidate自身が持つprovider別・scale別の値を`researchScores`として確認できます。別のoccurrenceとの比較結果は`--similarity-evidence <file>`で読み込んだsidecarから`similarityEvidence`として表示し、比較対象・provider/version・metric semanticsも一緒に保持します。異なるprovider/scale/namespaceの値を平均したり、scoreが高いという理由だけで`imported`・`duplicate`へ変更したり、`--unimported`から自動除外したりしません。
 
 **画像について。** Excelに画面ダンプなどを貼って設計を整理する書き方は、そのまま続けられます。`extract`は画像を取り出して参照できる形にするだけで、Excel側の画像は変わりません。Excelで画像を差し替えたり動かしたりしても、次に`inspect`を実行すれば現在の位置と内容が分かります。取り出せるのはPNG・JPEG・GIF・BMP・SVGです。EMF・WMF・TIFF、外部ファイルへのリンク、壊れた図形は、取り出さずに理由を表示します。`.xls`（旧形式）の画像は読めません。
 

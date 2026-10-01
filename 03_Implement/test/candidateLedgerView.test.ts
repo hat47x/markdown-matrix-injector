@@ -4,6 +4,10 @@ import path from 'node:path';
 
 import { fingerprintOf, type Candidate } from '../src/core/candidate.js';
 import { candidateLedgerView } from '../src/core/candidateLedgerView.js';
+import {
+  CANDIDATE_SIMILARITY_EVIDENCE_SCHEMA,
+  type CandidateSimilarityEvidenceDocument,
+} from '../src/core/candidateSimilarityEvidence.js';
 import { emptyLedger, entryFor, type Ledger } from '../src/core/importLedger.js';
 
 const ledgerPath = path.resolve('/workspace/mmi-ledger.json');
@@ -139,4 +143,100 @@ test('lineage evidence is exposed without inheriting review state', () => {
   assert.equal(view[0].lineageCandidates.length, 1);
   assert.equal(view[0].lineageCandidates[0].place, 'B2:D8');
   assert.deepEqual(view[0].lineageCandidates[0].reasons, ['same-content']);
+});
+
+
+test('research scores stay evidence-only and never change ledger filtering', () => {
+  const scored: Candidate = {
+    ...newOccurrence,
+    execution: 'provider-dependent',
+    claims: newOccurrence.claims.map((claim) => ({
+      ...claim,
+      execution: 'provider-dependent',
+    })),
+    provenance: {
+      algorithm: 'research.similarity-probe',
+      run: {
+        execution: 'provider-dependent',
+        inputDigest: newOccurrence.locator.sourceDigest,
+        provider: 'research.flyhash-v0',
+        model: 'fixture',
+        artifactVersion: '1',
+        parameters: {},
+      },
+    },
+    scores: [
+      { provider: 'research.flyhash-v0', scale: 'cosine', value: 0.9999 },
+      { provider: 'research.alt-v0', scale: 'rank', value: 1 },
+    ],
+  };
+
+  const all = candidateLedgerView(
+    [scored],
+    ledger,
+    ledgerPath,
+    sourcePath,
+    'all',
+  );
+  assert.equal(all[0].ledgerState, 'unimported');
+  assert.deepEqual(all[0].researchScores, scored.scores);
+
+  // Even an extremely high research score is not exact content/occurrence
+  // evidence and cannot remove the candidate from the unimported view.
+  const unimported = candidateLedgerView(
+    [scored],
+    ledger,
+    ledgerPath,
+    sourcePath,
+    'unimported',
+  );
+  assert.equal(unimported.length, 1);
+  assert.equal(unimported[0].ledgerState, 'unimported');
+  assert.deepEqual(unimported[0].researchScores, scored.scores);
+});
+
+
+test('pairwise similarity sidecar is display evidence only and cannot change unimported state', () => {
+  const evidencePath = path.resolve('/workspace/research-similarity.json');
+  const document: CandidateSimilarityEvidenceDocument = {
+    schema: CANDIDATE_SIMILARITY_EVIDENCE_SCHEMA,
+    entries: [{
+      source: 'data/design.xlsx',
+      kind: 'image',
+      sheet: 'Sheet3',
+      place: 'E2:F6',
+      provider: { id: 'research.embedding-v0', version: '1' },
+      metric: {
+        namespace: 'research.embedding-v0',
+        name: 'cosine',
+        semantics: 'pairwise visual-semantic similarity only; not identity',
+        value: 0.99999,
+        range: { min: -1, max: 1 },
+        higherIsStronger: true,
+      },
+      target: {
+        source: 'data/design.xlsx',
+        kind: 'image',
+        sheet: 'Sheet1',
+        place: 'B2:D8',
+        fingerprint: imported.fingerprint,
+      },
+      evidence: [{ code: 'research-only' }],
+    }],
+  };
+
+  const view = candidateLedgerView(
+    [newOccurrence],
+    ledger,
+    ledgerPath,
+    sourcePath,
+    'unimported',
+    { document, evidencePath },
+  );
+
+  assert.equal(view.length, 1);
+  assert.equal(view[0].ledgerState, 'unimported');
+  assert.equal(view[0].similarityEvidence.length, 1);
+  assert.equal(view[0].similarityEvidence[0].metric.value, 0.99999);
+  assert.equal(view[0].similarityEvidence[0].target.place, 'B2:D8');
 });
