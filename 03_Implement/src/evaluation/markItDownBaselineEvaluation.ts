@@ -335,7 +335,7 @@ function assertSha256(name: string, value: unknown): asserts value is string {
 }
 
 function assertNonNegativeInteger(name: string, value: unknown): asserts value is number {
-  if (!Number.isInteger(value) || (value as number) < 0) {
+  if (typeof value !== 'number' || !Number.isInteger(value) || value < 0) {
     throw new Error(`${name} must be a non-negative integer`);
   }
 }
