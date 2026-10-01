@@ -90,3 +90,25 @@ test('ledger is readable JSON and survives a write/read round trip', () => {
   assert.match(raw, /"reviewState": "confirmed"/u);
   assert.match(raw, /"basis": "mmi extract"/u);
 });
+
+
+test('same digest under a different fingerprint representation is changed, not imported', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-ledger-'));
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const source = path.join(root, 'design.xlsx');
+  const first = candidate('image-a');
+
+  recordEntries(ledgerPath, [
+    entryFor(ledgerPath, source, first, path.join(root, 'assets', 'image-a.png'), 'mmi extract'),
+  ]);
+  const ledger = readLedger(ledgerPath);
+  const changedRepresentation: Candidate = {
+    ...first,
+    fingerprint: {
+      ...first.fingerprint,
+      representation: 'image-media-bytes-v2',
+    },
+  };
+
+  assert.equal(classify(ledger, ledgerPath, source, changedRepresentation), 'changed');
+});
