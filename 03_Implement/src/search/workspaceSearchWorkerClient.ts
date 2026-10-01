@@ -34,8 +34,8 @@ interface ErrorMessage {
 
 type WorkerMessage = ProgressMessage | ResultMessage | ErrorMessage;
 
-interface PendingRequest<T> {
-  resolve(value: T): void;
+interface PendingRequest {
+  resolve(value: any): void;
   reject(error: Error): void;
   onProgress?: (done: number, total: number) => void;
   cleanup?: () => void;
@@ -53,7 +53,7 @@ export interface WorkspaceSearchWorkerClientOptions {
 
 export class WorkspaceSearchWorkerClient {
   private readonly worker: Worker;
-  private readonly pending = new Map<number, PendingRequest<unknown>>();
+  private readonly pending = new Map<number, PendingRequest>();
   private nextId = 1;
   private disposed = false;
   private regions = 0;
