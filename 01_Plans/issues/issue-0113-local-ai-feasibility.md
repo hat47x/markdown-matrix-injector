@@ -1,36 +1,38 @@
-# Issue: 追加API課金を伴わないローカルAIの実現性検証
+# Issue: 追加API課金を伴わないローカルLLM providerの実現性を評価する
 
 ## Meta
-- Type: Feature
+- Type: Evaluation / Feature design
 - Status: Draft
-- Priority: Medium
-- Scope: ローカル推論adapter試作, 評価fixture, evidence（製品採用は結果後）
+- Priority: Low
+- Scope: Cognitive Assistance Planeのローカルgenerative provider、評価fixture、evidence
 - Expected verification level: manual-e2e
 
 ## Traceability
-- Related Requirement: requirements.md「執筆支援」「公開品質」
-- Related ADR/Spec: ADR-0016-notation-first-input-assistance.md, 04_Documentation/spec/mmi-notation-v1.md
-- Dependency: 主経路の前提にはしない。issue-0193 / ADR-0018のCognitive Contractに従い、具体的なbounded taskが定まったときに評価する
+- Related Requirement: requirements.md「認知支援」「AI・認知技術との3経路」
+- Related ADR/Spec: ADR-0018 D2・D4・D8・D11
+- Dependency: provider-neutral Cognitive Contract（issue-0135）はDone。Fly / Jev系の軽量providerを先に利用し、ローカルLLMが必要な具体的タスクを特定してから再開する
 
-## Execution Plan
-### Proposed solution
-[入力支援企画](../input-assistance-proposal.md)の該当範囲を1件ずつ実施する。今回は企画のみで未着手。ADRの提案を具体化してからOpenへ変更する。
+## 背景
 
-### Acceptance criteria
-- [ ] Windowsローカル環境でローカルモデルとクラウド無効化を確認。ネット遮断下で正常提案を生成し、外部通信・外部API課金を生じない。
-- [ ] 明示操作1回に最大1要求。停止・タイムアウト・未導入・モデル不在で選択式入力へ戻り、自動再試行や有料先への切替をしない。
-- [ ] 文法を満たす候補でも利用者の確認前には適用しない。元データの書込み機能・任意コマンド実行を提供しない。
-- [ ] 正常10件、曖昧5件、非対応/悪意ある5件を評価し、構文成功と意図一致を別計測する。正常は9/10以上を採用目標とし、誤った自動適用は0件を必須とする。
-- [ ] モデル/量子化/ライセンス/メモリ/端末、初回ロード、通常応答時間を記録し、採用/改善/見送りを結論にする。無償クラウド枠をローカル実行とみなさない。
+MMI内部の認知は、外部API課金を前提にしない。優先するのは決定論的規則、Fly-inspired matcher、Jev類似のbounded model等の軽量なローカル処理である。
 
-### Validation plan
-既存のビルド・単体・Extension Hostを回帰検査する。新しい動作は実VS Codeで確認し、候補選択・キャンセル・Undo・原本ハッシュと通信範囲を記録する。測定値を取得するまでは性能やAI品質の目標を達成済みとしない。
+ローカルLLMも第2経路「MMI内部の軽量・ローカル認知」の候補になり得るが、汎用的な推論器として常時起動したり、Fly / Jev / 規則の失敗時に自動fallbackしたりしない。**具体的な解析タスクで、より軽い方式では不足すると観測された場合にだけ評価する交換可能なprovider**として扱う。
+
+## Acceptance criteria
+
+- [ ] 再開時には、ローカルLLMを必要とする具体的なCandidate / Structuralizer / explanationタスクと、規則・Fly・bounded Judgmentでは不足する証拠を先に記録する。
+- [ ] providerはADR-0018のCognitive Contractに従い、Authority Planeへ直接接続しない。
+- [ ] Windows / Linuxの少なくとも一方の一般的なCPU環境で、ネット遮断下でも動作し、外部通信・外部API課金を生じない。
+- [ ] モデル不在、メモリ不足、timeout、unsupported時はabstain / unavailableとして処理し、別の有料providerへ自動切替しない。
+- [ ] source全文を無条件に渡さず、Derived Cognitive Stateまたは限定された抜粋を入力とする。
+- [ ] 生成結果を事実として扱わず、Candidate / proposalとして返し、適用前にAuthority Planeで再検証する。
+- [ ] モデル、量子化、ライセンス、メモリ、初回ロード、通常応答時間、CPU使用量を記録し、同じタスクの非LLM方式と比較する。
+- [ ] 採用してもMMI Notation conformanceや基本機能の必須依存にしない。
+
+## Validation plan
+
+再開条件を満たす具体的タスクについて、規則 / Fly等の既存方式と同じfixtureで比較する。正常、曖昧、unsupported、悪意ある入力を含め、誤った自動適用0件を必須とする。ネットワークを遮断した状態で同じ評価を実行する。
 
 ## Remaining work
 
-ローカルLLMはMMI内部の軽量認知候補の一つとして維持するが、主経路の前提にはしない。Fly-inspired matcher、Jev類似のbounded model、決定論的規則で不足する具体的な判断タスクが定まったときに、本Issueで比較評価する。
-
-- まず対象タスクを閉じた形で定義する（例: Candidate種別の限定分類、短い説明の補助）。
-- CPUのみで実用的かを測り、既存の規則・疎表現・Jev類似方式と同条件で比較する。
-- 性能・精度が不足しても課金型外部LLMへ自動切替しない。
-- 採用しない場合もAuthority Planeと外部LLM handoff（issue-0112）は影響を受けない。
+**現時点では保留。** 「CPU探索の精度が低いからLLMへ切り替える」という理由だけでは再開しない。issue-0193以降でCandidate / Structuralizerの実利用を進め、規則・Fly・Jev類似技術で扱いにくい具体的な意味判断が観測された時点で再評価する。
