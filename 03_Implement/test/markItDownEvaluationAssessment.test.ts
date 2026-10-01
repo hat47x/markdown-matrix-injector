@@ -162,4 +162,22 @@ test('assessment spec refuses evaluative thresholds or incomplete boundaries', (
     () => readMarkItDownAssessmentSpec(invalid),
     /no_pass_fail_threshold must be true/u,
   );
+
+  const extra = JSON.parse(fs.readFileSync(specPath, 'utf8'));
+  extra.quality_score = 0.95;
+  const extraPath = path.join(temp, 'extra.json');
+  fs.writeFileSync(extraPath, JSON.stringify(extra));
+  assert.throws(
+    () => readMarkItDownAssessmentSpec(extraPath),
+    /unexpected field: quality_score/u,
+  );
+
+  const drift = JSON.parse(fs.readFileSync(specPath, 'utf8'));
+  drift.observations.push('overall_quality_score');
+  const driftPath = path.join(temp, 'drift.json');
+  fs.writeFileSync(driftPath, JSON.stringify(drift));
+  assert.throws(
+    () => readMarkItDownAssessmentSpec(driftPath),
+    /frozen descriptive observation set/u,
+  );
 });
