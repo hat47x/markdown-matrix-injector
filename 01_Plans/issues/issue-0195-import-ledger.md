@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Feature
-- Status: In Progress
+- Status: Done
 - Priority: Medium
 - Scope: src/core（台帳）、src/cli（`inspect --unimported`、`extract`）、docs
 - Expected verification level: integration
@@ -41,6 +41,10 @@ lineage reconciliationは自動同一視を行わず、過去entryを候補と�
 ## Validation plan
 issue-0194のテスト用ブックで、画像を1件取り込んだ後に`inspect --unimported`から外れること、ブック内の別シートにある同じ画像が「完全一致」と示されること、画像を差し替えると「変更あり」と示されることを確かめる。
 
-## Remaining work
-- 納品物一覧（delivery manifest）との統合の要否。
-- 一括変換（ADR-0019 D9）の結果を台帳へ登録する方法は、変換器の評価後に決める。
+## Completion decision（2026-10-02）
+
+issue-0195の受入条件はすべて完了した。
+
+- **Delivery manifestとは保存形式を統合しない。** 現行のdelivery manifestはLinked文書でカード扱いになる別紙を納品時に列挙する一覧であり、import ledgerはExtracted Candidateのoccurrence/content/review/provenance履歴である。ライフサイクルと意味が異なるため、同じ台帳へ混在させない。将来、detachabilityや納品監査で横断表示が必要になった場合は、両方を入力にするread-only reportとして接続する。
+- **一括変換の台帳登録はissue-0200へ委譲する。** issue-0200にはすでに「baseline conversion → Candidate reconciliation → Markdown/assets → import ledger」と、一括変換結果をissue-0195の台帳へ登録して後続の`inspect --unimported`と整合させる受入条件がある。Converter評価前に0195側へ固有処理を追加しない。
+- CandidateレビューUIはissue-0202が本台帳のstate/filterを利用する。0195側にUI責務を持ち込まない。

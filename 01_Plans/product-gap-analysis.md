@@ -1,20 +1,20 @@
 # 製品価値と現行実装のギャップ
 
 - 基準: [ADR-0019](adr/ADR-0019-ai-era-sier-document-value-and-policy.md)（2026-10-01 Accepted）と[製品要求](../00_Prompt/requirements.md)
-- 測定日: 2026-10-01（ADR-0020、Issue 0204、local runtime再利用方針まで反映）
+- 測定日: 2026-10-02（issue-0193〜0195のCandidate・画像Extracted・import ledgerまで反映）
 - 本書は差分の地図であり、作業順の正本は[現在の作業](README.md)とする。差分が解消したら行を消し、経緯は書き足さない。
 
 ## 1. 要約
 
-MMIは「Linked（参照）」の状態だけを実装しており、その品質は高い。ADR-0019 D0・D13のとおり、人がExcelで書き続ける情報はLinkedのままでよく、Linkedは過渡期の仮の姿ではない。残り2状態「Extracted（取り込み）」と「Detached（切り離し）」は、要素技術の一部（原本の同一性、領域検出、書式認識の研究）はあるが、利用者が使える経路が1本もない。
+MMIはLinked（参照）を表で実装済みで、Extracted（取り込み）もExcel埋込画像の最小縦切りがCLIで成立した。画像Candidateを列挙・assetsへ抽出し、import ledgerで取込済み・変更・stale・lineage・研究類似Evidenceを追跡できる。ADR-0019 D0・D13のとおり、人がExcelで書き続ける情報はLinkedのままでよく、Linkedは過渡期の仮の姿ではない。残る大きな差分はExtractedを表・図形・Tree等へ一般化することと、Detached（切り離し）を成立させることである。
 
 | 状態 | 実装 | 主な不足 |
 | --- | --- | --- |
 | Linked | 実装済み（表のみ）。VS Code・CLIの両方から使える | 画像・図形・ツリーの参照がない |
-| Extracted | 未実装 | Candidateの契約、画像の抽出、取り込み台帳、由来の記録 |
+| Extracted | **一部実装**（Excel埋込画像） | 表・図形・Tree等のextract、レビューUI、一括変換との統合 |
 | Detached | 未実装 | 展開（`render`）は別紙カードを「別紙: パス」の1行に置き換えるだけで、原本を外すと情報が欠ける。`detach check`がない |
 
-最大のギャップは、**研究層の成果（領域検出・書式認識・レビュー経路）とCandidateの間の共通契約がまだ実装されていない**ことである。追跡は[issue-0193](issues/issue-0193-candidate-source-adapter-contract.md)へ集約した。新しい研究段階を独立に増やすより、既存成果をCandidate / Structuralizerへ接続する作業を先に行う。
+Candidateの共通契約はissue-0193で実装済みで、表・画像が利用している。現在の主なギャップは、研究層の成果をCandidate検索・属性として製品面へ接続すること、画像以外のExtractedを増やすこと、人の作業を止めないレビューUI、一括変換、Detachedである。新しい研究段階を独立に増やすより、既存成果をこれらの製品経路へ接続する作業を優先する。
 
 ## 2. 能力ごとの差分
 
@@ -24,15 +24,15 @@ MMIは「Linked（参照）」の状態だけを実装しており、その品�
 | --- | --- | --- | --- | --- |
 | 参照 | ● | MMI Notation v1、VS Codeプレビュー、CLI `render` | 表以外のCandidateの参照 | 2〜3 |
 | 目録 | ◐ | CLI `inspect`（表の領域・見出し・行数、Excel画像の位置・形式・ダイジェスト・近くの表、`--json`のCandidate形式。`src/cli/mmi.ts`） | 図形・注記・リンクの列挙 | 2〜3 |
-| 候補抽出 | ◐ | 製品: 表の領域検出（`src/search/regionDetector.ts`）。研究: 表らしさ・見出し境界（structured artifact）、既知書式（worksheet format） | 共通Candidate型、`observed/inferred`と`deterministic/provider-dependent`の2軸、method class（ADR-0020 M0〜M5）、研究成果の製品接続 | 1 |
+| 候補抽出 | ◐ | 共通Candidate型を実装し、表・Excel画像を`mmi inspect --json`へ出力。研究: 表らしさ・見出し境界（structured artifact）、既知書式（worksheet format） | Tree/Shape等のCandidate化、研究成果の製品接続 | 1〜3 |
 | 個別取り込み | ◐ | CLI `extract`（Excel画像をassetsへ、Markdown参照と出典つき。実Excelで検証済み。`src/cli/extract.ts`） | 表・図形・構造化データの`extract`、VS Code上の採否UI（issue-0202） | 2 |
 | 一括変換 | ○ | なし | 既存変換器をbaseline converterとして評価し、Candidate・取り込み台帳へ接続（[issue-0200](issues/issue-0200-baseline-bulk-import.md)） | 2（後半） |
-| 重複回避 | ○ | 原本の同一性（`src/core/sourceIdentity.ts`、ファイル全体のsha256） | Candidate単位のfingerprint、取り込み台帳、「未取込のみ」の表示 | 2 |
+| 重複回避 | ● | Candidate単位のfingerprint、`mmi.ledger/v1`、`imported/changed/stale/duplicate/unimported`、`--unimported` / `--exclude-imported`、lineage・similarity Evidence分離 | UIからの利用はissue-0202、一括変換からの登録はissue-0200 | 2 |
 | シートの画像化 | ○ | Windows補助プロセスの前例（ADR-0017、クリップボード） | 図形・レイアウトに意味があるシート・範囲を画像として取り込む`Sheet / Region snapshot`（ADR-0019 D0）。CIで再現できる描画を優先し、COMは手元の補助（ADR-0019 D14。いずれも未検証） | 2 |
 | 構造化 | ○ | なし（研究に階層関係のラベル`region.hierarchy_relation`がある） | JSON/XMLの明示ツリー、フラットテキスト・配置からの推定ツリー（[issue-0199](issues/issue-0199-tree-structured-source-adapters.md)） | 3 |
 | 変換・表示 | ● | 変換パイプライン、強調、コード表示、キャプション | 画像参照の表示 | 2 |
 | 検証 | ● | 診断コード6種、CLI `check`（JSON・終了コード） | Candidate・取り込み結果の診断 | 2 |
-| provenance | ◐ | Source Identity v1、納品物一覧（パス・範囲・理由） | 取り込み結果ごとの出典・変換条件・ダイジェストを記したmanifest | 2 |
+| provenance | ◐ | Source Identity v1、納品物一覧（Linked）、import ledger（Extractedのsource/occurrence/fingerprint/output/conversion/review basis） | 他Candidate種別と一括変換への拡張、detach監査用の横断report | 2〜4 |
 | materialize | ◐ | CLI `render --to md`（表をGFM表へ展開） | 別紙カードの実体化（現在は「別紙: パス」の1行）、画像の実体化 | 4 |
 | detach check | ○ | なし | 未展開参照・未取込資産・壊れたリンクの列挙 | 4 |
 | 執筆支援 | ● | 補完、貼り付け（Windowsの出所取得を含む）、説明からの検索、案内付きの作成、ホバー | 多環境の実機確認（issue-0110）、利用者の観測（issue-0111）、Candidateを非同期に採否するレビューUI（[issue-0202](issues/issue-0202-candidate-review-ui.md)） | 継続〜2 |
@@ -62,7 +62,7 @@ ADR-0020で、認知方式をモデル種別ではなく要件ごとに選ぶ方
 - **執筆ベンチマーク v0（[結果](../04_Documentation/benchmarks/ai-writing/results/2026-09-30-v0.md)）:** 12行程度の表では、MMIなしでもAIは表を誤って写さなかった。差が出たのは正本の変更後で、写した表は古くなり、参照した表は追従した。Linkedの価値は単発の正確さより追従にある。ADR-0019がExtracted・Detachedへ価値を広げたことと整合する。
 - **本文と表の矛盾は未検出:** 正本の変更後、参照した表は追従したが、本文の説明（「申請者は承認できない」）は古いまま残った。ADR-0019 D12のとおり業務的正しさは保証外だが、人がExcel側を直し続ける運用では、Markdown側の本文が気づかれずに古くなる危険がある。
 - **人の作業を止めない設計の未検証:** 現行の診断は、VS Codeで書いている最中にも「問題」パネルへ同じ強さで出る。ADR-0019 D13の「執筆中は控えめに、レビュー・CI・AIには網羅的に」の区別はまだない。
-- **画像の読み取り:** 依存を増やさずに、SheetJSの`bookFiles`からxlsx内の任意の部品（`xl/media/*`、`xl/drawings/*.xml`）を取り出せることを確認した。ただし画像を含む実物のブックはリポジトリになく、anchorの解析は未確認である。
+- **画像の読み取り:** SheetJSの`bookFiles`からOOXML drawing/mediaを読み、画像Candidate化と`extract`を実装した。コード生成fixtureに加え、実Excelブックで4枚のanchorがExcel自身の開始・終了セルと一致し、抽出bytesも元画像と一致することを確認済み。
 
 ## 4. 計画と運用の差分
 
