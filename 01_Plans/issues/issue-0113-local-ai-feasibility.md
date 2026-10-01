@@ -10,7 +10,7 @@
 ## Traceability
 - Related Requirement: requirements.md「執筆支援」「公開品質」
 - Related ADR/Spec: ADR-0016-notation-first-input-assistance.md, 04_Documentation/spec/mmi-notation-v1.md
-- Dependency: 保留。非GPU性能の懸念により実装順から除外。再開は別判断
+- Dependency: 主経路の前提にはしない。issue-0193 / ADR-0018のCognitive Contractに従い、具体的なbounded taskが定まったときに評価する
 
 ## Execution Plan
 ### Proposed solution
@@ -28,6 +28,9 @@
 
 ## Remaining work
 
-**保留。着手しない。** 非GPU環境での性能懸念により実装順から除外している。再開は別判断とする。
+ローカルLLMはMMI内部の軽量認知候補の一つとして維持するが、主経路の前提にはしない。Fly-inspired matcher、Jev類似のbounded model、決定論的規則で不足する具体的な判断タスクが定まったときに、本Issueで比較評価する。
 
-保留の前提: 主経路（貼り付け・補完・CPU探索）はローカルLLMに依存しない設計になっている。CPU探索（issue-0115）の評価結果が目標に届かない場合でも、[ADR-0016](../adr/ADR-0016-notation-first-input-assistance.md)に従いLLMへ自動で切り替えない。本Issueを再開するかは、その時点で改めて判断する。
+- まず対象タスクを閉じた形で定義する（例: Candidate種別の限定分類、短い説明の補助）。
+- CPUのみで実用的かを測り、既存の規則・疎表現・Jev類似方式と同条件で比較する。
+- 性能・精度が不足しても課金型外部LLMへ自動切替しない。
+- 採用しない場合もAuthority Planeと外部LLM handoff（issue-0112）は影響を受けない。
