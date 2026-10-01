@@ -154,15 +154,93 @@ function xmlStartTagEnd(xml: string): number {
 function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
 }
+function xmlAttributes(tag: string): Map<string, string> | null {
+  const open = /^<(?:(?:[A-Za-z_][A-Za-z0-9_.-]*):)?[A-Za-z_][A-Za-z0-9_.-]*/u.exec(
+    tag,
+  );
+  if (!open || !tag.endsWith('>')) {
+    return null;
+  }
+
+  let contentEnd = tag.length - 1;
+  let beforeEnd = contentEnd - 1;
+  while (
+    beforeEnd >= 0
+    && /[\t\n\r ]/u.test(tag[beforeEnd])
+  ) {
+    beforeEnd -= 1;
+  }
+  if (tag[beforeEnd] === '/') {
+    contentEnd = beforeEnd;
+  }
+
+  const attributes = new Map<string, string>();
+  let index = open[0].length;
+  while (index < contentEnd) {
+    while (
+      index < contentEnd
+      && /[\t\n\r ]/u.test(tag[index])
+    ) {
+      index += 1;
+    }
+    if (index >= contentEnd) {
+      break;
+    }
+
+    const name = /^[A-Za-z_][A-Za-z0-9_.:-]*/u.exec(
+      tag.slice(index, contentEnd),
+    )?.[0];
+    if (!name) {
+      return null;
+    }
+    index += name.length;
+
+    while (
+      index < contentEnd
+      && /[\t\n\r ]/u.test(tag[index])
+    ) {
+      index += 1;
+    }
+    if (tag[index] !== '=') {
+      return null;
+    }
+    index += 1;
+
+    while (
+      index < contentEnd
+      && /[\t\n\r ]/u.test(tag[index])
+    ) {
+      index += 1;
+    }
+    const quote = tag[index];
+    if (quote !== '"' && quote !== "'") {
+      return null;
+    }
+    index += 1;
+
+    const valueStart = index;
+    const valueEnd = tag.indexOf(quote, valueStart);
+    if (valueEnd < 0 || valueEnd > contentEnd) {
+      return null;
+    }
+    const value = tag.slice(valueStart, valueEnd);
+    if (value.includes('<') || attributes.has(name)) {
+      return null;
+    }
+    attributes.set(name, value);
+    index = valueEnd + 1;
+  }
+
+  return attributes;
+}
+
 function xmlAttributeValue(
   tag: string,
   attribute: string,
 ): string | undefined {
-  return new RegExp(
-    `(?:^|\\s)${escapeRegExp(attribute)}\\s*=\\s*(["'])([^"']*)\\1`,
-    'u',
-  ).exec(tag)?.[2];
+  return xmlAttributes(tag)?.get(attribute);
 }
+
 function rootElementNamespace(
   xml: string,
   expectedLocalName: 'Types' | 'Relationships' | 'workbook',
@@ -185,14 +263,13 @@ function rootElementNamespace(
   }
 
   const prefix = open.groups.prefix;
-  const attrs = startTag.slice(open[0].length, -1);
-  const namespacePattern = prefix
-    ? new RegExp(
-      `(?:^|\\s)xmlns:${escapeRegExp(prefix)}\\s*=\\s*(["'])([^"']+)\\1`,
-      'u',
-    )
-    : /(?:^|\s)xmlns\s*=\s*(["'])([^"']+)\1/u;
-  const namespace = namespacePattern.exec(attrs)?.[2];
+  const attrs = xmlAttributes(startTag);
+  if (!attrs) {
+    return null;
+  }
+  const namespace = prefix
+    ? attrs.get('xmlns:' + prefix)
+    : attrs.get('xmlns');
   if (!namespace) {
     return null;
   }
@@ -227,12 +304,21 @@ type XmlElementStart = {
   selfClosing: boolean;
 };
 
-function xmlNamespaceDeclarations(tag: string): Map<string, string> {
+function xmlNamespaceDeclarations(
+  tag: string,
+): Map<string, string> | null {
+  const attributes = xmlAttributes(tag);
+  if (!attributes) {
+    return null;
+  }
+
   const result = new Map<string, string>();
-  for (const match of tag.matchAll(
-    /(?:^|\s)xmlns(?::([A-Za-z_][A-Za-z0-9_.-]*))?\s*=\s*(["'])([^"']+)\2/gu,
-  )) {
-    result.set(match[1] ?? '', match[3]);
+  for (const [name, value] of attributes) {
+    if (name === 'xmlns') {
+      result.set('', value);
+    } else if (name.startsWith('xmlns:')) {
+      result.set(name.slice('xmlns:'.length), value);
+    }
   }
   return result;
 }
@@ -269,6 +355,9 @@ function xmlDirectChildStartTags(
     return null;
   }
   const rootNamespaces = xmlNamespaceDeclarations(rootTag);
+  if (!rootNamespaces) {
+    return null;
+  }
   const rootNamespace =
     rootNamespaces.get(rootName.prefix ?? '') ?? null;
   if (!rootNamespace) {
@@ -356,11 +445,12 @@ function xmlDirectChildStartTags(
     const selfClosing = /\/\s*>$/u.test(raw);
 
     if (stack.length === 0) {
+      const localDeclarations = xmlNamespaceDeclarations(raw);
+      if (!localDeclarations) {
+        return null;
+      }
       const localNamespaces = new Map(rootNamespaces);
-      for (
-        const [prefix, namespace]
-        of xmlNamespaceDeclarations(raw)
-      ) {
+      for (const [prefix, namespace] of localDeclarations) {
         localNamespaces.set(prefix, namespace);
       }
       children.push({
