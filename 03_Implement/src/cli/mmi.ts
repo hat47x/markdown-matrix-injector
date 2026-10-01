@@ -207,6 +207,7 @@ export interface InspectLedgerCandidate {
   sheet?: string;
   place: string;
   state: LedgerState;
+  staleClaims?: string[];
 }
 
 export interface InspectLedgerView {
@@ -306,8 +307,6 @@ function applyLedgerView(
   const ledger = readLedger(ledgerPath);
   const view = candidateLedgerView(result.candidates, ledger, ledgerPath, absoluteSource, filter);
   const allowed = new Set(view.map(({ candidate }) => candidateDisplayKey(candidate)));
-  const states = new Map(view.map(({ candidate, ledgerState }) => [candidateDisplayKey(candidate), ledgerState] as const));
-
   return {
     ...result,
     candidates: view.map(({ candidate }) => candidate),
@@ -323,11 +322,12 @@ function applyLedgerView(
     ledger: {
       file: path.relative(process.cwd(), ledgerPath).split(path.sep).join('/') || path.basename(ledgerPath),
       filter,
-      candidates: view.map(({ candidate }) => ({
+      candidates: view.map(({ candidate, ledgerState, staleClaims }) => ({
         kind: candidate.kind,
         ...(candidate.locator.sheet ? { sheet: candidate.locator.sheet } : {}),
         place: placeOf(candidate),
-        state: states.get(candidateDisplayKey(candidate))!,
+        state: ledgerState,
+        ...(staleClaims ? { staleClaims } : {}),
       })),
     },
   };
@@ -338,15 +338,15 @@ function a1Of(range: { startRow: number; startCol: number; endRow: number; endCo
 }
 
 function formatInspect(result: InspectResult): string {
-  const ledgerStates = new Map(
-    (result.ledger?.candidates ?? []).map((item) => [
-      `${item.kind}\u0000${item.sheet ?? ''}\u0000${item.place}`,
-      item.state,
-    ] as const),
-  );
   const ledgerSuffix = (kind: Candidate['kind'], sheet: string, place: string): string => {
-    const state = ledgerStates.get(`${kind}\u0000${sheet}\u0000${place}`);
-    return state ? `  ledger: ${state}` : '';
+    const item = (result.ledger?.candidates ?? []).find(
+      (candidate) => candidate.kind === kind
+        && (candidate.sheet ?? '') === sheet
+        && candidate.place === place,
+    );
+    if (!item) return '';
+    const claims = item.staleClaims?.length ? ` [${item.staleClaims.join(', ')}]` : '';
+    return `  ledger: ${item.state}${claims}`;
   };
   const lines = [`source: ${result.source}`];
   if (result.ledger) lines.push(`ledger: ${result.ledger.file} (${result.ledger.filter})`);
