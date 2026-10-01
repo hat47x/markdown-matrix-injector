@@ -9,6 +9,7 @@ import {
   assessLedger,
   classify,
   entryFor,
+  lineageCandidates,
   readLedger,
   recordEntries,
 } from '../src/core/importLedger.js';
@@ -257,4 +258,82 @@ test('Claim basis canonicalization ignores object key insertion order', () => {
   };
 
   assert.equal(classify(readLedger(ledgerPath), ledgerPath, source, reordered), 'imported');
+});
+
+
+test('changed content reports which reviewed Claims became stale', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-ledger-'));
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const source = path.join(root, 'design.xlsx');
+  const first = candidate('image-a');
+  recordEntries(ledgerPath, [
+    entryFor(ledgerPath, source, first, path.join(root, 'assets', 'image-a.png'), 'mmi extract'),
+  ]);
+
+  const changed = candidate('image-b');
+  const assessment = assessLedger(readLedger(ledgerPath), ledgerPath, source, changed);
+  assert.equal(assessment.state, 'changed');
+  assert.deepEqual(assessment.staleClaims, ['digest']);
+});
+
+test('lineage proposals keep moved same-content occurrences as evidence only', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-ledger-'));
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const source = path.join(root, 'design.xlsx');
+  const first = candidate('image-a', '画面', 'B2:D8');
+  recordEntries(ledgerPath, [
+    entryFor(ledgerPath, source, first, path.join(root, 'assets', 'image-a.png'), 'mmi extract'),
+  ]);
+
+  const moved = candidate('image-a', '画面', 'J2:L8');
+  assert.equal(classify(readLedger(ledgerPath), ledgerPath, source, moved), 'duplicate');
+  const lineage = lineageCandidates(readLedger(ledgerPath), ledgerPath, source, moved);
+  assert.equal(lineage.length, 1);
+  assert.equal(lineage[0].place, 'B2:D8');
+  assert.deepEqual(lineage[0].reasons, ['same-content', 'same-sheet']);
+});
+
+test('lineage can propose changed moved content from source-object hints without auto-importing it', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-ledger-'));
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const source = path.join(root, 'design.xlsx');
+  const withObjectHints = (content: string, range: string): Candidate => {
+    const base = candidate(content, '画面', range);
+    return {
+      ...base,
+      claims: [
+        ...base.claims,
+        {
+          aspect: 'name',
+          value: 'Login Screenshot',
+          status: 'observed',
+          execution: 'deterministic',
+          method: 'M0',
+          reasonCode: 'drawing-property',
+        },
+        {
+          aspect: 'media',
+          value: 'xl/media/image1.png',
+          status: 'observed',
+          execution: 'deterministic',
+          method: 'M0',
+          reasonCode: 'package-relationship',
+        },
+      ],
+    };
+  };
+
+  const first = withObjectHints('image-a', 'B2:D8');
+  recordEntries(ledgerPath, [
+    entryFor(ledgerPath, source, first, path.join(root, 'assets', 'image-a.png'), 'mmi extract'),
+  ]);
+
+  const movedAndChanged = withObjectHints('image-b', 'J2:L8');
+  assert.equal(classify(readLedger(ledgerPath), ledgerPath, source, movedAndChanged), 'unimported');
+  const lineage = lineageCandidates(readLedger(ledgerPath), ledgerPath, source, movedAndChanged);
+  assert.equal(lineage.length, 1);
+  assert.deepEqual(
+    lineage[0].reasons,
+    ['same-sheet', 'same-object-name', 'same-source-object'],
+  );
 });
