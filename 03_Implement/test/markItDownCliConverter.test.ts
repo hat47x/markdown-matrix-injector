@@ -170,10 +170,41 @@ test('version/output path/timeout validation fail before conversion', async () =
   );
   await assert.rejects(
     createMarkItDownCliConverter({ outputFileName: '../escape.md', runner: badVersion }),
-    /contained relative path/u,
+    /contained relative file path/u,
   );
   await assert.rejects(
     createMarkItDownCliConverter({ outputFileName: 'C:\\temp\\escape.md', runner: badVersion }),
-    /contained relative path/u,
+    /contained relative file path/u,
   );
+  await assert.rejects(
+    createMarkItDownCliConverter({ outputFileName: '.', runner: badVersion }),
+    /contained relative file path/u,
+  );
+});
+
+
+test('nested contained output paths are created before invoking MarkItDown', async () => {
+  const { sourcePath, outputRoot } = workspace();
+  let outputPath = '';
+  const runner: CommandRunner = async (_executable, args) => {
+    if (args[0] === '--version') return { stdout: 'markitdown 0.1.8\n', stderr: '' };
+    const outputAt = args.indexOf('-o');
+    outputPath = args[outputAt + 1];
+    assert.equal(fs.existsSync(path.dirname(outputPath)), true);
+    fs.writeFileSync(outputPath, '# nested\n');
+    return { stdout: '', stderr: '' };
+  };
+
+  const converter = await createMarkItDownCliConverter({
+    outputFileName: 'reports/baseline.md',
+    runner,
+  });
+  const conversion = await converter.convert({
+    sourcePath,
+    outputRoot,
+    options: {},
+  });
+
+  assert.equal(outputPath, path.join(outputRoot, 'reports', 'baseline.md'));
+  assert.equal(conversion.artifacts[0].relativePath, 'reports/baseline.md');
 });
