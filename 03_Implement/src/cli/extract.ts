@@ -11,7 +11,10 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { readExcelImages, readImageBytes, type ExcelImage, type ImageDiagnostic } from '../adapters/excelImageAdapter.js';
+import { imageCandidates, readExcelImages, readImageBytes, type ExcelImage, type ImageDiagnostic } from '../adapters/excelImageAdapter.js';
+
+import { entryFor, recordEntries, type LedgerEntry } from '../core/importLedger.js';
+import { readSourceFileIdentity } from '../core/sourceIdentity.js';
 
 export interface ExtractOptions {
   sourcePath: string;
@@ -22,6 +25,8 @@ export interface ExtractOptions {
   fromDocument?: string;
   /** Source as it should be written in provenance (default: relative to the document folder). */
   sourceLabel?: string;
+  /** When set, each extracted picture is recorded in this import ledger (issue-0195). */
+  ledgerPath?: string;
 }
 
 export interface ExtractedImage {
@@ -133,6 +138,16 @@ export function extractImages(options: ExtractOptions): ExtractResult {
       reference,
       markdown: `![${altText(image)}](${reference})\n${provenanceComment(source, image)}`,
     });
+  }
+  if (options.ledgerPath && result.extracted.length > 0) {
+    const sourceDigest = readSourceFileIdentity(options.sourcePath).digest;
+    const entries: LedgerEntry[] = [];
+    for (const item of result.extracted) {
+      const image = chosen.find((candidateImage) => candidateImage.ordinal === item.ordinal)!;
+      const [candidate] = imageCandidates({ source: source, sourceDigest, images: [image] });
+      entries.push(entryFor(options.ledgerPath, options.sourcePath, candidate, item.file, 'mmi extract'));
+    }
+    recordEntries(options.ledgerPath, entries);
   }
   return result;
 }
