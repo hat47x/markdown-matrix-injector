@@ -22,6 +22,7 @@
  * (e.g. `ZZ5000:AAB5010`) expand to millions of cells under the previous
  * A1-relative slicing.
  */
+import type { CooperativeTimeBudget } from './cooperativeTimeBudget.js';
 import type { CellRange, SheetSource } from './sheetSource.js';
 
 /**
@@ -133,21 +134,30 @@ export function measureRegion(sheet: SheetSource, range?: string): RegionDimensi
  * already accepted (review R3): this function does not itself impose a size
  * limit.
  */
-export function sliceRegion(sheet: SheetSource, range?: string): string[][] {
+export interface SliceRegionOptions {
+  budget?: CooperativeTimeBudget;
+}
+
+export function sliceRegion(sheet: SheetSource, range?: string, options: SliceRegionOptions = {}): string[][] {
   const cellRange = range ? parseRangeToCellRange(range) : sheet.usedRange;
   if (!cellRange) {
     return [];
   }
+
+  const budget = options.budget;
+  budget?.check();
 
   const { startRow, startCol, endRow, endCol } = cellRange;
   const rows: string[][] = [];
   for (let row = startRow; row <= endRow; row += 1) {
     const line: string[] = [];
     for (let col = startCol; col <= endCol; col += 1) {
+      budget?.consume();
       line.push(sheet.cellAt(row, col)?.text ?? '');
     }
     rows.push(line);
   }
 
+  budget?.check();
   return rows;
 }
