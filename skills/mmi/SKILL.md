@@ -57,7 +57,21 @@ mmi handoff masters/設計.xlsx \
 
 既定ではCandidateのClaim値とEvidence詳細をpackageへ含めない。値が本当に必要で、利用者の組織の規則上も許される場合だけ`--include-values`を明示する。この指定でも原本全体を全文投入するのではなく、Candidateが持つClaim値だけが追加される。
 
-handoffの返答は**提案**であって確定結果ではない。MMI記法が返ってきても、そのまま原本・文書へ適用せず、既存のparser / resolver / containment / source existence / preview等のAuthority Planeで再検証する。現時点の`mmi handoff`は戻り提案を自動適用しない。
+handoffの返答は**提案**であって確定結果ではない。MMI記法が返ってきた場合は、handoff packageをJSONで保存し、ローカルで再検証する。
+
+```sh
+mmi handoff masters/設計.xlsx \
+  --task "この設計書で使うMMI参照案を提案する" \
+  --document docs/基本設計書.md \
+  --root . --json -o handoff.json
+
+mmi validate-proposal '![[../masters/設計.xlsx#画面一覧|A1:F13?header=first]]' \
+  --package handoff.json \
+  --document docs/基本設計書.md \
+  --root .
+```
+
+`validate-proposal`はparser、parameter schema、handoff時のsource allowlist、resolver / containment / source existence / sheet existence、read-only preview、source digestを確認し、すべて通ったときだけ終了コード0になる。存在しないsheet、URL・workspace外path、`aggregate=sum`のような未対応parameter、自由文や任意コマンドは拒否する。検証が通ってもMMIは文書へ自動適用しない。
 
 
 ## 記法

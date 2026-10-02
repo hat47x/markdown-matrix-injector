@@ -147,6 +147,83 @@ export interface CreateAiHandoffPackageInput {
   includeValues?: boolean;
 }
 
+export function parseAiHandoffPackage(text: string): AiHandoffPackageV1 {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    throw new Error('AI handoff package is not valid JSON.');
+  }
+  assertAiHandoffPackage(value);
+  return value;
+}
+
+export function assertAiHandoffPackage(
+  value: unknown,
+): asserts value is AiHandoffPackageV1 {
+  if (!value || typeof value !== 'object') {
+    throw new Error('AI handoff package must be an object.');
+  }
+  const pkg = value as Partial<AiHandoffPackageV1>;
+  if (pkg.schema !== AI_HANDOFF_SCHEMA) {
+    throw new Error(`Unsupported AI handoff schema: ${String(pkg.schema)}`);
+  }
+  if (typeof pkg.task !== 'string' || pkg.task.trim().length === 0) {
+    throw new Error('AI handoff package requires a non-empty task.');
+  }
+  if (!Array.isArray(pkg.sources) || pkg.sources.length === 0) {
+    throw new Error('AI handoff package requires at least one source.');
+  }
+  for (const [index, source] of pkg.sources.entries()) {
+    if (
+      !source
+      || typeof source.source !== 'string'
+      || source.source.trim().length === 0
+      || typeof source.sourceDigest !== 'string'
+      || !/^sha256:[0-9a-f]{64}$/u.test(source.sourceDigest)
+    ) {
+      throw new Error(`AI handoff package source ${index} is invalid.`);
+    }
+  }
+  if (
+    !pkg.privacy
+    || !['omitted', 'included-explicitly'].includes(pkg.privacy.sourceValues)
+    || !['omitted', 'included-explicitly'].includes(pkg.privacy.evidenceDetails)
+  ) {
+    throw new Error('AI handoff package privacy policy is invalid.');
+  }
+  if (
+    !Array.isArray(pkg.confirmedFacts)
+    || !Array.isArray(pkg.inferredCandidates)
+    || !Array.isArray(pkg.unresolvedIssues)
+  ) {
+    throw new Error('AI handoff package evidence sections are missing.');
+  }
+  if (
+    !pkg.returnContract
+    || pkg.returnContract.proposalOnly !== true
+    || pkg.returnContract.authorityRevalidationRequired !== true
+    || pkg.returnContract.preferredNotation !== 'mmi-embed'
+  ) {
+    throw new Error('AI handoff package Authority return contract is invalid.');
+  }
+  if (
+    !sameOperationBoundary(pkg.allowedOperations, ALLOWED_OPERATIONS)
+    || !sameOperationBoundary(pkg.forbiddenOperations, FORBIDDEN_OPERATIONS)
+  ) {
+    throw new Error('AI handoff package operation boundaries were changed.');
+  }
+}
+
+function sameOperationBoundary(
+  actual: readonly string[] | undefined,
+  expected: readonly string[],
+): boolean {
+  return Array.isArray(actual)
+    && actual.length === expected.length
+    && actual.every((item, index) => item === expected[index]);
+}
+
 const ALLOWED_OPERATIONS: readonly HandoffAllowedOperation[] = [
   'propose-mmi-notation',
   'explain-candidate-choice',
