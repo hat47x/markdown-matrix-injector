@@ -243,7 +243,28 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     sourcePath,
     filterChoice.value,
   );
-  if (view.length === 0) {
+  const visibleItems = view.flatMap((item) => {
+    const source = byKey.get(reviewKey(item.candidate));
+    if (!source) return [];
+    const rejected = item.ledgerState === 'imported'
+      ? undefined
+      : rejectedDecisionForCandidate(
+          reviewDecisions,
+          reviewDecisionsPath,
+          sourcePath,
+          item.candidate,
+        );
+    if (rejected && filterChoice.value !== 'all') return [];
+    return [
+      quickPickItem(
+        source,
+        item.ledgerState,
+        Boolean(rejected),
+        item.researchScores,
+      ),
+    ];
+  });
+  if (visibleItems.length === 0) {
     await vscode.window.showInformationMessage(
       'MMI: 条件に合うCandidateはありません。',
     );
@@ -251,12 +272,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
   }
 
   const picked = await vscode.window.showQuickPick(
-    view.flatMap((item) => {
-      const source = byKey.get(reviewKey(item.candidate));
-      return source
-        ? [quickPickItem(source, item.ledgerState, item.researchScores)]
-        : [];
-    }),
+    visibleItems,
     {
       title: 'MMI: Candidateレビュー',
       placeHolder:
