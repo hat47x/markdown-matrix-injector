@@ -36,6 +36,8 @@ export interface MatchContext {
   readonly title?: string;
   /** Headers of that table, if the match is below its header row. */
   readonly headers?: readonly string[];
+  /** First source rows inside the matched rectangle, bounded for human preview. */
+  readonly previewRows?: readonly (readonly string[])[];
   /** Displayed values of the row just above / below the match, within its columns. */
   readonly rowAbove?: readonly string[];
   readonly rowBelow?: readonly string[];
@@ -65,7 +67,19 @@ export function matchContext(sheet: SheetSource, range: CellRange): MatchContext
     region?.headers && region.headerConfidence !== 'none' && range.startRow > region.range.startRow
       ? region.headers.slice(range.startCol - region.range.startCol, range.endCol - region.range.startCol + 1)
       : undefined;
-  return { title: region?.title, headers, rowAbove: rowOf(range.startRow - 1), rowBelow: rowOf(range.endRow + 1) };
+  const previewRows: string[][] = [];
+  const previewEndRow = Math.min(range.endRow, range.startRow + 1);
+  for (let row = range.startRow; row <= previewEndRow; row += 1) {
+    const values = rowOf(row);
+    if (values) previewRows.push(values);
+  }
+  return {
+    title: region?.title,
+    headers,
+    previewRows: previewRows.length > 0 ? previewRows : undefined,
+    rowAbove: rowOf(range.startRow - 1),
+    rowBelow: rowOf(range.endRow + 1),
+  };
 }
 
 /**
@@ -139,11 +153,17 @@ export function summarizeContentMatchContext(match: WorkbookContentMatch, maxLen
     return input.length > 3 ? `${shown}|…` : shown;
   };
   const headers = values(context.headers);
+  const preview = context.previewRows
+    ?.slice(0, 2)
+    .map((row) => values(row))
+    .filter((row): row is string => Boolean(row))
+    .join(' / ');
   const rowAbove = values(context.rowAbove);
   const rowBelow = values(context.rowBelow);
   const parts = [
     context.title ? `表:${clean(context.title)}` : undefined,
     headers ? `見出し:${headers}` : undefined,
+    preview ? `値:${preview}` : undefined,
     rowAbove ? `前:${rowAbove}` : undefined,
     rowBelow ? `後:${rowBelow}` : undefined,
   ].filter((part): part is string => Boolean(part));

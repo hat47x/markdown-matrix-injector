@@ -132,6 +132,29 @@ test('findWorkbookContentMatches describes where each identical copy sits', () =
     ['承認', '7|移行|保留'],
   ]);
   assert.deepEqual(matches[0].context?.headers, ['No', '確認項目', '判定']);
+  assert.deepEqual(matches[0].context?.previewRows, [['2', '脆弱性診断', 'NG']]);
+});
+
+test('match context previews at most the first two source rows of the matched range', () => {
+  const matches = findWorkbookContentMatches(
+    '1\tAlpha\r\n2\tBeta\r\n3\tGamma\r\n',
+    [
+      workbook('./rows.xlsx', {
+        Sheet1: [
+          ['ID', 'Name'],
+          ['1', 'Alpha'],
+          ['2', 'Beta'],
+          ['3', 'Gamma'],
+        ],
+      }),
+    ],
+  );
+
+  assert.equal(matches.length, 1);
+  assert.deepEqual(matches[0].context?.previewRows, [
+    ['1', 'Alpha'],
+    ['2', 'Beta'],
+  ]);
 });
 
 test('summarizeContentMatchContext gives Paste As a bounded one-line duplicate discriminator', () => {
@@ -150,7 +173,7 @@ test('summarizeContentMatchContext gives Paste As a bounded one-line duplicate d
   );
   assert.equal(
     summarizeContentMatchContext(matches[0]),
-    '表:リリース判定 / 見出し:No|確認項目|判定 / 前:1|性能試験|OK',
+    '表:リリース判定 / 見出し:No|確認項目|判定 / 値:2|脆弱性診断|NG / 前:1|性能試験|OK',
   );
 
   const long = summarizeContentMatchContext(
