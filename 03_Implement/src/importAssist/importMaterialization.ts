@@ -31,10 +31,16 @@ export interface WorkbookImportMaterializeOptions {
   ledgerPath?: string;
   /** Extracted images. Defaults to assets/<workbook-name>/ next to the draft. */
   imageOutDir?: string;
-  /** Reuse an already loaded workbook. */
+  /**
+   * Reuse prepared workbook data. When workbook/structure is supplied,
+   * preparedSourceDigest is required so stale prepared data cannot bypass the
+   * one-source-snapshot guarantee.
+   */
   workbook?: WorkbookData;
-  /** Reuse already-read author-declared workbook structure. */
+  /** Reuse prepared author-declared workbook structure. */
   structure?: WorkbookStructure;
+  /** Source digest from which injected workbook/structure data was prepared. */
+  preparedSourceDigest?: string;
 }
 
 export interface WorkbookImportMaterialization {
@@ -176,6 +182,18 @@ export function materializeWorkbookImport(
   const sourcePath = path.resolve(options.sourcePath);
   const sourceBytes = fs.readFileSync(sourcePath);
   const sourceDigest = createSourceIdentityFromBytes(sourceBytes).digest;
+  if (options.workbook || options.structure) {
+    if (!options.preparedSourceDigest) {
+      throw new Error(
+        'MMI_IMPORT_PREPARED_SOURCE_DIGEST_REQUIRED: prepared workbook/structure needs its source digest',
+      );
+    }
+    if (options.preparedSourceDigest !== sourceDigest) {
+      throw new Error(
+        'MMI_IMPORT_PREPARED_SOURCE_STALE: prepared workbook/structure does not match current source snapshot',
+      );
+    }
+  }
   const paths = workbookImportPaths(options);
   const { draftPath, ledgerPath, imageOutDir } = paths;
   const workbook = options.workbook
