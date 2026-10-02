@@ -10,7 +10,7 @@
  */
 import path from 'node:path';
 import * as vscode from 'vscode';
-import { materializeWorkbookImport } from '../importAssist/importMaterialization.js';
+import { writeWorkbookImportDraft } from '../importAssist/importMaterialization.js';
 import { readWorkbookCached } from './sharedWorkbookCache.js';
 
 export const IMPORT_WORKBOOK_COMMAND_ID = 'markdownMatrixInjector.importFromWorkbook';
@@ -47,17 +47,30 @@ export async function importFromWorkbook(workbookGlob: string, target?: vscode.U
     ? path.join(workspaceFolder.uri.fsPath, 'mmi-ledger.json')
     : path.join(path.dirname(draftUri.fsPath), 'mmi-ledger.json');
 
-  const materialized = await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Notification, title: 'MMI: 表と画像を取り込み候補へ整理しています' },
-    async () => materializeWorkbookImport({
-      sourcePath: workbook.fsPath,
-      draftPath: draftUri.fsPath,
-      ledgerPath,
-      workbook: data,
-    }),
-  );
-
-  await vscode.workspace.fs.writeFile(draftUri, new TextEncoder().encode(materialized.markdown));
+  let materialized;
+  try {
+    materialized = await vscode.window.withProgress(
+      { location: vscode.ProgressLocation.Notification, title: 'MMI: 表と画像を取り込み候補へ整理しています' },
+      async () => writeWorkbookImportDraft({
+        sourcePath: workbook.fsPath,
+        draftPath: draftUri.fsPath,
+        ledgerPath,
+        workbook: data,
+      }),
+    );
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    if (message.startsWith('MMI_IMPORT_DRAFT_EXISTS:')) {
+      void vscode.window.showErrorMessage(
+        'MMI: 保存先のMarkdownは既に存在します。別の新しいファイル名を選んでください。',
+      );
+    } else {
+      void vscode.window.showErrorMessage(
+        `MMI: 取り込み候補を作成できませんでした: ${message}`,
+      );
+    }
+    return undefined;
+  }
   if (materialized.imageProblems.length > 0) {
     void vscode.window.showWarningMessage(
       `MMI: 下書きを作成しました。抽出できなかった画像が ${materialized.imageProblems.length} 件あります。下書きの「画像の注意」を確認してください。`,
