@@ -7,16 +7,13 @@ import {
 } from '../application/candidateReviewInventory.js';
 import { extractImages, extractTable } from '../cli/extract.js';
 import type { Candidate } from '../core/candidate.js';
-import {
-  candidateLedgerView,
-  type CandidateLedgerFilter,
-} from '../core/candidateLedgerView.js';
+import type { CandidateLedgerFilter } from '../core/candidateLedgerView.js';
+import { candidateReviewView } from '../core/candidateReviewView.js';
 import {
   clearReviewDecisionForCandidate,
   DEFAULT_REVIEW_DECISIONS_FILE,
   readReviewDecisions,
   recordRejectedDecision,
-  rejectedDecisionForCandidate,
 } from '../core/candidateReviewDecisions.js';
 import { placeOf, readLedger } from '../core/importLedger.js';
 
@@ -216,8 +213,8 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
   const byKey = new Map(
     inventory.items.map((item) => [reviewKey(item.candidate), item]),
   );
-  let ledger;
-  let reviewDecisions;
+  let ledger: ReturnType<typeof readLedger>;
+  let reviewDecisions: ReturnType<typeof readReviewDecisions>;
   try {
     ledger = readLedger(ledgerPath);
     reviewDecisions = readReviewDecisions(reviewDecisionsPath);
@@ -236,33 +233,27 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
   });
   if (!filterChoice) return;
 
-  const view = candidateLedgerView(
+  const view = candidateReviewView(
     inventory.items.map((item) => item.candidate),
     ledger,
+    reviewDecisions,
     ledgerPath,
+    reviewDecisionsPath,
     sourcePath,
     filterChoice.value,
   );
   const visibleItems = view.flatMap((item) => {
     const source = byKey.get(reviewKey(item.candidate));
-    if (!source) return [];
-    const rejected = item.ledgerState === 'imported'
-      ? undefined
-      : rejectedDecisionForCandidate(
-          reviewDecisions,
-          reviewDecisionsPath,
-          sourcePath,
-          item.candidate,
-        );
-    if (rejected && filterChoice.value !== 'all') return [];
-    return [
-      quickPickItem(
-        source,
-        item.ledgerState,
-        Boolean(rejected),
-        item.researchScores,
-      ),
-    ];
+    return source
+      ? [
+          quickPickItem(
+            source,
+            item.ledgerState,
+            item.rejected,
+            item.researchScores,
+          ),
+        ]
+      : [];
   });
   if (visibleItems.length === 0) {
     await vscode.window.showInformationMessage(
