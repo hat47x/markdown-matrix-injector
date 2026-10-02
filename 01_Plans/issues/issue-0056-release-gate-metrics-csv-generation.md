@@ -13,18 +13,18 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- release gate JSON artifact から KPI 向け集計 CSV を自動生成し、CI/manual 実行の観測データを定型化する。
+- release gate JSON artifactからKPI向け集計CSVを自動生成し、CI/manual実行の観測データを定型化する。
 
 ### Acceptance criteria (受入条件)
 - [x] `release_gate_metrics.py` が追加される。
-- [x] metrics script の unit test が追加される。
-- [x] CI/manual workflow が `release-gate-metrics.csv` を生成して artifact upload する。
-- [x] Phase 7 ガイドに metrics CSV の導線が追記される。
+- [x] metrics scriptのunit testが追加される。
+- [x] CI/manual workflowが `release-gate-metrics.csv` を生成してartifact uploadする。
+- [x] Phase 7ガイドにmetrics CSVの導線が追記される。
 
 ### Task breakdown (作業分解)
-- [x] JSON -> CSV 変換スクリプトを作成する。
-- [x] unittest を追加する。
-- [x] workflow を更新する。
+- [x] JSON -> CSV変換スクリプトを作成する。
+- [x] unittestを追加する。
+- [x] workflowを更新する。
 - [x] ガイド文書を更新する。
 
 ### Validation plan (検証計画)
@@ -43,8 +43,8 @@
   - `python3 01_Plans/tools/release_gate_metrics.py --input-file artifacts/release-gate.json --output-file artifacts/release-gate-metrics.csv`
   - `python3 01_Plans/tools/planning_queue.py`
 - Result summary:
-  - release gate JSON から KPI 集計CSVを生成するスクリプトを追加。
-  - CI/manual workflow が metrics CSV を artifact へ追加。
-  - planning queue は pending/orphan ともに 0 件を確認。
+  - release gate JSONからKPI集計CSVを生成するスクリプトを追加。
+  - CI/manual workflowがmetrics CSVをartifactへ追加。
+  - planning queueはpending/orphanともに0件を確認。
 - Status decision:
   - 受入条件を満たしたため `Status: Done` に更新。

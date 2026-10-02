@@ -5,31 +5,31 @@
 - Status: Done
 - Priority: High
 - Scope: 00_Prompt/requirements.md (§0, フェーズ定義追記), README.md, 04_Documentation/overview.md
-- Expected verification level: docs-check + planning_queue 整合
+- Expected verification level: docs-check + planning_queue整合
 
 ## Traceability
-- Related Backlog/Phase: ADR-0012 D1/D5/D6（使命再定義・agent-first・KPI 差し替え）
+- Related Backlog/Phase: ADR-0012 D1/D5/D6（使命再定義・agent-first・KPI差し替え）
 - Related ADR/Spec: `01_Plans/adr/ADR-0012-mission-redefinition-notation-as-governance-boundary.md`
-- Depends on: なし（ADR-0012 Accepted 済み・Human Sponsor 承認済み）
+- Depends on: なし（ADR-0012 Accepted済み・Human Sponsor承認済み）
 
 ## 背景
-ADR-0012 により、プロダクトの使命は「Excel ビューア拡張」から「正本参照規約（MMI Notation）+ 参照実装」へ再定義された。
+ADR-0012により、プロダクトの使命は「Excelビューア拡張」から「正本参照規約（MMI Notation）+ 参照実装」へ再定義された。
 仕様正本（requirements §0）と公開入口（README / overview）が旧使命のままでは、以降の全ての計画・文書がドリフトする。
-上流から順に反映する（本 issue が仕様起草 issue-0102 に先行する）。
+上流から順に反映する（本issueが仕様起草issue-0102に先行する）。
 
 ## Execution Plan
 ### Proposed solution
-1. `requirements.md` §0 を ADR-0012 D1 の使命文へ改訂（「ビューアに徹する」原則は D3-1 Read-only MUST として存続・強化）。
-2. `requirements.md` に Phase 12（Notation 仕様化と規約普及）を定義: 対象 = 仕様書 v1、JSON Schema、conformance corpus、KPI 差し替え。
-3. `README.md` 冒頭の価値記述を「agentic documentation のガードレール / 正本参照規約」を第一声とする構成へ書き換え（VS Code 拡張は参照実装として紹介）。
-4. `04_Documentation/overview.md` の Reader-specific value に「AI エージェント開発者」視点を追加し、KPI 記述を D6 へ整合。
+1. `requirements.md` §0をADR-0012 D1の使命文へ改訂（「ビューアに徹する」原則はD3-1 Read-only MUSTとして存続・強化）。
+2. `requirements.md` にPhase 12（Notation仕様化と規約普及）を定義: 対象 = 仕様書v1、JSON Schema、conformance corpus、KPI差し替え。
+3. `README.md` 冒頭の価値記述を「agentic documentationのガードレール / 正本参照規約」を第一声とする構成へ書き換え（VS Code拡張は参照実装として紹介）。
+4. `04_Documentation/overview.md` のReader-specific valueに「AIエージェント開発者」視点を追加し、KPI記述をD6へ整合。
 
 ### Acceptance criteria
-- [x] requirements §0 が ADR-0012 D1 の使命文と一致し、read-only 原則が【恒久規範】として独立明記された（加えて【成果物の位置付け】3 層を新設: 規約 / 参照実装 / 表パターン資産）。
-- [x] Phase 12（規約仕様化と普及基盤）が §1 一覧と §2 詳細の両方に定義され、issue-0102 の親フェーズとして機能する。
-- [x] README の第一声が「コピーではなく、参照を。」＋規約/ガードレール定義になり、「なぜ規約なのか」節と提供価値 6 項目（正本完全性を先頭、AI 協働を追加）へ再構成。overview は 4 ペルソナ化（AI エージェント開発者を追加）し What this tool is を規約ベースへ更新。
-- [x] planning_queue orphan 0 維持（ADR 13 / issue 102）。旧使命文の残存なしを grep で確認。npm test 176 pass（回帰なし）。
+- [x] requirements §0がADR-0012 D1の使命文と一致し、read-only原則が【恒久規範】として独立明記された（加えて【成果物の位置付け】3層を新設: 規約 / 参照実装 / 表パターン資産）。
+- [x] Phase 12（規約仕様化と普及基盤）が §1一覧と §2詳細の両方に定義され、issue-0102の親フェーズとして機能する。
+- [x] READMEの第一声が「コピーではなく、参照を。」＋規約/ガードレール定義になり、「なぜ規約なのか」節と提供価値6項目（正本完全性を先頭、AI協働を追加）へ再構成。overviewは4ペルソナ化（AIエージェント開発者を追加）しWhat this tool isを規約ベースへ更新。
+- [x] planning_queue orphan 0維持（ADR 13 / issue 102）。旧使命文の残存なしをgrepで確認。npm test 176 pass（回帰なし）。
 
 ### Validation plan（実績）
-- 誤字混入の全文走査（編集中に混入した 1 件を検出・即修正済み）
+- 誤字混入の全文走査（編集中に混入した1件を検出・即修正済み）
 - `grep 本プラグインのミッション` → 残存なし / `npm test` → 176 pass / `planning_queue.py` → orphan 0

@@ -18,7 +18,7 @@ issue-0116で、観測側だけが全列などの正しい特徴を持ち、prot
 
 さらにSheetJS CEの公開実装・文書を再確認した結果、`cellStyles: true` はstyle metadataを有効化するが、XLSX parserの公開実装系ではセル`.s`へfillを設定する処理が確認できる一方、borderを同じ契約で復元する保証は確認できない。したがって、SheetJS CE由来の観測を「full style観測」として扱ってはならない。
 
-参考:
+参考は次のとおりです。
 - https://docs.sheetjs.com/docs/api/parse-options/
 - https://git.sheetjs.com/sheetjs/sheetjs/src/commit/4495a9253e82eb54e5a97b83638974f158fa634c/bits/66_wscommon.js
 
@@ -60,7 +60,7 @@ prototypeと観測でfeature version、source profile ID、evidence contractが�
 - 実行環境: Node.js `v22.16.0`, TypeScript `5.8.3`。
 - main由来の実際の`flyInspiredFormatMatcher.ts`と`worksheetFormatFeatureAdapter.ts`をローカルへ再現し、新規`worksheetFormatPrototype.ts`と同じ条件で `--strict --target ES2022 --module NodeNext --moduleResolution NodeNext` の型検査・コンパイルを実施して成功。
 - 統合unit test: **6 tests / 6 pass / 0 fail**。
-- 確認項目:
+- 確認項目は次のとおりです。
   - SheetJS CE XLSX profileで`border:grid`が観測されても比較featureから除外される。
   - full-style profileではborder evidenceを保持できる。
   - 同一profileの基準prototypeに対するdark→gray fill driftは候補として残り、DeviationScoreは0より大きくなる。

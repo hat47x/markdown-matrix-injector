@@ -34,7 +34,7 @@ headerより下で、header列のいずれかに非空セルを持つ本文候�
 
 各header列について、観測行の**過半数**で非空なら `1`、それ以外なら `0` とする。
 
-例:
+例は次のとおりです。
 
 ```text
 header: A B C
@@ -55,7 +55,7 @@ C列は3行中2行で埋まっているため、多数派maskでは `1` にな�
 layout:body-majority-occupancy:<bits>
 ```
 
-例:
+例は次のとおりです。
 
 - 2列とも多数派で埋まる: `layout:body-majority-occupancy:11`
 - 2列目だけ多数派で空く: `layout:body-majority-occupancy:10`
@@ -132,7 +132,7 @@ v4 prototypeとv5 observationは比較しない。既存version gateで明示的
 
 ### 2026-09-17 local validation
 
-実行環境:
+実行環境は次のとおりです。
 
 - Node.js `v22.16.0`
 - TypeScript `5.8.3`
@@ -140,7 +140,7 @@ v4 prototypeとv5 observationは比較しない。既存version gateで明示的
 
 v5 adapter / prototype、新規occupancy境界テスト、および既存のadapter回帰テストを同時にコンパイルし、Node test runnerで **20 tests / 20 pass / 0 fail** を確認した。
 
-確認した主な境界:
+確認した主な境界は次のとおりです。
 
 | ケース | profile | status | confidence |
 |---|---|---|---:|

@@ -8,7 +8,7 @@ fill evidenceには識別価値があります。
 
 同時に、共通fillは構造差を相対的に薄めます。
 
-したがって現在の方針は:
+したがって現在の方針はは次のとおりです。
 
 ```text
 fillを削除しない
@@ -61,7 +61,7 @@ structure only:
 
 ## 4. fillが構造差を薄めるケース
 
-4列表でprototypeとobservationが同じdark fillを持ち、2ラベルが異なる場合:
+4列表でprototypeとobservationが同じdark fillを持ち、2ラベルが異なる場合。
 
 ```text
 structure only:
@@ -79,7 +79,7 @@ fillは正しく一致しています。
 
 ## 5. fill欠落の意味
 
-prototypeにdark fillがあり、observationでfillが取れない場合:
+prototypeにdark fillがあり、observationでfillが取れない場合。
 
 ```text
 exact structure:
@@ -93,7 +93,7 @@ one label drift:
 
 fill-aware profileでは欠落自体が差になります。
 
-ただし原因は:
+ただし原因はは次のとおりです。
 
 - workbookからfillが消えた
 - input sourceがstyleを供給しない
@@ -107,7 +107,7 @@ fill-aware profileでは欠落自体が差になります。
 
 fillはtop confidenceだけでなく候補間marginにも影響します。
 
-3列の例:
+3列の例は次のとおりです。
 
 ```text
 observation:
@@ -142,7 +142,7 @@ ambiguous
 
 observationでfillが無いのにdark/light prototypeを比較すると、feature Jaccard上は同程度でもsparse signatureのbucket差でconfidenceが少し異なることがあります。
 
-今回:
+今回は次のとおりです。
 
 ```text
 top confidence = 0.881905

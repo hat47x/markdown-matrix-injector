@@ -8,7 +8,7 @@
 
 2026-09-18時点では、production matcherは現行のflat方式を維持します。
 
-今回比較した:
+今回比較したは次のとおりです。
 
 - family-normalized
 - column-family-capped
@@ -40,7 +40,7 @@ confidence
 
 featureをfamilyに分け、各familyのJaccardを等重みで平均します。
 
-イメージ:
+イメージは次のとおりです。
 
 ```text
 labels       0.50
@@ -110,7 +110,7 @@ ID | 項目 | 判定 | 確認者 | 備考 | 期限
 ID | 項目 | 状態 | 担当者 | 備考 | 期限
 ```
 
-結果:
+結果は次のとおりです。
 
 | 方式 | confidence | status |
 |---|---:|---|
@@ -124,7 +124,7 @@ ID | 項目 | 状態 | 担当者 | 備考 | 期限
 
 ## 5. 2列表では逆方向に動く
 
-1ラベル変更:
+1ラベル変更は次のとおりです。
 
 ```text
 項目 | 値
@@ -132,7 +132,7 @@ ID | 項目 | 状態 | 担当者 | 備考 | 期限
 項目 | 内容
 ```
 
-結果:
+結果は次のとおりです。
 
 | 方式 | confidence |
 |---|---:|
@@ -142,7 +142,7 @@ ID | 項目 | 状態 | 担当者 | 備考 | 期限
 
 family-normalizedは2列表ではconfidenceを下げます。
 
-一方、6列表の1ラベル変更では:
+一方、6列表の1ラベル変更ではは次のとおりです。
 
 | 方式 | confidence |
 |---|---:|
@@ -192,7 +192,7 @@ wide tableでは起こり得ます。
 
 ## 7. warning thresholdはproduction仕様ではない
 
-現在の初期値:
+現在の初期値は次のとおりです。
 
 ```text
 near confidence distance = 0.03
@@ -258,7 +258,7 @@ scoring変更を検討する場合は次の順で読むと理解しやすいで�
 
 ## 10. 現在の設計判断
 
-現段階では:
+現段階ではは次のとおりです。
 
 ```text
 production scoring:

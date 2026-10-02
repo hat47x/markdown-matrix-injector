@@ -13,9 +13,9 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- governance input JSON を再利用し、KPI/SLA の閾値逸脱から起票候補（escalation candidates）を抽出するCLIを追加する。
-- 出力は JSON（機械可読）と Markdown（週次運用貼り付け）を同時生成する。
-- 閾値比較は adoption lead time / link integrity / print reproducibility / self resolution / SLA breach count を対象にする。
+- governance input JSONを再利用し、KPI/SLAの閾値逸脱から起票候補（escalation candidates）を抽出するCLIを追加する。
+- 出力はJSON（機械可読）とMarkdown（週次運用貼り付け）を同時生成する。
+- 閾値比較はadoption lead time / link integrity / print reproducibility / self resolution / SLA breach countを対象にする。
 
 ### Acceptance criteria (受入条件)
 - [x] `python3 01_Plans/tools/phase10_backlog_escalation.py --input <governance.json> --output <candidates.json>` で候補JSONを生成できる。
@@ -23,7 +23,7 @@
 - [x] KPI逸脱とSLA breach件数逸脱を検知するユニットテストが追加される。
 - [x] Markdown要約に候補一覧が出力される。
 - [x] `python3 -m unittest 01_Plans.tools.test_phase10_backlog_escalation` が成功する。
-- [x] `python3 01_Plans/tools/planning_queue.py` 実行時に orphan issue が 0 件である。
+- [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
 ### Task breakdown (作業分解)
 - [x] 閾値契約を定義する。
@@ -41,13 +41,13 @@
 - 週次レポートで閾値逸脱が発生した際、起票候補を自動抽出する導線が未実装。
 
 ### Virtual Debate
-- Architecture Lead: 既存の governance input 契約を再利用し、別スキーマを増やさないことが保守性に有利。
-- Product/UX Lead: 運用担当が即起票できるよう、候補一覧を Markdown でも出力すべき。
-- QA/Delivery Lead: KPI逸脱だけでなく SLA breach 件数も検知しないと優先度判断に抜け漏れが出る。
+- Architecture Lead: 既存のgovernance input契約を再利用し、別スキーマを増やさないことが保守性に有利。
+- Product/UX Lead: 運用担当が即起票できるよう、候補一覧をMarkdownでも出力すべき。
+- QA/Delivery Lead: KPI逸脱だけでなくSLA breach件数も検知しないと優先度判断に抜け漏れが出る。
 
 ### Synthesis & Decision
-- Backlog auto-escalation の最小単位として、governance input から候補JSON/Markdownを生成するCLIを実装する。
-- ADR-0009 の段階導入方針範囲内であり、新規ADRは不要。
+- Backlog auto-escalationの最小単位として、governance inputから候補JSON/Markdownを生成するCLIを実装する。
+- ADR-0009の段階導入方針範囲内であり、新規ADRは不要。
 
 ## Execution Evidence
 - `python3 -m unittest 01_Plans.tools.test_phase10_backlog_escalation`
@@ -55,6 +55,6 @@
 - `python3 01_Plans/tools/planning_queue.py`
 
 ## Note (superseded)
-- 上記 Proposed solution / Acceptance criteria の "adoption lead time / link integrity / print reproducibility / self
-  resolution" の指標一覧は ADR-0012 D6 により置き換えられた。現行の閾値・シグナル定義は `issue-0103` を参照。
-  本 issue の Done 記録・実行証跡は当時の実装事実として変更しない。
+- 上記Proposed solution / Acceptance criteriaの "adoption lead time / link integrity / print reproducibility / self
+  resolution" の指標一覧はADR-0012 D6により置き換えられた。現行の閾値・シグナル定義は `issue-0103` を参照。
+  本issueのDone記録・実行証跡は当時の実装事実として変更しない。

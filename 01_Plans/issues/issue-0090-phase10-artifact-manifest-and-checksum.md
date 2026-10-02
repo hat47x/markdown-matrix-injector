@@ -13,15 +13,15 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- pipeline 出力物に対し、ファイル名・サイズ・sha256 を列挙する manifest CLI を追加する。
-- governance pipeline 実行後に manifest JSON/Markdown を自動生成し、週次運用成果物の追跡性を強化する。
+- pipeline出力物に対し、ファイル名・サイズ・sha256を列挙するmanifest CLIを追加する。
+- governance pipeline実行後にmanifest JSON/Markdownを自動生成し、週次運用成果物の追跡性を強化する。
 
 ### Acceptance criteria (受入条件)
 - [x] `python3 01_Plans/tools/phase10_artifact_manifest.py --output-dir <dir> --output <manifest.json>` でmanifestが生成できる。
-- [x] manifest JSON が `path`, `size_bytes`, `sha256` を各ファイルに保持する。
-- [x] governance pipeline が manifest JSON/Markdown を追加出力する。
+- [x] manifest JSONが `path`, `size_bytes`, `sha256` を各ファイルに保持する。
+- [x] governance pipelineがmanifest JSON/Markdownを追加出力する。
 - [x] `python3 -m unittest 01_Plans.tools.test_phase10_artifact_manifest` が成功する。
-- [x] `python3 01_Plans/tools/planning_queue.py` 実行時に orphan issue が 0 件である。
+- [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
 ### Task breakdown (作業分解)
 - [x] manifest CLIを実装する。
@@ -41,7 +41,7 @@
 ### Virtual Debate
 - Architecture Lead: sha256を持つmanifestは監査時の同一性確認に有効。
 - Product/UX Lead: Markdown manifestがあると運用報告に転記しやすい。
-- QA/Delivery Lead: pipeline に統合して自動生成しないと運用漏れが発生する。
+- QA/Delivery Lead: pipelineに統合して自動生成しないと運用漏れが発生する。
 
 ### Synthesis & Decision
 - manifest CLIを独立実装し、pipelineから自動生成する構成とする。

@@ -8,7 +8,7 @@
 - Expected verification level: integration
 
 ## Traceability
-- Related ADR/Spec: ADR-0019 優先度2・D2（Extracted）・D8、ADR-0020
+- Related ADR/Spec: ADR-0019優先度2・D2（Extracted）・D8、ADR-0020
 - Related analysis: [製品価値と現行実装のギャップ](../product-gap-analysis.md) §2「個別取り込み」、§3「画像の読み取り」
 - Dependency: issue-0193（Candidateの型）
 

@@ -31,7 +31,7 @@ issue-0154はfill-aware matcher resultをFly Perceptionへcandidate単位で再b
 
 ## 決定
 
-WorksheetFormatObservationIdentityV1 を追加する。
+WorksheetFormatObservationIdentityV1を追加する。
 
 これはsource file identityではなく、worksheet matcherが実際に比較したderived format featuresのidentityである。
 
@@ -80,7 +80,7 @@ body cell値だけが変化し、現在のformat adapterが観測するformat fe
 
 現在のcompared feature stateを変える変更。
 
-例:
+例は次のとおりです。
 - header label
 - header fill
 - title/header/body skeleton
@@ -109,7 +109,7 @@ identityはhashであり、raw cells / raw feature vectorをartifactへ保持し
 
 ただしhashを機密化・匿名化・暗号学的秘匿とは扱わない。header label等が低entropyの場合、digestからの推測可能性を完全には排除しない。
 
-したがって:
+したがっては次のとおりです。
 - external providerへ自動送信しない
 - human-review presentationへ既定表示しない
 - privacy policyの代替にしない
@@ -118,7 +118,7 @@ ADR-0018 D8を維持する。
 
 ## Fly Perception binding
 
-FlyWorksheetFormatPerceptionPayload に observationIdentity を追加する。
+FlyWorksheetFormatPerceptionPayloadにobservationIdentityを追加する。
 
 identityは既存matcher resultのcomparedFeatures / featureVersion / sourceProfileId / sourceEvidenceとObservation sourceDigestから生成する。
 
@@ -126,9 +126,9 @@ matcher score / threshold / rankingは変更しない。
 
 ## Envelope validation
 
-createCognitiveReviewEnvelope でPerception identityを再検証する。
+createCognitiveReviewEnvelopeでPerception identityを再検証する。
 
-照合:
+照合は次のとおりです。
 - sourceDigest
 - featureVersion
 - sourceProfileId
@@ -160,7 +160,7 @@ issue-0160はsame snapshot objectを内部共有するため、このidentityが
 
 issue-0164はissue-0160を置き換えない。
 
-役割:
+役割は次のとおりです。
 - issue-0160: safe orchestration by construction
 - issue-0164: explicit derived-state provenance / defense in depth
 
@@ -185,7 +185,7 @@ issue-0160経由でもFly Perceptionにidentityは付与され、Envelope検証�
 
 ## Acceptance criteria
 
-- [x] WorksheetFormatObservationIdentityV1 を追加
+- [x] WorksheetFormatObservationIdentityV1を追加
 - [x] SHA-256 + representation versionを固定
 - [x] match resultからidentity生成可能
 - [x] snapshot + source profileから同じidentityを再計算可能

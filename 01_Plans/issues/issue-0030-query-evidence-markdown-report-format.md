@@ -14,16 +14,16 @@
 ## Execution Plan
 ### Proposed solution (解決策の概要)
 - `buildQueryEvidenceMarkdown` の出力を単なる表文字列から、監査ログへ貼り付けやすいレポート形式（見出し + 件数 + テーブル）へ拡張する。
-- records が 0 件の場合にも `_No evidence records found._` を返すようにして関数単体の再利用性を高める。
-- 既存 unit test を更新し、新フォーマットと 0 件ケースを固定する。
+- recordsが0件の場合にも `_No evidence records found._` を返すようにして関数単体の再利用性を高める。
+- 既存unit testを更新し、新フォーマットと0件ケースを固定する。
 
 ### Acceptance criteria (受入条件)
-- [x] Markdown 出力が見出し・件数・テーブルを含む。
-- [x] records が 0 件のとき、説明文を返す。
+- [x] Markdown出力が見出し・件数・テーブルを含む。
+- [x] recordsが0件のとき、説明文を返す。
 - [x] `npm test` が通過する。
 
 ### Task breakdown (作業分解)
-- [x] `vscodeAdapters.ts` の Markdown formatter を更新する。
+- [x] `vscodeAdapters.ts` のMarkdown formatterを更新する。
 - [x] `queryEvidence.test.ts` の期待値を更新する。
 - [x] `npm test` で回帰確認する。
 
@@ -37,8 +37,8 @@
 - Commands:
   - `cd 03_Implement && npm test`
 - Result summary:
-  - Markdown export を監査向けレポート形式（見出し + 件数 + テーブル）へ更新。
-  - records=0 の empty-state レポートを追加。
-  - query evidence テストを更新し、全 110 テストが通過。
+  - Markdown exportを監査向けレポート形式（見出し + 件数 + テーブル）へ更新。
+  - records=0のempty-stateレポートを追加。
+  - query evidenceテストを更新し、全110テストが通過。
 - Status decision:
   - 受入条件を満たしたため `Status: Done` に更新。

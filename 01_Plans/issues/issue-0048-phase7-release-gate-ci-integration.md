@@ -13,18 +13,18 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- release gate チェックをローカル運用だけでなく CI に組み込み、PR 時点で G1/G2 の退行を自動検知できるようにする。
+- release gateチェックをローカル運用だけでなくCIに組み込み、PR時点でG1/G2の退行を自動検知できるようにする。
 
 ### Acceptance criteria (受入条件)
-- [x] `.github/workflows/ci.yml` に `release-gate` job が追加される。
-- [x] `release-gate` job で `python3 01_Plans/tools/release_gate_check.py --format json` が実行される。
-- [x] Phase 7 ガイドに CI 連携が追記される。
+- [x] `.github/workflows/ci.yml` に `release-gate` jobが追加される。
+- [x] `release-gate` jobで `python3 01_Plans/tools/release_gate_check.py --format json` が実行される。
+- [x] Phase 7ガイドにCI連携が追記される。
 
 ### Task breakdown (作業分解)
-- [x] CI workflow を更新する。
-- [x] 必要な Python/Node セットアップを workflow に追加する。
-- [x] Phase 7 運用ガイドへ CI 実行方針を追記する。
-- [x] 実行結果を Validation evidence へ記録する。
+- [x] CI workflowを更新する。
+- [x] 必要なPython/Nodeセットアップをworkflowに追加する。
+- [x] Phase 7運用ガイドへCI実行方針を追記する。
+- [x] 実行結果をValidation evidenceへ記録する。
 
 ### Validation plan (検証計画)
 - `python3 01_Plans/tools/release_gate_check.py --format json`
@@ -40,8 +40,8 @@
   - `python3 01_Plans/tools/planning_queue.py`
   - `python3 -m unittest 01_Plans/tools/test_release_gate_check.py`
 - Result summary:
-  - CI に release-gate job を追加し、PR 時に自動実行されるようにした。
-  - phase7 guide に CI 連携を追記。
-  - ローカル検証で release gate / planning queue / unittest がすべて成功。
+  - CIにrelease-gate jobを追加し、PR時に自動実行されるようにした。
+  - phase7 guideにCI連携を追記。
+  - ローカル検証でrelease gate / planning queue / unittestがすべて成功。
 - Status decision:
   - 受入条件を満たしたため `Status: Done` に更新。

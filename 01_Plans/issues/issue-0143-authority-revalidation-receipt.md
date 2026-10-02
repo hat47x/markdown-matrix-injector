@@ -31,7 +31,7 @@ Receiptは:
 
 を持つ。
 
-適用規則:
+適用規則は次のとおりです。
 
 - `always` requirementsは `passed / failed` のみ。not-applicable不可。
 - `executable-proposal` requirements:
@@ -79,7 +79,7 @@ Receiptは:
 - strict compile: `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true` で成功。
 - focused integration test: **8 tests / 8 pass / 0 fail**。
 - issue-0141の実際のEnvelope生成経路（approved Format Profile → matcher → Perception → review envelope）にReceiptをbindingして検証。
-- 確認内容:
+- 確認内容は次のとおりです。
   - review-evidence scopeでalways checks通過、executable-proposal checksをnot-applicableとして `satisfied`。
   - always check failureで `blocked`。
   - executable-proposal scopeで全conditional check評価時に `satisfied`。

@@ -13,19 +13,19 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- Markdown レポートへ `Source` 行を追加し、どの Markdown から抽出した evidence かを明示する。
-- `buildQueryEvidenceMarkdown` を options 対応（`sourceName`）に拡張し、既存呼び出し互換を維持する。
-- `buildQueryEvidenceExportArtifacts` から source basename を渡し、生成される `.md` 出力に metadata を含める。
+- Markdownレポートへ `Source` 行を追加し、どのMarkdownから抽出したevidenceかを明示する。
+- `buildQueryEvidenceMarkdown` をoptions対応（`sourceName`）に拡張し、既存呼び出し互換を維持する。
+- `buildQueryEvidenceExportArtifacts` からsource basenameを渡し、生成される `.md` 出力にmetadataを含める。
 
 ### Acceptance criteria (受入条件)
-- [x] Markdown レポートに source metadata を出力できる。
-- [x] options 未指定時の既存出力互換が維持される。
+- [x] Markdownレポートにsource metadataを出力できる。
+- [x] options未指定時の既存出力互換が維持される。
 - [x] `npm test` が通過する。
 
 ### Task breakdown (作業分解)
-- [x] `buildQueryEvidenceMarkdown` を options 対応へ更新する。
-- [x] artifact builder から sourceName を渡す。
-- [x] unit test を更新/追加する。
+- [x] `buildQueryEvidenceMarkdown` をoptions対応へ更新する。
+- [x] artifact builderからsourceNameを渡す。
+- [x] unit testを更新/追加する。
 - [x] `npm test` を実行する。
 
 ### Validation plan (検証計画)
@@ -38,8 +38,8 @@
 - Commands:
   - `cd 03_Implement && npm test`
 - Result summary:
-  - Markdown レポートに `- Source: <basename>` を追加できる options を実装。
-  - artifact helper から source basename を渡し、出力 `.md` に metadata を反映。
-  - 既存互換を維持しつつ unit test を追加し、全 119 テストが通過。
+  - Markdownレポートに `- Source: <basename>` を追加できるoptionsを実装。
+  - artifact helperからsource basenameを渡し、出力 `.md` にmetadataを反映。
+  - 既存互換を維持しつつunit testを追加し、全119テストが通過。
 - Status decision:
   - 受入条件を満たしたため `Status: Done` に更新。

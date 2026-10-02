@@ -49,7 +49,7 @@ Authority adapterはsource file bytesのSHA-256をprivate `digestFile` で計算
 - known bytesのSHA-256をNode crypto直計算と比較。
 - temporary fileでbytes/file identity一致。
 - contained relative path解決。
-- workspace外 traversal拒否。
+- workspace外traversal拒否。
 - symlink外部参照拒否。
 - file mutationでdigest変化。
 - GitHub正本adapterに共通primitive importがありprivate digest関数がないことを確認。
@@ -66,7 +66,7 @@ Authority adapterはsource file bytesのSHA-256をprivate `digestFile` で計算
   `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
   でcompile成功。
 - temporary real filesを用いたfocused runtime harness: **6/6 pass**。
-- 確認内容:
+- 確認内容は次のとおりです。
   - raw bytesからのidentityがdeterministicでNode SHA-256直計算と一致。
   - file identityと同一bytes identityが一致。
   - contained relative sourceを既存resolver経由で解決してidentity生成。

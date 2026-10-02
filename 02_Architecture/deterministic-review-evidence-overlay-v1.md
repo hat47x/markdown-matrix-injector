@@ -24,13 +24,13 @@ Worksheet review telemetry
 
 fill review reasonはFly providerが生成したsignalではない。
 
-たとえば:
+たとえばは次のとおりです。
 
 ```text
 fill-induced-ambiguity
 ```
 
-は:
+はは次のとおりです。
 
 ```text
 structure-only matcher result
@@ -65,7 +65,7 @@ Authority checkは:
 
 のように、実行可否に必要な決定論的再検証である。
 
-一方:
+一方は次のとおりです。
 
 ```text
 fill-supported-acceptance
@@ -124,7 +124,7 @@ primary fill-aware result
 Fly Perception payload
 ```
 
-比較:
+比較は次のとおりです。
 
 - classification
 - winner
@@ -169,7 +169,7 @@ Authority satisfiedでも同じ。
 
 ## 9. Privacy / payload
 
-artifactへ入れないもの:
+artifactへ入れないもの。
 
 - raw worksheet cells
 - raw feature vector
@@ -185,7 +185,7 @@ reviewに必要な要約だけを持つ。
 
 現在のproducerはworksheet-format fill comparison専用。
 
-将来:
+将来は次のとおりです。
 
 - multi-family drift
 - snapshot drift

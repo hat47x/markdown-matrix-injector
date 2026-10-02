@@ -64,7 +64,7 @@ runtime reviewのために元baseline snapshotを別途保持・再読込する�
   `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
   でcompile成功。
 - focused runtime harness: **6 tests / 6 pass / 0 fail**。
-- 確認内容:
+- 確認内容は次のとおりです。
   - approved Profileのcanonical featuresだけからstructure-only control prototypeを導出。
   - decision-impact transitionを再現。
   - fill-unavailable + fill-unavailable-for-discriminationをProfile fill factsだけで再現。

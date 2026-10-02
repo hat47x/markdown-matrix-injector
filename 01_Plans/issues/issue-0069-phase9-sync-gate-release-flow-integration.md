@@ -13,19 +13,19 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- Phase 9 sync checker を `npm test` フローへ統合し、通常の回帰実行で必ず品質ゲートを通過させる。
-- sync checker テストに CLI 引数経由の正常系/異常系を追加し、exit code とメッセージを保証する。
+- Phase 9 sync checkerを `npm test` フローへ統合し、通常の回帰実行で必ず品質ゲートを通過させる。
+- sync checkerテストにCLI引数経由の正常系/異常系を追加し、exit codeとメッセージを保証する。
 
 ### Acceptance criteria (受入条件)
-- [x] `03_Implement/package.json` の test フローが unit test + phase9 sync checker を実行する。
-- [x] `test_check_phase9_template_sync.py` に CLI 引数経由のテストが追加される。
-- [x] `cd 03_Implement && npm test` で phase9 sync checker が実行される。
-- [x] `python3 01_Plans/tools/planning_queue.py` 実行時に orphan issue が 0 件である。
+- [x] `03_Implement/package.json` のtestフローがunit test + phase9 sync checkerを実行する。
+- [x] `test_check_phase9_template_sync.py` にCLI引数経由のテストが追加される。
+- [x] `cd 03_Implement && npm test` でphase9 sync checkerが実行される。
+- [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
 ### Task breakdown (作業分解)
-- [x] npm script を更新する。
-- [x] CLI 経由の単体テストを追加する。
-- [x] npm test と planning queue を再実行する。
+- [x] npm scriptを更新する。
+- [x] CLI経由の単体テストを追加する。
+- [x] npm testとplanning queueを再実行する。
 
 ### Validation plan (検証計画)
 - `python3 01_Plans/tools/test_check_phase9_template_sync.py`

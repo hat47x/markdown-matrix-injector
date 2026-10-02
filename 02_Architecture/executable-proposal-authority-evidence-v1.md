@@ -24,7 +24,7 @@ representation:
 mmi-notation-trimmed-utf8-v1
 ```
 
-計算:
+計算は次のとおりです。
 
 ```text
 trim leading/trailing whitespace
@@ -56,7 +56,7 @@ parserが入力全体の前後空白を無視するため、identityも同じ境
 
 Evidenceにはproposal本文を保持しない。
 
-保持するのは:
+保持するのはは次のとおりです。
 
 - representation id
 - algorithm
@@ -95,7 +95,7 @@ TypeScript objectを外部から偽造できないという意味ではなく、
 
 を照合した後、issue-0143 `bindAuthorityRevalidationReceipt` を再利用する。
 
-返却:
+返却は次のとおりです。
 
 ```text
 proposal identity
@@ -112,7 +112,7 @@ blocked ReceiptもEvidenceとして有効である。
 
 本Evidenceはintegrity bindingであり、issuer authenticationではない。
 
-保証しない:
+保証しないは次のとおりです。
 
 - Receipt issuerが本当にtrusted processであること
 - semantic-equivalent Notationの同一視

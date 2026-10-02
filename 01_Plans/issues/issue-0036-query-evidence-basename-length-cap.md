@@ -13,18 +13,18 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- 極端に長い markdown basename は OS のパス長制約や可読性を悪化させるため、サニタイズ後 basename を 64 文字で切り詰める。
+- 極端に長いmarkdown basenameはOSのパス長制約や可読性を悪化させるため、サニタイズ後basenameを64文字で切り詰める。
 - 末尾が `-` になる場合はトリムし、空になった場合は `markdown` を利用する既存ルールへフォールバックする。
-- 長さ上限ケースの unit test を追加する。
+- 長さ上限ケースのunit testを追加する。
 
 ### Acceptance criteria (受入条件)
-- [x] basename が 64 文字上限で出力される。
+- [x] basenameが64文字上限で出力される。
 - [x] 上限適用後も既存のフォールバック規則が維持される。
 - [x] `npm test` が通過する。
 
 ### Task breakdown (作業分解)
-- [x] サニタイズ後 basename に長さ上限処理を追加する。
-- [x] unit test を追加する。
+- [x] サニタイズ後basenameに長さ上限処理を追加する。
+- [x] unit testを追加する。
 - [x] `npm test` を実行する。
 
 ### Validation plan (検証計画)
@@ -37,8 +37,8 @@
 - Commands:
   - `cd 03_Implement && npm test`
 - Result summary:
-  - basename を 64 文字に切り詰める処理を追加。
+  - basenameを64文字に切り詰める処理を追加。
   - 切り詰め後の末尾ハイフンを除去し、空文字時は `markdown` へフォールバック。
-  - 長さ上限ケースの unit test を追加し、全 117 テストが通過。
+  - 長さ上限ケースのunit testを追加し、全117テストが通過。
 - Status decision:
   - 受入条件を満たしたため `Status: Done` に更新。

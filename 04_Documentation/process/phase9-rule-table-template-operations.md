@@ -1,30 +1,30 @@
 # Phase 9: ルールテーブルテンプレート運用ガイド
 
 ## 対象読者
-- SIer 設計文書の作成者（author）
+- SIer設計文書の作成者（author）
 - 受入レビュー担当（reviewer）
 - 納品・品質保証担当（delivery）
 
 ## 前提条件
-- Phase 8 の Drools 参照パターン（`phase8-drools-inspired-table-patterns.md`）を理解していること。
-- ベンチマークテンプレートの正本として、docs 用 CSV と test fixture 用 CSV を同時に管理すること。
-- Decision は `ADR-0007`、Action は `issue-0066` で追跡すること。
+- Phase 8のDrools参照パターン（`phase8-drools-inspired-table-patterns.md`）を理解していること。
+- ベンチマークテンプレートの正本として、docs用CSVとtest fixture用CSVを同時に管理すること。
+- Decisionは `ADR-0007`、Actionは `issue-0066` で追跡すること。
 - 品質監査拡張（RuleId重複/必須列/日付形式）は `ADR-0008` と `issue-0067` で追跡すること。
 
 ## 期待結果
 - 4種のベンチマーク表（要件トレース / 状態遷移 / 障害切り分け / リリース判定）を、同一列定義で再利用できる。
-- docs と test fixture の片側更新を禁止し、同期差分を CLI で検知できる。
-- query 観測（`columns` / `grep` / `header`）の回帰を unit test で継続監査できる。
+- docsとtest fixtureの片側更新を禁止し、同期差分をCLIで検知できる。
+- query観測（`columns` / `grep` / `header`）の回帰をunit testで継続監査できる。
 
 ## 関連正本
 - 要件: `00_Prompt/requirements.md`（Phase 9）
 - 方針: `01_Plans/adr/ADR-0007-phase9-rule-table-interoperability-and-design-assetization.md`
 - 実行: `01_Plans/issues/issue-0066-phase9-rule-table-template-foundation.md`
-- docs テンプレート: `04_Documentation/samples/phase9-rule-table-benchmark-pack.csv`
-- fixture テンプレート: `03_Implement/test/fixtures/workspace/data/phase9-rule-table-benchmark-pack.csv`
+- docsテンプレート: `04_Documentation/samples/phase9-rule-table-benchmark-pack.csv`
+- fixtureテンプレート: `03_Implement/test/fixtures/workspace/data/phase9-rule-table-benchmark-pack.csv`
 
 ## 既知の制約
-- GitHub PR 制約により `.xlsx` は原則コミットせず、生成スクリプトで再現する。
+- GitHub PR制約により `.xlsx` は原則コミットせず、生成スクリプトで再現する。
 - テンプレート列追加は後方互換影響があるため、`ADR` で合意してから実施する。
 
 ---
@@ -32,7 +32,7 @@
 ## 1. テンプレート作成ルール
 
 ### 1.1 ベンチマーク表の固定セット
-Phase 9 では次の 4 表を最小ベンチマークとして固定する。
+Phase 9では次の4表を最小ベンチマークとして固定する。
 
 1. 要件トレーサビリティ（RequirementsTraceability）
 2. 状態遷移（StateTransition）
@@ -64,36 +64,36 @@ Phase 9 では次の 4 表を最小ベンチマークとして固定する。
 
 ## 2. 更新ルール（Round-trip）
 
-1. docs 用 CSV（`04_Documentation/samples/...`）を更新する。
-2. 同一コミットで fixture 用 CSV（`03_Implement/test/fixtures/...`）へ同内容を反映する。
+1. docs用CSV（`04_Documentation/samples/...`）を更新する。
+2. 同一コミットでfixture用CSV（`03_Implement/test/fixtures/...`）へ同内容を反映する。
 3. `python3 01_Plans/tools/check_phase9_template_sync.py` で列同期 + 行同期（row parity）+ 品質監査（必須列/RuleId/日付形式/有効期間整合）を検証する。
-4. `cd 03_Implement && npm test` で query 観測テストを実行する。
-5. 差分理由・検証結果を issue-0066 の Validation evidence へ追記する。
+4. `cd 03_Implement && npm test` でquery観測テストを実行する。
+5. 差分理由・検証結果をissue-0066のValidation evidenceへ追記する。
 
 > 片側のみ更新した状態でのマージは禁止。
 
 ### 2.0.1 [2026-07-09 追記, ADR-0013] Round-trip の3点化
-docs 用 CSV を更新した場合、以下を **同一コミット** で追加反映する（従来の docs/fixture 2 点ルールを拡張）。
+docs用CSVを更新した場合、以下を **同一コミット** で追加反映する（従来のdocs/fixture 2点ルールを拡張）。
 
 3. `04_Documentation/samples/phase9-rule-table-pattern-guide.md`（生成ガイド）を
    `python3 01_Plans/tools/generate_phase9_pattern_guide.py` で再生成し、コミットに含める。
 
 再生成前に `python3 01_Plans/tools/generate_phase9_pattern_guide.py --check` を実行すると、
-コミット済みガイドが docs CSV に対して既に陳腐化していないかを確認できる（非ゼロ終了時は要再生成）。
-このガイドは `04_Documentation/samples/README.md` から MMI 非依存の読者向けに公開される
-（ADR-0012 D7 / ADR-0013 参照）。
+コミット済みガイドがdocs CSVに対して既に陳腐化していないかを確認できる（非ゼロ終了時は要再生成）。
+このガイドは `04_Documentation/samples/README.md` からMMI非依存の読者向けに公開される
+（ADR-0012 D7 / ADR-0013参照）。
 
 ### 2.1 監査NG時の一次対応
 `phase9 template sync: NG` が出力された場合、以下の順で修復する。
 
-1. `No such file or directory` がある場合は docs/fixture のパス指定を見直す。
-2. `header mismatch` がある場合は docs/fixture の列順を一致させる。
-3. `row mismatch` がある場合は docs/fixture の行内容・行順を一致させる。
+1. `No such file or directory` がある場合はdocs/fixtureのパス指定を見直す。
+2. `header mismatch` がある場合はdocs/fixtureの列順を一致させる。
+3. `row mismatch` がある場合はdocs/fixtureの行内容・行順を一致させる。
 4. `missing required column` がある場合は空欄セルを補完する（空白文字のみもNG）。
 5. `duplicate RuleId` がある場合は一意なIDへ置換する。
 6. `invalid date format` がある場合は `YYYY-MM-DD` へ修正する（実在しない日付もNG）。
 7. `invalid date range` がある場合は `EffectiveFrom <= ExpiresAt` となるよう修正する。
-8. 修正後に sync checker -> `npm test` を再実行し、issue の Validation evidence へ追記する。
+8. 修正後にsync checker -> `npm test` を再実行し、issueのValidation evidenceへ追記する。
 
 ### 2.2 任意ファイル検証（ローカル差分確認）
 ローカルで一時CSVを使って検証する場合は、次の引数を使う。
@@ -102,7 +102,7 @@ docs 用 CSV を更新した場合、以下を **同一コミット** で追加�
 python3 01_Plans/tools/check_phase9_template_sync.py --docs <docs.csv> --fixture <fixture.csv>
 ```
 
-CI 連携や自動集計では JSON 出力を使う。
+CI連携や自動集計ではJSON出力を使う。
 
 ```bash
 python3 01_Plans/tools/check_phase9_template_sync.py --format json
@@ -114,7 +114,7 @@ python3 01_Plans/tools/check_phase9_template_sync.py --format json
 python3 01_Plans/tools/check_phase9_template_sync.py --ignore-row-order
 ```
 
-release gate 経由で同じ緩和モードを使う場合は、`release_gate_check.py` 側で次のフラグを指定する。
+release gate経由で同じ緩和モードを使う場合は、`release_gate_check.py` 側で次のフラグを指定する。
 
 ```bash
 python3 01_Plans/tools/release_gate_check.py --phase9-ignore-row-order
@@ -123,14 +123,14 @@ python3 01_Plans/tools/release_gate_check.py --phase9-ignore-row-order
 > 注意: `--phase9-ignore-row-order` は「行順のみ」を緩和する。行内容不一致（例: `ActionExpr` 差分）は NG のまま。
 
 `release_gate_check.py` を `--skip-tests` で実行する場合、`--phase9-ignore-row-order` を同時指定しても
-G3 は実行されない。JSON 出力では G3 detail が `skipped by --skip-tests`（strict）または
+G3は実行されない。JSON出力ではG3 detailが `skipped by --skip-tests`（strict）または
 `skipped by --skip-tests (ignore-row-order not evaluated)`（relaxed指定時）となる。
 
 ## 3. 同期ルール（運用チェックポイント）
 
-- **設計チェック**: 列構成変更は ADR を起票し、影響範囲（docs / fixture / test）を明示する。
-- **実装チェック**: query 観測テストに、最低 1 件は `columns + grep` の複合条件を含める。
-- **納品チェック**: `planning_queue.py` で orphan issue が 0 件であることを確認する。
+- **設計チェック**: 列構成変更はADRを起票し、影響範囲（docs / fixture / test）を明示する。
+- **実装チェック**: query観測テストに、最低1件は `columns + grep` の複合条件を含める。
+- **納品チェック**: `planning_queue.py` でorphan issueが0件であることを確認する。
 
 ## 4. template quality gate 判定手順
 
@@ -147,4 +147,4 @@ G3 は実行されない。JSON 出力では G3 detail が `skipped by --skip-te
 3. `cd 03_Implement && npm test`
 4. `python3 01_Plans/tools/planning_queue.py`
 
-この順序を固定することで、テンプレート整合性 → 標準ガイド整合性 → 回帰検証 → planning 整合性を最短で確認できる。
+この順序を固定することで、テンプレート整合性 → 標準ガイド整合性 → 回帰検証 → planning整合性を最短で確認できる。

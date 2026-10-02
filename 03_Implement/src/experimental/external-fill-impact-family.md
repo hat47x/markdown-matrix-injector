@@ -4,7 +4,7 @@
 
 ## 1. 何を確認するfixtureか
 
-対象:
+対象は次のとおりです。
 
 ```text
 fill-supported-acceptance
@@ -29,7 +29,7 @@ row 3-5: full body rows
 
 です。
 
-違いは:
+違いはは次のとおりです。
 
 - header label
 - header fill
@@ -40,7 +40,7 @@ row 3-5: full body rows
 
 ## 3. Supported acceptance
 
-6列表:
+6列表は次のとおりです。
 
 ```text
 base:
@@ -89,7 +89,7 @@ fill-awareではBもfill一致で支持され、marginが0.05未満になりambi
 
 8列表で2 label drift、fillは両方dark。
 
-それでも:
+それでもは次のとおりです。
 
 ```text
 structure only: matched
@@ -104,7 +104,7 @@ fillは単純な加点ではありません。
 
 ## 6. Changed winner
 
-3列表:
+3列表は次のとおりです。
 
 ```text
 observation:
@@ -134,7 +134,7 @@ A
 
 へ変わります。
 
-このとき:
+このとき。
 
 ```text
 fill-supported-disambiguation
@@ -164,7 +164,7 @@ fixture自体のwidthやfillがsignalを生むわけではないことを確認�
 
 4review caseはreason codeを出すよう意図的に選んでいます。
 
-したがって:
+したがっては次のとおりです。
 
 ```text
 precision = 1

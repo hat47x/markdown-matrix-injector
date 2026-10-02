@@ -70,7 +70,7 @@ adjudicatorへはannotation route / rationaleのみを渡し、annotator identit
 
 annotation順もsemantic canonical orderへ並べ替える。
 
-したがって:
+したがっては次のとおりです。
 - annotator Aだから重視する
 - annotationReferenceの順で推測する
 
@@ -264,7 +264,7 @@ repository dependency treeが無い場合はrepository全test passを主張せ�
 
 2026-09-20、並行レーンで同一adjudication責務の重複実装を検出したため、`worksheetReviewRouteAdjudicationPacket.ts` を正本として一本化した。
 
-統合時に追加した強化:
+統合時に追加した強化は次のとおりです。
 - `assertWorksheetReviewRouteLabelCorpus` 自体でadjudicationに2件以上のindependent annotationを要求。
 - adjudicatorRefが対象caseのannotatorRef群と一致するcorpusをreject。
 - issue-0168の閉じた仕様文書もこのinvariantへ整合。

@@ -13,18 +13,18 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- 開発/検証用コマンド `markdownMatrixInjector.__dev.exportQueryEvidence` を追加し、現在アクティブな Markdown から `![[...?...]]` の埋め込みクエリを抽出して `query-evidence.csv`（オプションでJSON）として保存する。
+- 開発/検証用コマンド `markdownMatrixInjector.__dev.exportQueryEvidence` を追加し、現在アクティブなMarkdownから `![[...?...]]` の埋め込みクエリを抽出して `query-evidence.csv`（オプションでJSON）として保存する。
 - 出力順序は文書内出現順で固定し、同一入力に対する再現性を担保する。
 
 ### Acceptance criteria (受入条件)
 - [x] 埋め込みクエリ履歴をCSVで出力できる。
 - [x] 同一入力から同一順序で出力される。
-- [x] 既存 diagnostics / parser の挙動を壊さない。
-- [x] docs-check / unit / manual-e2e の検証結果を Issue に記録する。
+- [x] 既存diagnostics / parserの挙動を壊さない。
+- [x] docs-check / unit / manual-e2eの検証結果をIssueに記録する。
 
 ### Task breakdown (作業分解)
 - [x] `embedSyntax.ts` / `vscodeAdapters.ts` に履歴抽出用の再利用可能ロジックを追加する。
-- [x] `extension.ts` に export コマンドを追加する。
+- [x] `extension.ts` にexportコマンドを追加する。
 - [x] CSV（必要ならJSON）出力のテストを追加する。
 - [x] 既存テストを実行し回帰なしを確認する。
 
@@ -45,8 +45,8 @@
   - `cd 03_Implement && npm test`
   - `python3 01_Plans/tools/planning_queue.py`
 - Result summary:
-  - `markdownMatrixInjector.__dev.exportQueryEvidence` を追加し、`collectQueryEvidenceRecords` + `buildQueryEvidenceCsv` による CSV 出力を実装。
+  - `markdownMatrixInjector.__dev.exportQueryEvidence` を追加し、`collectQueryEvidenceRecords` + `buildQueryEvidenceCsv` によるCSV出力を実装。
   - `queryEvidence.test.ts` を追加し、出現順保持・CSVエスケープの安定性を確認。
   - `npm test` で全テスト通過を確認。
 - Status decision:
-  - Query Evidence Export MVP の受入条件を満たしたため `Status: Done` に更新。
+  - Query Evidence Export MVPの受入条件を満たしたため `Status: Done` に更新。

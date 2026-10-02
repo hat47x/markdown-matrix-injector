@@ -25,7 +25,7 @@ issue-0147でexact proposalへのEvidence bindingを追加したため、human-r
 
 `ExecutableProposalVerifiedReviewSurfaceV1` を新設する。
 
-構成:
+構成は次のとおりです。
 
 - proposal identity section
   - source digest
@@ -35,7 +35,7 @@ issue-0147でexact proposalへのEvidence bindingを追加したため、human-r
 - authorityVerification
   - issue-0144 Authority Verification Overlay
 
-生成時に:
+生成時には次のとおりです。
 
 1. issue-0147 `bindExecutableProposalAuthorityEvidence` で現在rawNotationとEvidenceを照合
 2. issue-0144 `createVerifiedCognitiveReviewSurface` でPresentation + Receiptを照合
@@ -75,7 +75,7 @@ issue-0147でexact proposalへのEvidence bindingを追加したため、human-r
 - TypeScript: `5.8.3`
 - issue-0145〜0148のcomposition sourceをstrict compile: `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true` で成功。
 - focused runtime harness: **8 checks / 8 pass / 0 fail**。
-- 検証内容:
+- 検証内容は次のとおりです。
   - exact proposal identity付きsatisfied human-review surfaceを生成。
   - 同一source上の別proposalへのEvidence swapをproposal digest mismatchで拒否。
   - blocked Authority Evidenceでもproposal identityを保持したsurfaceを生成。

@@ -7,7 +7,7 @@ Jev等の外部/ローカルJudgment実装をMMIへ接続する前に、provider
 TypeSafe AIの公開情報ではJevはtyped decisionをsoftware workflowへ返す用途を掲げている。
 MMIではprovider固有能力をAuthorityへ昇格させず、既存closed-choice adapterの `proposal-only` 契約へ必ず落とす。
 
-参考:
+参考は次のとおりです。
 - https://typesafe.ai/blog/introducing-system-one-models-and-jev
 - https://typesafe.ai/
 
@@ -52,13 +52,13 @@ descriptorもcall前にcloneし、そのsnapshotをOutcome provenanceへ利用�
 
 provider responseをそのままOutcomeとして信用しない。
 
-既存:
+既存は次のとおりです。
 
 ```text
 adaptClosedChoiceResponse
 ```
 
-を必ず通し:
+を必ず通しは次のとおりです。
 
 - declared choice
 - exact distribution keys
@@ -74,7 +74,7 @@ adaptClosedChoiceResponse
 
 provider throw/rejectはrunnerで `unavailable` へ自動変換しない。
 
-理由:
+理由は次のとおりです。
 - network unavailable
 - auth failure
 - programming bug

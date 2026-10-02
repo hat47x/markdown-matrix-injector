@@ -29,7 +29,7 @@ WORKSHEET_REVIEW_ROUTE_REQUIRED_INDEPENDENT_ANNOTATIONS = 2
 
 をsingle source of truthとする。
 
-この値を:
+この値をは次のとおりです。
 - corpus adjudication invariant
 - annotation work eligibility
 - adjudication packet minimum
@@ -85,7 +85,7 @@ eligible setやevidenceが変わればdigestが変わる。
 apply時にcurrent corpusから同じannotatorRefでwork packetを再生成し、
 response.packetDigestと比較する。
 
-途中で:
+途中では次のとおりです。
 - 他annotatorがlabel追加。
 - evidence変更。
 - adjudication追加。

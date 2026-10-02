@@ -25,7 +25,7 @@ default policyは持たない。
 `allowedChanges.foo=true` は:
 - fooが変わっても許容する。
 
-であり:
+でありは次のとおりです。
 - fooが必ず変わるべき。
 
 ではない。
@@ -100,13 +100,13 @@ labelOnlyReevaluation=forbidden。
 
 ### label-only re-evaluation
 
-許可:
+許可は次のとおりです。
 - recordIdentity
 - groundTruth
 - summary
 - projectionSeparability
 
-禁止:
+禁止は次のとおりです。
 - planDigest
 - packetDigest
 - readinessPolicy
@@ -118,7 +118,7 @@ labelOnlyReevaluation=required。
 
 ### same-ground-truth provider rerun
 
-許可:
+許可は次のとおりです。
 - recordIdentity
 - response
 - summary

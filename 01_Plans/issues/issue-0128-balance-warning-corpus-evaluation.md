@@ -135,7 +135,7 @@ recallは87.5%だが、flaggedの約42%が今回のラベルではreview不要�
 
 ## 結果2: boundary warningは高precisionだが低recall
 
-boundary warningだけをreview flagとした場合:
+boundary warningだけをreview flagとした場合。
 
 | 指標 | 値 |
 |---|---:|
@@ -148,7 +148,7 @@ boundary warningだけをreview flagとした場合:
 | recall | 0.250000 |
 | false-positive rate | 0.000000 |
 
-拾った2件:
+拾った2件は次のとおりです。
 
 - 6列2ラベル変更のnear-gate `novel`
 - near-tied prototypeの `ambiguous`
@@ -161,7 +161,7 @@ boundary warningだけをreview flagとした場合:
 
 ## 結果3: composition warningはcase判定よりdesign telemetryに近い
 
-composition warningだけの場合:
+composition warningだけの場合。
 
 | 指標 | 値 |
 |---|---:|
@@ -176,10 +176,10 @@ composition warningだけの場合:
 
 特に次の安全ケースでも `column-family-share-high` が出る。
 
-- 8列 exact
-- 10列 exact
-- 8列 1 label rename
-- 10列 1 label rename
+- 8列exact
+- 10列exact
+- 8列1 label rename
+- 10列1 label rename
 
 これはwarningが間違っているというより、**「wide tableでは列比例familyが大きい」という表の性質を正しく観測している**。
 
@@ -205,12 +205,12 @@ fill featureが2件消えたことで、列比例familyの**絶対件数は変�
 
 ## 結果5: 現在のwarningが取り逃す複合driftがある
 
-6列表:
+6列表は次のとおりです。
 
 - `判定 -> 状態`
 - majority occupancy `111111 -> 111110`
 
-を同時に与えたケース:
+を同時に与えたケースは次のとおりです。
 
 ```text
 status         = matched
@@ -235,7 +235,7 @@ confidenceは0.7から0.068919離れているためnear-gateではない。
 
 adapterが生成するfeature集合はpreambleなしと完全一致した。
 
-結果:
+結果は次のとおりです。
 
 ```text
 status     = matched
@@ -272,7 +272,7 @@ precisionは高いがrecall 25%である。
 
 ### 4. gate thresholdは変更しない
 
-今回の結果だけを使って:
+今回の結果だけを使っては次のとおりです。
 
 - nearConfidenceDistanceを広げる
 - maxColumnFamilyShareを上げる
@@ -286,7 +286,7 @@ precisionは高いがrecall 25%である。
 
 次Issueでは、今回見つかったfalse negativeを起点にするが、同じ16ケースでthresholdを最適化しない。
 
-候補:
+候補は次のとおりです。
 
 - matched candidateのDeviationScore帯
 - family ablationで複数familyがpenalty方向に働くケース
@@ -316,13 +316,13 @@ precisionは高いがrecall 25%である。
 
 ### 2026-09-18 local validation
 
-実行環境:
+実行環境は次のとおりです。
 
 - Node.js `v22.16.0`
 - TypeScript `5.8.3`
 - `--strict --target ES2022 --module NodeNext --moduleResolution NodeNext`
 
-確認内容:
+確認内容は次のとおりです。
 
 - 新しいcorpus evaluatorをexisting public interfaceに対してstrict compile
 - 16ケースのdeterministic corpus replay

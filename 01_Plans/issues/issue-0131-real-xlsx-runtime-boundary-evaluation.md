@@ -72,7 +72,7 @@ ID | State | Note
 R-001 | [blank] | memo
 ```
 
-確認すること:
+確認すること。
 
 - `A1:C1` がsnapshotのmergeとして残る
 - title rowではA1だけがcellとして観測され、B1/C1をreaderが通常セルとして補わない
@@ -95,7 +95,7 @@ R-001 | [blank] | memo
 
 を入れる。
 
-確認:
+確認は次のとおりです。
 
 - metadata rowをheaderと誤認しない
 - header rowを正しく選ぶ
@@ -111,7 +111,7 @@ R-001 | [blank] | memo
 
 mergeやtitle cellを作らない実XLSXをreadする。
 
-確認:
+確認は次のとおりです。
 
 - header row = 0
 - `region:title-row` を生成しない
@@ -139,7 +139,7 @@ SheetJSで2-sheet workbookを実XLSXとして生成し、一時ファイルへ�
 
 header cellへdark fill相当のstyle objectを与え、`cellStyles: true` でXLSXを生成する。
 
-ただしこのテストでは:
+ただしこのテストではは次のとおりです。
 
 ```text
 fillTone = undefined OR dark
@@ -197,7 +197,7 @@ structure-only profileで:
 
 writerのstyle生成能力とreaderのstyle読取能力を同じroundtripだけで評価すると、writer制約をreader制約と誤認する可能性がある。
 
-したがって:
+したがっては次のとおりです。
 
 - structure: 強くcontract test化する
 - fill: capability probeに留める
@@ -207,14 +207,14 @@ writerのstyle生成能力とreaderのstyle読取能力を同じroundtripだけ�
 
 ## 実装範囲
 
-追加:
+追加は次のとおりです。
 
 - `03_Implement/test/xlsxFormatSnapshotRealRuntime.test.ts`
 - 本Issue
 - runtime boundary説明文書
 - experimental READMEへの導線
 
-変更しない:
+変更しないは次のとおりです。
 
 - reader実装
 - SheetJS bridge実装
@@ -263,7 +263,7 @@ xlsx = https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz
 
 したがって、**この場では「tests passed」とは記録しない**。
 
-行ったこと:
+行ったこと。
 
 - 既存source / type boundaryとの静的照合
 - pinned API形状との照合
@@ -276,7 +276,7 @@ GitHub Actionsは既知のrunner/resource不足があるため完了条件には
 
 次に必要なのはtest generatorを増やすことではなく、外部ツールで生成されたactual XLSX fixtureでstyle evidenceを確認することである。
 
-候補:
+候補は次のとおりです。
 
 1. LibreOffice / Excel等でfill付きsmall fixtureを生成
 2. repositoryへsmall binary fixtureを保持するか、base64 fixtureとして管理する

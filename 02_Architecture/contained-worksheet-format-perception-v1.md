@@ -72,7 +72,7 @@ candidateやincompatible feature/source profileはsource I/Oより先に拒否�
 ## 6. Classification semantics
 
 本workflowはscoreやthresholdを変更しない。
-matched / ambiguous / novel は既存matcherとPerception adapterの結果そのもの。
+matched / ambiguous / novelは既存matcherとPerception adapterの結果そのもの。
 
 ## 7. Source stability
 

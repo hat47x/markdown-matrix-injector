@@ -33,7 +33,7 @@ issue-0155ではhuman-review向けデータを4領域に分離した。
 
 ## Decision
 
-既存 UnifiedHumanReviewViewModelV1 を変更せず、その上に UnifiedHumanReviewPresentationPlanV1 を追加する。
+既存UnifiedHumanReviewViewModelV1を変更せず、その上にUnifiedHumanReviewPresentationPlanV1を追加する。
 
 このartifactはsection order / default disclosure / section-local compact summaryだけを持つ。元のreview evidenceやAuthority artifactを複製しない。
 
@@ -46,7 +46,7 @@ issue-0155ではhuman-review向けデータを4領域に分離した。
 3. Deterministic
 4. Proposal Identity
 
-Authorityはblocking factを最初に確認する。ただし satisfied はhuman approvalを意味しない。
+Authorityはblocking factを最初に確認する。ただしsatisfiedはhuman approvalを意味しない。
 CognitiveはPerception / optional Judgmentを表示し、Authority結果へ昇格しない。
 Deterministicはfill review reason等の決定論的comparison evidenceを表示し、Cognitive evidenceへ変換しない。
 Proposal Identityはintegrity metadataとしてdetails領域へ置き、digest自体を判断根拠として前景化しない。
@@ -127,8 +127,8 @@ section展開規則も各section自身の事実だけから決める。Authority
 
 ## Acceptance criteria
 
-- [x] UnifiedHumanReviewPresentationPlanV1 を追加
-- [x] section orderを Authority / Cognitive / Deterministic / Proposal Identity に固定
+- [x] UnifiedHumanReviewPresentationPlanV1を追加
+- [x] section orderをAuthority / Cognitive / Deterministic / Proposal Identityに固定
 - [x] Authority blockedのみAuthorityを既定展開
 - [x] matched + Judgment not-requestedではCognitiveを既定折りたたみ
 - [x] ambiguous / novelでCognitiveを既定展開
@@ -160,11 +160,11 @@ section展開規則も各section自身の事実だけから決める。Authority
 
 ## Concurrency
 
-issue-0177 worksheet-review-route-evaluation-record は別branchで進行中。
+issue-0177 worksheet-review-route-evaluation-recordは別branchで進行中。
 
 issue-0178はunified review presentationの新規source/test/docsのみを変更し、0177のevaluation record / report / plan / packetには触れない。
 
-branchは feature/human-review-presentation-ordering-v1 1本に限定し、完了後mainへ戻す。
+branchはfeature/human-review-presentation-ordering-v1 1本に限定し、完了後mainへ戻す。
 
 ## Validation policy
 

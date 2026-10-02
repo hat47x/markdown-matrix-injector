@@ -25,7 +25,7 @@ comparisonは以下を作らない。
 
 ## 3. Plan dimension
 
-比較:
+比較は次のとおりです。
 - planDigest
 - packetDigest
 - readinessPolicy
@@ -72,7 +72,7 @@ metric improvement/degradationを意味しない。
 
 ## 7. Report dimension
 
-比較:
+比較は次のとおりです。
 - summary
 - projectionSeparability
 - provider descriptor
@@ -108,7 +108,7 @@ comparison validatorはartifact内部invariantを検証する。
 
 comparison artifactは差分case id以外のrecord detailを複製しない。
 
-特に:
+特には次のとおりです。
 - evidence
 - annotations
 - adjudication provenance

@@ -13,7 +13,7 @@
 - Depends on: issue-0138 Done
 - Related: issue-0160 Contained Unified Review Workflow
 - Related ADR/Spec: ADR-0018-cognitive-assistance-plane.md
-- Parallel exclusion: live Jev SDK / API key / network / provider account / production UI は導入しない
+- Parallel exclusion: live Jev SDK / API key / network / provider account / production UIは導入しない
 
 ## Problem
 
@@ -96,7 +96,7 @@ validate Observation
   `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
   でcompile成功。
 - focused runtime harness: **12 checks / 12 pass / 0 fail**。
-- 確認内容:
+- 確認内容は次のとおりです。
   - local provider decision -> `proposal-only` Judgment。
   - explicit abstentionをnon-decisionとして保持。
   - `external-opt-in` providerはopt-inなしではcall前に拒否。

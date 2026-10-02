@@ -146,7 +146,7 @@ issue-0134の3/4列表を再利用しない。
 9. exact-structure no-fill prototype vs one-label-wrong dark-fill prototype — review対象
 10. clearly novel / same dark fill — review不要
 
-合計:
+合計は次のとおりです。
 
 ```text
 cases           20
@@ -178,7 +178,7 @@ with fill:      novel
 
 これはglobal sparse signatureとの相互作用を含むため、fillは常にconfidenceを上げるわけではない。
 
-したがって:
+したがっては次のとおりです。
 
 > fillありなら加点
 
@@ -221,7 +221,7 @@ OR
 fill-unavailable-for-discrimination
 ```
 
-結果:
+結果は次のとおりです。
 
 | metric | value |
 |---|---:|
@@ -235,7 +235,7 @@ fill-unavailable-for-discrimination
 
 ただし、このperfect resultをproduction ruleへ昇格させない。
 
-理由:
+理由は次のとおりです。
 
 - 20 synthetic snapshot casesのみ
 - expectedReviewの設計自体がfill-impact taxonomyと近い
@@ -309,7 +309,7 @@ high-impactとbroad factsをすべて同じreview flagへ潰すと:
 
 ### 2. high-impact telemetryはevaluation reason codeとして維持
 
-特に:
+特には次のとおりです。
 
 - acceptance crossing
 - disambiguation
@@ -372,7 +372,7 @@ GitHub Actionsは既知のrunner/resource不足があるため完了条件にし
 
 次はtelemetry codeを増やすのではなく、**adapter / external-XLSX由来の実務寄りcorpusへhigh-impact reason codesを適用する**。
 
-優先ケース:
+優先ケースは次のとおりです。
 
 1. LibreOffice direct RGB fixture由来snapshot
 2. LibreOffice theme/tint fixture由来snapshot

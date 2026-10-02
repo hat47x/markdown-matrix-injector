@@ -15,8 +15,8 @@
 
 ## Problem
 
-MMI mainには strict neutral observation v0 contract/validator はあるが、
-WorksheetFormatSnapshot から実際のneutral rowをemitするadapterがない。
+MMI mainにはstrict neutral observation v0 contract/validatorはあるが、
+WorksheetFormatSnapshotから実際のneutral rowをemitするadapterがない。
 
 excel-houganshi-normalizer側は既に独立adapterを持ち、H2 divergence evaluatorまでmerge済み。
 次のreal matched-fixture H2 evidenceにはMMI側の独立emitterが必要。
@@ -27,7 +27,7 @@ research-onlyな
 `createMmiWorksheetStructuredArtifactObservation`
 を追加する。
 
-入力:
+入力は次のとおりです。
 - WorksheetFormatSnapshot
 - sheetName
 - sourceDigest
@@ -38,7 +38,7 @@ research-onlyな
 - privacyClass
 - split / mutationFamily
 
-出力:
+出力は次のとおりです。
 - `hat47x.structured-artifact-observation/v0`
 
 ## Observable features

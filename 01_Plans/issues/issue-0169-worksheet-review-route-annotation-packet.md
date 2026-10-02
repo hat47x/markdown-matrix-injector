@@ -33,7 +33,7 @@ packetに含める:
 - case id
 - evidence
 
-含めない:
+含めないは次のとおりです。
 - projectionState
 - existing annotations
 - adjudication

@@ -19,18 +19,18 @@ structure-only prototypeを生成する。observation snapshotも同じstructure
 ## 3. Shared filtering
 
 evidence種別からfeatureを選ぶ規則はWorksheetFormatPrototype moduleを正本とする。
-新しいanalysis側で header:*fill 等の判定規則を複製しない。
+新しいanalysis側でheader:*fill等の判定規則を複製しない。
 
 ## 4. Fill facts
 
 review reason分類に必要なprototype fill toneはapproved Profileのcanonical featuresから取得する。
 raw baseline cellやsnapshotは不要。
 
-meaningful fill factは header:dark-fill / header:gray-fill / header:light-fill とする。
+meaningful fill factはheader:dark-fill / header:gray-fill / header:light-fillとする。
 
 ## 5. Approval / compatibility
 
-Profileは既存 formatProfileToWorksheetPrototype を必ず通す。
+Profileは既存formatProfileToWorksheetPrototypeを必ず通す。
 したがってcandidate、featureVersion不一致、sourceProfileId不一致、sourceEvidence不一致の拒否を既存contractへ委譲する。
 
 ## 6. Reason semantics

@@ -108,7 +108,7 @@ adjudicatorRef自体はdigest inputへ入れない。
 
 responseはsubset decisionを許可する。
 
-例:
+例は次のとおりです。
 
 1. packet = case A / B
 2. adjudicatorがAだけ完了してresponse apply
@@ -145,7 +145,7 @@ work responseを検証後、current global packet digestを使ったcanonical is
 
 current adjudicatorから見えないself-ineligible caseだけが変化しても、visible work packet digestは変えない。
 
-そのため:
+そのためは次のとおりです。
 
 - 自分が見ていないcaseのevidence修正
 - self-review対象caseの内部変更

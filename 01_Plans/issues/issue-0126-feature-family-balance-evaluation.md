@@ -17,7 +17,7 @@
 v3〜v6では、書式認識を閾値緩和に頼らず改善するため、順に次のstructure evidenceを追加してきた。
 
 1. 列ラベルと相対列位置
-2. title / header / body のtable skeleton
+2. title / header / bodyのtable skeleton
 3. 複数本文行のmajority occupancy
 4. 横方向mergeの相対shape
 
@@ -36,7 +36,7 @@ v3〜v6では、書式認識を閾値緩和に頼らず改善するため、順�
 行うことは次の2点だけである。
 
 1. 現在のv6 featureを人間が追えるfamilyへ分類し、feature数と構成比を測る。
-2. observationとprototypeの双方から1 familyだけを除いて再計算する symmetric ablation により、そのfamilyが対象ペアのconfidenceをどの程度支え、または下げているかを見る。
+2. observationとprototypeの双方から1 familyだけを除いて再計算するsymmetric ablationにより、そのfamilyが対象ペアのconfidenceをどの程度支え、または下げているかを見る。
 
 これは新しいスコア方式ではない。**既存matcherの挙動を観察するための測定器**である。
 
@@ -122,14 +122,14 @@ fillを含む標準fixtureで得た構成:
 
 ## 結果3: 6列表の2ラベル変更が既定gate直下に来る
 
-6列表で2ラベルだけを変更したケース:
+6列表で2ラベルだけを変更したケースは次のとおりです。
 
 ```text
 判定   -> 状態
 確認者 -> 担当者
 ```
 
-結果:
+結果は次のとおりです。
 
 ```text
 confidence = 0.699204
@@ -144,7 +144,7 @@ status     = novel
 
 ## 結果4: ablationでfamilyの実効寄与を観測できる
 
-2列表の `値 -> 内容` 変更:
+2列表の `値 -> 内容` 変更は次のとおりです。
 
 ```text
 baseline confidence = 0.785965
@@ -166,7 +166,7 @@ skeletonそのものが弱くなったのではなく、列比例familyが増え
 
 ## merge-shapeの例
 
-4列表でprototypeだけが recurring body merge `100` を持ち、observationではmergeが消失し、同時に1ラベル変更があるケース:
+4列表でprototypeだけがrecurring body merge `100` を持ち、observationではmergeが消失し、同時に1ラベル変更があるケース:
 
 ```text
 baseline confidence = 0.737263
@@ -221,7 +221,7 @@ feature contractは引き続き `worksheet-format-v6` である。
 
 ### 2026-09-17 local validation
 
-実行環境:
+実行環境は次のとおりです。
 
 - Node.js `v22.16.0`
 - TypeScript `5.8.3`
@@ -235,7 +235,7 @@ GitHub Actionsは既知のrunner/resource不足があるため完了条件に使
 
 次はweightを実装するのではなく、**候補方式をofflineで比較する評価Issue**とする。
 
-比較候補:
+比較候補は次のとおりです。
 
 1. 現行のflat feature Jaccard（baseline）
 2. familyごとに類似度を計算して最後に平均するfamily-normalized方式

@@ -32,7 +32,7 @@ inputが含むのは:
 
 のみ。
 
-含まない:
+含まないは次のとおりです。
 
 - presentation
 - receipt

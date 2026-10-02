@@ -25,7 +25,7 @@ issue-0150でExecutable Proposal reviewは安全な単一entrypointへ集約さ�
 
 issue-0154でdeterministic fill review reasonはCognitive / Authorityと分離された。
 
-その後、並行レーンで:
+その後、並行レーンでは次のとおりです。
 
 - issue-0155: Proposal / Authority / Cognitive / Deterministicを分離した `UnifiedHumanReviewViewModelV1`
 - issue-0156: `expectedReview` に依存しないlabel-free fill review analysis
@@ -72,7 +72,7 @@ observationSnapshot
 approvedProfiles
 ```
 
-受け取らないもの:
+受け取らないもの。
 
 - prototype baseline snapshots
 - `expectedReview`
@@ -88,7 +88,7 @@ issue-0157でapproved Format Profileのcanonical featuresからcontrol prototype
 
 したがってruntime reviewのためにbaseline worksheet snapshotを再保持する必要はない。
 
-これは:
+これはは次のとおりです。
 
 - state量削減
 - same-id / wrong-snapshot差し替え経路の削除
@@ -100,7 +100,7 @@ issue-0157でapproved Format Profileのcanonical featuresからcontrol prototype
 
 callerから渡されたapproved ProfilesはEnvelopeのProfile refsと一致しなければならない。
 
-確認:
+確認は次のとおりです。
 
 - profile count
 - duplicate id
@@ -138,7 +138,7 @@ issue-0157のProfile-backed analysisはobservation snapshotをapproved Profile�
 
 ## Authority loaderより前に止める
 
-順序:
+順序は次のとおりです。
 
 ```text
 approved Profile / Envelope ref binding
@@ -153,7 +153,7 @@ deterministic inputが不正ならWorkbook loaderを呼ばない。
 
 ## 出力
 
-返す型:
+返す型は次のとおりです。
 
 ```text
 UnifiedHumanReviewViewModelV1
@@ -180,7 +180,7 @@ Authorityがblockedでも:
 
 は別domainの事実として保持する。
 
-例:
+例は次のとおりです。
 
 ```text
 Authority:
@@ -246,7 +246,7 @@ issue-0150 / 0154 / 0155の既存bindingを利用する。
 
 追加testはtemporary CSV + synthetic worksheet observation + approved Format Profileを使う。
 
-固定するケース:
+固定するケースは次のとおりです。
 
 1. satisfied Authorityから4-domain Unified view modelを生成
 2. blocked AuthorityでもCognitive / deterministic domainを維持
@@ -284,7 +284,7 @@ GitHub Actionsの既知runner/resource不足は完了条件にしない。
 
 observation snapshotには独立したcanonical snapshot identityはまだ無い。
 
-現時点では:
+現時点ではは次のとおりです。
 
 - canonical source identity
 - approved Profile identity
@@ -316,7 +316,7 @@ issue-0158はraw WorksheetFormatSnapshotをreturn artifactへ保持しないた�
   `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
   でcompile成功。
 - focused runtime harness: **9 checks / 9 pass / 0 fail**。
-- 確認内容:
+- 確認内容は次のとおりです。
   - valid Profile-backed deterministic inputからAuthority loaderを1回だけ呼び、satisfied 4-domain modelを生成。
   - Authority blockedでもCognitive / deterministic domainを保持。
   - Envelopeと異なるapproved Profile poolをloader呼出前にfail-closed。

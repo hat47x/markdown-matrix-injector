@@ -60,7 +60,7 @@
   `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
   でcompile成功。
 - focused runtime harness: **5 tests / 5 pass / 0 fail**。
-- 確認内容:
+- 確認内容は次のとおりです。
   - decision-impact `fill-supported-acceptance` をlabel-free analysisで再現。
   - `fill-unavailable` と `fill-unavailable-for-discrimination` を分離。
   - `fill-tone-disagreement` をdiagnostic-only相当の低impactとして維持。

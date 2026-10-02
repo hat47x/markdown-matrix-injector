@@ -45,7 +45,7 @@ WORKSHEET_REVIEW_ROUTE_REQUIRED_INDEPENDENT_ANNOTATIONS = 2
 
 adjudication packet側のminimumもこの定数を参照する。
 
-これにより:
+これによりは次のとおりです。
 - label corpus validation
 - annotation work allocation
 - adjudication eligibility
@@ -60,7 +60,7 @@ caseをpacketへ含める条件:
 - current annotations < required independent annotations。
 - current annotatorがまだそのcaseをannotationしていない。
 
-したがって:
+したがっては次のとおりです。
 - 0 annotation caseは最初のannotatorへ提示可能。
 - 1 annotation caseは別annotatorへ提示可能。
 - 2 annotation caseはadjudicationへhandoffし、annotation workから除外。
@@ -68,13 +68,13 @@ caseをpacketへ含める条件:
 
 ## Packet visibility
 
-含める:
+含めるは次のとおりです。
 - route definitions。
 - requiredIndependentAnnotations。
 - case id。
 - evidence。
 
-含めない:
+含めないは次のとおりです。
 - projectionState。
 - prior annotations。
 - annotator identities。

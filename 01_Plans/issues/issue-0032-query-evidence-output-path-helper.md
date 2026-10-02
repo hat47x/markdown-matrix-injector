@@ -13,19 +13,19 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- `buildQueryEvidenceOutputPaths(markdownFilePath)` helper を `vscodeAdapters.ts` に追加し、CSV/JSON/MD のファイル名規則を集約する。
-- `extension.ts` は helper を利用して出力パスを算出し、命名ロジックの重複を排除する。
-- `queryEvidence.test.ts` に helper のユニットテストを追加し、basename のみが prefix へ反映されることを固定する。
+- `buildQueryEvidenceOutputPaths(markdownFilePath)` helperを `vscodeAdapters.ts` に追加し、CSV/JSON/MDのファイル名規則を集約する。
+- `extension.ts` はhelperを利用して出力パスを算出し、命名ロジックの重複を排除する。
+- `queryEvidence.test.ts` にhelperのユニットテストを追加し、basenameのみがprefixへ反映されることを固定する。
 
 ### Acceptance criteria (受入条件)
-- [x] 出力パス生成ロジックが helper に集約される。
-- [x] helper のユニットテストが追加される。
+- [x] 出力パス生成ロジックがhelperに集約される。
+- [x] helperのユニットテストが追加される。
 - [x] `npm test` が通過する。
 
 ### Task breakdown (作業分解)
-- [x] helper 実装を追加する。
-- [x] extension 側で helper を利用する。
-- [x] unit test を追加する。
+- [x] helper実装を追加する。
+- [x] extension側でhelperを利用する。
+- [x] unit testを追加する。
 - [x] `npm test` を実行する。
 
 ### Validation plan (検証計画)
@@ -38,8 +38,8 @@
 - Commands:
   - `cd 03_Implement && npm test`
 - Result summary:
-  - `buildQueryEvidenceOutputPaths(markdownFilePath)` を追加し、出力パス計算を helper 化。
-  - `extension.ts` の出力パス計算を helper 経由へ統一。
-  - helper のユニットテストを追加し、全 111 テストが通過。
+  - `buildQueryEvidenceOutputPaths(markdownFilePath)` を追加し、出力パス計算をhelper化。
+  - `extension.ts` の出力パス計算をhelper経由へ統一。
+  - helperのユニットテストを追加し、全111テストが通過。
 - Status decision:
   - 受入条件を満たしたため `Status: Done` に更新。

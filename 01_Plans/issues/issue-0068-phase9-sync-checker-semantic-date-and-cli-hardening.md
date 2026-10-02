@@ -13,9 +13,9 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- sync checker の日付検証を正規表現一致から「実在日付 + 有効期間整合（EffectiveFrom <= ExpiresAt）」へ強化する。
-- sync checker に `--docs` / `--fixture` を追加し、ローカル検証時に任意CSVを対象化できるようにする。
-- unit test に CLI/検証ロジックの異常系（不正日付・期間逆転）を追加する。
+- sync checkerの日付検証を正規表現一致から「実在日付 + 有効期間整合（EffectiveFrom <= ExpiresAt）」へ強化する。
+- sync checkerに `--docs` / `--fixture` を追加し、ローカル検証時に任意CSVを対象化できるようにする。
+- unit testにCLI/検証ロジックの異常系（不正日付・期間逆転）を追加する。
 
 ### Acceptance criteria (受入条件)
 - [x] `check_phase9_template_sync.py` が `2026-13-01` 等の不正日付を検知する。
@@ -23,14 +23,14 @@
 - [x] `check_phase9_template_sync.py` が `--docs` / `--fixture` を受け取り、対象CSVを切り替えられる。
 - [x] `test_check_phase9_template_sync.py` に上記異常系のテストが追加される。
 - [x] `04_Documentation/phase9-rule-table-template-operations.md` に監査観点として有効期間整合が追記される。
-- [x] `python3 01_Plans/tools/planning_queue.py` 実行時に orphan issue が 0 件である。
+- [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
 ### Task breakdown (作業分解)
-- [x] sync checker の日付検証を semantic 化する。
+- [x] sync checkerの日付検証をsemantic化する。
 - [x] 有効期間整合チェックを追加する。
 - [x] CLI引数（--docs / --fixture）を追加する。
-- [x] unit test と運用ガイドを更新する。
-- [x] planning queue で整合性を確認する。
+- [x] unit testと運用ガイドを更新する。
+- [x] planning queueで整合性を確認する。
 
 ### Validation plan (検証計画)
 - `python3 01_Plans/tools/test_check_phase9_template_sync.py`

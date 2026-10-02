@@ -27,7 +27,7 @@ npm run test:review-route-evaluation-pipeline
 npm run qualify:review-route-evaluation-pipeline
 ```
 
-意味:
+意味は次のとおりです。
 
 - `test:review-route-evaluation-pipeline`
   - issue-0190のcross-layer testだけを実行する。

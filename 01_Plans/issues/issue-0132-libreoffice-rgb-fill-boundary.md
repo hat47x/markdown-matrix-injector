@@ -35,7 +35,7 @@ issue-0131では、SheetJS CE 0.20.3自身が生成したXLSX bytesを再読込�
 
 最終XLSXはLibreOffice Calcで再保存した。
 
-生成環境:
+生成環境は次のとおりです。
 
 ```text
 LibreOffice 25.2.3.2 520(Build:2)
@@ -138,7 +138,7 @@ LibreOffice再保存後のdecoded fixtureをOpenPyXLで独立に読んで確認�
 
 既存 `readXlsxFormatSnapshot` で `RGB Fill` を読む。
 
-期待:
+期待は次のとおりです。
 
 - title merge `A1:D1` を保持
 - header 4 cellsの `fillTone = dark`
@@ -157,7 +157,7 @@ LibreOffice再保存後のdecoded fixtureをOpenPyXLで独立に読んで確認�
 
 ## Test 2: metadata + gapped header
 
-期待:
+期待は次のとおりです。
 
 - header row = 3
 - header columns = `[1, 2, 4, 5]`
@@ -173,7 +173,7 @@ issue-0131のruntime-generated structural caseを、LibreOffice最終保存fixtu
 
 ## Test 3: title-less table
 
-期待:
+期待は次のとおりです。
 
 - header row = 0
 - title evidenceをinventしない
@@ -198,7 +198,7 @@ evidence = [structure, fill]
 
 ### 拡張しない
 
-今回の結果を:
+今回の結果をは次のとおりです。
 
 > theme-only colorもすべてdark/gray/lightへ解決できる
 
@@ -214,7 +214,7 @@ theme-indexed fillは別fixtureで評価する。
 
 featureの意味やsource evidence集合を変更していないため。
 
-今回行うのは:
+今回行うのはは次のとおりです。
 
 - 既存 `fill` evidence contractの実証
 - 保証範囲の文書上の明確化
@@ -249,7 +249,7 @@ featureの意味やsource evidence集合を変更していないため。
 
 ### Fixture generation / independent inspection
 
-この作業環境で実行済み:
+この作業環境で実行済みは次のとおりです。
 
 - LibreOffice headlessによるXLSX再保存
 - OpenPyXLによる最終fixture readback
@@ -275,7 +275,7 @@ PRでは:
 
 次はtheme-indexed fillを独立fixtureで評価する。
 
-確認したいこと:
+確認したいこと。
 
 1. SheetJS CE 0.20.3が `cellStyles:true` でtheme index / tintを `.s` にどう保持するか
 2. 現在のbridgeがそれを `other` とすることが実runtimeでも一致するか

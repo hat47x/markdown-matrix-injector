@@ -79,7 +79,7 @@ issue-0153でsourceDigestをcanonicalに生成できるようになったため�
   `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
   でcompile成功。
 - focused runtime harness: **10 checks / 10 pass / 0 fail**。
-- 確認内容:
+- 確認内容は次のとおりです。
   - snapshot readerへworkflowが解決したcontained absolute pathだけを渡す。
   - single approved Profileでmatched + winner保持。
   - identical two Profiles相当でambiguousを透過。

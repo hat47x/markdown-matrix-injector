@@ -13,14 +13,14 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- ユーザ価値の主経路は `autocompleteProvider` による Markdown 文脈でのテンプレート候補提示（重複見出し抑制）とし、通常コマンド導線を汚染しない。
+- ユーザ価値の主経路は `autocompleteProvider` によるMarkdown文脈でのテンプレート候補提示（重複見出し抑制）とし、通常コマンド導線を汚染しない。
 - テンプレート一括挿入は `markdownMatrixInjector.__dev.insertScenarioObservationTemplate`（開発/検証用）に限定し、一般コマンドパレットには公開しない。
 
 ### Acceptance criteria (受入条件)
 - [x] 開発/検証用コマンド経由で観測テンプレートを挿入できる。
 - [x] テンプレート補完候補が適切な文脈で表示され、重複時に抑制される。
 - [x] 既存 `![[...]]` 系補完・パース挙動を壊さない。
-- [x] docs-check / unit / manual-e2e の検証結果を Issue に記録する。
+- [x] docs-check / unit / manual-e2eの検証結果をIssueに記録する。
 
 ### Task breakdown (作業分解)
 - [x] `extension.ts` に開発/検証用コマンド登録と挿入処理を追加する。
@@ -45,8 +45,8 @@
   - `cd 03_Implement && npm test`
   - `python3 01_Plans/tools/planning_queue.py`
 - Result summary:
-  - `npm test` で 103 tests passed（fail 0）を確認。
+  - `npm test` で103 tests passed（fail 0）を確認。
   - 新規追加した観測テンプレート補助ロジックの単体テストを含めて回帰なし。
-  - planning queue 上で issue-0023 のみ pending として残る状態を確認。
+  - planning queue上でissue-0023のみpendingとして残る状態を確認。
 - Status decision:
-  - Snippet MVP の受入条件を満たしたため `Status: Done` に更新。
+  - Snippet MVPの受入条件を満たしたため `Status: Done` に更新。

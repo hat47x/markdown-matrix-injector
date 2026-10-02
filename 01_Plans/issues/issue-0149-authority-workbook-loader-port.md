@@ -70,7 +70,7 @@ issue-0145ではWorkbookDataを呼出側から渡すことで、production `load
 - issue-0145〜0149のadapter/workflow compositionをstrict compile:
   `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true` で成功。
 - focused runtime harness: **7 checks / 7 pass / 0 fail**。
-- 検証内容:
+- 検証内容は次のとおりです。
   - injected loaderへworkspace containment通過後のresolved absolute pathだけを渡す。
   - missing sourceではloaderを呼ばずresolver/previewをfail-closed。
   - explicit `mode=card` ではloaderを呼ばずread-only preview成功。

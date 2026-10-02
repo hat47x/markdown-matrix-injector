@@ -18,11 +18,11 @@
 
 Jev等のproviderをreview-routeに使う場合、単純accuracyだけでは重要な誤りを見落とす。
 
-特に区別すべきなのは:
+特に区別すべきなのはは次のとおりです。
 
-- expected inspect を routine に落とす under-route
-- expected routine を inspect に上げる over-route
-- abstained / unsupported / unavailable によるnon-decision
+- expected inspectをroutineに落とすunder-route
+- expected routineをinspectに上げるover-route
+- abstained / unsupported / unavailableによるnon-decision
 - probability distributionの質
 - 現在providerへ渡すstateそのものがラベルを分離できるか
 
@@ -33,12 +33,12 @@ Jev等のproviderをreview-routeに使う場合、単純accuracyだけでは重�
 
 provider-neutralな評価器を追加する。
 
-入力:
+入力は次のとおりです。
 - case id
-- provider出力とは独立に付与された expected route
+- provider出力とは独立に付与されたexpected route
 - `ClosedChoiceJudgmentOutcome<WorksheetReviewRouteChoice>`
 
-出力:
+出力は次のとおりです。
 - decision coverage
 - decision accuracy
 - inspect recall
@@ -64,9 +64,9 @@ production workflowへfallback自動化は追加しない。
 
 ## Exact-state separability diagnostic
 
-`JevWorksheetReviewRouteState` と independently assigned expected route の組を受ける診断を追加する。
+`JevWorksheetReviewRouteState` とindependently assigned expected routeの組を受ける診断を追加する。
 
-同一exact stateにinspect/routine両ラベルが存在する場合:
+同一exact stateにinspect/routine両ラベルが存在する場合。
 - provider/modelの問題ではなくstate projectionの情報不足候補
 - そのcorpus上でexact stateだけを入力とするdeterministic classifierの最大到達accuracyを算出可能
 

@@ -8,7 +8,7 @@ production matcherの仕様書ではありません。
 
 現時点ではproduction behaviorを変えません。
 
-維持するもの:
+維持するもの。
 
 - flat scoring
 - `minConfidence = 0.7`
@@ -25,7 +25,7 @@ issue-0128では6 / 8 / 10列を使いました。
 
 そのcorpusを見ながら新thresholdを調整すると、同じデータへ合わせ込むことになります。
 
-そこで今回は:
+そこで今回はは次のとおりです。
 
 - 5列
 - 7列
@@ -59,14 +59,14 @@ issue-0128では6 / 8 / 10列を使いました。
 
 ### A. Boundary warning
 
-既存の:
+既存のは次のとおりです。
 
 - `confidence-near-gate`
 - `winner-margin-near-gate`
 
 です。
 
-特徴:
+特徴は次のとおりです。
 
 - precisionが高い
 - gateから離れたmulti-family driftは拾えない
@@ -75,7 +75,7 @@ issue-0128では6 / 8 / 10列を使いました。
 
 top candidateが `matched` の場合だけDeviationScoreを見る候補です。
 
-比較値:
+比較値は次のとおりです。
 
 ```text
 DeviationScore >= 0.18
@@ -89,7 +89,7 @@ DeviationScore >= 0.18
 
 observationとtop prototypeで、feature集合が異なるfamily数を数えます。
 
-例:
+例は次のとおりです。
 
 ```text
 one label rename:
@@ -188,7 +188,7 @@ FPR       0.111111
 
 差異の種類が増えるケースです。
 
-9列表で:
+9列表では次のとおりです。
 
 - 1 label rename
 - recurring merge loss
@@ -232,7 +232,7 @@ familyを取り除くことでglobal sparse signatureのbucket構成まで変わ
 
 ### 9列 label + merge drift
 
-実際の差異:
+実際の差異は次のとおりです。
 
 ```text
 semantic-label
@@ -292,7 +292,7 @@ FPR       0.000000
 
 ## 9. なぜperfect resultを採用しないのか
 
-主な理由:
+主な理由は次のとおりです。
 
 - 18ケースしかない
 - synthetic feature-level fixture
@@ -321,7 +321,7 @@ perfect metricは「次へ進む価値がある」という証拠であり、「
 
 次はfeature文字列を直接作るだけでなく、`WorksheetFormatSnapshot` からadapterを通します。
 
-含めたい差異:
+含めたい差異は次のとおりです。
 
 - title/header gap
 - first body gap

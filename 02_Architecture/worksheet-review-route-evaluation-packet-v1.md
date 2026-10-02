@@ -79,7 +79,7 @@ final labelは含めない。
 
 label correctionとprovider input correctionは別の変更。
 
-projection stateが同じでexpected routeだけ修正された場合:
+projection stateが同じでexpected routeだけ修正された場合。
 - providerが見た入力は同じ
 - provider inference resultは再利用可能
 - evaluation resultは新しいlabelで再計算すべき
@@ -126,7 +126,7 @@ caseDigestはprovider署名ではなく、evaluation workflow内のaccidental mi
 
 response case setはpacket case setと完全一致必須。
 
-禁止:
+禁止は次のとおりです。
 - subsetだけ評価
 - unknown case追加
 - duplicate case
@@ -156,7 +156,7 @@ non-decisionにはquestion payloadがないため適用しない。
 
 新metricsを作らない。
 
-既存:
+既存は次のとおりです。
 - `evaluateWorksheetReviewRouteOutcomes`
 - `analyzeWorksheetReviewRouteProjectionSeparability`
 

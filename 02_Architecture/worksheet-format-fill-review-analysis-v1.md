@@ -21,9 +21,9 @@ Worksheet snapshots
 
 ## 2. Label-free analysis
 
-`WorksheetFormatFillReviewAnalysisResult` は paired fill-vs-structure comparison と telemetry classificationだけを持つ。
+`WorksheetFormatFillReviewAnalysisResult` はpaired fill-vs-structure comparisonとtelemetry classificationだけを持つ。
 
-含む:
+含むは次のとおりです。
 - withFill / structureOnly
 - top confidence delta
 - statusChanged
@@ -34,7 +34,7 @@ Worksheet snapshots
 - broadFillUnavailable
 - broadFillDisagreement
 
-含まない:
+含まないは次のとおりです。
 - expectedReview
 - precision / recall / falsePositiveRate
 

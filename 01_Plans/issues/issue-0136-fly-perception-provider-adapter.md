@@ -43,7 +43,7 @@ issue-0135のcontract testに加え、既存worksheet-format fixtureからmatche
 - strict compile: `--strict --target ES2022 --module NodeNext --moduleResolution NodeNext` で成功。
 - focused integration test: **5 tests / 5 pass / 0 fail**。
 - 実際の `worksheetFormatFeatureAdapter` → `worksheetFormatPrototype` → `flyInspiredFormatMatcher` 経路を通して確認。
-- 検証内容:
+- 検証内容は次のとおりです。
   - `matched`: winner、候補順位、confidence、noveltyScoreを変更せず写像。
   - `ambiguous`: 候補を保持し、winnerを生成しない。
   - `novel`: novelty signalへ写像し、winnerを生成しない。

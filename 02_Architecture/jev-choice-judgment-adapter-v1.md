@@ -53,7 +53,7 @@ response:
 - probabilities
 - confidence
 
-参考:
+参考は次のとおりです。
 - https://docs.typesafe.ai/api
 - https://docs.typesafe.ai/primitives/choice
 
@@ -125,7 +125,7 @@ Jev stateはJSON-compatibleな:
 
 に限定する。
 
-拒否:
+拒否は次のとおりです。
 - undefined
 - function
 - symbol
@@ -140,7 +140,7 @@ transportへ渡す前に検証する。
 
 transport responseはunknownとして受け、shapeを検証する。
 
-必要:
+必要は次のとおりです。
 - model: non-empty string
 - answers.decision
 - type = choice

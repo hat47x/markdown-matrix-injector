@@ -6,7 +6,7 @@
 > [`samples/phase9-rule-table-pattern-guide.md`](../samples/phase9-rule-table-pattern-guide.md) を参照してください。
 
 ## 目的
-システム設計文書で使う表形式を、Drools の spreadsheet decision table で確立された構造を参照しながら、**文書パターン**と**テストデータパターン**として網羅的に整理する。
+システム設計文書で使う表形式を、Droolsのspreadsheet decision tableで確立された構造を参照しながら、**文書パターン**と**テストデータパターン**として網羅的に整理する。
 
 ## 参照元（一次情報）
 - Drools Rule Language Reference（Spreadsheet decision tables）  
@@ -48,8 +48,8 @@
 ---
 
 ## 3. MMI での利用方法（実運用）
-1. 文書化時は P01〜P08 のどれに該当する表かを宣言してから作表する。
-2. 試験データ作成時は T01〜T05 を最低 1 ケースずつ含める。
+1. 文書化時はP01〜P08のどれに該当する表かを宣言してから作表する。
+2. 試験データ作成時はT01〜T05を最低1ケースずつ含める。
 3. 埋め込み検証は次を標準テンプレートとする。
 
 ```md
@@ -71,4 +71,4 @@
 - 文書用サンプル: `04_Documentation/samples/phase8-drools-inspired-system-design-patterns.csv`
 - テスト用fixture（同等構造）: `03_Implement/test/fixtures/workspace/data/drools-inspired-system-design-patterns.csv`
 
-この 2 つを同期させることで、「公開文書で説明したパターン」と「テストで検証しているパターン」の乖離を最小化する。
+この2つを同期させることで、「公開文書で説明したパターン」と「テストで検証しているパターン」の乖離を最小化する。

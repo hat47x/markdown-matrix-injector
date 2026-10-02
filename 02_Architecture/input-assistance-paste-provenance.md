@@ -1,6 +1,6 @@
 # クリップボード出所の取得と照合
 
-- 状態: Proposed（実装未着手）。観測日 2026-09-10、2026-09-11（VS Code DataTransfer観測を追加）。**§2のVS Code観測により、出所取得は層2（Windows補助プロセス）か層3（内容照合）に限られることが確定した。**
+- 状態: Proposed（実装未着手）。観測日2026-09-10、2026-09-11（VS Code DataTransfer観測を追加）。§2のVS Code観測により、出所取得は層2（Windows補助プロセス）か層3（内容照合）に限られることが確定した。
 - 対象: [pasteDrop.ts](../03_Implement/src/dx/pasteDrop.ts)、[vscodeAdapters.ts](../03_Implement/src/dx/vscodeAdapters.ts)、[extension.ts](../03_Implement/src/extension.ts)
 - 関連: [ADR-0016](../01_Plans/adr/ADR-0016-notation-first-input-assistance.md)、[ADR-0017](../01_Plans/adr/ADR-0017-windows-clipboard-provenance-bridge.md)、[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)、[ソースモデル](input-assistance-source-model.md)
 
@@ -21,7 +21,7 @@ Hyperlink | Rich Text Format | Embed Source | Object Descriptor | Link Source |
 Link Source Descriptor | Link | Format129 | ExcludeClipboardContentFromMonitorProcessing
 ```
 
-**原本の開始位置は存在する。** ただしHTMLの中ではない。
+原本の開始位置は存在する。 ただしHTMLの中ではない。
 
 | 形式 | 符号化 | 内容（`状態遷移!C5:F12`をコピーした場合） |
 | --- | --- | --- |
@@ -45,9 +45,9 @@ Link Source Descriptor | Link | Format129 | ExcludeClipboardContentFromMonitorPr
 <link rel=File-List href="file:///.../msohtmlclip1/01/clip_filelist.xml">
 ```
 
-これはMicrosoftのHTMLクリップボード形式が使う一時的な「クリップ保管」参照であり、原本ワークブックではない。`clip_filelist.xml`は`.xml`拡張子を持つため、**現行の`src/dx/pasteDrop.ts`の`extractSupportedFilepathFromHtml`はこれを誤って一致させ、`![[C:/.../msohtmlclip1/01/clip_filelist.xml|A1:D8]]`という、原本ではなく一時ステージングファイルを指す壊れた提案を生成していた。** 実際に採取したペイロードを製品コードへ通して確認した（合成HTMLではなく実データでの再現）。
+これはMicrosoftのHTMLクリップボード形式が使う一時的な「クリップ保管」参照であり、原本ワークブックではない。`clip_filelist.xml`は`.xml`拡張子を持つため、現行の`src/dx/pasteDrop.ts`の`extractSupportedFilepathFromHtml`はこれを誤って一致させ、`![[C:/.../msohtmlclip1/01/clip_filelist.xml|A1:D8]]`という、原本ではなく一時ステージングファイルを指す壊れた提案を生成していた。 実際に採取したペイロードを製品コードへ通して確認した（合成HTMLではなく実データでの再現）。
 
-**2026-09-11に修正済み。** `<head>`内を検索対象から除外し、`msohtmlclip`を含む一致は候補から除く。修正後、この実データを与えると`suggestEmbedFromClipboardHtml`は`null`（提案なし）を返す。これは正しい退避動作である。原本パスがHTMLのどこにも存在しない以上、"提案しない"が"誤ったファイルを提案する"より安全である。詳細と回帰テストは[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)「pasteDrop.tsの修正」節。
+2026-09-11に修正済み。 `<head>`内を検索対象から除外し、`msohtmlclip`を含む一致は候補から除く。修正後、この実データを与えると`suggestEmbedFromClipboardHtml`は`null`（提案なし）を返す。これは正しい退避動作である。原本パスがHTMLのどこにも存在しない以上、"提案しない"が"誤ったファイルを提案する"より安全である。詳細と回帰テストは[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)「pasteDrop.tsの修正」節。
 
 **この発見が意味すること:** `suggestEmbedFromClipboardHtml`が抽出しようとする3項目（パス・シート名・範囲）のうち、シート名（`<title>`/`data-sheet`頼み）と範囲（A1起点の仮定）はすでに不正確と分かっていたが、パスの抽出自体が実データでは機能しないどころか積極的に誤った結果を生んでいたことは今回で初めて確認した。**現行の`suggestEmbedFromClipboardHtml`は、実際のExcelコピーに対しては正しい結果を1つも生成できない設計だった。**
 
@@ -72,20 +72,20 @@ Link Source Descriptor | Link | Format129 | ExcludeClipboardContentFromMonitorPr
 
 この表が設計の根拠である。読み取れることは6つ。
 
-1. **保存済みブックからの通常のコピーでは、出所と住所が完全に得られる。** 単一セル・単一行・結合セルを含むコピーでも、住所と形状は一致した。
-2. **住所は選択内容の証明ではない。** フィルターで行が隠れている場合、住所は3行分（`C5:F7`）を指すのにコピーされた内容は2行しかない。住所をそのまま挿入すると、利用者が意図的に除外した行が表示に混ざる。**形状の比較がこれを検出する。**
-3. **R1C1にはA1と紛れる別の形がある。** 列全体を選択すると住所は`C3:C4`になる。これはA1表記の「C列の3行目から4行目」と字面が同じだが、意味は「3列目から4列目の全体」である。A1として解釈すると完全に誤った範囲になる。
-4. **観測した未保存ブックでは`SourceURL`が行ごと現れない**（`Link`のパスもディレクトリを持たず`[Book1]Sheet1`になる）が、欠落だけで未保存とは判別できない。
-5. **`Link`のパスはファイル名を壊し得る。** ブック名`設計_한글.xlsx`は`Link`では`設計_??.xlsx`になり、同じコピーの`SourceURL`は`設計_한글.xlsx`を正しく保持した。ANSI符号化の実害を確認した。
-6. 非連続選択（COM経由の複数領域指定）では、Excelは**外接矩形**を出力した。住所`C5:F7`・内容3行がともに矩形全体であり、選択していない6行目を含む。形状は一致するため検出できない。UI操作でのCtrl+ドラッグ選択は別に確認する（§8）。
+1. 保存済みブックからの通常のコピーでは、出所と住所が完全に得られる。 単一セル・単一行・結合セルを含むコピーでも、住所と形状は一致した。
+2. 住所は選択内容の証明ではない。 フィルターで行が隠れている場合、住所は3行分（`C5:F7`）を指すのにコピーされた内容は2行しかない。住所をそのまま挿入すると、利用者が意図的に除外した行が表示に混ざる。形状の比較がこれを検出する。
+3. R1C1にはA1と紛れる別の形がある。 列全体を選択すると住所は`C3:C4`になる。これはA1表記の「C列の3行目から4行目」と字面が同じだが、意味は「3列目から4列目の全体」である。A1として解釈すると完全に誤った範囲になる。
+4. 観測した未保存ブックでは`SourceURL`が行ごと現れない（`Link`のパスもディレクトリを持たず`[Book1]Sheet1`になる）が、欠落だけで未保存とは判別できない。
+5. `Link`のパスはファイル名を壊し得る。 ブック名`設計_한글.xlsx`は`Link`では`設計_??.xlsx`になり、同じコピーの`SourceURL`は`設計_한글.xlsx`を正しく保持した。ANSI符号化の実害を確認した。
+6. 非連続選択（COM経由の複数領域指定）では、Excelは外接矩形を出力した。住所`C5:F7`・内容3行がともに矩形全体であり、選択していない6行目を含む。形状は一致するため検出できない。UI操作でのCtrl+ドラッグ選択は別に確認する（§8）。
 
 ### 1.4 符号化の扱い
 
 - `HTML Format`はUTF-8。`SourceURL`は空白をパーセント符号化する（`設計%20控え.xlsx`）が日本語はそのまま置く。復号が必要。
-- `Link`のパスはANSI符号化である。システムのANSIコードページで表せない文字は失われる（`設計_한글.xlsx` → `設計_??.xlsx`を確認）。**パスの取得元として使えない。**
+- `Link`のパスはANSI符号化である。システムのANSIコードページで表せない文字は失われる（`設計_한글.xlsx` → `設計_??.xlsx`を確認）。パスの取得元として使えない。
 - `Object Descriptor`はUTF-16なのでコードページの制約を受けない。シート名と住所はここから取る。
 
-**したがってパスは`SourceURL`から、シート名と住所は`Object Descriptor`から取る。** `Link`は交差検証にのみ使う。
+したがってパスは`SourceURL`から、シート名と住所は`Object Descriptor`から取る。 `Link`は交差検証にのみ使う。
 
 .NETの`DataObject`による文字列変換はこれらを誤って復号する（`HTML Format`はUTF-8なのにANSIとして復号され、`Csv`/`Link`はANSIなのにUTF-8として復号されU+FFFDになる）。生バイトを取得し、形式ごとに復号する必要がある。
 
@@ -93,17 +93,17 @@ Link Source Descriptor | Link | Format129 | ExcludeClipboardContentFromMonitorPr
 
 - コピー範囲内の空行は、空の`<td>`を持つ`<tr>`として出力される。形状に含まれる。
 - 横方向の結合セルは`<td colspan=2>`になる。列数はcolspanを加算して数える（現行実装は加算しており妥当）。
-- 縦方向の結合は`rowspan`になり、結合に覆われた行は`<td>`が1個少ない（`縦結合`シートのB2:C4で行ごとのtd数が`[2,2,1]`）。**製品ではrowspan/colspanの占有グリッドで列位置を復元する。観測用の最大列数だけでは一般の結合配置を扱えない。** 行ごとの数をそのまま列数としない。
-- **1行だけのコピーでは`<tr>`が`<!--StartFragment-->`〜`<!--EndFragment-->`の外に置かれる。** 断片内だけを数えると0行になる。観測表の行数は`<table>`全体から数える。製品では断片と親文脈を区別する（この方法で単一行・単一セルとも住所と形状が一致した）。
+- 縦方向の結合は`rowspan`になり、結合に覆われた行は`<td>`が1個少ない（`縦結合`シートのB2:C4で行ごとのtd数が`[2,2,1]`）。製品ではrowspan/colspanの占有グリッドで列位置を復元する。観測用の最大列数だけでは一般の結合配置を扱えない。 行ごとの数をそのまま列数としない。
+- 1行だけのコピーでは`<tr>`が`<!--StartFragment-->`〜`<!--EndFragment-->`の外に置かれる。 断片内だけを数えると0行になる。観測表の行数は`<table>`全体から数える。製品では断片と親文脈を区別する（この方法で単一行・単一セルとも住所と形状が一致した）。
 - 値は表示文字列のみ。日付は原本の書式のまま、数式は計算済みの値、エラーは`#DIV/0!`、文字列書式の先頭ゼロは`007`。[ソースモデル](input-assistance-source-model.md)§6の切り出し結果と一致する。
 
 ### 1.6 クリップボードは開けないことがある
 
-観測中、`OpenClipboard`が`ERROR_ACCESS_DENIED`(5)を返し続ける状態に入った。Win32経由と.NET経由の両方が失敗し、数分にわたって回復せず、その後は自然に復旧した。他プロセスがクリップボードを開いたまま保持している状態である。**取得は必ず失敗し得る。** 再試行に上限を設け、失敗しても貼り付け操作自体を止めない設計が必要（ハーネスは25回×120msで再試行し、それでも駄目なら`NOTHING CAPTURED`を報告する）。
+観測中、`OpenClipboard`が`ERROR_ACCESS_DENIED`(5)を返し続ける状態に入った。Win32経由と.NET経由の両方が失敗し、数分にわたって回復せず、その後は自然に復旧した。他プロセスがクリップボードを開いたまま保持している状態である。取得は必ず失敗し得る。 再試行に上限を設け、失敗しても貼り付け操作自体を止めない設計が必要（ハーネスは25回×120msで再試行し、それでも駄目なら`NOTHING CAPTURED`を報告する）。
 
 ## 2. VS Codeから何が見えるか（2026-09-11 確認済み）
 
-**`DataTransfer`に出所形式は含まれない。** VS Code 1.137.0（ローカル、`remoteName: null`）の隔離インスタンスで、実Excelから`状態遷移!C5:F12`をコピーし、`vscode.languages.registerDocumentPasteEditProvider`で登録した`provideDocumentPasteEdits`を実際に呼び出させて確認した。観測されたMIME型は次の4件のみ。
+`DataTransfer`に出所形式は含まれない。 VS Code 1.137.0（ローカル、`remoteName: null`）の隔離インスタンスで、実Excelから`状態遷移!C5:F12`をコピーし、`vscode.languages.registerDocumentPasteEditProvider`で登録した`provideDocumentPasteEdits`を実際に呼び出させて確認した。観測されたMIME型は次の4件のみ。
 
 ```
 text/plain, text/html, text/rtf, image/png
@@ -111,9 +111,9 @@ text/plain, text/html, text/rtf, image/png
 
 `Link`・`Object Descriptor`・`Csv`・`XML Spreadsheet`・`Hyperlink`・`SymbolicLink`・`Link Source Descriptor`は`pasteMimeTypes`へ明示的に登録したにもかかわらず一切現れなかった。
 
-**さらに、`text/html`の内容そのものが、OSクリップボードの生バイトとは異なる。** §1.1で確認したOS生バイトの`HTML Format`には`Version:1.0` / `StartHTML:...` / `SourceURL:file:///...`というCF_HTMLヘッダーが前置される。VS Codeが拡張へ渡す`text/html`の文字列は`SourceURL:`・`Version:1.0`のいずれも含まず、`<html xmlns:o=...`から直接始まる（`containsSourceUrlMarker: false`を実測で確認）。VS Code／ElectronのクリップボードブリッジがCF_HTMLの外枠を除去し、Web標準の`text/html`（HTML本文のみ）へ正規化しているためである。
+さらに、`text/html`の内容そのものが、OSクリップボードの生バイトとは異なる。 §1.1で確認したOS生バイトの`HTML Format`には`Version:1.0` / `StartHTML:...` / `SourceURL:file:///...`というCF_HTMLヘッダーが前置される。VS Codeが拡張へ渡す`text/html`の文字列は`SourceURL:`・`Version:1.0`のいずれも含まず、`<html xmlns:o=...`から直接始まる（`containsSourceUrlMarker: false`を実測で確認）。VS Code／ElectronのクリップボードブリッジがCF_HTMLの外枠を除去し、Web標準の`text/html`（HTML本文のみ）へ正規化しているためである。
 
-**結論: 原本のパス（`SourceURL`）もシート・住所（`Object Descriptor`）も、`DataTransfer`からは一切取得できない。** [ADR-0017](../01_Plans/adr/ADR-0017-windows-clipboard-provenance-bridge.md)の選択肢1（拡張内だけで完結）は**不採用が確定**した。出所を得るには選択肢2（Windows専用の補助プロセスでOSクリップボードの生バイトを読む）が必須であり、それを避けるなら選択肢3（内容照合のみ、出所なし）に限られる。
+結論: 原本のパス（`SourceURL`）もシート・住所（`Object Descriptor`）も、`DataTransfer`からは一切取得できない。 [ADR-0017](../01_Plans/adr/ADR-0017-windows-clipboard-provenance-bridge.md)の選択肢1（拡張内だけで完結）は不採用が確定した。出所を得るには選択肢2（Windows専用の補助プロセスでOSクリップボードの生バイトを読む）が必須であり、それを避けるなら選択肢3（内容照合のみ、出所なし）に限られる。
 
 再現手順は[clipboard-probe](../03_Implement/scripts/clipboard-probe/README.md)の`probe-vscode.ps1`。観測ログは`%TEMP%\mmi-clipboard-probe\vscode-probe.log`（架空データのみ、個人パスはこの環境のTEMP配下）。
 
@@ -124,7 +124,7 @@ text/plain, text/html, text/rtf, image/png
 
 ## 3. 取得経路の階層
 
-出所の取得手段は3層あり、**どの層を通っても§4の照合を必ず通す**。
+出所の取得手段は3層あり、どの層を通っても§4の照合を必ず通す。
 
 ```mermaid
 flowchart TD
@@ -142,18 +142,18 @@ flowchart TD
   D -->|不一致・断定不能| E[理由を表示し通常貼り付けへ]
 ```
 
-**層1（`DataTransfer`自体が出所を運ぶ）は2026-09-11の実測で不採用が確定した。** §2参照。実装は層2（Windows専用補助プロセス）と層3（内容照合・出所なし）の2系統だけを対象にする。
+層1（`DataTransfer`自体が出所を運ぶ）は2026-09-11の実測で不採用が確定した。 §2参照。実装は層2（Windows専用補助プロセス）と層3（内容照合・出所なし）の2系統だけを対象にする。
 
 層2の制約。
 
 - Windows専用。`vscode.env.remoteName`が設定されている場合（WSL・SSH・Codespaces・web）は拡張ホストとクリップボードが別の機器にあるため利用しない。
 - 補助プロセスは生バイトを読むだけで、Excelを操作しない。現在アクティブなExcelの`Selection`をコピー元と決めつけない（コピー後に選択が移動している可能性がある）。
-- **競合の検査が必須。** `DataTransfer`はVS Codeが貼り付け時点で取ったスナップショットだが、補助プロセスは実行時点のクリップボードを読む。両者の間にコピーが挟まると別の内容を混同する。補助プロセスが読んだHTMLの形状と表示値を`DataTransfer`のHTMLと突き合わせ、違えば出所を破棄する。
+- 競合の検査が必須。 `DataTransfer`はVS Codeが貼り付け時点で取ったスナップショットだが、補助プロセスは実行時点のクリップボードを読む。両者の間にコピーが挟まると別の内容を混同する。補助プロセスが読んだHTMLの形状と表示値を`DataTransfer`のHTMLと突き合わせ、違えば出所を破棄する。
 - 配布・保守の負担と採否は[ADR-0017](../01_Plans/adr/ADR-0017-windows-clipboard-provenance-bridge.md)で判断する。
 
 ## 4. 照合の契約
 
-出所を得ても、それは**手掛かりであって証明ではない**。フィルターのケースがその反例である。
+出所を得ても、それは手掛かりであって証明ではない。フィルターのケースがその反例である。
 
 ```
 入力: 形状(行数×列数) + 表示値行列 + 任意の出所(パス, シート, R1C1住所)
@@ -197,11 +197,11 @@ flowchart TD
    - 候補数上限は**完全一致の返却件数**に適用する。アンカーから得た未検証originを先に切り詰めると、頻出値の偽候補の後ろにある真の一致を見逃すため禁止する。
 6. 全セルが空、同一内容が多数、非連続選択の疑いがある場合は曖昧さを保ち、通常貼り付けへ戻れるようにする。
 
-索引の構造は[CPU範囲探索](input-assistance-cpu-search.md)と共有する。ただし**厳密な内容照合をFlyHash等の近似検索に依存させない。**
+索引の構造は[CPU範囲探索](input-assistance-cpu-search.md)と共有する。ただし厳密な内容照合をFlyHash等の近似検索に依存させない。
 
-**手順2〜4は実装済み（2026-09-14）。** `src/core/contentMatch.ts`の`findContentMatches(sheet, needle, options?)`が、単一の`SheetSource`に対してアンカー選定→転置索引引き当て→複数アンカー突き合わせ→矩形全体照合を行う。部分一致は候補にしない（手順4「棄却」）。同一内容の複数一致はすべて返す（自動で1件に絞らない、§4「自動確定の規則」）。`maxIndexedCells`（既定20万セル、超過で例外——黙って一部だけ探して真の一致を見逃すことを避ける）と`maxCandidates`（既定200件、超過分は切り詰め——内容の広範な重複は正常なケースであり自動確定禁止規則が安全弁になるため例外にはしない）で手順5の上限を扱う。テストは`test/contentMatch.test.ts`（11件）。
+手順2〜4は実装済み（2026-09-14）。 `src/core/contentMatch.ts`の`findContentMatches(sheet, needle, options?)`が、単一の`SheetSource`に対してアンカー選定→転置索引引き当て→複数アンカー突き合わせ→矩形全体照合を行う。部分一致は候補にしない（手順4「棄却」）。同一内容の複数一致はすべて返す（自動で1件に絞らない、§4「自動確定の規則」）。`maxIndexedCells`（既定20万セル、超過で例外——黙って一部だけ探して真の一致を見逃すことを避ける）と`maxCandidates`（既定200件、超過分は切り詰め——内容の広範な重複は正常なケースであり自動確定禁止規則が安全弁になるため例外にはしない）で手順5の上限を扱う。テストは`test/contentMatch.test.ts`（11件）。
 
-**手順1（探索対象ブックの決定）も実装済み（2026-09-15）。** `src/dx/contentMatchSearch.ts`の`findWorkbookContentMatches`が複数ワークブック・複数シートを横断して`findContentMatches`を呼ぶ。探索対象は「許可されたworkspace内」（`vscode.workspace.findFiles`、自動補完機能が既に使っているのと同じglob・除外設定を流用）に解決した——「利用者が選んだブック」（都度ファイルを選ばせるUI）は採用していない。1シートが大きすぎて索引不能でも、そのシートだけ読み飛ばして検索全体は止めない。手順6の「非連続選択の疑い」の検出は依然として未着手（全セル空・複数一致は扱うが、非連続選択そのものを推定するヒューリスティックはまだ無い）。テストは`test/contentMatchSearch.test.ts`（6件）。
+手順1（探索対象ブックの決定）も実装済み（2026-09-15）。 `src/dx/contentMatchSearch.ts`の`findWorkbookContentMatches`が複数ワークブック・複数シートを横断して`findContentMatches`を呼ぶ。探索対象は「許可されたworkspace内」（`vscode.workspace.findFiles`、自動補完機能が既に使っているのと同じglob・除外設定を流用）に解決した——「利用者が選んだブック」（都度ファイルを選ばせるUI）は採用していない。1シートが大きすぎて索引不能でも、そのシートだけ読み飛ばして検索全体は止めない。手順6の「非連続選択の疑い」の検出は依然として未着手（全セル空・複数一致は扱うが、非連続選択そのものを推定するヒューリスティックはまだ無い）。テストは`test/contentMatchSearch.test.ts`（6件）。
 
 ## 6. 現行実装から変える点
 
@@ -224,8 +224,8 @@ flowchart TD
 
 **2026-09-16の変更のまとめ（自動貼り付けへの統合）:** 内容照合は元々「自動貼り付けへ統合する」ことを目的に作られた機能であり、前日の「別コマンドに留める」という判断はその意図に反していた。統合を妨げていた2つの懸念を再検証した結果、両方とも解消できた。
 
-1. **性能懸念（ワークスペース全体スキャンの毎回実行）は実測で否定された。** `/mnt/c`（WSL2↔Windowsの9pブリッジ）は実際の拡張ホスト実行環境を代表しないため、ネイティブファイルシステムで計測し直した：実サンプル30ファイルで定常状態約20ms、10倍の300ファイルで約65〜140ms。ワークスペースファイル数に対しほぼ線形で、実用規模では体感できない。
-2. **`showQuickPick`が使えないという制約は、そもそも統合先を誤っていた。** VS Codeの`DocumentPasteEditProvider`は複数の`DocumentPasteEdit`を返せるが、挙動は`context.triggerKind`で異なる。`Automatic`（通常のCtrl+V）は最初の1件を**即座に自動適用**し、他候補は事後に切り替え可能なウィジェットとして出るだけ——ここに内容照合の推測を混ぜるとR1（自動確定しない）に反するリスクがある。一方`PasteAs`（`editor.action.pasteAs`、既定Ctrl+.）はVS Code公式ドキュメントの記述どおり「挿入される**前に**選択肢のドロップダウンを出す」——これは自前のUIを実装せずにR1を満たせる、正しい統合先だった。
+1. 性能懸念（ワークスペース全体スキャンの毎回実行）は実測で否定された。 `/mnt/c`（WSL2↔Windowsの9pブリッジ）は実際の拡張ホスト実行環境を代表しないため、ネイティブファイルシステムで計測し直した：実サンプル30ファイルで定常状態約20ms、10倍の300ファイルで約65〜140ms。ワークスペースファイル数に対しほぼ線形で、実用規模では体感できない。
+2. `showQuickPick`が使えないという制約は、そもそも統合先を誤っていた。 VS Codeの`DocumentPasteEditProvider`は複数の`DocumentPasteEdit`を返せるが、挙動は`context.triggerKind`で異なる。`Automatic`（通常のCtrl+V）は最初の1件を即座に自動適用し、他候補は事後に切り替え可能なウィジェットとして出るだけ——ここに内容照合の推測を混ぜるとR1（自動確定しない）に反するリスクがある。一方`PasteAs`（`editor.action.pasteAs`、既定Ctrl+.）はVS Code公式ドキュメントの記述どおり「挿入される前に選択肢のドロップダウンを出す」——これは自前のUIを実装せずにR1を満たせる、正しい統合先だった。
 
 `registerNativePasteProvider`の`provideDocumentPasteEdits`に`context.triggerKind === vscode.DocumentPasteTriggerKind.PasteAs`のガードを追加し、この条件でだけ`getContentMatchPasteEdits`（`findWorkbookContentMatches`のVS Code側ラッパー）を呼んで候補を追加で返すようにした。通常のCtrl+V（`Automatic`）の挙動は一切変更していない。単語1つ・URL1つのような明らかに矩形照合し得ない貼り付け（`looksLikeTabularClipboard`で判定）では、ワークスペースへのアクセスすら発生しない。病的に大きいワークスペース向けに`MAX_CONTENT_MATCH_WORKSPACE_FILES`（500件、暫定値）の安全弁も追加した。既存の明示コマンドはそのまま維持している（貼り付け操作を経由せず検索したい場合に有用なため）。
 
@@ -233,25 +233,25 @@ flowchart TD
 
 **2026-09-17の変更のまとめ（実VS Code e2e確認、xvfb不要と判明）:** この開発環境（WSL2）には元からWSLgによる実表示（`DISPLAY`/`WAYLAND_DISPLAY`）があり、`xvfb`のインストールなしに`test/e2e/runTest.ts`を直接実行してExtension Host e2eが動くことが分かった。実VS Code（1.138.0）でテストを走らせたところ、本物のバグを2件発見・修正した。
 
-1. **e2eテスト自体の期待値が2026-09-14の変更に追従していなかった。** `test/e2e/suite/extensionHost.test.ts`の`PASTE_FALLBACK_EXPECTED_INSERT`等が旧`#Summary|A1:B2`形式のままだった。e2eがこの環境で一度も成功実行できていなかったため検出されず、修正した。
-2. **`insertEmbedByContentMatch`が`registerTextEditorCommand`で登録されていた——これは非同期コールバックを一切サポートしないVS Codeの既知の制約**（`editor`/`edit`引数は同期区間のみ有効、`executeCommand`はコールバックの返すPromiseを待たない。microsoft/vscode#178931・#2933・#16814・#90834）。実e2eで観測した挙動は「コマンドは開始するが最初の`await`（クリップボード読込み）以降が孤立し、`executeCommand`は即座に解決、ドキュメントは変化しない」——**このコマンドは実運用でも常に何も挿入できていなかった可能性が高い。** `registerCommand`（引数を取らず`vscode.window.activeTextEditor`を関数内で自前解決、最終編集の直前にも再解決）へ修正した。
+1. e2eテスト自体の期待値が2026-09-14の変更に追従していなかった。 `test/e2e/suite/extensionHost.test.ts`の`PASTE_FALLBACK_EXPECTED_INSERT`等が旧`#Summary|A1:B2`形式のままだった。e2eがこの環境で一度も成功実行できていなかったため検出されず、修正した。
+2. `insertEmbedByContentMatch`が`registerTextEditorCommand`で登録されていた——これは非同期コールバックを一切サポートしないVS Codeの既知の制約（`editor`/`edit`引数は同期区間のみ有効、`executeCommand`はコールバックの返すPromiseを待たない。microsoft/vscode#178931・#2933・#16814・#90834）。実e2eで観測した挙動は「コマンドは開始するが最初の`await`（クリップボード読込み）以降が孤立し、`executeCommand`は即座に解決、ドキュメントは変化しない」——このコマンドは実運用でも常に何も挿入できていなかった可能性が高い。 `registerCommand`（引数を取らず`vscode.window.activeTextEditor`を関数内で自前解決、最終編集の直前にも再解決）へ修正した。
 
-修正後、明示コマンド経路（`insertEmbedByContentMatch`）の全パイプライン——クリップボードのTSV値→`findWorkbookContentMatches`による実ワークスペース内の実ファイル検索→`showQuickPick`（テスト内で最初の項目を自動選択するよう一時的に差し替え）→`![[...]]`の挿入——を実VS Code上で確認した（`test/e2e/suite/extensionHost.test.ts`のステージ`content-match-standalone-command`）。**2026-10-01には`editor.action.pasteAs`自体を通すExtension Host E2Eも追加した。** `vscode.env.clipboard.writeText`で`Alice\tAdmin`を置き、`preferences: [text.markdownMatrixInjector.embed.contentMatch]`で組み込みPaste Asを実行し、登録providerが実ワークスペースの`roles.csv#Sheet1|A2:B2`を内容照合して挿入するまでを対象とする。同じTSVを通常の`editor.action.clipboardPasteAction`で貼る対照ケースも置き、生TSVのままでMMI参照へ自動変換されないことを検査する。**このWeb作業環境では新E2Eは未実行**であり、実Excelの`text/html`、Windows helperが与えるconfirmed provenance、視覚pickerを人が選ぶ操作はなおWindows実機で確認する。
+修正後、明示コマンド経路（`insertEmbedByContentMatch`）の全パイプライン——クリップボードのTSV値→`findWorkbookContentMatches`による実ワークスペース内の実ファイル検索→`showQuickPick`（テスト内で最初の項目を自動選択するよう一時的に差し替え）→`![[...]]`の挿入——を実VS Code上で確認した（`test/e2e/suite/extensionHost.test.ts`のステージ`content-match-standalone-command`）。2026-10-01には`editor.action.pasteAs`自体を通すExtension Host E2Eも追加した。 `vscode.env.clipboard.writeText`で`Alice\tAdmin`を置き、`preferences: [text.markdownMatrixInjector.embed.contentMatch]`で組み込みPaste Asを実行し、登録providerが実ワークスペースの`roles.csv#Sheet1|A2:B2`を内容照合して挿入するまでを対象とする。同じTSVを通常の`editor.action.clipboardPasteAction`で貼る対照ケースも置き、生TSVのままでMMI参照へ自動変換されないことを検査する。このWeb作業環境では新E2Eは未実行であり、実Excelの`text/html`、Windows helperが与えるconfirmed provenance、視覚pickerを人が選ぶ操作はなおWindows実機で確認する。
 
 ## 7. 利用者に見える動作
 
-**3つの経路がある（2026-09-16時点）。**
+3つの経路がある（2026-09-16時点）。
 
-1. **自動貼り付け（Ctrl+V、`triggerKind: Automatic`）**: ファイルパスが復元できた場合のみ`![[file.xlsx]]`（ファイルのみ）を提案する。実Excelコピーはパスを含まないため、この経路は現状ほぼ発火しない。**内容照合は組み込まれていない**（自動適用リスクのため、意図的に対象外）。
+1. **自動貼り付け（Ctrl+V、`triggerKind: Automatic`）**: ファイルパスが復元できた場合のみ`![[file.xlsx]]`（ファイルのみ）を提案する。実Excelコピーはパスを含まないため、この経路は現状ほぼ発火しない。内容照合は組み込まれていない（自動適用リスクのため、意図的に対象外）。
 2. **`Paste As...`（`editor.action.pasteAs`、既定Ctrl+.）**: VS Code標準のドロップダウンが挿入前に表示され、内容照合が見つけた候補（1件でも複数件でも）がそこに並ぶ。選んだ時点で初めて挿入される。
 3. **内容照合コマンド（`MMI: Insert Embed by Content Match`、コマンドパレットから明示実行）**: 貼り付け操作を経由せず、クリップボードに今ある内容でワークスペース内の全ワークブックを検索し、結果を`showQuickPick`で提示する。
 
-共通:
+共通は次のとおりです。
 - 表の値を貼る通常の貼り付けを妨げない。Undo1回で取り消せる（`editor.edit`による通常の編集操作のため）。
 - 見出し・caption・grepを勝手に付けない。挿入するのは既存文法のみ。
 - 一般のテキスト、対象外のファイル、境界外、未信頼workspace、読み込み失敗では通常の貼り付けを妨げない。
 
-**未達のまま残る点**: 2026-10-02時点で、候補にはファイル・シート・範囲に加え、原本側の`MatchContext`（表題・見出し・直前/直後の行）を短い1行へ圧縮して表示する。`Paste As`では全体72文字、各行は先頭3セル・1セル18文字までに制限し、改行・連続空白を正規化するため、重複一致を周辺文脈で識別できる。ただし**コピーした値そのものの先頭数行プレビューは表示しない**。**明示コマンド経路（経路3）は実VS Code（1.138.0）でのe2e確認済み（2026-09-17）**——WSLg由来の実表示によりxvfb無しでExtension Host e2eが動作した。**`editor.action.pasteAs`（経路2）はplain TSVを使うExtension Host自動E2Eを2026-10-01に追加済みだが、このWeb作業環境では未実行。** これが通ればVS Code組み込みPaste As→登録provider→内容照合→挿入の宿主dispatchは自動証拠化できる。一方、実Excelの`text/html`、Windows helperが返すconfirmed provenance、Ctrl+./視覚pickerを人が選ぶ実操作は引き続きWindows実機確認が必要（[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)参照）。
+**未達のまま残る点**: 2026-10-02時点で、候補にはファイル・シート・範囲に加え、原本側の`MatchContext`（表題・見出し・直前/直後の行）を短い1行へ圧縮して表示する。`Paste As`では全体72文字、各行は先頭3セル・1セル18文字までに制限し、改行・連続空白を正規化するため、重複一致を周辺文脈で識別できる。ただしコピーした値そのものの先頭数行プレビューは表示しない。明示コマンド経路（経路3）は実VS Code（1.138.0）でのe2e確認済み（2026-09-17）——WSLg由来の実表示によりxvfb無しでExtension Host e2eが動作した。`editor.action.pasteAs`（経路2）はplain TSVを使うExtension Host自動E2Eを2026-10-01に追加済みだが、このWeb作業環境では未実行。 これが通ればVS Code組み込みPaste As→登録provider→内容照合→挿入の宿主dispatchは自動証拠化できる。一方、実Excelの`text/html`、Windows helperが返すconfirmed provenance、Ctrl+./視覚pickerを人が選ぶ実操作は引き続きWindows実機確認が必要（[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)参照）。
 
 ## 8. 未確認事項
 
@@ -275,4 +275,4 @@ flowchart TD
 
 [設計レビュー](../01_Plans/input-assistance-design-review.md)のR1/R2/R4/R5を満たすこと。同じ値の別コピーは内容比較では検出できないため、初期提供では自動確定しない。Object Descriptorはバイナリ構造のオフセットから読む。観測された形式と文字列はこの環境の実測であり、すべてのExcel環境の保証ではない。
 
-**2026-09-11: 作業C（VS CodeのDataTransfer観測）は完了した。** §2の結果により、layer1（DataTransfer自体が出所を運ぶ）は不採用が確定し、[ADR-0017](../01_Plans/adr/ADR-0017-windows-clipboard-provenance-bridge.md)は「観測待ち」から「補助プロセス方式を実装するか、内容照合のみで進めるかの二択」へ進む。次の判断はADR-0017側で行う。
+2026-09-11: 作業C（VS CodeのDataTransfer観測）は完了した。 §2の結果により、layer1（DataTransfer自体が出所を運ぶ）は不採用が確定し、[ADR-0017](../01_Plans/adr/ADR-0017-windows-clipboard-provenance-bridge.md)は「観測待ち」から「補助プロセス方式を実装するか、内容照合のみで進めるかの二択」へ進む。次の判断はADR-0017側で行う。

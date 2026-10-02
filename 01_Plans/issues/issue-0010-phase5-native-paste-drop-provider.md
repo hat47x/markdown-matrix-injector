@@ -13,27 +13,27 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- 現在の command ベース入口を足場にしつつ、VSCode の native paste / drop provider API へ接続する。API の安定性や engine 制約を確認したうえで、command 経由フォールバックを残すかを判断する。
+- 現在のcommandベース入口を足場にしつつ、VSCodeのnative paste / drop provider APIへ接続する。APIの安定性やengine制約を確認したうえで、command経由フォールバックを残すかを判断する。
 
 ### Acceptance criteria (受入条件)
-- [x] Paste / D&D が command 引数経由ではなく、VSCode の native provider surface から発火できること。
-- [x] 既存の `pasteDrop.ts` を再利用し、HTML クリップボード解析や dropped file 解析を重複実装しないこと。
-- [x] native provider が使えない環境では、command ベースのフォールバック方針がコードまたはドキュメントで明示されていること。
-- [x] unit / E2E の双方で退行がないこと。
+- [x] Paste / D&Dがcommand引数経由ではなく、VSCodeのnative provider surfaceから発火できること。
+- [x] 既存の `pasteDrop.ts` を再利用し、HTMLクリップボード解析やdropped file解析を重複実装しないこと。
+- [x] native providerが使えない環境では、commandベースのフォールバック方針がコードまたはドキュメントで明示されていること。
+- [x] unit / E2Eの双方で退行がないこと。
 
 ### Task breakdown (作業分解)
-- [x] VSCode engine / API 制約を整理し、paste/drop provider と command fallback の責務を決める。
-- [x] native provider 実装を追加し、既存 command との競合や二重挿入を防ぐ。
-- [x] Extension Host E2E と運用ドキュメントを更新する。 (native DataTransfer adapter coverage は追加済み。既存 autocomplete E2E が VSCode 1.112 headless で継続失敗のため要追加切り分け)
+- [x] VSCode engine / API制約を整理し、paste/drop providerとcommand fallbackの責務を決める。
+- [x] native provider実装を追加し、既存commandとの競合や二重挿入を防ぐ。
+- [x] Extension Host E2Eと運用ドキュメントを更新する。 (native DataTransfer adapter coverageは追加済み。既存autocomplete E2EがVSCode 1.112 headlessで継続失敗のため要追加切り分け)
 
 ### Validation plan (検証計画)
-- `cd 03_Implement && npm test` が Pass することを確認する。
+- `cd 03_Implement && npm test` がPassすることを確認する。
 - `cd 03_Implement && npm run build` が成功することを確認する。
-- `cd 03_Implement && npm run test:e2e` で native provider または明示的フォールバックが検証できることを確認する。
+- `cd 03_Implement && npm run test:e2e` でnative providerまたは明示的フォールバックが検証できることを確認する。
 
 
 ## Progress Notes
-- Native paste/drop provider を `registerDocumentPasteEditProvider` / `registerDocumentDropEditProvider` で登録し、非対応 host では既存 command fallback を残した。
-- Extension Host E2E は native provider registration surface / shared parsing / fallback command behavior を proof boundary とし、autocomplete の `#` 補完不安定を Paste / D&D 受入判定から分離する構成へ整理済み。
-- 運用文書 `04_Documentation/vscode-e2e-testing.md` に、host class ごとの native path / fallback path の観測順、manual E2E の比較順、known unstable の切り分けと failure triage を追記済み。
-- 2026-03-22 の最終統合検証では `cd 03_Implement && npm run build`、`cd 03_Implement && npm test`、`cd 03_Implement && npm run test:e2e` が Pass。Autocomplete の `#` 補完は VSCode 1.112 headless で Known unstable として分離継続だが、Paste / D&D の acceptance 境界は E2E で充足したため、本 issue を `Done` に更新する。
+- Native paste/drop providerを `registerDocumentPasteEditProvider` / `registerDocumentDropEditProvider` で登録し、非対応hostでは既存command fallbackを残した。
+- Extension Host E2Eはnative provider registration surface / shared parsing / fallback command behaviorをproof boundaryとし、autocompleteの `#` 補完不安定をPaste / D&D受入判定から分離する構成へ整理済み。
+- 運用文書 `04_Documentation/vscode-e2e-testing.md` に、host classごとのnative path / fallback pathの観測順、manual E2Eの比較順、known unstableの切り分けとfailure triageを追記済み。
+- 2026-03-22の最終統合検証では `cd 03_Implement && npm run build`、`cd 03_Implement && npm test`、`cd 03_Implement && npm run test:e2e` がPass。Autocompleteの `#` 補完はVSCode 1.112 headlessでKnown unstableとして分離継続だが、Paste / D&Dのacceptance境界はE2Eで充足したため、本issueを `Done` に更新する。

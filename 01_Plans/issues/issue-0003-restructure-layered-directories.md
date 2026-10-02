@@ -23,9 +23,9 @@
 
 ### Task breakdown (作業分解)
 - [x] ディレクトリを新設し、実装資産を移動する。
-- [x] README / ignore 設定を更新する。
+- [x] README / ignore設定を更新する。
 - [x] テストとビルドを新しい配置で実行する。
 
 ### Validation plan (検証計画)
-- `cd 03_Implement && npm test` が Pass することを確認する。
+- `cd 03_Implement && npm test` がPassすることを確認する。
 - `cd 03_Implement && npm run build` が成功することを確認する。

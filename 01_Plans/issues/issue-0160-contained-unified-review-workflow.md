@@ -14,7 +14,7 @@
 - Depends on: issue-0158 Done
 - Depends on: issue-0159 Done
 - Related ADR/Spec: ADR-0018-cognitive-assistance-plane.md
-- Parallel exclusion: XLSX reader / matcher / provider / production UI は変更しない
+- Parallel exclusion: XLSX reader / matcher / provider / production UIは変更しない
 
 ## Problem
 
@@ -86,7 +86,7 @@ default版は既存XLSX readerとAuthority default loaderをdynamic import経路
   `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
   でcompile成功。
 - workflow-focused runtime harness: **10 checks / 10 pass / 0 fail**。
-- 確認内容:
+- 確認内容は次のとおりです。
   - contained absolute pathだけをsnapshot readerへ渡す。
   - snapshot reader呼出は1回だけ。
   - Authority Workbook loader呼出は正常table pathで1回。

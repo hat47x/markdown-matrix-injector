@@ -13,20 +13,20 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- sync checker に docs/fixture の行内容一致（row parity）チェックを追加し、ヘッダ一致だけでは見抜けない内容差分を検知する。
-- unit test に row parity 異常系を追加し、同期ルールの実効性を高める。
+- sync checkerにdocs/fixtureの行内容一致（row parity）チェックを追加し、ヘッダ一致だけでは見抜けない内容差分を検知する。
+- unit testにrow parity異常系を追加し、同期ルールの実効性を高める。
 
 ### Acceptance criteria (受入条件)
-- [x] `check_phase9_template_sync.py` が docs/fixture 行差分を検知する。
-- [x] `test_check_phase9_template_sync.py` に row parity 異常系が追加される。
-- [x] `04_Documentation/phase9-rule-table-template-operations.md` に row parity 観点が追記される。
-- [x] `python3 01_Plans/tools/planning_queue.py` 実行時に orphan issue が 0 件である。
+- [x] `check_phase9_template_sync.py` がdocs/fixture行差分を検知する。
+- [x] `test_check_phase9_template_sync.py` にrow parity異常系が追加される。
+- [x] `04_Documentation/phase9-rule-table-template-operations.md` にrow parity観点が追記される。
+- [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
 ### Task breakdown (作業分解)
-- [x] row parity 検証ロジックを追加する。
-- [x] unit test を追加する。
+- [x] row parity検証ロジックを追加する。
+- [x] unit testを追加する。
 - [x] 運用ガイドを更新する。
-- [x] planning queue を再実行する。
+- [x] planning queueを再実行する。
 
 ### Validation plan (検証計画)
 - `python3 01_Plans/tools/test_check_phase9_template_sync.py`

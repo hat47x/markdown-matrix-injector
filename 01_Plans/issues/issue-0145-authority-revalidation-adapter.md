@@ -19,7 +19,7 @@
 
 productionコードを変更せず、既存の決定論的処理をexperimental adapterから再利用して、`scope=executable-proposal` の `AuthorityRevalidationReceiptV1` を生成する。
 
-再利用する既存処理:
+再利用する既存処理は次のとおりです。
 
 - `parseEmbedSyntax`
 - `resolveSourcePath` / `PathContainmentError`
@@ -80,7 +80,7 @@ Workbookは既存read-only load経路から渡された `WorkbookData` を入力
   - `resolveSourcePath / PathContainmentError`
   - Smart Fallback
   - card/table/frame renderer
-- 検証内容:
+- 検証内容は次のとおりです。
   - 正常なtable proposalで8 Authority checksすべてpass。
   - invalid known parameterをparameter-schema failureへ変換。
   - unknown / `x-*` parameterをP5 forward compatibilityとして許容。

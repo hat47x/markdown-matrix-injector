@@ -18,7 +18,7 @@ TypeSafe AIの2026-09-15公開資料では、Jevはearly accessのSystem One Mod
 
 同時に、合計・日付・account status等の決定論的処理はモデルではなくcode側で扱う構成が示されている。
 
-参考:
+参考は次のとおりです。
 - https://typesafe.ai/blog/introducing-system-one-models-and-jev
 - https://typesafe.ai/
 - https://evals.typesafe.ai/
@@ -29,7 +29,7 @@ TypeSafe AIの2026-09-15公開資料では、Jevはearly accessのSystem One Mod
 
 MMIの最初のJudgment用途は、高次の文章生成ではなく既存の有限操作やreview routeの分類である。
 
-例:
+例は次のとおりです。
 
 - columns
 - grep
@@ -62,7 +62,7 @@ provider結果からMMI Notationを直接適用しない。
 
 ## 5. Closed-choice contract
 
-`ClosedChoiceQuestion`:
+`ClosedChoiceQuestion`は次のとおりです。
 
 - question id
 - finite choices

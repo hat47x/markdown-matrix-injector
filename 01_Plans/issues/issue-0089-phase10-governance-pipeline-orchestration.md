@@ -13,15 +13,15 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- phase10 の個別CLI（harvest / report / SLA / escalation / auditability）を1コマンドで連結実行する orchestration CLI を追加する。
+- phase10の個別CLI（harvest / report / SLA / escalation / auditability）を1コマンドで連結実行するorchestration CLIを追加する。
 - 出力先ディレクトリへ各artifactをまとめて生成し、週次運用の手作業を削減する。
 
 ### Acceptance criteria (受入条件)
 - [x] `python3 01_Plans/tools/phase10_governance_pipeline.py --gate-inputs ... --decisions ... --output-dir ...` で一連のartifactを生成できる。
-- [x] harvest/governance report/SLA/escalation/audit log の各JSONまたはMarkdownが出力される。
+- [x] harvest/governance report/SLA/escalation/audit logの各JSONまたはMarkdownが出力される。
 - [x] 不正decision（候補ID不一致）時にCLIが `NG:` を返し失敗する。
 - [x] `python3 -m unittest 01_Plans.tools.test_phase10_governance_pipeline` が成功する。
-- [x] `python3 01_Plans/tools/planning_queue.py` 実行時に orphan issue が 0 件である。
+- [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
 ### Task breakdown (作業分解)
 - [x] orchestration CLIを実装する。

@@ -26,7 +26,7 @@ workspace boundary・realpath symlink containmentを含む既存処理をその�
 
 ### Preview
 
-既存の:
+既存のは次のとおりです。
 
 - Smart Fallback
 - card renderer
@@ -51,7 +51,7 @@ existing read-only load path
 Authority Revalidation Adapter
 ```
 
-理由:
+理由は次のとおりです。
 
 - production loader / xlsx配線を変更しない
 - external-XLSX/fill telemetry並行レーンと競合しない

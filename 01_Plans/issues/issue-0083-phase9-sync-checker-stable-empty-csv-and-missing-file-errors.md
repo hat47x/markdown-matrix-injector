@@ -13,21 +13,21 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- `format_cli_exception` で `ValueError("empty csv: ...")` と `FileNotFoundError` のメッセージを安定化し、text/json どちらでも契約検証しやすい表現へ統一する。
+- `format_cli_exception` で `ValueError("empty csv: ...")` と `FileNotFoundError` のメッセージを安定化し、text/jsonどちらでも契約検証しやすい表現へ統一する。
 
 ### Acceptance criteria (受入条件)
 - [x] `ValueError("empty csv: ...")` が `input csv is empty: ...` に正規化される。
 - [x] `FileNotFoundError` が `input file not found: ...` に正規化される。
-- [x] ファイル欠落時の text 出力で安定文言を検証するテストがある。
-- [x] ファイル欠落時の JSON 出力で安定文言を検証するテストがある。
-- [x] 空CSV時の JSON 出力で安定文言を検証するテストがある。
+- [x] ファイル欠落時のtext出力で安定文言を検証するテストがある。
+- [x] ファイル欠落時のJSON出力で安定文言を検証するテストがある。
+- [x] 空CSV時のJSON出力で安定文言を検証するテストがある。
 - [x] `python3 01_Plans/tools/test_check_phase9_template_sync.py` が成功する。
-- [x] `python3 01_Plans/tools/planning_queue.py` 実行時に orphan issue が 0 件である。
+- [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
 ### Task breakdown (作業分解)
 - [x] 例外正規化ロジックを拡張する。
 - [x] unit/CLI契約テストを追加する。
-- [x] テストと planning queue を実行する。
+- [x] テストとplanning queueを実行する。
 
 ### Validation plan (検証計画)
 - `python3 01_Plans/tools/test_check_phase9_template_sync.py`

@@ -13,17 +13,17 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- release gate workflow の最小権限化と同時実行制御を追加し、運用中の競合実行と不要権限を抑制する。
+- release gate workflowの最小権限化と同時実行制御を追加し、運用中の競合実行と不要権限を抑制する。
 
 ### Acceptance criteria (受入条件)
-- [x] CI workflow に `permissions: contents: read` が追加される。
-- [x] CI workflow に concurrency 設定が追加され、同一 ref の重複実行が cancel される。
-- [x] manual workflow に `permissions: contents: read` が追加される。
-- [x] manual workflow に concurrency 設定が追加される。
+- [x] CI workflowに `permissions: contents: read` が追加される。
+- [x] CI workflowにconcurrency設定が追加され、同一refの重複実行がcancelされる。
+- [x] manual workflowに `permissions: contents: read` が追加される。
+- [x] manual workflowにconcurrency設定が追加される。
 
 ### Task breakdown (作業分解)
-- [x] CI workflow へ permissions/concurrency を追加する。
-- [x] manual workflow へ permissions/concurrency を追加する。
+- [x] CI workflowへpermissions/concurrencyを追加する。
+- [x] manual workflowへpermissions/concurrencyを追加する。
 - [x] 検証コマンドを実行し整合性を確認する。
 
 ### Validation plan (検証計画)
@@ -40,8 +40,8 @@
   - `cd 03_Implement && npm run release:gate:full`
   - `python3 01_Plans/tools/planning_queue.py`
 - Result summary:
-  - CI/manual workflow に最小権限と concurrency を追加。
-  - release gate コマンドとユニットテストは継続して成功。
-  - planning queue は pending/orphan ともに 0 件を確認。
+  - CI/manual workflowに最小権限とconcurrencyを追加。
+  - release gateコマンドとユニットテストは継続して成功。
+  - planning queueはpending/orphanともに0件を確認。
 - Status decision:
   - 受入条件を満たしたため `Status: Done` に更新。

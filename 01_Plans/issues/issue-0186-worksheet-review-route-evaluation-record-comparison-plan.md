@@ -19,7 +19,7 @@
 
 issue-0183でcomparison change policyを明示でき、issue-0185でpolicy単体のcanonical bytesも固定できる。
 
-しかし比較実行時に:
+しかし比較実行時には次のとおりです。
 - 左右record
 - policy
 の組み合わせ自体を事前固定するcontractがない。

@@ -57,7 +57,7 @@ deterministic review reason
 
 である。
 
-したがって:
+したがっては次のとおりです。
 
 - Perceptionへ混ぜない
 - Judgmentへ混ぜない
@@ -84,7 +84,7 @@ DeterministicReviewEvidenceSurfaceV1
 
 を追加する。
 
-既存:
+既存は次のとおりです。
 
 - CognitiveReviewPresentationV1
 - AuthorityVerificationOverlayV1
@@ -165,7 +165,7 @@ raw cells / raw features / workbook bytesは持たない。
 
 deterministic evidenceを生成する際、primary pathがEnvelopeのFly Perception payloadと完全一致することを要求する。
 
-比較対象:
+比較対象は次のとおりです。
 
 - classification
 - noveltyScore
@@ -182,7 +182,7 @@ deterministic evidenceを生成する際、primary pathがEnvelopeのFly Percept
 
 一致しない場合はfail-closed。
 
-これにより:
+これによりは次のとおりです。
 
 > 同じsourceDigestを持つ別matcher結果のtelemetry
 
@@ -201,13 +201,13 @@ DeterministicReviewEvidenceSurfaceV1
 
 既存surface自体を書き換えない。
 
-構造的に:
+構造的には次のとおりです。
 
 ```text
 VerifiedCognitiveReviewSurfaceV1
 ```
 
-または同じ:
+または同じは次のとおりです。
 
 - audience
 - review
@@ -221,7 +221,7 @@ Executable Proposal surfaceも同じreview/Authority boundaryを持つため、�
 
 artifact作成後にobjectが書き換えられる場合も考え、surfaceへ添付する際に再検証する。
 
-確認:
+確認は次のとおりです。
 
 - schemaVersion
 - role

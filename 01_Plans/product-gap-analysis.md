@@ -61,7 +61,7 @@ Candidate contractでは `observed/inferred/confirmed/abstained` と `determinis
 
 - **執筆ベンチマーク v0（[結果](../04_Documentation/benchmarks/ai-writing/results/2026-09-30-v0.md)）:** 12行程度の表では、MMIなしでもAIは表を誤って写さなかった。差が出たのは正本の変更後で、写した表は古くなり、参照した表は追従した。Linkedの価値は単発の正確さより追従にある。ADR-0019がExtracted・Detachedへ価値を広げたことと整合する。
 - **本文と表の矛盾は未検出:** 正本の変更後、参照した表は追従したが、本文の説明（「申請者は承認できない」）は古いまま残った。ADR-0019 D12のとおり業務的正しさは保証外だが、人がExcel側を直し続ける運用では、Markdown側の本文が気づかれずに古くなる危険がある。
-- **人の作業を止めない設計の未検証:** 現行の診断は、VS Codeで書いている最中にも「問題」パネルへ同じ強さで出る。ADR-0019 D13の「執筆中は控えめに、レビュー・CI・AIには網羅的に」の区別はまだない。
+- **執筆中の診断（2026-10-03対応）:** 入力を止めて0.4秒後に検査し、カーソルのある行の参照の診断は、別の行へ移る・保存する・開くまで控える（`markdownMatrixInjector.diagnostics.whileTyping`で`full`にできる）。CLI `check`とCIは従来どおり網羅的。純粋な方針関数の単体テストと拡張機能ホストの起動確認まで。入力中の表示を人が目視で確かめる確認と、手戻り・中断の観測（issue-0111）は未実施。
 - **画像の読み取り:** SheetJSの`bookFiles`からOOXML drawing/mediaを読み、画像Candidate化と`extract`を実装した。コード生成fixtureに加え、実Excelブックで4枚のanchorがExcel自身の開始・終了セルと一致し、抽出bytesも元画像と一致することを確認済み。
 
 ## 4. 計画と運用の差分
@@ -73,7 +73,6 @@ Candidate contractでは `observed/inferred/confirmed/abstained` と `determinis
 | `planning_queue.py`が補足付きの状態（`In Progress（…）`）を未完了と判定しない | issue-0110・0111・0115・0190が一覧から漏れる | 状態の先頭語で判定するよう修正（本改訂で実施） |
 | issue-0190の状態が独自表記（`Implementation complete; local execution pending`） | 一覧で拾えない | 規定の状態（In Progress）へ直す |
 | 優先度3のTree一般化、初回一括変換、CandidateレビューUI、上位名称の検討が未追跡だった | 価値定義はあるが着手条件が曖昧になる | issue-0199〜0202へ切り出し。既存0193〜0198への依存を明記 |
-| 執筆中とレビュー時で診断の出し方を分けていない（ADR-0019 D13） | 人の執筆を止める可能性 | 優先度2のVS Code UIの設計で扱う。測定は利用者の観測（issue-0111）で行う |
 | `xlsx`の依存がCDNのtarball | CLIをnpmで配布するときの障害になり得る | issue-0197で配布形態と合わせて判断 |
 | プロダクト名「Markdown Matrix Injector」が現在の価値範囲より狭い | 表注入ツールと誤解され、Core / Agent / detachabilityの価値が伝わりにくい | [issue-0201](issues/issue-0201-product-name-and-compatibility-layer.md)で、MMIをNotation/compatibility layerとして残す案を含めて比較。決定前は実装名を変えない |
 

@@ -16,7 +16,7 @@
 
 v3では、列名・相対列位置・headerの連続性・title merge spanを使うことで、style情報が薄いworksheetでも一定の書式識別が可能になった。
 
-一方、境界評価では2列表に限って情報量不足が残った。基準が `項目 / 値`、観測が `項目 / 内容` の場合、`structure + fill` では既知候補として残るが、`structure only` では confidence が約0.672となり、既定値 `minConfidence=0.7` を下回って `novel` になった。
+一方、境界評価では2列表に限って情報量不足が残った。基準が `項目 / 値`、観測が `項目 / 内容` の場合、`structure + fill` では既知候補として残るが、`structure only` ではconfidenceが約0.672となり、既定値 `minConfidence=0.7` を下回って `novel` になった。
 
 ここで閾値を下げると、別書式まで既知候補へ入りやすくなる。したがって閾値調整より先に、**表の意味ではなく、表がどのような骨格で並んでいるか**を追加evidenceとして観測する。
 
@@ -37,7 +37,7 @@ v3では、列名・相対列位置・headerの連続性・title merge spanを�
 
 header選択後、表の水平範囲を基準に次の構造を観測する。
 
-1. title merge と header の行間隔
+1. title mergeとheaderの行間隔
 2. headerより下に本文候補行が存在するか
 3. headerから最初の本文候補行までの行間隔
 4. 最初の本文候補行がheader列をすべて埋めているか
@@ -92,8 +92,8 @@ headerより下、かつheaderの水平範囲内にある非空セルを行単�
 
 最初の本文候補行について、headerで実際に使われている各列に非空セルがあるかを見る。
 
-- 全header列に値がある: `full`
-- 1列以上欠ける: `partial`
+- 全header列に値がある: `full`は次のとおりです。
+- 1列以上欠ける: `partial`は次のとおりです。
 
 header自体がgappedの場合でも、Excel上の連続spanではなく**headerが実際に使っている列集合**を基準にする。これにより、意図的な空き列を本文欠損と誤認しない。
 
@@ -127,7 +127,7 @@ v3 prototypeとv4 observationは比較しない。既存version gateで明示的
 
 ### 2026-09-17 local validation
 
-実行環境:
+実行環境は次のとおりです。
 
 - Node.js `v22.16.0`
 - TypeScript `5.8.3`
@@ -135,7 +135,7 @@ v3 prototypeとv4 observationは比較しない。既存version gateで明示的
 
 新しいv4 adapter / prototypeと、構造・階層・source profile・境界評価をまとめてコンパイルし、Node test runnerで **34 tests / 34 pass / 0 fail** を確認した。
 
-主な境界値:
+主な境界値は次のとおりです。
 
 | ケース | profile | status | confidence |
 |---|---|---|---:|

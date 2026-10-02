@@ -61,7 +61,7 @@ self-review禁止をapply時だけでなくpresentation前にも適用する。
 
 digestはcurrent adjudicatorのvisible work stateへbindingする。
 
-入力:
+入力は次のとおりです。
 
 - work representation
 - labeling protocol
@@ -101,7 +101,7 @@ work response検証後:
 2. global packet digestを使うcanonical responseへ変換
 3. applyWorksheetReviewRouteAdjudicationResponseへ委譲
 
-これにより:
+これによりは次のとおりです。
 
 - adjudicationReference
 - strict self-review defense
@@ -128,7 +128,7 @@ visible packetへ出さない:
 
 本contractはoptimistic stale detectionであり、分散lockではない。
 
-複数adjudicatorが同じcaseを同時取得した場合:
+複数adjudicatorが同じcaseを同時取得した場合。
 
 - 先にapplyしたresponseがcorpusを更新
 - 後続responseはcurrent work packet digest mismatchでstale reject

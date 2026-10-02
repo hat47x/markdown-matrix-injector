@@ -30,7 +30,7 @@ serializer/parserは必ず
 
 valid JSON + valid issue-0188 semanticsならformat差を許容する。
 
-用途:
+用途は次のとおりです。
 - manual input
 - migration
 - external transport normalization
@@ -39,7 +39,7 @@ valid JSON + valid issue-0188 semanticsならformat差を許容する。
 
 parse後にcanonical serializeし、input textと完全一致を要求する。
 
-拒否:
+拒否は次のとおりです。
 - pretty JSON
 - key order差
 - trailing newline

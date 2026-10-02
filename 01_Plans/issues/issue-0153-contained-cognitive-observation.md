@@ -15,7 +15,7 @@
 
 ## Problem
 
-CognitiveObservation.provenance.sourceDigest は現状callerが直接指定できる。
+CognitiveObservation.provenance.sourceDigestは現状callerが直接指定できる。
 Authority側はissue-0152のcanonical source-file-bytes SHA-256を利用するため、認知側にも同じ生成経路を用意しないと、誤ったdigestや別定義のdigestをObservationへ入れられる。
 
 また、digest計算後にsource由来payloadを読み、その間にファイルが変化すると、Observation provenanceとpayloadが異なるsource stateを指す可能性がある。
@@ -71,7 +71,7 @@ Authority側はissue-0152のcanonical source-file-bytes SHA-256を利用する�
   `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
   でcompile成功。
 - real temporary filesを用いたfocused runtime harness: **8/8 pass**。
-- 確認内容:
+- 確認内容は次のとおりです。
   - stable sourceからObservationを生成し、canonical source identity digestと一致。
   - payload readerへcontained resolved pathだけを渡す。
   - featureVersion / sourceProfileIdを保持。

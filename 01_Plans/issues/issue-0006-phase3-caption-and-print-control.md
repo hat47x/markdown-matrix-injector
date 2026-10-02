@@ -13,13 +13,13 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- 埋め込み結果を HTML コンテナでラップし、`caption`, `id`, `pageBreak`, `orientation` の各クエリパラメータを表現できるようにする。表描画・カード描画の双方に一貫したメタデータ付与を行う。
+- 埋め込み結果をHTMLコンテナでラップし、`caption`, `id`, `pageBreak`, `orientation` の各クエリパラメータを表現できるようにする。表描画・カード描画の双方に一貫したメタデータ付与を行う。
 
 ### Acceptance criteria (受入条件)
 - [x] `caption=...` 指定時に埋め込み結果の上部または `figcaption` としてキャプションを描画できること。
-- [x] `id=...` 指定時にコンテナへ ID を付与できること。
+- [x] `id=...` 指定時にコンテナへIDを付与できること。
 - [x] `pageBreak=before|after|both` 指定時に印刷制御用の属性またはクラスを付与できること。
-- [x] `orientation=landscape|portrait` 指定時に印刷 CSS と連携可能な属性またはクラスを付与できること。
+- [x] `orientation=landscape|portrait` 指定時に印刷CSSと連携可能な属性またはクラスを付与できること。
 - [x] テストとビルドが通ること。
 
 ### Task breakdown (作業分解)
@@ -28,5 +28,5 @@
 - [x] 単体テストを追加する。
 
 ### Validation plan (検証計画)
-- `cd 03_Implement && npm test` が Pass することを確認する。
+- `cd 03_Implement && npm test` がPassすることを確認する。
 - `cd 03_Implement && npm run build` が成功することを確認する。

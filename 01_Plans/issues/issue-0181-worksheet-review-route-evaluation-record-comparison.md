@@ -86,7 +86,7 @@ AND different groundTruthDigest
 
 comparisonは「どちらが良いか」を決めない。
 
-例えば:
+例えばは次のとおりです。
 - decisionAccuracyが上がった
 - unsafeRoutineRateが下がった
 という差があっても、comparison artifact自身は改善/悪化ラベルを付けない。

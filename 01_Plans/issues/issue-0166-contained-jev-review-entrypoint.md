@@ -46,7 +46,7 @@ callerが指定できない:
 
 `allowExternalJev: true` は型上必須かつruntimeでも確認する。
 
-trueでない場合:
+trueでない場合。
 - snapshot readerを呼ばない
 - Jev transportを呼ばない
 - Authority loaderを呼ばない
@@ -92,7 +92,7 @@ trueでない場合:
   `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
   でcompile成功。
 - focused runtime harness: **3 tests / 3 pass / 0 fail**。
-- 確認内容:
+- 確認内容は次のとおりです。
   - `allowExternalJev=true` でcanonical provider/question経路へ進む。
   - consentがtrueでない場合、snapshot read / provider transport / Workbook loadをすべて0回で停止。
   - pinned model / provider idをissue-0165 -> issue-0162へ透過。

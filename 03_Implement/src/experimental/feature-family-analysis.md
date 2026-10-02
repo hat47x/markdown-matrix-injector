@@ -56,7 +56,7 @@ featureごとに「labelは2倍」「mergeは0.5倍」といった明示的weigh
 confidenceDelta = baselineConfidence - ablatedConfidence
 ```
 
-読み方:
+読み方は次のとおりです。
 
 - `confidenceDelta > 0`: そのfamilyの一致が候補を支えている
 - `confidenceDelta < 0`: そのfamilyの差異が候補を下げている
