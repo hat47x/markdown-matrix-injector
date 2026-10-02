@@ -11,7 +11,7 @@
 
 1. このフォルダーを案件のリポジトリへコピーし、`masters`の正本を案件の内容に置き換えます。シート名と列は変えても構いません。
 2. [MMIのAI向け指示](../../../skills/mmi/SKILL.md)をAIに読ませます。Claude Codeなら`.claude/skills/mmi/SKILL.md`へ置き、GitHub Copilotなら`.github/copilot-instructions.md`へ、Codexなら`AGENTS.md`へ内容を貼ります。
-3. `mmi`コマンドを使える状態にします（[利用マニュアル](../../user-manual.md#コマンドで使う)）。
+3. Node.js 20以上の環境へ配布されたMMI CLI tarballを導入し、`mmi --help`が実行できることを確認します（[利用マニュアル](../../user-manual.md#コマンドで使う)）。開発用checkoutを使う場合だけ、`03_Implement`で`npm run mmi -- <command>`を使います。
 4. 依頼します。
 
 ```text
@@ -34,9 +34,11 @@ MMI拡張を入れたVS Codeでこのフォルダーを開き、`基本設計書
 
 ## 確認する
 
+配布CLIを導入した環境では、リポジトリの開発依存を入れずに次を実行します。
+
 ```sh
-mmi check .
-mmi render 基本設計書.md
+mmi check . --root .
+mmi render 基本設計書.md --root .
 ```
 
 `check`のエラーが0件で、`render`の各表に想定した行が出ていれば完成です。`grep`で絞る表は、絞り込みの語を含む列を`columns`で落とすと空になるので、特に確かめます。

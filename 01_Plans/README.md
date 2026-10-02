@@ -15,7 +15,7 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 | **1 Coreと入口** | [Candidate・Source Adapter・provenanceの契約](issues/issue-0193-candidate-source-adapter-contract.md) | **Done**（契約 v1。表・画像Candidateが利用） | 次の一般化はTree/Shape等のSource Adapterへ |
 | 1 | CLI（inspect/check/render/manifest）、AI向け指示パック、基本設計書キット、[執筆ベンチマーク](../04_Documentation/benchmarks/ai-writing/README.md) | 実装済み | ベンチマーク v0は実施済み。表を大きくした v1は優先度5 |
 | 1 | [外部LLMへの作業提案と判断材料](issues/issue-0112-ai-proposal-handoff.md) | **In Progress**（local-only handoff、MMI記法・Candidate選択・変換案のfail-closed再検証を実装） | 次: manual-e2eでhandoff → 外部提案 → 3種類の再検証が自動適用なしで完結することを確認 |
-| 1 | [CLIの配布](issues/issue-0197-cli-distribution.md) | Draft | 配布形態の決定 |
+| 1 | [CLIの配布](issues/issue-0197-cli-distribution.md) | **In Progress**（runtime依存同梱npm tarball、offline smoke verifierを実装） | 次: Windows・Linuxの新規環境でtarballだけを入れ、`mmi check` / `render`をmanual-e2e確認 |
 | 1 | [portable coreと最小バイナリ](issues/issue-0203-portable-core-minimum-binary.md) | Draft | VS Code非依存Core境界を固定し、標準Go/TinyGo/native/WASMを同一契約で実測比較 |
 | 1〜3（横断） | [認知model/profile資産の配布](issues/issue-0204-cognitive-artifact-distribution.md) | Draft | Coreと大型artifactを分離し、既存local runtime/cacheと外部model置き場を交換可能にする |
 | **2 モダナイズの最小縦切り** | [Excel画像の候補化と取り込み](issues/issue-0194-excel-image-candidates.md) | **Done**（`inspect`の画像一覧、`mmi extract`、実Excel検証、issue-0195による変更検知） | 次: VS Code上の採否UI（issue-0202）、他Candidate種別への展開 |

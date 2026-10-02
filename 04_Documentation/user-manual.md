@@ -220,13 +220,30 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 
 **画像について。** Excelに画面ダンプなどを貼って設計を整理する書き方は、そのまま続けられます。`extract`は画像を取り出して参照できる形にするだけで、Excel側の画像は変わりません。Excelで画像を差し替えたり動かしたりしても、次に`inspect`を実行すれば現在の位置と内容が分かります。取り出せるのはPNG・JPEG・GIF・BMP・SVGです。EMF・WMF・TIFF、外部ファイルへのリンク、壊れた図形は、取り出さずに理由を表示します。`.xls`（旧形式）の画像は読めません。
 
-現在はNode.js 20以上と、リポジトリの`03_Implement`での`npm ci`が必要です。実行例です。
+配布CLIはNode.js 20以上で動くnpm互換tarballです。配布された`.tgz`を使う場合、MMIリポジトリのcheckout、TypeScript、`npm ci`、buildは不要です。runtime依存もtarballへ同梱します。
+
+```bash
+npm install -g ./markdown-matrix-injector-<version>.tgz
+mmi --help
+mmi check ./basic-design --root ./basic-design
+```
+
+一時利用ではtarballをnpm package specとして指定できます。
+
+```bash
+npm exec --yes --package ./markdown-matrix-injector-<version>.tgz -- \
+  mmi check ./basic-design --root ./basic-design
+```
+
+開発用checkoutで動かす場合だけ、従来どおり`03_Implement`でbuildして実行します。
 
 ```bash
 cd 03_Implement
 npm run build
-node dist/src/cli/mmi.js check ../04_Documentation/kits/basic-design --root ../04_Documentation/kits/basic-design
+npm run mmi -- check ../04_Documentation/kits/basic-design --root ../04_Documentation/kits/basic-design
 ```
+
+配布tarballのWindows・Linux新規環境でのmanual-e2eはissue-0197で確認する。検証が完了するまでは、両OSで配布済み・検証済みとは扱いません。
 
 AIエージェントに使わせる場合は、[AI向け指示](../skills/mmi/SKILL.md)を読ませ、[基本設計書キット](kits/basic-design/README.md)の依頼例から始めてください。
 
