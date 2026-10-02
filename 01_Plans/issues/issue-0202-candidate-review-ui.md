@@ -19,9 +19,10 @@ Candidateを製品価値へつなぐには、検出精度だけでなく、人�
 
 ## Acceptance criteria
 
-- [x] Candidateをsource / type / epistemic state（observed・inferred・confirmed・abstained）/ execution characteristic（deterministic・provider-dependent）/ import stateで絞り込める。sourceはレビュー開始時のsource picker、import stateは既存の3状態filter、type / epistemic / executionは複数選択facet（同一軸OR・軸間AND・未選択軸=全件）で実装。
+- [x] Candidateをsource / type / Candidate v1 state（observed・inferred・confirmed・abstained）/ execution characteristic（deterministic・provider-dependent）/ import stateで絞り込める。sourceはレビュー開始時のsource picker、import stateは既存の3状態filter、type / state / executionは複数選択facet（同一軸OR・軸間AND・未選択軸=全件）で実装。`confirmed`はv1互換の採用表現であり、Source factとして扱わない。
 - [x] 「すべて」「未取込のみ」「完全一致の取込済みを除外」をUIから選べる。
 - [x] Authority由来の事実とCognitive Assistance由来の候補を表示上区別する。さらに`inferred + deterministic`と`inferred + provider-dependent`を区別し、決定論的推定をobservedとして見せない。provider間confidenceを1本の総合スコアへ合成しない。
+- [x] review projectionで由来状態と採用状態を分離し、`inferred + accepted`、`observed + unreviewed`、`inferred + rejected`を表現できる。現在の採用状態は`unreviewed / accepted / rejected`で、Source更新によりfingerprintまたはClaim basisが変わったCandidateへ過去の`accepted`を自動継承しない。
 - [ ] Candidateを採用、修正して採用、却下、保留できる。**採用・却下・却下解除・保留は実装済み。修正して採用が未実装。** 未確認候補が存在しても通常の編集を妨げない。
 - [x] 採用時はissue-0194等のextract経路を呼び、同じ処理をUI内に二重実装しない。表も画像も既存の`extract`経路を利用する。
 - [x] 取り込み済みのsourceが変わった場合は「変更あり」と示すが、本文を自動で書き換えない。
@@ -36,14 +37,14 @@ Candidateを製品価値へつなぐには、検出精度だけでなく、人�
 
 - 表・画像Candidateを同じレビュー画面へ出し、`all / unimported / exclude-imported`を既存ledgerで切り替える。却下済みCandidateは通常キューから除外し、`all`では復元可能な状態で表示する。
 - 採用時は表なら`extractTable`、画像なら`extractImages`を呼び、原本を変更せず標準資産とledgerへ記録する。
-- `observed / inferred`、`deterministic / provider-dependent`、provider別Evidenceを合成せず表示する。
+- 由来状態、採用状態、`deterministic / provider-dependent`、provider別Evidenceを合成せず表示する。採用済みの推定は`inferred + accepted`のままとし、`observed`へ昇格させない。
 - レビューを閉じる・保留する操作は通常編集へ影響しない。
 - 却下はimport ledgerと混ぜず、`mmi.review-decisions/v1`としてoccurrence・content fingerprint・Claim basisへ結び付ける。内容または判断根拠が変われば却下は自動失効し、Candidateが再びレビューへ現れる。
 
 ## Remaining work
 
 - 「修正して採用」を追加する。採用・却下・却下解除・保留は実装済み。
-- ~~source / Candidate type / epistemic state / execution characteristicの明示フィルタを追加する。~~ → 実装済み。source picker＋import-state filter＋type/status/execution facetを分離し、Candidate契約上の軸を混同しない。
+- ~~source / Candidate type / Candidate v1 state / execution characteristicの明示フィルタを追加する。~~ → 実装済み。source picker＋import-state filter＋type/status/execution facetを分離している。review viewではさらに`unreviewed / accepted / rejected`を独立表示し、由来と採用を混同しない。
 - Windows実機で表・画像を含むreview → extract → changed/stale表示をE2E確認する。
 - Tree / Shape等は各Source Adapterの実装後に同じUIへ追加する。
 - Candidate数が多い場合のページング・検索は実測後に決める。
