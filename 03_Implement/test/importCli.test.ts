@@ -111,3 +111,26 @@ test('mmi import requires an explicit draft destination', async () => {
   assert.equal(result.code, 2);
   assert.match(result.err, /import needs --draft/u);
 });
+
+
+test('mmi import keeps --draft distinct from generic -o output', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-cli-'));
+  const source = path.join(root, 'design.xlsx');
+  const draft = path.join(root, 'draft.md');
+  const accidentalOut = path.join(root, 'summary.txt');
+  fs.writeFileSync(source, screenDesignWorkbook().bytes);
+
+  const result = await quiet([
+    'import',
+    source,
+    '--root', root,
+    '--draft', draft,
+    '-o', accidentalOut,
+  ]);
+
+  assert.equal(result.code, 2);
+  assert.match(result.err, /does not use -o\/--out/u);
+  assert.equal(fs.existsSync(draft), false);
+  assert.equal(fs.existsSync(accidentalOut), false);
+  assert.equal(fs.existsSync(path.join(root, 'mmi-ledger.json')), false);
+});
