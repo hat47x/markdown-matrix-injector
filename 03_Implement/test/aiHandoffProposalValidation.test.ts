@@ -4,9 +4,13 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { main } from '../src/cli/mmi.js';
 import { fingerprintOf, type Candidate } from '../src/core/candidate.js';
 import { readSourceFileIdentity } from '../src/core/sourceIdentity.js';
-import { createAiHandoffPackage } from '../src/dx/aiHandoff.js';
+import {
+  createAiHandoffPackage,
+  parseAiHandoffPackage,
+} from '../src/dx/aiHandoff.js';
 import {
   AI_HANDOFF_PROPOSAL_VALIDATION_SCHEMA,
   validateAiHandoffNotationProposal,
@@ -182,4 +186,105 @@ test('blocks a proposal when the source changed after the handoff package was cr
     'PROPOSAL_SOURCE_DIGEST_MISMATCH',
   );
   assert.equal(check(result, 'preview')?.status, 'not-run');
+});
+
+
+async function captureMain(argv: string[]): Promise<{ code: number; output: string }> {
+  const written: string[] = [];
+  const out = process.stdout.write.bind(process.stdout);
+  const err = console.error;
+  process.stdout.write = ((chunk: string) => (written.push(String(chunk)), true)) as typeof process.stdout.write;
+  console.error = () => undefined;
+  try {
+    return { code: await main(argv), output: written.join('') };
+  } finally {
+    process.stdout.write = out;
+    console.error = err;
+  }
+}
+
+test('serialized handoff package rejects Authority-contract tampering', () => {
+  const f = fixture();
+  const serialized = JSON.stringify(f.handoff);
+  assert.equal(parseAiHandoffPackage(serialized).schema, 'mmi.ai-handoff/v1');
+
+  const tampered = {
+    ...f.handoff,
+    returnContract: {
+      ...f.handoff.returnContract,
+      authorityRevalidationRequired: false,
+    },
+  };
+  assert.throws(
+    () => parseAiHandoffPackage(JSON.stringify(tampered)),
+    /Authority return contract is invalid/u,
+  );
+});
+
+test('CLI validate-proposal returns 0 only for a locally revalidated proposal', async () => {
+  const f = fixture();
+  const packagePath = path.join(f.root, 'handoff.json');
+  fs.writeFileSync(packagePath, JSON.stringify(f.handoff, null, 2));
+
+  const accepted = await captureMain([
+    'validate-proposal',
+    '![[../data/release.csv#Sheet1|A1:B2?header=first&mode=table]]',
+    '--package',
+    packagePath,
+    '--document',
+    f.markdownFilePath,
+    '--root',
+    f.root,
+    '--json',
+  ]);
+  assert.equal(accepted.code, 0);
+  assert.equal(JSON.parse(accepted.output).status, 'accepted');
+
+  const blocked = await captureMain([
+    'validate-proposal',
+    '![[../data/release.csv#Missing|A1:B2?mode=card]]',
+    '--package',
+    packagePath,
+    '--document',
+    f.markdownFilePath,
+    '--root',
+    f.root,
+    '--json',
+  ]);
+  assert.equal(blocked.code, 1);
+  assert.equal(JSON.parse(blocked.output).status, 'blocked');
+});
+
+test('CLI validate-proposal refuses package/document inputs outside workspace before reading them', async () => {
+  const f = fixture();
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-ai-proposal-outside-'));
+  const outsidePackage = path.join(outside, 'handoff.json');
+  fs.writeFileSync(outsidePackage, JSON.stringify(f.handoff));
+
+  assert.equal((await captureMain([
+    'validate-proposal',
+    '![[../data/release.csv#Sheet1|A1:B2]]',
+    '--package',
+    outsidePackage,
+    '--document',
+    f.markdownFilePath,
+    '--root',
+    f.root,
+  ])).code, 2);
+
+  const insidePackage = path.join(f.root, 'handoff.json');
+  fs.writeFileSync(insidePackage, JSON.stringify(f.handoff));
+  const outsideDocument = path.join(outside, 'outside.md');
+  fs.writeFileSync(outsideDocument, '# outside\n');
+
+  assert.equal((await captureMain([
+    'validate-proposal',
+    '![[../data/release.csv#Sheet1|A1:B2]]',
+    '--package',
+    insidePackage,
+    '--document',
+    outsideDocument,
+    '--root',
+    f.root,
+  ])).code, 2);
 });
