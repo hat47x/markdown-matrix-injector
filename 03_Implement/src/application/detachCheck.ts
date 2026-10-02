@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { extractEmbedQueries } from '../parser/embedSyntax.js';
+import { isPathWithinBoundary } from '../core/pathResolver.js';
 
 export interface DetachProblem {
   /** Markdown artifact containing the problem, relative to workspaceRoot. */
@@ -58,8 +59,9 @@ function inspectMarkdownArtifact(
   problems: DetachProblem[],
 ): void {
   const resolvedFile = path.resolve(markdownFilePath);
-  if (visited.has(resolvedFile)) return;
-  visited.add(resolvedFile);
+  const visitKey = canonicalExistingPath(resolvedFile);
+  if (visited.has(visitKey)) return;
+  visited.add(visitKey);
 
   const text = fs.readFileSync(resolvedFile, 'utf8');
   const lines = text.split(/\r?\n/);
@@ -202,13 +204,18 @@ function resolveLocalLink(
     path.dirname(markdownFilePath),
     decoded,
   );
-  const relative = path.relative(
-    path.resolve(workspaceRoot),
-    absolutePath,
-  );
+  const checkedRoot = canonicalExistingPath(path.resolve(workspaceRoot));
+  const checkedTarget = canonicalExistingPath(absolutePath);
   return {
     absolutePath,
-    outsideRoot:
-      relative.startsWith('..') || path.isAbsolute(relative),
+    outsideRoot: !isPathWithinBoundary(checkedTarget, checkedRoot),
   };
+}
+
+function canonicalExistingPath(filePath: string): string {
+  try {
+    return fs.realpathSync(filePath);
+  } catch {
+    return path.resolve(filePath);
+  }
 }
