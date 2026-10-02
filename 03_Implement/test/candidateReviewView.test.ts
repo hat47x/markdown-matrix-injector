@@ -106,8 +106,8 @@ test('active review queues hide an exact rejected Candidate while all keeps it r
     'all',
   );
   assert.equal(all.length, 1);
-  assert.equal(all[0].rejected, true);
   assert.equal(all[0].reviewState, 'rejected');
+  assert.equal(all[0].rejected, true);
   assert.equal(all[0].ledgerState, 'unimported');
 });
 
@@ -133,9 +133,48 @@ test('changed Candidate returns to active review because the old rejection no lo
   );
 
   assert.equal(view.length, 1);
-  assert.equal(view[0].rejected, false);
   assert.equal(view[0].reviewState, 'unreviewed');
+  assert.equal(view[0].rejected, false);
   assert.equal(view[0].ledgerState, 'unimported');
+});
+
+test('previous acceptance does not transfer to a stale current Candidate', () => {
+  const f = workspace();
+  const accepted = candidate('same-content');
+  const output = path.join(f.root, 'assets', 'table.md');
+  fs.mkdirSync(path.dirname(output), { recursive: true });
+  fs.writeFileSync(output, '| A | B |\n');
+  recordEntries(f.ledgerPath, [
+    entryFor(
+      f.ledgerPath,
+      f.source,
+      accepted,
+      output,
+      'test import',
+    ),
+  ]);
+
+  const current: Candidate = {
+    ...accepted,
+    claims: accepted.claims.map((claim) => ({
+      ...claim,
+      reasonCode: 'changed-inference-basis',
+    })),
+  };
+  const view = candidateReviewView(
+    [current],
+    readLedger(f.ledgerPath),
+    { schema: 'mmi.review-decisions/v1', entries: [] },
+    f.ledgerPath,
+    f.decisionPath,
+    f.source,
+    'all',
+  );
+
+  assert.equal(view.length, 1);
+  assert.equal(view[0].ledgerState, 'stale');
+  assert.equal(view[0].reviewState, 'unreviewed');
+  assert.equal(view[0].candidate.status, 'inferred');
 });
 
 test('imported Candidate is governed by the import ledger, not an old rejection', () => {
@@ -172,9 +211,9 @@ test('imported Candidate is governed by the import ledger, not an old rejection'
   );
 
   assert.equal(all.length, 1);
-  assert.equal(all[0].candidate.status, 'inferred');
-  assert.equal(all[0].reviewState, 'accepted');
   assert.equal(all[0].ledgerState, 'imported');
+  assert.equal(all[0].reviewState, 'accepted');
+  assert.equal(all[0].candidate.status, 'inferred');
   assert.equal(all[0].rejected, false);
   assert.deepEqual(
     candidateReviewView(
