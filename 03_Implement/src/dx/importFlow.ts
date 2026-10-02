@@ -11,7 +11,6 @@
 import path from 'node:path';
 import * as vscode from 'vscode';
 import { writeWorkbookImportDraft } from '../importAssist/importMaterialization.js';
-import { readWorkbookCached } from './sharedWorkbookCache.js';
 
 export const IMPORT_WORKBOOK_COMMAND_ID = 'markdownMatrixInjector.importFromWorkbook';
 
@@ -34,13 +33,6 @@ export async function importFromWorkbook(workbookGlob: string, target?: vscode.U
   });
   if (!draftUri) return undefined;
 
-  let data;
-  try {
-    data = readWorkbookCached(workbook.fsPath);
-  } catch (error) {
-    void vscode.window.showErrorMessage(`MMI: ブックを読めませんでした: ${(error as Error).message}`);
-    return undefined;
-  }
   const workspaceFolder = vscode.workspace.getWorkspaceFolder(draftUri)
     ?? vscode.workspace.getWorkspaceFolder(workbook);
   const ledgerPath = workspaceFolder
@@ -55,7 +47,6 @@ export async function importFromWorkbook(workbookGlob: string, target?: vscode.U
         sourcePath: workbook.fsPath,
         draftPath: draftUri.fsPath,
         ledgerPath,
-        workbook: data,
       }),
     );
   } catch (error) {
