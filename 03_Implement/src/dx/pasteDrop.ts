@@ -220,12 +220,14 @@ function parseSpanAttribute(attrs: string, name: 'colspan' | 'rowspan'): number 
  *   bare LF (never CRLF), matching what a `<td>` with an Alt+Enter line break
  *   produces.
  *
- * Unquoted cell payload is trimmed and quoted payload is preserved, but the
- * TSV rectangle itself is not globally trimmed: boundary TABs encode empty
- * first/last cells and therefore belong to the copied shape.
+ * Cell payload is preserved exactly after TSV syntax decoding, whether or
+ * not Excel quoted the field. Leading/trailing spaces are display data, not
+ * parser whitespace: the provenance contract requires exact displayed-value
+ * comparison. The TSV rectangle itself is also not globally trimmed because
+ * boundary TABs encode empty first/last cells.
  */
 export function parseTsv(text: string): string[][] {
-  if (text.trim().length === 0) {
+  if (text.length === 0) {
     return [];
   }
 
@@ -240,7 +242,7 @@ export function parseTsv(text: string): string[][] {
   let inQuotes = false;
 
   const flushField = (): void => {
-    row.push(fieldIsQuoted ? field : field.trim());
+    row.push(field);
     field = '';
     fieldIsQuoted = false;
   };
