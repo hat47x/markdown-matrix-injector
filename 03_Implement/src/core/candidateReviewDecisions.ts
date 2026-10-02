@@ -20,7 +20,7 @@ export interface CandidateReviewDecisionEntry {
   place: string;
   fingerprint: Pick<Fingerprint, 'representation' | 'digest'>;
   claimBasis: ClaimBasis[];
-  decision: 'rejected';
+  decision: 'rejected' | 'deferred';
   basis: string;
   reviewedAt: string;
 }
@@ -88,17 +88,18 @@ function sameClaimBasis(
  * intentionally not identity; changed content or changed inference evidence
  * does resurrect the Candidate for review.
  */
-export function rejectedDecisionForCandidate(
+function reviewDecisionForCandidate(
   decisions: CandidateReviewDecisions,
   decisionPath: string,
   absoluteSource: string,
   candidate: Candidate,
+  decision: CandidateReviewDecisionEntry['decision'],
 ): CandidateReviewDecisionEntry | undefined {
   const source = sourceKey(decisionPath, absoluteSource);
   const currentBasis = claimBasisOf(candidate);
   return decisions.entries.find(
     (entry) =>
-      entry.decision === 'rejected'
+      entry.decision === decision
       && sameOccurrence(entry, source, candidate)
       && entry.fingerprint.representation
         === candidate.fingerprint.representation
@@ -107,10 +108,41 @@ export function rejectedDecisionForCandidate(
   );
 }
 
-export function recordRejectedDecision(
+export function rejectedDecisionForCandidate(
+  decisions: CandidateReviewDecisions,
   decisionPath: string,
   absoluteSource: string,
   candidate: Candidate,
+): CandidateReviewDecisionEntry | undefined {
+  return reviewDecisionForCandidate(
+    decisions,
+    decisionPath,
+    absoluteSource,
+    candidate,
+    'rejected',
+  );
+}
+
+export function deferredDecisionForCandidate(
+  decisions: CandidateReviewDecisions,
+  decisionPath: string,
+  absoluteSource: string,
+  candidate: Candidate,
+): CandidateReviewDecisionEntry | undefined {
+  return reviewDecisionForCandidate(
+    decisions,
+    decisionPath,
+    absoluteSource,
+    candidate,
+    'deferred',
+  );
+}
+
+function recordReviewDecision(
+  decisionPath: string,
+  absoluteSource: string,
+  candidate: Candidate,
+  decision: CandidateReviewDecisionEntry['decision'],
   basis: string,
 ): CandidateReviewDecisions {
   const decisions = readReviewDecisions(decisionPath);
@@ -127,7 +159,7 @@ export function recordRejectedDecision(
       digest: candidate.fingerprint.digest,
     },
     claimBasis: claimBasisOf(candidate),
-    decision: 'rejected',
+    decision,
     basis,
     reviewedAt: new Date().toISOString(),
   };
@@ -143,6 +175,36 @@ export function recordRejectedDecision(
       ));
   writeReviewDecisions(decisionPath, decisions);
   return decisions;
+}
+
+export function recordRejectedDecision(
+  decisionPath: string,
+  absoluteSource: string,
+  candidate: Candidate,
+  basis: string,
+): CandidateReviewDecisions {
+  return recordReviewDecision(
+    decisionPath,
+    absoluteSource,
+    candidate,
+    'rejected',
+    basis,
+  );
+}
+
+export function recordDeferredDecision(
+  decisionPath: string,
+  absoluteSource: string,
+  candidate: Candidate,
+  basis: string,
+): CandidateReviewDecisions {
+  return recordReviewDecision(
+    decisionPath,
+    absoluteSource,
+    candidate,
+    'deferred',
+    basis,
+  );
 }
 
 export function clearReviewDecisionForCandidate(

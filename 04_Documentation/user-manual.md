@@ -149,7 +149,7 @@ Markdownを開いた状態で右クリックすると「MMI: 参照を作成・�
 - 見出しが2段の表、縦に結合したセル、表の途中の空行や区切り行、見出しの列に揃っていないセルがあると、下書きに**注意**が出ます。揃っていないセルの値は表示されないため、番地を示します。
 - 「同じ書式」のシートと、近い書式との違い（「表『2. 画面項目』に列『初期値』があります」など）も示します。同じ書式のシートは同じ判断で取り込めます。
 - 候補は推定です。表の範囲や見出しが違う場合は、参照を直すか削除してください。画像の抽出と台帳への記録は、表の役割推定を確定扱いにするものではありません。
-- 表自体を通常Markdownとして取り込みたい場合は、Candidateレビューから表を明示的に採用します。初回一括取り込みの既定では、表はLinkedのまま残します。
+- 表自体を通常Markdownとして取り込みたい場合は、コマンド「MMI: 取り込み候補を確認（表・画像・取込状態・出典）」から表を明示的に採用します。初回一括取り込みの既定では、表はLinkedのまま残します。表Candidateでは「修正して取り込む」も選べます。抽出されたMarkdown表を編集し、「修正内容を採用」を選ぶと、原本とCandidateの由来は変更せず、修正版を別のcontent-addressed assetとして保存します。台帳には`reviewState: modified`と修正版のoutput digestが残ります。レビュー中に元のCandidate自体が変わった場合は採用せず、レビューをやり直すよう求めます。現在、画像Candidateの修正採用は未対応です。
 
 ### 参照を確かめる・直す
 
@@ -208,7 +208,7 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 
 参照を検証する範囲（ワークスペース）は、実行したフォルダーです。`--root`で変えられます。`--json`を付けると機械可読な出力になります。
 
-**外部LLMへのhandoffについて。** `mmi handoff`は判断材料をローカルに整形するだけで、ChatGPT等への送信、ログイン、API keyの利用、課金サービスへの自動fallbackは行いません。packageは「依頼」「observed/confirmedの事実」「inferredの候補」「診断・abstainedの未解決事項」「許可/禁止操作」を分離します。sourceと`--document`は`--root`内に限定されます。外部LLMから戻った内容は未検証の提案です。MMI記法は`validate-proposal`、Candidate選択案は`validate-selection`、Linked / Extractedへの変換案は`validate-transformation`で再検証します。変換案ではcurrent sourceからCandidateを再発見し、source digestとprovenanceを再確認します。検証が通っても、文書・原本・asset・review stateを自動変更しません。
+**外部LLMへのhandoffについて。** `mmi handoff`は判断材料をローカルに整形するだけで、ChatGPT等への送信、ログイン、API keyの利用、課金サービスへの自動fallbackは行いません。packageは「依頼」「observedの原本事実」「inferredの候補」「診断・abstainedの未解決事項」「許可/禁止操作」を分離します。採用・修正などのreview stateはCandidateの由来とは別に扱います。sourceと`--document`は`--root`内に限定されます。外部LLMから戻った内容は未検証の提案です。MMI記法は`validate-proposal`、Candidate選択案は`validate-selection`、Linked / Extractedへの変換案は`validate-transformation`で再検証します。変換案ではcurrent sourceからCandidateを再発見し、source digestとprovenanceを再確認します。検証が通っても、文書・原本・asset・review stateを自動変更しません。
 
 **Detachedについて。** `materialize`は通常の`render`とは別の経路です。日常のLinked文書やプレビューを変えず、原本を廃止すると決めた範囲だけで使います。例えば `mmi materialize docs/spec.md -o detached/spec.md --root .` とすると、小さい表は通常のGFM表へ、大きくてカードになる表は `detached/mmi-materialized/table-<digest>.md` へ実体化されます。本文が参照するローカル画像は内容digestで `detached/mmi-assets/` へ複製され、Detached側の相対リンクへ書き換えられます。同じ画像bytesは1コピーにまとめます。`--assets-dir`で保存先を変更できます。
 
