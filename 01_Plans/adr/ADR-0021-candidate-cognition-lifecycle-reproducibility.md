@@ -2,13 +2,14 @@
 
 - Status: Accepted
 - Date: 2026-10-01
+- Amended: 2026-10-03（Issue #417。実行時Candidateから認識論上の`confirmed`を除き、採用状態へ分離）
 - Deciders: Human Sponsor、MMI Lead Agent
 - Scope: Candidate contract、Import Ledger、Cognitive Assistance、Review UI、local runtime、external LLM handoff、CLI / CI
 - Related: [ADR-0018](ADR-0018-cognitive-assistance-plane.md)、[ADR-0020](ADR-0020-requirement-oriented-cognition-method-selection.md)
 
 ## Context
 
-ADR-0020で、認知方式と決定論性を要件ごとに選ぶ方針を定めた。Semantic Candidate契約v1も実装され、表・画像について `observed / inferred / confirmed / abstained`、`deterministic / provider-dependent`、M0〜M5を保持できる。
+ADR-0020で、認知方式と決定論性を要件ごとに選ぶ方針を定めた。初期のSemantic Candidate契約v1では、表・画像について `observed / inferred / confirmed / abstained`、`deterministic / provider-dependent`、M0〜M5を保持していた。
 
 次の実装段階では、取り込み台帳、CandidateレビューUI、provider-dependentな認知、ローカルruntime再利用へ進む。この段階では、単に「候補を出す」だけでなく、候補がいつ有効か、原本やmodelが変わったらどう失効するか、複数方式が異なる結論を返したとき何をするか、利用者の採否をどう扱うかを定義する必要がある。
 
@@ -32,7 +33,7 @@ ADR-0020で、認知方式と決定論性を要件ごとに選ぶ方針を定め
 - `modified`
 - `deferred`
 
-Candidate v1の `confirmed` は後方互換のため当面保持してよいが、意味は「acceptedに相当する旧表現」とし、新しい機能で `confirmed` を認識論上の事実性として解釈しない。schema major versionを上げる時点でreview stateへ移行する。
+2026-10-03のIssue #417適用以後、実行時Candidateの `EpistemicStatus` から `confirmed` を除外する。新しいSource Adapter、CLI、レビューUIは `confirmed` を認識論上の値として生成・表示しない。既存の `mmi.ledger/v1` に保存された `confirmed` は読み取り互換のため受理するが、新規記録は `accepted` とする。これは採用状態の語彙移行であり、元の `observed` / `inferred` を変更しない。
 
 ### D2. 人の承認は永続的な真実ではなく、根拠に紐づく決定とする
 

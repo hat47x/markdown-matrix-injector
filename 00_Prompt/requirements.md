@@ -56,7 +56,7 @@ Detachedはプロジェクト全体の一括移行を要求しない。3状態�
 | Link | ハイパーリンク、参照 |
 | Section | 見出し、文書区画 |
 
-Candidateは `observed` / `inferred` / `confirmed` を区別できること。推定候補はmethod、evidence、provider/version、provenanceを保持し、曖昧な場合はabstainできること。
+Candidateの認識論上の状態は `observed` / `inferred` / `abstained` を区別する。推定候補はmethod、evidence、provider/version、provenanceを保持し、曖昧な場合はabstainできること。採用状態は `unreviewed` / `accepted` / `rejected` / `modified` / `deferred` として別に扱い、`inferred` なCandidateを人が採用しても `observed` へ昇格させない。旧データの `confirmed` はreview上の `accepted` に相当する互換表現としてのみ扱う。
 
 ## 認知方式と実行特性
 
@@ -66,7 +66,8 @@ Candidateや認知結果は、少なくとも次の2軸を分けて表現でき�
 
 | 軸 | 値 | 意味 |
 | --- | --- | --- |
-| 認識論上の状態 | `observed` / `inferred` / `confirmed` / `abstained` | 原本事実か、推定か、確認済みか、判断保留か |
+| 認識論上の状態 | `observed` / `inferred` / `abstained` | 原本に明示された事実か、方式による推定か、方式が主張を控えたか |
+| 採用・レビュー状態 | `unreviewed` / `accepted` / `rejected` / `modified` / `deferred` | 利用者や検証経路が、そのCandidateを現在の用途でどう扱うか。認識論上の状態は変更しない |
 | 実行特性 | `deterministic` / `provider-dependent` | 同じ入力・設定・実装versionで結果を固定できるか |
 
 決定論的な推定であっても原本事実とは限らない。例えば、OOXMLから取得した画像anchorは `observed + deterministic`、固定した近接規則による「画像と表の関連」は `inferred + deterministic` とする。
