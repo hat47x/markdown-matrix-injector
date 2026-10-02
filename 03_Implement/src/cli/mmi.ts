@@ -11,6 +11,7 @@ import { parseArgs } from 'node:util';
 import XLSX from 'xlsx';
 import { WorkbookCache } from '../cache/workbookCache.js';
 import { checkDetachedDocument } from '../application/detachCheck.js';
+import { checkExtractedProvenanceFreshness } from '../application/detachFreshness.js';
 import { materializeDocument } from '../application/materialize.js';
 import { imageCandidates, readExcelImages, relationToTables, type ImageDiagnostic, type TableRect } from '../adapters/excelImageAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
@@ -86,6 +87,8 @@ Commands:
   materialize <doc.md>      Write a source-independent Markdown projection for detaching
       -o, --out <file>        detached Markdown output (required; must differ from source)
       --attachments-dir <dir> directory for card-sized table attachments
+      --assets-dir <dir>      directory for copied local image assets
+      --ledger <file>          verify adopted extracted Candidates against this ledger
   detach-check <doc.md>     Verify a Markdown artifact has no MMI refs, unresolved cards,
                             broken local links or links outside --root
   manifest <doc.md>         List references that fall back to 別紙 cards as CSV
@@ -119,6 +122,7 @@ export async function main(argv: string[]): Promise<number> {
       image: { type: 'string' },
       'out-dir': { type: 'string', default: 'assets' },
       'attachments-dir': { type: 'string' },
+      'assets-dir': { type: 'string' },
       ledger: { type: 'string' },
       'similarity-evidence': { type: 'string' },
       unimported: { type: 'boolean', default: false },
@@ -257,41 +261,77 @@ export async function main(argv: string[]): Promise<number> {
       const attachmentsDirectory = values['attachments-dir']
         ? path.resolve(values['attachments-dir'])
         : path.join(path.dirname(outputDocument), 'mmi-materialized');
+      const assetsDirectory = values['assets-dir']
+        ? path.resolve(values['assets-dir'])
+        : path.join(path.dirname(outputDocument), 'mmi-assets');
       if (!handoffPathWithinRoot(attachmentsDirectory, root)) {
         return usageError('materialize --attachments-dir must stay within --root workspace');
       }
+      if (!handoffPathWithinRoot(assetsDirectory, root)) {
+        return usageError('materialize --assets-dir must stay within --root workspace');
+      }
+      const freshness = checkExtractedProvenanceFreshness({
+        markdownFilePath: sourceDocument,
+        workspaceRoot: root,
+        ledgerPath: path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE),
+      });
       const result = materializeDocument({
         markdownFilePath: sourceDocument,
         workspaceRoot: root,
         outputDocumentPath: outputDocument,
         attachmentsDirectory,
+        assetsDirectory,
       });
-      const collisions = result.files.filter((file) =>
+      const fileCollisions = result.files.filter((file) =>
         fs.existsSync(file.absolutePath)
         && fs.readFileSync(file.absolutePath, 'utf8') !== file.content);
-      for (const file of collisions) {
+      const assetCollisions = result.assets.filter((asset) =>
+        fs.existsSync(asset.absolutePath)
+        && !fs.readFileSync(asset.absolutePath).equals(asset.bytes));
+      for (const file of fileCollisions) {
         console.error(`mmi: MMI_DETACH_NAME_COLLISION: ${file.absolutePath} exists with different content; materialization was not written`);
+      }
+      for (const asset of assetCollisions) {
+        console.error(`mmi: MMI_DETACH_NAME_COLLISION: ${asset.absolutePath} exists with different content; materialization was not written`);
+      }
+      for (const problem of freshness.problems) {
+        console.error(`mmi: ${problem.code} line ${problem.line}: ${problem.message}`);
       }
       for (const problem of result.problems) {
         console.error(`mmi: ${problem.code} line ${problem.line}: ${problem.message}`);
       }
+      const collisions = [
+        ...fileCollisions.map((file) => file.relativePath),
+        ...assetCollisions.map((asset) => asset.relativePath),
+      ];
+      const writeAllowed = collisions.length === 0 && freshness.errors === 0;
       const summary = {
         output: path.relative(process.cwd(), outputDocument).split(path.sep).join('/'),
         attachments: result.files.map((file) => file.relativePath),
+        assets: result.assets.map((asset) => ({
+          path: asset.relativePath,
+          digest: asset.digest,
+        })),
+        freshness,
         problems: result.problems,
-        collisions: collisions.map((file) => file.relativePath),
-        detachable: collisions.length === 0 && result.problems.length === 0,
+        collisions,
+        written: writeAllowed,
+        detachable: writeAllowed && result.problems.length === 0,
       };
-      if (collisions.length === 0) {
+      if (writeAllowed) {
         fs.mkdirSync(path.dirname(outputDocument), { recursive: true });
         fs.writeFileSync(outputDocument, result.markdown);
         for (const file of result.files) {
           fs.mkdirSync(path.dirname(file.absolutePath), { recursive: true });
           fs.writeFileSync(file.absolutePath, file.content);
         }
+        for (const asset of result.assets) {
+          fs.mkdirSync(path.dirname(asset.absolutePath), { recursive: true });
+          fs.writeFileSync(asset.absolutePath, asset.bytes);
+        }
       }
       if (values.json) process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
-      else console.log(`materialized: ${summary.output} (${summary.attachments.length} attachment(s), ${result.problems.length} unresolved, ${summary.collisions.length} collision(s))`);
+      else console.log(`materialized: ${summary.output} (${summary.attachments.length} table attachment(s), ${summary.assets.length} asset(s), ${freshness.errors} freshness error(s), ${result.problems.length} unresolved, ${summary.collisions.length} collision(s), written=${summary.written})`);
       return summary.detachable ? 0 : 1;
     }
     case 'detach-check': {
