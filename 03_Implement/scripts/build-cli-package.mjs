@@ -50,7 +50,9 @@ export function stageCliPackage(options = {}) {
       ?? path.join(projectRoot, CLI_PACKAGE_STAGE_DIRECTORY),
   );
   const sourcePackagePath = path.join(projectRoot, 'package.json');
-  const sourcePackage = JSON.parse(fs.readFileSync(sourcePackagePath, 'utf8'));
+  const sourceLockPath = path.join(projectRoot, 'package-lock.json');
+  const sourcePackageText = fs.readFileSync(sourcePackagePath, 'utf8');
+  const sourcePackage = JSON.parse(sourcePackageText);
   const manifest = createCliPackageManifest(sourcePackage);
 
   const compiledRoot = path.join(projectRoot, 'dist', 'src');
@@ -99,6 +101,8 @@ export function stageCliPackage(options = {}) {
     projectRoot,
     stageDirectory,
     manifest,
+    sourcePackageText,
+    sourceLockPath,
   };
 }
 
@@ -110,16 +114,43 @@ export function buildCliPackage(options = {}) {
   );
   fs.mkdirSync(outputDirectory, { recursive: true });
 
+  if (!fs.existsSync(staged.sourceLockPath)) {
+    throw new Error(
+      `Source package lock is missing: ${staged.sourceLockPath}`,
+    );
+  }
+
+  // Install the exact production graph already frozen and tested by the main
+  // repository. The final CLI manifest is restored before packing so VS Code
+  // extension metadata/devDependencies never leak into the CLI package.
+  fs.writeFileSync(
+    path.join(staged.stageDirectory, 'package.json'),
+    staged.sourcePackageText,
+  );
+  fs.copyFileSync(
+    staged.sourceLockPath,
+    path.join(staged.stageDirectory, 'package-lock.json'),
+  );
   runNpm(
     [
-      'install',
+      'ci',
       '--omit=dev',
       '--ignore-scripts',
-      '--no-package-lock',
       '--no-audit',
       '--no-fund',
     ],
     staged.stageDirectory,
+  );
+  fs.writeFileSync(
+    path.join(staged.stageDirectory, 'package.json'),
+    `${JSON.stringify(staged.manifest, null, 2)}\n`,
+  );
+  fs.rmSync(path.join(staged.stageDirectory, 'package-lock.json'), {
+    force: true,
+  });
+  fs.rmSync(
+    path.join(staged.stageDirectory, 'node_modules', '.package-lock.json'),
+    { force: true },
   );
 
   const pack = runNpm(
