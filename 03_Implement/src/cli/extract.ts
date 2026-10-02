@@ -12,9 +12,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { imageCandidates, readExcelImages, readImageBytes, type ExcelImage, type ImageDiagnostic } from '../adapters/excelImageAdapter.js';
+import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 
+import { toGfmTable } from '../core/markdownTable.js';
 import { entryFor, recordEntries, type LedgerEntry } from '../core/importLedger.js';
+import { buildLogicalTable } from '../core/renderTable.js';
 import { readSourceFileIdentity } from '../core/sourceIdentity.js';
+import { loadWorkbook } from '../core/workbookLoader.js';
+import type { EmbedQuery } from '../parser/embedSyntax.js';
 
 export interface ExtractOptions {
   sourcePath: string;
@@ -53,9 +58,41 @@ export interface ExtractResult {
   problems: ExtractProblem[];
 }
 
+export interface ExtractTableOptions {
+  sourcePath: string;
+  sheet: string;
+  range: string;
+  outDir: string;
+  fromDocument?: string;
+  sourceLabel?: string;
+  ledgerPath?: string;
+}
+
+export interface ExtractedTable {
+  sheet: string;
+  range: string;
+  digest: string;
+  candidateFingerprint: string;
+  file: string;
+  status: 'written' | 'unchanged';
+  markdown: string;
+}
+
+export interface ExtractTableResult {
+  extracted?: ExtractedTable;
+  problems: ExtractProblem[];
+}
+
 const EXTENSION: Record<string, string> = { png: 'png', jpeg: 'jpg', gif: 'gif', bmp: 'bmp', svg: 'svg' };
 
 const sha256 = (data: Buffer): string => `sha256:${createHash('sha256').update(data).digest('hex')}`;
+
+function provenanceValue(text: string): string {
+  return text
+    .replace(/--/gu, '- -')
+    .replace(/"/gu, "'")
+    .replace(/[\r\n]+/gu, ' ');
+}
 
 function altText(image: ExcelImage): string {
   const raw = image.description ?? image.name ?? `${image.sheet} 画像${image.ordinal}`;
@@ -64,8 +101,17 @@ function altText(image: ExcelImage): string {
 
 /** Provenance as an HTML comment: invisible in rendered Markdown, greppable, and `--` is escaped so it cannot end the comment early. */
 function provenanceComment(source: string, image: ExcelImage): string {
-  const value = (text: string) => text.replace(/--/gu, '- -').replace(/"/gu, "'").replace(/[\r\n]+/gu, ' ');
-  return `<!-- mmi:extracted source="${value(source)}" sheet="${value(image.sheet)}"${image.range ? ` anchor="${image.range}"` : ''} sha256="${image.digest.slice(7)}" -->`;
+  return `<!-- mmi:extracted source="${provenanceValue(source)}" sheet="${provenanceValue(image.sheet)}"${image.range ? ` anchor="${provenanceValue(image.range)}"` : ''} sha256="${image.digest.slice(7)}" -->`;
+}
+
+function tableProvenanceComment(
+  source: string,
+  sheet: string,
+  range: string,
+  sourceDigest: string,
+  candidateFingerprint: string,
+): string {
+  return `<!-- mmi:extracted-table source="${provenanceValue(source)}" sheet="${provenanceValue(sheet)}" range="${provenanceValue(range)}" source-sha256="${sourceDigest.slice(7)}" candidate-sha256="${candidateFingerprint.slice(7)}" -->`;
 }
 
 export function extractImages(options: ExtractOptions): ExtractResult {
@@ -164,6 +210,144 @@ export function extractImages(options: ExtractOptions): ExtractResult {
     }
     recordEntries(options.ledgerPath, entries);
   }
+  return result;
+}
+
+export function extractTable(options: ExtractTableOptions): ExtractTableResult {
+  const result: ExtractTableResult = { problems: [] };
+  const workbook = loadWorkbook({ absolutePath: options.sourcePath });
+  const sheet = workbook.sheets[options.sheet];
+  if (!sheet) {
+    result.problems.push({
+      code: 'MMI_TABLE_SHEET_NOT_FOUND',
+      message: `sheet not found: ${options.sheet}`,
+    });
+    return result;
+  }
+
+  const documentDirectory = path.dirname(
+    path.resolve(options.fromDocument ?? path.join(process.cwd(), 'x.md')),
+  );
+  const source = options.sourceLabel
+    ?? (
+      path.relative(documentDirectory, options.sourcePath)
+        .split(path.sep)
+        .join('/')
+      || path.basename(options.sourcePath)
+    );
+  const sourceDigest = readSourceFileIdentity(options.sourcePath).digest;
+  const candidates = tableCandidates({
+    source,
+    sourceDigest,
+    sheetName: options.sheet,
+    sheet,
+  });
+  const candidate = candidates.find(
+    (item) => item.locator.range === options.range,
+  );
+  if (!candidate) {
+    result.problems.push({
+      code: 'MMI_TABLE_CANDIDATE_NOT_FOUND',
+      message:
+        `no table Candidate ${options.sheet}!${options.range}; run \`mmi inspect\` to list detected table Candidates`,
+    });
+    return result;
+  }
+
+  const headerClaim = candidate.claims.find(
+    (claim) => claim.aspect === 'header',
+  );
+  const headerMode = headerClaim?.status === 'inferred'
+    && Array.isArray(headerClaim.value)
+    ? 'first'
+    : 'none';
+  const params = new URLSearchParams();
+  params.set('header', headerMode);
+  const query: EmbedQuery = {
+    filepath: source,
+    target: options.sheet,
+    range: options.range,
+    params,
+    raw: candidate.reference ?? '',
+  };
+
+  let tableMarkdown: string;
+  try {
+    tableMarkdown = toGfmTable(buildLogicalTable(query, workbook));
+  } catch (error) {
+    result.problems.push({
+      code: 'MMI_TABLE_EXTRACT_FAILED',
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return result;
+  }
+
+  const assetText =
+    tableMarkdown
+    + '\n'
+    + tableProvenanceComment(
+      source,
+      options.sheet,
+      options.range,
+      sourceDigest,
+      candidate.fingerprint.digest,
+    )
+    + '\n';
+  const data = Buffer.from(assetText, 'utf8');
+  const digest = sha256(data);
+
+  fs.mkdirSync(options.outDir, { recursive: true });
+  const outDirectory = fs.realpathSync(options.outDir);
+  const sourceReal = fs.realpathSync(options.sourcePath);
+  const file = path.join(outDirectory, `table-${digest.slice(7, 19)}.md`);
+  if (file === sourceReal) {
+    result.problems.push({
+      code: 'MMI_EXTRACT_TARGET_IS_SOURCE',
+      message: 'refusing to write over the source document',
+    });
+    return result;
+  }
+
+  let status: ExtractedTable['status'] = 'written';
+  if (fs.existsSync(file)) {
+    if (sha256(fs.readFileSync(file)) !== digest) {
+      result.problems.push({
+        code: 'MMI_EXTRACT_NAME_COLLISION',
+        message: `${file} exists with different content; it was not overwritten`,
+      });
+      return result;
+    }
+    status = 'unchanged';
+  } else {
+    fs.writeFileSync(file, data);
+  }
+
+  result.extracted = {
+    sheet: options.sheet,
+    range: options.range,
+    digest,
+    candidateFingerprint: candidate.fingerprint.digest,
+    file,
+    status,
+    markdown: assetText.trimEnd(),
+  };
+
+  if (options.ledgerPath) {
+    recordEntries(options.ledgerPath, [
+      entryFor(
+        options.ledgerPath,
+        options.sourcePath,
+        candidate,
+        file,
+        'mmi extract --table',
+        {
+          mode: 'gfm-table-v1',
+          header: headerMode,
+        },
+      ),
+    ]);
+  }
+
   return result;
 }
 
