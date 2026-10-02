@@ -25,9 +25,14 @@ import {
   type LedgerState,
   type LineageCandidate,
 } from '../core/importLedger.js';
+import { isPathWithinBoundary } from '../core/pathResolver.js';
 import { readSourceFileIdentity } from '../core/sourceIdentity.js';
 import { sliceRegion } from '../core/tableGeometry.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
+import {
+  createAiHandoffPackage,
+  renderAiHandoffPrompt,
+} from '../dx/aiHandoff.js';
 import { createDiagnosticsForDocument } from '../dx/vscodeAdapters.js';
 import { buildDeliveryManifestCsv } from '../manifest/collectDeliveryManifest.js';
 import { detectRegions } from '../search/regionDetector.js';
@@ -70,6 +75,11 @@ Commands:
   render <doc.md>           Expand references into Markdown tables (default) or HTML
       --to md|html
   manifest <doc.md>         List references that fall back to 別紙 cards as CSV
+  handoff <source>          Build a local-only evidence package/prompt for a user-chosen external LLM
+      --task <text>           work to ask for (required)
+      --document <doc.md>     include unresolved MMI diagnostics from this Markdown document
+      --include-values        explicitly include Candidate Claim values and Evidence details
+                            Default output is a human-readable prompt; --json emits the evidence package
 
 Common options:
   --root <dir>              workspace boundary for references (default: current directory)
@@ -100,6 +110,9 @@ export async function main(argv: string[]): Promise<number> {
       contains: { type: 'string' },
       in: { type: 'string' },
       first: { type: 'string' },
+      task: { type: 'string' },
+      document: { type: 'string' },
+      'include-values': { type: 'boolean', default: false },
       help: { type: 'boolean', short: 'h', default: false },
     },
   });
@@ -191,6 +204,32 @@ export async function main(argv: string[]): Promise<number> {
       emit(values.json ? JSON.stringify(records, null, 2) : csvText);
       return 0;
     }
+    case 'handoff': {
+      if (args.length !== 1) return usageError('handoff takes one source file');
+      if (!values.task?.trim()) return usageError('handoff needs --task <text>');
+      const absoluteSource = path.resolve(args[0]);
+      const documentPath = values.document ? path.resolve(values.document) : undefined;
+      if (!handoffPathWithinRoot(absoluteSource, root)) {
+        return usageError('handoff source must stay within --root workspace');
+      }
+      if (documentPath && !handoffPathWithinRoot(documentPath, root)) {
+        return usageError('handoff --document must stay within --root workspace');
+      }
+      const inspected = inspectSource(absoluteSource, 0, documentPath);
+      const diagnostics = documentPath
+        ? await checkPaths([documentPath], root)
+        : [];
+      const handoff = createAiHandoffPackage({
+        task: values.task,
+        candidates: inspected.candidates,
+        diagnostics,
+        includeValues: values['include-values'],
+      });
+      emit(values.json
+        ? JSON.stringify(handoff, null, 2)
+        : renderAiHandoffPrompt(handoff));
+      return 0;
+    }
     default:
       return usageError(`unknown command: ${command}`);
   }
@@ -199,6 +238,24 @@ export async function main(argv: string[]): Promise<number> {
 function usageError(message: string): number {
   console.error(`mmi: ${message}\n\n${USAGE}`);
   return 2;
+}
+
+function handoffPathWithinRoot(target: string, root: string): boolean {
+  const resolvedRoot = path.resolve(root);
+  const resolvedTarget = path.resolve(target);
+  let checkedRoot = resolvedRoot;
+  let checkedTarget = resolvedTarget;
+  try {
+    checkedRoot = fs.realpathSync(resolvedRoot);
+  } catch {
+    // Missing roots fail later through normal source/document loading.
+  }
+  try {
+    checkedTarget = fs.realpathSync(resolvedTarget);
+  } catch {
+    // Missing targets fail later through normal source/document loading.
+  }
+  return isPathWithinBoundary(checkedTarget, checkedRoot);
 }
 
 export interface InspectRegion {
