@@ -300,6 +300,18 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
         value: 'extract' as const,
         description: '既存のextract経路で標準資産と台帳へ記録',
       },
+      picked.rejected
+        ? {
+            label: '却下を解除',
+            value: 'unreject' as const,
+            description: 'このCandidateを再び通常レビューへ戻す',
+          }
+        : {
+            label: '却下',
+            value: 'reject' as const,
+            description:
+              '同じ内容・根拠のCandidateは変更されるまで表示しない',
+          },
       {
         label: '保留',
         value: 'defer' as const,
@@ -312,6 +324,47 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     },
   );
   if (!action || action.value === 'defer') return;
+
+  if (action.value === 'reject') {
+    try {
+      recordRejectedDecision(
+        reviewDecisionsPath,
+        sourcePath,
+        picked.source.candidate,
+        'MMI Candidate review UI',
+      );
+    } catch (error) {
+      await vscode.window.showErrorMessage(
+        'MMI: 却下状態を保存できません: '
+          + (error instanceof Error ? error.message : String(error)),
+      );
+      return;
+    }
+    await vscode.window.showInformationMessage(
+      'MMI: Candidateを却下しました。内容または判断根拠が変われば再表示されます。',
+    );
+    return;
+  }
+
+  if (action.value === 'unreject') {
+    try {
+      clearReviewDecisionForCandidate(
+        reviewDecisionsPath,
+        sourcePath,
+        picked.source.candidate,
+      );
+    } catch (error) {
+      await vscode.window.showErrorMessage(
+        'MMI: 却下状態を解除できません: '
+          + (error instanceof Error ? error.message : String(error)),
+      );
+      return;
+    }
+    await vscode.window.showInformationMessage(
+      'MMI: Candidateの却下を解除しました。',
+    );
+    return;
+  }
 
   const active = vscode.window.activeTextEditor;
   const markdownDocument =
