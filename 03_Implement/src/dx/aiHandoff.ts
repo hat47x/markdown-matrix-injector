@@ -274,9 +274,11 @@ export function createAiHandoffPackage(
     const inferredClaims: HandoffClaimView[] = [];
 
     for (const claim of candidate.claims) {
-      if (claim.status === 'observed' || claim.status === 'confirmed') {
+      if (claim.status === 'observed') {
         confirmedFacts.push(claimView(candidate, claim, includeValues));
-      } else if (claim.status === 'inferred') {
+      } else if (claim.status === 'inferred' || claim.status === 'confirmed') {
+        // Candidate v1 keeps `confirmed` as a legacy accepted-for-use token.
+        // It must not be promoted to source evidence in an external handoff.
         inferredClaims.push(claimView(candidate, claim, includeValues));
       } else {
         unresolvedIssues.push(abstainedIssue(candidate, claim, includeValues));
@@ -356,15 +358,15 @@ export function renderAiHandoffPrompt(pkg: AiHandoffPackageV1): string {
     '',
     '制約:',
     '- 提案だけを返してください。原本やワークスペースを変更しないでください。',
-    '- observed/confirmed と inferred を混同しないでください。',
+    '- observedとinferred / confirmed（v1互換の採用表現）を混同しないでください。',
     '- MMI記法を提案する場合も、採用前にMMIのAuthority Planeで再検証されます。',
     '- 記載されていない値や内容を推測で補わないでください。',
     `- source values: ${pkg.privacy.sourceValues}`,
     '',
-    '確定側の事実:',
+    '原本から観測した事実:',
     ...formatFacts(pkg.confirmedFacts),
     '',
-    '推定候補:',
+    '推定・レビュー候補:',
     ...formatCandidates(pkg.inferredCandidates),
     '',
     '未解決事項:',
