@@ -18,7 +18,10 @@ import { toGfmTable } from '../core/markdownTable.js';
 import { claimBasisOf, entryFor, placeOf, recordEntries, type LedgerEntry } from '../core/importLedger.js';
 import type { Candidate } from '../core/candidate.js';
 import { buildLogicalTable } from '../core/renderTable.js';
-import { readSourceFileIdentity } from '../core/sourceIdentity.js';
+import {
+  createSourceIdentityFromBytes,
+  readSourceFileIdentity,
+} from '../core/sourceIdentity.js';
 import { loadWorkbook } from '../core/workbookLoader.js';
 import { parseEmbedSyntax, type EmbedQuery } from '../parser/embedSyntax.js';
 
@@ -27,6 +30,8 @@ export interface ExtractOptions {
   /** `all` or a 1-based image number as printed by `inspect`. */
   selection: string;
   outDir: string;
+  /** Optional frozen source snapshot shared with a larger import transaction. */
+  sourceBytes?: Uint8Array;
   /** Markdown references are written relative to this document's folder (default: current directory). */
   fromDocument?: string;
   /** Source as it should be written in provenance (default: relative to the document folder). */
@@ -61,6 +66,8 @@ export interface ExtractProblem {
 export interface ExtractResult {
   extracted: ExtractedImage[];
   problems: ExtractProblem[];
+  /** Raw package diagnostics from the same image parse used for extraction. */
+  diagnostics?: ImageDiagnostic[];
 }
 
 export interface FinalizeReviewedImageOptions {
@@ -168,13 +175,19 @@ function tableProvenanceComment(
 }
 
 export function extractImages(options: ExtractOptions): ExtractResult {
-  const result: ExtractResult = { extracted: [], problems: [] };
-  const packageBytes = fs.readFileSync(options.sourcePath);
+  const result: ExtractResult = {
+    extracted: [],
+    problems: [],
+    diagnostics: [],
+  };
+  const packageBytes =
+    options.sourceBytes ?? fs.readFileSync(options.sourcePath);
   if (!/\.(xlsx|xlsm)$/iu.test(options.sourcePath)) {
     result.problems.push({ code: 'MMI_IMAGE_PACKAGE_UNSUPPORTED', message: 'images can only be extracted from .xlsx / .xlsm workbooks' });
     return result;
   }
   const read = readExcelImages(packageBytes);
+  result.diagnostics = [...read.diagnostics];
   for (const diagnostic of read.diagnostics.filter((d) => d.severity === 'error')) {
     result.problems.push({
       code: diagnostic.code,
@@ -251,7 +264,9 @@ export function extractImages(options: ExtractOptions): ExtractResult {
     });
   }
   if (options.ledgerPath && result.extracted.length > 0) {
-    const sourceDigest = readSourceFileIdentity(options.sourcePath).digest;
+    const sourceDigest = options.sourceBytes
+      ? createSourceIdentityFromBytes(packageBytes).digest
+      : readSourceFileIdentity(options.sourcePath).digest;
     const entries: LedgerEntry[] = [];
     for (const item of result.extracted) {
       const image = chosen.find((candidateImage) => candidateImage.ordinal === item.ordinal)!;
