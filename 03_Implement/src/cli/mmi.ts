@@ -86,6 +86,7 @@ Commands:
   materialize <doc.md>      Write a source-independent Markdown projection for detaching
       -o, --out <file>        detached Markdown output (required; must differ from source)
       --attachments-dir <dir> directory for card-sized table attachments
+      --assets-dir <dir>      directory for copied local image assets
   detach-check <doc.md>     Verify a Markdown artifact has no MMI refs, unresolved cards,
                             broken local links or links outside --root
   manifest <doc.md>         List references that fall back to 別紙 cards as CSV
@@ -119,6 +120,7 @@ export async function main(argv: string[]): Promise<number> {
       image: { type: 'string' },
       'out-dir': { type: 'string', default: 'assets' },
       'attachments-dir': { type: 'string' },
+      'assets-dir': { type: 'string' },
       ledger: { type: 'string' },
       'similarity-evidence': { type: 'string' },
       unimported: { type: 'boolean', default: false },
@@ -257,14 +259,21 @@ export async function main(argv: string[]): Promise<number> {
       const attachmentsDirectory = values['attachments-dir']
         ? path.resolve(values['attachments-dir'])
         : path.join(path.dirname(outputDocument), 'mmi-materialized');
+      const assetsDirectory = values['assets-dir']
+        ? path.resolve(values['assets-dir'])
+        : path.join(path.dirname(outputDocument), 'mmi-assets');
       if (!handoffPathWithinRoot(attachmentsDirectory, root)) {
         return usageError('materialize --attachments-dir must stay within --root workspace');
+      }
+      if (!handoffPathWithinRoot(assetsDirectory, root)) {
+        return usageError('materialize --assets-dir must stay within --root workspace');
       }
       const result = materializeDocument({
         markdownFilePath: sourceDocument,
         workspaceRoot: root,
         outputDocumentPath: outputDocument,
         attachmentsDirectory,
+        assetsDirectory,
       });
       fs.mkdirSync(path.dirname(outputDocument), { recursive: true });
       fs.writeFileSync(outputDocument, result.markdown);
@@ -278,17 +287,30 @@ export async function main(argv: string[]): Promise<number> {
         }
         fs.writeFileSync(file.absolutePath, file.content);
       }
+      for (const asset of result.assets) {
+        fs.mkdirSync(path.dirname(asset.absolutePath), { recursive: true });
+        if (fs.existsSync(asset.absolutePath) && !fs.readFileSync(asset.absolutePath).equals(asset.bytes)) {
+          console.error(`mmi: MMI_DETACH_NAME_COLLISION: ${asset.absolutePath} exists with different content; it was not overwritten`);
+          collision = true;
+          continue;
+        }
+        fs.writeFileSync(asset.absolutePath, asset.bytes);
+      }
       for (const problem of result.problems) {
         console.error(`mmi: ${problem.code} line ${problem.line}: ${problem.message}`);
       }
       const summary = {
         output: path.relative(process.cwd(), outputDocument).split(path.sep).join('/'),
         attachments: result.files.map((file) => file.relativePath),
+        assets: result.assets.map((asset) => ({
+          path: asset.relativePath,
+          digest: asset.digest,
+        })),
         problems: result.problems,
         detachable: !collision && result.problems.length === 0,
       };
       if (values.json) process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
-      else console.log(`materialized: ${summary.output} (${summary.attachments.length} attachment(s), ${result.problems.length} unresolved)`);
+      else console.log(`materialized: ${summary.output} (${summary.attachments.length} table attachment(s), ${summary.assets.length} asset(s), ${result.problems.length} unresolved)`);
       return summary.detachable ? 0 : 1;
     }
     case 'detach-check': {
