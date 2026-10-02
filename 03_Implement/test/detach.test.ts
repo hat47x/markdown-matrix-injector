@@ -332,3 +332,49 @@ test('detach check terminates symlink-directory cycles inside the workspace', ()
     { errors: 0, problems: [] },
   );
 });
+
+
+test('materialize preflights image asset collisions before writing the detached document', async () => {
+  const { root, doc, out } = workspace();
+  const image = path.join(path.dirname(doc), 'screen.png');
+  fs.writeFileSync(image, Buffer.from('source-image'));
+  fs.writeFileSync(doc, '# Spec\n\n![screen](./screen.png)\n');
+
+  const planned = materializeDocument({
+    markdownFilePath: doc,
+    workspaceRoot: root,
+    outputDocumentPath: out,
+  });
+  assert.deepEqual(planned.problems, []);
+  assert.equal(planned.assets.length, 1);
+
+  const collision = planned.assets[0];
+  fs.mkdirSync(path.dirname(collision.absolutePath), {
+    recursive: true,
+  });
+  fs.writeFileSync(
+    collision.absolutePath,
+    Buffer.from('conflicting-asset'),
+  );
+
+  const run = await captureMain([
+    'materialize',
+    doc,
+    '--root',
+    root,
+    '-o',
+    out,
+    '--json',
+  ]);
+
+  assert.equal(run.code, 1);
+  assert.equal(fs.existsSync(out), false);
+  assert.deepEqual(
+    fs.readFileSync(collision.absolutePath),
+    Buffer.from('conflicting-asset'),
+  );
+  const summary = JSON.parse(run.output);
+  assert.deepEqual(summary.collisions, [collision.relativePath]);
+  assert.equal(summary.written, false);
+  assert.match(run.errors, /MMI_DETACH_NAME_COLLISION/u);
+});
