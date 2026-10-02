@@ -232,6 +232,7 @@ test('transactional workbook import rolls back new assets and restores the previ
   fs.writeFileSync(path.join(imageOutDir, 'keep.txt'), 'pre-existing asset');
   const ledgerBefore = '{\n  "schema": "mmi.ledger/v1",\n  "entries": []\n}\n';
   fs.writeFileSync(ledgerPath, ledgerBefore);
+  const preparedSourceDigest = digest(sourcePath);
 
   assert.throws(
     () => writeWorkbookImportDraft({
@@ -242,6 +243,7 @@ test('transactional workbook import rolls back new assets and restores the previ
       // Extraction runs from source bytes first; this forces the later draft
       // analysis phase to fail after assets/ledger have been touched.
       workbook: { sheets: null } as any,
+      preparedSourceDigest,
     }),
   );
 
@@ -281,6 +283,7 @@ test('transactional workbook import aborts and rolls back when the source change
     login: pngOf(8, 6, [10, 180, 70]),
   }).bytes;
   fs.writeFileSync(sourcePath, initialBytes);
+  const preparedSourceDigest = digest(sourcePath);
   const frozenWorkbook = loadWorkbookFromBytes(sourcePath, initialBytes);
   let changed = false;
   const workbook = {
@@ -300,6 +303,7 @@ test('transactional workbook import aborts and rolls back when the source change
       ledgerPath,
       imageOutDir,
       workbook,
+      preparedSourceDigest,
     }),
     /MMI_IMPORT_SOURCE_CHANGED/u,
   );
@@ -356,4 +360,35 @@ test('workbook import rejects overlapping output roles before mutation', () => {
   assert.equal(digest(sourcePath), sourceBefore);
   assert.equal(fs.existsSync(path.join(root, 'same.json')), false);
   assert.equal(fs.existsSync(path.join(root, 'ledger.json')), false);
+});
+
+
+test('prepared workbook data must be explicitly bound to the current source snapshot', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-prepared-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  const draftPath = path.join(root, 'design.md');
+  const bytes = screenDesignWorkbook().bytes;
+  fs.writeFileSync(sourcePath, bytes);
+  const workbook = loadWorkbookFromBytes(sourcePath, bytes);
+
+  assert.throws(
+    () => writeWorkbookImportDraft({
+      sourcePath,
+      draftPath,
+      workbook,
+    }),
+    /MMI_IMPORT_PREPARED_SOURCE_DIGEST_REQUIRED/u,
+  );
+  assert.equal(fs.existsSync(draftPath), false);
+
+  assert.throws(
+    () => writeWorkbookImportDraft({
+      sourcePath,
+      draftPath,
+      workbook,
+      preparedSourceDigest: 'sha256:' + '0'.repeat(64),
+    }),
+    /MMI_IMPORT_PREPARED_SOURCE_STALE/u,
+  );
+  assert.equal(fs.existsSync(draftPath), false);
 });
