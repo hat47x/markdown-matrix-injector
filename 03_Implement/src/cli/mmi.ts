@@ -10,6 +10,8 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import XLSX from 'xlsx';
 import { WorkbookCache } from '../cache/workbookCache.js';
+import { checkDetachedDocument } from '../application/detachCheck.js';
+import { materializeDocument } from '../application/materialize.js';
 import { imageCandidates, readExcelImages, relationToTables, type ImageDiagnostic, type TableRect } from '../adapters/excelImageAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import type { Candidate, ProviderScore } from '../core/candidate.js';
@@ -76,6 +78,11 @@ Commands:
                             (exit code 1 when any error is found)
   render <doc.md>           Expand references into Markdown tables (default) or HTML
       --to md|html
+  materialize <doc.md>      Write a source-independent Markdown projection for detaching
+      -o, --out <file>        detached Markdown output (required; must differ from source)
+      --attachments-dir <dir> directory for card-sized table attachments
+  detach-check <doc.md>     Verify a Markdown artifact has no MMI refs, unresolved cards,
+                            broken local links or links outside --root
   manifest <doc.md>         List references that fall back to 別紙 cards as CSV
   handoff <source>          Build a local-only evidence package/prompt for a user-chosen external LLM
       --task <text>           work to ask for (required)
@@ -106,6 +113,7 @@ export async function main(argv: string[]): Promise<number> {
       from: { type: 'string' },
       image: { type: 'string' },
       'out-dir': { type: 'string', default: 'assets' },
+      'attachments-dir': { type: 'string' },
       ledger: { type: 'string' },
       'similarity-evidence': { type: 'string' },
       unimported: { type: 'boolean', default: false },
@@ -201,6 +209,70 @@ export async function main(argv: string[]): Promise<number> {
         return 1;
       }
       return 0;
+    }
+    case 'materialize': {
+      if (args.length !== 1) return usageError('materialize takes one Markdown file');
+      if (!values.out) return usageError('materialize needs -o, --out <file>');
+      const sourceDocument = path.resolve(args[0]);
+      const outputDocument = path.resolve(values.out);
+      if (sourceDocument === outputDocument) {
+        return usageError('materialize output must differ from the source Markdown file');
+      }
+      if (!handoffPathWithinRoot(sourceDocument, root) || !handoffPathWithinRoot(outputDocument, root)) {
+        return usageError('materialize source and output must stay within --root workspace');
+      }
+      const attachmentsDirectory = values['attachments-dir']
+        ? path.resolve(values['attachments-dir'])
+        : path.join(path.dirname(outputDocument), 'mmi-materialized');
+      if (!handoffPathWithinRoot(attachmentsDirectory, root)) {
+        return usageError('materialize --attachments-dir must stay within --root workspace');
+      }
+      const result = materializeDocument({
+        markdownFilePath: sourceDocument,
+        workspaceRoot: root,
+        outputDocumentPath: outputDocument,
+        attachmentsDirectory,
+      });
+      fs.mkdirSync(path.dirname(outputDocument), { recursive: true });
+      fs.writeFileSync(outputDocument, result.markdown);
+      let collision = false;
+      for (const file of result.files) {
+        fs.mkdirSync(path.dirname(file.absolutePath), { recursive: true });
+        if (fs.existsSync(file.absolutePath) && fs.readFileSync(file.absolutePath, 'utf8') !== file.content) {
+          console.error(`mmi: MMI_DETACH_NAME_COLLISION: ${file.absolutePath} exists with different content; it was not overwritten`);
+          collision = true;
+          continue;
+        }
+        fs.writeFileSync(file.absolutePath, file.content);
+      }
+      for (const problem of result.problems) {
+        console.error(`mmi: ${problem.code} line ${problem.line}: ${problem.message}`);
+      }
+      const summary = {
+        output: path.relative(process.cwd(), outputDocument).split(path.sep).join('/'),
+        attachments: result.files.map((file) => file.relativePath),
+        problems: result.problems,
+        detachable: !collision && result.problems.length === 0,
+      };
+      if (values.json) process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
+      else console.log(`materialized: ${summary.output} (${summary.attachments.length} attachment(s), ${result.problems.length} unresolved)`);
+      return summary.detachable ? 0 : 1;
+    }
+    case 'detach-check': {
+      if (args.length !== 1) return usageError('detach-check takes one Markdown file');
+      const markdownFilePath = path.resolve(args[0]);
+      if (!handoffPathWithinRoot(markdownFilePath, root)) {
+        return usageError('detach-check document must stay within --root workspace');
+      }
+      const result = checkDetachedDocument({ markdownFilePath, workspaceRoot: root });
+      if (values.json) {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        const lines = result.problems.map((problem) =>
+          `${problem.line} ${problem.code} ${problem.message}`);
+        process.stdout.write(`${[...lines, `${result.errors} detach error(s)`].join('\n')}\n`);
+      }
+      return result.errors > 0 ? 1 : 0;
     }
     case 'manifest': {
       if (args.length !== 1) return usageError('manifest takes one Markdown file');
