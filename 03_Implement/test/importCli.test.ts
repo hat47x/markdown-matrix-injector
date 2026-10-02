@@ -134,3 +134,27 @@ test('mmi import keeps --draft distinct from generic -o output', async () => {
   assert.equal(fs.existsSync(accidentalOut), false);
   assert.equal(fs.existsSync(path.join(root, 'mmi-ledger.json')), false);
 });
+
+
+test('mmi import rejects a not-yet-created output below a symlink that leaves --root', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-cli-'));
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-outside-'));
+  const source = path.join(root, 'design.xlsx');
+  const link = path.join(root, 'linked-outside');
+  fs.writeFileSync(source, screenDesignWorkbook().bytes);
+  fs.symlinkSync(outside, link, process.platform === 'win32' ? 'junction' : 'dir');
+
+  const result = await quiet([
+    'import',
+    source,
+    '--root', root,
+    '--draft', path.join(root, 'draft.md'),
+    '--out-dir', path.join(link, 'new-assets'),
+  ]);
+
+  assert.equal(result.code, 2);
+  assert.match(result.err, /must stay within --root workspace/u);
+  assert.equal(fs.existsSync(path.join(outside, 'new-assets')), false);
+  assert.equal(fs.existsSync(path.join(root, 'draft.md')), false);
+  assert.equal(fs.existsSync(path.join(root, 'mmi-ledger.json')), false);
+});
