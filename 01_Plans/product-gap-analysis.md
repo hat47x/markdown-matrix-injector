@@ -1,20 +1,20 @@
 # 製品価値と現行実装のギャップ
 
 - 基準: [ADR-0019](adr/ADR-0019-ai-era-sier-document-value-and-policy.md)（2026-10-01 Accepted）と[製品要求](../00_Prompt/requirements.md)
-- 測定日: 2026-10-02（Candidate・画像Extracted・import ledgerに加え、Detachedの最小materialize/check縦切りまで反映）
+- 測定日: 2026-10-02（Candidate・表/画像Extracted・import ledger、既存ブックのハイブリッド取り込み、Detachedの最小materialize/check縦切りまで反映）
 - 本書は差分の地図であり、作業順の正本は[現在の作業](README.md)とする。差分が解消したら行を消し、経緯は書き足さない。
 
 ## 1. 要約
 
-MMIはLinked（参照）を表で実装済みで、Extracted（取り込み）も表・Excel埋込画像の選択的取り込みまで成立した。両者は共通Candidateとimport ledgerを使い、取込済み・変更・stale・lineage・研究類似Evidenceを追跡できる。VS Codeでは表・画像を同じ後追いレビュー画面から既存extract経路へ渡せる。Detachedも表の標準Markdown化とartifact closure checkの最小縦切りが入った。ADR-0019 D0・D13のとおり、人がExcelで書き続ける情報はLinkedのままでよく、Linkedは過渡期の仮の姿ではない。残る大きな差分は図形・Tree等へのExtracted一般化、レビュー操作の完成、一括変換との統合、Detachedの完全性監査と実務E2Eである。
+MMIはLinked（参照）を表で実装済みで、Extracted（取り込み）も表・Excel埋込画像の選択的取り込みまで成立した。両者は共通Candidateとimport ledgerを使い、取込済み・変更・stale・lineage・研究類似Evidenceを追跡できる。VS Codeでは表・画像を同じ後追いレビュー画面から既存extract経路へ渡せる。初回取り込みでは、表をLinkedのまま残し、.xlsx/.xlsmの埋込画像だけをExtracted assetへ移すハイブリッド経路をVS CodeとCLIで共有する。Detachedも表の標準Markdown化とartifact closure checkの最小縦切りが入った。ADR-0019 D0・D13のとおり、人がExcelで書き続ける情報はLinkedのままでよく、Linkedは過渡期の仮の姿ではない。残る大きな差分は図形・Tree等へのExtracted一般化、レビュー操作の完成、実在設計書での取り込み観測、Detachedの完全性監査と実務E2Eである。
 
 | 状態 | 実装 | 主な不足 |
 | --- | --- | --- |
 | Linked | 実装済み（表のみ）。VS Code・CLIの両方から使える | 画像・図形・ツリーの参照がない |
-| Extracted | **一部実装**（表・Excel埋込画像。共通Candidate/ledger、選択的extract、表・画像レビューUI、facet絞り込み、内容・Claim basisへ結び付く却下decision） | 図形・Tree等のextract、修正して採用、一括変換との統合、実機E2E |
+| Extracted | **一部実装**（表・Excel埋込画像。共通Candidate/ledger、選択的extract、表・画像レビューUI、facet絞り込み、内容・Claim basisへ結び付く却下decision。初回取り込みでは表Linked＋画像Extractedを併用） | 図形・Tree等のextract、修正して採用、実在設計書での観測、実機E2E |
 | Detached | **一部実装** | `materialize`で表・カード相当表を通常Markdownへ、ローカル画像をcontent-addressed assetへ実体化する。文書へ採用済みのExtracted表/画像はprovenance + ledger + current Candidateでfreshness確認し、`detach-check`でclosureを検査できる。実務E2Eと非表Candidate拡張は未完 |
 
-Candidateの共通契約はissue-0193で実装済みで、表・画像が利用している。現在の主なギャップは、研究層の成果をCandidate検索・属性として製品面へ接続すること、画像以外のExtractedを増やすこと、人の作業を止めないレビューUI、一括変換、Detachedである。新しい研究段階を独立に増やすより、既存成果をこれらの製品経路へ接続する作業を優先する。
+Candidateの共通契約はissue-0193で実装済みで、表・画像が利用している。現在の主なギャップは、研究層の成果をCandidate検索・属性として製品面へ接続すること、画像以外のExtractedを増やすこと、人の作業を止めないレビューUI、実在設計書での取り込み観測、Detachedである。新しい研究段階を独立に増やすより、既存成果をこれらの製品経路へ接続する作業を優先する。
 
 ## 2. 能力ごとの差分
 
@@ -26,7 +26,7 @@ Candidateの共通契約はissue-0193で実装済みで、表・画像が利用�
 | 目録 | ◐ | CLI `inspect`（表の領域・見出し・行数、Excel画像の位置・形式・ダイジェスト・近くの表、`--json`のCandidate形式。`src/cli/mmi.ts`） | 図形・注記・リンクの列挙 | 2〜3 |
 | 候補抽出 | ◐ | 共通Candidate型を実装し、表・Excel画像を`mmi inspect --json`へ出力。研究: 表らしさ・見出し境界（structured artifact）、既知書式（worksheet format） | Tree/Shape等のCandidate化、研究成果の製品接続 | 1〜3 |
 | 個別取り込み | ◐ | CLI `extract`でExcel画像を通常画像assetへ、検出済みTable Candidateを標準GFM Markdown assetへ選択的に取り込む。VS Codeではimport stateとtype/status/executionで絞り、採用・却下・却下解除・保留を行える。却下は内容またはClaim basisが変わると自動失効する | 図形・Tree・構造化データのextract、修正して採用、実機E2E | 2 |
-| 一括変換 | ○ | なし | 既存変換器をbaseline converterとして評価し、Candidate・取り込み台帳へ接続（[issue-0200](issues/issue-0200-baseline-bulk-import.md)） | 2（後半） |
+| 一括変換 | ◐ | VS Codeの既存取り込みコマンドとCLI `mmi import`が同じmaterializerを使い、表をLinked参照、.xlsx/.xlsmの埋込画像をExtracted asset＋取り込み台帳として1回で下書き化する。非表領域と画像の問題は確認事項として残す | 実在設計書での観測、図形等の追加Candidate、外部Converterとの比較評価（[issue-0200](issues/issue-0200-baseline-bulk-import.md)） | 2 |
 | 重複回避 | ● | Candidate単位のfingerprint、`mmi.ledger/v1`、`imported/changed/stale/duplicate/unimported`、`--unimported` / `--exclude-imported`、lineage・similarity Evidence分離 | UIからの利用はissue-0202、一括変換からの登録はissue-0200 | 2 |
 | シートの画像化 | ○ | Windows補助プロセスの前例（ADR-0017、クリップボード） | 図形・レイアウトに意味があるシート・範囲を画像として取り込む`Sheet / Region snapshot`（ADR-0019 D0）。CIで再現できる描画を優先し、COMは手元の補助（ADR-0019 D14。いずれも未検証） | 2 |
 | 構造化 | ○ | なし（研究に階層関係のラベル`region.hierarchy_relation`がある） | JSON/XMLの明示ツリー、フラットテキスト・配置からの推定ツリー（[issue-0199](issues/issue-0199-tree-structured-source-adapters.md)） | 3 |

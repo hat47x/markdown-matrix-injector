@@ -308,3 +308,45 @@ test('CLI handoff refuses source and document paths outside the workspace root',
     root,
   ])).code, 2);
 });
+
+
+test('legacy confirmed Claims stay out of source-observed facts', () => {
+  const base = candidate();
+  const legacyConfirmed: Candidate = {
+    ...base,
+    status: 'confirmed',
+    claims: [{
+      aspect: 'header',
+      value: ['旧互換'],
+      status: 'confirmed',
+      execution: 'deterministic',
+      method: 'M1',
+      reasonCode: 'legacy-reviewed',
+    }],
+  };
+  const pkg = createAiHandoffPackage({
+    task: '旧互換Candidateを確認する',
+    candidates: [legacyConfirmed],
+  });
+
+  assert.equal(pkg.confirmedFacts.length, 0);
+  assert.equal(pkg.inferredCandidates.length, 1);
+  assert.equal(pkg.inferredCandidates[0].claims[0].status, 'confirmed');
+  assert.equal(JSON.stringify(pkg).includes('旧互換'), false);
+});
+
+test('human-readable handoff prompt exposes Candidate identity and supported proposal formats without values', () => {
+  const pkg = createAiHandoffPackage({
+    task: '候補を選び、必要なら変換案を返す',
+    candidates: [candidate()],
+  });
+  const identity = pkg.inferredCandidates[0].candidateIdentity.digest;
+  const prompt = renderAiHandoffPrompt(pkg);
+
+  assert.equal(prompt.includes(identity), true);
+  assert.match(prompt, /mmi\.ai-handoff-candidate-selection\/v1/u);
+  assert.match(prompt, /mmi\.ai-handoff-transformation-proposal\/v1/u);
+  assert.match(prompt, /targetStateは linked または extracted/u);
+  assert.doesNotMatch(prompt, /顧客番号/u);
+  assert.doesNotMatch(prompt, /秘密区分/u);
+});

@@ -16,19 +16,34 @@
 
 新規プロジェクトへ既存資産を持ち込む初回だけは、1件ずつCandidateを選ぶより文書全体のベースライン変換が合理的である。一方、外部Converterの出力をそのまま正本にすると、画像のanchor、空間関係、候補状態、取り込み済み判定、provenanceが失われる。
 
-既存Converterは「初期Markdownを作る部品」として利用し、MMIのSource Adapter / Candidate / import ledgerと統合する。ConverterをMMIのExcel解析基盤そのものにはしない。
+一括取り込みの主経路は、MMIがすでに持つSource Adapter / Candidate / import ledgerを組み合わせて構成する。表は原本へ追従するLinkedのまま残し、埋込画像はExtractedとして通常のMarkdown assetへ移す。外部Converterは、本文や表を別方式で初期Markdown化する比較・補助候補として接続し、MMIのExcel解析基盤そのものにはしない。
 
 issue-0195で確定した`mmi.ledger/v1`を再利用する。一括変換専用の第二台帳は作らず、Converter固有情報は`conversion`とprovenanceへ記録する。delivery manifestはLinkedの納品一覧で責務が異なるため、一括変換の取込済み判定には使わない。
 
 ## Acceptance criteria
 
 - [x] 初回一括変換の処理境界を設計する。少なくとも `source → baseline conversion → Candidate reconciliation → Markdown/assets → import ledger` を分離する。
+- [x] 外部Converterがなくても、既存ブックを1操作で「表はLinked参照、埋込画像はExtracted asset、非表領域はレビュー候補」の下書きへ整理できる。VS CodeとCLIは同じmaterializerを使う。
 - [ ] MarkItDown等、Office文書からMarkdownを生成できる既存Converterを1つ以上評価する。表、本文、画像、シート境界、失われる情報をfixtureで記録する。
 - [x] Converter由来の内容とMMIがsourceから直接観測したCandidateを対応付け、対応できないものを黙って「取込済み」にしない。
 - [x] 一括変換で作った画像・表もissue-0195の台帳へ登録でき、後の `inspect --unimported` と整合する。
 - [x] Converterを利用できない環境でも個別のinspect / extract経路は動作する。
 - [x] 外部Converter固有の記法を最終成果物へ必須にしない。materialize後のMarkdown/assetsは通常のツールで読める。
 - [x] 変換結果にはsource、Converter名・版、MMI版、変換条件をprovenanceとして残す。
+
+## Product path checkpoint（2026-10-02）
+
+`src/importAssist/importMaterialization.ts`を共通経路として、既存のVS Code取り込みコマンドとCLI `mmi import <workbook> --draft <file.md>`を接続した。外部Converterがなくても、既存Excelをモダナイズ用の下書きへ1回で整理できる。
+
+- 表は値を複製せずMMI参照として残す。原本が更新されれば、通常のLinked参照として追従する。
+- .xlsx / .xlsmの埋込画像はcontent-addressedな通常画像ファイルへ抽出し、元シートごとにMarkdown参照を置く。各occurrenceは既存の`mmi.ledger/v1`へ記録する。
+- 同一画像bytesを複数箇所で使っている場合、assetファイルは共用するが、occurrenceは別に保持する。
+- 表ではない領域は既存のimport-assistanceのrole/cautionとして残す。画像がないブックは正常に処理し、画像だけのシートも下書きへ残す。
+- Markdownで扱えない画像や読めない画像は「画像の注意」として下書きへ残し、黙って欠落させない。
+- 元ブックは変更しない。CLIではsource / draft / asset / ledgerを`--root`内へ限定し、既存draftの上書きも拒否する。
+- 表をExtractedにしたい場合は、現在のCandidateレビューから明示的に表extractへ進める。一括取り込みの既定では表をLinkedに保つ。
+
+この経路を初回取り込みの主経路とし、以下のMarkItDown評価は、この経路で不足する情報や外部Converterの得失を比較するために残す。
 
 ## Implementation checkpoint（2026-10-02）
 
@@ -100,7 +115,16 @@ node --import tsx scripts/baseline-converter-eval/assess-markitdown-handoff.ts \
 
 ## Validation plan
 
-表、貼付画像、シートをまたぐ内容を含む架空のExcelを用意し、外部Converter単独の出力とMMI統合後の出力を比較する。情報落ち、画像の対応、重複候補、台帳登録、再実行時の未取込候補を確認する。
+まずMMI組み込み経路について、コード生成fixtureで表Linked・画像Extracted・重複asset・台帳・再実行・画像なし・画像のみ・unsupported画像・workspace境界を確認する。VS Code宿主E2Eでは実際の取り込みコマンドからpreviewまでを通す。
+
+```sh
+cd 03_Implement
+node --import tsx --test test/importMaterialization.test.ts test/importCli.test.ts
+npm run build
+node --import tsx ./test/e2e/runImport.ts
+```
+
+その後、同じ表・貼付画像・複数シートを持つfixtureを外部Converterへ通し、MMI組み込み経路との情報差を記述的に比較する。
 
 ## Remaining work
 

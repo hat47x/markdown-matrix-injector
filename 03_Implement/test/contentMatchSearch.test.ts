@@ -92,6 +92,28 @@ test('findWorkbookContentMatches returns nothing for blank clipboard text', () =
   assert.deepEqual(findWorkbookContentMatches('   \r\n  ', workbooks), []);
 });
 
+test('findWorkbookContentMatches treats leading and trailing spaces as source data', () => {
+  const workbooks = [
+    workbook('./whitespace.xlsx', {
+      Sheet1: [
+        ['ID', 'Value'],
+        ['1', ' padded '],
+        ['1', 'padded'],
+      ],
+    }),
+  ];
+
+  const matches = findWorkbookContentMatches('1\t padded \r\n', workbooks);
+
+  assert.deepEqual(matches.map(located), [
+    {
+      filepath: './whitespace.xlsx',
+      sheet: 'Sheet1',
+      range: { startRow: 1, startCol: 0, endRow: 1, endCol: 1 },
+    },
+  ]);
+});
+
 test('findWorkbookContentMatches returns nothing when no workbook contains the values', () => {
   const workbooks = [workbook('./a.xlsx', { Sheet1: [['x', 'y']] })];
   assert.deepEqual(findWorkbookContentMatches('a\tb\r\n', workbooks), []);

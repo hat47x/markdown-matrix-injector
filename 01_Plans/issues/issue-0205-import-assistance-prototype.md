@@ -42,7 +42,7 @@ node --import tsx ./test/e2e/runImport.ts
 
 架空データの3ブックで取り込みコマンドを実行し、下書きを`markdown.api.render`（プレビューと同じエンジン）で描画して、表・カード・エラーの数、診断、原本のハッシュを確かめる。`npm run build`は研究層の既存の型エラーで終了コードが0にならないが、出力は生成される。
 
-目視: 同じデータをワークスペースに置き、`MMI: Import Tables from Workbook`を実行する。下書きのプレビューで、方眼紙の表が表として描かれ、注意が表示されることを確かめる。
+目視: 同じデータをワークスペースに置き、`MMI: Import from Workbook`を実行する。下書きのプレビューで、方眼紙の表が表として描画され、注意が表示されることを確かめる。画像入りブックでは、画像参照とassetも合わせて確認する。
 
 ## Remaining work
 
@@ -61,6 +61,12 @@ node --import tsx ./test/e2e/runImport.ts
 - 「受注照会のイベント」のように、表題と同じ列名がある依頼の読み方（issue-0115で扱う）。
 - ~~CLI `inspect`の表候補として出力する（ADR-0019 優先度1と合わせる）。~~ **2026-10-02:** `mmi inspect --import-assist` として接続。Semantic Candidate本体とは分離し、既存解析のrole/reason、通常rendererで再検証済みの参照案、cautionだけを投影する。セル値/excerptはこの投影へ複製しない。
 - 記法仕様§6の`columns=`の列文字（範囲内の相対列）の明確化。仕様の判断として扱う。
+
+## Bulk-import integration（2026-10-02）
+
+issue-0200の共通materializerから本Issueの解析・下書き生成を再利用し、既存のVS Code取り込みコマンドとCLI `mmi import`を同じ製品経路へ揃えた。本Issueは引き続き、表・key-value・prose・form・diagram等の候補の質と人の判断支援を担当する。画像assetの抽出、取り込み台帳、一括materializeの書き込み境界はissue-0200が担当する。
+
+これにより、取り込み支援のroleを権威的事実へ昇格させずに、表は追従参照、埋込画像は通常asset、その他はレビュー候補として1つの下書きにまとめられる。残る受入条件は、画面操作の目視確認と実在設計書での採用・修正・却下の観測である。
 
 ## Product integration checkpoint（2026-10-02）
 

@@ -25,16 +25,16 @@ MMI自身が課金を要する生成AIサービスを呼ぶことは原則とし
 - [x] 人向けには、そのpackageから自然言語の作業提案 / promptを生成できる。promptは成果物ではなく、利用者が選んだLLMへの手渡し用とする。
 - [x] source本文やセル値は既定で最小限とし、値を含める場合は明示操作にする。秘密情報を暗黙に全文投入しない。
 - [x] MMI自身は外部LLMへ送信せず、API key・課金アカウント・自動ログイン・自動クラウドfallbackを持たない。
-- [ ] 外部LLMから戻されたMMI記法・Candidate選択・変換案は、parser / schema / resolver / containment / source existence / preview等のAuthority Planeで再検証する。
+- [x] 外部LLMから戻されたMMI記法・Candidate選択・変換案は、parser / schema / resolver / containment / source existence / preview等のAuthority Planeで再検証する。MMI記法は既存preview Authority chain、Candidate選択はhandoff allowlist、変換案はcurrent sourceから再発見したCandidateと既存Linked/Extracted経路へ束縛し、いずれも自動適用しない。
 - [x] 戻り提案が存在しないシート、未対応集計、URL/外部パス、任意コマンド実行等を要求する場合は拒否または非対応として扱う。
 - [x] 外部LLMが利用できなくても、MMIのinspect / check / render / extractとローカル認知は継続する。
 
 
 ## Implementation checkpoint (2026-10-02)
 
-`src/dx/aiHandoff.ts` に `mmi.ai-handoff/v1` を追加した。Semantic Candidateを無加工で外へ渡さず、Claimを認識論上の状態に沿って `confirmedFacts`（`observed / confirmed`）、`inferredCandidates`（`inferred`）、`unresolvedIssues`（`abstained`と既存MMI診断）へ分離する。各項目にはsource locator、source digest、Candidate fingerprint、method/execution、provenanceを保持する。
+`src/dx/aiHandoff.ts` に `mmi.ai-handoff/v1` を追加した。Semantic Candidateを無加工で外へ渡さず、Claimを由来に沿って分離する。`confirmedFacts`には原本から直接得た`observed`だけを置き、`inferredCandidates`には`inferred`とCandidate v1互換の`confirmed`を置く。`confirmed`は採用済み表現であり、Source factへ昇格したとは扱わない。`unresolvedIssues`には`abstained`と既存MMI診断を置く。各項目にはsource locator、source digest、Candidate fingerprint、method/execution、provenanceを保持する。
 
-privacyの既定値は `sourceValues: omitted` / `evidenceDetails: omitted` とし、Claimの`value`とEvidenceの`detail`はpackageにもpromptにも載せない。`--include-values`を明示した場合だけ含める。fingerprintやprovenanceは保持するが、原本セル本文を全文抜粋する経路は作らない。
+privacyの既定値は `sourceValues: omitted` / `evidenceDetails: omitted` とし、Claimの`value`とEvidenceの`detail`はpackageにもpromptにも載せない。`--include-values`を明示した場合だけ含める。fingerprintやprovenanceは保持するが、原本セル本文を全文抜粋する経路は作らない。人向けpromptにはCandidate identityを値と分離して表示し、Candidate選択案と変換案がsource値なしでも同じ候補を指せるようにした。
 
 CLIは `mmi handoff <source> --task <text>` とした。既定出力は人が外部LLMへ手渡すための自然言語prompt、`--json`は同じ情報の機械可読package、`--document <doc.md>`は既存`check`相当の未解決診断を追加する。sourceとdocumentは`--root`配下に限定し、realpath後もworkspace外なら読み込み前に拒否する。コマンド自身はHTTP client、provider SDK、API key、認証、cloud fallbackを持たず、送信処理も行わない。
 
@@ -56,7 +56,19 @@ validation receiptは `mmi.ai-handoff-proposal-validation/v1` とし、各check�
 
 Candidate選択案については次の縦切りを追加した。handoff内のCandidateにはsource値を含めずにoccurrence/contentへ結び付く `candidateIdentity` を付与し、外部AIはそのidentityだけを選択案として返す。`validateAiHandoffCandidateSelection` は、返されたidentityが実際にhandoffへ提示されていたかをallowlist照合し、未知・捏造Candidateをblockedにする。選択案のschemaにはepistemic statusを書き換える欄を持たせず、成功状態も `accepted-for-review` として、AI選択をAuthorityへ昇格させない。receipt digestはnested proposal全体をcanonical化して束縛する。
 
-これによりMMI記法とCandidate選択の戻り検証が揃った。残る未実装は変換案のAuthority再検証であり、「戻されたMMI記法・Candidate選択・変換案をAuthority Planeで再検証する」という受入条件全体は引き続き未完了とする。
+Candidate選択proposalはtop-levelとCandidate identityのfieldを固定し、余分な`status`、`command`、`outputPath`等をfail-closedで拒否する。validation receiptのdigestはproposal全体を再帰的にcanonical化して計算し、ネストしたCandidate identityの変更も束縛する。
+
+### 変換案の戻り検証（2026-10-02）
+
+`src/dx/aiHandoffTransformationValidation.ts` に `mmi.ai-handoff-transformation-proposal/v1` と `mmi.ai-handoff-transformation-validation/v1` を追加した。外部AIが指定できるのはhandoffに含まれた`candidateIdentity`、希望する到達状態（`linked` / `extracted`）、rationale、未解決事項だけである。出力先、コマンド、conversion実装、MMI記法そのものを外部AIに指定させない。未知fieldを含むproposalはfail-closedで拒否する。
+
+validatorはsourceをworkspace境界内で再解決してdigestを照合し、current source bytesから表・画像CandidateをSource Adapterで再発見する。occurrence/content identityとalgorithm/runtime provenanceがhandoff時点と一致しない場合はblockedとする。source変更・Candidate消失・adapter/runtime basis変更後の古いproposalは、新しいhandoffを要求する。
+
+`linked`ではcurrent Candidateのローカル`reference`だけを使い、既存`validateAiHandoffNotationProposal`のparser、parameter schema、source allowlist、diagnostics、source identity、read-only previewを再度通す。`extracted`では、表は既存`extractTable`と同じ`gfm-table-v1`、画像は既存`extractImages`と同じ`raw-image-bytes-v1`だけをreview planとして返す。validator自身はfileを書かず、成功状態も`accepted-for-review`であり、自動適用やAuthority確定を意味しない。
+
+CLIには`validate-selection <proposal.json>`と`validate-transformation <proposal.json>`を追加した。handoff packageとproposal JSONはworkspace内に限定する。`validate-transformation`はreference baseとなるMarkdownもworkspace内に限定する。全検証を通過した場合だけexit 0とし、blockedはexit 1、入力不備や境界外fileはexit 2とする。
+
+これによりMMI記法・Candidate選択・変換案の3種類すべてを、外部AIの返答をそのままAuthorityへ昇格させずにローカル再検証できる。実装上の受入条件は満たしたが、IssueのExpected verification levelであるmanual-e2eはまだ実施していない。
 
 ## Validation plan
 
@@ -64,6 +76,6 @@ Candidate選択案については次の縦切りを追加した。handoff内のC
 
 ## Remaining work
 
-- CLI名は最小縦切りで`mmi handoff`に固定した。戻り提案の検証CLI/API名はAuthority経路との接続時に決める。
+- `mmi handoff`、`validate-proposal`、`validate-selection`、`validate-transformation`を実装済み。残る主要作業は架空Excel設計書を使ったmanual-e2eと、必要に応じた実務データでの観測である。
 - 将来MCPを追加する場合も、このpackage契約を再利用し、MCPだけの独自判断ロジックを作らない。
 - provider固有のprompt最適化はコアに入れない。必要なら外部skill / template側で行う。
