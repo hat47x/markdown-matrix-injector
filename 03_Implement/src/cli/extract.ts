@@ -14,7 +14,7 @@ import path from 'node:path';
 import { imageCandidates, readExcelImages, readImageBytes, type ExcelImage, type ImageDiagnostic } from '../adapters/excelImageAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 
-import { logicalTableToGfm } from '../core/gfmTable.js';
+import { toGfmTable } from '../core/markdownTable.js';
 import { entryFor, recordEntries, type LedgerEntry } from '../core/importLedger.js';
 import { buildLogicalTable } from '../core/renderTable.js';
 import { readSourceFileIdentity } from '../core/sourceIdentity.js';
@@ -265,7 +265,7 @@ export function extractTable(options: ExtractTableOptions): ExtractTableResult {
 
   let tableMarkdown: string;
   try {
-    tableMarkdown = logicalTableToGfm(buildLogicalTable(query, workbook));
+    tableMarkdown = toGfmTable(buildLogicalTable(query, workbook));
   } catch (error) {
     result.problems.push({
       code: 'MMI_TABLE_EXTRACT_FAILED',
