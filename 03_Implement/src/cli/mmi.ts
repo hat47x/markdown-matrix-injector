@@ -44,6 +44,7 @@ import { detectRegions } from '../search/regionDetector.js';
 import { runFind, runSelect } from './navigateCommands.js';
 import { extractImages, extractTable, formatImageDiagnostics } from './extract.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './render.js';
+import { runSnapshot } from './snapshot.js';
 
 const USAGE = `Usage: mmi <command> [options]
 
@@ -69,6 +70,13 @@ Commands:
       --out-dir <dir>         assets folder (default: assets); files are content-addressed
       --from <doc.md>         provenance/source labels are relative to this document
       --ledger <file>         import ledger (default: <root>/mmi-ledger.json)
+  snapshot <book.xlsx>      Draw a sheet or range as it looks (cells, borders, merges, fills, pictures,
+                            basic shapes) into a deterministic SVG, without modifying the source
+      --sheet <name>          sheet to draw (required)
+      --range <A1:F20>        cells to draw (default: the used range, including drawings)
+      -o, --out <file.svg>    SVG output (required); --json prints the summary and diagnostics
+                            Unsupported shapes are drawn as placeholder frames and reported;
+                            exit code 1 when the workbook, sheet or range cannot be used
   select <workbook>         Print the reference for a table chosen by name, with columns/rows chosen by heading
       --table <name|range>    Excel table, name, title or A1 range (required)
       --sheet <name>  --columns <h1,h2>  --contains <text> [--in <heading>]  --first <n>
@@ -126,6 +134,7 @@ export async function main(argv: string[]): Promise<number> {
       'import-assist': { type: 'boolean', default: false },
       table: { type: 'string' },
       sheet: { type: 'string' },
+      range: { type: 'string' },
       columns: { type: 'string' },
       contains: { type: 'string' },
       in: { type: 'string' },
@@ -217,6 +226,8 @@ export async function main(argv: string[]): Promise<number> {
       for (const problem of result.problems) console.error(`mmi: ${problem.code}${problem.ordinal ? ` (image ${problem.ordinal})` : ''}: ${problem.message}`);
       return result.problems.length > 0 ? 1 : 0;
     }
+    case 'snapshot':
+      return runSnapshot(args, values, { out: (text) => process.stdout.write(text.endsWith('\n') ? text : `${text}\n`), err: (text) => console.error(text), cwd: process.cwd() });
     case 'select':
       return runSelect(args, { ...values, json: values.json }, { out: emit, err: (text) => console.error(text), cwd: process.cwd() });
     case 'find':
