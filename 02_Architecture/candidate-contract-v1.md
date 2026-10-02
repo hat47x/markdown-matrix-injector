@@ -10,13 +10,19 @@ Candidateは、Source Adapterが見つけた「情報の単位」を、取り込
 
 | 軸 | 値 | 意味 |
 | --- | --- | --- |
-| 認識論上の状態 | `observed` / `inferred` / `confirmed` / `abstained` | 何をどう知っているか。原本から読んだ、方式が導いた、人が決めた、方式が答えを控えた |
+| Candidate v1の状態 | `observed` / `inferred` / `confirmed` / `abstained` | `observed` / `inferred` / `abstained`は由来・認識論上の状態。`confirmed`はv1互換の採用済み表現であり、Sourceに明示された事実へ昇格したことを意味しない |
 | 実行特性 | `deterministic` / `provider-dependent` | モデルやproviderなしで、同じ入力から同じ出力が再現できるか |
 | method class | `M0`〜`M5`（ADR-0020） | 明示抽出、決定論的推定、軽量類似、bounded Judgment、local generative、外部handoff |
 
 軸は互いに独立である。規則でも推定でき（`inferred + deterministic`）、モデルが原本の値を読むこともある（`observed + provider-dependent`）。1つのラベルに潰さない。
 
 **状態は主張（Claim）ごとに持つ。** 表のセル座標は原本の矩形そのもの（`observed`・M0）だが、どこまでが1つの表かという境界、表題、見出しは規則から導いたもの（`inferred`・M1）である。Candidate全体の`status`は、候補が主張する中身（境界・同一性）の状態を表す。
+
+### 採用状態との分離
+
+Candidate v1の`status`は後方互換のため`confirmed`を残すが、新しいreview経路では採用状態を別軸で扱う。現在のreview projectionは`unreviewed / accepted / rejected`を独立して持つ。したがって、人が推定rangeを採用した場合は`inferred + accepted`であり、`observed`へ変換しない。Sourceが変化し、fingerprintまたはClaim basisが一致しなくなったCandidateは、過去に採用済みでも現在のCandidateとしては`unreviewed`へ戻る。
+
+決定論的validationが保証できるのは、構文、containment、参照可能性、同一性など明示した検証範囲に限る。採用済みであることやvalidation成功だけを根拠に、業務上の意味がSource factとして確定したとは扱わない。
 
 ## 2. 型の要点
 
@@ -96,7 +102,7 @@ run       deterministic       { inputDigest, config, implementationVersion }
 | signal | `inferred` | providerの名前空間つきスコアは`scores`へ（尺度は合成しない） |
 | abstained | `abstained` | `reasonCode`にそのコード |
 | unsupported / unavailable / error | `abstained` | 失敗や非対応も「主張しない」。理由コードで区別する |
-| 人手の承認（`FormatProfileV1`のapproved、貼り付け出所の選択） | `confirmed` | 承認者・参照は台帳（issue-0195）へ |
+| 人手の承認（`FormatProfileV1`のapproved、貼り付け出所の選択） | v1互換では`confirmed`。新しいreviewでは元の`observed / inferred`を保持して`accepted`を別記録 | 承認者・参照は台帳（issue-0195）へ |
 
 ## 6. 研究層の成果の対応表
 
@@ -106,8 +112,8 @@ run       deterministic       { inputDigest, config, implementationVersion }
 | --- | --- | --- | --- | --- | --- | --- |
 | `search/regionDetector.ts`（製品） | ブロックごとの範囲・表題・見出し・理由 | Table / Range | 座標`observed`、境界・見出し`inferred` | deterministic | M0＋M1 | **本契約で実装済み**。fingerprintは暫定 |
 | `search/verify.ts`、`regionCatalog.ts`、`workspaceRegionIndex.ts` | 現在の原本に対する再照合、(mtime,size)の差分更新 | Table / Rangeの鮮度 | `inferred`の維持確認 | deterministic | M1 | 「古い」を状態に写していない。台帳で扱う |
-| `core/contentMatch.ts`、`dx/contentMatchSearch.ts` | 貼り付け値と一致する矩形 | Table / Rangeの出所照合 | `inferred`。人の選択で`confirmed` | deterministic | M1 | 内部座標は0始まり、ADR・SAIは1始まり。統一が要る |
-| `dx/clipboardProvenance.ts`、`windowsClipboard.ts` | Excelコピーの出所（パス・シート・住所）を原本で検証した候補 | Table / Range | 宣言は`observed`、検証後に候補、選択で`confirmed` | deterministic（Windows依存の取得） | M0＋検証 | `confirmed`に至る唯一の製品経路。provenanceとfingerprintの項目を未対応 |
+| `core/contentMatch.ts`、`dx/contentMatchSearch.ts` | 貼り付け値と一致する矩形 | Table / Rangeの出所照合 | `inferred`。人が選択しても由来は`inferred`のまま、reviewは`accepted` | deterministic | M1 | 内部座標は0始まり、ADR・SAIは1始まり。統一が要る |
+| `dx/clipboardProvenance.ts`、`windowsClipboard.ts` | Excelコピーの出所（パス・シート・住所）を原本で検証した候補 | Table / Range | 宣言は`observed`。利用者の選択は別軸の`accepted` | deterministic（Windows依存の取得） | M0＋検証 | Source factと採用状態を分離してprovenanceとfingerprintへ結ぶ |
 | `search/retrievers.ts`、`searchIndex.ts`、`nlQuery/*` | 説明文に対する順位付き候補 | Candidateの検索 | `inferred` | deterministic（FlyHashも固定射影） | M2 | スコアは検索内部の値。`confidence`と呼ばず、`scores`のproviderを分ける |
 | `experimental/structuredArtifactNeutralObservation.ts` | 中立スキーマ（region、features、labels、provenance） | Table / Rangeの特徴の入れ物 | features`observed`/`inferred`混在 | deterministic | M1 | provenance構造がCandidateに最も近い。`confidence: number\|null`の尺度は未分離。`label_source`にteacher候補があり、provider依存の混入口 |
 | `experimental/mmiWorksheetStructuredArtifactNeutralAdapter.ts` | シート全体の外接矩形1つ（`labels`は空） | Table / Range（粗い） | features`observed`、見出し信号`inferred` | deterministic | M1 | 領域が1つで複数表を扱えない。`source_digest`＋`adapter_config_digest`がfingerprint相当 |
@@ -116,7 +122,7 @@ run       deterministic       { inputDigest, config, implementationVersion }
 | `experimental/worksheetFormatFeatureAdapter.ts`、`sheetJsWorksheetFormatBridge.ts`、`xlsxFormatSnapshotReader.ts` | 書式スナップショットと書式feature文字列 | 書式プロファイルの入力（属性） | `observed` | deterministic | M0 | locatorがない。SheetJS CE 0.20.3とsource profileに依存 |
 | `experimental/flyInspiredFormatMatcher.ts`、`worksheetFormatPrototype.ts` | 既知書式との照合（matched / ambiguous / novel） | 書式プロファイル（属性） | `inferred`。ambiguous・novelは`abstained`に近い | deterministic | M2 | 閾値の根拠は評価ファイルのみ。実運用の書式で未検証 |
 | `experimental/flyWorksheetFormatPerceptionProvider.ts` | `CognitiveSignalOutcome`（scoresはprovider名前空間つき） | 書式プロファイル（属性） | 前節の対応表 | deterministic（local） | M2 | 状態語彙の変換が要る（前節） |
-| `experimental/formatProfile.ts` | `FormatProfileV1`（candidate / approved） | 書式プロファイル（承認つき） | `candidate`は`inferred`、承認後`confirmed` | deterministic＋人手 | M1＋人手 | `confirmed`の実装済みの数少ない例。承認者を台帳へ |
+| `experimental/formatProfile.ts` | `FormatProfileV1`（candidate / approved） | 書式プロファイル（承認つき） | 由来は`inferred`。approvedはreviewの`accepted`として別管理する方向へ移行 | deterministic＋人手 | M1＋人手 | v1の`confirmed`互換表現をSource factとして解釈しない |
 | `experimental/jevWorksheetReviewRouteProvider.ts`、`jevChoiceJudgmentProvider.ts` | 閉じた選択（inspect / routine）、probability、`applyAuthority: none` | レビュー優先度（属性） | `inferred`または`abstained` | **provider-dependent**（external-opt-in） | M4相当 | probabilityは別名前空間のまま保つ。較正結果は未確認 |
 | `experimental/cognitiveReviewEnvelope.ts`、`deterministicReviewEvidence.ts`、`cognitiveReviewPresentation.ts` | `writeAuthority: none`の確認用封筒と表示物 | Candidateを人に見せる器 | 中身の状態を運ぶ | 混在 | 封筒M0 | issue-0202のレビューUIの雛形。高い信頼度が自動採用を意味しない境界を維持 |
 | `experimental/authorityRevalidationAdapter.ts`ほか（receipt、overlay） | 埋め込み提案の再検証受領書 | Table / Rangeの`confirmed`への経路 | `confirmed`の機械側根拠 | deterministic | M1 | 対象が「記法の提案」で「領域Candidate」ではない。fingerprintとproposal digestの橋渡しが未設計 |
@@ -132,7 +138,7 @@ run       deterministic       { inputDigest, config, implementationVersion }
 
 ## 7. 次に強くする行
 
-1. **Table / Range**（製品の領域検出＋出所照合＋再照合）。唯一、`observed → inferred → confirmed`の経路が動いている。fingerprintを台帳で使う形に固める（issue-0195）。
+1. **Table / Range**（製品の領域検出＋出所照合＋再照合）。`observed / inferred`の由来を保持したまま、reviewの`accepted / rejected / unreviewed`を別軸で扱う経路が動いている。fingerprintとClaim basisを台帳で使う形に固める（issue-0195、issue-0202）。
 2. **`cognitiveContract.ts`の器**。provenanceとscoreの名前空間が契約に近い。足りないのは状態・method class・fingerprint・locatorで、状態語彙の変換（§5）を先に確定する。
 3. **Tree / Hierarchy・Section**。未着手。明示構造（JSON/XML、Excelのインデント・グループ）から始める（issue-0199）。
 4. SAI2の結果は合成18グループのみで、製品の特徴に使う前に実データでの検証が要る。
