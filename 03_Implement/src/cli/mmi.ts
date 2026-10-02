@@ -42,7 +42,7 @@ import { validateAiHandoffNotationProposal } from '../dx/aiHandoffProposalValida
 import { validateAiHandoffTransformationProposal } from '../dx/aiHandoffTransformationValidation.js';
 import { createDiagnosticsForDocument } from '../dx/vscodeAdapters.js';
 import { inspectImportAssistance, type InspectImportAssistanceCandidate } from '../importAssist/inspectImportAssistance.js';
-import { materializeWorkbookImport } from '../importAssist/importMaterialization.js';
+import { writeWorkbookImportDraft } from '../importAssist/importMaterialization.js';
 import { buildDeliveryManifestCsv } from '../manifest/collectDeliveryManifest.js';
 import { detectTableRegions, regionReference } from '../importAssist/tableRegions.js';
 import { runFind, runSelect } from './navigateCommands.js';
@@ -253,14 +253,20 @@ export async function main(argv: string[]): Promise<number> {
         return 1;
       }
 
-      fs.mkdirSync(path.dirname(draftPath), { recursive: true });
-      const result = materializeWorkbookImport({
-        sourcePath,
-        draftPath,
-        ledgerPath,
-        ...(imageOutDir ? { imageOutDir } : {}),
-      });
-      fs.writeFileSync(draftPath, result.markdown, 'utf8');
+      let result;
+      try {
+        result = writeWorkbookImportDraft({
+          sourcePath,
+          draftPath,
+          ledgerPath,
+          ...(imageOutDir ? { imageOutDir } : {}),
+        });
+      } catch (error) {
+        console.error(
+          `mmi: import failed: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        return 1;
+      }
 
       const summary = {
         draft: path.relative(process.cwd(), draftPath).split(path.sep).join('/') || path.basename(draftPath),
