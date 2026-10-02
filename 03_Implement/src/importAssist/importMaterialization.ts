@@ -70,6 +70,7 @@ export function workbookImportPaths(
     options.imageOutDir
       ?? path.join(draftDir, 'assets', safePathSegment(baseName)),
   );
+  assertImportPathRoles(sourcePath, draftPath, ledgerPath, imageOutDir);
   return { draftPath, ledgerPath, imageOutDir };
 }
 
@@ -247,6 +248,38 @@ export function materializeWorkbookImport(
 }
 
 
+
+
+function assertImportPathRoles(
+  sourcePath: string,
+  draftPath: string,
+  ledgerPath: string,
+  imageOutDir: string,
+): void {
+  if (draftPath === ledgerPath) {
+    throw new Error('MMI_IMPORT_OUTPUT_CONFLICT: draft and ledger must be different files');
+  }
+  if (sourcePath === ledgerPath) {
+    throw new Error('MMI_IMPORT_OUTPUT_CONFLICT: ledger must not replace the source workbook');
+  }
+  if (containsPath(imageOutDir, draftPath)) {
+    throw new Error('MMI_IMPORT_OUTPUT_CONFLICT: image asset root must not contain the draft');
+  }
+  if (containsPath(imageOutDir, ledgerPath)) {
+    throw new Error('MMI_IMPORT_OUTPUT_CONFLICT: image asset root must not contain the ledger');
+  }
+  if (containsPath(imageOutDir, sourcePath)) {
+    throw new Error('MMI_IMPORT_OUTPUT_CONFLICT: image asset root must not contain the source workbook');
+  }
+}
+
+function containsPath(directory: string, candidate: string): boolean {
+  const relative = path.relative(directory, candidate);
+  return relative === ''
+    || (!relative.startsWith('..' + path.sep)
+      && relative !== '..'
+      && !path.isAbsolute(relative));
+}
 
 function isNodeError(error: unknown): error is NodeJS.ErrnoException {
   return error instanceof Error && 'code' in error;
