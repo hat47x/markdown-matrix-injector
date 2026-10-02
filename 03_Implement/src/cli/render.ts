@@ -88,10 +88,10 @@ function expandEmbed(embed: EmbedQuery, options: RenderOptions, cache: WorkbookC
     const location = [embed.target, embed.range].filter(Boolean).join('!');
     return `${captionLine}> 別紙: ${embed.filepath}${location ? ` (${location})` : ''}`;
   }
-  return captionLine + toGfmTable(buildLogicalTable(embed, workbook));
+  return captionLine + logicalTableToGfm(buildLogicalTable(embed, workbook));
 }
 
-function toGfmTable(table: { headers?: string[]; bodyRows: string[][] }): string {
+export function logicalTableToGfm(table: { headers?: string[]; bodyRows: string[][] }): string {
   const width = Math.max(table.headers?.length ?? 0, ...table.bodyRows.map((row) => row.length), 1);
   const pad = (row: string[]) => Array.from({ length: width }, (_, index) => escapeCell(row[index] ?? ''));
   const header = table.headers ? pad(table.headers) : Array.from({ length: width }, () => '');
