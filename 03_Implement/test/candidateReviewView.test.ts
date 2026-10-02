@@ -5,6 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 
 import {
+  recordDeferredDecision,
   recordRejectedDecision,
 } from '../src/core/candidateReviewDecisions.js';
 import { candidateReviewView } from '../src/core/candidateReviewView.js';
@@ -111,6 +112,74 @@ test('active review queues hide an exact rejected Candidate while all keeps it r
   assert.equal(all[0].ledgerState, 'unimported');
 });
 
+test('deferred Candidate stays out of active queues but remains restorable in all', () => {
+  const f = workspace();
+  const deferred = candidate('same-content');
+  const decisions = recordDeferredDecision(
+    f.decisionPath,
+    f.source,
+    deferred,
+    'review later',
+  );
+
+  for (const filter of ['unimported', 'exclude-imported'] as const) {
+    assert.deepEqual(
+      candidateReviewView(
+        [deferred],
+        emptyLedger(),
+        decisions,
+        f.ledgerPath,
+        f.decisionPath,
+        f.source,
+        filter,
+      ),
+      [],
+    );
+  }
+
+  const all = candidateReviewView(
+    [deferred],
+    emptyLedger(),
+    decisions,
+    f.ledgerPath,
+    f.decisionPath,
+    f.source,
+    'all',
+  );
+  assert.equal(all.length, 1);
+  assert.equal(all[0].reviewState, 'deferred');
+  assert.equal(all[0].deferred, true);
+  assert.equal(all[0].rejected, false);
+  assert.equal(all[0].ledgerState, 'unimported');
+});
+
+test('changed Candidate returns from deferred state as unreviewed', () => {
+  const f = workspace();
+  const reviewed = candidate('old-content');
+  const decisions = recordDeferredDecision(
+    f.decisionPath,
+    f.source,
+    reviewed,
+    'review later',
+  );
+  const changed = candidate('new-content');
+
+  const view = candidateReviewView(
+    [changed],
+    emptyLedger(),
+    decisions,
+    f.ledgerPath,
+    f.decisionPath,
+    f.source,
+    'unimported',
+  );
+
+  assert.equal(view.length, 1);
+  assert.equal(view[0].reviewState, 'unreviewed');
+  assert.equal(view[0].deferred, false);
+  assert.equal(view[0].rejected, false);
+});
+
 test('changed Candidate returns to active review because the old rejection no longer matches', () => {
   const f = workspace();
   const reviewed = candidate('old-content');
@@ -208,6 +277,45 @@ test('content-changed Candidate does not inherit acceptance from the previous co
   assert.equal(view[0].ledgerState, 'changed');
   assert.equal(view[0].reviewState, 'unreviewed');
   assert.equal(view[0].candidate.status, 'inferred');
+});
+
+test('imported Candidate is accepted even when an old deferred decision exists', () => {
+  const f = workspace();
+  const reviewed = candidate('content');
+  const output = path.join(f.root, 'assets', 'table.md');
+  fs.mkdirSync(path.dirname(output), { recursive: true });
+  fs.writeFileSync(output, '| A | B |\n');
+  recordEntries(f.ledgerPath, [
+    entryFor(
+      f.ledgerPath,
+      f.source,
+      reviewed,
+      output,
+      'test import',
+    ),
+  ]);
+  const decisions = recordDeferredDecision(
+    f.decisionPath,
+    f.source,
+    reviewed,
+    'old defer',
+  );
+
+  const all = candidateReviewView(
+    [reviewed],
+    readLedger(f.ledgerPath),
+    decisions,
+    f.ledgerPath,
+    f.decisionPath,
+    f.source,
+    'all',
+  );
+
+  assert.equal(all.length, 1);
+  assert.equal(all[0].ledgerState, 'imported');
+  assert.equal(all[0].reviewState, 'accepted');
+  assert.equal(all[0].deferred, false);
+  assert.equal(all[0].rejected, false);
 });
 
 test('imported Candidate is governed by the import ledger, not an old rejection', () => {
