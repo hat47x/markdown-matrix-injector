@@ -15,7 +15,7 @@ export interface CandidateReviewViewItem
   extends CandidateLedgerViewItem {
   reviewState: Extract<
     ReviewState,
-    'unreviewed' | 'accepted' | 'rejected'
+    'unreviewed' | 'accepted' | 'modified' | 'rejected'
   >;
   rejected: boolean;
 }
@@ -67,7 +67,7 @@ export function candidateReviewView(
         ? 'rejected'
         : item.ledgerState === 'imported'
           || item.ledgerState === 'stale'
-          ? 'accepted'
+          ? item.ledgerReviewState ?? 'accepted'
           : 'unreviewed';
     return [{ ...item, reviewState, rejected: Boolean(rejected) }];
   });
