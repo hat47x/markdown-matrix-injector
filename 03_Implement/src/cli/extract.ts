@@ -17,7 +17,10 @@ import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import { toGfmTable } from '../core/markdownTable.js';
 import { entryFor, recordEntries, type LedgerEntry } from '../core/importLedger.js';
 import { buildLogicalTable } from '../core/renderTable.js';
-import { readSourceFileIdentity } from '../core/sourceIdentity.js';
+import {
+  createSourceIdentityFromBytes,
+  readSourceFileIdentity,
+} from '../core/sourceIdentity.js';
 import { loadWorkbook } from '../core/workbookLoader.js';
 import { parseEmbedSyntax, type EmbedQuery } from '../parser/embedSyntax.js';
 
@@ -120,7 +123,7 @@ function tableProvenanceComment(
 
 export function extractImages(options: ExtractOptions): ExtractResult {
   const result: ExtractResult = { extracted: [], problems: [], diagnostics: [] };
-  const packageBytes = fs.readFileSync(options.sourcePath);
+  const packageBytes = options.sourceBytes ?? fs.readFileSync(options.sourcePath);
   if (!/\.(xlsx|xlsm)$/iu.test(options.sourcePath)) {
     result.problems.push({ code: 'MMI_IMAGE_PACKAGE_UNSUPPORTED', message: 'images can only be extracted from .xlsx / .xlsm workbooks' });
     return result;
@@ -199,7 +202,9 @@ export function extractImages(options: ExtractOptions): ExtractResult {
     });
   }
   if (options.ledgerPath && result.extracted.length > 0) {
-    const sourceDigest = readSourceFileIdentity(options.sourcePath).digest;
+    const sourceDigest = options.sourceBytes
+      ? createSourceIdentityFromBytes(packageBytes).digest
+      : readSourceFileIdentity(options.sourcePath).digest;
     const entries: LedgerEntry[] = [];
     for (const item of result.extracted) {
       const image = chosen.find((candidateImage) => candidateImage.ordinal === item.ordinal)!;
