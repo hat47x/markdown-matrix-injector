@@ -27,14 +27,18 @@ export function verifyCliPackage(tarballPath) {
 
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-cli-package-'));
   const prefix = path.join(root, 'install');
+  const cache = path.join(root, 'empty-npm-cache');
   const workspace = path.join(root, 'workspace');
   const docs = path.join(workspace, 'docs');
   fs.mkdirSync(docs, { recursive: true });
+  fs.mkdirSync(cache, { recursive: true });
 
   runNpm([
     'install',
     '--prefix',
     prefix,
+    '--cache',
+    cache,
     '--ignore-scripts',
     '--offline',
     '--no-audit',
@@ -105,7 +109,7 @@ export function verifyCliPackage(tarballPath) {
       version: packageJson.version,
     },
     checks: {
-      offlineInstall: 'passed',
+      isolatedOfflineInstall: 'passed',
       bin: 'passed',
       help: 'passed',
       check: 'passed',
