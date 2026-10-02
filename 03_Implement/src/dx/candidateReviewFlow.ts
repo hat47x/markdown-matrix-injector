@@ -210,6 +210,7 @@ function quickPickItem(
       ].join(' · '),
       source,
       rejected,
+      ledgerState,
     };
   }
 
@@ -224,6 +225,7 @@ function quickPickItem(
     ].join(' · '),
     source,
     rejected,
+    ledgerState,
   };
 }
 
@@ -379,18 +381,22 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
         value: 'extract' as const,
         description: '既存のextract経路で標準資産と台帳へ記録',
       },
-      picked.rejected
-        ? {
-            label: '却下を解除',
-            value: 'unreject' as const,
-            description: 'このCandidateを再び通常レビューへ戻す',
-          }
-        : {
-            label: '却下',
-            value: 'reject' as const,
-            description:
-              '同じ内容・根拠のCandidateは変更されるまで表示しない',
-          },
+      ...(picked.ledgerState === 'imported'
+        ? []
+        : [
+            picked.rejected
+              ? {
+                  label: '却下を解除',
+                  value: 'unreject' as const,
+                  description: 'このCandidateを再び通常レビューへ戻す',
+                }
+              : {
+                  label: '却下',
+                  value: 'reject' as const,
+                  description:
+                    '同じ内容・根拠のCandidateは変更されるまで表示しない',
+                },
+          ]),
       {
         label: '保留',
         value: 'defer' as const,
