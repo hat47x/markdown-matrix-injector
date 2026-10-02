@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { FenceTracker, linkTargets, resolveLocalLink, stripInlineCode } from '../core/markdownLinks.js';
 import { extractEmbedQueries } from '../parser/embedSyntax.js';
-import { isPathWithinBoundary } from '../core/pathResolver.js';
 
 export interface DetachProblem {
   /** Markdown artifact containing the problem, relative to workspaceRoot. */
@@ -66,12 +66,12 @@ function inspectMarkdownArtifact(
   const text = fs.readFileSync(resolvedFile, 'utf8');
   const lines = text.split(/\r?\n/);
   const file = relativeArtifactPath(workspaceRoot, resolvedFile);
-  let inFence = false;
+  const fence = new FenceTracker();
 
   for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (/^\s*(```|~~~)/u.test(line)) inFence = !inFence;
-    if (inFence) continue;
+    const rawLine = lines[index];
+    if (fence.skips(rawLine)) continue;
+    const line = stripInlineCode(rawLine);
 
     for (const embed of extractEmbedQueries(line)) {
       problems.push({
@@ -94,7 +94,7 @@ function inspectMarkdownArtifact(
       });
     }
 
-    if (/^\s*>\s*別紙:/u.test(line)) {
+    if (/^\s*(?:>\s*)+別紙\s*[:：]/u.test(line)) {
       problems.push({
         file,
         line: index + 1,
@@ -103,7 +103,7 @@ function inspectMarkdownArtifact(
       });
     }
 
-    for (const target of markdownLinkTargets(line)) {
+    for (const target of linkTargets(rawLine)) {
       const resolved = resolveLocalLink(
         resolvedFile,
         workspaceRoot,
@@ -163,53 +163,6 @@ function relativeArtifactPath(
 
 function isMarkdownArtifact(filePath: string): boolean {
   return /\.(?:md|markdown)$/iu.test(filePath);
-}
-
-function markdownLinkTargets(line: string): string[] {
-  const targets: string[] = [];
-  const pattern = /!?\[[^\]]*\]\((?<target>[^)]+)\)/gu;
-  for (const match of line.matchAll(pattern)) {
-    const raw = match.groups?.target?.trim();
-    if (!raw) continue;
-    // A destination may be followed by a Markdown title. Paths containing
-    // spaces should normally be percent encoded; preserve <...> destinations.
-    const target = raw.startsWith('<') && raw.includes('>')
-      ? raw.slice(1, raw.indexOf('>'))
-      : raw.split(/\s+["']/u, 1)[0];
-    targets.push(target);
-  }
-  return targets;
-}
-
-function resolveLocalLink(
-  markdownFilePath: string,
-  workspaceRoot: string,
-  rawTarget: string,
-): { absolutePath: string; outsideRoot: boolean } | undefined {
-  if (
-    !rawTarget
-    || rawTarget.startsWith('#')
-    || /^[a-z][a-z0-9+.-]*:/iu.test(rawTarget)
-  ) {
-    return undefined;
-  }
-  let decoded = rawTarget.split('#', 1)[0];
-  try {
-    decoded = decodeURIComponent(decoded);
-  } catch {
-    // Invalid percent encoding is treated as a literal path and will fail
-    // visibly if absent.
-  }
-  const absolutePath = path.resolve(
-    path.dirname(markdownFilePath),
-    decoded,
-  );
-  const checkedRoot = canonicalExistingPath(path.resolve(workspaceRoot));
-  const checkedTarget = canonicalExistingPath(absolutePath);
-  return {
-    absolutePath,
-    outsideRoot: !isPathWithinBoundary(checkedTarget, checkedRoot),
-  };
 }
 
 function canonicalExistingPath(filePath: string): string {
