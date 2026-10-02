@@ -163,3 +163,35 @@ test('an image-only sheet still renders its extracted image instead of being cal
   assert.match(result.markdown, /構成図/u);
   assert.doesNotMatch(result.markdown, /## 図\n\n> 内容がありません。/u);
 });
+
+
+test('linked and missing workbook images stay visible as import warnings', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-materialize-'));
+  const sourcePath = path.join(root, 'broken-images.xlsx');
+  const draftPath = path.join(root, 'broken-images-import.md');
+  fs.writeFileSync(
+    sourcePath,
+    buildXlsxWithImages(
+      [{
+        name: '画面',
+        cells: [[0, 0, '画面']],
+        anchors: [
+          { kind: 'one', from: [0, 2], media: 'remote.png', name: '外部画像', via: 'link' },
+          { kind: 'one', from: [3, 2], media: 'missing.png', name: '欠落画像', missing: true },
+        ],
+      }],
+      {},
+    ),
+  );
+
+  const result = materializeWorkbookImport({ sourcePath, draftPath });
+  const codes = result.imageProblems.map((problem) => problem.code);
+
+  assert.equal(result.extractedImages.length, 0);
+  assert.ok(codes.includes('MMI_IMAGE_EXTERNAL_LINK'));
+  assert.ok(codes.includes('MMI_IMAGE_MEDIA_MISSING'));
+  assert.match(result.markdown, /## 画像の注意/u);
+  assert.match(result.markdown, /MMI_IMAGE_EXTERNAL_LINK/u);
+  assert.match(result.markdown, /MMI_IMAGE_MEDIA_MISSING/u);
+  assert.match(result.markdown, /\[画面\]/u);
+});
