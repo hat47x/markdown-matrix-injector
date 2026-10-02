@@ -159,6 +159,8 @@
 **`test/pasteDrop.test.ts`へ9件のテストを追加**（基本分割、実キャプチャ再現、タブ引用、改行引用、引用符エスケープ、裸引用符の非エスケープ、trim動作、空入力）。`npm test`は328件全成功。
 
 ### `findContentMatches`の追加 — 内容照合アルゴリズム本体（2026-09-14）
+**2026-10-02 偽陰性修正**: `maxCandidates` の適用位置を再点検し、旧実装が完全一致検証**前**の候補原点を先頭N件で切っていたため、頻出アンカーの偽候補が多数あると真の一致がN+1件目以降に隠れることを確認した。上限を「返却する完全一致数」へ移し、候補原点は完全一致が上限件数見つかるまで順に検証する。`anchor|wrong` を205行並べ、その後ろにだけ `anchor|target` を置く回帰で固定した。これにより重複結果数の上限は維持しつつ、アンカー頻度だけを理由に「一致なし」と誤判定しない。
+
 
 形状（`extractHtmlTableShape`）と値行列（`parseTsv`）という2つの入力が揃ったことを受け、[出所設計](../../02_Architecture/input-assistance-paste-provenance.md)§5「内容照合」の手順2〜4（アンカー選定→転置索引での引き当て→複数アンカーの突き合わせ→矩形全体の照合）を`src/core/contentMatch.ts`の`findContentMatches(sheet, needle, options?)`として実装した。
 

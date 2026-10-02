@@ -34,11 +34,11 @@ export interface ContentMatch {
 
 export interface ContentMatchOptions {
   /**
-   * Upper bound on candidate origins verified against the full needle
-   * (§5 step 5: "候補数...に上限...を設ける"). Candidates beyond this are
-   * silently dropped -- a large count is treated as "content repeats a lot"
-   * (§5 step 6), not an error, since §4's auto-confirm rule already refuses
-   * to pick among multiple matches. Default 200.
+   * Upper bound on exact matches returned to the caller (§5 step 5:
+   * "候補数...に上限...を設ける"). Candidate origins are still verified until
+   * this many full matches have been found; truncating origins before exact
+   * verification can hide a genuine match behind many anchor-only hits.
+   * Default 200.
    */
   readonly maxCandidates?: number;
   /**
@@ -108,16 +108,17 @@ export function findContentMatches(
   }
 
   const maxCandidates = options?.maxCandidates ?? DEFAULT_MAX_CANDIDATES;
-  const boundedOrigins = sortOrigins(candidateOrigins).slice(0, maxCandidates);
-
   const results: ContentMatch[] = [];
-  for (const origin of boundedOrigins) {
+  for (const origin of sortOrigins(candidateOrigins)) {
     const range = candidateRange(origin, rowCount, columnCount);
     if (!fitsWithin(range, usedRange)) {
       continue;
     }
     if (rectangleMatches(sheet, range, needle)) {
       results.push({ range });
+      if (results.length >= maxCandidates) {
+        break;
+      }
     }
   }
   return results;
