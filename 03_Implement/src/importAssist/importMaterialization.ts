@@ -10,9 +10,19 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { extractImages, type ExtractProblem, type ExtractedImage } from '../cli/extract.js';
 import { DEFAULT_LEDGER_FILE } from '../core/importLedger.js';
-import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
+import {
+  createSourceIdentityFromBytes,
+  readSourceFileIdentity,
+} from '../core/sourceIdentity.js';
+import {
+  loadWorkbookFromBytes,
+  type WorkbookData,
+} from '../core/workbookLoader.js';
 import { analyzeWorkbookForImport, renderImportDraft, type ImportDraftAsset, type ImportDraftProblem } from './importDraft.js';
-import { readWorkbookStructure, type WorkbookStructure } from './workbookStructure.js';
+import {
+  readWorkbookStructureFromBytes,
+  type WorkbookStructure,
+} from './workbookStructure.js';
 
 export interface WorkbookImportMaterializeOptions {
   sourcePath: string;
@@ -29,6 +39,8 @@ export interface WorkbookImportMaterializeOptions {
 
 export interface WorkbookImportMaterialization {
   markdown: string;
+  /** Source bytes used consistently for this materialization. */
+  sourceDigest: string;
   ledgerPath: string;
   imageOutDir: string;
   extractedImages: ExtractedImage[];
@@ -95,6 +107,11 @@ export function writeWorkbookImportDraft(
       ledgerPath: paths.ledgerPath,
       imageOutDir: paths.imageOutDir,
     });
+    if (readSourceFileIdentity(path.resolve(options.sourcePath)).digest !== result.sourceDigest) {
+      throw new Error(
+        'MMI_IMPORT_SOURCE_CHANGED: source changed during import; run the import again',
+      );
+    }
     // 'wx' closes the check/write race: another process cannot be overwritten.
     draftWriteStarted = true;
     fs.writeFileSync(
@@ -156,10 +173,14 @@ export function materializeWorkbookImport(
   options: WorkbookImportMaterializeOptions,
 ): WorkbookImportMaterialization {
   const sourcePath = path.resolve(options.sourcePath);
+  const sourceBytes = fs.readFileSync(sourcePath);
+  const sourceDigest = createSourceIdentityFromBytes(sourceBytes).digest;
   const paths = workbookImportPaths(options);
   const { draftPath, ledgerPath, imageOutDir } = paths;
-  const workbook = options.workbook ?? loadWorkbook({ absolutePath: sourcePath });
-  const structure = options.structure ?? readStructureOptional(sourcePath, workbook);
+  const workbook = options.workbook
+    ?? loadWorkbookFromBytes(sourcePath, sourceBytes);
+  const structure = options.structure
+    ?? readStructureOptional(sourcePath, sourceBytes, workbook);
   const referencePath = relativeReference(draftPath, sourcePath);
 
   let extractedImages: ExtractedImage[] = [];
@@ -173,6 +194,7 @@ export function materializeWorkbookImport(
       sourceLabel: referencePath,
       ledgerPath,
       basis: 'mmi import',
+      sourceBytes,
     });
     extractedImages = extracted.extracted;
     const packageWarnings: ExtractProblem[] = (extracted.diagnostics ?? [])
@@ -216,6 +238,7 @@ export function materializeWorkbookImport(
 
   return {
     markdown: renderImportDraft(analyzed),
+    sourceDigest,
     ledgerPath,
     imageOutDir,
     extractedImages,
@@ -246,10 +269,11 @@ function distinctProblems(problems: readonly ExtractProblem[]): ExtractProblem[]
 
 function readStructureOptional(
   sourcePath: string,
+  sourceBytes: Uint8Array,
   workbook: WorkbookData,
 ): WorkbookStructure | undefined {
   try {
-    return readWorkbookStructure(sourcePath, workbook);
+    return readWorkbookStructureFromBytes(sourcePath, sourceBytes, workbook);
   } catch {
     return undefined;
   }
