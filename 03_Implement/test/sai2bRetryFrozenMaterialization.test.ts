@@ -154,6 +154,80 @@ test('XLSX validation rejects empty OOXML declaration parts', () => {
   );
 });
 
+test('XLSX validation rejects ambiguous workbook content-type overrides', () => {
+  const ambiguous = xlsxFrame(
+    undefined,
+    {
+      '[Content_Types].xml':
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        + '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+        + '<Override PartName="/xl/workbook.xml" '
+        + 'ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+        + '<Override PartName="/xl/workbook.xml" ContentType="application/octet-stream"/>'
+        + '</Types>',
+    },
+  );
+
+  assert.deepEqual(
+    validateZipContainer(ambiguous),
+    { ok: false, reason: 'xlsx_workbook_content_type_ambiguous' },
+  );
+});
+
+test('XLSX validation requires unique relationship ids and one officeDocument relationship', () => {
+  const missingId = xlsxFrame(
+    undefined,
+    {
+      '_rels/.rels':
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        + '<Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" '
+        + 'Target="xl/workbook.xml"/>'
+        + '</Relationships>',
+    },
+  );
+  assert.deepEqual(
+    validateZipContainer(missingId),
+    { ok: false, reason: 'xlsx_root_relationships_invalid' },
+  );
+
+  const duplicateId = xlsxFrame(
+    undefined,
+    {
+      '_rels/.rels':
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" '
+        + 'Target="xl/workbook.xml"/>'
+        + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" '
+        + 'Target="docProps/core.xml"/>'
+        + '</Relationships>',
+    },
+  );
+  assert.deepEqual(
+    validateZipContainer(duplicateId),
+    { ok: false, reason: 'xlsx_root_relationships_invalid' },
+  );
+
+  const ambiguousOfficeDocument = xlsxFrame(
+    undefined,
+    {
+      '_rels/.rels':
+        '<?xml version="1.0" encoding="UTF-8"?>'
+        + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+        + '<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" '
+        + 'Target="xl/workbook.xml"/>'
+        + '<Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" '
+        + 'Target="xl/other.xml"/>'
+        + '</Relationships>',
+    },
+  );
+  assert.deepEqual(
+    validateZipContainer(ambiguousOfficeDocument),
+    { ok: false, reason: 'xlsx_workbook_relationship_ambiguous' },
+  );
+});
+
 test('XLSX validation rejects non-standard officeDocument relationship types', () => {
   const spoofed = xlsxFrame(
     undefined,
