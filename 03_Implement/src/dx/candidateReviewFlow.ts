@@ -11,6 +11,13 @@ import {
   candidateLedgerView,
   type CandidateLedgerFilter,
 } from '../core/candidateLedgerView.js';
+import {
+  clearReviewDecisionForCandidate,
+  DEFAULT_REVIEW_DECISIONS_FILE,
+  readReviewDecisions,
+  recordRejectedDecision,
+  rejectedDecisionForCandidate,
+} from '../core/candidateReviewDecisions.js';
 import { placeOf, readLedger } from '../core/importLedger.js';
 
 export const REVIEW_CANDIDATES_COMMAND_ID =
@@ -66,7 +73,8 @@ async function chooseSource(target?: vscode.Uri): Promise<string | undefined> {
   return picked?.[0]?.fsPath;
 }
 
-function stateLabel(state: string): string {
+function stateLabel(state: string, rejected = false): string {
+  if (rejected) return '却下済み';
   switch (state) {
     case 'imported':
       return '取込済み';
@@ -112,6 +120,7 @@ function epistemicDetail(candidate: Candidate): string {
 function quickPickItem(
   source: CandidateReviewInventoryItem,
   ledgerState: string,
+  rejected: boolean,
   researchScores: readonly {
     provider: string;
     scale: string;
@@ -133,7 +142,7 @@ function quickPickItem(
           ?? image.name
           ?? `画像 ${image.ordinal}`}`,
       description:
-        `${stateLabel(ledgerState)} · ${image.sheet}${image.range
+        `${stateLabel(ledgerState, rejected)} · ${image.sheet}${image.range
           ? ` ${image.range}`
           : ''}`,
       detail: [
@@ -142,6 +151,7 @@ function quickPickItem(
         providerEvidence,
       ].join(' · '),
       source,
+      rejected,
     };
   }
 
@@ -149,12 +159,13 @@ function quickPickItem(
     label:
       `$(table) ${source.title ?? `${source.sheet} ${source.range}`}`,
     description:
-      `${stateLabel(ledgerState)} · ${source.sheet} ${source.range}`,
+      `${stateLabel(ledgerState, rejected)} · ${source.sheet} ${source.range}`,
     detail: [
       epistemicDetail(source.candidate),
       providerEvidence,
     ].join(' · '),
     source,
+    rejected,
   };
 }
 
@@ -164,6 +175,10 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
 
   const root = workspaceRoot(sourcePath);
   const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const reviewDecisionsPath = path.join(
+    root,
+    DEFAULT_REVIEW_DECISIONS_FILE,
+  );
   const sourceLabel =
     path.relative(root, sourcePath).split(path.sep).join('/')
     || path.basename(sourcePath);
@@ -201,7 +216,19 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
   const byKey = new Map(
     inventory.items.map((item) => [reviewKey(item.candidate), item]),
   );
-  const ledger = readLedger(ledgerPath);
+  let ledger;
+  let reviewDecisions;
+  try {
+    ledger = readLedger(ledgerPath);
+    reviewDecisions = readReviewDecisions(reviewDecisionsPath);
+  } catch (error) {
+    await vscode.window.showErrorMessage(
+      `MMI: レビュー状態を読み取れません: ${error instanceof Error
+        ? error.message
+        : String(error)}`,
+    );
+    return;
+  }
 
   const filterChoice = await vscode.window.showQuickPick(FILTERS, {
     title: 'MMI: Candidateレビュー',
