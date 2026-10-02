@@ -83,7 +83,7 @@ MMIは元データを書き換えません。ただし、開いたExcel側で編
 
 どの方法でも、参照は選んで確かめてから入ります。候補を自動で確定したり、原本を書き換えたりすることはありません。
 
-Markdownを開いた状態で右クリックすると「MMI: 参照を作成・編集」「MMI: 説明から表を探して参照を挿入」「MMI: コピーした範囲と同じ内容の表を探して参照を挿入」が並びます。参照の作成・編集は **Ctrl+Alt+M**（macOSは Cmd+Alt+M）でも開けます。はじめての方は、VS Codeの「ようこそ」→「チュートリアル」の **MMIをはじめる** で順に試せます。コマンド名はVS Codeの表示言語が日本語なら日本語で表示されます。
+Markdownを開いた状態で右クリックすると「MMI: 参照を作成・編集」「MMI: 説明から表を探して参照を挿入」「MMI: コピーした範囲と同じ内容の表を探して参照を挿入」が並びます。参照の作成・編集は **Ctrl+Alt+M**（macOSはCmd+Alt+M）でも開けます。はじめての方は、VS Codeの「ようこそ」→「チュートリアル」の **MMIをはじめる** で順に試せます。コマンド名はVS Codeの表示言語が日本語なら日本語で表示されます。
 
 ### 書きながら補完する
 
@@ -120,7 +120,7 @@ Markdownを開いた状態で右クリックすると「MMI: 参照を作成・�
 
 ### 表の目録から選ぶ（試作）
 
-エクスプローラーの**「MMI 表の目録」**に、ワークスペースのブック→シート→表→列が並びます。Excelを開かずに、どこに何の表があるかを確かめられます。
+エクスプローラーの**「MMI表の目録」**に、ワークスペースのブック→シート→表→列が並びます。Excelを開かずに、どこに何の表があるかを確かめられます。
 
 - 表には範囲と行数が、Excelの「テーブル」として作られた表にはその名前が出ます。注意がある表（非表示の行がある、集計行を外した、など）には印が付きます。
 - 表の右のボタンで参照を作ります。
@@ -141,7 +141,7 @@ Markdownを開いた状態で右クリックすると「MMI: 参照を作成・�
 2. 下書きの保存先を選びます（新しいMarkdownファイルです。ブックは変更しません）。
 3. MMIが表・画像・その他の領域を整理し、下書きとプレビューを開きます。
 
-表と画像は性質に合わせて扱いを分けます。表は値をコピーせず、元ブックへ追従するMMI参照として置きます。.xlsx / .xlsm に埋め込まれた画像は通常の画像ファイルとして `assets/<ブック名>/` へ取り込み、元のシートごとにMarkdown画像参照を置きます。画像のoccurrenceはプロジェクトの `mmi-ledger.json` に記録します。同じ画像bytesが複数箇所にある場合、画像ファイルは共用しますが、各occurrenceは別に記録します。
+表と画像は性質に合わせて扱いを分けます。表は値をコピーせず、元ブックへ追従するMMI参照として置きます。.xlsx / .xlsmに埋め込まれた画像は通常の画像ファイルとして`assets/<ブック名>/`へ取り込み、元のシートごとにMarkdown画像参照を置きます。画像のoccurrenceはプロジェクトの`mmi-ledger.json`に記録します。同じ画像bytesが複数箇所にある場合、画像ファイルは共用しますが、各occurrenceは別に記録します。
 
 - 下書きには、シートごとの見出し、表の参照、取り込んだ画像、表ではない領域（項目と値の組、文章、押印欄、図）の番地と扱いの目安が並びます。残す参照を選び、画像は必要な位置へ移動できます。不要な画像参照は下書きから削除できます。
 - Markdownで扱えない形式や読み取れない画像は黙って捨てず、「画像の注意」に理由を残します。原本を開いて必要性を確認してください。
@@ -149,6 +149,7 @@ Markdownを開いた状態で右クリックすると「MMI: 参照を作成・�
 - 見出しが2段の表、縦に結合したセル、表の途中の空行や区切り行、見出しの列に揃っていないセルがあると、下書きに**注意**が出ます。揃っていないセルの値は表示されないため、番地を示します。
 - 「同じ書式」のシートと、近い書式との違い（「表『2. 画面項目』に列『初期値』があります」など）も示します。同じ書式のシートは同じ判断で取り込めます。
 - 候補は推定です。表の範囲や見出しが違う場合は、参照を直すか削除してください。画像の抽出と台帳への記録は、表の役割推定を確定扱いにするものではありません。
+- 表自体を通常Markdownとして取り込みたい場合は、Candidateレビューから表を明示的に採用します。初回一括取り込みの既定では、表はLinkedのまま残します。
 
 ### 参照を確かめる・直す
 
@@ -164,7 +165,7 @@ Markdownを開いた状態で右クリックすると「MMI: 参照を作成・�
 
 Excelのクリップボードにはコピー元情報が含まれる場合があります。ただし、VS Codeの貼り付けAPIからその情報を取得できるか、またコピー内容と元範囲が一致するかは別の問題です。通常のCtrl+Vで参照に変換されない場合は、次のいずれかを使ってください。
 
-- **`Paste As...`（既定 Ctrl+.、貼り付け直後にも切替ウィジェットから呼び出せます）**: 通常どおりCtrl+Vで貼り付けた直後、または貼り付け前にCtrl+.を押すと、VS Code標準の「貼り付け方法を選ぶ」ドロップダウンが表示されます。クリップボードの内容でワークスペース内のワークブックを検索し、一致する範囲が見つかればそこに選択肢として並びます。何も選ばなければ挿入されません。
+- **`Paste As...`（既定Ctrl+.、貼り付け直後にも切替ウィジェットから呼び出せます）**: 通常どおりCtrl+Vで貼り付けた直後、または貼り付け前にCtrl+.を押すと、VS Code標準の「貼り付け方法を選ぶ」ドロップダウンが表示されます。クリップボードの内容でワークスペース内のワークブックを検索し、一致する範囲が見つかればそこに選択肢として並びます。何も選ばなければ挿入されません。
 - **コマンドパレットから `MMI: Insert Embed by Content Match` を実行**: 貼り付け操作を経由せず、クリップボードに今ある内容で同じ検索を行います。一致が見つかれば候補として提示します（1件でも必ず確認を求めます。何も選ばずEscで閉じれば挿入されません）。同じ値が複数の場所にある場合は、候補ごとに表題・見出し・直前と直後の行が出るので、それを見て選んでください。一致は内容から推定したもので、コピー元の証明ではありません。
 
 **Windows（ローカル）では、コピー元をそのまま使えます。** Excelで範囲をコピーしてから上のどちらかを使うと、クリップボードに入っているコピー元（ブック・シート・セル範囲）を読み、保存済みの原本が同じ値を示すことを確かめたうえで「コピー元を確認済み」として先頭に示します。例えば`設計.xlsx`の`状態遷移`で`C5:F12`をコピーすると、`![[./data/設計.xlsx#状態遷移|C5:F12]]`が候補になります。次の場合は確認できないため、内容からの推定だけになります: ブックを保存していない・保存後に変更した、フィルターで行や列を隠してコピーした、ブックがワークスペースの外にある、リモート環境（WSL・SSHなど）で開いている。この機能は設定「MMI › Paste: Use Clipboard Source」でオフにできます。読んだクリップボードの内容は保存しません。
@@ -194,10 +195,10 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 | --- | --- |
 | `mmi inspect <正本>` | シートごとの表の範囲・見出し・行数と、そのまま使える参照の例を表示。既定ではセル値を出さない（`--values 3`で先頭3行を表示）。`.xlsx`では画像も一覧に出す。取り込み台帳がある場合は `imported / changed / stale / duplicate / unimported` を照合し、`--unimported`で一度も取り込んでいないoccurrenceだけ、`--exclude-imported`で完全一致の取込済み以外を表示できる。台帳は`--ledger`で指定可能。研究用のpairwise similarity sidecarは`--similarity-evidence <file>`で併記できるが、取込済み判定には使わない |
 | `mmi extract <ブック.xlsx> --image <番号\|all>` | Excelに貼られた画像を`assets/`（`--out-dir`で変更）へ書き出し、Markdownの画像参照と出典を出力する。CLIでは同時に`<root>/mmi-ledger.json`へoccurrence・content fingerprint・出力先・変換条件・review basisを記録する（`--ledger`で変更）。同じ画像が別の場所にもある場合は別occurrenceとして残し、review stateを自動継承しない |
-| `mmi import <ブック> --draft <下書き.md>` | 既存ブックを1回でモダナイズ用の下書きへ整理する。表は元ブックへ追従する参照のまま残し、.xlsx / .xlsm の埋込画像はcontent-addressedな画像ファイルとして取り込み、occurrenceを同じ取り込み台帳へ記録する。表でない領域や抽出できない画像は確認事項として下書きに残す。下書き・assets・台帳は`--root`内に限定し、既存の下書きは上書きしない |
+| `mmi import <ブック> --draft <下書き.md>` | 既存ブックを1回でモダナイズ用の下書きへ整理する。表は元ブックへ追従する参照のまま残し、.xlsx / .xlsmの埋込画像はcontent-addressedな画像ファイルとして取り込み、occurrenceを同じ取り込み台帳へ記録する。表でない領域や抽出できない画像は確認事項として下書きに残す。下書き・assets・台帳は`--root`内に限定し、既存の下書きは上書きしない |
 | `mmi check <文書またはフォルダー>` | 参照の誤りを「問題」パネルと同じ診断コードで表示。誤りがあれば終了コード1 |
 | `mmi render <文書>` | 参照を展開したMarkdownを出力。`--to html`でPDF変換用のHTML |
-| `mmi materialize <文書> -o <出力.md>` | 原本を外すためのMarkdownを生成する。小さい表は本文へ展開し、別紙カード相当の明示sheet表は`mmi-materialized/`以下の通常Markdownへ実体化する。安全に実体化できない参照は黙って落とさずmarkerを残し終了コード1 |
+| `mmi materialize <文書> -o <出力.md>` | 原本を外すためのMarkdownを生成する。小表は本文へ、別紙相当表は`mmi-materialized/`へ、ローカル画像は`mmi-assets/`へcontent-addressedで実体化する。provenance付きで採用済みのExtracted表/画像は現在sourceとledgerへfreshness照合し、変更・stale・未追跡なら終了コード1 |
 | `mmi detach-check <文書>` | Detached成果物にMMI参照、未実体化marker、旧「別紙」カード、壊れたローカルリンク、ワークスペース外へのローカルリンクが残っていないか検査する。問題があれば終了コード1 |
 | `mmi manifest <文書>` | 別紙カードになる参照の一覧をCSVで出力 |
 | `mmi handoff <正本> --task <依頼>` | Candidate・provenance・任意の文書診断から、外部LLMへ手渡すpromptをローカル生成する。`--json`で機械可読package、`--document`で文書診断を追加。既定ではClaim値を省略し、必要な場合だけ`--include-values`で明示的に含める。MMI自身は外部LLMへ送信しない |
@@ -207,7 +208,11 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 
 **外部LLMへのhandoffについて。** `mmi handoff`は判断材料をローカルに整形するだけで、ChatGPT等への送信、ログイン、API keyの利用、課金サービスへの自動fallbackは行いません。packageは「依頼」「observed/confirmedの事実」「inferredの候補」「診断・abstainedの未解決事項」「許可/禁止操作」を分離します。sourceと`--document`は`--root`内に限定されます。返ってきたMMI記法は未検証の提案です。`mmi validate-proposal`で単一MMI記法としてparseし、未知parameterを含む場合はfail-closedにし、handoff時source、resolver・containment・source existence・sheet existence、read-only preview、source digestを再確認できます。すべて通っても文書や原本へ自動適用はしません。Candidate選択案・変換案の戻り検証は今後の対象です。
 
-**Detachedについて。** `materialize`は通常の`render`とは別の経路です。日常のLinked文書やプレビューを変えず、原本を廃止すると決めた範囲だけで使います。例えば `mmi materialize docs/spec.md -o detached/spec.md --root .` とすると、小さい表は通常のGFM表へ、大きくてカードになる表は `detached/mmi-materialized/table-<digest>.md` へ実体化されます。生成後は `mmi detach-check detached/spec.md --root .` を実行します。現時点のcheckはartifact closure（MMI参照とローカルリンクが残っていないこと）を確認する最小実装です。Excel内の画像・図形等が業務上必要かどうかまで自動判定するものではありません。採用済みCandidateと取り込み台帳を使った完全性監査は今後の対象です。
+**Detachedについて。** `materialize`は通常の`render`とは別の経路です。日常のLinked文書やプレビューを変えず、原本を廃止すると決めた範囲だけで使います。例えば `mmi materialize docs/spec.md -o detached/spec.md --root .` とすると、小さい表は通常のGFM表へ、大きくてカードになる表は `detached/mmi-materialized/table-<digest>.md` へ実体化されます。本文が参照するローカル画像は内容digestで `detached/mmi-assets/` へ複製され、Detached側の相対リンクへ書き換えられます。同じ画像bytesは1コピーにまとめます。`--assets-dir`で保存先を変更できます。
+
+また、本文に `mmi:extracted` / `mmi:extracted-table` provenanceがある場合、`materialize`は現在のsource Candidateと`mmi-ledger.json`を照合します。取り込み後に原本側の画像・表が変わった、review basisがstaleになった、ledgerが無い、といった場合は出力を確認用に生成しても終了コード1となり、detach可能とは扱いません。原本に存在するだけで本文へ採用していないCandidateはblockerにしません。
+
+生成後は `mmi detach-check detached/spec.md --root .` を実行します。これは成果物側にMMI参照、未実体化marker、壊れた/境界外ローカルリンクが残っていないことを確認します。つまり、**materialize時のfreshness preflight → 原本の除去 → detach-checkによるartifact closure** の二段階で確認します。Tree/Shape等の非表Candidateは、各Source Adapterの実装後に同じ仕組みへ接続する予定です。
 
 **取り込み台帳について。** 台帳は通常のJSONで、MMIを外しても読めます。セル位置や画像のanchorなどのoccurrence identityと、画像bytesや表内容のcontent fingerprintは分けて記録します。同じ画像bytesが別の場所にあっても、その場所を「取込済み」にはしません（`duplicate`）。同じ場所の内容が変わった場合は`changed`として再確認対象にします。内容fingerprintが同じでも、review時に根拠にしたClaim・evidence・methodが変わった場合は`stale`として示し、変わったClaim名を確認できます。別の場所へ移動した可能性があるCandidateは、同一content、同一sheet、object名、source-native object、近傍表などをlineage evidenceとして候補表示しますが、自動的に同一物とはみなしません。研究層の類似判定は完全一致・lineage evidenceとは別の証拠として扱います。`--json`ではCandidate自身が持つprovider別・scale別の値を`researchScores`として確認できます。別のoccurrenceとの比較結果は`--similarity-evidence <file>`で読み込んだsidecarから`similarityEvidence`として表示し、比較対象・provider/version・metric semanticsも一緒に保持します。異なるprovider/scale/namespaceの値を平均したり、scoreが高いという理由だけで`imported`・`duplicate`へ変更したり、`--unimported`から自動除外したりしません。
 
