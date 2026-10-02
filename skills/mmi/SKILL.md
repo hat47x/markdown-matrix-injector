@@ -42,6 +42,24 @@ MMIの参照は、Excel・CSVなどの正本から必要な表だけをMarkdown�
 
 `mmi`コマンドが無い場合は、MMIリポジトリの`03_Implement`で`npm run mmi -- <command> ...`を使う。
 
+## 外部LLMへ相談する（MMIは送信しない）
+
+判断が曖昧で外部LLMへ相談したい場合は、原本をそのまま渡す前にhandoff packageを作る。
+
+```sh
+mmi handoff masters/設計.xlsx \
+  --task "この設計書で使うMMI参照案を提案する" \
+  --document docs/基本設計書.md \
+  --root .
+```
+
+既定出力は人がコピーして利用者の選んだLLMへ渡すpromptである。MMI自身は送信、ログイン、API keyの利用、課金サービスへのfallbackを行わない。機械可読なpackageが必要なら`--json`を付ける。
+
+既定ではCandidateのClaim値とEvidence詳細をpackageへ含めない。値が本当に必要で、利用者の組織の規則上も許される場合だけ`--include-values`を明示する。この指定でも原本全体を全文投入するのではなく、Candidateが持つClaim値だけが追加される。
+
+handoffの返答は**提案**であって確定結果ではない。MMI記法が返ってきても、そのまま原本・文書へ適用せず、既存のparser / resolver / containment / source existence / preview等のAuthority Planeで再検証する。現時点の`mmi handoff`は戻り提案を自動適用しない。
+
+
 ## 記法
 
 ```md
