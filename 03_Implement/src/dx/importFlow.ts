@@ -2,10 +2,11 @@
  * `MMI: Import Tables from Workbook` (02_Architecture/import-assistance.md §5).
  *
  * Picks an existing Excel design document, asks where to save the import
- * draft, writes the draft (a new Markdown file -- the workbook is only read)
- * and opens it beside its preview, where every proposed reference is already
- * rendered from the source. The person then keeps, edits or deletes; nothing
- * is decided for them.
+ * draft, keeps tables as live MMI references, extracts embedded images as
+ * ordinary content-addressed Markdown assets, records those image occurrences
+ * in the shared import ledger, and opens the draft beside its preview.
+ * The workbook is read-only; the person keeps, moves, edits or deletes the
+ * proposed content in the draft.
  */
 import path from 'node:path';
 import * as vscode from 'vscode';
