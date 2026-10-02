@@ -7,7 +7,10 @@ import path from 'node:path';
 
 import { classify, readLedger } from '../src/core/importLedger.js';
 import { inspectSource } from '../src/cli/mmi.js';
-import { materializeWorkbookImport } from '../src/importAssist/importMaterialization.js';
+import {
+  materializeWorkbookImport,
+  writeWorkbookImportDraft,
+} from '../src/importAssist/importMaterialization.js';
 import { buildXlsxWithImages, emfOf, pngOf, screenDesignWorkbook } from './helpers/buildXlsxWithImages.js';
 
 const digest = (file: string): string =>
@@ -195,4 +198,71 @@ test('linked and missing workbook images stay visible as import warnings', () =>
   assert.match(result.markdown, /MMI_IMAGE_EXTERNAL_LINK/u);
   assert.match(result.markdown, /MMI_IMAGE_MEDIA_MISSING/u);
   assert.match(result.markdown, /\[画面\]/u);
+});
+
+
+test('transactional workbook import writes the draft only after materialization succeeds', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-commit-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  const draftPath = path.join(root, 'docs', 'design.md');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+
+  const result = writeWorkbookImportDraft({
+    sourcePath,
+    draftPath,
+    ledgerPath,
+  });
+
+  assert.equal(fs.readFileSync(draftPath, 'utf8'), result.markdown);
+  assert.equal(result.extractedImages.length, 4);
+  assert.equal(readLedger(ledgerPath).entries.length, 4);
+});
+
+test('transactional workbook import rolls back new assets and restores the previous ledger after late failure', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-rollback-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  const draftPath = path.join(root, 'docs', 'design.md');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const imageOutDir = path.join(root, 'docs', 'assets', 'design');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+  fs.mkdirSync(imageOutDir, { recursive: true });
+  fs.writeFileSync(path.join(imageOutDir, 'keep.txt'), 'pre-existing asset');
+  const ledgerBefore = '{\n  "schema": "mmi.ledger/v1",\n  "entries": []\n}\n';
+  fs.writeFileSync(ledgerPath, ledgerBefore);
+
+  assert.throws(
+    () => writeWorkbookImportDraft({
+      sourcePath,
+      draftPath,
+      ledgerPath,
+      imageOutDir,
+      // Extraction runs from source bytes first; this forces the later draft
+      // analysis phase to fail after assets/ledger have been touched.
+      workbook: { sheets: null } as any,
+    }),
+  );
+
+  assert.equal(fs.existsSync(draftPath), false);
+  assert.equal(fs.readFileSync(ledgerPath, 'utf8'), ledgerBefore);
+  assert.deepEqual(fs.readdirSync(imageOutDir), ['keep.txt']);
+  assert.equal(fs.readFileSync(path.join(imageOutDir, 'keep.txt'), 'utf8'), 'pre-existing asset');
+});
+
+test('transactional workbook import never overwrites an existing draft or mutates assets/ledger', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-existing-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  const draftPath = path.join(root, 'design.md');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+  fs.writeFileSync(draftPath, 'existing draft');
+
+  assert.throws(
+    () => writeWorkbookImportDraft({ sourcePath, draftPath, ledgerPath }),
+    /MMI_IMPORT_DRAFT_EXISTS/u,
+  );
+
+  assert.equal(fs.readFileSync(draftPath, 'utf8'), 'existing draft');
+  assert.equal(fs.existsSync(ledgerPath), false);
+  assert.equal(fs.existsSync(path.join(root, 'assets', 'design')), false);
 });
