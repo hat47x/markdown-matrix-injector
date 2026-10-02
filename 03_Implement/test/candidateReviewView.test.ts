@@ -177,6 +177,40 @@ test('stale validation preserves accepted review history without changing origin
   assert.equal(view[0].candidate.status, 'inferred');
 });
 
+test('modified adoption stays distinct from accepted while preserving Candidate origin', () => {
+  const f = workspace();
+  const reviewed = candidate('same-content');
+  const output = path.join(f.root, 'assets', 'table.md');
+  fs.mkdirSync(path.dirname(output), { recursive: true });
+  fs.writeFileSync(output, '| A | B |\n| --- | --- |\n| edited | value |\n');
+  recordEntries(f.ledgerPath, [
+    entryFor(
+      f.ledgerPath,
+      f.source,
+      reviewed,
+      output,
+      'test modified import',
+      { mode: 'gfm-table-v1', reviewMode: 'modified-output-v1' },
+      'modified',
+    ),
+  ]);
+
+  const view = candidateReviewView(
+    [reviewed],
+    readLedger(f.ledgerPath),
+    { schema: 'mmi.review-decisions/v1', entries: [] },
+    f.ledgerPath,
+    f.decisionPath,
+    f.source,
+    'all',
+  );
+
+  assert.equal(view.length, 1);
+  assert.equal(view[0].ledgerState, 'imported');
+  assert.equal(view[0].reviewState, 'modified');
+  assert.equal(view[0].candidate.status, 'inferred');
+});
+
 test('content-changed Candidate does not inherit acceptance from the previous content', () => {
   const f = workspace();
   const accepted = candidate('old-content');
