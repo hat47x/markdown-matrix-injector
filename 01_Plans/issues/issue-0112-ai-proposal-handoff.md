@@ -26,8 +26,8 @@ MMI自身が課金を要する生成AIサービスを呼ぶことは原則とし
 - [x] source本文やセル値は既定で最小限とし、値を含める場合は明示操作にする。秘密情報を暗黙に全文投入しない。
 - [x] MMI自身は外部LLMへ送信せず、API key・課金アカウント・自動ログイン・自動クラウドfallbackを持たない。
 - [ ] 外部LLMから戻されたMMI記法・Candidate選択・変換案は、parser / schema / resolver / containment / source existence / preview等のAuthority Planeで再検証する。
-- [ ] 戻り提案が存在しないシート、未対応集計、URL/外部パス、任意コマンド実行等を要求する場合は拒否または非対応として扱う。
-- [ ] 外部LLMが利用できなくても、MMIのinspect / check / render / extractとローカル認知は継続する。
+- [x] 戻り提案が存在しないシート、未対応集計、URL/外部パス、任意コマンド実行等を要求する場合は拒否または非対応として扱う。
+- [x] 外部LLMが利用できなくても、MMIのinspect / check / render / extractとローカル認知は継続する。
 
 
 ## Implementation checkpoint (2026-10-02)
@@ -43,6 +43,18 @@ packageには許可操作（MMI記法の提案、Candidate選択理由の説明�
 `test/aiHandoff.test.ts` では、既定packageからClaim値・Evidence詳細が消えること、明示opt-in時だけ復元されること、診断の同梱、promptのAuthority境界、空task/不正Candidate拒否、source重複排除、CLI経由のprivacy、workspace containmentを固定した。
 
 戻り提案の適用経路はまだ本Issueへ接続していない。既存`experimental/authorityRevalidationAdapter.ts`にはMMI記法提案に対する parser → parameter schema → resolver → containment → source existence → read-only preview とsource identity再確認があるため、次段はこの経路を再利用し、handoff専用の第二Authority実装を作らない。
+
+### MMI記法の戻り検証（2026-10-02）
+
+`src/dx/aiHandoffProposalValidation.ts` と `mmi validate-proposal` を追加し、外部LLMから戻った**MMI記法1件**を自動適用せずローカル再検証できるようにした。検証順序は、handoff package Authority契約 → 単一MMI embed parser → strict parameter schema → handoff source allowlist → 既存document diagnostics（resolver / containment / source existence / sheet existence）→ source digest一致 → 既存`evaluateEmbed`によるread-only preview → preview後source digest再確認、である。
+
+通常MMIでは未知parameterを互換用に無視できるが、外部LLMの戻り提案ではfail-closedとし、`aggregate=sum`等の未知parameterは`PROPOSAL_UNSUPPORTED_PARAMETER`で拒否する。存在しないsheetはcard modeでもdiagnostics段で拒否する。packageに無いsource、URL、workspace外pathはsource allowlist/containmentで拒否し、自由文・任意コマンドは単一MMI embedとしてparseできないため拒否する。sourceがhandoff後に変わった場合もpreview前に拒否し、preview中の変更は前後digest差分で拒否する。
+
+validation receiptは `mmi.ai-handoff-proposal-validation/v1` とし、各checkを`passed / failed / not-run`で保持する。CLIは全check通過時のみexit 0、blockedはexit 1、入力不足/境界外package・documentはexit 2とする。receiptは提案のdigestだけを保持し、自動適用・原本変更は行わない。
+
+`test/aiHandoffProposalValidation.test.ts`では正常提案、誤sheet、URL/外部path、未対応集計parameter、任意コマンド/自由文、source変更、package Authority契約改変、operation境界拡張、CLI exit code/workspace containmentを回帰として固定した。
+
+Candidate選択案・変換案の戻り検証はまだ未実装であるため、「戻されたMMI記法・Candidate選択・変換案をAuthority Planeで再検証する」という受入条件全体は未完了のままとする。
 
 ## Validation plan
 
