@@ -184,7 +184,7 @@
 - 新規 [`src/dx/contentMatchSearch.ts`](../../03_Implement/src/dx/contentMatchSearch.ts): `findWorkbookContentMatches(clipboardPlainText, workbooks)` — 複数ワークブック・複数シートを横断して`findContentMatches`を集約する。1シートが`maxIndexedCells`を超えて検索不能でも、そのシートだけ読み飛ばして他の検索を続行する（1つの巨大シートが全体を止めない）。`buildContentMatchMarkdown`が結果を`![[file#sheet|range]]`へ整形する。
 - 新規 `src/core/tableGeometry.ts`に`indexToColumn`・`cellRangeToA1`を追加。`columnToIndex`・`parseRangeToCellRange`の逆変換（物理座標→A1文字列）で、内容照合結果をnotationへ戻すのに必要だった（貼り付け機能はこれまで「A1文字列→物理座標」の方向にしか変換していなかった）。
 - **`src/extension.ts`**: `insertEmbedByContentMatch`関数と新規コマンド`markdownMatrixInjector.insertEmbedByContentMatch`（`MMI: Insert Embed by Content Match`）を追加。
-  - **探索対象ブックの決定（§5手順1）**: ワークスペース内を`vscode.workspace.findFiles(WORKBOOK_FILE_GLOB, ...)`で検索する。これは新しい方針ではなく、`buildAutocompleteCandidateSets`が自動補完のために既に使っているものとまったく同じglob・除外設定を流用しただけ。
+  - **探索対象ブックの決定（§5手順1）**: `vscode.workspace.findFiles(WORKBOOK_FILE_GLOB, ...)`で候補を列挙し、編集中Markdownが属するworkspace folderの内側だけを採用する。2026-10-03、文字列`startsWith(workspaceRoot)`による絞り込みを廃止し、記法P4と同じ`isPathWithinBoundary()`とrealpath検査へ統一した。これによりmulti-root workspaceで`work`と`work-old`のようなprefix衝突があっても別rootを検索せず、workspace内のsymlinkが外部ファイルを指す場合も探索対象から除外する。
   - **候補選択UI（§4「自動確定の規則」）**: 結果が1件でも複数件でも、必ず`vscode.window.showQuickPick`を経由する。VS Codeの標準的な明示選択UIを使うことで、独自UIの実装を避けた。Escでキャンセルすれば何も挿入しない（R1）。
   - 1シートが読み込めない（壊れたファイル等）場合はそのファイルを読み飛ばし、検索全体を止めない。
 
@@ -210,6 +210,7 @@
 - **`looksLikeTabularClipboard(plainText)`**: 単語1つ・URL1つのような単一スカラー値の貼り付けでは、`vscode.workspace.findFiles`にすら到達しない（無駄なワークスペース走査をしない）。`parseTsv`した結果が2セル未満（1行1列）なら即座に`[]`を返す。
 - **`MAX_CONTENT_MATCH_WORKSPACE_FILES`（500件、暫定値）**: 病的に大きいワークスペース（数千ファイル）に対する安全弁。実測では数百ファイルまで問題にならないと分かっているため、実運用で狭すぎると分かれば引き上げる前提。
   - **2026-10-02改善**: `findFiles()`の列挙順へ依存したまま先頭500件を切ると、実際のコピー元が501件目以降なら完全一致でも探索不能になるため、上限適用前にMarkdown文書からのディレクトリ距離で決定論的に並べる。まず同一ディレクトリ、次に近い子/兄弟階層を優先し、同距離は正規化パスで安定化する。上限値や完全一致判定、自動確定禁止は変更しない。500個の遠い候補の後ろに列挙された近傍ブックが上限内へ残る回帰テストを追加した。
+  - **2026-10-03境界修正**: 500件上限は、workspace境界を実パスで確認した後に適用する。境界外候補が上限枠を消費して正当な候補を押し出さない。prefixだけ一致する別root、symlinkによる境界外参照、境界検査後の件数上限を回帰テストで固定した。
 - **`CancellationToken`を尊重する**: `provideDocumentPasteEdits`が受け取る`token`を`loadWorkspaceWorkbooksForContentMatch`のファイル読込みループへ渡し、キャンセルされたら即座に打ち切る（ユーザーがEscを押す、別の編集を始める等でVS Codeがリクエストをキャンセルし得るため）。
 - 既存の明示コマンド（`insertEmbedByContentMatch`）は維持した。貼り付け操作を経由せず「クリップボードに今ある内容で検索したい」場合に使える、独立した価値がある。
 
