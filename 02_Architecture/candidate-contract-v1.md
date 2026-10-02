@@ -1,6 +1,6 @@
 # Semantic Candidate 契約 v1
 
-- 状態: 実装済み（型・不変条件・表と画像のSource Adapter・`mmi inspect --json`・`mmi extract`）。図形・木構造・メモ・リスト・見出しのAdapterは未実装。
+- 状態: 実装済み（型・不変条件・表と画像と木構造のSource Adapter・`mmi inspect --json`・`mmi extract`・`mmi tree`）。図形・メモ・リスト・見出しのAdapterは未実装。木構造はJSON・汎用XML・フラットテキストの最初の縦切り（§3c）。
 - 関連: [ADR-0019](../01_Plans/adr/ADR-0019-ai-era-sier-document-value-and-policy.md) D4・D6・D8、[ADR-0018](../01_Plans/adr/ADR-0018-cognitive-assistance-plane.md) D1〜D5、[ADR-0020](../01_Plans/adr/ADR-0020-requirement-oriented-cognition-method-selection.md)、[issue-0193](../01_Plans/issues/issue-0193-candidate-source-adapter-contract.md)
 - 実装: `src/core/candidate.ts`（型と不変条件）、`src/adapters/tableRegionAdapter.ts`（最初のAdapter）、`test/candidate.test.ts`
 
@@ -79,6 +79,31 @@ run       deterministic       { inputDigest, config, implementationVersion }
 ### fingerprint（暫定）
 
 表のfingerprintは、範囲の**表示セル値の列**（セルを`U+001F`、行を`U+001E`で連結）のsha256とし、`representation`は`table-display-cells-v1`とする。**位置を含めない**ので、表が別の行へ動いても同じfingerprintになり、セルを1つ変えると変わる。位置は`locator`が別に持つ。ADR-0019 D8のとおり方式は種別ごとに異なってよい。台帳での使い方（移動・再取り込みの判定）は[issue-0195](../01_Plans/issues/issue-0195-import-ledger.md)で確定し、必要なら`representation`を上げる。
+
+## 3c. Tree / HierarchyのSource Adapter（issue-0199）
+
+木構造は、形式に依存しない純粋なデータ（`src/core/tree.ts`。ノードはkind・label・任意の値・順序つき属性・子・source locator）として持ち、Markdown上の書き方（Projection、`src/core/treeProjection.ts`）と分ける。初期のProjectionは入れ子の箇条書きだけである。
+
+| 入力 | Adapter | `hierarchy`の状態 | method | reasonCode |
+| --- | --- | --- | --- | --- |
+| JSON | `adapters/jsonTreeAdapter.ts` | `observed` | M0 | `json-object-array-nesting` |
+| 汎用XML | `adapters/xmlTreeAdapter.ts` | `observed` | M0 | `xml-element-nesting` |
+| `.txt`・`.md` | `adapters/textTreeStructuralizer.ts` | `inferred`（構造がなければ`abstained`） | M1 | `indent-levels`・`numbering-levels`・`prefix-code-hierarchy`ほか |
+
+| 主張 | 状態 | 内容 |
+| --- | --- | --- |
+| `hierarchy` | 上表 | `nodes=N depth=D roots=R`。evidenceに規則（インデント単位、番号の形、親の決め方）、対象行数、番号の飛び・重複などの問題箇所（行番号つき） |
+| `roots` | `hierarchy`と同じ | 最上位ノードのlabel（先頭20件） |
+| `lines` | `observed`・M0 | 木が覆う原本の行範囲（`L3-L40`） |
+| `alternative` | `inferred`・M1 | 複数の構造が成り立つとき、この候補の番号（`2/3`） |
+| `selection` | `abstained`・M1 | 同上のとき、方式がどれにも決めないこと。reasonCodeが理由（`indent-mixed-tab-space`・`indent-uneven-dedent`・`numbering-gap`・`numbering-duplicate`・`numbering-missing-parent`・`prefix-duplicate`・`methods-disagree`など） |
+
+- 決定論的であることを事実性の根拠にしない。規則が複数の構造を許すとき（タブ幅で読みが変わるタブ・スペース混在、2つの段の間に戻る字下げ、番号の飛び・重複・親の欠落、コードの重複、方式どうしの不一致）は、別々の構造ごとにCandidateを返し、それぞれに`alternative`と`abstained`の`selection`を付ける。構造が1つしかなくても番号の矛盾があれば`selection`を控える。構造が見つからなければ、全主張が`abstained`のCandidateを1件返す。
+- fingerprintは`tree-shape-labels-v1`（ノードのkind・label・値・属性と入れ子のsha256。行番号を含めない）。同じブロックが別の行へ動いても変わらない。
+- 実行特性はすべて`deterministic`、`scores`は空。provenanceの`config`に方式・変種（`tab-width-4`、`by-number`など）・有効にした方式・接頭辞パターン・上限を残し、`implementationVersion`は各Adapterの版。
+- 深さ（既定64）とノード数（既定100000）に上限がある。超えたら木を返さず診断（`MMI_TREE_LIMIT_DEPTH`・`MMI_TREE_LIMIT_NODES`）を出す。途中で切った木は返さない。
+- XML Spreadsheet 2003（表の読込と同じシグネチャ判定）は表の処理が正なので、Treeとしては`MMI_TREE_XML_SPREADSHEET`で拒否する。`mmi inspect`は従来どおり表として扱う。外部DTD・DTDの実体宣言は解決せず拒否する（XXE・実体展開への対策）。
+- 拡張点: 表の「ID列＋親ID列」から同じTreeを組む`treeFromParentColumn()`。ID重複・親の欠落・循環があれば木を返さない。CLIにはまだ結んでいない。
 
 ## 4. CLI
 

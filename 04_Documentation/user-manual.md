@@ -191,6 +191,7 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 | --- | --- |
 | `mmi inspect <正本>` | シートごとの表の範囲・見出し・行数と、そのまま使える参照の例を表示。既定ではセル値を出さない（`--values 3`で先頭3行を表示）。`.xlsx`では画像も一覧に出す。取り込み台帳がある場合は `imported / changed / stale / duplicate / unimported` を照合し、`--unimported`で一度も取り込んでいないoccurrenceだけ、`--exclude-imported`で完全一致の取込済み以外を表示できる。台帳は`--ledger`で指定可能。研究用のpairwise similarity sidecarは`--similarity-evidence <file>`で併記できるが、取込済み判定には使わない |
 | `mmi extract <ブック.xlsx> --image <番号\|all>` | Excelに貼られた画像を`assets/`（`--out-dir`で変更）へ書き出し、Markdownの画像参照と出典を出力する。CLIでは同時に`<root>/mmi-ledger.json`へoccurrence・content fingerprint・出力先・変換条件・review basisを記録する（`--ledger`で変更）。同じ画像が別の場所にもある場合は別occurrenceとして残し、review stateを自動継承しない |
+| `mmi tree <ファイル>` | `.json`・汎用`.xml`・`.txt`・`.md`の階層を入れ子の箇条書きで出力する（`-o`でファイルへ）。JSON・XMLは書かれた親子関係をそのまま写す。テキストは`--method indent\|numbering\|prefix`（既定`auto`）の規則で推定し、`prefix`は`--prefix <正規表現>`でコードの形を指定する。複数の構造が成り立つときは候補を列挙して終了コード1になり、1つに決めない。XML Spreadsheet 2003は表として扱う形式なので拒否する（`mmi inspect`を使う）。外部DTDは読まない。`--json`でTreeとCandidateを出力。`mmi inspect`も同じファイルのTree Candidateを表示する |
 | `mmi check <文書またはフォルダー>` | 参照の誤りを「問題」パネルと同じ診断コードで表示。誤りがあれば終了コード1 |
 | `mmi render <文書>` | 参照を展開したMarkdownを出力。`--to html`でPDF変換用のHTML |
 | `mmi materialize <文書> -o <出力.md>` | 原本を外すためのMarkdownを生成する。小表は本文へ、別紙相当表は`mmi-materialized/`へ、ローカル画像は`mmi-assets/`へcontent-addressedで実体化する。provenance付きで採用済みのExtracted表/画像は現在sourceとledgerへfreshness照合し、変更・stale・未追跡なら終了コード1 |
