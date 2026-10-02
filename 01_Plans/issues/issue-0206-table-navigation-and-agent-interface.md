@@ -42,6 +42,8 @@ node --import tsx ./test/e2e/runImport.ts   # VSCODE_EXECUTABLE_PATH で既存�
 - 単体テスト9件を追加（構造4、目録・選択・CLI 5）。
 - VS Code 1.134.0の拡張機能ホストで、目録の木（表・列・シート上の列）と、目録から見出しで列を、文字列で行を選んで挿入する流れを確認した（確認の段は「本体5行 × 2列（見出しあり）」）。
 
+**2026-10-03:** `mmi select --candidate <fingerprint>`で`inspect --json`の表Candidateを直接選べる。`select`と`find`のJSONに同じCandidate指紋を載せ、台帳・レビューと同じ識別で追える（結合のあるシートの表Candidateは論理列で認識）。指紋が変わっていれば理由を示して止める。
+
 残りは次のとおりです。
 
 - 画面操作の目視確認と、AIエージェントでの実環境の確認。

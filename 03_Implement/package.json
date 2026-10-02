@@ -311,6 +311,12 @@
     "configuration": {
       "title": "Markdown Matrix Injector",
       "properties": {
+        "markdownMatrixInjector.diagnostics.whileTyping": {
+          "type": "string",
+          "enum": ["quiet", "full"],
+          "default": "quiet",
+          "markdownDescription": "%mmi.setting.diagnosticsWhileTyping%"
+        },
         "markdownMatrixInjector.paste.useClipboardSource": {
           "type": "boolean",
           "default": true,

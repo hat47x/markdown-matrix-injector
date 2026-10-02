@@ -53,6 +53,7 @@ import {
 import { readWorkbookCached } from './dx/sharedWorkbookCache.js';
 import { clearSearchIndexes, FIND_EMBED_COMMAND_ID, scriptedSearch, searchEmbedByDescription } from './dx/searchFlow.js';
 import { prioritizeWorkbookFiles } from './dx/workbookCandidateOrder.js';
+import { applyDiagnosticPolicy, AUTHORING_DEBOUNCE_MS, type DiagnosticPhase, type WhileTyping } from './dx/diagnosticPolicy.js';
 import { IMPORT_WORKBOOK_COMMAND_ID, importFromWorkbook } from './dx/importFlow.js';
 import { REVIEW_CANDIDATES_COMMAND_ID, reviewCandidates } from './dx/candidateReviewFlow.js';
 import {
@@ -219,8 +220,14 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
       ...SUPPORTED_COMPLETION_TRIGGER_CHARACTERS,
     ),
     vscode.workspace.onDidOpenTextDocument((document) => refreshDiagnosticsForDocument(document, diagnostics)),
-    vscode.workspace.onDidChangeTextDocument((event) => refreshDiagnosticsForDocument(event.document, diagnostics)),
-    vscode.workspace.onDidSaveTextDocument((document) => refreshDiagnosticsForDocument(document, diagnostics)),
+    // Typing: check after a pause and hold back the line being edited (ADR-0019 D13).
+    vscode.workspace.onDidChangeTextDocument((event) => scheduleAuthoringDiagnostics(event.document, diagnostics)),
+    // Moving to another line reports the one just left.
+    vscode.window.onDidChangeTextEditorSelection((event) => {
+      const line = event.selections[0]?.active.line;
+      if (line !== undefined && lastCursorLine.get(event.textEditor.document.uri.toString()) !== line) scheduleAuthoringDiagnostics(event.textEditor.document, diagnostics);
+    }),
+    vscode.workspace.onDidSaveTextDocument((document) => refreshDiagnosticsForDocument(document, diagnostics, 'review')),
     vscode.workspace.onDidCloseTextDocument((document) => diagnostics.delete(document.uri)),
   );
 
@@ -943,9 +950,26 @@ function toContextCompletionKind(kind: CompletionCandidate['kind']): vscode.Comp
   }
 }
 
+const lastCursorLine = new Map<string, number>();
+const diagnosticTimers = new Map<string, ReturnType<typeof setTimeout>>();
+
+function scheduleAuthoringDiagnostics(document: vscode.TextDocument, diagnostics: vscode.DiagnosticCollection): void {
+  const key = document.uri.toString();
+  const pending = diagnosticTimers.get(key);
+  if (pending) clearTimeout(pending);
+  diagnosticTimers.set(
+    key,
+    setTimeout(() => {
+      diagnosticTimers.delete(key);
+      void refreshDiagnosticsForDocument(document, diagnostics, 'authoring');
+    }, AUTHORING_DEBOUNCE_MS),
+  );
+}
+
 async function refreshDiagnosticsForDocument(
   document: vscode.TextDocument,
   diagnostics: vscode.DiagnosticCollection,
+  phase: DiagnosticPhase = 'review',
 ): Promise<void> {
   if (document.languageId !== 'markdown') {
     diagnostics.delete(document.uri);
@@ -970,9 +994,13 @@ async function refreshDiagnosticsForDocument(
     },
   });
 
+  const editor = vscode.window.visibleTextEditors.find((candidate) => candidate.document === document);
+  const cursorLine = editor?.selection.active.line;
+  if (cursorLine !== undefined) lastCursorLine.set(document.uri.toString(), cursorLine);
+  const whileTyping = vscode.workspace.getConfiguration('markdownMatrixInjector').get<WhileTyping>('diagnostics.whileTyping', 'quiet');
   diagnostics.set(
     document.uri,
-    items.map(({ diagnostic, range }) => {
+    applyDiagnosticPolicy(items, { phase, cursorLine, whileTyping }).map(({ diagnostic, range }) => {
       const vsCodeDiagnostic = new vscode.Diagnostic(
         new vscode.Range(range.start.line, range.start.character, range.end.line, range.end.character),
         diagnostic.message,

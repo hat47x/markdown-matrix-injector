@@ -41,7 +41,7 @@ import { validateAiHandoffNotationProposal } from '../dx/aiHandoffProposalValida
 import { createDiagnosticsForDocument } from '../dx/vscodeAdapters.js';
 import { inspectImportAssistance, type InspectImportAssistanceCandidate } from '../importAssist/inspectImportAssistance.js';
 import { buildDeliveryManifestCsv } from '../manifest/collectDeliveryManifest.js';
-import { detectRegions } from '../search/regionDetector.js';
+import { detectTableRegions, regionReference } from '../importAssist/tableRegions.js';
 import { runFind, runSelect } from './navigateCommands.js';
 import { extractImages, extractTable, formatImageDiagnostics } from './extract.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './render.js';
@@ -70,13 +70,9 @@ Commands:
       --out-dir <dir>         assets folder (default: assets); files are content-addressed
       --from <doc.md>         provenance/source labels are relative to this document
       --ledger <file>         import ledger (default: <root>/mmi-ledger.json)
-  select <workbook>         Print the reference for a table chosen by name, with columns/rows chosen by heading
-      --table <name|range>    Excel table, name, title or A1 range (required)
-      --sheet <name>  --columns <h1,h2>  --contains <text> [--in <heading>]  --first <n>
-      --from <doc.md>         write the reference relative to this document
-  find <description...>     Search workbooks under --root for tables matching a description
   select <workbook>         Print the reference for a table chosen by name, columns/rows by heading
-      --table <name|range>    Excel table, name, title or A1 range (required)
+      --table <name|range>    Excel table, name, title or A1 range
+      --candidate <sha256:...>  table Candidate fingerprint from inspect --json (instead of --table)
       --sheet <name>  --columns <h1,h2>  --contains <text> [--in <heading>]  --first <n>
       --from <doc.md>         write the reference relative to this document
   find <description...>     Search workbooks under --root for tables matching a description
@@ -129,6 +125,7 @@ export async function main(argv: string[]): Promise<number> {
       'exclude-imported': { type: 'boolean', default: false },
       'import-assist': { type: 'boolean', default: false },
       table: { type: 'string' },
+      candidate: { type: 'string' },
       sheet: { type: 'string' },
       columns: { type: 'string' },
       contains: { type: 'string' },
@@ -524,7 +521,7 @@ export function inspectSource(absolutePath: string, sampleRows: number, fromDocu
           ? [{ code: 'MMI_IMAGE_PACKAGE_UNSUPPORTED' as const, severity: 'warning' as const, message: 'binary .xls: embedded pictures are not read' }]
           : [],
       };
-  const detected = Object.entries(workbook.sheets).map(([name, sheet]) => ({ name, sheet, regions: detectRegions(name, sheet, { maxValueSample: 0 }) }));
+  const detected = Object.entries(workbook.sheets).map(([name, sheet]) => ({ name, sheet, regions: detectTableRegions(name, sheet, { maxValueSample: 0 }) }));
   const tablesBySheet: Record<string, TableRect[]> = Object.fromEntries(
     detected.map(({ name, regions }) => [name, regions.map((r) => ({ a1: r.a1, startRow: r.range.startRow, startCol: r.range.startCol, endRow: r.range.endRow, endCol: r.range.endCol }))]),
   );
@@ -557,8 +554,7 @@ export function inspectSource(absolutePath: string, sampleRows: number, fromDocu
     sheets: Object.entries(workbook.sheets).map(([name, sheet]) => ({
       name,
       ...(sheet.usedRange ? { usedRange: a1Of(sheet.usedRange) } : {}),
-      regions: detectRegions(name, sheet, { maxValueSample: 0 }).map((region) => {
-        const header = region.headerConfidence === 'likely' ? '?header=first' : '';
+      regions: detectTableRegions(name, sheet, { maxValueSample: 0 }).map((region) => {
         return {
           a1: region.a1,
           rows: region.range.endRow - region.range.startRow + 1,
@@ -567,7 +563,7 @@ export function inspectSource(absolutePath: string, sampleRows: number, fromDocu
           ...(region.headers ? { headers: region.headers } : {}),
           headerConfidence: region.headerConfidence,
           notes: region.reasons,
-          reference: `![[${relative}#${name}|${region.a1}${header}]]`,
+          reference: regionReference(relative, region),
           ...(sampleRows > 0 ? { sample: sliceRegion(sheet, region.a1).slice(region.headers ? 1 : 0, (region.headers ? 1 : 0) + sampleRows) } : {}),
         };
       }),

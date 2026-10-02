@@ -105,6 +105,20 @@ export function gridProjection(region: DetectedRegion, selected?: readonly numbe
   };
 }
 
+/**
+ * The reference that shows `region` as its logical table: `header=first` when
+ * the header is likely, and on a merged grid (方眼紙) its `columns=` and, if
+ * needed, `mode=table`. A plain region gets exactly what it always got.
+ */
+export function regionReference(source: string, region: DetectedRegion): string {
+  const params: string[] = [];
+  if (region.headerConfidence === 'likely' && region.headers !== undefined) params.push('header=first');
+  const projection = gridProjection(region);
+  if (projection.columns) params.push(`columns=${projection.columns}`);
+  if (projection.mode) params.push(`mode=${projection.mode}`);
+  return `![[${source}#${region.sheet}|${region.a1}${params.length > 0 ? `?${params.join('&')}` : ''}]]`;
+}
+
 /** The relative column letter of logical column `index` (for `columns=` completion). */
 export function logicalColumnLetter(region: DetectedRegion, index: number): string {
   return indexToColumn((region.columnAnchors?.[index] ?? region.range.startCol + index) - region.range.startCol);

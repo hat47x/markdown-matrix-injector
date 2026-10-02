@@ -22,7 +22,8 @@ import type { Candidate, Claim, Evidence } from '../core/candidate.js';
 import { fingerprintOf } from '../core/candidate.js';
 import type { SheetSource } from '../core/sheetSource.js';
 import { sliceRegion } from '../core/tableGeometry.js';
-import { DEFAULT_MAX_SCAN_CELLS, detectRegions, type DetectedRegion } from '../search/regionDetector.js';
+import { detectTableRegions, regionReference } from '../importAssist/tableRegions.js';
+import { DEFAULT_MAX_SCAN_CELLS, type DetectedRegion } from '../search/regionDetector.js';
 
 export const TABLE_ADAPTER_ALGORITHM = 'mmi.table-region-detector';
 /** Bump when detection rules change in a way that can change output. */
@@ -40,13 +41,16 @@ export interface TableAdapterInput {
 
 export function tableCandidates(input: TableAdapterInput): Candidate[] {
   const maxScanCells = input.maxScanCells ?? DEFAULT_MAX_SCAN_CELLS;
-  return detectRegions(input.sheetName, input.sheet, { maxScanCells, maxValueSample: 0 }).map((region) =>
+  return detectTableRegions(input.sheetName, input.sheet, { maxScanCells, maxValueSample: 0 }).map((region) =>
     toCandidate(input, region, maxScanCells),
   );
 }
 
 function evidenceOf(region: DetectedRegion): Evidence[] {
-  return region.reasons.map((code) => ({ code }));
+  return [
+    ...region.reasons.map((code) => ({ code })),
+    ...(region.columnAnchors ? [{ code: 'merged-grid-columns', detail: String(region.columnAnchors.length) }] : []),
+  ];
 }
 
 function toCandidate(input: TableAdapterInput, region: DetectedRegion, maxScanCells: number): Candidate {
@@ -100,9 +104,10 @@ function toCandidate(input: TableAdapterInput, region: DetectedRegion, maxScanCe
         },
   );
 
-  const rows = sliceRegion(input.sheet, region.a1);
+  // Merged grid: the logical cells (one per header anchor). Plain regions keep hashing every displayed cell.
+  const anchors = region.columnAnchors;
+  const rows = sliceRegion(input.sheet, region.a1).map((row) => (anchors ? anchors.map((col) => row[col - region.range.startCol] ?? '') : row));
   const material = rows.map((row) => row.join('\u001f')).join('\u001e');
-  const header = headerKnown ? '?header=first' : '';
   return {
     kind: 'table-range',
     locator: { source: input.source, sourceDigest: input.sourceDigest, sheet: input.sheetName, range: region.a1 },
@@ -122,6 +127,6 @@ function toCandidate(input: TableAdapterInput, region: DetectedRegion, maxScanCe
     // Displayed cell values of the region, location excluded: a table that moves keeps its fingerprint.
     fingerprint: fingerprintOf('table-display-cells-v1', material),
     scores: [],
-    reference: `![[${input.source}#${input.sheetName}|${region.a1}${header}]]`,
+    reference: regionReference(input.source, region),
   };
 }

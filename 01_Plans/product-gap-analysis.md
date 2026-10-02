@@ -24,7 +24,7 @@ Candidateの共通契約はissue-0193で実装済みで、表・画像が利用�
 | --- | --- | --- | --- | --- |
 | 参照 | ● | MMI Notation v1、VS Codeプレビュー、CLI `render` | 表以外のCandidateの参照 | 2〜3 |
 | 目録 | ◐ | CLI `inspect`（表の領域・見出し・行数、Excel画像の位置・形式・ダイジェスト・近くの表、`--json`のCandidate形式。`src/cli/mmi.ts`） | 図形・注記・リンクの列挙 | 2〜3 |
-| 候補抽出 | ◐ | 共通Candidate型を実装し、表・Excel画像を`mmi inspect --json`へ出力。研究: 表らしさ・見出し境界（structured artifact）、既知書式（worksheet format） | Tree/Shape等のCandidate化、研究成果の製品接続 | 1〜3 |
+| 候補抽出 | ◐ | 共通Candidate型を実装し、表・Excel画像を`mmi inspect --json`へ出力。表Candidateは結合した方眼紙の表を論理列で認識し、参照に`columns=`・`mode=table`を含める（`extract`も論理表を出力。2026-10-03）。研究: 表らしさ・見出し境界（structured artifact）、既知書式（worksheet format） | Tree/Shape等のCandidate化、研究成果の製品接続 | 1〜3 |
 | 個別取り込み | ◐ | CLI `extract`でExcel画像を通常画像assetへ、検出済みTable Candidateを標準GFM Markdown assetへ選択的に取り込む。VS Codeではimport stateとtype/status/executionで絞り、採用・却下・却下解除・保留を行える。却下は内容またはClaim basisが変わると自動失効する | 図形・Tree・構造化データのextract、修正して採用、実機E2E | 2 |
 | 一括変換 | ○ | なし | 既存変換器をbaseline converterとして評価し、Candidate・取り込み台帳へ接続（[issue-0200](issues/issue-0200-baseline-bulk-import.md)） | 2（後半） |
 | 重複回避 | ● | Candidate単位のfingerprint、`mmi.ledger/v1`、`imported/changed/stale/duplicate/unimported`、`--unimported` / `--exclude-imported`、lineage・similarity Evidence分離 | UIからの利用はissue-0202、一括変換からの登録はissue-0200 | 2 |

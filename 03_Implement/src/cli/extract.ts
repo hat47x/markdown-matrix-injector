@@ -19,7 +19,7 @@ import { entryFor, recordEntries, type LedgerEntry } from '../core/importLedger.
 import { buildLogicalTable } from '../core/renderTable.js';
 import { readSourceFileIdentity } from '../core/sourceIdentity.js';
 import { loadWorkbook } from '../core/workbookLoader.js';
-import type { EmbedQuery } from '../parser/embedSyntax.js';
+import { parseEmbedSyntax, type EmbedQuery } from '../parser/embedSyntax.js';
 
 export interface ExtractOptions {
   sourcePath: string;
@@ -253,7 +253,8 @@ export function extractTable(options: ExtractTableOptions): ExtractTableResult {
     && Array.isArray(headerClaim.value)
     ? 'first'
     : 'none';
-  const params = new URLSearchParams();
+  // The candidate's own reference decides how the table is shown (header, merged-grid columns).
+  const params = new URLSearchParams(parseEmbedSyntax(candidate.reference ?? '')?.params);
   params.set('header', headerMode);
   const query: EmbedQuery = {
     filepath: source,
