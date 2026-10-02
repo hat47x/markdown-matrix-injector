@@ -10,6 +10,8 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import XLSX from 'xlsx';
 import { WorkbookCache } from '../cache/workbookCache.js';
+import { checkDetachedDocument } from '../application/detachCheck.js';
+import { materializeDocument } from '../application/materialize.js';
 import { imageCandidates, readExcelImages, relationToTables, type ImageDiagnostic, type TableRect } from '../adapters/excelImageAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import type { Candidate, ProviderScore } from '../core/candidate.js';
@@ -36,6 +38,7 @@ import {
 } from '../dx/aiHandoff.js';
 import { validateAiHandoffNotationProposal } from '../dx/aiHandoffProposalValidation.js';
 import { createDiagnosticsForDocument } from '../dx/vscodeAdapters.js';
+import { inspectImportAssistance, type InspectImportAssistanceCandidate } from '../importAssist/inspectImportAssistance.js';
 import { buildDeliveryManifestCsv } from '../manifest/collectDeliveryManifest.js';
 import { detectRegions } from '../search/regionDetector.js';
 import { runFind, runSelect } from './navigateCommands.js';
@@ -50,6 +53,7 @@ Commands:
                             method, provenance and fingerprint)
       --values <n>            also print the first n body rows of each region
       --from <doc.md>         write suggested references relative to this document
+      --import-assist          also show grid-layout import roles, revalidated reference proposals and cautions
       --ledger <file>         import ledger (default: <root>/mmi-ledger.json when ledger filtering is used)
       --similarity-evidence <file>
                               optional research similarity sidecar; display only, never import identity
@@ -79,6 +83,11 @@ Commands:
                             (exit code 1 when any error is found)
   render <doc.md>           Expand references into Markdown tables (default) or HTML
       --to md|html
+  materialize <doc.md>      Write a source-independent Markdown projection for detaching
+      -o, --out <file>        detached Markdown output (required; must differ from source)
+      --attachments-dir <dir> directory for card-sized table attachments
+  detach-check <doc.md>     Verify a Markdown artifact has no MMI refs, unresolved cards,
+                            broken local links or links outside --root
   manifest <doc.md>         List references that fall back to 別紙 cards as CSV
   handoff <source>          Build a local-only evidence package/prompt for a user-chosen external LLM
       --task <text>           work to ask for (required)
@@ -109,10 +118,12 @@ export async function main(argv: string[]): Promise<number> {
       from: { type: 'string' },
       image: { type: 'string' },
       'out-dir': { type: 'string', default: 'assets' },
+      'attachments-dir': { type: 'string' },
       ledger: { type: 'string' },
       'similarity-evidence': { type: 'string' },
       unimported: { type: 'boolean', default: false },
       'exclude-imported': { type: 'boolean', default: false },
+      'import-assist': { type: 'boolean', default: false },
       table: { type: 'string' },
       sheet: { type: 'string' },
       columns: { type: 'string' },
@@ -142,6 +153,9 @@ export async function main(argv: string[]): Promise<number> {
       }
       const absoluteSource = path.resolve(args[0]);
       const raw = inspectSource(absoluteSource, Number(values.values) || 0, values.from);
+      if (values['import-assist']) {
+        raw.importAssistance = inspectImportAssistance(absoluteSource, values.from);
+      }
       const ledgerPath = path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE);
       const filter: CandidateLedgerFilter = values.unimported
         ? 'unimported'
@@ -228,6 +242,70 @@ export async function main(argv: string[]): Promise<number> {
         return 1;
       }
       return 0;
+    }
+    case 'materialize': {
+      if (args.length !== 1) return usageError('materialize takes one Markdown file');
+      if (!values.out) return usageError('materialize needs -o, --out <file>');
+      const sourceDocument = path.resolve(args[0]);
+      const outputDocument = path.resolve(values.out);
+      if (sourceDocument === outputDocument) {
+        return usageError('materialize output must differ from the source Markdown file');
+      }
+      if (!handoffPathWithinRoot(sourceDocument, root) || !handoffPathWithinRoot(outputDocument, root)) {
+        return usageError('materialize source and output must stay within --root workspace');
+      }
+      const attachmentsDirectory = values['attachments-dir']
+        ? path.resolve(values['attachments-dir'])
+        : path.join(path.dirname(outputDocument), 'mmi-materialized');
+      if (!handoffPathWithinRoot(attachmentsDirectory, root)) {
+        return usageError('materialize --attachments-dir must stay within --root workspace');
+      }
+      const result = materializeDocument({
+        markdownFilePath: sourceDocument,
+        workspaceRoot: root,
+        outputDocumentPath: outputDocument,
+        attachmentsDirectory,
+      });
+      fs.mkdirSync(path.dirname(outputDocument), { recursive: true });
+      fs.writeFileSync(outputDocument, result.markdown);
+      let collision = false;
+      for (const file of result.files) {
+        fs.mkdirSync(path.dirname(file.absolutePath), { recursive: true });
+        if (fs.existsSync(file.absolutePath) && fs.readFileSync(file.absolutePath, 'utf8') !== file.content) {
+          console.error(`mmi: MMI_DETACH_NAME_COLLISION: ${file.absolutePath} exists with different content; it was not overwritten`);
+          collision = true;
+          continue;
+        }
+        fs.writeFileSync(file.absolutePath, file.content);
+      }
+      for (const problem of result.problems) {
+        console.error(`mmi: ${problem.code} line ${problem.line}: ${problem.message}`);
+      }
+      const summary = {
+        output: path.relative(process.cwd(), outputDocument).split(path.sep).join('/'),
+        attachments: result.files.map((file) => file.relativePath),
+        problems: result.problems,
+        detachable: !collision && result.problems.length === 0,
+      };
+      if (values.json) process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
+      else console.log(`materialized: ${summary.output} (${summary.attachments.length} attachment(s), ${result.problems.length} unresolved)`);
+      return summary.detachable ? 0 : 1;
+    }
+    case 'detach-check': {
+      if (args.length !== 1) return usageError('detach-check takes one Markdown file');
+      const markdownFilePath = path.resolve(args[0]);
+      if (!handoffPathWithinRoot(markdownFilePath, root)) {
+        return usageError('detach-check document must stay within --root workspace');
+      }
+      const result = checkDetachedDocument({ markdownFilePath, workspaceRoot: root });
+      if (values.json) {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        const lines = result.problems.map((problem) =>
+          `${problem.line} ${problem.code} ${problem.message}`);
+        process.stdout.write(`${[...lines, `${result.errors} detach error(s)`].join('\n')}\n`);
+      }
+      return result.errors > 0 ? 1 : 0;
     }
     case 'manifest': {
       if (args.length !== 1) return usageError('manifest takes one Markdown file');
@@ -347,6 +425,11 @@ export interface InspectResult {
   images: InspectImage[];
   /** Pictures or drawings that could not be read, by name. */
   imageDiagnostics: ImageDiagnostic[];
+  /**
+   * Optional non-authoritative import assistance. Kept separate from
+   * Semantic Candidates so inferred roles never become observed facts.
+   */
+  importAssistance?: InspectImportAssistanceCandidate[];
   /** Present when the CLI joined Candidates with an import ledger. */
   ledger?: InspectLedgerView;
 }
@@ -529,6 +612,14 @@ function formatInspect(result: InspectResult): string {
   };
   const lines = [`source: ${result.source}`];
   if (result.ledger) lines.push(`ledger: ${result.ledger.file} (${result.ledger.filter})`);
+  if (result.importAssistance) {
+    lines.push('', 'import assistance (non-authoritative):');
+    for (const item of result.importAssistance) {
+      const proposal = item.proposal ? `  proposal: ${item.proposal}` : '';
+      const cautions = item.cautions.length > 0 ? `  cautions: ${item.cautions.map((c) => c.code).join(', ')}` : '';
+      lines.push(`  ${item.sheet}!${item.range}  role: ${item.role}${proposal}${cautions}`);
+    }
+  }
   for (const sheet of result.sheets) {
     lines.push('', `sheet: ${sheet.name}${sheet.usedRange ? ` (used ${sheet.usedRange})` : ''}`);
     if (sheet.regions.length === 0) lines.push('  (no table regions)');
