@@ -126,6 +126,11 @@ export function writeWorkbookImportDraft(
       result.markdown,
       { encoding: 'utf8', flag: 'wx' },
     );
+    if (readSourceFileIdentity(path.resolve(options.sourcePath)).digest !== result.sourceDigest) {
+      throw new Error(
+        'MMI_IMPORT_SOURCE_CHANGED: source changed while committing import; run the import again',
+      );
+    }
     return result;
   } catch (error) {
     const removeDraft =
@@ -202,6 +207,17 @@ export function materializeWorkbookImport(
     ?? readStructureOptional(sourcePath, sourceBytes, workbook);
   const referencePath = relativeReference(draftPath, sourcePath);
 
+  // Complete all read-only workbook analysis before writing assets or ledger.
+  // If the workbook cannot be analyzed, the import fails with no side effects.
+  const analyzedBase = analyzeWorkbookForImport(
+    path.basename(sourcePath),
+    referencePath,
+    workbook,
+    {
+      ...(structure ? { structure } : {}),
+    },
+  );
+
   let extractedImages: ExtractedImage[] = [];
   let imageProblems: ExtractProblem[] = [];
   if (/\.(xlsx|xlsm)$/iu.test(sourcePath)) {
@@ -244,16 +260,11 @@ export function materializeWorkbookImport(
     ...(problem.ordinal ? { ordinal: problem.ordinal } : {}),
   }));
 
-  const analyzed = analyzeWorkbookForImport(
-    path.basename(sourcePath),
-    referencePath,
-    workbook,
-    {
-      ...(structure ? { structure } : {}),
-      assets,
-      assetProblems: problems,
-    },
-  );
+  const analyzed = {
+    ...analyzedBase,
+    assets,
+    assetProblems: problems,
+  };
 
   return {
     markdown: renderImportDraft(analyzed),
