@@ -208,9 +208,9 @@ export function extractImages(options: ExtractOptions): ExtractResult {
 
   const documentDirectory = path.dirname(path.resolve(options.fromDocument ?? path.join(process.cwd(), 'x.md')));
   const source = options.sourceLabel ?? (path.relative(documentDirectory, options.sourcePath).split(path.sep).join('/') || path.basename(options.sourcePath));
-  const sourceDigest = options.sourceBytes
-    ? createSourceIdentityFromBytes(packageBytes).digest
-    : readSourceFileIdentity(options.sourcePath).digest;
+  // Candidate identity and extracted bytes must describe the same source
+  // snapshot. packageBytes is the exact snapshot already used for image parse.
+  const sourceDigest = createSourceIdentityFromBytes(packageBytes).digest;
   const candidateByOrdinal = new Map<number, Candidate>();
   if (options.excludeCandidate || options.ledgerPath) {
     const candidates = imageCandidates({
