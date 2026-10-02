@@ -2,7 +2,7 @@
 
 Claude Code、GitHub Copilot、CodexなどのAIエージェントに、MMIで設計書を書かせるときの手引きです。このファイルの「エージェントへの指示」をそのまま、利用者のリポジトリの`AGENTS.md`、`.github/copilot-instructions.md`、またはスキルに貼って使えます。
 
-コマンドは試作です。配布形態が決まるまでは、MMIのリポジトリの`03_Implement`で`npm run mmi -- <コマンド>`、またはビルド後に`node dist/src/cli/mmi.js <コマンド>`として実行します。
+CLIはNode.js 20以上で動くnpm互換tarballとして配布する。配布CLIを導入した環境では`mmi <コマンド>`を使う。MMIリポジトリの開発checkoutで作業する場合だけ、`03_Implement`で`npm run mmi -- <コマンド>`をfallbackとして使う。
 
 ## エージェントへの指示
 
@@ -11,14 +11,14 @@ Claude Code、GitHub Copilot、CodexなどのAIエージェントに、MMIで設
 
 このリポジトリの設計書では、一覧表をExcelなどの正本から参照します。表の値を本文に写してはいけません。
 
-1. 正本の構造を調べる: `mmi inspect <ブック> --doc <書く文書> --json`
+1. 正本の構造を調べる: `mmi inspect <ブック> --from <書く文書> --json`
    - シート、表（Excelテーブル名・表題・範囲）、列の見出し、行数、注意が返ります。
-   - セルの値が必要なときだけ `--sample 3` を付けます。
-2. 参照を作る: `mmi select <ブック> --table <表名> --columns <見出し,見出し> [--contains <文字列> --in <見出し>] --doc <書く文書>`
+   - セルの値が必要なときだけ `--values 3` を付けます。
+2. 参照を作る: `mmi select <ブック> --table <表名> --columns <見出し,見出し> [--contains <文字列> --in <見出し>] --from <書く文書>`
    - 標準出力の1行が参照です。そのまま文書に書きます。
    - 終了コードが1のときは、標準エラーの理由と候補を読んで指定を直します。
    - 「指定した列だけの絞り込みと一致しません」と出たら、表示する列か文字列を見直すか、その旨を本文に書きます。
-3. 説明から探す: `mmi find "<表の説明>" --root <正本のフォルダ> --doc <書く文書>`
+3. 説明から探す: `mmi find "<表の説明>" --root <正本のフォルダ> --from <書く文書>`
    - 候補が複数あれば、どれを使ったかを本文で明らかにします。
 4. 検証する: `mmi check <文書> --root <リポジトリのルート> --json`
    - エラーが0件になるまで参照を直します。診断コード（MMI_SHEET_NOT_FOUNDなど）は安定しています。
@@ -35,7 +35,7 @@ Claude Code、GitHub Copilot、CodexなどのAIエージェントに、MMIで設
 ## 例
 
 ```text
-$ mmi inspect masters/画面定義書_受注.xlsx --doc docs/基本設計書.md
+$ mmi inspect masters/画面定義書_受注.xlsx --from docs/基本設計書.md
 画面定義書_受注.xlsx
   シート 受注登録 使用範囲 A1:AD31
     表 受注登録!B11:AD19 「2. 画面項目」 本体8行
@@ -44,7 +44,7 @@ $ mmi inspect masters/画面定義書_受注.xlsx --doc docs/基本設計書.md
       ...
 
 $ mmi select masters/画面定義書_受注.xlsx --sheet 受注登録 --table 画面項目 \
-    --columns 項目名,型,必須 --contains ○ --in 必須 --doc docs/基本設計書.md
+    --columns 項目名,型,必須 --contains ○ --in 必須 --from docs/基本設計書.md
 ![[../masters/画面定義書_受注.xlsx#受注登録|B11:AD19?columns=C,O,T&header=first&grep=○&mode=table]]
 
 $ mmi check docs/基本設計書.md --root .
