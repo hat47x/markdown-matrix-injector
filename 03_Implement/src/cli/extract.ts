@@ -12,6 +12,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { imageCandidates, readExcelImages, readImageBytes, type ExcelImage, type ImageDiagnostic } from '../adapters/excelImageAdapter.js';
+import type { Candidate } from '../core/candidate.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 
 import { toGfmTable } from '../core/markdownTable.js';
@@ -24,6 +25,19 @@ import {
 import { loadWorkbook } from '../core/workbookLoader.js';
 import { parseEmbedSyntax, type EmbedQuery } from '../parser/embedSyntax.js';
 
+export interface ExtractCandidateExclusion {
+  code: string;
+  message: string;
+}
+
+export interface ExtractSkippedImage {
+  ordinal: number;
+  sheet: string;
+  name?: string;
+  code: string;
+  message: string;
+}
+
 export interface ExtractOptions {
   sourcePath: string;
   /** `all` or a 1-based image number as printed by `inspect`. */
@@ -31,6 +45,14 @@ export interface ExtractOptions {
   outDir: string;
   /** Optional frozen source snapshot shared with a larger import transaction. */
   sourceBytes?: Uint8Array;
+  /**
+   * Optional product-policy gate. Returning a reason keeps the Candidate out
+   * of this extraction without turning the human decision into an error.
+   */
+  excludeCandidate?: (
+    candidate: Candidate,
+    image: ExcelImage,
+  ) => ExtractCandidateExclusion | undefined;
   /** Markdown references are written relative to this document's folder (default: current directory). */
   fromDocument?: string;
   /** Source as it should be written in provenance (default: relative to the document folder). */
@@ -63,6 +85,8 @@ export interface ExtractProblem {
 export interface ExtractResult {
   extracted: ExtractedImage[];
   problems: ExtractProblem[];
+  /** Intentionally omitted by a caller-supplied Candidate policy. */
+  skipped?: ExtractSkippedImage[];
   /** Raw package diagnostics from the same image parse used for extraction. */
   diagnostics?: ImageDiagnostic[];
 }
@@ -144,7 +168,12 @@ function tableProvenanceComment(
 }
 
 export function extractImages(options: ExtractOptions): ExtractResult {
-  const result: ExtractResult = { extracted: [], problems: [], diagnostics: [] };
+  const result: ExtractResult = {
+    extracted: [],
+    problems: [],
+    skipped: [],
+    diagnostics: [],
+  };
   const packageBytes = options.sourceBytes ?? fs.readFileSync(options.sourcePath);
   if (!/\.(xlsx|xlsm)$/iu.test(options.sourcePath)) {
     result.problems.push({ code: 'MMI_IMAGE_PACKAGE_UNSUPPORTED', message: 'images can only be extracted from .xlsx / .xlsm workbooks' });
@@ -179,6 +208,39 @@ export function extractImages(options: ExtractOptions): ExtractResult {
 
   const documentDirectory = path.dirname(path.resolve(options.fromDocument ?? path.join(process.cwd(), 'x.md')));
   const source = options.sourceLabel ?? (path.relative(documentDirectory, options.sourcePath).split(path.sep).join('/') || path.basename(options.sourcePath));
+  const sourceDigest = options.sourceBytes
+    ? createSourceIdentityFromBytes(packageBytes).digest
+    : readSourceFileIdentity(options.sourcePath).digest;
+  const candidateByOrdinal = new Map<number, Candidate>();
+  if (options.excludeCandidate || options.ledgerPath) {
+    const candidates = imageCandidates({
+      source,
+      sourceDigest,
+      images: read.images,
+    });
+    read.images.forEach((image, index) => {
+      candidateByOrdinal.set(image.ordinal, candidates[index]);
+    });
+  }
+
+  if (options.excludeCandidate) {
+    chosen = chosen.filter((image) => {
+      const candidate = candidateByOrdinal.get(image.ordinal);
+      if (!candidate) return true;
+      const exclusion = options.excludeCandidate?.(candidate, image);
+      if (!exclusion) return true;
+      result.skipped?.push({
+        ordinal: image.ordinal,
+        sheet: image.sheet,
+        ...(image.name ? { name: image.name } : {}),
+        code: exclusion.code,
+        message: exclusion.message,
+      });
+      return false;
+    });
+    if (chosen.length === 0) return result;
+  }
+
   fs.mkdirSync(options.outDir, { recursive: true });
   const outDirectory = fs.realpathSync(options.outDir);
   const sourceReal = fs.realpathSync(options.sourcePath);
@@ -224,13 +286,11 @@ export function extractImages(options: ExtractOptions): ExtractResult {
     });
   }
   if (options.ledgerPath && result.extracted.length > 0) {
-    const sourceDigest = options.sourceBytes
-      ? createSourceIdentityFromBytes(packageBytes).digest
-      : readSourceFileIdentity(options.sourcePath).digest;
     const entries: LedgerEntry[] = [];
     for (const item of result.extracted) {
       const image = chosen.find((candidateImage) => candidateImage.ordinal === item.ordinal)!;
-      const [candidate] = imageCandidates({ source: source, sourceDigest, images: [image] });
+      const candidate = candidateByOrdinal.get(item.ordinal)
+        ?? imageCandidates({ source, sourceDigest, images: [image] })[0];
       entries.push(entryFor(
         options.ledgerPath,
         options.sourcePath,
