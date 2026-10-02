@@ -9,10 +9,8 @@
  */
 import path from 'node:path';
 import * as vscode from 'vscode';
-import { analyzeWorkbookForImport, renderImportDraft } from '../importAssist/importDraft.js';
-import { readWorkbookStructure, type WorkbookStructure } from '../importAssist/workbookStructure.js';
+import { materializeWorkbookImport } from '../importAssist/importMaterialization.js';
 import { readWorkbookCached } from './sharedWorkbookCache.js';
-import { toRelativeSuggestion } from './vscodeAdapters.js';
 
 export const IMPORT_WORKBOOK_COMMAND_ID = 'markdownMatrixInjector.importFromWorkbook';
 
@@ -42,22 +40,28 @@ export async function importFromWorkbook(workbookGlob: string, target?: vscode.U
     void vscode.window.showErrorMessage(`MMI: ブックを読めませんでした: ${(error as Error).message}`);
     return undefined;
   }
-  const draft = await vscode.window.withProgress(
-    { location: vscode.ProgressLocation.Notification, title: 'MMI: 表の領域と書式を調べています' },
-    async () => {
-      let structure: WorkbookStructure | undefined;
-      try {
-        structure = readWorkbookStructure(workbook.fsPath, data);
-      } catch {
-        structure = undefined; // names and tables are optional evidence; the draft works without them
-      }
-      return renderImportDraft(
-        analyzeWorkbookForImport(path.basename(workbook.fsPath), toRelativeSuggestion(draftUri.fsPath, workbook.fsPath), data, { structure }),
-      );
-    },
+  const workspaceFolder = vscode.workspace.getWorkspaceFolder(draftUri)
+    ?? vscode.workspace.getWorkspaceFolder(workbook);
+  const ledgerPath = workspaceFolder
+    ? path.join(workspaceFolder.uri.fsPath, 'mmi-ledger.json')
+    : path.join(path.dirname(draftUri.fsPath), 'mmi-ledger.json');
+
+  const materialized = await vscode.window.withProgress(
+    { location: vscode.ProgressLocation.Notification, title: 'MMI: 表と画像を取り込み候補へ整理しています' },
+    async () => materializeWorkbookImport({
+      sourcePath: workbook.fsPath,
+      draftPath: draftUri.fsPath,
+      ledgerPath,
+      workbook: data,
+    }),
   );
 
-  await vscode.workspace.fs.writeFile(draftUri, new TextEncoder().encode(draft));
+  await vscode.workspace.fs.writeFile(draftUri, new TextEncoder().encode(materialized.markdown));
+  if (materialized.imageProblems.length > 0) {
+    void vscode.window.showWarningMessage(
+      `MMI: 下書きを作成しました。抽出できなかった画像が ${materialized.imageProblems.length} 件あります。下書きの「画像の注意」を確認してください。`,
+    );
+  }
   const document = await vscode.workspace.openTextDocument(draftUri);
   await vscode.window.showTextDocument(document, { preview: false });
   await vscode.commands.executeCommand('markdown.showPreviewToSide', draftUri);
