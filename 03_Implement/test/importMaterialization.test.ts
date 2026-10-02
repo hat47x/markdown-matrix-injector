@@ -7,6 +7,7 @@ import path from 'node:path';
 
 import { classify, readLedger } from '../src/core/importLedger.js';
 import { inspectSource } from '../src/cli/mmi.js';
+import { loadWorkbookFromBytes } from '../src/core/workbookLoader.js';
 import {
   materializeWorkbookImport,
   writeWorkbookImportDraft,
@@ -33,6 +34,7 @@ test('one workbook import keeps tables linked and materializes embedded images i
 
   assert.equal(result.imageProblems.length, 0);
   assert.equal(result.extractedImages.length, 4);
+  assert.equal(result.sourceDigest, digest(sourcePath));
   assert.equal(fs.readdirSync(result.imageOutDir).length, 2, 'duplicate image bytes share one asset file');
   assert.equal((result.markdown.match(/<!-- mmi:extracted /gu) ?? []).length, 4);
   assert.match(
@@ -265,4 +267,46 @@ test('transactional workbook import never overwrites an existing draft or mutate
   assert.equal(fs.readFileSync(draftPath, 'utf8'), 'existing draft');
   assert.equal(fs.existsSync(ledgerPath), false);
   assert.equal(fs.existsSync(path.join(root, 'assets', 'design')), false);
+});
+
+
+test('transactional workbook import aborts and rolls back when the source changes during the operation', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-source-change-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  const draftPath = path.join(root, 'docs', 'design.md');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const imageOutDir = path.join(root, 'docs', 'assets', 'design');
+  const initialBytes = screenDesignWorkbook().bytes;
+  const changedBytes = screenDesignWorkbook({
+    login: pngOf(8, 6, [10, 180, 70]),
+  }).bytes;
+  fs.writeFileSync(sourcePath, initialBytes);
+  const frozenWorkbook = loadWorkbookFromBytes(sourcePath, initialBytes);
+  let changed = false;
+  const workbook = {
+    get sheets() {
+      if (!changed) {
+        fs.writeFileSync(sourcePath, changedBytes);
+        changed = true;
+      }
+      return frozenWorkbook.sheets;
+    },
+  } as any;
+
+  assert.throws(
+    () => writeWorkbookImportDraft({
+      sourcePath,
+      draftPath,
+      ledgerPath,
+      imageOutDir,
+      workbook,
+    }),
+    /MMI_IMPORT_SOURCE_CHANGED/u,
+  );
+
+  assert.equal(changed, true);
+  assert.equal(fs.existsSync(draftPath), false);
+  assert.equal(fs.existsSync(ledgerPath), false);
+  assert.equal(fs.existsSync(imageOutDir), false);
+  assert.equal(digest(sourcePath), `sha256:${createHash('sha256').update(changedBytes).digest('hex')}`);
 });
