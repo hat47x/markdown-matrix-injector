@@ -73,3 +73,87 @@ test('detach check reports remaining MMI refs, legacy cards and broken local lin
     'MMI_DETACH_BROKEN_LINK',
   ]);
 });
+
+
+test('materialize copies local images into the detached package and rebases the link', () => {
+  const { root, doc, out } = workspace();
+  const sourceAssets = path.join(path.dirname(doc), 'assets');
+  fs.mkdirSync(sourceAssets);
+  const original = path.join(sourceAssets, 'screen.png');
+  const bytes = Buffer.from('detached-image-bytes');
+  fs.writeFileSync(original, bytes);
+  fs.writeFileSync(doc, '# Spec\n\n![screen](./assets/screen.png)\n');
+
+  const result = materializeDocument({
+    markdownFilePath: doc,
+    workspaceRoot: root,
+    outputDocumentPath: out,
+  });
+
+  assert.deepEqual(result.problems, []);
+  assert.equal(result.assets.length, 1);
+  assert.equal(result.assets[0].sourcePath, original);
+  assert.deepEqual(result.assets[0].bytes, bytes);
+  assert.match(
+    result.markdown,
+    /!\[screen\]\(mmi-assets\/[0-9a-f]{12}\.png\)/u,
+  );
+
+  fs.mkdirSync(path.dirname(out), { recursive: true });
+  fs.writeFileSync(out, result.markdown);
+  for (const asset of result.assets) {
+    fs.mkdirSync(path.dirname(asset.absolutePath), { recursive: true });
+    fs.writeFileSync(asset.absolutePath, asset.bytes);
+  }
+  fs.rmSync(sourceAssets, { recursive: true, force: true });
+
+  assert.deepEqual(
+    checkDetachedDocument({ markdownFilePath: out, workspaceRoot: root }),
+    { errors: 0, problems: [] },
+  );
+});
+
+test('materialize deduplicates repeated local images by content digest', () => {
+  const { root, doc, out } = workspace();
+  const image = path.join(path.dirname(doc), 'same.png');
+  fs.writeFileSync(image, Buffer.from('same-image'));
+  fs.writeFileSync(
+    doc,
+    '![first](./same.png)\n\n![second](./same.png "caption")\n',
+  );
+
+  const result = materializeDocument({
+    markdownFilePath: doc,
+    workspaceRoot: root,
+    outputDocumentPath: out,
+  });
+
+  assert.deepEqual(result.problems, []);
+  assert.equal(result.assets.length, 1);
+  assert.match(result.markdown, /!\[first\]\(mmi-assets\/[0-9a-f]{12}\.png\)/u);
+  assert.match(
+    result.markdown,
+    /!\[second\]\(mmi-assets\/[0-9a-f]{12}\.png "caption"\)/u,
+  );
+});
+
+test('materialize reports missing and workspace-external image targets without hiding them', () => {
+  const { root, doc, out } = workspace();
+  fs.writeFileSync(
+    doc,
+    '![missing](./missing.png)\n\n![outside](../../outside.png)\n',
+  );
+
+  const result = materializeDocument({
+    markdownFilePath: doc,
+    workspaceRoot: root,
+    outputDocumentPath: out,
+  });
+
+  assert.deepEqual(
+    result.problems.map((problem) => problem.code),
+    ['MMI_DETACH_ASSET_MISSING', 'MMI_DETACH_ASSET_OUTSIDE_ROOT'],
+  );
+  assert.match(result.markdown, /!\[missing\]\(\.\/missing\.png\)/u);
+  assert.match(result.markdown, /!\[outside\]\(\.\.\/\.\.\/outside\.png\)/u);
+});
