@@ -145,13 +145,13 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
     const visibility = workbookImport.structure?.sheets.find((entry) => entry.name === sheet.sheet)?.visibility;
     const hiddenNote = visibility === 'veryHidden' ? '（Excelの画面からは表示できないシート）' : visibility === 'hidden' ? '（非表示のシート）' : '';
     lines.push('---', '', `## ${escapeText(sheet.sheet)}${hiddenNote}`, '');
-    if (sheet.candidates.length === 0) {
+    const assets = workbookImport.assets.filter((asset) => asset.sheet === sheet.sheet);
+    if (sheet.candidates.length === 0 && assets.length === 0) {
       lines.push('> 内容がありません。', '');
       continue;
     }
     for (const candidate of sheet.candidates) lines.push(...renderCandidate(candidate));
 
-    const assets = workbookImport.assets.filter((asset) => asset.sheet === sheet.sheet);
     if (assets.length > 0) {
       lines.push('### 抽出した画像', '');
       lines.push('> 画像は通常のMarkdown assetとして取り込み済みです。必要な位置へ移動し、不要ならこの参照を削除してください。原本の画像自体は変更していません。', '');
