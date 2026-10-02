@@ -253,7 +253,7 @@ export async function main(argv: string[]): Promise<number> {
         return 1;
       }
 
-      let result;
+      let result: ReturnType<typeof writeWorkbookImportDraft>;
       try {
         result = writeWorkbookImportDraft({
           sourcePath,
