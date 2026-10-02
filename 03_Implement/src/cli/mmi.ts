@@ -193,6 +193,14 @@ export async function main(argv: string[]): Promise<number> {
       if (!handoffPathWithinRoot(path.dirname(draftPath), root)) {
         return usageError('import draft folder must stay within --root workspace');
       }
+      const ledgerPath = path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE);
+      const imageOutDir = values['out-dir'] ? path.resolve(values['out-dir']) : undefined;
+      if (!handoffPathWithinRoot(ledgerPath, root)) {
+        return usageError('import ledger must stay within --root workspace');
+      }
+      if (imageOutDir && !handoffPathWithinRoot(imageOutDir, root)) {
+        return usageError('import --out-dir must stay within --root workspace');
+      }
       if (fs.existsSync(draftPath)) {
         console.error(`mmi: import draft already exists; refusing to overwrite: ${draftPath}`);
         return 1;
@@ -201,8 +209,8 @@ export async function main(argv: string[]): Promise<number> {
       const result = materializeWorkbookImport({
         sourcePath,
         draftPath,
-        ledgerPath: path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE),
-        ...(values['out-dir'] ? { imageOutDir: path.resolve(values['out-dir']) } : {}),
+        ledgerPath,
+        ...(imageOutDir ? { imageOutDir } : {}),
       });
       fs.mkdirSync(path.dirname(draftPath), { recursive: true });
       fs.writeFileSync(draftPath, result.markdown, 'utf8');
