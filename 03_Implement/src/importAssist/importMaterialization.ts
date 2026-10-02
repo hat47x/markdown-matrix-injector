@@ -8,8 +8,23 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import { extractImages, type ExtractProblem, type ExtractedImage } from '../cli/extract.js';
-import { DEFAULT_LEDGER_FILE } from '../core/importLedger.js';
+import {
+  extractImages,
+  type ExtractProblem,
+  type ExtractedImage,
+  type ExtractSkippedImage,
+} from '../cli/extract.js';
+import {
+  DEFAULT_LEDGER_FILE,
+  classify,
+  readLedger,
+} from '../core/importLedger.js';
+import {
+  DEFAULT_REVIEW_DECISIONS_FILE,
+  deferredDecisionForCandidate,
+  readReviewDecisions,
+  rejectedDecisionForCandidate,
+} from '../core/candidateReviewDecisions.js';
 import {
   createSourceIdentityFromBytes,
   readSourceFileIdentity,
@@ -18,7 +33,13 @@ import {
   loadWorkbookFromBytes,
   type WorkbookData,
 } from '../core/workbookLoader.js';
-import { analyzeWorkbookForImport, renderImportDraft, type ImportDraftAsset, type ImportDraftProblem } from './importDraft.js';
+import {
+  analyzeWorkbookForImport,
+  renderImportDraft,
+  type ImportDraftAsset,
+  type ImportDraftProblem,
+  type ImportDraftReviewSkip,
+} from './importDraft.js';
 import {
   readWorkbookStructureFromBytes,
   type WorkbookStructure,
@@ -31,6 +52,8 @@ export interface WorkbookImportMaterializeOptions {
   ledgerPath?: string;
   /** Extracted images. Defaults to assets/<workbook-name>/ next to the draft. */
   imageOutDir?: string;
+  /** Review-decision file. Defaults beside the import ledger. */
+  reviewDecisionsPath?: string;
   /**
    * Reuse prepared workbook data. When workbook/structure is supplied,
    * preparedSourceDigest is required so stale prepared data cannot bypass the
@@ -51,18 +74,20 @@ export interface WorkbookImportMaterialization {
   imageOutDir: string;
   extractedImages: ExtractedImage[];
   imageProblems: ExtractProblem[];
+  reviewSkippedImages: ExtractSkippedImage[];
 }
 
 export interface WorkbookImportPaths {
   draftPath: string;
   ledgerPath: string;
   imageOutDir: string;
+  reviewDecisionsPath: string;
 }
 
 export function workbookImportPaths(
   options: Pick<
     WorkbookImportMaterializeOptions,
-    'sourcePath' | 'draftPath' | 'ledgerPath' | 'imageOutDir'
+    'sourcePath' | 'draftPath' | 'ledgerPath' | 'imageOutDir' | 'reviewDecisionsPath'
   >,
 ): WorkbookImportPaths {
   const sourcePath = path.resolve(options.sourcePath);
@@ -76,8 +101,18 @@ export function workbookImportPaths(
     options.imageOutDir
       ?? path.join(draftDir, 'assets', safePathSegment(baseName)),
   );
-  assertImportPathRoles(sourcePath, draftPath, ledgerPath, imageOutDir);
-  return { draftPath, ledgerPath, imageOutDir };
+  const reviewDecisionsPath = path.resolve(
+    options.reviewDecisionsPath
+      ?? path.join(path.dirname(ledgerPath), DEFAULT_REVIEW_DECISIONS_FILE),
+  );
+  assertImportPathRoles(
+    sourcePath,
+    draftPath,
+    ledgerPath,
+    imageOutDir,
+    reviewDecisionsPath,
+  );
+  return { draftPath, ledgerPath, imageOutDir, reviewDecisionsPath };
 }
 
 /**
@@ -200,7 +235,12 @@ export function materializeWorkbookImport(
     }
   }
   const paths = workbookImportPaths(options);
-  const { draftPath, ledgerPath, imageOutDir } = paths;
+  const {
+    draftPath,
+    ledgerPath,
+    imageOutDir,
+    reviewDecisionsPath,
+  } = paths;
   const workbook = options.workbook
     ?? loadWorkbookFromBytes(sourcePath, sourceBytes);
   const structure = options.structure
@@ -217,9 +257,14 @@ export function materializeWorkbookImport(
       ...(structure ? { structure } : {}),
     },
   );
+  // Review state is read before extraction writes anything. A malformed
+  // decision/ledger file therefore fails the operation without side effects.
+  const reviewDecisions = readReviewDecisions(reviewDecisionsPath);
+  const ledger = readLedger(ledgerPath);
 
   let extractedImages: ExtractedImage[] = [];
   let imageProblems: ExtractProblem[] = [];
+  let reviewSkippedImages: ExtractSkippedImage[] = [];
   if (/\.(xlsx|xlsm)$/iu.test(sourcePath)) {
     const extracted = extractImages({
       sourcePath,
@@ -230,8 +275,43 @@ export function materializeWorkbookImport(
       ledgerPath,
       basis: 'mmi import',
       sourceBytes,
+      excludeCandidate(candidate) {
+        const ledgerState = classify(
+          ledger,
+          ledgerPath,
+          sourcePath,
+          candidate,
+        );
+        if (ledgerState === 'imported' || ledgerState === 'stale') {
+          return undefined;
+        }
+        if (rejectedDecisionForCandidate(
+          reviewDecisions,
+          reviewDecisionsPath,
+          sourcePath,
+          candidate,
+        )) {
+          return {
+            code: 'MMI_IMPORT_REVIEW_REJECTED',
+            message: '同一Candidateは以前に却下されています。',
+          };
+        }
+        if (deferredDecisionForCandidate(
+          reviewDecisions,
+          reviewDecisionsPath,
+          sourcePath,
+          candidate,
+        )) {
+          return {
+            code: 'MMI_IMPORT_REVIEW_DEFERRED',
+            message: '同一Candidateは以前に保留されています。',
+          };
+        }
+        return undefined;
+      },
     });
     extractedImages = extracted.extracted;
+    reviewSkippedImages = extracted.skipped ?? [];
     const packageWarnings: ExtractProblem[] = (extracted.diagnostics ?? [])
       .filter((diagnostic) =>
         diagnostic.severity === 'warning'
@@ -259,11 +339,29 @@ export function materializeWorkbookImport(
     ...(problem.sheet ? { sheet: problem.sheet } : {}),
     ...(problem.ordinal ? { ordinal: problem.ordinal } : {}),
   }));
+  const reviewSkippedAssets: ImportDraftReviewSkip[] =
+    reviewSkippedImages.flatMap((item) => {
+      const decision = item.code === 'MMI_IMPORT_REVIEW_REJECTED'
+        ? 'rejected' as const
+        : item.code === 'MMI_IMPORT_REVIEW_DEFERRED'
+          ? 'deferred' as const
+          : undefined;
+      return decision
+        ? [{
+            ordinal: item.ordinal,
+            sheet: item.sheet,
+            ...(item.name ? { name: item.name } : {}),
+            decision,
+            message: item.message,
+          }]
+        : [];
+    });
 
   const analyzed = {
     ...analyzedBase,
     assets,
     assetProblems: problems,
+    reviewSkippedAssets,
   };
 
   return {
@@ -273,6 +371,7 @@ export function materializeWorkbookImport(
     imageOutDir,
     extractedImages,
     imageProblems,
+    reviewSkippedImages,
   };
 }
 
@@ -284,12 +383,22 @@ function assertImportPathRoles(
   draftPath: string,
   ledgerPath: string,
   imageOutDir: string,
+  reviewDecisionsPath: string,
 ): void {
   if (draftPath === ledgerPath) {
     throw new Error('MMI_IMPORT_OUTPUT_CONFLICT: draft and ledger must be different files');
   }
   if (sourcePath === ledgerPath) {
     throw new Error('MMI_IMPORT_OUTPUT_CONFLICT: ledger must not replace the source workbook');
+  }
+  if (
+    reviewDecisionsPath === sourcePath
+    || reviewDecisionsPath === draftPath
+    || reviewDecisionsPath === ledgerPath
+  ) {
+    throw new Error(
+      'MMI_IMPORT_OUTPUT_CONFLICT: review decisions must be separate from source, draft and ledger',
+    );
   }
   if (containsPath(imageOutDir, draftPath)) {
     throw new Error('MMI_IMPORT_OUTPUT_CONFLICT: image asset root must not contain the draft');
@@ -299,6 +408,9 @@ function assertImportPathRoles(
   }
   if (containsPath(imageOutDir, sourcePath)) {
     throw new Error('MMI_IMPORT_OUTPUT_CONFLICT: image asset root must not contain the source workbook');
+  }
+  if (containsPath(imageOutDir, reviewDecisionsPath)) {
+    throw new Error('MMI_IMPORT_OUTPUT_CONFLICT: image asset root must not contain review decisions');
   }
 }
 
