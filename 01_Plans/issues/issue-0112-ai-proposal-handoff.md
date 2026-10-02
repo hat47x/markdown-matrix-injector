@@ -32,9 +32,9 @@ MMI自身が課金を要する生成AIサービスを呼ぶことは原則とし
 
 ## Implementation checkpoint (2026-10-02)
 
-`src/dx/aiHandoff.ts` に `mmi.ai-handoff/v1` を追加した。Semantic Candidateを無加工で外へ渡さず、Claimを認識論上の状態に沿って `confirmedFacts`（`observed / confirmed`）、`inferredCandidates`（`inferred`）、`unresolvedIssues`（`abstained`と既存MMI診断）へ分離する。各項目にはsource locator、source digest、Candidate fingerprint、method/execution、provenanceを保持する。
+`src/dx/aiHandoff.ts` に `mmi.ai-handoff/v1` を追加した。Semantic Candidateを無加工で外へ渡さず、Claimを由来に沿って分離する。`confirmedFacts`には原本から直接得た`observed`だけを置き、`inferredCandidates`には`inferred`とCandidate v1互換の`confirmed`を置く。`confirmed`は採用済み表現であり、Source factへ昇格したとは扱わない。`unresolvedIssues`には`abstained`と既存MMI診断を置く。各項目にはsource locator、source digest、Candidate fingerprint、method/execution、provenanceを保持する。
 
-privacyの既定値は `sourceValues: omitted` / `evidenceDetails: omitted` とし、Claimの`value`とEvidenceの`detail`はpackageにもpromptにも載せない。`--include-values`を明示した場合だけ含める。fingerprintやprovenanceは保持するが、原本セル本文を全文抜粋する経路は作らない。
+privacyの既定値は `sourceValues: omitted` / `evidenceDetails: omitted` とし、Claimの`value`とEvidenceの`detail`はpackageにもpromptにも載せない。`--include-values`を明示した場合だけ含める。fingerprintやprovenanceは保持するが、原本セル本文を全文抜粋する経路は作らない。人向けpromptにはCandidate identityを値と分離して表示し、Candidate選択案と変換案がsource値なしでも同じ候補を指せるようにした。
 
 CLIは `mmi handoff <source> --task <text>` とした。既定出力は人が外部LLMへ手渡すための自然言語prompt、`--json`は同じ情報の機械可読package、`--document <doc.md>`は既存`check`相当の未解決診断を追加する。sourceとdocumentは`--root`配下に限定し、realpath後もworkspace外なら読み込み前に拒否する。コマンド自身はHTTP client、provider SDK、API key、認証、cloud fallbackを持たず、送信処理も行わない。
 
