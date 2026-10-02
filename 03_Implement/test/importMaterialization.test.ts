@@ -316,6 +316,7 @@ test('workbook import rejects overlapping output roles before mutation', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-path-role-'));
   const sourcePath = path.join(root, 'design.xlsx');
   fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+  const sourceBefore = digest(sourcePath);
 
   const cases = [
     {
@@ -352,7 +353,7 @@ test('workbook import rejects overlapping output roles before mutation', () => {
     );
   }
 
-  assert.equal(digest(sourcePath), digest(sourcePath));
+  assert.equal(digest(sourcePath), sourceBefore);
   assert.equal(fs.existsSync(path.join(root, 'same.json')), false);
   assert.equal(fs.existsSync(path.join(root, 'ledger.json')), false);
 });
