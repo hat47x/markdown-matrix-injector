@@ -138,7 +138,7 @@ test('changed Candidate returns to active review because the old rejection no lo
   assert.equal(view[0].ledgerState, 'unimported');
 });
 
-test('previous acceptance does not transfer to a stale current Candidate', () => {
+test('stale validation preserves accepted review history without changing origin', () => {
   const f = workspace();
   const accepted = candidate('same-content');
   const output = path.join(f.root, 'assets', 'table.md');
@@ -173,6 +173,39 @@ test('previous acceptance does not transfer to a stale current Candidate', () =>
 
   assert.equal(view.length, 1);
   assert.equal(view[0].ledgerState, 'stale');
+  assert.equal(view[0].reviewState, 'accepted');
+  assert.equal(view[0].candidate.status, 'inferred');
+});
+
+test('content-changed Candidate does not inherit acceptance from the previous content', () => {
+  const f = workspace();
+  const accepted = candidate('old-content');
+  const output = path.join(f.root, 'assets', 'table.md');
+  fs.mkdirSync(path.dirname(output), { recursive: true });
+  fs.writeFileSync(output, '| A | B |\n');
+  recordEntries(f.ledgerPath, [
+    entryFor(
+      f.ledgerPath,
+      f.source,
+      accepted,
+      output,
+      'test import',
+    ),
+  ]);
+
+  const current = candidate('new-content');
+  const view = candidateReviewView(
+    [current],
+    readLedger(f.ledgerPath),
+    { schema: 'mmi.review-decisions/v1', entries: [] },
+    f.ledgerPath,
+    f.decisionPath,
+    f.source,
+    'all',
+  );
+
+  assert.equal(view.length, 1);
+  assert.equal(view[0].ledgerState, 'changed');
   assert.equal(view[0].reviewState, 'unreviewed');
   assert.equal(view[0].candidate.status, 'inferred');
 });
