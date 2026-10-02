@@ -1,7 +1,7 @@
 # 製品価値と現行実装のギャップ
 
 - 基準: [ADR-0019](adr/ADR-0019-ai-era-sier-document-value-and-policy.md)（2026-10-01 Accepted）と[製品要求](../00_Prompt/requirements.md)
-- 測定日: 2026-10-02（issue-0193〜0195のCandidate・画像Extracted・import ledgerまで反映）
+- 測定日: 2026-10-02（Candidate・画像Extracted・import ledgerに加え、Detachedの最小materialize/check縦切りまで反映）
 - 本書は差分の地図であり、作業順の正本は[現在の作業](README.md)とする。差分が解消したら行を消し、経緯は書き足さない。
 
 ## 1. 要約
@@ -12,7 +12,7 @@ MMIはLinked（参照）を表で実装済みで、Extracted（取り込み）�
 | --- | --- | --- |
 | Linked | 実装済み（表のみ）。VS Code・CLIの両方から使える | 画像・図形・ツリーの参照がない |
 | Extracted | **一部実装**（Excel埋込画像） | 表・図形・Tree等のextract、レビューUI、一括変換との統合 |
-| Detached | 未実装 | 展開（`render`）は別紙カードを「別紙: パス」の1行に置き換えるだけで、原本を外すと情報が欠ける。`detach check`がない |
+| Detached | **一部実装** | `materialize`で表とカード相当の表を通常Markdownへ実体化し、`detach-check`で残存MMI参照・未実体化marker・壊れた/境界外リンクを検査できる。原本内画像・非表Candidateの完全性監査とE2Eは未完 |
 
 Candidateの共通契約はissue-0193で実装済みで、表・画像が利用している。現在の主なギャップは、研究層の成果をCandidate検索・属性として製品面へ接続すること、画像以外のExtractedを増やすこと、人の作業を止めないレビューUI、一括変換、Detachedである。新しい研究段階を独立に増やすより、既存成果をこれらの製品経路へ接続する作業を優先する。
 
@@ -33,8 +33,8 @@ Candidateの共通契約はissue-0193で実装済みで、表・画像が利用�
 | 変換・表示 | ● | 変換パイプライン、強調、コード表示、キャプション | 画像参照の表示 | 2 |
 | 検証 | ● | 診断コード6種、CLI `check`（JSON・終了コード） | Candidate・取り込み結果の診断 | 2 |
 | provenance | ◐ | Source Identity v1、納品物一覧（Linked）、import ledger（Extractedのsource/occurrence/fingerprint/output/conversion/review basis） | 他Candidate種別と一括変換への拡張、detach監査用の横断report | 2〜4 |
-| materialize | ◐ | CLI `render --to md`（表をGFM表へ展開） | 別紙カードの実体化（現在は「別紙: パス」の1行）、画像の実体化 | 4 |
-| detach check | ○ | なし | 未展開参照・未取込資産・壊れたリンクの列挙 | 4 |
+| materialize | ◐ | `mmi materialize`で小表をinline GFM化し、カード相当の明示sheet表を独立Markdownへ実体化。source digest provenanceを保持 | 原本内画像・Tree/Shape等の採用Candidate実体化、実務E2E | 4 |
+| detach check | ◐ | `mmi detach-check`で残存MMI参照、未実体化marker、旧別紙カード、壊れた/境界外ローカルリンクをfailできる | ledgerと文書採用関係を用いたsource-only画像・非表Candidate監査 | 4 |
 | 執筆支援 | ● | 補完、貼り付け（Windowsの出所取得を含む）、説明からの検索、案内付きの作成、ホバー | 多環境の実機確認（issue-0110）、利用者の観測（issue-0111）、Candidateを非同期に採否するレビューUI（[issue-0202](issues/issue-0202-candidate-review-ui.md)） | 継続〜2 |
 | AI/CI利用 | ◐ | CLI 4コマンド、AI向け指示パック（`skills/mmi`）、基本設計書キット、執筆ベンチマーク v0 | 配布（npm等）、`extract`、Candidate形式のJSON、将来のMCP。外部LLMはMMIを呼ぶ側に置く | 1 |
 | 外部LLM handoff | ○ | issue-0112に安全境界のみ定義済み | Candidate・provenance・診断からprompt/evidence packageをローカル生成し、MMIからは送信しない | 1 |
