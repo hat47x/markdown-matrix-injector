@@ -16,7 +16,7 @@ export interface CandidateReviewViewItem
   extends CandidateLedgerViewItem {
   reviewState: Extract<
     ReviewState,
-    'unreviewed' | 'accepted' | 'rejected' | 'deferred'
+    'unreviewed' | 'accepted' | 'modified' | 'rejected' | 'deferred'
   >;
   rejected: boolean;
   deferred: boolean;
@@ -55,10 +55,10 @@ export function candidateReviewView(
   );
 
   return ledgerView.flatMap((item) => {
-    const acceptedByLedger =
+    const adoptedByLedger =
       item.ledgerState === 'imported'
       || item.ledgerState === 'stale';
-    const rejected = acceptedByLedger
+    const rejected = adoptedByLedger
       ? undefined
       : rejectedDecisionForCandidate(
           decisions,
@@ -66,7 +66,7 @@ export function candidateReviewView(
           absoluteSource,
           item.candidate,
         );
-    const deferred = acceptedByLedger || rejected
+    const deferred = adoptedByLedger || rejected
       ? undefined
       : deferredDecisionForCandidate(
           decisions,
@@ -80,8 +80,8 @@ export function candidateReviewView(
         ? 'rejected'
         : deferred
           ? 'deferred'
-          : acceptedByLedger
-            ? 'accepted'
+          : adoptedByLedger
+            ? item.ledgerReviewState ?? 'accepted'
             : 'unreviewed';
     return [{
       ...item,
