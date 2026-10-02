@@ -41,7 +41,7 @@
     "eval:cpu-search:test4:first": "node --import tsx scripts/cpu-search-eval/test4-first-run.ts",
     "eval:import-assist": "node --import tsx scripts/import-assist-eval/evaluate.ts",
     "bench:workbook-load": "node --import tsx scripts/workbook-load-benchmark.ts",
-    "mmi": "node --import tsx src/cli/mmi.ts",
+
     "test:phase9-sync": "python3 ../01_Plans/tools/check_phase9_template_sync.py",
     "test:phase9-guide-sync": "python3 ../01_Plans/tools/generate_phase9_pattern_guide.py --check",
     "test:e2e": "npm run build && bash ./scripts/run-vscode-e2e.sh",
