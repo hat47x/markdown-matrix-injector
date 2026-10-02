@@ -106,6 +106,7 @@ test('active review queues hide an exact rejected Candidate while all keeps it r
     'all',
   );
   assert.equal(all.length, 1);
+  assert.equal(all[0].reviewState, 'rejected');
   assert.equal(all[0].rejected, true);
   assert.equal(all[0].ledgerState, 'unimported');
 });
@@ -132,6 +133,7 @@ test('changed Candidate returns to active review because the old rejection no lo
   );
 
   assert.equal(view.length, 1);
+  assert.equal(view[0].reviewState, 'unreviewed');
   assert.equal(view[0].rejected, false);
   assert.equal(view[0].ledgerState, 'unimported');
 });
@@ -171,6 +173,8 @@ test('imported Candidate is governed by the import ledger, not an old rejection'
 
   assert.equal(all.length, 1);
   assert.equal(all[0].ledgerState, 'imported');
+  assert.equal(all[0].reviewState, 'accepted');
+  assert.equal(all[0].candidate.status, 'inferred');
   assert.equal(all[0].rejected, false);
   assert.deepEqual(
     candidateReviewView(
