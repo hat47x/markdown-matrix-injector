@@ -301,6 +301,20 @@ test('parseTsv trims unquoted cells but preserves whitespace inside quoted cells
   ]);
 });
 
+test('parseTsv preserves empty first and last cells at the copied rectangle boundary', () => {
+  assert.deepEqual(parseTsv('\tA\t\r\n\tB\t\r\n'), [
+    ['', 'A', ''],
+    ['', 'B', ''],
+  ]);
+});
+
+test('parseTsv preserves an intentionally empty final row while removing only Excel row termination', () => {
+  assert.deepEqual(parseTsv('A\tB\r\n\t\r\n'), [
+    ['A', 'B'],
+    ['', ''],
+  ]);
+});
+
 test('parseTsv returns an empty matrix for blank input', () => {
   assert.deepEqual(parseTsv(''), []);
   assert.deepEqual(parseTsv('   \r\n  '), []);
@@ -481,6 +495,21 @@ test('suggestEmbedFromDataTransfer reuses dropped file parsing when paste clipbo
     markdown: '![[/tmp/fallback.csv]]',
   });
   assert.equal(filesRead, 1);
+});
+
+test('readTransferValuesFromDataTransfer keeps text/plain boundary tabs intact', async () => {
+  const plain = '\tA\t\r\n';
+  const result = await readTransferValuesFromDataTransfer(
+    {
+      get(mimeType) {
+        if (mimeType !== 'text/plain') return undefined;
+        return { asString: async () => plain };
+      },
+    },
+    'paste',
+  );
+
+  assert.equal(result.clipboardValues['text/plain'], plain);
 });
 
 test('readTransferValuesFromDataTransfer feeds the same shared transfer parser used by command fallback and native paste', async () => {
