@@ -1,5 +1,5 @@
 /**
- * `MMI: Import Tables from Workbook` (02_Architecture/import-assistance.md §5).
+ * `MMI: Import from Workbook` (02_Architecture/import-assistance.md §5).
  *
  * Picks an existing Excel design document, asks where to save the import
  * draft, keeps tables as live MMI references, extracts embedded images as
@@ -15,7 +15,7 @@ import { readWorkbookCached } from './sharedWorkbookCache.js';
 
 export const IMPORT_WORKBOOK_COMMAND_ID = 'markdownMatrixInjector.importFromWorkbook';
 
-const IMPORTABLE = /\.(xlsx|xls|xml)$/i;
+const IMPORTABLE = /\.(xlsx|xlsm|xls|xml)$/i;
 
 /** `draftTarget` skips the save dialog (scripted runs); the person always chooses it otherwise. */
 export async function importFromWorkbook(workbookGlob: string, target?: vscode.Uri, draftTarget?: vscode.Uri): Promise<vscode.Uri | undefined> {
