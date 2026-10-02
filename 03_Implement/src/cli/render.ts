@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import MarkdownIt from 'markdown-it';
 import { WorkbookCache } from '../cache/workbookCache.js';
-import { escapeMarkdownTableCell, logicalTableToGfm } from '../core/gfmTable.js';
+import { toGfmTable, escapeMarkdownTableCell } from '../core/markdownTable.js';
 import { resolveSourcePath } from '../core/pathResolver.js';
 import { buildLogicalTable } from '../core/renderTable.js';
 import { getImmediateSmartFallbackDecision, getSmartFallbackDecisionAfterLoad } from '../core/smartFallback.js';
@@ -89,9 +89,8 @@ function expandEmbed(embed: EmbedQuery, options: RenderOptions, cache: WorkbookC
     const location = [embed.target, embed.range].filter(Boolean).join('!');
     return `${captionLine}> 別紙: ${embed.filepath}${location ? ` (${location})` : ''}`;
   }
-  return captionLine + logicalTableToGfm(buildLogicalTable(embed, workbook));
+  return captionLine + toGfmTable(buildLogicalTable(embed, workbook));
 }
-
 
 export function defaultWorkspaceRoot(markdownFilePath: string): string {
   return path.dirname(path.resolve(markdownFilePath));
