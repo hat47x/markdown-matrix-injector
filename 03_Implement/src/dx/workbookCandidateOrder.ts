@@ -1,4 +1,7 @@
+import fs from 'node:fs';
 import path from 'node:path';
+
+import { isPathWithinBoundary } from '../core/pathResolver.js';
 
 export interface WorkbookFileCandidate {
   readonly fsPath: string;
@@ -26,6 +29,52 @@ export function prioritizeWorkbookFiles<T extends WorkbookFileCandidate>(
       compareNormalizedPaths(left.fsPath, right.fsPath)
     );
   });
+}
+
+/**
+ * Selects at most `limit` workbook files from the active Markdown document's
+ * workspace boundary.
+ *
+ * VS Code `workspace.findFiles()` searches every folder in a multi-root
+ * workspace. A string-prefix check is not a containment check
+ * (`C:\\work` vs `C:\\work-old`) and does not stop symlink escapes.
+ * Reuse the notation P4 containment rule and real paths before any workbook is
+ * loaded, then apply locality ordering and the existing file-count budget.
+ */
+export function selectContainedWorkbookFiles<T extends WorkbookFileCandidate>(
+  markdownFilePath: string,
+  workspaceRoot: string,
+  candidates: readonly T[],
+  limit: number,
+): T[] {
+  if (!Number.isInteger(limit) || limit < 0) {
+    throw new Error('limit must be a non-negative integer.');
+  }
+
+  let boundary: string;
+  try {
+    boundary = fs.realpathSync(path.resolve(workspaceRoot));
+  } catch {
+    return [];
+  }
+
+  const lexicallyContained = candidates.filter((candidate) =>
+    isPathWithinBoundary(path.resolve(candidate.fsPath), path.resolve(workspaceRoot)),
+  );
+
+  const selected: T[] = [];
+  for (const candidate of prioritizeWorkbookFiles(markdownFilePath, lexicallyContained)) {
+    if (selected.length >= limit) break;
+    try {
+      const realCandidate = fs.realpathSync(path.resolve(candidate.fsPath));
+      if (isPathWithinBoundary(realCandidate, boundary)) {
+        selected.push(candidate);
+      }
+    } catch {
+      // Missing/unreadable path: do not spend search budget on it.
+    }
+  }
+  return selected;
 }
 
 function pathDistance(fromDirectory: string, candidatePath: string): { up: number; down: number; total: number } {
