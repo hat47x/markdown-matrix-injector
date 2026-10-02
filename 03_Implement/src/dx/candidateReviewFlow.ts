@@ -423,6 +423,19 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     extractedFile = result.extracted.file;
   }
 
+  try {
+    clearReviewDecisionForCandidate(
+      reviewDecisionsPath,
+      sourcePath,
+      picked.source.candidate,
+    );
+  } catch (error) {
+    await vscode.window.showWarningMessage(
+      'MMI: 取り込みは完了しましたが、旧い却下状態を消去できません: '
+        + (error instanceof Error ? error.message : String(error)),
+    );
+  }
+
   if (active?.document.languageId === 'markdown') {
     const kindLabel =
       picked.source.kind === 'image' ? '画像参照' : 'Markdown表';
