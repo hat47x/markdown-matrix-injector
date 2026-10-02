@@ -201,7 +201,7 @@ flowchart TD
 
 手順2〜4は実装済み（2026-09-14）。 `src/core/contentMatch.ts`の`findContentMatches(sheet, needle, options?)`が、単一の`SheetSource`に対してアンカー選定→転置索引引き当て→複数アンカー突き合わせ→矩形全体照合を行う。部分一致は候補にしない（手順4「棄却」）。同一内容の複数一致はすべて返す（自動で1件に絞らない、§4「自動確定の規則」）。`maxIndexedCells`（既定20万セル、超過で例外——黙って一部だけ探して真の一致を見逃すことを避ける）と`maxCandidates`（既定200件、超過分は切り詰め——内容の広範な重複は正常なケースであり自動確定禁止規則が安全弁になるため例外にはしない）で手順5の上限を扱う。テストは`test/contentMatch.test.ts`（11件）。
 
-手順1（探索対象ブックの決定）も実装済み（2026-09-15）。 `src/dx/contentMatchSearch.ts`の`findWorkbookContentMatches`が複数ワークブック・複数シートを横断して`findContentMatches`を呼ぶ。探索対象は「許可されたworkspace内」（`vscode.workspace.findFiles`、自動補完機能が既に使っているのと同じglob・除外設定を流用）に解決した——「利用者が選んだブック」（都度ファイルを選ばせるUI）は採用していない。1シートが大きすぎて索引不能でも、そのシートだけ読み飛ばして検索全体は止めない。手順6の「非連続選択の疑い」の検出は依然として未着手（全セル空・複数一致は扱うが、非連続選択そのものを推定するヒューリスティックはまだ無い）。テストは`test/contentMatchSearch.test.ts`（6件）。
+手順1（探索対象ブックの決定）も実装済み（2026-09-15、境界判定を2026-10-03に修正）。`src/dx/contentMatchSearch.ts`の`findWorkbookContentMatches`が複数ワークブック・複数シートを横断して`findContentMatches`を呼ぶ。VS Codeの`findFiles()`はmulti-root workspace全体を列挙するため、編集中Markdownが属するworkspace folderを別途境界として扱う。候補は記法P4と同じ`isPathWithinBoundary()`で字句上の境界を確認し、realpath後にも再確認する。これにより、prefixが同じ別rootとsymlinkによる境界外参照を除外してから件数上限を適用する。「利用者が選んだブック」（都度ファイルを選ばせるUI）は採用していない。1シートが大きすぎて索引不能でも、そのシートだけ読み飛ばして検索全体は止めない。手順6の「非連続選択の疑い」の検出は依然として未着手である。
 
 ## 6. 現行実装から変える点
 
