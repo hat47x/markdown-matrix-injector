@@ -5,7 +5,7 @@ import { extractEmbedQueries } from '../parser/embedSyntax.js';
 
 export interface DetachProblem {
   line: number;
-  code: 'MMI_DETACH_REFERENCE_REMAINS' | 'MMI_DETACH_UNMATERIALIZED' | 'MMI_DETACH_LEGACY_CARD' | 'MMI_DETACH_BROKEN_LINK';
+  code: 'MMI_DETACH_REFERENCE_REMAINS' | 'MMI_DETACH_UNMATERIALIZED' | 'MMI_DETACH_LEGACY_CARD' | 'MMI_DETACH_BROKEN_LINK' | 'MMI_DETACH_LINK_OUTSIDE_ROOT';
   message: string;
   target?: string;
 }
@@ -60,7 +60,14 @@ export function checkDetachedDocument(options: DetachCheckOptions): DetachCheckR
     for (const target of markdownLinkTargets(line)) {
       const resolved = resolveLocalLink(options.markdownFilePath, options.workspaceRoot, target);
       if (!resolved) continue;
-      if (!fs.existsSync(resolved)) {
+      if (resolved.outsideRoot) {
+        problems.push({
+          line: index + 1,
+          code: 'MMI_DETACH_LINK_OUTSIDE_ROOT',
+          message: `local link leaves the detach workspace boundary: ${target}`,
+          target,
+        });
+      } else if (!fs.existsSync(resolved.absolutePath)) {
         problems.push({
           line: index + 1,
           code: 'MMI_DETACH_BROKEN_LINK',
@@ -90,7 +97,11 @@ function markdownLinkTargets(line: string): string[] {
   return targets;
 }
 
-function resolveLocalLink(markdownFilePath: string, workspaceRoot: string, rawTarget: string): string | undefined {
+function resolveLocalLink(
+  markdownFilePath: string,
+  workspaceRoot: string,
+  rawTarget: string,
+): { absolutePath: string; outsideRoot: boolean } | undefined {
   if (!rawTarget || rawTarget.startsWith('#') || /^[a-z][a-z0-9+.-]*:/iu.test(rawTarget)) return undefined;
   let decoded = rawTarget.split('#', 1)[0];
   try {
@@ -98,8 +109,10 @@ function resolveLocalLink(markdownFilePath: string, workspaceRoot: string, rawTa
   } catch {
     // Invalid percent encoding is treated as a literal path and will fail visibly if absent.
   }
-  const absolute = path.resolve(path.dirname(markdownFilePath), decoded);
-  const relative = path.relative(path.resolve(workspaceRoot), absolute);
-  if (relative.startsWith('..') || path.isAbsolute(relative)) return absolute;
-  return absolute;
+  const absolutePath = path.resolve(path.dirname(markdownFilePath), decoded);
+  const relative = path.relative(path.resolve(workspaceRoot), absolutePath);
+  return {
+    absolutePath,
+    outsideRoot: relative.startsWith('..') || path.isAbsolute(relative),
+  };
 }
