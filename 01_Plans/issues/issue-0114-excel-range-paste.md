@@ -202,6 +202,7 @@
 - **`getContentMatchPasteEdits(document, dataTransfer, token)`**: `dataTransfer`の`text/plain`（TSV）を使って`findWorkbookContentMatches`を呼び、一致ごとに`DocumentPasteEdit`を1つ返す（複数一致ならVS Codeの標準ドロップダウンに複数項目として並ぶ）。
 - **`looksLikeTabularClipboard(plainText)`**: 単語1つ・URL1つのような単一スカラー値の貼り付けでは、`vscode.workspace.findFiles`にすら到達しない（無駄なワークスペース走査をしない）。`parseTsv`した結果が2セル未満（1行1列）なら即座に`[]`を返す。
 - **`MAX_CONTENT_MATCH_WORKSPACE_FILES`（500件、暫定値）**: 病的に大きいワークスペース（数千ファイル）に対する安全弁。実測では数百ファイルまで問題にならないと分かっているため、実運用で狭すぎると分かれば引き上げる前提。
+  - **2026-10-02改善**: `findFiles()`の列挙順へ依存したまま先頭500件を切ると、実際のコピー元が501件目以降なら完全一致でも探索不能になるため、上限適用前にMarkdown文書からのディレクトリ距離で決定論的に並べる。まず同一ディレクトリ、次に近い子/兄弟階層を優先し、同距離は正規化パスで安定化する。上限値や完全一致判定、自動確定禁止は変更しない。500個の遠い候補の後ろに列挙された近傍ブックが上限内へ残る回帰テストを追加した。
 - **`CancellationToken`を尊重する**: `provideDocumentPasteEdits`が受け取る`token`を`loadWorkspaceWorkbooksForContentMatch`のファイル読込みループへ渡し、キャンセルされたら即座に打ち切る（ユーザーがEscを押す、別の編集を始める等でVS Codeがリクエストをキャンセルし得るため）。
 - **既存の明示コマンド（`insertEmbedByContentMatch`）は維持した**。貼り付け操作を経由せず「クリップボードに今ある内容で検索したい」場合に使える、独立した価値がある。
 
