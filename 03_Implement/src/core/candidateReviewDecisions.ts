@@ -150,12 +150,16 @@ export function clearReviewDecisionForCandidate(
   absoluteSource: string,
   candidate: Candidate,
 ): CandidateReviewDecisions {
+  const existed = fs.existsSync(decisionPath);
   const decisions = readReviewDecisions(decisionPath);
   const source = sourceKey(decisionPath, absoluteSource);
+  const before = decisions.entries.length;
   decisions.entries = decisions.entries.filter(
     (entry) => !sameOccurrence(entry, source, candidate),
   );
-  writeReviewDecisions(decisionPath, decisions);
+  if (existed && decisions.entries.length !== before) {
+    writeReviewDecisions(decisionPath, decisions);
+  }
   return decisions;
 }
 
