@@ -55,7 +55,7 @@ mmi handoff masters/設計.xlsx \
 
 既定出力は人がコピーして利用者の選んだLLMへ渡すpromptである。MMI自身は送信、ログイン、API keyの利用、課金サービスへのfallbackを行わない。機械可読なpackageが必要なら`--json`を付ける。
 
-既定ではCandidateのClaim値とEvidence詳細をpackageへ含めない。値が本当に必要で、利用者の組織の規則上も許される場合だけ`--include-values`を明示する。この指定でも原本全体を全文投入するのではなく、Candidateが持つClaim値だけが追加される。
+既定ではCandidateのClaim値とEvidence詳細をpackageへ含めない。値が本当に必要で、利用者の組織の規則上も許される場合だけ`--include-values`を明示する。この指定でも原本全体を全文投入するのではなく、Candidateが持つClaim値だけが追加される。promptにはCandidate identityが表示されるため、値を含めなくてもCandidate選択案と変換案は同じ候補を指定できる。Candidate v1の`confirmed`は採用済みの互換表現として扱い、`observed`と同じ原本事実にはしない。
 
 handoffの返答は**提案**であって確定結果ではない。MMI記法が返ってきた場合は、handoff packageをJSONで保存し、ローカルで再検証する。
 
