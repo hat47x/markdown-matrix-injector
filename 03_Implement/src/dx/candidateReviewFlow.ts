@@ -14,13 +14,13 @@ import {
 import { extractImages, extractTable } from '../cli/extract.js';
 import type { Candidate } from '../core/candidate.js';
 import type { CandidateLedgerFilter } from '../core/candidateLedgerView.js';
-import { candidateReviewView } from '../core/candidateReviewView.js';
 import {
   clearReviewDecisionForCandidate,
   DEFAULT_REVIEW_DECISIONS_FILE,
   readReviewDecisions,
   recordRejectedDecision,
 } from '../core/candidateReviewDecisions.js';
+import { candidateReviewView } from '../core/candidateReviewView.js';
 import { placeOf, readLedger } from '../core/importLedger.js';
 
 export const REVIEW_CANDIDATES_COMMAND_ID =
@@ -47,6 +47,61 @@ const FILTERS: readonly {
     description: '取込済みを含む全Candidate',
   },
 ];
+
+interface CandidateFacetQuickPickItem extends vscode.QuickPickItem {
+  facet: CandidateReviewFacetSelection;
+}
+
+function facetLabel(facet: CandidateReviewFacetSelection): string {
+  if (facet.axis === 'kind') {
+    switch (facet.value) {
+      case 'table-range':
+        return '$(table) 種別: 表';
+      case 'image':
+        return '$(file-media) 種別: 画像';
+      default:
+        return `種別: ${facet.value}`;
+    }
+  }
+  if (facet.axis === 'status') {
+    switch (facet.value) {
+      case 'observed':
+        return '状態: observed（観測）';
+      case 'inferred':
+        return '状態: inferred（推定）';
+      case 'confirmed':
+        return '状態: confirmed（確認済み）';
+      case 'abstained':
+        return '状態: abstained（判断保留）';
+    }
+  }
+  return facet.value === 'deterministic'
+    ? '実行: deterministic（決定論）'
+    : '実行: provider-dependent（provider依存）';
+}
+
+function facetDescription(
+  facet: CandidateReviewFacetSelection,
+): string {
+  switch (facet.axis) {
+    case 'kind':
+      return 'Candidate type';
+    case 'status':
+      return 'epistemic state';
+    case 'execution':
+      return 'execution characteristic';
+  }
+}
+
+function facetQuickPickItem(
+  facet: CandidateReviewFacetSelection,
+): CandidateFacetQuickPickItem {
+  return {
+    label: facetLabel(facet),
+    description: facetDescription(facet),
+    facet,
+  };
+}
 
 function workspaceRoot(sourcePath: string): string {
   return vscode.workspace.getWorkspaceFolder(vscode.Uri.file(sourcePath))
@@ -283,22 +338,20 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     return;
   }
 
-  const visibleItems = filteredView.flatMap((item) => {
-    const source = byKey.get(reviewKey(item.candidate));
-    return source
-      ? [
-          quickPickItem(
-            source,
-            item.ledgerState,
-            item.rejected,
-            item.researchScores,
-          ),
-        ]
-      : [];
-  });
-
   const picked = await vscode.window.showQuickPick(
-    visibleItems,
+    filteredView.flatMap((item) => {
+      const source = byKey.get(reviewKey(item.candidate));
+      return source
+        ? [
+            quickPickItem(
+              source,
+              item.ledgerState,
+              item.rejected,
+              item.researchScores,
+            ),
+          ]
+        : [];
+    }),
     {
       title: 'MMI: Candidateレビュー',
       placeHolder:
