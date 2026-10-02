@@ -209,7 +209,7 @@
       "explorer/context": [
         {
           "command": "markdownMatrixInjector.importFromWorkbook",
-          "when": "resourceExtname =~ /^\\.(xlsx|xls|xml)$/i",
+          "when": "resourceExtname =~ /^\\.(xlsx|xlsm|xls|xml)$/i",
           "group": "mmi@1"
         }
       ],
