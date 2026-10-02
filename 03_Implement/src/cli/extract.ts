@@ -58,6 +58,8 @@ export interface ExtractProblem {
 export interface ExtractResult {
   extracted: ExtractedImage[];
   problems: ExtractProblem[];
+  /** Raw package diagnostics from the same image parse used for extraction. */
+  diagnostics: ImageDiagnostic[];
 }
 
 export interface ExtractTableOptions {
@@ -117,13 +119,14 @@ function tableProvenanceComment(
 }
 
 export function extractImages(options: ExtractOptions): ExtractResult {
-  const result: ExtractResult = { extracted: [], problems: [] };
+  const result: ExtractResult = { extracted: [], problems: [], diagnostics: [] };
   const packageBytes = fs.readFileSync(options.sourcePath);
   if (!/\.(xlsx|xlsm)$/iu.test(options.sourcePath)) {
     result.problems.push({ code: 'MMI_IMAGE_PACKAGE_UNSUPPORTED', message: 'images can only be extracted from .xlsx / .xlsm workbooks' });
     return result;
   }
   const read = readExcelImages(packageBytes);
+  result.diagnostics = [...read.diagnostics];
   for (const diagnostic of read.diagnostics.filter((d) => d.severity === 'error')) {
     result.problems.push({
       code: diagnostic.code,
