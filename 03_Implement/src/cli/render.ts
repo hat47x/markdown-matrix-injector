@@ -30,10 +30,11 @@ export function renderDocumentHtml(options: RenderOptions): string {
     workspaceRoot: options.workspaceRoot,
     cache: options.cache ?? new WorkbookCache(),
   });
-  // Run from src/cli (tsx) or dist/src/cli (compiled): media/ sits beside package.json.
-  const cssUrl = ['../../media/markdown-matrix.css', '../../../media/markdown-matrix.css']
+  // src/cli (tsx), dist/src/cli (compiled), or the standalone package where mmi.mjs sits beside media/.
+  const cssUrl = ['../../media/markdown-matrix.css', '../../../media/markdown-matrix.css', './media/markdown-matrix.css']
     .map((relative) => new URL(relative, import.meta.url))
     .find((url) => fs.existsSync(url));
+  if (!cssUrl) console.error('mmi: media/markdown-matrix.css not found next to the CLI; the HTML will be unstyled.');
   const css = cssUrl ? fs.readFileSync(cssUrl, 'utf8') : '';
   const body = md.render(fs.readFileSync(options.markdownFilePath, 'utf8'));
   if (body.includes('class="mmi-error"')) throw new RenderError('MMI reference errors must be resolved before export. Run `mmi check`.');

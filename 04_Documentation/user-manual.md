@@ -209,13 +209,25 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 
 **画像について。** Excelに画面ダンプなどを貼って設計を整理する書き方は、そのまま続けられます。`extract`は画像を取り出して参照できる形にするだけで、Excel側の画像は変わりません。Excelで画像を差し替えたり動かしたりしても、次に`inspect`を実行すれば現在の位置と内容が分かります。取り出せるのはPNG・JPEG・GIF・BMP・SVGです。EMF・WMF・TIFF、外部ファイルへのリンク、壊れた図形は、取り出さずに理由を表示します。`.xls`（旧形式）の画像は読めません。
 
-現在はNode.js 20以上と、リポジトリの`03_Implement`での`npm ci`が必要です。実行例です。
+**入手と実行。** Node.js 20以上があれば、開発環境（`npm ci`・ビルド）は要りません。リポジトリを持っている人は、1つのファイルにまとめた配布用パッケージを作れます。
 
 ```bash
 cd 03_Implement
-npm run build
-node dist/src/cli/mmi.js check ../04_Documentation/kits/basic-design --root ../04_Documentation/kits/basic-design
+npm ci
+npm run build:cli          # dist-cli/package/ に mmi.mjs と同梱物ができる
+npm pack ./dist-cli/package  # 配布用のtarball（約360KB、依存なし）
 ```
+
+受け取った人は、tarballをインストールするか、`mmi.mjs`を直接実行します。
+
+```bash
+npm install ./markdown-matrix-injector-cli-0.1.0.tgz   # mmi コマンドが入る
+mmi check docs --root .
+# またはインストールせずに
+node mmi.mjs check docs --root .
+```
+
+配布用パッケージにはxlsxとmarkdown-itを取り込んであり、そのライセンス表記を`THIRD_PARTY_NOTICES.md`に同梱します。`render --to html`のスタイルは同梱の`media/`を使い、見つからないときは警告を出します。npmのレジストリへの公開、およびパッケージ名は未決定です（[issue-0201](../01_Plans/issues/issue-0201-product-name-and-compatibility-layer.md)）。確認したのはLinux（WSL2、Node 20）だけで、WindowsとmacOSでの実行は未確認です。
 
 AIエージェントに使わせる場合は、[AI向け指示](../skills/mmi/SKILL.md)を読ませ、[基本設計書キット](kits/basic-design/README.md)の依頼例から始めてください。
 
