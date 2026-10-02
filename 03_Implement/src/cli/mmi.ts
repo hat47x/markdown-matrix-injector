@@ -11,6 +11,7 @@ import { parseArgs } from 'node:util';
 import XLSX from 'xlsx';
 import { WorkbookCache } from '../cache/workbookCache.js';
 import { checkDetachedDocument } from '../application/detachCheck.js';
+import { checkExtractedProvenanceFreshness } from '../application/detachFreshness.js';
 import { materializeDocument } from '../application/materialize.js';
 import { imageCandidates, readExcelImages, relationToTables, type ImageDiagnostic, type TableRect } from '../adapters/excelImageAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
@@ -87,6 +88,7 @@ Commands:
       -o, --out <file>        detached Markdown output (required; must differ from source)
       --attachments-dir <dir> directory for card-sized table attachments
       --assets-dir <dir>      directory for copied local image assets
+      --ledger <file>          verify adopted extracted Candidates against this ledger
   detach-check <doc.md>     Verify a Markdown artifact has no MMI refs, unresolved cards,
                             broken local links or links outside --root
   manifest <doc.md>         List references that fall back to 別紙 cards as CSV
@@ -268,6 +270,11 @@ export async function main(argv: string[]): Promise<number> {
       if (!handoffPathWithinRoot(assetsDirectory, root)) {
         return usageError('materialize --assets-dir must stay within --root workspace');
       }
+      const freshness = checkExtractedProvenanceFreshness({
+        markdownFilePath: sourceDocument,
+        workspaceRoot: root,
+        ledgerPath: path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE),
+      });
       const result = materializeDocument({
         markdownFilePath: sourceDocument,
         workspaceRoot: root,
@@ -296,6 +303,9 @@ export async function main(argv: string[]): Promise<number> {
         }
         fs.writeFileSync(asset.absolutePath, asset.bytes);
       }
+      for (const problem of freshness.problems) {
+        console.error(`mmi: ${problem.code} line ${problem.line}: ${problem.message}`);
+      }
       for (const problem of result.problems) {
         console.error(`mmi: ${problem.code} line ${problem.line}: ${problem.message}`);
       }
@@ -306,11 +316,12 @@ export async function main(argv: string[]): Promise<number> {
           path: asset.relativePath,
           digest: asset.digest,
         })),
+        freshness,
         problems: result.problems,
-        detachable: !collision && result.problems.length === 0,
+        detachable: !collision && freshness.errors === 0 && result.problems.length === 0,
       };
       if (values.json) process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
-      else console.log(`materialized: ${summary.output} (${summary.attachments.length} table attachment(s), ${summary.assets.length} asset(s), ${result.problems.length} unresolved)`);
+      else console.log(`materialized: ${summary.output} (${summary.attachments.length} table attachment(s), ${summary.assets.length} asset(s), ${freshness.errors} freshness error(s), ${result.problems.length} unresolved)`);
       return summary.detachable ? 0 : 1;
     }
     case 'detach-check': {
