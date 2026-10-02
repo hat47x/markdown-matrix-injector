@@ -154,7 +154,7 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
 
     if (assets.length > 0) {
       lines.push('### 抽出した画像', '');
-      lines.push('> 画像は通常のMarkdown assetとして取り込み済みです。必要な位置へ移動し、不要ならこの参照を削除してください。原本の画像自体は変更していません。', '');
+      lines.push('> 画像は通常のMarkdownファイルとして取り込み済みです。必要な位置へ移動し、不要ならこの参照を削除してください。原本の画像自体は変更していません。', '');
       for (const asset of assets) lines.push(asset.markdown, '');
     }
   }
