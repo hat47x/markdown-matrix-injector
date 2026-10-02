@@ -104,7 +104,16 @@ export function readLedger(ledgerPath: string): Ledger {
   if (parsed.schema !== LEDGER_SCHEMA || !Array.isArray(parsed.entries)) {
     throw new Error(`${ledgerPath} is not an ${LEDGER_SCHEMA} ledger`);
   }
-  return { schema: LEDGER_SCHEMA, entries: parsed.entries };
+  return {
+    schema: LEDGER_SCHEMA,
+    entries: parsed.entries.map((entry) => ({
+      ...entry,
+      reviewState:
+        entry.reviewState === 'confirmed'
+          ? 'accepted'
+          : entry.reviewState,
+    })),
+  };
 }
 
 /** Where a candidate sits: its cell range, else its object name (anchor-less pictures). */
