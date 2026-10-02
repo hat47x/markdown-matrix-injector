@@ -77,7 +77,11 @@ export function extractImages(options: ExtractOptions): ExtractResult {
   }
   const read = readExcelImages(packageBytes);
   for (const diagnostic of read.diagnostics.filter((d) => d.severity === 'error')) {
-    result.problems.push({ code: diagnostic.code, message: diagnostic.message });
+    result.problems.push({
+      code: diagnostic.code,
+      message: diagnostic.message,
+      ...(diagnostic.sheet ? { sheet: diagnostic.sheet } : {}),
+    });
   }
   if (result.problems.length > 0) return result;
 
@@ -92,7 +96,10 @@ export function extractImages(options: ExtractOptions): ExtractResult {
     }
     chosen = [found];
   }
-  if (chosen.length === 0) result.problems.push({ code: 'MMI_IMAGE_NONE', message: 'the workbook contains no images' });
+  if (chosen.length === 0) {
+    result.problems.push({ code: 'MMI_IMAGE_NONE', message: 'the workbook contains no images' });
+    return result;
+  }
 
   const documentDirectory = path.dirname(path.resolve(options.fromDocument ?? path.join(process.cwd(), 'x.md')));
   const source = options.sourceLabel ?? (path.relative(documentDirectory, options.sourcePath).split(path.sep).join('/') || path.basename(options.sourcePath));
