@@ -274,3 +274,37 @@ test('CLI handoff requires an explicit task', async () => {
   fs.writeFileSync(source, screenDesignWorkbook().bytes);
   assert.equal((await captureMain(['handoff', source])).code, 2);
 });
+
+
+test('CLI handoff refuses source and document paths outside the workspace root', async () => {
+  const outer = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-ai-handoff-outer-'));
+  const root = path.join(outer, 'workspace');
+  fs.mkdirSync(root);
+  const outsideSource = path.join(outer, 'outside.xlsx');
+  fs.writeFileSync(outsideSource, screenDesignWorkbook().bytes);
+
+  assert.equal((await captureMain([
+    'handoff',
+    outsideSource,
+    '--task',
+    '参照案を提案する',
+    '--root',
+    root,
+  ])).code, 2);
+
+  const insideSource = path.join(root, 'inside.xlsx');
+  fs.writeFileSync(insideSource, screenDesignWorkbook().bytes);
+  const outsideDocument = path.join(outer, 'outside.md');
+  fs.writeFileSync(outsideDocument, '# outside\n');
+
+  assert.equal((await captureMain([
+    'handoff',
+    insideSource,
+    '--task',
+    '参照案を提案する',
+    '--document',
+    outsideDocument,
+    '--root',
+    root,
+  ])).code, 2);
+});
