@@ -30,13 +30,13 @@ SEI側の資料は次のとおり。
 
 ## 3. 読み替えるときの注意
 
-1. **「Authority」の意味の違い:** ADR-0018のAuthority Planeは、事実と規約を決定論的に判定する層を指す。人や組織に決定の権限を与えるものではない。SEIのAuthorityは「決めてよい」という権限を指す。したがって、MMIの判定はSEIではAuthorityの証拠として参照するもので、SEIのAuthorityそのものではない。
-2. **confidenceは比べない:** ADR-0018 D4の「異なるproviderのconfidenceを同じ確率尺度とみなさない」は、SEIのCapability Observation §7（providerの種類やSEIとの関係の近さから、信頼度や優先順位を推定しない）と同じ向きの規律である。SEIへ写すときも、confidenceを共通のfieldへ格上げせず、平均や最大値で「総合スコア」を作らない。
-3. **abstentionを別の意味に変えない:** `novel`・`ambiguous`・`abstained`は、既知の候補を一つに決められなかったという結果である。SEIでは、確定した候補のないRecommendation、またはUnknownとして読み、既知の候補へ割り当て直さない（ADR-0018 D5、SEIの`Unknown != incompatible`）。`unavailable`・`unsupported`はproviderの状態であり、Capability Observationの観測条件として読む。観測がないことを`unavailable`と同じに扱わない（SEIの`not observed != unavailable`）。
-4. **参照文字列は所在である:** MMIの参照文字列はファイルパスを含む。SEIはファイルパスを論理参照そのものにしないため、記録する側は表を指す識別子を別に持ち、参照文字列は所在を示す情報として添える。
-5. **digestはファイル全体に対するもの:** Source Identity v1は解決した正本ファイルのバイト列全体に対するもので、参照した範囲だけの同一性ではない。不一致は「範囲の内容が変わった」ではなく「判断のときと同じ内容だとは確かめられない」を意味する。範囲に限った同一性は、ADR-0019の未解決事項（確定版のダイジェストの対象）で扱う。
-6. **現行のマニフェストにdigestはない:** 別紙マニフェスト（記法仕様§8.1）は出所のdigestを含まない。digestは[Source Identity Contract v1](source-identity-contract-v1.md)の規則で求める。表記はどちらも`sha256:`に続く小文字16進64桁で、同じバイト列からは同じ文字列になる。CLIの出力にdigestを含めるかは[issue-0192](../01_Plans/issues/issue-0192-sei-decision-basis-table-binding.md)で扱う候補であり、決まっていない。
-7. **診断が出ないことは判断の正しさを示さない:** MMIの診断がないことは、表を参照どおりに描けることを示すだけである。本文の主張と表の整合は、ADR-0019 D4のとおり保証の外にある。
+1. 「Authority」の意味の違い: ADR-0018のAuthority Planeは、事実と規約を決定論的に判定する層を指す。人や組織に決定の権限を与えるものではない。SEIのAuthorityは「決めてよい」という権限を指す。したがって、MMIの判定はSEIではAuthorityの証拠として参照するもので、SEIのAuthorityそのものではない。
+2. confidenceは比べない: ADR-0018 D4の「異なるproviderのconfidenceを同じ確率尺度とみなさない」は、SEIのCapability Observation §7（providerの種類やSEIとの関係の近さから、信頼度や優先順位を推定しない）と同じ向きの規律である。SEIへ写すときも、confidenceを共通のfieldへ格上げせず、平均や最大値で「総合スコア」を作らない。
+3. abstentionを別の意味に変えない: `novel`・`ambiguous`・`abstained`は、既知の候補を一つに決められなかったという結果である。SEIでは、確定した候補のないRecommendation、またはUnknownとして読み、既知の候補へ割り当て直さない（ADR-0018 D5、SEIの`Unknown != incompatible`）。`unavailable`・`unsupported`はproviderの状態であり、Capability Observationの観測条件として読む。観測がないことを`unavailable`と同じに扱わない（SEIの`not observed != unavailable`）。
+4. 参照文字列は所在である: MMIの参照文字列はファイルパスを含む。SEIはファイルパスを論理参照そのものにしないため、記録する側は表を指す識別子を別に持ち、参照文字列は所在を示す情報として添える。
+5. digestはファイル全体に対するもの: Source Identity v1は解決した正本ファイルのバイト列全体に対するもので、参照した範囲だけの同一性ではない。不一致は「範囲の内容が変わった」ではなく「判断のときと同じ内容だとは確かめられない」を意味する。範囲に限った同一性は、ADR-0019の未解決事項（確定版のダイジェストの対象）で扱う。
+6. 現行のマニフェストにdigestはない: 別紙マニフェスト（記法仕様§8.1）は出所のdigestを含まない。digestは[Source Identity Contract v1](source-identity-contract-v1.md)の規則で求める。表記はどちらも`sha256:`に続く小文字16進64桁で、同じバイト列からは同じ文字列になる。CLIの出力にdigestを含めるかは[issue-0192](../01_Plans/issues/issue-0192-sei-decision-basis-table-binding.md)で扱う候補であり、決まっていない。
+7. 診断が出ないことは判断の正しさを示さない: MMIの診断がないことは、表を参照どおりに描けることを示すだけである。本文の主張と表の整合は、ADR-0019 D4のとおり保証の外にある。
 
 ## 4. 境界
 

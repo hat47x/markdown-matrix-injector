@@ -30,7 +30,7 @@ review-route評価器とground-truth workflowは揃ったが、少数・片側ro
 
 providerを呼ばないreadiness reportを追加する。
 
-2段階:
+2段階は次のとおりです。
 1. corpus summary
 2. callerが**事前指定するexplicit policy**に対するblocker評価
 

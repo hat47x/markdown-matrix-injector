@@ -54,7 +54,9 @@ validation receiptは `mmi.ai-handoff-proposal-validation/v1` とし、各check�
 
 `test/aiHandoffProposalValidation.test.ts`では正常提案、誤sheet、URL/外部path、未対応集計parameter、任意コマンド/自由文、source変更、package Authority契約改変、operation境界拡張、CLI exit code/workspace containmentを回帰として固定した。
 
-Candidate選択案・変換案の戻り検証はまだ未実装であるため、「戻されたMMI記法・Candidate選択・変換案をAuthority Planeで再検証する」という受入条件全体は未完了のままとする。
+Candidate選択案については次の縦切りを追加した。handoff内のCandidateにはsource値を含めずにoccurrence/contentへ結び付く `candidateIdentity` を付与し、外部AIはそのidentityだけを選択案として返す。`validateAiHandoffCandidateSelection` は、返されたidentityが実際にhandoffへ提示されていたかをallowlist照合し、未知・捏造Candidateをblockedにする。選択案のschemaにはepistemic statusを書き換える欄を持たせず、成功状態も `accepted-for-review` として、AI選択をAuthorityへ昇格させない。receipt digestはnested proposal全体をcanonical化して束縛する。
+
+これによりMMI記法とCandidate選択の戻り検証が揃った。残る未実装は変換案のAuthority再検証であり、「戻されたMMI記法・Candidate選択・変換案をAuthority Planeで再検証する」という受入条件全体は引き続き未完了とする。
 
 ## Validation plan
 

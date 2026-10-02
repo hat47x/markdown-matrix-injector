@@ -39,7 +39,7 @@ Jevへ送るのは次のderived stateのみ。
 }
 ```
 
-意図的に除外:
+意図的に除外は次のとおりです。
 - sheet name
 - Profile/candidate id
 - source digest

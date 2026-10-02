@@ -38,7 +38,7 @@ cross-profile比較は行わない。
 worksheetFormatFillEvidenceEvaluation.ts
 ```
 
-責務:
+責務は次のとおりです。
 
 ```text
 same snapshots
@@ -169,7 +169,7 @@ prototype B:
 - 1 label違い
 - dark fill
 
-結果:
+結果は次のとおりです。
 
 ```text
 structure+fill:
@@ -204,7 +204,7 @@ structure-only  0.411852 novel
 
 ### 1. fill evidenceをsource profileから外さない
 
-理由:
+理由は次のとおりです。
 
 - fill-onlyで区別可能なprototypeを実際にdisambiguateできる
 - direct RGB / theme/tintのinput-side contractも外部fixtureで確認済み
@@ -212,7 +212,7 @@ structure-only  0.411852 novel
 
 ### 2. fill weightを増やさない
 
-理由:
+理由は次のとおりです。
 
 - 4列2ラベル変更で `novel -> matched` がすでに起きる
 - candidate separationを狭めるケースもある
@@ -229,7 +229,7 @@ fillは強いidentity keyではなく補助証拠として扱う。
 
 prototypeがfillを持つのにobservationでfillが無い場合、confidenceが下がる。
 
-ただしこれは:
+ただしこれはは次のとおりです。
 
 - 本当にformatが変わった
 - reader/source側でstyle evidenceが取れない
@@ -278,7 +278,7 @@ GitHub Actionsは既知のrunner/resource不足があるため完了条件にし
 
 次はfillのweight変更ではなく、**fill availability / fill disagreementをreview telemetryとしてどう観測するか**をheld-out fixtureで評価する。
 
-特に:
+特には次のとおりです。
 
 1. structureがnear-gateのときだけfill一致がmatchedへ押し上げるケース
 2. fill missingがconfidence低下の主因になるケース

@@ -3,7 +3,7 @@
 # MMI入力支援 技術調査
 
 - 調査日: 2026-09-10。状態: **設計確定。原本座標を保持する読込み・切り出し（issue-0114段1）は2026-09-11に実装・自動テスト済み。貼り付け・CPU探索は未着手。**
-- 対象コードの基準コミット: `0fedd60`
+- 対象コードの基準コミット: `0fedd60`は次のとおりです。
 - 企画の正本は[改訂企画書](input-assistance-proposal.md)、判断は[ADR-0016](adr/ADR-0016-notation-first-input-assistance.md)と[ADR-0017](adr/ADR-0017-windows-clipboard-provenance-bridge.md)。
 
 本書は確認済みの事実と未確認事項の区分を保つ台帳である。契約と構造は[02_Architecture](../02_Architecture/README.md)の3つの設計文書に置き、ここへ重複させない。製品仕様の追加や性能保証は行わない。

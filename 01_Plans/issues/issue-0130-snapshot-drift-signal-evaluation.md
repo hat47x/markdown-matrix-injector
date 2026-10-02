@@ -18,7 +18,7 @@
 
 issue-0129では、feature文字列を直接構成した5 / 7 / 9列のheld-out corpusでmulti-family drift signalを比較した。
 
-そこでは:
+そこではは次のとおりです。
 
 - boundary warning: 高precision / low recall
 - matched DeviationScore: 差異量には反応するが表幅依存を受ける
@@ -57,7 +57,7 @@ issue-0129では、feature文字列を直接構成した5 / 7 / 9列のheld-out 
 
 追加した `worksheetFormatSnapshotDriftEvaluation.ts` は薄い評価adapterである。
 
-データフロー:
+データフローは次のとおりです。
 
 ```text
 WorksheetFormatSnapshot
@@ -85,7 +85,7 @@ existing multi-family drift evaluator
 
 重要なのは、評価側でfeature extractionやsource-profile filteringを再実装していないこと。
 
-既存の:
+既存のは次のとおりです。
 
 - `createWorksheetFormatPrototype`
 - `matchWorksheetFormatSnapshot`
@@ -122,7 +122,7 @@ existing multi-family drift evaluator
 19. clearly novel labels — review不要
 20. near-tied multiple prototypes — review対象
 
-合計:
+合計は次のとおりです。
 
 - cases: 20
 - expected review: 13
@@ -132,7 +132,7 @@ existing multi-family drift evaluator
 
 ### structure + fill
 
-既存:
+既存は次のとおりです。
 
 ```text
 sheetjs-ce-xlsx-0.20.3-fill-v1
@@ -150,7 +150,7 @@ evidence = [structure]
 
 structure-onlyでもraw snapshot側にはfillを置く。
 
-そのうえで:
+そのうえでは次のとおりです。
 
 - `rawObservationFeatures` には `header:dark-fill` が存在
 - `comparedObservationFeatures` からはfillが除外
@@ -163,7 +163,7 @@ structure-onlyでもraw snapshot側にはfillを置く。
 
 9列structure+fillの1-label driftに構造差を1つ追加すると、いずれもraw different-family countは3になる。
 
-例:
+例は次のとおりです。
 
 ### title/header gap
 
@@ -206,7 +206,7 @@ merge-shape
 | recall | 0.307692 |
 | false-positive rate | 0.000000 |
 
-拾う主なケース:
+拾う主なケースは次のとおりです。
 
 - structure-only label + recurring merge
 - structure-only two-label drift
@@ -338,7 +338,7 @@ snapshot adapterを通してもこの問題は残った。
 
 ### boundary OR deviation OR different-family count
 
-同じく:
+同じくは次のとおりです。
 
 ```text
 precision = 1.0
@@ -352,7 +352,7 @@ FPR       = 0
 
 9列structure+fill prototypeに対し、observationのheader fillだけを欠落させた。
 
-結果:
+結果は次のとおりです。
 
 ```text
 status               = matched
@@ -459,7 +459,7 @@ GitHub Actionsは既知のrunner/resource不足があるため完了条件に使
 
 次に必要なのは、fixture generatorをさらに複雑にすることではなく、**実SheetJS readerが生成するsnapshotとの接続確認**である。
 
-優先順位:
+優先順位は次のとおりです。
 
 1. 実XLSX fixtureをreaderへ通す
 2. merge subordinate cell / blank cellの実際のsnapshot形状を確認する

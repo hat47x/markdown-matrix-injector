@@ -94,7 +94,7 @@ projection stateが変わればdigestを変える。
 
 **final expected routeはdigest inputに入れない。**
 
-理由:
+理由は次のとおりです。
 provider-visible stateが同じなら、ground-truth correctionだけのためにprovider inferenceを再実行しないため。
 
 ## Evaluation response
@@ -194,12 +194,12 @@ digest input:
 - packetDigest
 - sorted caseId + final expected route
 
-性質:
+性質は次のとおりです。
 - projection state変更 -> packetDigest変更
 - final routeだけ変更 -> packetDigest不変
 - final routeだけ変更 -> groundTruthDigest変更
 
-これにより:
+これによりは次のとおりです。
 - provider inference input version
 - evaluation label version
 

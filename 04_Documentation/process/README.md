@@ -1,10 +1,10 @@
 # 04_Documentation/process — 開発プロセス・ガバナンス文書（トラック B）
 
-このディレクトリは、MMI の**開発プロセスの記録**（リリース準備・運用信頼性・ルールテーブル運用・ガバナンス自動化）を集約します。
-これらはフェーズ番号で索引された**プロセス文書**であり、製品の挙動そのものを理解する目的では
+このディレクトリは、MMIの開発プロセスの記録（リリース準備・運用信頼性・ルールテーブル運用・ガバナンス自動化）を集約します。
+これらはフェーズ番号で索引されたプロセス文書であり、製品の挙動そのものを理解する目的では
 [トラック A（製品を理解する）](../README.md#ドキュメント地図最短経路) を先に参照してください。
 
-> **配置変更の記録**: 本ディレクトリの文書は、以前は `04_Documentation/` 直下（`04_Documentation/phase7-release-readiness.md` 等）に置かれていました。
+> 配置変更の記録: 本ディレクトリの文書は、以前は `04_Documentation/` 直下（`04_Documentation/phase7-release-readiness.md` 等）に置かれていました。
 > 製品理解用の文書とプロセス文書を分離するため、`04_Documentation/process/` へ移設しました。
 > 過去の Issue / ADR が旧パスを参照している場合は、同名ファイルを本ディレクトリに読み替えてください。
 
@@ -21,7 +21,7 @@
 
 ## 関連
 
-- 文書ハブ（トラック A / B の地図）: [`../README.md`](../README.md)
+- 文書ハブ（トラックA / Bの地図）: [`../README.md`](../README.md)
 - 製品の挙動を深く理解する: [`../how-it-works.md`](../how-it-works.md)
 - 計画・ADR・Issue: [`../../01_Plans/README.md`](../../01_Plans/README.md)
-- リリースゲート運用の詳細手順: 上記 `phase7-release-readiness.md` と `../README.md` の「Phase 6〜10 運用導線」
+- リリースゲート運用の詳細手順: 上記 `phase7-release-readiness.md` と `../README.md` の「Phase 6〜10運用導線」

@@ -88,7 +88,7 @@ comparison自体をsnapshotすることでresult validatorがpolicy適合を再�
 
 ## Label-only constraint
 
-`labelOnlyReevaluation`:
+`labelOnlyReevaluation`は次のとおりです。
 
 - `required`: issue-0181 derived factがtrueでなければviolation。
 - `forbidden`: trueならviolation。
@@ -105,7 +105,7 @@ comparison自体をsnapshotすることでresult validatorがpolicy適合を再�
 
 compliantは「callerが事前に明示したchange policyに適合したか」だけを表す。
 
-以下を意味しない:
+以下を意味しないは次のとおりです。
 - model quality。
 - better / worse。
 - provider superiority。
@@ -134,7 +134,7 @@ compliantは「callerが事前に明示したchange policyに適合したか」�
 - [x] label-only required/forbidden/eitherを検査。
 - [x] violationsをcanonical sorted uniqueにする。
 - [x] result validatorがcomparison+policyからviolationsを再計算。
-- [x] compliant == violations.length === 0 を強制。
+- [x] compliant == violations.length === 0を強制。
 - [x] identical-only policyを表現できる。
 - [x] label-only re-evaluation policyを表現できる。
 - [x] provider-rerun boundary policyを表現できる。

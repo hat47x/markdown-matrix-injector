@@ -82,7 +82,7 @@ codecは:
 
 を返すだけ。
 
-以下を行わない:
+以下を行わないは次のとおりです。
 - filesystem write
 - database insert
 - network upload

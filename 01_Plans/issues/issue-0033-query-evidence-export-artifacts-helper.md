@@ -13,19 +13,19 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- `buildQueryEvidenceExportArtifacts(markdownText, markdownFilePath)` helper を追加し、records/csv/json/markdown/paths を一括生成する。
-- `extension.ts` では helper の戻り値を使って export 処理を行い、フォーマット生成ロジックの分散を防ぐ。
-- `queryEvidence.test.ts` に helper の一括生成結果を検証するテストを追加する。
+- `buildQueryEvidenceExportArtifacts(markdownText, markdownFilePath)` helperを追加し、records/csv/json/markdown/pathsを一括生成する。
+- `extension.ts` ではhelperの戻り値を使ってexport処理を行い、フォーマット生成ロジックの分散を防ぐ。
+- `queryEvidence.test.ts` にhelperの一括生成結果を検証するテストを追加する。
 
 ### Acceptance criteria (受入条件)
-- [x] export 生成物が helper から一括取得できる。
-- [x] extension 側の export 処理が helper 利用へ更新される。
+- [x] export生成物がhelperから一括取得できる。
+- [x] extension側のexport処理がhelper利用へ更新される。
 - [x] `npm test` が通過する。
 
 ### Task breakdown (作業分解)
-- [x] helper を実装する。
-- [x] extension の export 実装を helper 利用へ更新する。
-- [x] unit test を追加する。
+- [x] helperを実装する。
+- [x] extensionのexport実装をhelper利用へ更新する。
+- [x] unit testを追加する。
 - [x] `npm test` を実行する。
 
 ### Validation plan (検証計画)
@@ -38,8 +38,8 @@
 - Commands:
   - `cd 03_Implement && npm test`
 - Result summary:
-  - `buildQueryEvidenceExportArtifacts` を追加し、records/csv/json/markdown/paths を一括生成。
-  - extension 側 export 処理を helper 利用へ更新。
-  - helper の unit test を追加し、全 112 テストが通過。
+  - `buildQueryEvidenceExportArtifacts` を追加し、records/csv/json/markdown/pathsを一括生成。
+  - extension側export処理をhelper利用へ更新。
+  - helperのunit testを追加し、全112テストが通過。
 - Status decision:
   - 受入条件を満たしたため `Status: Done` に更新。

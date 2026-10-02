@@ -143,7 +143,7 @@ stored responseを別provider planへ移植しない。
 
 recordにはlabel corpus自体を保存しない。
 
-したがって以下を新規追加しない:
+したがって以下を新規追加しないは次のとおりです。
 - evidence facts
 - annotations
 - annotatorRef

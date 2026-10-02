@@ -105,7 +105,7 @@ evidence codeは空文字を許可しない。
 
 v1ではdetailの自由文を許すが、evidence codeそのものはmachine-readableなstable tokenとして扱う。
 
-例:
+例は次のとおりです。
 
 - `SOURCE_DIGEST_MATCHED`
 - `PROFILE_CONTRACT_MATCHED`

@@ -67,7 +67,7 @@ issue-0126で、現在のflat feature集合には列数依存のcardinality effe
 
 ### flat
 
-現行:
+現行は次のとおりです。
 
 ```text
 confidence
@@ -115,7 +115,7 @@ cap=3は採用値ではない。比較用の固定値である。
 
 - top confidenceが `minConfidence` から0.03以内
 - top-two marginが `minWinnerMargin` から0.02以内
-- semantic-label + relative-position がfeature全体の50%を超える
+- semantic-label + relative-positionがfeature全体の50%を超える
 - 単一familyが60%を超える
 
 これらの値もproduction契約ではなく、offline review用の初期値である。
@@ -166,7 +166,7 @@ column-family-cappedも、広い表でむしろconfidenceを強く押し上げ�
 
 ## 結果3: 既存の6列表near-gate novelが反転する
 
-既存の重要境界:
+既存の重要境界は次のとおりです。
 
 ```text
 baseline:
@@ -280,7 +280,7 @@ classificationを変えず、危険なnear-gate / family-share状態だけを表
 
 ### 2026-09-18 local validation
 
-実行環境:
+実行環境は次のとおりです。
 
 - Node.js `v22.16.0`
 - TypeScript `5.8.3`

@@ -55,7 +55,7 @@ candidateは既存`WorksheetFormatPrototype`から生成する。元prototypeは
 
 `candidate`にはapproval metadataを持たせない。
 
-`approved`は必ず:
+`approved`は必ずは次のとおりです。
 
 - `kind: human`
 - non-empty `approvedBy`
@@ -81,7 +81,7 @@ approved profileでも、次が現在のruntimeと一致しなければprototype
 
 profile更新は既存ファイルを学習状態として上書きするのではなく、新しいcandidate差分として扱う。
 
-推奨手順:
+推奨手順は次のとおりです。
 
 1. 新baselineからcandidateを再生成。
 2. 既存approved profileとの差分を表示。

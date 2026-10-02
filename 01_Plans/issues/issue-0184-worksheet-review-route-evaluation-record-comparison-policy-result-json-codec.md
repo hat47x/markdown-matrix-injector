@@ -47,7 +47,7 @@ comparison policy result専用canonical JSON codecを追加する。
 - [x] semantic tamperをissue-0183 validatorでreject。
 - [x] stable directional filenameを追加。
 - [x] full left/right digest hexをfilenameへ使用。
-- [x] A→B と B→A のfilenameが異なる。
+- [x] A→BとB→Aのfilenameが異なる。
 - [x] artifact descriptorはI/Oを行わない。
 - [x] canonical round-tripでdeepEqual。
 - [x] deterministic serialization。

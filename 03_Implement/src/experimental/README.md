@@ -196,7 +196,7 @@ layout:header-horizontal-merge-links:<bits>
 
 ### bodyのfeature
 
-本文は単発のmergeをformat identityへ入れません。v5と同じ先頭最大4本文行を使い、各境界が**厳格過半数**の行でmergeされている場合だけ recurring shape とします。
+本文は単発のmergeをformat identityへ入れません。v5と同じ先頭最大4本文行を使い、各境界が**厳格過半数**の行でmergeされている場合だけrecurring shapeとします。
 
 ```text
 merge:body-horizontal-recurring
@@ -291,7 +291,7 @@ minConfidence = 0.7
 minWinnerMargin = 0.05
 ```
 
-概念的な判定順序:
+概念的な判定順序は次のとおりです。
 
 ```text
 best confidence < 0.7
@@ -418,7 +418,7 @@ merge shapeは分類を単独支配するfeatureではなく、他の構造証�
 
 v3〜v6で主要なstructure evidenceを追加した後、issue-0126〜0128では「featureを増やす」より先に、既存evidenceとwarningの効き方を測っています。
 
-現在分かっていること:
+現在分かっていること。
 
 - family cardinalityには表幅依存がある
 - family-normalized / column-family-capped scoringは既存のfail-closed境界を後退させるため採用しない
@@ -428,7 +428,7 @@ v3〜v6で主要なstructure evidenceを追加した後、issue-0126〜0128で�
 
 issue-0129では、issue-0128とは独立した5 / 7 / 9列のheld-out fixtureでmulti-family drift signalを比較しました。
 
-分かったこと:
+分かったこと。
 
 - boundary warningは引き続き高precision / low recall
 - matched DeviationScoreとraw different-family countはそれぞれ異なる種類のdriftを補完的に拾う
@@ -437,7 +437,7 @@ issue-0129では、issue-0128とは独立した5 / 7 / 9列のheld-out fixture�
 
 issue-0130ではadapterを通すsnapshot-level fixtureへ進み、issue-0131ではSheetJS CE 0.20.3自身が生成した実XLSX bytesをreaderへ戻すruntime boundary testを追加しました。issue-0132ではさらに、**LibreOffice Calcが最終保存した外部生成XLSX**をbase64 fixtureとして固定し、direct RGB fillをsource-profile evidenceとして読める境界を追加しました。
 
-現在確認対象として固定している境界:
+現在確認対象として固定している境界は次のとおりです。
 
 - merge rangeは `!merges` からsnapshotへ保持する
 - mergeに覆われた従属cellをbridge側でinventしない
@@ -457,7 +457,7 @@ issue-0130ではadapterを通すsnapshot-level fixtureへ進み、issue-0131で�
 
 issue-0139ではfill availability / disagreementを6列・8列の20ケースでheld-out評価しました。
 
-分かったこと:
+分かったこと。
 
 - status/winnerを実際に変えたdecision-impactはprecision 1.0 / recall 0.75
 - structurally equivalentなfill-only候補群でfillが欠けたessential-unavailableを加えると、このcorpusではprecision / recall 1.0
@@ -494,7 +494,7 @@ repository runtime testへ固定した期待:
 
 issue-0146では、同じlayout familyを持つLibreOffice最終保存XLSXを追加し、issue-0140で未確認だった4つのdecision-impact reasonをexternal reader経路へ移しました。
 
-確認対象:
+確認対象は次のとおりです。
 
 - 6列2ラベル差 + same dark fill: `fill-supported-acceptance`
 - 6列exact/no-fill vs one-label-wrong/dark candidate: `fill-induced-ambiguity`
@@ -507,7 +507,7 @@ issue-0146では、同じlayout familyを持つLibreOffice最終保存XLSXを追
 
 issue-0154では、external XLSXまで確認したdeterministic review reasonをCognitive / Authorityへ混ぜずにhuman-review surfaceへ露出する最小contractを追加しました。
 
-新しい構造:
+新しい構造は次のとおりです。
 
 ```text
 existing verified human-review surface
@@ -517,7 +517,7 @@ existing verified human-review surface
 DeterministicReviewEvidenceSurfaceV1
 ```
 
-重要な境界:
+重要な境界は次のとおりです。
 
 - Cognitive Perception / Judgmentへreasonを入れない
 - Authority receipt / verification checkへreasonを入れない
@@ -558,7 +558,7 @@ issue-0150 proposal / Authority workflow
 issue-0155 UnifiedHumanReviewViewModelV1
 ```
 
-追加した境界:
+追加した境界は次のとおりです。
 
 - baseline prototype snapshotをruntime inputから除外
 - `expectedReview` / telemetry / prepared evidence / matcher optionsをinputへ持ち込まない
@@ -589,7 +589,7 @@ identityはsource file hashでもexact snapshot hashでもなく、current sourc
 
 issue-0178では、`UnifiedHumanReviewViewModelV1` を変更せず、その上にUI-neutralな `UnifiedHumanReviewPresentationPlanV1` を追加しました。
 
-固定した表示順:
+固定した表示順は次のとおりです。
 
 1. Authority
 2. Cognitive
@@ -608,7 +608,7 @@ section間の連動、overall verdict、combined score、recommendation、auto a
 
 次に進む場合もproduction wiringへ直結せず、実UIへ接続する前にラベル文言・アクセシビリティ・キーボード操作・details disclosure semanticsを別UI contractとして評価します。
 
-詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`external-xlsx-fill-telemetry.md`、`external-fill-impact-family.md`、`../../02_Architecture/deterministic-review-evidence-overlay-v1.md`、`../../02_Architecture/unified-human-review-view-model-v1.md`、`../../02_Architecture/executable-proposal-deterministic-review-workflow-v1.md`、`../../02_Architecture/contained-unified-review-workflow-v1.md`、`../../02_Architecture/worksheet-format-observation-identity-v1.md`、`test/fixtures/README.md`、issue-0128〜0178 を参照してください。
+詳細は `balance-warning-evaluation.md`、`multifamily-drift-evaluation.md`、`snapshot-drift-evaluation.md`、`real-xlsx-runtime-boundary.md`、`theme-fill-boundary.md`、`fill-evidence-value.md`、`fill-review-telemetry.md`、`external-xlsx-fill-telemetry.md`、`external-fill-impact-family.md`、`../../02_Architecture/deterministic-review-evidence-overlay-v1.md`、`../../02_Architecture/unified-human-review-view-model-v1.md`、`../../02_Architecture/executable-proposal-deterministic-review-workflow-v1.md`、`../../02_Architecture/contained-unified-review-workflow-v1.md`、`../../02_Architecture/worksheet-format-observation-identity-v1.md`、`test/fixtures/README.md`、issue-0128〜0178を参照してください。
 
 十分な外部生成fixtureと安全境界が揃うまでは、warningやreview signalを自動accept / reject条件へ昇格させず、production接続可否も別ADR/Issueで判断します。
 
@@ -617,7 +617,7 @@ section間の連動、overall verdict、combined score、recommendation、auto a
 
 issue-0167〜0170では、live providerやproduction routingを変更せず、review-route Judgmentを独立に評価できるground-truth作成レーンを整備しています。
 
-順序:
+順序は次のとおりです。
 
 1. issue-0167: provider-neutral evaluation metrics
 2. issue-0168: provider-blinded label corpus
@@ -740,7 +740,7 @@ hidden row/column visibilityはWorksheetFormatSnapshotに保持されていな�
 
 issue-0181では、2本のvalidated `WorksheetReviewRouteEvaluationRecordV1` を比較し、record変化を1つのoverall verdictへ潰さず、plan / provider-visible packet / provider response / ground truth / reportのchange dimensionへ分離する `WorksheetReviewRouteEvaluationRecordComparisonV1` を追加します。
 
-特に `labelOnlyReevaluation` は、same planDigest + same packetDigest + same stored response + different groundTruthDigest の場合だけtrueになります。provider outcome rerunやplan変更とは明確に区別します。
+特に `labelOnlyReevaluation` は、same planDigest + same packetDigest + same stored response + different groundTruthDigestの場合だけtrueになります。provider outcome rerunやplan変更とは明確に区別します。
 
 provider capabilitiesの並び順はsemantic response/provider comparisonではcanonical setとして扱いますが、recordDigest自体はissue-0177のcontent identityとして変更しません。comparison artifactはchanged case idだけを保持し、expected route値、probability/confidence、evidence、annotation/adjudication provenanceを複製しません。overall score、better/worse、winner、recommendationも追加しません。
 
@@ -758,7 +758,7 @@ filenameは `leftRecordDigest-to-rightRecordDigest` の方向をfull 64-hexの�
 
 issue-0183では、issue-0181 comparisonのchange dimensionをcallerが事前に明示した許可境界へ照合する `WorksheetReviewRouteEvaluationRecordComparisonPolicyV1` を追加します。
 
-policyはrecord identity / plan / packet / readiness policy / provider / response / ground truth / summary / projection separability / report providerの各changeをbooleanで明示し、defaultを持ちません。さらに `labelOnlyReevaluation` を required / forbidden / either で指定できます。
+policyはrecord identity / plan / packet / readiness policy / provider / response / ground truth / summary / projection separability / report providerの各changeをbooleanで明示し、defaultを持ちません。さらに `labelOnlyReevaluation` をrequired / forbidden / eitherで指定できます。
 
 guard resultはcomparisonとpolicyをsnapshotし、violationをcanonical sorted listとして返します。validatorはcomparison+policyからviolationsを再計算するため、resultのcompliant/violationsだけを書き換えたartifactを受理しません。
 

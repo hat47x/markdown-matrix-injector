@@ -16,7 +16,7 @@ Contained source
 
 ## 2. Caller configurable surface
 
-許可:
+許可は次のとおりです。
 - source/proposal context
 - approved Format Profiles
 - `allowExternalJev: true`
@@ -24,7 +24,7 @@ Contained source
 - provider id
 - test/host supplied transport
 
-禁止:
+禁止は次のとおりです。
 - custom Choice question
 - custom criteria
 - custom Jev state projector

@@ -23,18 +23,18 @@
 - [x] Scenario本文に「利用前/利用後」の比較観点が最低3項目記載されること。
 - [x] 各観点に対応する操作手順・期待結果・制約がセットで記載されること。
 - [x] 適用条件 / 非推奨条件と比較観点のみで、導入可否を本文単体で判断できること。
-- [x] 文書化で発見した product gap があれば、別issueとして起票されること。
+- [x] 文書化で発見したproduct gapがあれば、別issueとして起票されること。
 
 ### Task breakdown (作業分解)
 - [x] ROI観点（時間短縮・品質・監査容易性）を選定する。
-- [x] Scenario guide に比較表と観測手順を追記する。
+- [x] Scenario guideに比較表と観測手順を追記する。
 - [x] Scenario本文のみで比較証拠が完結する構成へ整える。
-- [x] 発見ギャップを issue 化しトレースを残す。
+- [x] 発見ギャップをissue化しトレースを残す。
 
 ### Validation plan (検証計画)
 - `rg -n "利用前|利用後|比較|ROI|工数|期待結果|適用条件" 04_Documentation/scenario-sier-design-docs.md` で比較証拠の存在を確認する。
 - `rg -n "samples/" 04_Documentation/scenario-sier-design-docs.md` でサンプル導線を確認する。
-- `python3 01_Plans/tools/planning_queue.py` で起票漏れや orphan がないことを確認する。
+- `python3 01_Plans/tools/planning_queue.py` で起票漏れやorphanがないことを確認する。
 - `rg -n "Validation plan|Status|Done|In Progress|Open" 01_Plans/issues/issue-0016-phase6-adoption-fast-path.md 01_Plans/issues/issue-0017-phase6-scenario-roi-proof.md 01_Plans/issues/issue-0018-phase6-reference-trustworthiness.md` で3Issue横断の運用整合を確認する。
 
 ## Validation evidence (実行証跡)
@@ -56,7 +56,7 @@
   - `issue_orphan: 0`
 - Interpretation:
   - 本IssueはROI観測証拠の本文追記が未完のため `In Progress` が妥当。
-  - orphan 未発生のため、起票・参照の追跡性は維持。
+  - orphan未発生のため、起票・参照の追跡性は維持。
 
 ### 2026-03-28 (UTC) Stream C execution evidence
 - Run date (UTC): `2026-03-28`
@@ -67,10 +67,10 @@
   - `python3 01_Plans/tools/planning_queue.py`
 - Result summary:
   - Scenario本文に「利用前/利用後」「ROI」「工数」「期待結果」「適用条件」を含む比較証拠が存在することを確認。
-  - `samples/` 参照が Scenario本文から除去され、本文単体判断に寄せたことを確認。
+  - `samples/` 参照がScenario本文から除去され、本文単体判断に寄せたことを確認。
   - `planning_queue.py` 実行で `issue_pending: 5` / `issue_orphan: 0` を確認。
 - Interpretation:
-  - 受入条件を Scenario本文スコープへ固定した運用で、比較証拠の自立性を満たす方向に進捗。
+  - 受入条件をScenario本文スコープへ固定した運用で、比較証拠の自立性を満たす方向に進捗。
 
 ### 2026-03-28 (UTC) Stream D: samples 側エビデンス追記
 - Scope:
@@ -81,15 +81,15 @@
   - `04_Documentation/samples/phase6-roi/roi-metrics-template.csv`
 - Command: `rg -n "前提|手順|期待結果|制約" 04_Documentation/samples/phase6-roi/*.md`
 - Result summary:
-  - 4 文書すべてで `前提 / 手順 / 期待結果 / 制約` 見出しを確認。
+  - 4文書すべてで `前提 / 手順 / 期待結果 / 制約` 見出しを確認。
   - `samples` 配下のみで再現導線（README → before/after → protocol → csv）が成立。
 - Command: `python3 01_Plans/tools/planning_queue.py`
 - Result summary:
   - `issue_pending: 5`
   - `issue_orphan: 0`
 - Interpretation:
-  - issue-0017 のうち「samples導線固定」「前提/操作手順/期待結果の統一」「アンカー命名整備」のサンプル側作業は完了。
-  - Scenario 本文側の比較記述完了までは、Status `In Progress` を維持する。
+  - issue-0017のうち「samples導線固定」「前提/操作手順/期待結果の統一」「アンカー命名整備」のサンプル側作業は完了。
+  - Scenario本文側の比較記述完了までは、Status `In Progress` を維持する。
 
 
 ### 2026-03-28 (UTC) Stream H: issue統合エビデンス更新
@@ -101,10 +101,10 @@
   - `rg -n "前提|手順|期待結果|制約" 04_Documentation/samples/phase6-roi/*.md`
 - Result summary:
   - Scenario本文の比較証拠（利用前/利用後、ROI、工数、適用条件、非推奨）を確認。
-  - samples 側の再現導線（前提/手順/期待結果/制約）は4文書で確認。
+  - samples側の再現導線（前提/手順/期待結果/制約）は4文書で確認。
   - `planning_queue.py` は `issue_pending: 1`, `issue_orphan: 0`。
 - Status decision:
-  - ROI本文・samples 由来の主要受入条件は満たすが、`product gap issue化` の完了証跡が未記録のため `Status: In Progress` を維持。
+  - ROI本文・samples由来の主要受入条件は満たすが、`product gap issue化` の完了証跡が未記録のため `Status: In Progress` を維持。
 
 ### 2026-03-29 (UTC) Product gap issue 化と完了判定
 - Run date (UTC): `2026-03-29`
@@ -113,8 +113,8 @@
   - `rg -n "ギャップ候補|product gap" 04_Documentation/scenario-sier-design-docs.md 01_Plans/issues/issue-0017-phase6-scenario-roi-proof.md`
   - `python3 01_Plans/tools/planning_queue.py`
 - Result summary:
-  - Scenario本文の product gap 候補（観点別テンプレート自動挿入、抽出クエリ履歴のエビデンス出力）を再確認。
-  - `01_Plans/issues/issue-0021-phase6-scenario-product-gap-followup.md` を新規起票し、feature backlog としてトレース開始。
+  - Scenario本文のproduct gap候補（観点別テンプレート自動挿入、抽出クエリ履歴のエビデンス出力）を再確認。
+  - `01_Plans/issues/issue-0021-phase6-scenario-product-gap-followup.md` を新規起票し、feature backlogとしてトレース開始。
   - `planning_queue.py` で `issue_orphan: 0` を維持。
 - Status decision:
-  - issue-0017 の受入条件「product gap issue化」を満たしたため、`Status: Done` に更新。
+  - issue-0017の受入条件「product gap issue化」を満たしたため、`Status: Done` に更新。

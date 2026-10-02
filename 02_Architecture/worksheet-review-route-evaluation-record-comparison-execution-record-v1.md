@@ -39,7 +39,7 @@ executionDigestはrecord content identity。
 
 0183 policy resultが `compliant=false` でもrecord作成可能。
 
-これは:
+これはは次のとおりです。
 - planned comparison自体は実行された。
 - 明示change policyには違反した。
 
@@ -47,7 +47,7 @@ executionDigestはrecord content identity。
 
 ## 5. Non-disclosure
 
-新規に以下を複製しない:
+新規に以下を複製しないは次のとおりです。
 - raw worksheet。
 - evidence facts。
 - annotations。

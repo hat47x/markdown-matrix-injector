@@ -13,18 +13,18 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- release gate 結果を JSON ファイルとして保存できるようにし、CI artifact として監査可能な証跡を残す。
+- release gate結果をJSONファイルとして保存できるようにし、CI artifactとして監査可能な証跡を残す。
 
 ### Acceptance criteria (受入条件)
 - [x] `release_gate_check.py` に `--output-file` が追加される。
-- [x] JSON 結果のシリアライズ/保存ロジックに対するテストが追加される。
-- [x] CI が `artifacts/release-gate.json` をアップロードする。
-- [x] Phase 7 ガイドに output-file 運用が追記される。
+- [x] JSON結果のシリアライズ/保存ロジックに対するテストが追加される。
+- [x] CIが `artifacts/release-gate.json` をアップロードする。
+- [x] Phase 7ガイドにoutput-file運用が追記される。
 
 ### Task breakdown (作業分解)
-- [x] release gate CLI へ JSON export 機能を追加する。
-- [x] unittest を拡張する。
-- [x] CI workflow に artifact upload を追加する。
+- [x] release gate CLIへJSON export機能を追加する。
+- [x] unittestを拡張する。
+- [x] CI workflowにartifact uploadを追加する。
 - [x] ドキュメントへ運用手順を反映する。
 
 ### Validation plan (検証計画)
@@ -41,8 +41,8 @@
   - `python3 01_Plans/tools/release_gate_check.py --format json --output-file artifacts/release-gate.json`
   - `python3 01_Plans/tools/planning_queue.py`
 - Result summary:
-  - release gate CLI が JSON 結果をファイル出力可能になった。
-  - CI workflow が `release-gate-report` artifact をアップロードするようになった。
-  - planning queue は pending/orphan ともに 0 件を確認。
+  - release gate CLIがJSON結果をファイル出力可能になった。
+  - CI workflowが `release-gate-report` artifactをアップロードするようになった。
+  - planning queueはpending/orphanともに0件を確認。
 - Status decision:
   - 受入条件を満たしたため `Status: Done` に更新。

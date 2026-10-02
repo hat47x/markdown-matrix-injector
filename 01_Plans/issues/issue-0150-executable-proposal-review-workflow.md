@@ -25,7 +25,7 @@ UI層がこの組立責務を持つと、将来一部の検証を飛ばしたり
 
 `prepareExecutableProposalVerifiedReviewWithLoader` を単一の安全な入口とする。
 
-入力:
+入力は次のとおりです。
 - Cognitive Review Envelope
 - raw Notation proposal
 - Markdown file path / workspace root
@@ -33,7 +33,7 @@ UI層がこの組立責務を持つと、将来一部の検証を飛ばしたり
 - optional URI scheme
 - Workbook loader port
 
-内部でのみ:
+内部でのみは次のとおりです。
 1. `createCognitiveReviewPresentation(envelope)`
 2. `runExecutableProposalAuthorityEvidenceWithLoader(...)`
 3. `createExecutableProposalVerifiedReviewSurface(...)`
@@ -84,7 +84,7 @@ default loader版はissue-0149のproduction loader bridgeを再利用する。
 - workflow本体をinterface-compatibleな最小環境で `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true` でcompile成功。
 - 前回検出した `createCognitiveReviewPresentation` 不足はローカルharness側のstub不足であり、GitHub正本には同関数が存在することを再確認。
 - workflow固有のfocused runtime harness: **6 checks / 6 pass / 0 fail**。
-- 確認内容:
+- 確認内容は次のとおりです。
   - `Presentation -> Authority Evidence -> Verified Surface` の固定呼出順。
   - loader経路のsatisfied結果をsurfaceへ透過。
   - card相当のload-free経路でloaderを呼ばない。

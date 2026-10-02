@@ -1,34 +1,34 @@
 # Balance warning evaluation guide
 
-この文書は、worksheet format matcher の balance warning を読むための手引きです。
+この文書は、worksheet format matcherのbalance warningを読むための手引きです。
 
-対象は実験層の評価担当者です。warning を production の accept / reject 条件として扱うための仕様書ではありません。
+対象は実験層の評価担当者です。warningをproductionのaccept / reject条件として扱うための仕様書ではありません。
 
 ## 1. 最初に区別すること
 
-現在の warning は、同じ配列に入っていますが意味は2種類あります。
+現在のwarningは、同じ配列に入っていますが意味は2種類あります。
 
 ### Boundary warning
 
 - `confidence-near-gate`
 - `winner-margin-near-gate`
 
-これは「現在のscoreが decision boundary に近い」という、**その判定1件に固有の情報**です。
+これは「現在のscoreがdecision boundaryに近い」という、**その判定1件に固有の情報**です。
 
 ### Composition warning
 
 - `column-family-share-high`
 - `single-family-share-high`
 
-これは「feature vector の中で、あるfamilyの割合が大きい」という、**feature設計上の露出度**です。
+これは「feature vectorの中で、あるfamilyの割合が大きい」という、**feature設計上の露出度**です。
 
-wide table が完全一致していても composition warning は出ます。
+wide tableが完全一致していてもcomposition warningは出ます。
 
 この2種類を同じ意味で扱わないでください。
 
 ## 2. なぜ分ける必要があるのか
 
-16ケースの実務寄りfixtureで、すべてのwarningを「要レビュー」と読み替えた場合:
+16ケースの実務寄りfixtureで、すべてのwarningを「要レビュー」と読み替えた場合。
 
 ```text
 precision           0.583333
@@ -40,15 +40,15 @@ review対象の多くは拾えますが、review不要ケースもかなり拾�
 
 主なfalse positiveは:
 
-- 8列 exact
-- 10列 exact
-- 8列 1 label rename
-- 10列 1 label rename
-- 6列 fill unavailable
+- 8列exact
+- 10列exact
+- 8列1 label rename
+- 10列1 label rename
+- 6列fill unavailable
 
 です。
 
-ほとんどが composition warning です。
+ほとんどがcomposition warningです。
 
 ## 3. Boundary warningの性質
 
@@ -60,7 +60,7 @@ recall              0.250000
 false-positive rate 0.000000
 ```
 
-今回拾ったのは:
+今回拾ったのはは次のとおりです。
 
 - acceptance gate直近の6列2ラベル変更
 - winner margin直近のnear-tied prototype
@@ -99,7 +99,7 @@ composition warningはcase detectorではなく、
 
 6列表でfill evidenceが取れない場合、列関連featureの件数はそのままでも、分母からfill featureが消えます。
 
-そのため column-family share は上がります。
+そのためcolumn-family shareは上がります。
 
 実fixtureでは:
 
@@ -112,7 +112,7 @@ warning             column-family-share-high
 
 となりました。
 
-したがって composition warning は、
+したがってcomposition warningは、
 
 - workbook structure
 - source profile
@@ -122,7 +122,7 @@ warning             column-family-share-high
 
 ## 6. 現在もっとも重要なfalse negative
 
-6列表で:
+6列表では次のとおりです。
 
 ```text
 判定 -> 状態
@@ -136,7 +136,7 @@ warning             column-family-share-high
 
 へ変化するケースです。
 
-結果:
+結果は次のとおりです。
 
 ```text
 status         matched
@@ -193,7 +193,7 @@ single-cell metadata rowが表の前に増えても、現在のformat featureは
 
 既存gateを変更せず、corpus評価だけを行います。
 
-主な責務:
+主な責務は次のとおりです。
 
 1. warning codeをboundary / compositionへ分類
 2. caseごとに既存gateを実行
@@ -258,7 +258,7 @@ warningなし:
 - observation/prototypeで差異を持つfamily数
 - boundary warningとの組み合わせ
 
-評価目標は:
+評価目標はは次のとおりです。
 
 1. boundary warningのprecisionを大きく落とさない
 2. multi-family driftのrecallを上げる

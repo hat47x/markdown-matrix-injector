@@ -27,7 +27,7 @@ CognitiveObservation
 
 ## 2. Input boundary
 
-callerが指定するもの:
+callerが指定するもの。
 
 - observation id
 - kind
@@ -40,7 +40,7 @@ callerが指定するもの:
 - optional sourceProfileId
 - payload reader callback
 
-callerが指定しないもの:
+callerが指定しないもの。
 
 - sourceDigest
 
@@ -50,7 +50,7 @@ callerが指定しないもの:
 
 filesystem lockは行わない。
 
-代わりに:
+代わりには次のとおりです。
 
 1. contained sourceをresolve
 2. identity before
@@ -88,7 +88,7 @@ featureVersion?
 sourceProfileId?
 ```
 
-保存しない:
+保存しないは次のとおりです。
 
 - absolute resolved path
 - raw source bytes
@@ -99,7 +99,7 @@ sourceProfileId?
 
 ## 6. Result
 
-返却値:
+返却値は次のとおりです。
 
 - observation
 - resolvedPath

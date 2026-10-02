@@ -23,7 +23,7 @@ presentationは次を明確に分離する。
 
 - Authority boundary: source identity / write authority / pending revalidation
 - Perception: classification / ranked candidates / Fly固有metrics
-- Judgment: proposal-only decision または abstained / unsupported / unavailable
+- Judgment: proposal-only decisionまたはabstained / unsupported / unavailable
 - Provenance: provider identity、Format Profile approval reference、baseline source digest
 
 異なるproviderのscoreを統合・正規化・総合点化しない。Perception候補順位も再計算しない。
@@ -64,7 +64,7 @@ presentationは次を明確に分離する。
 - strict compile: `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true` で成功。
 - focused integration test: **8 tests / 8 pass / 0 fail**。
 - issue-0141と同じ実経路でreview envelopeを生成し、そのpresentation projectionを検証。
-- 検証内容:
+- 検証内容は次のとおりです。
   - Authority / Perception / Judgment / Provenanceを独立sectionへ投影。
   - `review-only / writeAuthority=none / applyStatus=not-authorized` を固定。
   - matched候補にapproved Profile label / approval referenceを結合。

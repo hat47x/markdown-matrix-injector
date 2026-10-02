@@ -52,12 +52,12 @@ Excel上で表全体がH:Kへ移動してもmaskは変わらない。
 
 ### 出力
 
-headerに横方向mergeがある場合:
+headerに横方向mergeがある場合。
 
 - `merge:header-horizontal-present`
 - `layout:header-horizontal-merge-links:<bits>`
 
-本文先頭側で同じ横方向mergeが繰り返される場合:
+本文先頭側で同じ横方向mergeが繰り返される場合。
 
 - `merge:body-horizontal-recurring`
 - `layout:body-majority-horizontal-merge-links:<bits>`
@@ -68,7 +68,7 @@ headerは1行の構造そのものなので、その行に存在する横方向m
 
 本文はデータ件数や偶発的な装飾に引きずられやすいため、v5のoccupancyと同じ先頭最大4本文行だけを対象にし、各列境界について**厳格過半数**の行でmergeされる場合だけ `1` とする。
 
-したがって3行中1行だけにあるmergeはformat identityへ入らない。3行中2行以上で同じ境界がmergeされて初めて recurring shape とみなす。
+したがって3行中1行だけにあるmergeはformat identityへ入らない。3行中2行以上で同じ境界がmergeされて初めてrecurring shapeとみなす。
 
 ## 設計詳細
 
@@ -90,7 +90,7 @@ mask indexは表左端からの相対境界であり、worksheet全体の列番�
 
 mergeが存在することを示す粗いfeatureと、具体的なlink maskを示す細かいfeatureを併用する。
 
-例:
+例は次のとおりです。
 
 ```text
 merge:body-horizontal-recurring
@@ -153,7 +153,7 @@ v5 prototypeとv6 observationは既存version gateで比較前に拒否する。
 
 ### 2026-09-17 local validation
 
-実行環境:
+実行環境は次のとおりです。
 
 - Node.js `v22.16.0`
 - TypeScript `5.8.3`
@@ -161,7 +161,7 @@ v5 prototypeとv6 observationは既存version gateで比較前に拒否する。
 
 まずv6 adapter/prototypeと専用merge-shape suiteをコンパイルし、**10 tests / 10 pass / 0 fail** を確認した。
 
-確認した境界:
+確認した境界は次のとおりです。
 
 | ケース | 結果 |
 |---|---|

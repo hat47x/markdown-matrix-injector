@@ -13,20 +13,20 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- sync checker に `--ignore-row-order` を追加し、行集合が一致していれば順序差分を許容できる検証モードを提供する。
+- sync checkerに `--ignore-row-order` を追加し、行集合が一致していれば順序差分を許容できる検証モードを提供する。
 - 標準動作は従来どおり順序厳格（後方互換維持）とし、必要時のみオプション利用を許可する。
 
 ### Acceptance criteria (受入条件)
 - [x] `check_phase9_template_sync.py` が `--ignore-row-order` を受け取る。
-- [x] row mismatch 判定がオプション時は順序非依存で評価される。
+- [x] row mismatch判定がオプション時は順序非依存で評価される。
 - [x] `test_check_phase9_template_sync.py` に順序差分許容のテストが追加される。
 - [x] `phase9-rule-table-template-operations.md` にオプション利用手順が追記される。
-- [x] `python3 01_Plans/tools/planning_queue.py` 実行時に orphan issue が 0 件である。
+- [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
 ### Task breakdown (作業分解)
-- [x] checker とテストを更新する。
+- [x] checkerとテストを更新する。
 - [x] 運用ガイドを更新する。
-- [x] planning queue を再実行する。
+- [x] planning queueを再実行する。
 
 ### Validation plan (検証計画)
 - `python3 01_Plans/tools/test_check_phase9_template_sync.py`

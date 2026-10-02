@@ -76,7 +76,7 @@ E: State
 F: Note
 ```
 
-なら:
+ならは次のとおりです。
 
 ```text
 headerColumns = [1, 2, 4, 5]
@@ -108,7 +108,7 @@ readerには `cellStyles: true` を指定しています。
 
 しかし今回のtest fixture writerもSheetJS CEです。
 
-ここで:
+ここでは次のとおりです。
 
 ```text
 cell.s = { fill: ... }
@@ -188,7 +188,7 @@ GitHub Actionsが利用できない場合も、runner不足をtest successへ読
 
 次は外部アプリ生成XLSXを対象にします。
 
-特に:
+特には次のとおりです。
 
 - RGB fill
 - theme fill

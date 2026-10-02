@@ -53,7 +53,7 @@ callerが任意の `JSON.stringify` / pretty-print / key order / filenameを使�
 - canonical reserialization。
 - input textとcanonical textが完全一致しない場合reject。
 
-これにより:
+これによりは次のとおりです。
 - pretty JSON
 - noncanonical key order
 - trailing newline
@@ -72,7 +72,7 @@ worksheet-review-route-evaluation-record-comparison-<left64>-to-<right64>.json
 - leftRecordDigest / rightRecordDigestのfull 64-hexを使用。
 - digest短縮なし。
 - left/rightをsortしない。
-- A→B と B→A は異なるfilename。
+- A→BとB→Aは異なるfilename。
 
 ## Artifact descriptor
 
@@ -90,7 +90,7 @@ filesystem/database/cloud writeは行わない。
 
 issue-0181 artifactにはcomparisonDigestを新設しない。
 
-理由:
+理由は次のとおりです。
 - source linkageはleft/right recordDigestで既に固定。
 - canonical bytesはcodecで再生成可能。
 - authenticity/signatureは別責務。
@@ -114,7 +114,7 @@ issue-0181 artifactにはcomparisonDigestを新設しない。
 - [x] semantic tamperをissue-0181 validatorでreject。
 - [x] stable directional filenameを追加。
 - [x] full left/right digest hexをfilenameへ使用。
-- [x] A→B と B→A のfilenameが異なる。
+- [x] A→BとB→Aのfilenameが異なる。
 - [x] artifact descriptorはI/Oを行わない。
 - [x] canonical round-tripでdeepEqual。
 - [x] deterministic serialization。

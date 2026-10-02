@@ -48,7 +48,7 @@ issue-0119でSheetJS CE XLSXの比較契約を`structure + fill`へ限定し、i
 - 実行環境: Node.js `v22.16.0`, TypeScript `5.8.3`。
 - `flyInspiredFormatMatcher.ts`と更新後の`worksheetFormatFeatureAdapter.ts`を `--strict --target ES2022 --module NodeNext --moduleResolution NodeNext` でコンパイルして成功。
 - 構造特徴unit test: **5 tests / 5 pass / 0 fail**。
-- 確認項目:
+- 確認項目は次のとおりです。
   - C:EとH:Jに同じ3列表を置いた場合、相対位置特徴は一致する。
   - `ID / 項目 / 値`と`ID / 値 / 項目`は異なる`column-position:*`を持つ。
   - 連続3列と空き列を含む3列で`header-contiguous` / `header-gapped`が分かれる。

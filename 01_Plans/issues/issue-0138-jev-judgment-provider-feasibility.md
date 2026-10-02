@@ -46,7 +46,7 @@ TypeSafe AIの公開情報を再確認し、設計上は次だけを採用した
 - 公開workflow evalはNoul / Choice / Scoreへ判断を分解し、算術・日付・status等の決定論的処理をcode側へ残している。
 - launch postではChoiceのcardinality上限として255が記載されている。
 
-参考:
+参考は次のとおりです。
 - https://typesafe.ai/blog/introducing-system-one-models-and-jev
 - https://typesafe.ai/
 - https://evals.typesafe.ai/
@@ -65,7 +65,7 @@ TypeSafe AIの公開情報を再確認し、設計上は次だけを採用した
   - expected Choice: 4
   - expected abstained: 1
   - expected unsupported: 3
-- 検証内容:
+- 検証内容は次のとおりです。
   - declared Choice内のdecisionだけをsignal化。
   - decisionは常に `proposal-only`。
   - selected probability / provider confidenceをprovider namespaceで分離保持。

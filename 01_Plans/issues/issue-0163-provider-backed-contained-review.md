@@ -85,7 +85,7 @@ issue-0160はsync `judgmentFactory` を持つが、Jev等のproviderはasyncで�
   `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
   でcompile成功。
 - focused runtime harness: **6 tests / 6 pass / 0 fail**。
-- 確認内容:
+- 確認内容は次のとおりです。
   - source Observation + Fly Perceptionからreview-route派生Observationを生成。
   - derived Observationはsource digestを維持し、cells/featuresを含めない。
   - local provider decisionをJudgmentとして取得。

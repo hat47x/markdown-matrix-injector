@@ -2,7 +2,7 @@
 
 ## 1. 目的
 
-UnifiedHumanReviewViewModelV1 の4 trust domainを混ぜずに、human reviewerへ見せる順序と既定展開状態だけを決める。
+UnifiedHumanReviewViewModelV1の4 trust domainを混ぜずに、human reviewerへ見せる順序と既定展開状態だけを決める。
 
     UnifiedHumanReviewViewModelV1
                 |
@@ -16,7 +16,7 @@ UnifiedHumanReviewViewModelV1 の4 trust domainを混ぜずに、human reviewer�
 
 ## 2. Source of truth
 
-review内容の正本は引き続き UnifiedHumanReviewViewModelV1。
+review内容の正本は引き続きUnifiedHumanReviewViewModelV1。
 
 Presentation Planはsection order / default disclosure / summary metadataだけを派生させる。Authority / Cognitive / Deterministic artifactそのものを再定義しない。
 
@@ -27,7 +27,7 @@ Presentation Planはsection order / default disclosure / summary metadataだけ�
     3 Deterministic
     4 Proposal Identity
 
-Authorityは実行前提のblocking factを最初に見せる。satisfied はhuman approvalではない。
+Authorityは実行前提のblocking factを最初に見せる。satisfiedはhuman approvalではない。
 CognitiveはPerceptionとoptional Judgmentを確認する。
 Deterministicはmatcher comparison由来のreview reasonを確認する。
 Proposal Identityは常時必要なreview本文ではないためdetails側へ置く。
@@ -44,7 +44,7 @@ Proposal Identity: 常にcollapsed。
 
 各sectionは自分自身の状態だけでdefault disclosureを決める。
 
-禁止例:
+禁止例は次のとおりです。
 - Authority blocked -> Cognitiveも展開
 - Cognitive novel -> Deterministicも展開
 - deterministic reasonあり -> Authority statusを上書き

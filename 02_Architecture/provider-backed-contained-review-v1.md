@@ -37,7 +37,7 @@ providerはsource Observationそのものを受け取らない。
 - optional winnerPrototypeId
 - noveltyScore
 
-含めない:
+含めないは次のとおりです。
 - cells
 - merges
 - raw features

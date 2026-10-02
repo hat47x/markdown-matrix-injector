@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Feature
-- Status: In Progress（2026-09-24 実装。実機での多環境検証が残り）
+- Status: In Progress（2026-09-24実装。実機での多環境検証が残り）
 - Priority: High
 - Scope: src/dx/autocompleteProvider.ts, src/extension.ts, params.schema.json同期テスト
 - Expected verification level: manual-e2e
@@ -37,7 +37,7 @@
 - ブックはmtimeキャッシュ（`WorkbookCache`）経由で読み、固定語彙（mode等）の候補ではブックを読まない。キャンセルと文書versionの変化で古い結果を捨てる。
 - 契約の照合: `header=<n>`は変換後の第n行（1始まり）で記法仕様§6・schema・契約が一致。範囲省略（`![[a.xlsx#Sheet1?mode=card]]`）でもクエリ補完が働くことをテストで確認。上流への不一致記録は不要だった。
 
-残り:
+残りは次のとおりです。
 
 - CSV/Excel/XML/TSV、multi-root、IME、Undo、原本変更、遅い旧要求の破棄の実機検証（criterion 4）。
 - 既存のe2eの「#の後のシート候補」の既知の不安定さが解消したかの継続観測。

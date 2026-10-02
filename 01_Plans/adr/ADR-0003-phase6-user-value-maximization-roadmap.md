@@ -6,23 +6,23 @@
 - Scope: `01_Plans/adr/`, `01_Plans/issues/`, `02_Architecture/`, `04_Documentation/`
 
 ## Context (背景と課題)
-- Phase 6 の基盤（4層ドキュメント構造とfeedback loop）は `ADR-0002` で確定したが、次に何をどの順番で進めると採用価値が最大化されるかは実行計画まで落ちていない。
+- Phase 6の基盤（4層ドキュメント構造とfeedback loop）は `ADR-0002` で確定したが、次に何をどの順番で進めると採用価値が最大化されるかは実行計画まで落ちていない。
 - 既存の公開文書は初版として成立している一方、導入判断者・PoC担当・運用担当の「意思決定に直結する証拠（時間短縮、リスク低減、導入可否判断材料）」を強化する余地がある。
 - 文書化の改善は、単に説明を増やすのではなく「読者が最短で成果を再現できること」「つまずきを上流仕様へ還流すること」を軸に優先順位付けすべきである。
 
 ## Decision (決定事項)
 ### 1) 実行ストリームと優先順
-Phase 6 の次イテレーションは、以下の4ストリームで実行する。
-1. **Adoption Fast Path**: Overview/Tutorial で「30分以内の初回成功体験」と「誰に効くか」を明確化。
+Phase 6の次イテレーションは、以下の4ストリームで実行する。
+1. **Adoption Fast Path**: Overview/Tutorialで「30分以内の初回成功体験」と「誰に効くか」を明確化。
 2. **Scenario ROI Proof**: SIer向けシナリオに、工数削減・レビュー容易性・納品適合性の観測ポイントを追加。
 3. **Reference Trustworthiness**: 詳細仕様に制約・失敗時挙動・関連テスト/設計リンクを追記し、問い合わせ時の一次回答源として成立させる。
-4. **Feedback Loop Operations**: docs audit を定期運用し、発見事項を requirements / architecture / tests / issues へトレース可能に戻す。
+4. **Feedback Loop Operations**: docs auditを定期運用し、発見事項をrequirements / architecture / tests / issuesへトレース可能に戻す。
 
-優先順位は **(1) Fast Path → (2) Scenario ROI → (3) Reference Trustworthiness → (4) Feedback Loop Ops** とする。
+優先順位は (1) Fast Path → (2) Scenario ROI → (3) Reference Trustworthiness → (4) Feedback Loop Ops とする。
 - 理由: 初回導入価値が不明な状態では、詳細仕様や運用ガバナンスを強化しても採用率向上に寄与しにくいため。
 
 ### 2) 成功指標（KPI）
-各ストリームは以下の KPI を満たしたときに「ユーザ価値を増加させた」と判定する。
+各ストリームは以下のKPIを満たしたときに「ユーザ価値を増加させた」と判定する。
 - **Time-to-First-Success (TFS):** Tutorial の手順で 30 分以内に初回成功できる（手順数・前提条件・成功判定が明示されている）。
 - **Decision Readiness:** 導入判断者が「採用可否」を判断するための比較軸（利用前/利用後、制約、適用条件）を Scenario guide だけで確認できる。
 - **Support Deflection Readiness:** Reference から失敗時挙動・制約・関連正本へ辿れるため、問い合わせ一次回答を文書で自己完結できる。
@@ -35,7 +35,7 @@ Phase 6 の次イテレーションは、以下の4ストリームで実行す�
 - **M4 (Ops Gate):** issue-0019 + issue-0020 完了。docs audit運用と計測テンプレート定着。
 
 ### 4) 運用ルール
-- 各ストリームは独立issueとして起票し、**受入条件に KPI か観測可能な代替指標**を含める。
+- 各ストリームは独立issueとして起票し、受入条件にKPIか観測可能な代替指標を含める。
 - docs更新で検出された仕様ギャップは、文書だけで抱え込まず上流（requirements / architecture / tests / issue）へ即時反映する。
 
 ## Consequences (結果と影響)
@@ -51,14 +51,14 @@ Phase 6 の次イテレーションは、以下の4ストリームで実行す�
 
 ## 議事録 (AI読込不要)
 ### Issue Definition
-- Phase 6 で「次にどの文書をどの順で磨くとユーザ価値が最大化されるか」が曖昧。
-- 既存計画に KPI とマイルストーンがなく、完了判定が主観的になる懸念があった。
+- Phase 6で「次にどの文書をどの順で磨くとユーザ価値が最大化されるか」が曖昧。
+- 既存計画にKPIとマイルストーンがなく、完了判定が主観的になる懸念があった。
 
 ### Virtual Debate
 - Architecture Lead: まず導線を最短化しないと、後続の詳細仕様改善が読まれない。Overview/Tutorialに集中すべき。
 - Product/UX Lead: 導入判断者はROI根拠を求める。シナリオに比較観点（何がどれだけ楽になるか）を入れないと採用が進まない。
 - QA/Delivery Lead: 詳細仕様に制約や失敗時挙動がないと問い合わせが増える。Referenceの信頼性向上を同時に進めるべき。
-- QA/Delivery Lead: KPI未定義だとDone判定がぶれる。計測テンプレートを issue 化して運用固定すべき。
+- QA/Delivery Lead: KPI未定義だとDone判定がぶれる。計測テンプレートをissue化して運用固定すべき。
 
 ### Synthesis & Decision
 - 優先順は「初回成功体験」→「業務価値証明」→「仕様信頼性」→「継続運用」。

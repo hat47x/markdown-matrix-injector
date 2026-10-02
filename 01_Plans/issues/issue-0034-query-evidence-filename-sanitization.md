@@ -13,17 +13,17 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- markdown basename をそのまま使うと空白や記号で扱いづらいケースがあるため、`buildQueryEvidenceOutputPaths` で basename をサニタイズする。
+- markdown basenameをそのまま使うと空白や記号で扱いづらいケースがあるため、`buildQueryEvidenceOutputPaths` でbasenameをサニタイズする。
 - サニタイズ方針: 英数字・`-`・`_` 以外は `-` へ置換し、連続 `-` を圧縮、先頭/末尾 `-` を除去。空文字になった場合は `markdown` を使用。
-- 既存テストを維持しつつ、サニタイズケースの unit test を追加する。
+- 既存テストを維持しつつ、サニタイズケースのunit testを追加する。
 
 ### Acceptance criteria (受入条件)
-- [x] 出力ファイル名が安全な basename へ正規化される。
-- [x] basename が空になるケースで `markdown` にフォールバックする。
+- [x] 出力ファイル名が安全なbasenameへ正規化される。
+- [x] basenameが空になるケースで `markdown` にフォールバックする。
 - [x] `npm test` が通過する。
 
 ### Task breakdown (作業分解)
-- [x] `vscodeAdapters.ts` に basename サニタイズ処理を追加する。
+- [x] `vscodeAdapters.ts` にbasenameサニタイズ処理を追加する。
 - [x] `queryEvidence.test.ts` にサニタイズケースを追加する。
 - [x] `npm test` を実行する。
 
@@ -37,8 +37,8 @@
 - Commands:
   - `cd 03_Implement && npm test`
 - Result summary:
-  - basename サニタイズ（記号置換・連続ハイフン圧縮・先頭末尾トリム）を追加。
+  - basenameサニタイズ（記号置換・連続ハイフン圧縮・先頭末尾トリム）を追加。
   - 空文字化時の `markdown` フォールバックを追加。
-  - サニタイズ/フォールバックの unit test を追加し、全 114 テストが通過。
+  - サニタイズ/フォールバックのunit testを追加し、全114テストが通過。
 - Status decision:
   - 受入条件を満たしたため `Status: Done` に更新。

@@ -36,7 +36,7 @@ issue-0171でground-truth corpusのreadinessを判定でき、issue-0172でprovi
 
 provider-neutralな `runWorksheetReviewRouteEvaluation` を追加する。
 
-順序:
+順序は次のとおりです。
 
 1. explicit readiness policyをissue-0171で評価。
 2. not readyなら `status=blocked` を返しproviderを呼ばない。
@@ -60,7 +60,7 @@ Observation:
 - provenance.sourceKind = `worksheet-review-route-evaluation-packet`
 - provenance.sourceDigest = caseDigest
 
-含めない:
+含めないは次のとおりです。
 - expectedRoute
 - evidence
 - annotation/adjudication
@@ -84,7 +84,7 @@ runnerは `ClosedChoiceJudgmentProvider<WorksheetReviewRouteChoice>` を注入�
 
 `createJevWorksheetReviewRouteEvaluationProvider` を追加する。
 
-production Jev providerと共有するもの:
+production Jev providerと共有するもの。
 - canonical question
 - choice descriptions / criteria
 - model/provider option semantics
@@ -106,7 +106,7 @@ production-equivalent stateに対して:
 
 evaluation Observationをproduction Observationへ偽装しない。
 
-禁止:
+禁止は次のとおりです。
 - fake sheetName
 - synthetic candidate IDs
 - synthetic winnerPrototypeId

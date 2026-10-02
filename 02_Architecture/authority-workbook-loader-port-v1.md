@@ -27,7 +27,7 @@ loaderがsource path解決やcontainmentを独自に行う構造にはしない�
 
 issue-0145互換のため `workbook?: WorkbookData` は残す。
 
-ただし:
+ただしは次のとおりです。
 
 ```text
 workbook + workbookLoader
@@ -59,7 +59,7 @@ digest after load
 
 を比較する。
 
-before != after の場合:
+before != afterの場合。
 
 ```text
 source-identity = failed

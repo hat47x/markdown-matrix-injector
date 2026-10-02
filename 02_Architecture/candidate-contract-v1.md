@@ -61,7 +61,7 @@ run       deterministic       { inputDigest, config, implementationVersion }
 
 ## 3b. Excel画像のSource Adapter（issue-0194）
 
-`readExcelImages()`は.xlsxのOOXMLパッケージ（ワークブック → シート → drawing → media の関係）を直接読み、`image`のCandidateへ変換する（`src/adapters/excelImageAdapter.ts`、zip読込は`src/core/zipReader.ts`）。SheetJS community版は画像を解釈しないため、依存を足さずに自前で読む。
+`readExcelImages()`は.xlsxのOOXMLパッケージ（ワークブック → シート → drawing → mediaの関係）を直接読み、`image`のCandidateへ変換する（`src/adapters/excelImageAdapter.ts`、zip読込は`src/core/zipReader.ts`）。SheetJS community版は画像を解釈しないため、依存を足さずに自前で読む。
 
 | 主張 | 状態 | method | 根拠 |
 | --- | --- | --- | --- |

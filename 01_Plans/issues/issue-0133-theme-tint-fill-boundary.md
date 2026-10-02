@@ -35,13 +35,13 @@ XLSX
 
 Excel/Open XMLでは、fill colorは必ずしも `rgb="..."` として保存されない。
 
-たとえば:
+たとえばは次のとおりです。
 
 ```xml
 <fgColor theme="3"/>
 ```
 
-や:
+やは次のとおりです。
 
 ```xml
 <fgColor theme="3" tint="0.8"/>
@@ -87,14 +87,14 @@ decoded SHA-256:
 45d925f4e7d26e5110d05f79a22b2d9b0d67ec73ca8db581cf0a7633d93a4a07
 ```
 
-生成環境:
+生成環境は次のとおりです。
 
 ```text
 LibreOffice 25.2.3.2 520(Build:2)
 OpenPyXL 3.1.5
 ```
 
-生成手順:
+生成手順は次のとおりです。
 
 1. OpenPyXLでtheme-indexed workbook原型を作成
 2. LibreOffice CalcでOffice Open XMLとして再保存
@@ -162,7 +162,7 @@ testではbridgeへ入る前にSheetJS worksheet objectを直接観測する。
 
 ### Theme Dark
 
-期待:
+期待は次のとおりです。
 
 ```text
 patternType = solid
@@ -173,7 +173,7 @@ fgColor.rgb = 1F497D
 
 ### Theme Light Tint
 
-期待:
+期待は次のとおりです。
 
 ```text
 patternType = solid
@@ -280,7 +280,7 @@ fillTone = other
 
 adapterは `other` をmeaningful fill evidenceへ入れない。
 
-したがって:
+したがっては次のとおりです。
 
 - theme XML欠落
 - unsupported theme representation
@@ -336,7 +336,7 @@ evidence = [structure, fill]
 
 ### 実行済み
 
-現在の作業環境で:
+現在の作業環境では次のとおりです。
 
 - OpenPyXLによるtheme workbook原型生成
 - LibreOffice headlessによる最終XLSX再保存
@@ -361,7 +361,7 @@ GitHub Actionsは既知のrunner/resource不足があるため完了条件にし
 
 theme/tintまで既存reader契約で解決できることが確認できたため、次はstyle種類を増やすより、**実務fixtureでfill evidenceの出現率と識別価値を測る**段階が自然である。
 
-候補:
+候補は次のとおりです。
 
 1. direct RGB / theme / no-fillが実際の設計書でどの比率か
 2. fill差だけがformat identityへ寄与するケースがどの程度あるか

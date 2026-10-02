@@ -95,7 +95,7 @@ signalには:
 
 異なるproviderのscoreは共通尺度ではない。
 
-`CognitiveScore`は:
+`CognitiveScore`はは次のとおりです。
 
 - namespace
 - name
@@ -106,7 +106,7 @@ signalには:
 
 を保持する。
 
-例:
+例は次のとおりです。
 
 - Fly matcher confidence
 - Fly DeviationScore
@@ -121,7 +121,7 @@ contract層にはscore平均、max選択、共通threshold判定のhelperを置�
 
 結果は必ず観測参照とprovider descriptorに結び付く。
 
-最低限:
+最低限は次のとおりです。
 
 ```text
 observation id

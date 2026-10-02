@@ -13,7 +13,7 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- 開発/検証用 `__dev.exportQueryEvidence` 実行時に CSV に加えて JSON も同時出力し、監査レビューと機械処理双方で再利用可能な証跡を生成する。
+- 開発/検証用 `__dev.exportQueryEvidence` 実行時にCSVに加えてJSONも同時出力し、監査レビューと機械処理双方で再利用可能な証跡を生成する。
 
 ### Acceptance criteria (受入条件)
 - [x] `query-evidence.csv` と `query-evidence.json` の両方を出力できる。
@@ -21,8 +21,8 @@
 - [x] 既存テストを含む `npm test` が通過する。
 
 ### Task breakdown (作業分解)
-- [x] `vscodeAdapters` に JSON 生成ヘルパーを追加する。
-- [x] `extension.ts` の export コマンドを CSV + JSON 同時出力に変更する。
+- [x] `vscodeAdapters` にJSON生成ヘルパーを追加する。
+- [x] `extension.ts` のexportコマンドをCSV + JSON同時出力に変更する。
 - [x] 単体テストを追加し、CSV/JSONの整合を確認する。
 
 ### Validation plan (検証計画)
@@ -37,8 +37,8 @@
   - `cd 03_Implement && npm test`
   - `python3 01_Plans/tools/planning_queue.py`
 - Result summary:
-  - `__dev.exportQueryEvidence` で CSV / JSON の2形式を同時出力することを実装。
+  - `__dev.exportQueryEvidence` でCSV / JSONの2形式を同時出力することを実装。
   - `buildQueryEvidenceJson` と `queryEvidence.test.ts` の追加により、順序安定・シリアライズ整合を確認。
-  - `npm test` 全件通過、queue pending/orphan ともに 0 を確認。
+  - `npm test` 全件通過、queue pending/orphanともに0を確認。
 - Status decision:
   - 受入条件を満たしたため `Status: Done` に更新。

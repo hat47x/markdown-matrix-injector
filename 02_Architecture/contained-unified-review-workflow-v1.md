@@ -30,7 +30,7 @@ snapshotはworkflow内部の一時値であり、返却artifactには含めな�
 
 このworkflowは現行 `SHEETJS_CE_XLSX_0203_SOURCE_PROFILE` に固定する。
 
-理由:
+理由は次のとおりです。
 
 - issue-0157 Profile-backed analysisも同profileをprimary pathとして使用する。
 - callerがPerceptionだけ別source profileへ切り替える不整合を防ぐ。
@@ -48,7 +48,7 @@ issue-0153 `createContainedCognitiveObservation` を利用する。
 
 snapshot readerはcontained absolute pathだけを受け取る。
 
-read前後source identityが変化した場合:
+read前後source identityが変化した場合。
 
 - Observationを返さない
 - Perceptionを返さない
@@ -75,7 +75,7 @@ optional `judgmentFactory` は次だけを受け取る。
 - Cognitive Observation
 - Fly Perception outcome
 
-受け取らない:
+受け取らないは次のとおりです。
 
 - raw worksheet snapshot
 - cells

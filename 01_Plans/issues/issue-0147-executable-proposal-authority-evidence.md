@@ -79,7 +79,7 @@ proposal identity:
 - TypeScript: `5.8.3`
 - issue-0145 adapter + Evidence moduleのstrict compile: `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true` で成功。
 - focused runtime harness: **9 checks / 9 pass / 0 fail**。
-- 検証内容:
+- 検証内容は次のとおりです。
   - satisfied Authority Receiptをexact proposal identityへbinding。
   - 同一source上でtable proposal用Evidenceをcard proposalへ流用するswapをproposal digest mismatchで拒否。
   - leading/trailing whitespace差は同一identity。

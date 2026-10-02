@@ -52,7 +52,7 @@ strict TypeScript条件で対象module/testをcompileし、provider category、c
 - TypeScript: `5.8.3`
 - compile: `--strict --target ES2022 --module NodeNext --moduleResolution NodeNext` で成功
 - focused unit test: **8 tests / 8 pass / 0 fail**
-- 検証内容:
+- 検証内容は次のとおりです。
   - provider category / execution boundary
   - namespaced score semantics
   - observation provenance / source digest

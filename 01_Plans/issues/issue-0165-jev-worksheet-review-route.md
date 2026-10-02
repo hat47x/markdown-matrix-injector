@@ -19,7 +19,7 @@
 TypeSafe公式APIではChoiceは有限option集合から1つを選び、criteriaで各optionの意味を記述し、choice/probabilities/confidenceを返す。
 本Issueはその構造だけを利用する。
 
-参考:
+参考は次のとおりです。
 - https://docs.typesafe.ai/api
 - https://docs.typesafe.ai/primitives/choice
 
@@ -42,7 +42,7 @@ MMI固有routeを2択へ固定する。
 - inspect: 高い注意度のhuman review
 - routine: 通常のhuman review
 
-両方:
+両方は次のとおりです。
 - human review required = true
 - apply authority = none
 - automatic decision = none
@@ -58,7 +58,7 @@ issue-0163 review-route Observationから外部providerへ送るstateは次だ�
 - hasWinner
 - noveltyScore
 
-送らない:
+送らないは次のとおりです。
 - sheetName
 - candidate/Profile IDs
 - source digest
@@ -109,7 +109,7 @@ issue-0163 review-route Observationから外部providerへ送るstateは次だ�
   `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
   でcompile成功。
 - focused runtime harness: **5 tests / 5 pass / 0 fail**。
-- 確認内容:
+- 確認内容は次のとおりです。
   - projected Jev stateは `classification / candidateCount / hasWinner / noveltyScore` の4項目のみ。
   - sheet name / candidate ID / source digest / feature versionをstateへ含めない。
   - inspect / routine両routeで `humanReviewRequired=true`。

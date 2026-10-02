@@ -50,7 +50,7 @@ observation id / schema versionはPerceptionとJudgmentで異なってよい。�
 
 Perceptionのvisible candidateは、すべてapproved Format Profileへ結び付かなければならない。
 
-検証するもの:
+検証するもの。
 
 - profile status = `approved`
 - explicit human approval metadata
@@ -67,7 +67,7 @@ Perceptionが `novel` かつcandidateを1件も返さない場合、profile ref�
 
 Judgmentはoptional。
 
-含める場合:
+含める場合。
 
 - provider category = `judgment`
 - source digest = Perception source digest
@@ -81,7 +81,7 @@ Judgment結果をProfile承認やNotation適用へ変換しない。
 
 Envelopeはrevalidationを完了したとは主張しない。v1では全requirementsを `pending` で保持する。
 
-常時必要:
+常時必要は次のとおりです。
 
 - `source-identity`
 - `profile-compatibility`

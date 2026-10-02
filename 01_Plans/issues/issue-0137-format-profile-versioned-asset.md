@@ -48,7 +48,7 @@ schema fixtureでvalid profile、version mismatch、source-profile mismatch、�
   - lifecycleは `candidate / approved`
   - approval `kind = human`
   - candidateでapproval禁止、approvedでapproval必須の条件を保持。
-- 検証内容:
+- 検証内容は次のとおりです。
   - existing `WorksheetFormatPrototype`からcanonical candidateを生成。
   - candidateはapproval metadataを持てず、matcher prototypeへ復元不可。
   - explicit human approval metadataを付与したcopyだけapprovedへ遷移。

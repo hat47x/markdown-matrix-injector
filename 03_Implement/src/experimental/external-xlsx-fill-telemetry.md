@@ -35,7 +35,7 @@ external XLSX
 
 今回の9ケース中6ケースはreader snapshotをそのまま使います。
 
-これにより:
+これによりは次のとおりです。
 
 - merge
 - row gap
@@ -50,7 +50,7 @@ external XLSX
 
 3ケースだけsnapshotの `fillTone` を除去します。
 
-目的は:
+目的はは次のとおりです。
 
 > source / reader都合でfill evidenceを取得できない
 
@@ -105,7 +105,7 @@ exact structureからfillだけ除去しても `fill-unavailable` は出ます�
 
 これはreview不要ケースです。
 
-したがって:
+したがっては次のとおりです。
 
 ```text
 fill-unavailable
@@ -129,7 +129,7 @@ fill-tone-disagreement
 
 理由は、deterministic worksheet comparison telemetryの品質を先に確かめるためです。
 
-将来接続する場合も:
+将来接続する場合もは次のとおりです。
 
 ```text
 matcher result

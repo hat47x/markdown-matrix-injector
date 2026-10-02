@@ -21,7 +21,7 @@ WorksheetFormatSnapshot
 
 feature-level fixtureでは、欲しいfeatureを直接書けます。
 
-しかし実際には:
+しかし実際にはは次のとおりです。
 
 - header candidate選択
 - title mergeの検出
@@ -41,7 +41,7 @@ snapshot-level評価は、この変換経路を含めてもsignalの傾向が残
 
 9列のstructure+fillと、7列のstructure-onlyを使います。
 
-含める差異:
+含める差異は次のとおりです。
 
 - exact
 - one-label rename
@@ -59,7 +59,7 @@ snapshot-level評価は、この変換経路を含めてもsignalの傾向が残
 
 structure-only fixtureでもraw snapshotにはdark fillを入れています。
 
-評価では:
+評価ではは次のとおりです。
 
 ```text
 rawObservationFeatures:
@@ -100,7 +100,7 @@ DeviationScoreはfeature集合全体のJaccardから作られるため、fillの
 
 の2 familyへ現れます。
 
-さらに構造差が1つ加わると:
+さらに構造差が1つ加わるとは次のとおりです。
 
 - table-skeleton
 - body-occupancy
@@ -130,7 +130,7 @@ snapshot-levelでもone-label renameだけでpenalizing-family countが4にな�
 
 raw different-family countは2です。
 
-このため:
+このためは次のとおりです。
 
 - raw family difference: feature表現上の差異種類
 - ablation delta: current scorerへの寄与診断
@@ -178,7 +178,7 @@ multi-family signalはambiguous判定の代替ではありません。
 
 次段階はreal XLSX fixtureです。
 
-特に確認したいのは:
+特に確認したいのはは次のとおりです。
 
 - merged subordinate cellsがsnapshotでどう見えるか
 - blank cellがreaderで保持されるか

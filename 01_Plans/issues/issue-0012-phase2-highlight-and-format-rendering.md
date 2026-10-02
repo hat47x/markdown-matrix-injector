@@ -16,8 +16,8 @@
 - 既存の表描画パイプラインへ `highlightColumn` / `highlightValue` / `formatColumn` を追加し、行ハイライトとコードブロック風セル描画をクエリで制御できるようにする。
 
 ### Acceptance criteria (受入条件)
-- [x] `highlightColumn` と `highlightValue` に一致する行へ CSS クラスを付与できること。
-- [x] `formatColumn=E:json` のような指定で対象列セルをコードブロック風 HTML に変換できること。
+- [x] `highlightColumn` と `highlightValue` に一致する行へCSSクラスを付与できること。
+- [x] `formatColumn=E:json` のような指定で対象列セルをコードブロック風HTMLに変換できること。
 - [x] 既存の `header`, `columns`, `transpose`, `grep` と併用しても退行しないこと。
 - [x] テストとビルドが通ること。
 
@@ -27,5 +27,5 @@
 - [x] 単体テストを追加する。
 
 ### Validation plan (検証計画)
-- `cd 03_Implement && npm test` が Pass することを確認する。
+- `cd 03_Implement && npm test` がPassすることを確認する。
 - `cd 03_Implement && npm run build` が成功することを確認する。

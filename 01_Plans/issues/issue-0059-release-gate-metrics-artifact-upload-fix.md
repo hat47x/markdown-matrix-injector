@@ -13,16 +13,16 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- metrics CSV は生成されているが artifact upload 対象から漏れていたため、CI/manual workflow の upload path へ `artifacts/release-gate-metrics.csv` を追加する。
+- metrics CSVは生成されているがartifact upload対象から漏れていたため、CI/manual workflowのupload pathへ `artifacts/release-gate-metrics.csv` を追加する。
 
 ### Acceptance criteria (受入条件)
-- [x] `ci.yml` の release-gate artifact path に metrics CSV が含まれる。
-- [x] `release-gate-manual.yml` の artifact path に metrics CSV が含まれる。
+- [x] `ci.yml` のrelease-gate artifact pathにmetrics CSVが含まれる。
+- [x] `release-gate-manual.yml` のartifact pathにmetrics CSVが含まれる。
 - [x] ローカル検証コマンドが継続して成功する。
 
 ### Task breakdown (作業分解)
-- [x] CI workflow の upload path を修正する。
-- [x] manual workflow の upload path を修正する。
+- [x] CI workflowのupload pathを修正する。
+- [x] manual workflowのupload pathを修正する。
 - [x] 検証コマンドを実行し証跡を記録する。
 
 ### Validation plan (検証計画)
@@ -39,8 +39,8 @@
   - `python3 -m unittest 01_Plans/tools/test_release_gate_check.py 01_Plans/tools/test_release_gate_metrics.py`
   - `python3 01_Plans/tools/planning_queue.py`
 - Result summary:
-  - CI/manual workflow の artifact upload に metrics CSV を追加。
-  - release-gate full とユニットテストの成功を確認。
-  - planning queue は pending/orphan ともに 0 件を確認。
+  - CI/manual workflowのartifact uploadにmetrics CSVを追加。
+  - release-gate fullとユニットテストの成功を確認。
+  - planning queueはpending/orphanともに0件を確認。
 - Status decision:
   - 受入条件を満たしたため `Status: Done` に更新。

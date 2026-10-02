@@ -19,6 +19,29 @@ function workbook(filepath: string, sheets: Record<string, readonly (readonly st
   };
 }
 
+test('findWorkbookContentMatches preserves empty boundary columns from clipboard TSV', () => {
+  const matches = findWorkbookContentMatches(
+    '\tAlpha\t\r\n\tBeta\t\r\n',
+    [
+      workbook('./edge-empty.xlsx', {
+        Sheet1: [
+          ['noise', 'noise', 'noise'],
+          ['', 'Alpha', ''],
+          ['', 'Beta', ''],
+        ],
+      }),
+    ],
+  );
+
+  assert.equal(matches.length, 1);
+  assert.deepEqual(matches[0].range, {
+    startRow: 1,
+    startCol: 0,
+    endRow: 2,
+    endCol: 2,
+  });
+});
+
 test('findWorkbookContentMatches finds a match in the only workbook given', () => {
   const workbooks = [
     workbook('./design.xlsx', {
@@ -67,6 +90,28 @@ test('findWorkbookContentMatches aggregates matches across multiple workbooks an
 test('findWorkbookContentMatches returns nothing for blank clipboard text', () => {
   const workbooks = [workbook('./a.xlsx', { Sheet1: [['a']] })];
   assert.deepEqual(findWorkbookContentMatches('   \r\n  ', workbooks), []);
+});
+
+test('findWorkbookContentMatches treats leading and trailing spaces as source data', () => {
+  const workbooks = [
+    workbook('./whitespace.xlsx', {
+      Sheet1: [
+        ['ID', 'Value'],
+        ['1', ' padded '],
+        ['1', 'padded'],
+      ],
+    }),
+  ];
+
+  const matches = findWorkbookContentMatches('1\t padded \r\n', workbooks);
+
+  assert.deepEqual(matches.map(located), [
+    {
+      filepath: './whitespace.xlsx',
+      sheet: 'Sheet1',
+      range: { startRow: 1, startCol: 0, endRow: 1, endCol: 1 },
+    },
+  ]);
 });
 
 test('findWorkbookContentMatches returns nothing when no workbook contains the values', () => {
@@ -132,6 +177,29 @@ test('findWorkbookContentMatches describes where each identical copy sits', () =
     ['承認', '7|移行|保留'],
   ]);
   assert.deepEqual(matches[0].context?.headers, ['No', '確認項目', '判定']);
+  assert.deepEqual(matches[0].context?.previewRows, [['2', '脆弱性診断', 'NG']]);
+});
+
+test('match context previews at most the first two source rows of the matched range', () => {
+  const matches = findWorkbookContentMatches(
+    '1\tAlpha\r\n2\tBeta\r\n3\tGamma\r\n',
+    [
+      workbook('./rows.xlsx', {
+        Sheet1: [
+          ['ID', 'Name'],
+          ['1', 'Alpha'],
+          ['2', 'Beta'],
+          ['3', 'Gamma'],
+        ],
+      }),
+    ],
+  );
+
+  assert.equal(matches.length, 1);
+  assert.deepEqual(matches[0].context?.previewRows, [
+    ['1', 'Alpha'],
+    ['2', 'Beta'],
+  ]);
 });
 
 test('summarizeContentMatchContext gives Paste As a bounded one-line duplicate discriminator', () => {
@@ -150,7 +218,7 @@ test('summarizeContentMatchContext gives Paste As a bounded one-line duplicate d
   );
   assert.equal(
     summarizeContentMatchContext(matches[0]),
-    '表:リリース判定 / 見出し:No|確認項目|判定 / 前:1|性能試験|OK',
+    '表:リリース判定 / 見出し:No|確認項目|判定 / 値:2|脆弱性診断|NG / 前:1|性能試験|OK',
   );
 
   const long = summarizeContentMatchContext(

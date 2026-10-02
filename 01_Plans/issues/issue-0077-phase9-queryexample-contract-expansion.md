@@ -13,17 +13,17 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- benchmark pack の `QueryExample` 列をテスト入力として再利用し、行単位で契約テストを拡張する。
-- table別の固定ケースに加え、テンプレート行が増えても追従しやすい pattern test を追加する。
+- benchmark packの `QueryExample` 列をテスト入力として再利用し、行単位で契約テストを拡張する。
+- table別の固定ケースに加え、テンプレート行が増えても追従しやすいpattern testを追加する。
 
 ### Acceptance criteria (受入条件)
-- [x] `markdownMatrixPlugin.test.ts` に `QueryExample` 列起点の contract test が追加される。
-- [x] 新規 contract test が `cd 03_Implement && npm test` で成功する。
-- [x] `python3 01_Plans/tools/planning_queue.py` 実行時に orphan issue が 0 件である。
+- [x] `markdownMatrixPlugin.test.ts` に `QueryExample` 列起点のcontract testが追加される。
+- [x] 新規contract testが `cd 03_Implement && npm test` で成功する。
+- [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
 ### Task breakdown (作業分解)
-- [x] QueryExample contract test を追加する。
-- [x] npm test と planning queue を実行する。
+- [x] QueryExample contract testを追加する。
+- [x] npm testとplanning queueを実行する。
 
 ### Validation plan (検証計画)
 - `cd 03_Implement && npm test`

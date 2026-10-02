@@ -220,15 +220,20 @@ function parseSpanAttribute(attrs: string, name: 'colspan' | 'rowspan'): number 
  *   bare LF (never CRLF), matching what a `<td>` with an Alt+Enter line break
  *   produces.
  *
- * Behavior mirrors `parseCsv`: the whole payload is trimmed once, unquoted
- * cells are trimmed, quoted cells are not (their content, including
- * intentional leading/trailing whitespace, is preserved verbatim).
+ * Cell payload is preserved exactly after TSV syntax decoding, whether or
+ * not Excel quoted the field. Leading/trailing spaces are display data, not
+ * parser whitespace: the provenance contract requires exact displayed-value
+ * comparison. The TSV rectangle itself is also not globally trimmed because
+ * boundary TABs encode empty first/last cells.
  */
 export function parseTsv(text: string): string[][] {
-  const trimmed = text.trim();
-  if (trimmed.length === 0) {
+  if (text.length === 0) {
     return [];
   }
+
+  // Preserve boundary TABs: they encode empty first/last cells in the copied rectangle.
+  // Remove only Excel's structural final row separator.
+  const source = text.replace(/\r?\n$/u, '');
 
   const rows: string[][] = [];
   let row: string[] = [];
@@ -237,7 +242,7 @@ export function parseTsv(text: string): string[][] {
   let inQuotes = false;
 
   const flushField = (): void => {
-    row.push(fieldIsQuoted ? field : field.trim());
+    row.push(field);
     field = '';
     fieldIsQuoted = false;
   };
@@ -247,12 +252,12 @@ export function parseTsv(text: string): string[][] {
     row = [];
   };
 
-  for (let i = 0; i < trimmed.length; i += 1) {
-    const ch = trimmed[i];
+  for (let i = 0; i < source.length; i += 1) {
+    const ch = source[i];
 
     if (inQuotes) {
       if (ch === '"') {
-        if (trimmed[i + 1] === '"') {
+        if (source[i + 1] === '"') {
           field += '"';
           i += 1;
         } else {
@@ -287,7 +292,7 @@ export function parseTsv(text: string): string[][] {
     field += ch;
   }
 
-  flushRow(); // final row -- `trimmed` was trimmed, so it never ends on a bare newline
+  flushRow(); // final logical row after removing only Excel's structural trailing row separator
 
   return rows;
 }
@@ -300,8 +305,9 @@ export async function readTransferValuesFromDataTransfer(
 
   for (const mimeType of MIME_PRIORITY_BY_SOURCE[source]) {
     const item = dataTransfer.get(mimeType);
-    const value = item ? (await item.asString()).trim() : '';
-    if (value) {
+    const rawValue = item ? await item.asString() : '';
+    const value = mimeType === 'text/plain' ? rawValue : rawValue.trim();
+    if (value.trim()) {
       clipboardValues[mimeType] = value;
     }
   }

@@ -64,7 +64,7 @@ inspect/routineはhuman-review attention routeであり意味が異なる。
 ## 6. Exact schema
 
 unknown fieldsは拒否する。
-これにより後から便利だからという理由で:
+これにより後から便利だからという理由では次のとおりです。
 - providerChoice
 - confidence
 - model
@@ -82,7 +82,7 @@ issue-0170以降、adjudicated caseは:
 
 ことをcorpus invariantとして要求する。
 
-inspect/routineはいずれもissue-0165の通り:
+inspect/routineはいずれもissue-0165の通り。
 - human review required
 - apply authority none
 - automatic decision none

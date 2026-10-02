@@ -31,7 +31,7 @@ ExecutableProposalVerifiedReviewSurfaceV1
 
 ## 2. Proposal identity section
 
-保持する情報:
+保持する情報は次のとおりです。
 
 - role = `executable-proposal-identity`
 - sourceDigest
@@ -39,7 +39,7 @@ ExecutableProposalVerifiedReviewSurfaceV1
 - representation = `mmi-notation-trimmed-utf8-v1`
 - digest = `sha256:<hex>`
 
-保持しない:
+保持しないは次のとおりです。
 
 - raw Notation
 - query文字列
@@ -55,7 +55,7 @@ ExecutableProposalVerifiedReviewSurfaceV1
 3. source digest / Authority status cross-check
 4. composite surface作成
 
-これにより:
+これによりは次のとおりです。
 
 - proposal identityを検証せずReceiptだけ表示する
 - Receiptを検証せずproposal digestだけ表示する
@@ -87,7 +87,7 @@ proposalのAuthority verificationと、人間による採用判断は別物と�
 
 ## 6. 不変性
 
-入力:
+入力は次のとおりです。
 
 - Cognitive Review Envelope
 - Cognitive Review Presentation

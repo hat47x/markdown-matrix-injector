@@ -25,8 +25,8 @@
 ### Task breakdown (作業分解)
 - [x] テーブル変換ロジックを追加する。
 - [x] 単体テストを拡張する。
-- [x] CLI で検証する。
+- [x] CLIで検証する。
 
 ### Validation plan (検証計画)
-- `cd 03_Implement && npm test` が Pass することを確認する。
+- `cd 03_Implement && npm test` がPassすることを確認する。
 - `cd 03_Implement && npm run build` が成功することを確認する。

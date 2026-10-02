@@ -59,7 +59,7 @@ manual/migration input向け。
 - canonical reserialization。
 - input bytes/textがcanonical textと完全一致しない場合reject。
 
-これにより:
+これによりは次のとおりです。
 - pretty JSON
 - noncanonical key order
 - trailing whitespace/newline
@@ -91,7 +91,7 @@ digest省略・短縮はしない。
 
 JSON Schemaを第二の正本として新規作成しない。
 
-理由:
+理由は次のとおりです。
 - recordはnested CognitiveOutcome / evaluation metrics / provider descriptorを含む。
 - runtime validatorはsemantic recomputationまで行う。
 - JSON Schemaではsummary再計算・packetDigest再計算等を表現できない。

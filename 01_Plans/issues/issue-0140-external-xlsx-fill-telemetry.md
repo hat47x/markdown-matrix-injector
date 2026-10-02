@@ -112,7 +112,7 @@ fill除去以外の:
 
 を確認することである。
 
-そのため最初のpractical corpusでは、外部fixtureに元から存在する:
+そのため最初のpractical corpusでは、外部fixtureに元から存在する。
 
 - dark / light fill差
 - gapped header
@@ -160,7 +160,7 @@ Theme Dark snapshotのfillToneだけを除去する。
 
 dark/light prototypesは元のexternal snapshotを使う。
 
-期待:
+期待は次のとおりです。
 
 ```text
 structure only: ambiguous
@@ -186,7 +186,7 @@ Theme Light Tint observationにTheme Dark prototype。
 
 structureは同一。
 
-期待:
+期待は次のとおりです。
 
 ```text
 structure only: matched
@@ -205,7 +205,7 @@ tone違いだけをreview gateへ昇格させない。
 - Metadata Gapped
 - No Title
 
-期待:
+期待は次のとおりです。
 
 ```text
 matched
@@ -317,7 +317,7 @@ reader経路固有の別taxonomyは作らない。
 
 issue-0135〜0138でprovider-neutral contractは整ったが、今回のreason codeをCognitiveSignalへ写像する変更は行わない。
 
-理由:
+理由は次のとおりです。
 
 - practical corpusが9ケースと小さい
 - high-impact taxonomyの全codeをexternal XLSXで確認していない

@@ -15,19 +15,19 @@
 ## Execution Plan
 ### Proposed solution
 
-SheetJS 0.20.3 のworksheet表現から、issue-0116で定義した `WorksheetFormatSnapshot` へ変換するread-only bridgeを追加する。
+SheetJS 0.20.3のworksheet表現から、issue-0116で定義した `WorksheetFormatSnapshot` へ変換するread-only bridgeを追加する。
 
 安定して扱える情報と、保守的に扱う情報を分離する。
 
 - 確定情報: `!ref`、セル座標、formatted text (`w`) / value (`v`)、`!merges`
-- 条件付き情報: `cellStyles: true` で得られる `s` のうち、明示的に認識できる RGB fill と border line style
+- 条件付き情報: `cellStyles: true` で得られる `s` のうち、明示的に認識できるRGB fillとborder line style
 - 推測しない情報: theme/indexed colorをRGBへ推定する処理、未知style shape、条件付き書式の見た目再現
 
 bridgeはsparse worksheetとdense worksheet (`!data`) の双方を扱う。`!ref`をworksheetの有効範囲として尊重し、範囲外セルを特徴化しない。入力worksheetは変更しない。
 
 styleについてはCommunity Editionが詳細な見た目再現を主目的としないことを前提に、判別できないものを既知styleへ寄せない。RGBが明示されたfillだけをdark / gray / light / otherへ分類し、borderは明示されたtop/right/bottom/leftのline styleだけからgrid / thin / otherを判定する。
 
-参考:
+参考は次のとおりです。
 - https://docs.sheetjs.com/docs/api/parse-options/
 - https://docs.sheetjs.com/docs/csf/features/merges/
 - https://docs.sheetjs.com/docs/csf/sheet/

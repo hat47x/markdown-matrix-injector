@@ -44,7 +44,7 @@ synthetic snapshotでは確認済みだが、それだけではreader / OOXML / 
 
 ## 他チャットとの競合回避
 
-作業開始時:
+作業開始時は次のとおりです。
 
 ```text
 main = a6f43ba8ca49d2d8553daaf6d73a9c2bae9a581a
@@ -87,21 +87,21 @@ SHA-256:
 aeeb605c4bcd88a02df6ecf09a83db962141d6f6c90bd96375d67feeeb937973
 ```
 
-生成環境:
+生成環境は次のとおりです。
 
 ```text
 LibreOffice 25.2.3.2 520(Build:2)
 OpenPyXL 3.1.5
 ```
 
-生成手順:
+生成手順は次のとおりです。
 
 1. OpenPyXLで1つのtemplate family workbookを生成
 2. 各sheetは共通して:
    - row 1 title merge
    - row 2 contiguous header
    - row 3〜5 full body
-3. 必要な差分だけ:
+3. 必要な差分だけは次のとおりです。
    - header label
    - dark / light / no fill
    に限定
@@ -128,7 +128,7 @@ Code | Item | Name | Required | Decision | Reviewer
 
 dark fill.
 
-差分:
+差分は次のとおりです。
 
 - ID -> Code
 - Type -> Name
@@ -162,7 +162,7 @@ Status | Item | Type | Required | Decision | Role | Note | Owner
 
 dark fill.
 
-差分:
+差分は次のとおりです。
 
 - ID -> Status
 - Reviewer -> Role
@@ -223,7 +223,7 @@ telemetry:
 fill-supported-acceptance
 ```
 
-意味:
+意味は次のとおりです。
 
 共通fillが、structure-onlyではacceptance gate未満だったobservationをmatched側へ押し上げる。
 
@@ -268,7 +268,7 @@ telemetry:
 fill-induced-ambiguity
 ```
 
-意味:
+意味は次のとおりです。
 
 Aはstructureが完全一致するがfillがない。
 Bは1 label異なるがdark fillは一致する。
@@ -378,7 +378,7 @@ fill-tone-disagreement
 
 も評価する。
 
-期待:
+期待は次のとおりです。
 
 ```text
 structure only = matched
@@ -390,7 +390,7 @@ reason coverageのために作ったworkbookがexact controlへ余計なsignal�
 
 ## Coverage corpusの解釈
 
-7ケース:
+7ケースは次のとおりです。
 
 ```text
 expected review = 4
@@ -413,13 +413,13 @@ FPR = 0
 
 このcorpusはreason codeを意図的に1件ずつ再現するcoverage fixtureであり、population distributionから独立に抽出したheld-out corpusではない。
 
-したがって:
+したがっては次のとおりです。
 
 > precision 1.0だからproduction gateへ採用する
 
 とは解釈しない。
 
-価値は:
+価値はは次のとおりです。
 
 > 4 reason codeがactual external XLSX reader boundaryでも再現する
 
@@ -461,7 +461,7 @@ issue-0141〜0144のreview / Authority surfaceは安定化したが、fill reaso
 
 ### 4. Fill weight / thresholdは変更しない
 
-今回も:
+今回もは次のとおりです。
 
 - positive effect
 - negative effect
@@ -505,7 +505,7 @@ sheetjs-ce-xlsx-0.20.3-fill-v1
 
 ### 実行済み
 
-現在環境で:
+現在環境では次のとおりです。
 
 - OpenPyXL source generation
 - LibreOffice headless final save

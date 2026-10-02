@@ -68,11 +68,11 @@ issue-0145のAuthority adapterはNotation v1既知parameterをローカルswitch
 - TypeScript: `5.8.3`
 - `parameterContract.ts` を `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true` でcompile成功。
 - focused contract/schema harness: **14 checks pass / 0 fail**。
-- 確認内容:
+- 確認内容は次のとおりです。
   - 12個のknown parameterのvalid vocabularyを全件pass。
   - enum / pattern / minLength違反を期待どおり検出。
   - unknown key / `x-*` をP5 forward compatibilityとして許容。
-  - repeated `formatColumn` の全occurrenceを評価し、2件目のinvalid値を occurrence=1 として検出。
+  - repeated `formatColumn` の全occurrenceを評価し、2件目のinvalid値をoccurrence=1として検出。
   - TypeScript contractのproperty集合と `params.schema.json` property集合が一致。
   - mode / transpose / pageBreak / orientation enum一致。
   - header / columns / formatColumn pattern一致。

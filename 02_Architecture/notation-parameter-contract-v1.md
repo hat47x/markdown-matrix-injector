@@ -35,7 +35,7 @@ parameterContract.ts
 - pageBreak
 - orientation
 
-制約種別は:
+制約種別はは次のとおりです。
 
 - enum
 - regex pattern

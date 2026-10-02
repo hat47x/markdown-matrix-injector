@@ -31,11 +31,11 @@ issue-0154でdeterministic review evidenceを、それぞれ安全なartifactと
 
 `UnifiedHumanReviewViewModelV1` を追加する。
 
-入力:
+入力は次のとおりです。
 - Cognitive Review Envelope
 - `DeterministicReviewEvidenceSurfaceV1<..., ExecutableProposalVerifiedReviewSurfaceV1>`
 
-生成時:
+生成時は次のとおりです。
 1. issue-0154 `createDeterministicReviewEvidenceSurface` を再実行しattachment-time validationを通す。
 2. executable proposal surface schema / proposal identity / source digestを再検証。
 3. review-only / no-write / not-authorized boundaryを再確認。
@@ -87,7 +87,7 @@ sections:
   `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
   でcompile成功。
 - focused runtime harness: **9 checks / 9 pass / 0 fail**。
-- 確認内容:
+- 確認内容は次のとおりです。
   - Proposal Identity / Authority / Cognitive / Deterministicの4領域へ分離。
   - Authority `satisfied` を独立sectionとして保持し、overall verdictを生成しない。
   - Authority `blocked` でもCognitive classificationを変更せずreview可能。

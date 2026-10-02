@@ -12,7 +12,7 @@
 - Depends on: issue-0138 Done
 - Depends on: issue-0161 Done
 - Related ADR/Spec: ADR-0018-cognitive-assistance-plane.md
-- Parallel exclusion: API key / fetch実装 / live network / retry / provider account / production UI は導入しない
+- Parallel exclusion: API key / fetch実装 / live network / retry / provider account / production UIは導入しない
 
 ## Public API evidence (2026-09-20)
 
@@ -21,11 +21,11 @@ TypeSafe公式docsを再確認した。
 - endpointは `POST https://api.typesafe.ai/v1/systemone`
 - request top-levelは `state / model / questions`
 - Choice questionは `type=choice / instructions / criteria`
-- `criteria` は option -> string|null map
+- `criteria` はoption -> string|null map
 - response Choice answerは `choice / probabilities / confidence`
 - Choice options上限は255
 
-参考:
+参考は次のとおりです。
 - https://docs.typesafe.ai/api
 - https://docs.typesafe.ai/primitives/choice
 - https://docs.typesafe.ai/introduction/quickstart
@@ -107,7 +107,7 @@ adapter固定:
   `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true`
   でcompile成功。
 - focused runtime harness: **17 checks / 17 pass / 0 fail**。
-- 確認内容:
+- 確認内容は次のとおりです。
   - default `jev-latest` model request。
   - explicit versioned model idをrequest/provider provenanceへ保持。
   - official Choice request shape:

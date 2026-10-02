@@ -13,20 +13,20 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- sync checker がファイル未存在や空CSVなど例外でクラッシュせず、`phase9 template sync: NG` と明確な原因を返すようにする。
-- unit test に CLI の missing-file 異常系を追加し、運用時の一次切り分け性を向上させる。
+- sync checkerがファイル未存在や空CSVなど例外でクラッシュせず、`phase9 template sync: NG` と明確な原因を返すようにする。
+- unit testにCLIのmissing-file異常系を追加し、運用時の一次切り分け性を向上させる。
 
 ### Acceptance criteria (受入条件)
-- [x] `check_phase9_template_sync.py` が FileNotFoundError / ValueError を捕捉して `NG` を返す。
-- [x] `test_check_phase9_template_sync.py` に missing file 異常系が追加される。
+- [x] `check_phase9_template_sync.py` がFileNotFoundError / ValueErrorを捕捉して `NG` を返す。
+- [x] `test_check_phase9_template_sync.py` にmissing file異常系が追加される。
 - [x] `04_Documentation/phase9-rule-table-template-operations.md` に「ファイル未存在」時の一次対応が追記される。
-- [x] `python3 01_Plans/tools/planning_queue.py` 実行時に orphan issue が 0 件である。
+- [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
 ### Task breakdown (作業分解)
-- [x] sync checker の例外処理を追加する。
-- [x] CLI 異常系テストを追加する。
+- [x] sync checkerの例外処理を追加する。
+- [x] CLI異常系テストを追加する。
 - [x] 運用ガイドを更新する。
-- [x] planning queue を再実行する。
+- [x] planning queueを再実行する。
 
 ### Validation plan (検証計画)
 - `python3 01_Plans/tools/test_check_phase9_template_sync.py`

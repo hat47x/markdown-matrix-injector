@@ -13,19 +13,19 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- Phase 7 の issue が増加して可視性が低下したため、ステータス一覧を Markdown artifact として自動生成する。
+- Phase 7のissueが増加して可視性が低下したため、ステータス一覧をMarkdown artifactとして自動生成する。
 
 ### Acceptance criteria (受入条件)
 - [x] `phase7_issue_rollup.py` が追加される。
-- [x] rollup script の unit test が追加される。
-- [x] `release:gate:full` 実行で rollup artifact が生成される。
-- [x] CI/manual workflow が rollup artifact を upload する。
-- [x] Phase 7 ガイドへ rollup artifact 導線が追記される。
+- [x] rollup scriptのunit testが追加される。
+- [x] `release:gate:full` 実行でrollup artifactが生成される。
+- [x] CI/manual workflowがrollup artifactをuploadする。
+- [x] Phase 7ガイドへrollup artifact導線が追記される。
 
 ### Task breakdown (作業分解)
-- [x] rollup script 作成。
-- [x] test 作成。
-- [x] npm/CI/manual workflow 更新。
+- [x] rollup script作成。
+- [x] test作成。
+- [x] npm/CI/manual workflow更新。
 - [x] 文書更新。
 
 ### Validation plan (検証計画)
@@ -42,8 +42,8 @@
   - `cd 03_Implement && npm run release:gate:full`
   - `python3 01_Plans/tools/planning_queue.py`
 - Result summary:
-  - phase7 issue rollup を自動生成する script/test を追加。
-  - full flow と CI/manual artifact へ rollup を組み込み。
-  - planning queue は pending/orphan ともに 0 件を確認。
+  - phase7 issue rollupを自動生成するscript/testを追加。
+  - full flowとCI/manual artifactへrollupを組み込み。
+  - planning queueはpending/orphanともに0件を確認。
 - Status decision:
   - 受入条件を満たしたため `Status: Done` に更新。

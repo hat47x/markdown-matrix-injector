@@ -2,28 +2,55 @@
 
 ## Meta
 - Type: Feature
-- Status: Draft
+- Status: In Progress（表・別紙・ローカル画像のmaterialize、採用済みExtracted Candidateの鮮度preflight、artifact closure checkを実装。実務E2Eは未実行）
 - Priority: Medium
-- Scope: src/cli（`render`の拡張、`detach check`）、docs
+- Scope: src/application（materialize / detach check）、src/cli、docs
 - Expected verification level: integration
 
 ## Traceability
-- Related ADR/Spec: ADR-0019 D2（Detached）・D3、製品要求「materialize」「detach check」
+- Related ADR/Spec: ADR-0019 D2（Detached）・D3、ADR-0021、製品要求「materialize」「detach check」
 - Related analysis: [製品価値と現行実装のギャップ](../product-gap-analysis.md) §2「materialize」「detach check」
-- Dependency: issue-0195（取り込み台帳）。別紙カードの実体化だけは依存なしで着手できる
+- Dependency: issue-0195（取り込み台帳）。表のmaterialize自体は台帳に依存しない
 
 ## 背景
 
-`mmi render --to md`は表をGFMの表へ展開するが、別紙カードになる参照は「別紙: パス（範囲）」の1行に置き換えるだけである。原本を外すと、その情報は文書から失われる。ADR-0019は「安全にMMIを外せること」を成功条件にしている。ただし離脱は選択肢として保証するもので、人に移行を急がせない（D3・D13）。detach checkは、原本の廃止を決めた範囲に対して実行する。
+`mmi render --to md`は小さな表をGFM表へ展開できるが、Smart Fallbackで別紙カードになる参照は従来「別紙: パス」の1行へ置き換えるだけであり、原本を外すと情報が欠けた。ADR-0019は「安全にMMIを外せること」を成功条件にしている。ただし離脱は選択肢として保証するもので、人に移行を急がせない（D3・D13）。
+
+Detachedは「MMI記法が無い」だけでは不十分である。materialize後の成果物が通常のMarkdownとローカル添付だけで閉じ、未実体化の別紙や壊れたリンクを機械的に検出できる必要がある。
 
 ## Acceptance criteria
-- [ ] `render`で、別紙カードになる参照を、別ファイルの表（Markdownまたは CSV）として実体化し、本文からリンクする選択肢を設ける。既定の出力は変えない。
-- [ ] `detach check`が、未展開の参照、取り込み台帳にない必須資産、壊れたリンク、原本にしか無い画像を列挙し、終了コードで結果を返す。
-- [ ] 実体化した出力から原本フォルダーを取り除いた状態で、リンク切れが0件であることを確かめる手順を文書にする。
-- [ ] 実体化した表には出典（ファイル、シート、範囲、ダイジェスト）を残す。
+- [x] 通常の`render`の既定挙動を変えず、`mmi materialize <doc.md> -o <detached.md>`を追加する。
+- [x] 通常表は本文へGFMとして実体化し、Smart Fallbackでカード相当になる表は、明示sheetがあり安全な上限内なら独立Markdown表へ実体化して本文から通常リンクする。
+- [x] materializeした別紙にはsource相対パス、sheet/range、source digestのprovenanceを残す。
+- [x] sheetを特定できない参照やhard limit超過等は黙って欠落させず、`mmi:unmaterialized` markerと診断を残してexit 1にする。
+- [x] `mmi detach-check <doc.md>`が、残存MMI参照、未実体化marker、旧`別紙:`カード、壊れたローカルリンク、workspace外へ出るローカルリンクを列挙し、終了コードで結果を返す。
+- [x] GFM表投影をCore側（`src/core/markdownTable.ts`）へ共有し、通常renderとmaterializeが同じ変換を使う。
+- [x] 文書中の`mmi:extracted` / `mmi:extracted-table` provenanceを「この文書への採用関係」として使い、import ledgerと現在のsource Candidateを照合する。changed / stale / missing / untrackedはmaterializeのdetachability判定を失敗させる。ブック内に存在するだけの未採用Candidateはblockerにしない。
+- [x] 通常Markdownのローカル画像参照をcontent digest名で`mmi-assets/`へ複製し、Detached文書のリンクを成果物側へrebaseする。同じbytesは1コピーにまとめ、欠落・workspace境界外はfail-closedにする。
+- [ ] 実体化した成果物から原本フォルダーを取り除いた状態で、実務サンプルと基本設計書キットを使ったE2Eを実行・記録する。
+- [ ] CLI build / unit testを実行し、新規`detach.test.ts`を含む回帰を確認する。
+
+## 実装（2026-10-02）
+
+- `src/application/materialize.ts`: 通常表をinline化し、カード相当の表を`mmi-materialized/table-<digest>.md`へ外出しするApplication Service。attachment名はsource digest・sheet/range・parameterから決定論的に作る。
+- `src/application/detachCheck.ts`: artifact closureを検査するApplication Service。コードフェンス内の例示は無視し、MMI依存と壊れた通常リンクを可視化する。
+- `src/application/detachFreshness.ts`: 文書へ採用済みのExtracted表・画像をprovenanceから抽出し、現在sourceのCandidateと`mmi-ledger.json`を照合するpreflight。review basisが変わった資産を古いままDetachedへ固定しない。
+- `src/application/materialize.ts`: ローカルMarkdown画像を`mmi-assets/<sha256-prefix>.<ext>`へcontent-addressed copyし、出力文書の相対リンクを成果物側へrebaseする。
+- `src/core/markdownTable.ts`: GFM表投影を通常renderとDetachedで共有。
+- CLI: `materialize` / `detach-check`。出力先は`--root`内に限定し、既存attachmentと内容が違う場合は上書きしない。
+- `test/detach.test.ts`: 別紙相当の外出し、小表inline化、安全にmaterializeできない参照、closure検査のfixtureを追加。
 
 ## Validation plan
-実務サンプル`09-large-table.md`（別紙カードを含む）と基本設計書キットで、実体化 → 原本の削除 → `detach check`を行い、欠落0件を確かめる。
+
+1. unit fixtureで、小表→inline、大表→別Markdown、sheet未指定→unmaterialized、壊れたリンク→detach errorを確認する。
+2. 実務サンプル`09-large-table.md`をmaterializeし、生成先だけを別ディレクトリへコピーして原本を除去する。
+3. その生成先に対して`mmi detach-check`を実行し、0 errorを確認する。
+4. 基本設計書キットでも同じ手順を実行する。
+5. provenance付きで採用した画像/表をsource変更後にmaterializeし、changed/staleでexit 1になることを確認する。
+6. 原本フォルダーと元の画像フォルダーを削除した後、Detached側の`mmi-assets/`だけで`detach-check`が0 errorになることを確認する。
 
 ## Remaining work
-- 本文の説明が古いまま残る問題（執筆ベンチマーク v0の観察）を、detach checkの範囲に含めるかは未定。業務的正しさは保証外（ADR-0019 D12）なので、警告に留めるかを決める。
+
+- **画像の完全性:** 「ブックに画像がある」だけではdetach blockerにしない。現在は本文中のMMI provenanceを採用関係の正本とし、採用済みExtracted表/画像だけをfreshness監査する。将来review stateをledger v2で分離する場合も、この文書単位の採用関係を失わない。
+- **本文の業務的鮮度:** 本文の説明が正本と矛盾していないかはAuthority保証外。detached成果物に対するoptional review warningとして扱う余地はあるが、detach可否の必須判定にはしない。
+- **非表Candidate:** Tree / Shape / Diagram等がextract/materialize可能になった時点で同じclosure checkへ追加する。

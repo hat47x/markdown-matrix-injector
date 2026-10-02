@@ -63,7 +63,7 @@ non-decisionをinspectとして扱った場合の仮想metricsも算出する。
 
 これはdeployment ruleではない。
 
-目的:
+目的は次のとおりです。
 - abstentionを安全側へ倒した場合にunsafe routineがどうなるか
 - routine caseでどの程度review overheadが増えるか
 

@@ -4,7 +4,7 @@
 
 ## 1. telemetryはmatcherではない
 
-この層は:
+この層はは次のとおりです。
 
 ```text
 matched / ambiguous / novel
@@ -66,7 +66,7 @@ prototype B:
 
 observationにfillが無ければ、structureだけでは区別できません。
 
-このとき:
+このとき。
 
 ```text
 fill-unavailable-for-discrimination
@@ -107,14 +107,14 @@ style driftを即format driftとしません。
 
 ## 6. 同じfillでも方向が一定ではない
 
-6列2ラベル差:
+6列2ラベル差は次のとおりです。
 
 ```text
 structure only novel
 with fill      matched
 ```
 
-8列2ラベル差:
+8列2ラベル差は次のとおりです。
 
 ```text
 structure only matched
@@ -162,7 +162,7 @@ issue-0128のbalance warningでも、composition telemetryとdecision-boundary w
 
 このtelemetryをCognitive Contractへ接続する変更は本Issueでは行いません。
 
-将来露出する場合でも:
+将来露出する場合でもは次のとおりです。
 
 - deterministic matcher result
 - fill impact observation

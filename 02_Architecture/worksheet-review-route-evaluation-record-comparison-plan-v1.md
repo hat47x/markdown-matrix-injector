@@ -40,7 +40,7 @@ comparison pairは順序付き。
 
 A→BとB→Aは別plan。
 
-理由:
+理由は次のとおりです。
 - issue-0182/0184 artifact filenameもdirectionを保持。
 - future baseline/candidate semanticsをcallerが重ねる可能性がある。
 - plan側で勝手にunordered pairへ正規化しない。
@@ -57,7 +57,7 @@ planDigestはpolicyを固定順tupleへ投影してhashする。
 
 runtimeで左右recordを再validateし、recordDigestがplanと一致することをcomparison生成前に確認。
 
-一致後:
+一致後は次のとおりです。
 - issue-0181 comparison生成
 - issue-0183 policy評価
 

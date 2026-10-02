@@ -34,7 +34,7 @@ Cognitive Assistance Planeは候補、判断、説明、提案を返せるが、
 
 認知providerへは、可能な限り正本そのものではなく、Authority Planeまたはread-only adapterから再生成できる**Derived Cognitive State**を渡す。
 
-少なくとも observation kind / schema version、source profile / feature version、再生成可能な抽象featureまたは限定メタデータ、source digest、provenanceを保持できる構造とする。セル値は明示的に許可された場合のみ限定的に含める。正本へのwrite handleを持たせない。
+少なくともobservation kind / schema version、source profile / feature version、再生成可能な抽象featureまたは限定メタデータ、source digest、provenanceを保持できる構造とする。セル値は明示的に許可された場合のみ限定的に含める。正本へのwrite handleを持たせない。
 
 ### D4. provider-neutralなCognitive Contractを設ける
 

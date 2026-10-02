@@ -151,6 +151,17 @@ test('findContentMatches throws when the sheet\'s used range exceeds maxIndexedC
   assert.throws(() => findContentMatches(sheet, [['a']], { maxIndexedCells: 4 }), /exceeds the indexable limit/);
 });
 
+test('findContentMatches does not let early anchor-only hits hide a later exact match', () => {
+  const decoys = Array.from({ length: 205 }, () => ['anchor', 'wrong']);
+  const sheet = sheetSourceFromMatrix([...decoys, ['anchor', 'target']]);
+
+  const matches = findContentMatches(sheet, [['anchor', 'target']], { maxCandidates: 1 });
+
+  assert.deepEqual(matches, [
+    { range: { startRow: 205, startCol: 0, endRow: 205, endCol: 1 } },
+  ]);
+});
+
 test('findContentMatches caps the number of verified candidates at maxCandidates without crashing', () => {
   const sheet = sheetSourceFromMatrix([['x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x']]);
   const matches = findContentMatches(sheet, [['x']], { maxCandidates: 3 });

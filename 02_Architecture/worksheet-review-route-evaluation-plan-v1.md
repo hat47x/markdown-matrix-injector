@@ -30,12 +30,12 @@ Report + groundTruthDigest
 
 planはprovider inference条件を表す。
 
-含める:
+含めるは次のとおりです。
 - evaluation packet digest
 - readiness policy
 - provider descriptor
 
-含めない:
+含めないは次のとおりです。
 - expected route
 - evidence
 - annotation/adjudication identity
@@ -47,7 +47,7 @@ providerへ見せるinputが同じで、かつpredeclared readiness policyを引
 
 label versionはissue-0172 reportの `groundTruthDigest` が担当する。
 
-したがって:
+したがっては次のとおりです。
 - planDigest = inference-plan identity
 - groundTruthDigest = evaluation-label identity
 
@@ -89,11 +89,11 @@ JSON canonical tupleをhashする。
 
 runtime providerがplan providerと異なる場合はprovider call前にreject。
 
-current readinessが失われた場合:
+current readinessが失われた場合。
 - blocked result
 - provider calls = 0
 
-readinessは維持されているがpacketDigestが変わった場合:
+readinessは維持されているがpacketDigestが変わった場合。
 - stale plan error
 - provider calls = 0
 

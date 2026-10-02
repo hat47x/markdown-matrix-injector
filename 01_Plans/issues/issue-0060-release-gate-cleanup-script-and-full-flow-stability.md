@@ -13,18 +13,18 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- release-gate 実行前に古い artifact を自動で掃除し、full 実行の再現性を向上させる。
+- release-gate実行前に古いartifactを自動で掃除し、full実行の再現性を向上させる。
 
 ### Acceptance criteria (受入条件)
 - [x] `release_gate_clean.py` が追加される。
-- [x] cleanup 挙動の unit test が追加される。
-- [x] `release:gate:full` が cleanup -> gate -> metrics の順で動作する。
-- [x] ガイドに cleanup 導線が追記される。
+- [x] cleanup挙動のunit testが追加される。
+- [x] `release:gate:full` がcleanup -> gate -> metricsの順で動作する。
+- [x] ガイドにcleanup導線が追記される。
 
 ### Task breakdown (作業分解)
-- [x] cleanup スクリプトを追加する。
-- [x] unittest を追加する。
-- [x] npm scripts を更新する。
+- [x] cleanupスクリプトを追加する。
+- [x] unittestを追加する。
+- [x] npm scriptsを更新する。
 - [x] ドキュメントへ反映する。
 
 ### Validation plan (検証計画)
@@ -41,8 +41,8 @@
   - `cd 03_Implement && npm run release:gate:full`
   - `python3 01_Plans/tools/planning_queue.py`
 - Result summary:
-  - cleanup スクリプト追加により stale artifact を除去可能化。
-  - release:gate:full は cleanup を先頭に実行するよう更新。
-  - planning queue は pending/orphan ともに 0 件を確認。
+  - cleanupスクリプト追加によりstale artifactを除去可能化。
+  - release:gate:fullはcleanupを先頭に実行するよう更新。
+  - planning queueはpending/orphanともに0件を確認。
 - Status decision:
   - 受入条件を満たしたため `Status: Done` に更新。

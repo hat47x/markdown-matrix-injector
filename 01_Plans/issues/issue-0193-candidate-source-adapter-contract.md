@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Feature
-- Status: Done（契約 v1。fingerprintの台帳での使い方は issue-0195 で確定）
+- Status: Done（契約v1。fingerprintの台帳での使い方はissue-0195で確定）
 - Priority: High
 - Scope: 02_Architecture（契約）、src/core（型と表のAdapter）、src/cli（`inspect --json`）、test
 - Expected verification level: unit

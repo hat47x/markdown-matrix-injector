@@ -13,18 +13,18 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- QueryExample contract test の入力前提（RuleId/QueryExample 非空）を明示チェックし、テスト失敗時の診断を改善する。
-- RuleId マッチは正規表現エスケープを適用し、将来のID命名で記号が含まれても誤判定しないようにする。
+- QueryExample contract testの入力前提（RuleId/QueryExample非空）を明示チェックし、テスト失敗時の診断を改善する。
+- RuleIdマッチは正規表現エスケープを適用し、将来のID命名で記号が含まれても誤判定しないようにする。
 
 ### Acceptance criteria (受入条件)
-- [x] `markdownMatrixPlugin.test.ts` が RuleId/QueryExample 空値を明示検知する。
-- [x] RuleId マッチ判定が正規表現エスケープ付きになる。
+- [x] `markdownMatrixPlugin.test.ts` がRuleId/QueryExample空値を明示検知する。
+- [x] RuleIdマッチ判定が正規表現エスケープ付きになる。
 - [x] `cd 03_Implement && npm test` が成功する。
-- [x] `python3 01_Plans/tools/planning_queue.py` 実行時に orphan issue が 0 件である。
+- [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
 ### Task breakdown (作業分解)
-- [x] contract test を堅牢化する。
-- [x] npm test と planning queue を実行する。
+- [x] contract testを堅牢化する。
+- [x] npm testとplanning queueを実行する。
 
 ### Validation plan (検証計画)
 - `cd 03_Implement && npm test`

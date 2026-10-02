@@ -48,7 +48,7 @@ plan作成時:
 3. `requireProjectionForAllAdjudicated=true` を要求。
 4. readinessがreadyであることを要求。
 5. provider descriptor validate。
-6. provider category = judgment / capability includes closed-choice を要求。
+6. provider category = judgment / capability includes closed-choiceを要求。
 7. issue-0172 evaluation packetを生成。
 8. packetDigest / policy / provider identityをSHA-256 planDigestへbinding。
 
@@ -56,12 +56,12 @@ plan作成時:
 
 planDigestにはfinal expected routeを入れない。
 
-理由:
+理由は次のとおりです。
 - issue-0172 packetDigestもprovider-visible projection stateだけにbindしている。
 - label correctionだけでprovider inference identityを変えない。
 - report側のgroundTruthDigestでlabel versionは別管理できる。
 
-したがって:
+したがっては次のとおりです。
 - projection state change -> packetDigest / planDigest change。
 - readiness policy change -> planDigest change。
 - provider id/version/boundary/capabilities change -> planDigest change。
@@ -148,7 +148,7 @@ plan identity:
   4. runtime provider mismatchとstale projection packetをprovider call前にreject。
   5. readiness regressionではprovider call 0のblocked result、readyなplanではcompleted result + planDigest。
   6. corpus / readiness policy / provider descriptorをmutateしない。
-- 検証中に2点を修正:
+- 検証中に2点を修正は次のとおりです。
   - label-only correction fixtureが唯一のinspect classを消してreadiness自体を破っていたため、4-case fixtureへ拡張し「readinessを維持するlabel correction」を検証。
   - canonical capability order検証が比較時にもsortしており順序違反を見逃す問題を修正し、保存順そのものをstrict比較するよう変更。
 - planDigestはprovider-visible inference plan identityであり、final label identityは引き続きissue-0172のgroundTruthDigestへ分離。

@@ -13,19 +13,19 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- backlog auto-escalation の閾値を JSON で外部指定できるようにし、運用現場ごとの基準差異へ対応する。
-- governance pipeline も同じ閾値ファイルを受け取り、一貫した候補抽出を行う。
+- backlog auto-escalationの閾値をJSONで外部指定できるようにし、運用現場ごとの基準差異へ対応する。
+- governance pipelineも同じ閾値ファイルを受け取り、一貫した候補抽出を行う。
 
 ### Acceptance criteria (受入条件)
 - [x] `phase10_backlog_escalation.py` が `--thresholds <json>` を受け取り、指定キーのみ上書きできる。
 - [x] `phase10_governance_pipeline.py` からも `--thresholds` が渡せる。
 - [x] 閾値上書きで候補抽出結果が変化することをテストで確認する。
 - [x] `python3 -m unittest 01_Plans.tools.test_phase10_backlog_escalation` が成功する。
-- [x] `python3 01_Plans/tools/planning_queue.py` 実行時に orphan issue が 0 件である。
+- [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
 ### Task breakdown (作業分解)
 - [x] 閾値ロード処理を実装する。
-- [x] backlog CLI と pipeline CLI に引数を追加する。
+- [x] backlog CLIとpipeline CLIに引数を追加する。
 - [x] 閾値上書きのテストを追加する。
 
 ### Validation plan (検証計画)
@@ -43,7 +43,7 @@
 - QA/Delivery Lead: 閾値変更時の候補変化を契約テストで固定する必要がある。
 
 ### Synthesis & Decision
-- 既定値 + 部分上書き方式を採用し、pipeline へも同じ閾値を貫通させる。
+- 既定値 + 部分上書き方式を採用し、pipelineへも同じ閾値を貫通させる。
 
 ## Execution Evidence
 - `python3 -m unittest 01_Plans.tools.test_phase10_backlog_escalation`

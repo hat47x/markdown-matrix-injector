@@ -62,7 +62,7 @@ issue-0128で使用した6 / 8 / 10列は使わない。
 5. clearly novel labels — review不要
 6. two-label drift — review対象
 
-合計:
+合計は次のとおりです。
 
 - 18 cases
 - expected review: 9
@@ -78,12 +78,12 @@ issue-0128で使用した6 / 8 / 10列は使わない。
 
 ## Signal 1: boundary warning
 
-既存:
+既存は次のとおりです。
 
 - `confidence-near-gate`
 - `winner-margin-near-gate`
 
-結果:
+結果は次のとおりです。
 
 | 指標 | 値 |
 |---|---:|
@@ -103,7 +103,7 @@ issue-0128で使用した6 / 8 / 10列は使わない。
 
 明確なnovelをreview signalへ混ぜないため、`matched` のtop candidateだけを対象にする。
 
-結果:
+結果は次のとおりです。
 
 | 指標 | 値 |
 |---|---:|
@@ -113,7 +113,7 @@ issue-0128で使用した6 / 8 / 10列は使わない。
 
 boundary warningよりrecallは上がる。
 
-ただし9列では:
+ただし9列ではは次のとおりです。
 
 - label + occupancy: DeviationScore `0.176471`
 - label + merge: DeviationScore `0.171429`
@@ -126,7 +126,7 @@ boundary warningよりrecallは上がる。
 
 observation / prototypeでfeature集合が異なるfamily数を数える。
 
-重要な点:
+重要な点は次のとおりです。
 
 1ラベル変更は現在の表現では次の2 familyへ現れる。
 
@@ -141,7 +141,7 @@ observation / prototypeでfeature集合が異なるfamily数を数える。
 
 という粗いmulti-family signalとして使う。
 
-結果:
+結果は次のとおりです。
 
 | 指標 | 値 |
 |---|---:|
@@ -151,9 +151,9 @@ observation / prototypeでfeature集合が異なるfamily数を数える。
 
 DeviationScoreとは取り逃すケースが異なる。
 
-- 9列 label + occupancy を拾う
-- 9列 label + merge を拾う
-- 9列 two-label driftはfamily数2なので拾わない
+- 9列label + occupancyを拾う
+- 9列label + mergeを拾う
+- 9列two-label driftはfamily数2なので拾わない
 
 つまり**差異の種類数**には強いが、同一family内で複数labelが変わる量的driftには弱い。
 
@@ -167,7 +167,7 @@ confidenceDelta < 0
 
 となるfamily数を数える。
 
-結果:
+結果は次のとおりです。
 
 | 指標 | 値 |
 |---|---:|
@@ -197,7 +197,7 @@ differentFamilyCount = 3
 penalizingFamilyCount = 1
 ```
 
-実際には:
+実際にはは次のとおりです。
 
 - semantic-label
 - relative-position
@@ -243,7 +243,7 @@ ablationは寄与診断には有用だが、review detectorのcount sourceには
 
 この結果をそのままproduction ruleへ昇格させてはならない。
 
-理由:
+理由は次のとおりです。
 
 1. held-outではあるが18ケースと小さい
 2. feature-level synthetic fixtureである
@@ -262,7 +262,7 @@ ablationは寄与診断には有用だが、review detectorのcount sourceには
 
 追加した `worksheetFormatMultiFamilyDriftEvaluation.ts` はevaluation helperである。
 
-行わないこと:
+行わないこと。
 
 - matcherのstatusを変更する
 - warningをproductionへ追加する
@@ -293,7 +293,7 @@ ablationは寄与診断には有用だが、review detectorのcount sourceには
 
 ### 2026-09-18 local validation
 
-実行環境:
+実行環境は次のとおりです。
 
 - Node.js `v22.16.0`
 - TypeScript `5.8.3`
@@ -301,7 +301,7 @@ ablationは寄与診断には有用だが、review detectorのcount sourceには
 
 ローカルでcurrent matcher / family analysis / balance-gate contractと同じ決定論的ロジックへ新helperを接続し、5 / 7 / 9列18ケースをreplayした。
 
-確認結果:
+確認結果は次のとおりです。
 
 - TypeScript strict compile成功
 - held-out corpus replay成功

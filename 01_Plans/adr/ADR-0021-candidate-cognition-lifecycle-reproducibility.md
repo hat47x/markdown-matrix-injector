@@ -8,7 +8,7 @@
 
 ## Context
 
-ADR-0020で、認知方式と決定論性を要件ごとに選ぶ方針を定めた。Semantic Candidate契約 v1も実装され、表・画像について `observed / inferred / confirmed / abstained`、`deterministic / provider-dependent`、M0〜M5を保持できる。
+ADR-0020で、認知方式と決定論性を要件ごとに選ぶ方針を定めた。Semantic Candidate契約v1も実装され、表・画像について `observed / inferred / confirmed / abstained`、`deterministic / provider-dependent`、M0〜M5を保持できる。
 
 次の実装段階では、取り込み台帳、CandidateレビューUI、provider-dependentな認知、ローカルruntime再利用へ進む。この段階では、単に「候補を出す」だけでなく、候補がいつ有効か、原本やmodelが変わったらどう失効するか、複数方式が異なる結論を返したとき何をするか、利用者の採否をどう扱うかを定義する必要がある。
 
@@ -63,7 +63,7 @@ sourceや根拠が変わった場合、過去のreview recordは履歴として�
 
 source file全体のdigestだけでなく、可能な場合はClaimが依存する局所的なevidence digestを持つ。
 
-例:
+例は次のとおりです。
 - 画像bytesのClaim → media digest
 - anchorのClaim → drawing anchorのdigest
 - 表内容 → normalized cell digest
@@ -86,7 +86,7 @@ source file全体のdigestだけでなく、可能な場合はClaimが依存す�
 
 対話利用ではOllama、LM Studio等の導入済みruntimeを探索して候補提示してよい。一方、provider-dependentな結果を再利用・CI・共有する場合は、実行環境を固定できる情報を残す。
 
-最低限:
+最低限は次のとおりです。
 - provider type
 - endpoint class（localhost / explicit remote）
 - runtime version
@@ -112,7 +112,7 @@ Go / TinyGo / WASM / OS差のconformanceでは、どのscopeを要求するか�
 
 人の作業を止めないため、local model/runtime処理は通常編集の同期クリティカルパスに置かない。
 
-最低限:
+最低限は次のとおりです。
 - timeout
 - cancellation
 - max concurrency

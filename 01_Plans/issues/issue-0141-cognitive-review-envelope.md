@@ -42,7 +42,7 @@ Envelopeは次を保持する。
 - [x] Judgment signalは既存contractどおり `proposal-only` でなければならない。
 - [x] abstained / unsupported / unavailable Judgmentもreview envelopeへ保持できる。
 - [x] Authority再検証checklistを明示し、完了済みとは扱わない。
-- [x] 実際の worksheet adapter -> approved Format Profile -> matcher -> Perception -> Judgment -> envelope のfocused integration testを追加する。
+- [x] 実際のworksheet adapter -> approved Format Profile -> matcher -> Perception -> Judgment -> envelopeのfocused integration testを追加する。
 - [x] novel / no-candidate経路でapproved profileを強制しない。
 - [x] matcher / worksheet-format-v6 / fill telemetry / external XLSX fixture / production runtimeを変更しない。
 
@@ -71,7 +71,7 @@ Envelopeは次を保持する。
   - `adaptWorksheetFormatMatchToCognitiveOutcome`
   - optional `adaptClosedChoiceResponse`
   - `createCognitiveReviewEnvelope`
-- 確認内容:
+- 確認内容は次のとおりです。
   - matched + Judgment decisionを `review-only / writeAuthority=none` で束ねる。
   - Authority revalidation requirementsは全件 `pending`。
   - always requirementは `source-identity / profile-compatibility`。

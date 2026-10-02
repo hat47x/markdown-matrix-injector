@@ -69,7 +69,7 @@ Authority Receiptが得られた場合は、base presentationを変更せず、�
 - strict compile: `target ES2022 / module NodeNext / moduleResolution NodeNext / strict=true` で成功。
 - focused integration test: **8 tests / 8 pass / 0 fail**。
 - issue-0141〜0143の実経路でEnvelope / Presentation / Receiptを生成し、Authority overlay compositionを検証。
-- 確認内容:
+- 確認内容は次のとおりです。
   - satisfied Authority verificationをbase Cognitive Reviewとは別sectionで表示。
   - blocked時にfailed checksとevidence detailを保持。
   - Authority issuer component/version/run idとevidence codeを保持。

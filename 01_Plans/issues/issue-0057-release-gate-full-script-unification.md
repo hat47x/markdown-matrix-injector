@@ -13,18 +13,18 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- release gate 本体 + metrics 生成を 1 つの npm script (`release:gate:full`) へ統合し、CI/local/manual の実行差異を最小化する。
+- release gate本体 + metrics生成を1つのnpm script (`release:gate:full`) へ統合し、CI/local/manualの実行差異を最小化する。
 
 ### Acceptance criteria (受入条件)
 - [x] `03_Implement/package.json` に `release:gate:full` が追加される。
-- [x] CI release-gate job が `npm run release:gate:full` を使う。
-- [x] manual workflow が `repo-root ..` 前提で同等の出力を維持する。
-- [x] Phase 7 ガイドに `release:gate:full` の導線が追記される。
+- [x] CI release-gate jobが `npm run release:gate:full` を使う。
+- [x] manual workflowが `repo-root ..` 前提で同等の出力を維持する。
+- [x] Phase 7ガイドに `release:gate:full` の導線が追記される。
 
 ### Task breakdown (作業分解)
-- [x] package scripts 追加。
-- [x] CI workflow のステップ簡素化。
-- [x] manual workflow のコマンド整列。
+- [x] package scripts追加。
+- [x] CI workflowのステップ簡素化。
+- [x] manual workflowのコマンド整列。
 - [x] ガイド更新と証跡記録。
 
 ### Validation plan (検証計画)
@@ -41,8 +41,8 @@
   - `python3 -m unittest 01_Plans/tools/test_release_gate_check.py 01_Plans/tools/test_release_gate_metrics.py`
   - `python3 01_Plans/tools/planning_queue.py`
 - Result summary:
-  - release gate + metrics を単一 npm script に統合。
-  - CI/manual とローカルの実行導線を揃えた。
-  - planning queue は pending/orphan ともに 0 件を確認。
+  - release gate + metricsを単一npm scriptに統合。
+  - CI/manualとローカルの実行導線を揃えた。
+  - planning queueはpending/orphanともに0件を確認。
 - Status decision:
   - 受入条件を満たしたため `Status: Done` に更新。

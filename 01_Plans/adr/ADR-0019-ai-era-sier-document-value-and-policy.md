@@ -7,7 +7,7 @@
 - Deciders: Human Sponsor、MMI Lead Agent
 - Scope: 製品価値、モダナイズの境界、利用経路、中核概念、優先度、評価方法
 - Related: [ADR-0012](ADR-0012-mission-redefinition-notation-as-governance-boundary.md)（正本参照規約）、[ADR-0016](ADR-0016-notation-first-input-assistance.md)（入力支援）、[ADR-0018](ADR-0018-cognitive-assistance-plane.md)（認知補助の境界）、[製品要求](../../00_Prompt/requirements.md)
-- Supersedes: ADR-0012 の「製品の価値を表参照規約へ限定する」部分、および本ADRの旧 Proposed 案。MMI Notation v1、Read-only、Determinism、Containment、Stable diagnostics の規範は継続する。
+- Supersedes: ADR-0012の「製品の価値を表参照規約へ限定する」部分、および本ADRの旧Proposed案。MMI Notation v1、Read-only、Determinism、Containment、Stable diagnosticsの規範は継続する。
 
 ## 背景
 
@@ -228,7 +228,7 @@ AIが巨大な原本を丸読みせず、次の操作を機械的に行えるこ
 
 ### D12. 保証の境界
 
-継続する保証:
+継続する保証は次のとおりです。
 
 - Read-only: sourceを書き換えない
 - Determinism: Authority Planeの同じ入力・設定から同じ結果

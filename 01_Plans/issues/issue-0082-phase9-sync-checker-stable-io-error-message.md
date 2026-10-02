@@ -16,16 +16,16 @@
 - CLIのI/O失敗時メッセージをOS依存の生文字列任せにせず、`format_cli_exception` で安定したエラー文言へ正規化する。
 
 ### Acceptance criteria (受入条件)
-- [x] `check_phase9_template_sync.py` に CLI例外メッセージ整形関数が追加される。
-- [x] ディレクトリ入力時の text 出力で安定した文言（`input path is a directory:`）が出力されることをテストで検証する。
-- [x] ディレクトリ入力時の JSON 出力でも安定した文言が `errors` に含まれることをテストで検証する。
+- [x] `check_phase9_template_sync.py` にCLI例外メッセージ整形関数が追加される。
+- [x] ディレクトリ入力時のtext出力で安定した文言（`input path is a directory:`）が出力されることをテストで検証する。
+- [x] ディレクトリ入力時のJSON出力でも安定した文言が `errors` に含まれることをテストで検証する。
 - [x] `python3 01_Plans/tools/test_check_phase9_template_sync.py` が成功する。
-- [x] `python3 01_Plans/tools/planning_queue.py` 実行時に orphan issue が 0 件である。
+- [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
 ### Task breakdown (作業分解)
 - [x] CLI例外整形関数を実装する。
 - [x] unit test / CLI契約テストを追加する。
-- [x] テストと planning queue を実行する。
+- [x] テストとplanning queueを実行する。
 
 ### Validation plan (検証計画)
 - `python3 01_Plans/tools/test_check_phase9_template_sync.py`

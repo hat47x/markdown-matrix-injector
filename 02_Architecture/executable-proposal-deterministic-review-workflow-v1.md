@@ -27,7 +27,7 @@ observationSnapshot
 approvedProfiles
 ```
 
-持たないもの:
+持たないもの。
 
 ```text
 prototypeSnapshots
@@ -82,7 +82,7 @@ issue-0157はそのfeaturesから:
 
 Profile-backed analysisへ渡す前に、approved Profile objectをEnvelope refへ照合する。
 
-照合対象:
+照合対象は次のとおりです。
 
 - id / count / duplicate
 - label
@@ -141,7 +141,7 @@ overall verdict / combined scoreは作らない。
 
 ## 11. Serialization boundary
 
-保持しない:
+保持しないは次のとおりです。
 
 - raw Notation
 - raw worksheet cells
@@ -151,7 +151,7 @@ overall verdict / combined scoreは作らない。
 - resolved absolute path
 - source bytes
 
-保持する:
+保持する。
 
 - proposal digest
 - source digest

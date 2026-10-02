@@ -26,13 +26,13 @@ provider-blindedな独立annotationを、provider情報やannotator identityへ�
 
 ## 2. Packet visibility
 
-表示する:
+表示する。
 - route definitions
 - case evidence
 - anonymous annotation route
 - anonymous annotation rationale codes
 
-表示しない:
+表示しないは次のとおりです。
 - projection state
 - annotator identity
 - annotation provenance reference
@@ -49,7 +49,7 @@ workflow-level minimum:
 
     minimumAnnotationsPerCase = 2
 
-理由:
+理由は次のとおりです。
 - annotation 1件だけをfinal truthへ昇格させない
 - independent labeling phaseを実質的に要求する
 - corpus validator自体も同じminimum=2を強制し、final label extractionまで同一invariantを維持する
@@ -108,7 +108,7 @@ packetにはannotator identityを出さないが、apply boundaryでは元corpus
 
 callerはadjudicationReferenceを指定できない。
 
-内部生成:
+内部生成は次のとおりです。
 
     adjudication:<packetDigest>:<caseId>:<adjudicatorRef>
 

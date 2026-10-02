@@ -16,7 +16,7 @@ digest         = sha256:<lowercase hexadecimal SHA-256>
 
 digest対象は**resolved source fileのraw bytes**である。
 
-対象外:
+対象外は次のとおりです。
 
 - Workbookのparsed cell matrix
 - worksheet feature vector
@@ -50,7 +50,7 @@ absolute pathのbytesを読みidentityを生成する。
 
 を順に実行する。
 
-返却:
+返却は次のとおりです。
 
 - resolvedPath
 - identity
@@ -77,7 +77,7 @@ Authority adapterは既にresolver/containment failureを個別checkへ写像す
 
 本IssueではCognitive Observation builderまでは実装しない。
 
-次段階で:
+次段階では次のとおりです。
 
 ```text
 resolveContainedSourceIdentity

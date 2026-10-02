@@ -23,7 +23,7 @@
 - [x] SLAメタデータ項目（triage/workaround/fix deadline）が仕様化されている。
 - [x] サンプル入力データから雛形へ流し込む最小CLIまたはスクリプトが追加される。
 - [x] 最小テストで「必須キー不足時に失敗」「正常入力でレポート生成成功」を確認できる。
-- [x] `python3 01_Plans/tools/planning_queue.py` 実行時に orphan issue が 0 件である。
+- [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
 ### Task breakdown (作業分解)
 - [x] KPI/SLA入力契約の仕様ドラフトを作成する。

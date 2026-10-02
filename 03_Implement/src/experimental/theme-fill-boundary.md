@@ -79,7 +79,7 @@ theme 3はfixtureのtheme XMLではdark2:
 
 theme colorについては、theme color schemeを参照してRGBへ解決し、tintがあればtint後のRGBを作ります。
 
-今回の期待:
+今回の期待は次のとおりです。
 
 ```text
 theme 3
@@ -162,14 +162,14 @@ bridge結果が:
 dark
 ```
 
-なら:
+ならは次のとおりです。
 
 ```text
 header:fill-present
 header:dark-fill
 ```
 
-`light`なら:
+`light`ならは次のとおりです。
 
 ```text
 header:fill-present
@@ -182,7 +182,7 @@ header:light-fill
 
 ## 9. Source profileへの影響
 
-現在:
+現在は次のとおりです。
 
 ```text
 sheetjs-ce-xlsx-0.20.3-fill-v1
@@ -201,7 +201,7 @@ SheetJSによってRGBへ正規化された後は、既存fill evidenceとして
 
 MMIの実装や比較契約を変更していないからです。
 
-今回の作業は:
+今回の作業はは次のとおりです。
 
 ```text
 既に存在するparser behaviorを

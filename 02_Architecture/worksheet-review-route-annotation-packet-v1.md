@@ -27,7 +27,7 @@ labelerが見る:
 - case id
 - evidence source class/family/reference/facts
 
-見ない:
+見ないは次のとおりです。
 - projectionState
 - provider choice
 - probability

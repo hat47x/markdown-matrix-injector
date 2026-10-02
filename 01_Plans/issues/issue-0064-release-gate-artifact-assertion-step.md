@@ -13,19 +13,19 @@
 
 ## Execution Plan
 ### Proposed solution (解決策の概要)
-- release-gate full 実行の最後に artifact 存在チェックを追加し、upload 前に不足ファイルを即検知する。
+- release-gate full実行の最後にartifact存在チェックを追加し、upload前に不足ファイルを即検知する。
 
 ### Acceptance criteria (受入条件)
 - [x] `release_gate_assert_artifacts.py` が追加される。
-- [x] assert script の unit test が追加される。
-- [x] `release:gate:full` に assert step が組み込まれる。
-- [x] manual workflow でも assert step が実行される。
-- [x] Phase 7 ガイドに assert script 導線が追記される。
+- [x] assert scriptのunit testが追加される。
+- [x] `release:gate:full` にassert stepが組み込まれる。
+- [x] manual workflowでもassert stepが実行される。
+- [x] Phase 7ガイドにassert script導線が追記される。
 
 ### Task breakdown (作業分解)
-- [x] assert script 実装。
-- [x] unit test 実装。
-- [x] npm/manual workflow 更新。
+- [x] assert script実装。
+- [x] unit test実装。
+- [x] npm/manual workflow更新。
 - [x] 文書更新。
 
 ### Validation plan (検証計画)
@@ -42,8 +42,8 @@
   - `cd 03_Implement && npm run release:gate:full`
   - `python3 01_Plans/tools/planning_queue.py`
 - Result summary:
-  - artifact assert script/test を追加。
-  - full flow と manual workflow に assert を組み込み。
-  - planning queue は pending/orphan ともに 0 件を確認。
+  - artifact assert script/testを追加。
+  - full flowとmanual workflowにassertを組み込み。
+  - planning queueはpending/orphanともに0件を確認。
 - Status decision:
   - 受入条件を満たしたため `Status: Done` に更新。

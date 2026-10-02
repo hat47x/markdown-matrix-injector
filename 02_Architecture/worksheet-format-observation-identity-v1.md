@@ -49,11 +49,11 @@ canonical serialization:
       normalized comparedFeatures
     ])
 
-SHA-256を計算し sha256:<64 hex> として保持する。
+SHA-256を計算しsha256:<64 hex> として保持する。
 
 ## 4. Feature normalization
 
-既存 normalizeFormatFeatures を利用する。
+既存normalizeFormatFeaturesを利用する。
 
 つまりtrim / normalization / dedupe / deterministic sortは既存matcherと同じ規則へ寄せる。
 
@@ -61,7 +61,7 @@ identity専用のfeature normalizerを作らない。
 
 ## 5. Evidence filtering
 
-snapshotからidentityを再計算する場合:
+snapshotからidentityを再計算する場合。
 
 1. extractWorksheetFormatFeatures
 2. filterWorksheetFormatFeaturesByEvidence
@@ -105,7 +105,7 @@ Envelope生成時にidentityのschema / digest syntax / sourceDigest / featureVe
 
 issue-0159 low-level workflowでは、callerから受けるobservation snapshotからidentityを再計算する。
 
-不一致:
+不一致は次のとおりです。
 
     identity mismatch
      -> deterministic analysisしない

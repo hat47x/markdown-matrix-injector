@@ -294,16 +294,37 @@ test('parseTsv leaves a bare quote unescaped when nothing forces quoting', () =>
   ]);
 });
 
-test('parseTsv trims unquoted cells but preserves whitespace inside quoted cells', () => {
+test('parseTsv preserves displayed whitespace in both quoted and unquoted cells', () => {
   assert.deepEqual(parseTsv('A\tB\r\n" padded "\t unquoted \r\n'), [
     ['A', 'B'],
-    [' padded ', 'unquoted'],
+    [' padded ', ' unquoted '],
   ]);
 });
 
-test('parseTsv returns an empty matrix for blank input', () => {
+test('parseTsv preserves whitespace-only cells instead of treating them as an empty payload', () => {
+  assert.deepEqual(parseTsv('  \t \r\n   \t\r\n'), [
+    ['  ', ' '],
+    ['   ', ''],
+  ]);
+});
+
+test('parseTsv preserves empty first and last cells at the copied rectangle boundary', () => {
+  assert.deepEqual(parseTsv('\tA\t\r\n\tB\t\r\n'), [
+    ['', 'A', ''],
+    ['', 'B', ''],
+  ]);
+});
+
+test('parseTsv preserves an intentionally empty final row while removing only Excel row termination', () => {
+  assert.deepEqual(parseTsv('A\tB\r\n\t\r\n'), [
+    ['A', 'B'],
+    ['', ''],
+  ]);
+});
+
+test('parseTsv returns an empty matrix only for an actually empty payload', () => {
   assert.deepEqual(parseTsv(''), []);
-  assert.deepEqual(parseTsv('   \r\n  '), []);
+  assert.deepEqual(parseTsv('   \r\n  '), [['   '], ['  ']]);
 });
 
 test('isSupportedWorkbookPath only accepts workbook-like extensions', () => {
@@ -481,6 +502,21 @@ test('suggestEmbedFromDataTransfer reuses dropped file parsing when paste clipbo
     markdown: '![[/tmp/fallback.csv]]',
   });
   assert.equal(filesRead, 1);
+});
+
+test('readTransferValuesFromDataTransfer keeps text/plain boundary tabs intact', async () => {
+  const plain = '\tA\t\r\n';
+  const result = await readTransferValuesFromDataTransfer(
+    {
+      get(mimeType) {
+        if (mimeType !== 'text/plain') return undefined;
+        return { asString: async () => plain };
+      },
+    },
+    'paste',
+  );
+
+  assert.equal(result.clipboardValues['text/plain'], plain);
 });
 
 test('readTransferValuesFromDataTransfer feeds the same shared transfer parser used by command fallback and native paste', async () => {
