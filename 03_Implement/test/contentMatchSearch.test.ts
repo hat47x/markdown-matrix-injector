@@ -19,6 +19,29 @@ function workbook(filepath: string, sheets: Record<string, readonly (readonly st
   };
 }
 
+test('findWorkbookContentMatches preserves empty boundary columns from clipboard TSV', () => {
+  const matches = findWorkbookContentMatches(
+    '\tAlpha\t\r\n\tBeta\t\r\n',
+    [
+      workbook('./edge-empty.xlsx', {
+        Sheet1: [
+          ['noise', 'noise', 'noise'],
+          ['', 'Alpha', ''],
+          ['', 'Beta', ''],
+        ],
+      }),
+    ],
+  );
+
+  assert.equal(matches.length, 1);
+  assert.deepEqual(matches[0].range, {
+    startRow: 1,
+    startCol: 0,
+    endRow: 2,
+    endCol: 2,
+  });
+});
+
 test('findWorkbookContentMatches finds a match in the only workbook given', () => {
   const workbooks = [
     workbook('./design.xlsx', {
