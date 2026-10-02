@@ -147,6 +147,8 @@ Every label stores:
 
 label_source is deterministic, human_annotation, adjudication, or teacher_candidate.
 
+`label_source` records where a label came from; it is not an adoption or review state. A human_annotation or adjudication label does not become a source fact merely because a person supplied it, and a teacher_candidate does not become accepted merely because it was emitted. Product review decisions stay outside this neutral observation contract.
+
 human_annotation and adjudication require blind_to_candidate_model=true.
 
 MMI review-route adjudication is not automatically converted into a structural label.

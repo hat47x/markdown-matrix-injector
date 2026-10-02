@@ -19,7 +19,7 @@ Candidateを製品価値へつなぐには、検出精度だけでなく、人�
 
 ## Acceptance criteria
 
-- [x] Candidateをsource / type / epistemic state（observed・inferred・confirmed・abstained）/ execution characteristic（deterministic・provider-dependent）/ import stateで絞り込める。sourceはレビュー開始時のsource picker、import stateは既存の3状態filter、type / epistemic / executionは複数選択facet（同一軸OR・軸間AND・未選択軸=全件）で実装。
+- [x] Candidateをsource / type / epistemic state（observed・inferred・abstained）/ execution characteristic（deterministic・provider-dependent）/ import stateで絞り込める。sourceはレビュー開始時のsource picker、import stateは既存の3状態filter、type / epistemic / executionは複数選択facet（同一軸OR・軸間AND・未選択軸=全件）で実装。採用・却下は別のreview stateとして扱い、`inferred + accepted`を表現できる。
 - [x] 「すべて」「未取込のみ」「完全一致の取込済みを除外」をUIから選べる。
 - [x] Authority由来の事実とCognitive Assistance由来の候補を表示上区別する。さらに`inferred + deterministic`と`inferred + provider-dependent`を区別し、決定論的推定をobservedとして見せない。provider間confidenceを1本の総合スコアへ合成しない。
 - [ ] Candidateを採用、修正して採用、却下、保留できる。**採用・却下・却下解除・保留は実装済み。修正して採用が未実装。** 未確認候補が存在しても通常の編集を妨げない。
