@@ -58,6 +58,24 @@ Excel（XLSX/XLS）、UTF-8のCSV、TSV、XML Spreadsheet 2003を表示します
 
 MMIは元データを書き換えません。外部アプリを開いた後に編集・保存した場合は、通常どおり変更されます。
 
+## CLIを配布する
+
+開発用checkoutを持たない利用者向けには、Node.js 20以上で動くnpm互換tarballを作ります。
+
+```sh
+npm run package:cli
+```
+
+`artifacts/cli-package/`へ`.tgz`とSHA-256 sidecarが生成されます。tarballにはproduction runtime dependencyを同梱するため、利用者側でMMIの`npm ci`やTypeScript buildは不要です。
+
+配布前のsmoke確認は、生成したtarballを指定して実行します。
+
+```sh
+npm run verify:cli-package -- artifacts/cli-package/markdown-matrix-injector-<version>.tgz
+```
+
+この検証は一時prefixへ`npm install --offline`し、インストールされた`mmi`で`--help`、`check`、`render`を実行します。Windows・Linuxのmanual-e2e結果はissue-0197に記録します。
+
 ## PDFを作るには
 
 MMIで表を展開したHTMLを別のPDF生成器へ渡します。
