@@ -202,3 +202,20 @@ test('clearing a rejection lets an adopted Candidate leave decision state behind
     undefined,
   );
 });
+
+
+test('clearing with no prior decision does not create an empty project file', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-review-decision-'));
+  const source = path.join(root, 'design.csv');
+  const decisionsPath = path.join(root, 'mmi-review-decisions.json');
+  fs.writeFileSync(source, 'A,B\n1,2\n');
+
+  const cleared = clearReviewDecisionForCandidate(
+    decisionsPath,
+    source,
+    candidate('content'),
+  );
+
+  assert.deepEqual(cleared.entries, []);
+  assert.equal(fs.existsSync(decisionsPath), false);
+});
