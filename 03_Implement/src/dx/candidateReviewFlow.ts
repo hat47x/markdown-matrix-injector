@@ -5,6 +5,12 @@ import {
   buildCandidateReviewInventory,
   type CandidateReviewInventoryItem,
 } from '../application/candidateReviewInventory.js';
+import {
+  availableCandidateReviewFacets,
+  candidateReviewFacetFilter,
+  matchesCandidateReviewFacets,
+  type CandidateReviewFacetSelection,
+} from '../application/candidateReviewFilter.js';
 import { extractImages, extractTable } from '../cli/extract.js';
 import type { Candidate } from '../core/candidate.js';
 import type { CandidateLedgerFilter } from '../core/candidateLedgerView.js';
@@ -242,7 +248,42 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     sourcePath,
     filterChoice.value,
   );
-  const visibleItems = view.flatMap((item) => {
+  if (view.length === 0) {
+    await vscode.window.showInformationMessage(
+      'MMI: 条件に合うCandidateはありません。',
+    );
+    return;
+  }
+
+  const facetOptions = availableCandidateReviewFacets(
+    view.map((item) => item.candidate),
+  ).map(facetQuickPickItem);
+  const selectedFacets = await vscode.window.showQuickPick(
+    facetOptions,
+    {
+      canPickMany: true,
+      title: 'MMI: Candidateレビュー — 絞り込み',
+      placeHolder:
+        '必要な条件だけ選択（同じ軸はOR、軸間はAND、未選択の軸はすべて）',
+      matchOnDescription: true,
+    },
+  );
+  if (selectedFacets === undefined) return;
+
+  const facetFilter = candidateReviewFacetFilter(
+    selectedFacets.map((item) => item.facet),
+  );
+  const filteredView = view.filter((item) =>
+    matchesCandidateReviewFacets(item.candidate, facetFilter),
+  );
+  if (filteredView.length === 0) {
+    await vscode.window.showInformationMessage(
+      'MMI: 絞り込み条件に合うCandidateはありません。',
+    );
+    return;
+  }
+
+  const visibleItems = filteredView.flatMap((item) => {
     const source = byKey.get(reviewKey(item.candidate));
     return source
       ? [
@@ -255,19 +296,13 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
         ]
       : [];
   });
-  if (visibleItems.length === 0) {
-    await vscode.window.showInformationMessage(
-      'MMI: 条件に合うCandidateはありません。',
-    );
-    return;
-  }
 
   const picked = await vscode.window.showQuickPick(
     visibleItems,
     {
       title: 'MMI: Candidateレビュー',
       placeHolder:
-        '取り込むCandidateを選択（閉じても編集は継続できます）',
+        `取り込むCandidateを選択（${filteredView.length}/${view.length}件。閉じても編集は継続できます）`,
       matchOnDescription: true,
       matchOnDetail: true,
     },
