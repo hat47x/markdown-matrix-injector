@@ -5,7 +5,11 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { extractTable } from '../src/cli/extract.js';
+import {
+  discardUnrecordedTableExtraction,
+  extractTable,
+  finalizeReviewedTableExtraction,
+} from '../src/cli/extract.js';
 import { main } from '../src/cli/mmi.js';
 import { readLedger } from '../src/core/importLedger.js';
 
@@ -81,6 +85,99 @@ test('extractTable writes a standard GFM asset, records provenance, and never ch
   assert.deepEqual(again.problems, []);
   assert.equal(again.extracted?.status, 'unchanged');
   assert.equal(again.extracted?.file, result.extracted.file);
+});
+
+test('reviewed table output can be modified without changing Candidate origin', () => {
+  const f = workspace();
+  const draft = extractTable({
+    sourcePath: f.source,
+    sheet: 'Sheet1',
+    range: 'A1:C3',
+    outDir: f.outDir,
+    fromDocument: f.doc,
+  });
+  assert.deepEqual(draft.problems, []);
+  assert.ok(draft.extracted);
+  const originalFile = draft.extracted.file;
+
+  const finalized = finalizeReviewedTableExtraction({
+    sourcePath: f.source,
+    outDir: f.outDir,
+    ledgerPath: f.ledgerPath,
+    extracted: draft.extracted,
+    editedMarkdown: draft.extracted.markdown.replace(
+      '| OP-02 | 承認 |  |',
+      '| OP-02 | 承認済み | 人手修正 |',
+    ),
+    fromDocument: f.doc,
+  });
+
+  assert.deepEqual(finalized.problems, []);
+  assert.ok(finalized.extracted);
+  assert.equal(finalized.extracted.reviewState, 'modified');
+  assert.notEqual(finalized.extracted.file, originalFile);
+  assert.equal(fs.existsSync(originalFile), false);
+  assert.equal(
+    digest(finalized.extracted.file),
+    finalized.extracted.digest,
+  );
+  assert.match(
+    finalized.extracted.markdown,
+    /\| OP-02 \| 承認済み \| 人手修正 \|/u,
+  );
+  assert.match(
+    finalized.extracted.markdown,
+    /<!-- mmi:extracted-table .*candidate-sha256="[0-9a-f]{64}" -->$/u,
+  );
+
+  const ledger = readLedger(f.ledgerPath);
+  assert.equal(ledger.entries[0].reviewState, 'modified');
+  assert.equal(
+    ledger.entries[0].outputDigest,
+    finalized.extracted.digest,
+  );
+  assert.equal(
+    ledger.entries[0].conversion.reviewMode,
+    'modified-output-v1',
+  );
+});
+
+test('unchanged reviewed table remains accepted and an abandoned draft is removable', () => {
+  const f = workspace();
+  const draft = extractTable({
+    sourcePath: f.source,
+    sheet: 'Sheet1',
+    range: 'A1:C3',
+    outDir: f.outDir,
+    fromDocument: f.doc,
+  });
+  assert.ok(draft.extracted);
+
+  const finalized = finalizeReviewedTableExtraction({
+    sourcePath: f.source,
+    outDir: f.outDir,
+    ledgerPath: f.ledgerPath,
+    extracted: draft.extracted,
+    editedMarkdown: draft.extracted.markdown,
+    fromDocument: f.doc,
+  });
+  assert.ok(finalized.extracted);
+  assert.equal(finalized.extracted.reviewState, 'accepted');
+  assert.equal(
+    readLedger(f.ledgerPath).entries[0].reviewState,
+    'accepted',
+  );
+
+  const another = extractTable({
+    sourcePath: f.source,
+    sheet: 'Sheet1',
+    range: 'A1:C3',
+    outDir: path.join(f.root, 'cancel-assets'),
+    fromDocument: f.doc,
+  });
+  assert.ok(another.extracted);
+  assert.equal(discardUnrecordedTableExtraction(another.extracted), true);
+  assert.equal(fs.existsSync(another.extracted.file), false);
 });
 
 test('extractTable rejects arbitrary ranges that are not current table Candidates', () => {
