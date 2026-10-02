@@ -6,8 +6,10 @@
  * the shared import ledger. Non-table regions stay as review notes in the
  * existing import draft. The source workbook is never modified.
  */
+import fs from 'node:fs';
 import path from 'node:path';
 
+import { readExcelImages } from '../adapters/excelImageAdapter.js';
 import { extractImages, type ExtractProblem, type ExtractedImage } from '../cli/extract.js';
 import { DEFAULT_LEDGER_FILE } from '../core/importLedger.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
@@ -69,7 +71,20 @@ export function materializeWorkbookImport(
       ledgerPath,
     });
     extractedImages = extracted.extracted;
-    imageProblems = extracted.problems.filter((problem) => problem.code !== 'MMI_IMAGE_NONE');
+    const packageWarnings: ExtractProblem[] = readExcelImages(fs.readFileSync(sourcePath)).diagnostics
+      .filter((diagnostic) =>
+        diagnostic.severity === 'warning'
+        // Non-extractable media is represented with an ordinal by extractImages.
+        && diagnostic.code !== 'MMI_IMAGE_UNSUPPORTED_FORMAT')
+      .map((diagnostic) => ({
+        code: diagnostic.code,
+        message: diagnostic.message,
+        ...(diagnostic.sheet ? { sheet: diagnostic.sheet } : {}),
+      }));
+    imageProblems = distinctProblems([
+      ...extracted.problems.filter((problem) => problem.code !== 'MMI_IMAGE_NONE'),
+      ...packageWarnings,
+    ]);
   }
 
   const assets: ImportDraftAsset[] = extractedImages.map((image) => ({
@@ -102,6 +117,22 @@ export function materializeWorkbookImport(
     extractedImages,
     imageProblems,
   };
+}
+
+
+function distinctProblems(problems: readonly ExtractProblem[]): ExtractProblem[] {
+  const seen = new Set<string>();
+  return problems.filter((problem) => {
+    const key = [
+      problem.code,
+      problem.sheet ?? '',
+      problem.ordinal ?? '',
+      problem.message,
+    ].join('\u0000');
+    if (seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
 }
 
 function readStructureOptional(
