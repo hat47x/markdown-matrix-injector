@@ -569,9 +569,16 @@ interface ContentMatchPickItem extends vscode.QuickPickItem {
 function describeMatchContext(match: WorkbookContentMatch): string {
   const context = match.context;
   if (!context) return '';
-  const join = (values?: readonly string[]) => values?.map((value) => value || '（空）').join(' | ');
+  const clean = (value: string): string => value.replace(/\s+/gu, ' ').trim() || '（空）';
+  const join = (values?: readonly string[]) => values?.map(clean).join(' | ');
+  const preview = context.previewRows
+    ?.slice(0, 2)
+    .map((row) => join(row))
+    .filter((row): row is string => Boolean(row))
+    .join(' ／ ');
   return [
     context.headers ? `見出し: ${join(context.headers)}` : '',
+    preview ? `範囲内: ${preview}` : '',
     context.rowAbove ? `直前の行: ${join(context.rowAbove)}` : '',
     context.rowBelow ? `直後の行: ${join(context.rowBelow)}` : '',
   ]
