@@ -96,7 +96,7 @@ test('ledger is readable JSON and survives a write/read round trip', () => {
   assert.deepEqual(readLedger(ledgerPath), recorded);
   const raw = fs.readFileSync(ledgerPath, 'utf8');
   assert.match(raw, /"schema": "mmi\.ledger\/v1"/u);
-  assert.match(raw, /"reviewState": "confirmed"/u);
+  assert.match(raw, /"reviewState": "accepted"/u);
   assert.match(raw, /"basis": "mmi extract"/u);
   assert.match(raw, /"mode": "raw-image-bytes-v1"/u);
   assert.match(raw, /"sourceDigest": "sha256:/u);
