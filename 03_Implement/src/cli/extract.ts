@@ -32,6 +32,8 @@ export interface ExtractOptions {
   sourceLabel?: string;
   /** When set, each extracted picture is recorded in this import ledger (issue-0195). */
   ledgerPath?: string;
+  /** Operation recorded as the review/import basis. */
+  basis?: string;
 }
 
 export interface ExtractedImage {
@@ -204,7 +206,7 @@ export function extractImages(options: ExtractOptions): ExtractResult {
         options.sourcePath,
         candidate,
         item.file,
-        'mmi extract',
+        options.basis ?? 'mmi extract',
         { mode: 'raw-image-bytes-v1', format: image.format },
       ));
     }
