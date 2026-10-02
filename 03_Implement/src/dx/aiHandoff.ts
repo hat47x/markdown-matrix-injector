@@ -1,3 +1,5 @@
+import { createHash } from 'node:crypto';
+
 import type {
   Candidate,
   CandidateKind,
@@ -12,6 +14,7 @@ import type {
   SourceLocator,
 } from '../core/candidate.js';
 import { candidateProblem } from '../core/candidate.js';
+import { placeOf } from '../core/importLedger.js';
 
 export const AI_HANDOFF_SCHEMA = 'mmi.ai-handoff/v1' as const;
 
@@ -43,7 +46,14 @@ export interface HandoffEvidence {
   detail?: string;
 }
 
+export interface HandoffCandidateIdentity {
+  algorithm: 'sha256';
+  representation: 'mmi-candidate-occurrence-content-v1';
+  digest: string;
+}
+
 export interface HandoffClaimView {
+  candidateIdentity: HandoffCandidateIdentity;
   candidateKind: CandidateKind;
   locator: SourceLocator;
   aspect: string;
@@ -59,6 +69,7 @@ export interface HandoffClaimView {
 }
 
 export interface HandoffCandidateView {
+  candidateIdentity: HandoffCandidateIdentity;
   kind: CandidateKind;
   locator: SourceLocator;
   status: EpistemicStatus;
@@ -83,6 +94,7 @@ export type HandoffUnresolvedIssue =
     }
   | {
       kind: 'abstained-claim';
+      candidateIdentity: HandoffCandidateIdentity;
       candidateKind: CandidateKind;
       locator: SourceLocator;
       aspect: string;
@@ -273,6 +285,7 @@ export function createAiHandoffPackage(
 
     if (inferredClaims.length > 0 || candidate.status === 'inferred') {
       inferredCandidates.push({
+        candidateIdentity: candidateIdentityOf(candidate),
         kind: candidate.kind,
         locator: copyLocator(candidate.locator),
         status: candidate.status,
@@ -372,6 +385,7 @@ function claimView(
   includeValues: boolean,
 ): HandoffClaimView {
   return {
+    candidateIdentity: candidateIdentityOf(candidate),
     candidateKind: candidate.kind,
     locator: copyLocator(candidate.locator),
     aspect: claim.aspect,
@@ -396,6 +410,7 @@ function abstainedIssue(
 ): HandoffUnresolvedIssue {
   return {
     kind: 'abstained-claim',
+    candidateIdentity: candidateIdentityOf(candidate),
     candidateKind: candidate.kind,
     locator: copyLocator(candidate.locator),
     aspect: claim.aspect,
@@ -406,6 +421,25 @@ function abstainedIssue(
     provenance: provenanceView(candidate.provenance),
     fingerprint: { ...candidate.fingerprint },
     ...(candidate.reference ? { reference: candidate.reference } : {}),
+  };
+}
+
+export function candidateIdentityOf(candidate: Candidate): HandoffCandidateIdentity {
+  const payload = JSON.stringify({
+    kind: candidate.kind,
+    source: candidate.locator.source,
+    sourceDigest: candidate.locator.sourceDigest,
+    sheet: candidate.locator.sheet ?? null,
+    place: placeOf(candidate),
+    fingerprint: {
+      representation: candidate.fingerprint.representation,
+      digest: candidate.fingerprint.digest,
+    },
+  });
+  return {
+    algorithm: 'sha256',
+    representation: 'mmi-candidate-occurrence-content-v1',
+    digest: `sha256:${createHash('sha256').update(payload, 'utf8').digest('hex')}`,
   };
 }
 
