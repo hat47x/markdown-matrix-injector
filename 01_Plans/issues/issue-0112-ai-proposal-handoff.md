@@ -56,17 +56,19 @@ validation receiptは `mmi.ai-handoff-proposal-validation/v1` とし、各check�
 
 Candidate選択案については次の縦切りを追加した。handoff内のCandidateにはsource値を含めずにoccurrence/contentへ結び付く `candidateIdentity` を付与し、外部AIはそのidentityだけを選択案として返す。`validateAiHandoffCandidateSelection` は、返されたidentityが実際にhandoffへ提示されていたかをallowlist照合し、未知・捏造Candidateをblockedにする。選択案のschemaにはepistemic statusを書き換える欄を持たせず、成功状態も `accepted-for-review` として、AI選択をAuthorityへ昇格させない。receipt digestはnested proposal全体をcanonical化して束縛する。
 
-これによりMMI記法とCandidate選択の戻り検証が揃った。
+Candidate選択proposalはtop-levelとCandidate identityのfieldを固定し、余分な`status`、`command`、`outputPath`等をfail-closedで拒否する。validation receiptのdigestはproposal全体を再帰的にcanonical化して計算し、ネストしたCandidate identityの変更も束縛する。
 
 ### 変換案の戻り検証（2026-10-02）
 
-`src/dx/aiHandoffTransformationValidation.ts` に `mmi.ai-handoff-transformation-proposal/v1` / `mmi.ai-handoff-transformation-validation/v1` を追加した。外部AIが指定できるのは、handoffに含まれた `candidateIdentity`、希望する到達状態（`linked` / `extracted`）、rationale、未解決事項だけである。出力先、コマンド、conversion実装、MMI記法そのものを外部AIに指定させない。未知fieldを含むproposalはfail-closedで拒否する。
+`src/dx/aiHandoffTransformationValidation.ts` に `mmi.ai-handoff-transformation-proposal/v1` と `mmi.ai-handoff-transformation-validation/v1` を追加した。外部AIが指定できるのはhandoffに含まれた`candidateIdentity`、希望する到達状態（`linked` / `extracted`）、rationale、未解決事項だけである。出力先、コマンド、conversion実装、MMI記法そのものを外部AIに指定させない。未知fieldを含むproposalはfail-closedで拒否する。
 
-validatorはhandoffの `suggest-user-review` 境界内でのみ動き、proposalのCandidateがhandoff allowlistに存在することを確認した後、sourceをworkspace containment下で再解決してdigestを照合する。さらにcurrent source bytesから表・画像CandidateをSource Adapterで再発見し、occurrence/content identityとalgorithm/runtime provenanceをhandoff時点と照合する。source変更・Candidate消失・adapter/runtime basis変更後の古いproposalは新しいhandoffを要求する。
+validatorはsourceをworkspace境界内で再解決してdigestを照合し、current source bytesから表・画像CandidateをSource Adapterで再発見する。occurrence/content identityとalgorithm/runtime provenanceがhandoff時点と一致しない場合はblockedとする。source変更・Candidate消失・adapter/runtime basis変更後の古いproposalは、新しいhandoffを要求する。
 
-`linked` は外部AIがnotationを返すのではなく、再発見したcurrent Candidateのローカル `reference` だけを使い、既存 `validateAiHandoffNotationProposal` のparser → parameter schema → source allowlist → diagnostics → source identity → read-only previewを再度通す。`extracted` は表なら `gfm-table-v1`、画像なら既存の抽出可能formatに対する `raw-image-bytes-v1` だけをreview planとして返す。validator自身はfileを書かず、成功状態も `accepted-for-review` でありAuthority確定や自動適用を意味しない。
+`linked`ではcurrent Candidateのローカル`reference`だけを使い、既存`validateAiHandoffNotationProposal`のparser、parameter schema、source allowlist、diagnostics、source identity、read-only previewを再度通す。`extracted`では、表は既存`extractTable`と同じ`gfm-table-v1`、画像は既存`extractImages`と同じ`raw-image-bytes-v1`だけをreview planとして返す。validator自身はfileを書かず、成功状態も`accepted-for-review`であり、自動適用やAuthority確定を意味しない。
 
-これによりMMI記法・Candidate選択・変換案の3種類すべてが、外部AIの返答をそのままAuthorityへ昇格させずローカル再検証できる。
+CLIには`validate-selection <proposal.json>`と`validate-transformation <proposal.json>`を追加した。handoff packageとproposal JSONはworkspace内に限定する。`validate-transformation`はreference baseとなるMarkdownもworkspace内に限定する。全検証を通過した場合だけexit 0とし、blockedはexit 1、入力不備や境界外fileはexit 2とする。
+
+これによりMMI記法・Candidate選択・変換案の3種類すべてを、外部AIの返答をそのままAuthorityへ昇格させずにローカル再検証できる。実装上の受入条件は満たしたが、IssueのExpected verification levelであるmanual-e2eはまだ実施していない。
 
 ## Validation plan
 
@@ -74,6 +76,6 @@ validatorはhandoffの `suggest-user-review` 境界内でのみ動き、proposal
 
 ## Remaining work
 
-- CLI名は最小縦切りで`mmi handoff`に固定した。戻り提案の検証CLI/API名はAuthority経路との接続時に決める。
+- `mmi handoff`、`validate-proposal`、`validate-selection`、`validate-transformation`を実装済み。残る主要作業は架空Excel設計書を使ったmanual-e2eと、必要に応じた実務データでの観測である。
 - 将来MCPを追加する場合も、このpackage契約を再利用し、MCPだけの独自判断ロジックを作らない。
 - provider固有のprompt最適化はコアに入れない。必要なら外部skill / template側で行う。
