@@ -28,6 +28,10 @@ import {
 import { readSourceFileIdentity } from '../core/sourceIdentity.js';
 import { sliceRegion } from '../core/tableGeometry.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
+import {
+  createAiHandoffPackage,
+  renderAiHandoffPrompt,
+} from '../dx/aiHandoff.js';
 import { createDiagnosticsForDocument } from '../dx/vscodeAdapters.js';
 import { buildDeliveryManifestCsv } from '../manifest/collectDeliveryManifest.js';
 import { detectRegions } from '../search/regionDetector.js';
@@ -70,6 +74,11 @@ Commands:
   render <doc.md>           Expand references into Markdown tables (default) or HTML
       --to md|html
   manifest <doc.md>         List references that fall back to 別紙 cards as CSV
+  handoff <source>          Build a local-only evidence package/prompt for a user-chosen external LLM
+      --task <text>           work to ask for (required)
+      --document <doc.md>     include unresolved MMI diagnostics from this Markdown document
+      --include-values        explicitly include Candidate Claim values and Evidence details
+                            Default output is a human-readable prompt; --json emits the evidence package
 
 Common options:
   --root <dir>              workspace boundary for references (default: current directory)
@@ -100,6 +109,9 @@ export async function main(argv: string[]): Promise<number> {
       contains: { type: 'string' },
       in: { type: 'string' },
       first: { type: 'string' },
+      task: { type: 'string' },
+      document: { type: 'string' },
+      'include-values': { type: 'boolean', default: false },
       help: { type: 'boolean', short: 'h', default: false },
     },
   });
@@ -189,6 +201,26 @@ export async function main(argv: string[]): Promise<number> {
         markdownText: fs.readFileSync(markdownFilePath, 'utf8'), markdownFilePath, workspaceRoot: root,
       });
       emit(values.json ? JSON.stringify(records, null, 2) : csvText);
+      return 0;
+    }
+    case 'handoff': {
+      if (args.length !== 1) return usageError('handoff takes one source file');
+      if (!values.task?.trim()) return usageError('handoff needs --task <text>');
+      const absoluteSource = path.resolve(args[0]);
+      const documentPath = values.document ? path.resolve(values.document) : undefined;
+      const inspected = inspectSource(absoluteSource, 0, documentPath);
+      const diagnostics = documentPath
+        ? await checkPaths([documentPath], root)
+        : [];
+      const handoff = createAiHandoffPackage({
+        task: values.task,
+        candidates: inspected.candidates,
+        diagnostics,
+        includeValues: values['include-values'],
+      });
+      emit(values.json
+        ? JSON.stringify(handoff, null, 2)
+        : renderAiHandoffPrompt(handoff));
       return 0;
     }
     default:
