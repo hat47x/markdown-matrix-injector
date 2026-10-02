@@ -5,9 +5,10 @@
  *
  * Three things are kept deliberately separate:
  *
- *   epistemic status   observed | inferred | confirmed | abstained
- *                      -- what we know and how: read from the source, derived
- *                      by a method, decided by a person, or declined.
+ *   Candidate v1 status observed | inferred | confirmed | abstained
+ *                      -- observed/inferred/abstained describe epistemic
+ *                      footing. confirmed is a legacy v1 compatibility token
+ *                      for an accepted decision, not stronger source evidence.
  *   execution          deterministic | provider-dependent
  *                      -- whether the same input reproduces the same output
  *                      without a model/provider. Orthogonal to status: a rule
@@ -36,6 +37,13 @@ export type CandidateKind =
   | 'link'
   | 'section';
 
+/**
+ * Candidate v1 compatibility vocabulary.
+ *
+ * New review code must keep adoption separate. In particular, `confirmed`
+ * represents the legacy accepted-for-use expression and MUST NOT be treated as
+ * evidence that the source explicitly contained the asserted meaning.
+ */
 export type EpistemicStatus = 'observed' | 'inferred' | 'confirmed' | 'abstained';
 export type ExecutionProperty = 'deterministic' | 'provider-dependent';
 /** M0 explicit extraction, M1 deterministic inference, M2 light similarity, M3 bounded judgment, M4 local generative, M5 external handoff. */
