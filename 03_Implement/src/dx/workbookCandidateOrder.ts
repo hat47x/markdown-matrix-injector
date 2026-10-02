@@ -23,7 +23,7 @@ export function prioritizeWorkbookFiles<T extends WorkbookFileCandidate>(
       leftRank.up - rightRank.up ||
       leftRank.down - rightRank.down ||
       leftRank.total - rightRank.total ||
-      normalizePath(left.fsPath).localeCompare(normalizePath(right.fsPath))
+      compareNormalizedPaths(left.fsPath, right.fsPath)
     );
   });
 }
@@ -38,6 +38,14 @@ function pathDistance(fromDirectory: string, candidatePath: string): { up: numbe
   return { up, down, total: up + down };
 }
 
+function compareNormalizedPaths(left: string, right: string): number {
+  const normalizedLeft = normalizePath(left);
+  const normalizedRight = normalizePath(right);
+  if (normalizedLeft < normalizedRight) return -1;
+  if (normalizedLeft > normalizedRight) return 1;
+  return 0;
+}
+
 function normalizePath(value: string): string {
-  return path.resolve(value).replaceAll('\\', '/').toLocaleLowerCase();
+  return path.resolve(value).replaceAll('\\', '/').toLowerCase();
 }
