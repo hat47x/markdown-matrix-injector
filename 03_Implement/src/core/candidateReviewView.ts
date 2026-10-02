@@ -1,4 +1,4 @@
-import type { Candidate } from './candidate.js';
+import type { Candidate, ReviewState } from './candidate.js';
 import {
   candidateLedgerView,
   type CandidateLedgerFilter,
@@ -13,6 +13,10 @@ import type { Ledger } from './importLedger.js';
 
 export interface CandidateReviewViewItem
   extends CandidateLedgerViewItem {
+  reviewState: Extract<
+    ReviewState,
+    'unreviewed' | 'accepted' | 'rejected'
+  >;
   rejected: boolean;
 }
 
@@ -24,6 +28,10 @@ export interface CandidateReviewViewItem
  * hidden from active work queues and remain visible under the all-filter so a
  * person can restore them. Once content or reviewed Claim basis changes, the
  * stored rejection no longer matches and the Candidate naturally returns.
+ *
+ * A stale accepted Candidate deliberately remains `accepted`: review history
+ * and current validation freshness are separate axes. A content-changed
+ * Candidate is a different current Candidate and therefore returns unreviewed.
  */
 export function candidateReviewView(
   candidates: readonly Candidate[],
@@ -54,6 +62,13 @@ export function candidateReviewView(
           item.candidate,
         );
     if (rejected && filter !== 'all') return [];
-    return [{ ...item, rejected: Boolean(rejected) }];
+    const reviewState: CandidateReviewViewItem['reviewState'] =
+      rejected
+        ? 'rejected'
+        : item.ledgerState === 'imported'
+          || item.ledgerState === 'stale'
+          ? 'accepted'
+          : 'unreviewed';
+    return [{ ...item, reviewState, rejected: Boolean(rejected) }];
   });
 }

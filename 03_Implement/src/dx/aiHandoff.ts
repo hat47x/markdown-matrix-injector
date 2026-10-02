@@ -274,9 +274,11 @@ export function createAiHandoffPackage(
     const inferredClaims: HandoffClaimView[] = [];
 
     for (const claim of candidate.claims) {
-      if (claim.status === 'observed' || claim.status === 'confirmed') {
+      if (claim.status === 'observed') {
         confirmedFacts.push(claimView(candidate, claim, includeValues));
-      } else if (claim.status === 'inferred') {
+      } else if (claim.status === 'inferred' || claim.status === 'confirmed') {
+        // Candidate v1 keeps `confirmed` as a legacy accepted-for-use token.
+        // It must not be promoted to source evidence in an external handoff.
         inferredClaims.push(claimView(candidate, claim, includeValues));
       } else {
         unresolvedIssues.push(abstainedIssue(candidate, claim, includeValues));
@@ -356,15 +358,18 @@ export function renderAiHandoffPrompt(pkg: AiHandoffPackageV1): string {
     '',
     '制約:',
     '- 提案だけを返してください。原本やワークスペースを変更しないでください。',
-    '- observed/confirmed と inferred を混同しないでください。',
+    '- observedとinferred / confirmed（v1互換の採用表現）を混同しないでください。',
     '- MMI記法を提案する場合も、採用前にMMIのAuthority Planeで再検証されます。',
     '- 記載されていない値や内容を推測で補わないでください。',
     `- source values: ${pkg.privacy.sourceValues}`,
     '',
-    '確定側の事実:',
+    '候補ID:',
+    ...formatCandidateCatalog(pkg),
+    '',
+    '原本から観測した事実:',
     ...formatFacts(pkg.confirmedFacts),
     '',
-    '推定候補:',
+    '推定・レビュー候補:',
     ...formatCandidates(pkg.inferredCandidates),
     '',
     '未解決事項:',
@@ -372,6 +377,13 @@ export function renderAiHandoffPrompt(pkg: AiHandoffPackageV1): string {
     '',
     `許可される操作: ${pkg.allowedOperations.join(', ')}`,
     `禁止される操作: ${pkg.forbiddenOperations.join(', ')}`,
+    '',
+    '返答形式:',
+    '- MMI記法を提案する場合は、MMI記法1件だけを返してください。',
+    '- Candidateを選ぶ場合は mmi.ai-handoff-candidate-selection/v1 のJSONを返し、selectedには上記候補IDを完全一致で指定してください。',
+    '- Linked / Extractedへの変換案は mmi.ai-handoff-transformation-proposal/v1 のJSONを返し、candidateには上記候補IDを完全一致で指定してください。',
+    '- 変換案のtargetStateは linked または extracted だけです。出力先、コマンド、変換実装は指定しないでください。',
+    '- JSON proposalには rationale と unresolved を含めてください。',
     '',
     '返答では、提案内容、根拠に使った項目、未確定の点を分けてください。',
   ];
@@ -483,6 +495,39 @@ function provenanceView(provenance: Provenance): HandoffProvenanceView {
       parameters: { ...run.parameters },
     },
   };
+}
+
+function formatCandidateCatalog(pkg: AiHandoffPackageV1): string[] {
+  const candidates = new Map<string, {
+    identity: HandoffCandidateIdentity;
+    kind: CandidateKind;
+    locator: SourceLocator;
+  }>();
+  const add = (
+    identity: HandoffCandidateIdentity,
+    kind: CandidateKind,
+    locator: SourceLocator,
+  ) => {
+    candidates.set(identity.digest, { identity, kind, locator });
+  };
+
+  for (const item of pkg.confirmedFacts) {
+    add(item.candidateIdentity, item.candidateKind, item.locator);
+  }
+  for (const item of pkg.inferredCandidates) {
+    add(item.candidateIdentity, item.kind, item.locator);
+  }
+  for (const item of pkg.unresolvedIssues) {
+    if (item.kind === 'abstained-claim') {
+      add(item.candidateIdentity, item.candidateKind, item.locator);
+    }
+  }
+
+  if (candidates.size === 0) return ['- なし'];
+  return [...candidates.values()]
+    .sort((left, right) => left.identity.digest.localeCompare(right.identity.digest))
+    .map((item) =>
+      `- ${item.identity.digest} [${item.kind}] ${formatLocator(item.locator)}`);
 }
 
 function formatFacts(items: readonly HandoffClaimView[]): string[] {

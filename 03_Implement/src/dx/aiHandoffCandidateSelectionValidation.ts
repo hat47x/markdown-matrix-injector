@@ -75,8 +75,14 @@ export function validateAiHandoffCandidateSelection(
 }
 
 function isProposal(value: unknown): value is AiHandoffCandidateSelectionProposalV1 {
-  if (!value || typeof value !== 'object') return false;
-  const proposal = value as Partial<AiHandoffCandidateSelectionProposalV1>;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const proposal = value as Partial<AiHandoffCandidateSelectionProposalV1>
+    & Record<string, unknown>;
+  const keys = Object.keys(proposal).sort();
+  if (
+    JSON.stringify(keys)
+    !== JSON.stringify(['rationale', 'schema', 'selected', 'unresolved'])
+  ) return false;
   return proposal.schema === AI_HANDOFF_CANDIDATE_SELECTION_SCHEMA
     && Array.isArray(proposal.selected)
     && proposal.selected.length > 0
@@ -89,8 +95,14 @@ function isProposal(value: unknown): value is AiHandoffCandidateSelectionProposa
 }
 
 function isIdentity(value: unknown): value is HandoffCandidateIdentity {
-  if (!value || typeof value !== 'object') return false;
-  const identity = value as Partial<HandoffCandidateIdentity>;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const identity = value as Partial<HandoffCandidateIdentity>
+    & Record<string, unknown>;
+  const keys = Object.keys(identity).sort();
+  if (
+    JSON.stringify(keys)
+    !== JSON.stringify(['algorithm', 'digest', 'representation'])
+  ) return false;
   return identity.algorithm === 'sha256'
     && identity.representation === 'mmi-candidate-occurrence-content-v1'
     && typeof identity.digest === 'string'
@@ -125,5 +137,13 @@ function finish(
 
 function stableJson(value: unknown): string {
   if (value === undefined) return 'undefined';
-  return JSON.stringify(value, Object.keys((value && typeof value === 'object') ? value as object : {}).sort());
+  if (value === null || typeof value !== 'object') return JSON.stringify(value);
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableJson(item)).join(',')}]`;
+  }
+  const object = value as Record<string, unknown>;
+  return `{${Object.keys(object)
+    .sort()
+    .map((key) => `${JSON.stringify(key)}:${stableJson(object[key])}`)
+    .join(',')}}`;
 }

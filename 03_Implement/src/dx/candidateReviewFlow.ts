@@ -12,7 +12,7 @@ import {
   type CandidateReviewFacetSelection,
 } from '../application/candidateReviewFilter.js';
 import { extractImages, extractTable } from '../cli/extract.js';
-import type { Candidate } from '../core/candidate.js';
+import type { Candidate, ReviewState } from '../core/candidate.js';
 import type { CandidateLedgerFilter } from '../core/candidateLedgerView.js';
 import {
   clearReviewDecisionForCandidate,
@@ -66,13 +66,11 @@ function facetLabel(facet: CandidateReviewFacetSelection): string {
   if (facet.axis === 'status') {
     switch (facet.value) {
       case 'observed':
-        return '状態: observed（観測）';
+        return '由来: observed（原本に明示）';
       case 'inferred':
-        return '状態: inferred（推定）';
-      case 'confirmed':
-        return '状態: confirmed（確認済み）';
+        return '由来: inferred（推定）';
       case 'abstained':
-        return '状態: abstained（判断保留）';
+        return '由来: abstained（主張せず）';
     }
   }
   return facet.value === 'deterministic'
@@ -87,7 +85,7 @@ function facetDescription(
     case 'kind':
       return 'Candidate type';
     case 'status':
-      return 'epistemic state';
+      return 'origin / epistemic state';
     case 'execution':
       return 'execution characteristic';
   }
@@ -131,8 +129,7 @@ async function chooseSource(target?: vscode.Uri): Promise<string | undefined> {
   return picked?.[0]?.fsPath;
 }
 
-function stateLabel(state: string, rejected = false): string {
-  if (rejected) return '却下済み';
+function stateLabel(state: string): string {
   switch (state) {
     case 'imported':
       return '取込済み';
@@ -144,6 +141,19 @@ function stateLabel(state: string, rejected = false): string {
       return '同内容あり';
     default:
       return '未取込';
+  }
+}
+
+function reviewStateLabel(
+  state: Extract<ReviewState, 'unreviewed' | 'accepted' | 'rejected'>,
+): string {
+  switch (state) {
+    case 'accepted':
+      return 'accepted（採用済み）';
+    case 'rejected':
+      return 'rejected（却下済み）';
+    case 'unreviewed':
+      return 'unreviewed（未採用）';
   }
 }
 
@@ -163,7 +173,7 @@ function epistemicDetail(candidate: Candidate): string {
     (claim) => claim.status === 'inferred',
   );
   return [
-    `${candidate.status} + ${candidate.execution} + ${candidate.method}`,
+    `由来: ${candidate.status} · 実行: ${candidate.execution} · 方法: ${candidate.method}`,
     inferred.length > 0
       ? `推定: ${inferred
           .map((claim) =>
@@ -178,6 +188,10 @@ function epistemicDetail(candidate: Candidate): string {
 function quickPickItem(
   source: CandidateReviewInventoryItem,
   ledgerState: string,
+  reviewState: Extract<
+    ReviewState,
+    'unreviewed' | 'accepted' | 'rejected'
+  >,
   rejected: boolean,
   researchScores: readonly {
     provider: string;
@@ -200,7 +214,7 @@ function quickPickItem(
           ?? image.name
           ?? `画像 ${image.ordinal}`}`,
       description:
-        `${stateLabel(ledgerState, rejected)} · ${image.sheet}${image.range
+        `${stateLabel(ledgerState)} · 採用: ${reviewStateLabel(reviewState)} · ${image.sheet}${image.range
           ? ` ${image.range}`
           : ''}`,
       detail: [
@@ -218,7 +232,7 @@ function quickPickItem(
     label:
       `$(table) ${source.title ?? `${source.sheet} ${source.range}`}`,
     description:
-      `${stateLabel(ledgerState, rejected)} · ${source.sheet} ${source.range}`,
+      `${stateLabel(ledgerState)} · 採用: ${reviewStateLabel(reviewState)} · ${source.sheet} ${source.range}`,
     detail: [
       epistemicDetail(source.candidate),
       providerEvidence,
@@ -348,6 +362,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
             quickPickItem(
               source,
               item.ledgerState,
+              item.reviewState,
               item.rejected,
               item.researchScores,
             ),

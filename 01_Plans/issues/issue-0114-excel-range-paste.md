@@ -144,6 +144,8 @@
 **影響したテスト:** `test/pasteDrop.test.ts`の既存アサーション（`sheet:`/`range:`フィールドと`#Sheet|Range`形式のmarkdown文字列を期待していたもの）と`test/extensionIntegration.test.ts`の4箇所を新契約（filepath-onlyの`![[file]]`）へ更新した。`inferRangeFromHtmlTable`の既存2テストを`extractHtmlTableShape`の4テスト（行×列カウント、広い表、rowspan反例、フラグメント外`<tr>`）へ置き換えた。実キャプチャ（C5:F12、9行目空行）でも`extractHtmlTableShape`が正しく`{rowCount: 8, columnCount: 4}`を返すことを確認済み。
 
 ### `parseTsv`の追加 — 表示値行列の抽出（2026-09-14）
+**2026-10-02 表示空白の完全一致修正**: `parseTsv()`には非引用セルだけ`field.trim()`する処理が残っていた。出所設計は最終比較で空白を同一視しないため、これは` padded `と`padded`を取り違える契約違反になる。Excelはタブや改行が無ければ前後空白だけではセルを引用しないため、引用の有無にかかわらずTSV構文を除いたセル文字列をそのまま保持するよう変更した。空白付きと空白なしの同値候補を同じシートに置き、空白付きコピーが正しい行だけへ一致する回帰を追加した。
+
 
 **2026-10-02 空端セルの偽陰性修正**: `parseTsv()` とDataTransfer読取りが `.trim()` を使っていたため、コピー矩形の先頭/末尾TAB（=空の先頭/末尾セル）が消え、列数と物理rangeを縮めていたことを確認した。`text/plain` は生payloadを保持し、TSV parserはExcelが付ける末尾の行区切り1個だけを構造文字として除去する。先頭/末尾TABと、`\t\r\n` で表される意図的な空行は保持する。DataTransfer、parser、content-match統合の3層で回帰を追加した。
 
@@ -159,7 +161,7 @@
 
 実キャプチャ（C5:F12）で`parseTsv`が`extractHtmlTableShape`（`text/html`由来、8行×4列）と一致する8行×4列の値行列を返すことをクロス検証した。既存の`test/csvEncoding.test.ts`とは無関係（CSVパーサー自体は変更していない）。
 
-`test/pasteDrop.test.ts`へ9件のテストを追加（基本分割、実キャプチャ再現、タブ引用、改行引用、引用符エスケープ、裸引用符の非エスケープ、trim動作、空入力）。`npm test`は328件全成功。
+`test/pasteDrop.test.ts`では、基本分割、実キャプチャ再現、タブ引用、改行引用、引用符エスケープ、裸引用符、境界空セル、空白保持を回帰として扱う。過去の`trim`前提は2026-10-02に撤去した。
 
 ### `findContentMatches`の追加 — 内容照合アルゴリズム本体（2026-09-14）
 **2026-10-02 偽陰性修正**: `maxCandidates` の適用位置を再点検し、旧実装が完全一致検証**前**の候補原点を先頭N件で切っていたため、頻出アンカーの偽候補が多数あると真の一致がN+1件目以降に隠れることを確認した。上限を「返却する完全一致数」へ移し、候補原点は完全一致が上限件数見つかるまで順に検証する。`anchor|wrong` を205行並べ、その後ろにだけ `anchor|target` を置く回帰で固定した。これにより重複結果数の上限は維持しつつ、アンカー頻度だけを理由に「一致なし」と誤判定しない。

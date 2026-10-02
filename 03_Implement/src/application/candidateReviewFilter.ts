@@ -32,7 +32,6 @@ const KIND_ORDER: readonly CandidateKind[] = [
 const STATUS_ORDER: readonly EpistemicStatus[] = [
   'observed',
   'inferred',
-  'confirmed',
   'abstained',
 ];
 

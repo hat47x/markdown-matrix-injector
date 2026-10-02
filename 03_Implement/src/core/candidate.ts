@@ -5,9 +5,12 @@
  *
  * Three things are kept deliberately separate:
  *
- *   epistemic status   observed | inferred | confirmed | abstained
- *                      -- what we know and how: read from the source, derived
- *                      by a method, decided by a person, or declined.
+ *   epistemic status   observed | inferred | abstained
+ *                      -- what the source/method can justify: read from the
+ *                      source, derived by a method, or declined.
+ *   review state       unreviewed | accepted | rejected | modified | deferred
+ *                      -- a downstream decision; it never upgrades an
+ *                      inference into a source fact.
  *   execution          deterministic | provider-dependent
  *                      -- whether the same input reproduces the same output
  *                      without a model/provider. Orthogonal to status: a rule
@@ -36,10 +39,17 @@ export type CandidateKind =
   | 'link'
   | 'section';
 
-export type EpistemicStatus = 'observed' | 'inferred' | 'confirmed' | 'abstained';
+export type EpistemicStatus = 'observed' | 'inferred' | 'abstained';
+export type ReviewState = 'unreviewed' | 'accepted' | 'rejected' | 'modified' | 'deferred';
 export type ExecutionProperty = 'deterministic' | 'provider-dependent';
 /** M0 explicit extraction, M1 deterministic inference, M2 light similarity, M3 bounded judgment, M4 local generative, M5 external handoff. */
 export type MethodClass = 'M0' | 'M1' | 'M2' | 'M3' | 'M4' | 'M5';
+
+const EPISTEMIC_STATUSES = new Set<EpistemicStatus>([
+  'observed',
+  'inferred',
+  'abstained',
+]);
 
 /** Where in which source. Source paths are as the caller wants them written (e.g. relative to a document). */
 export interface SourceLocator {
@@ -128,11 +138,17 @@ export interface Candidate {
 
 /** The first violated invariant, or undefined when the candidate is well-formed. */
 export function candidateProblem(candidate: Candidate): string | undefined {
+  if (!EPISTEMIC_STATUSES.has(candidate.status)) {
+    return `invalid candidate epistemic status: ${String(candidate.status)}`;
+  }
   if (candidate.claims.length === 0) return 'a candidate needs at least one claim';
   if (candidate.provenance.run.execution !== candidate.execution) return 'execution disagrees with provenance.run';
   if (!candidate.locator.sourceDigest.startsWith('sha256:')) return 'sourceDigest must be a sha256: digest';
   if (candidate.provenance.run.inputDigest !== candidate.locator.sourceDigest) return 'run.inputDigest must be the sourceDigest';
   for (const claim of candidate.claims) {
+    if (!EPISTEMIC_STATUSES.has(claim.status)) {
+      return `invalid claim "${claim.aspect}" epistemic status: ${String(claim.status)}`;
+    }
     if (claim.status === 'abstained' && claim.value !== undefined) return `abstained claim "${claim.aspect}" must not carry a value`;
     if (claim.status !== 'abstained' && claim.value === undefined) return `claim "${claim.aspect}" needs a value`;
     if (!claim.reasonCode) return `claim "${claim.aspect}" needs a reasonCode`;

@@ -55,7 +55,7 @@ mmi handoff masters/設計.xlsx \
 
 既定出力は人がコピーして利用者の選んだLLMへ渡すpromptである。MMI自身は送信、ログイン、API keyの利用、課金サービスへのfallbackを行わない。機械可読なpackageが必要なら`--json`を付ける。
 
-既定ではCandidateのClaim値とEvidence詳細をpackageへ含めない。値が本当に必要で、利用者の組織の規則上も許される場合だけ`--include-values`を明示する。この指定でも原本全体を全文投入するのではなく、Candidateが持つClaim値だけが追加される。
+既定ではCandidateのClaim値とEvidence詳細をpackageへ含めない。値が本当に必要で、利用者の組織の規則上も許される場合だけ`--include-values`を明示する。この指定でも原本全体を全文投入するのではなく、Candidateが持つClaim値だけが追加される。promptにはCandidate identityが表示されるため、値を含めなくてもCandidate選択案と変換案は同じ候補を指定できる。Candidate v1の`confirmed`は採用済みの互換表現として扱い、`observed`と同じ原本事実にはしない。
 
 handoffの返答は**提案**であって確定結果ではない。MMI記法が返ってきた場合は、handoff packageをJSONで保存し、ローカルで再検証する。
 
@@ -72,6 +72,21 @@ mmi validate-proposal '![[../masters/設計.xlsx#画面一覧|A1:F13?header=firs
 ```
 
 `validate-proposal`はparser、parameter schema、handoff時のsource allowlist、resolver / containment / source existence / sheet existence、read-only preview、source digestを確認し、すべて通ったときだけ終了コード0になる。存在しないsheet、URL・workspace外path、`aggregate=sum`のような未対応parameter、自由文や任意コマンドは拒否する。検証が通ってもMMIは文書へ自動適用しない。
+
+Candidate選択案と変換案もJSONで受け取り、ローカルで再検証する。
+
+```sh
+mmi validate-selection selection.json \
+  --package handoff.json \
+  --root .
+
+mmi validate-transformation transformation.json \
+  --package handoff.json \
+  --document docs/基本設計書.md \
+  --root .
+```
+
+`validate-selection`はhandoffに提示したCandidate identityだけを受け入れ、AIの選択を`observed`や`confirmed`へ昇格させない。`validate-transformation`はcurrent sourceからCandidateを再発見し、source digestとprovenanceを再確認する。LinkedはMMIが再生成したreferenceを既存Authority経路へ通し、Extractedは表の`gfm-table-v1`または画像の`raw-image-bytes-v1`だけをreview planとして返す。どちらもfileやreview stateを自動変更しない。
 
 
 ## 記法
