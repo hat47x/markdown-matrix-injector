@@ -1,20 +1,20 @@
 # 製品価値と現行実装のギャップ
 
 - 基準: [ADR-0019](adr/ADR-0019-ai-era-sier-document-value-and-policy.md)（2026-10-01 Accepted）と[製品要求](../00_Prompt/requirements.md)
-- 測定日: 2026-10-02（Candidate・画像Extracted・import ledger、既存ブックのハイブリッド取り込み、Detachedの最小materialize/check縦切りまで反映）
+- 測定日: 2026-10-02（Candidate・表/画像Extracted・import ledger、既存ブックのハイブリッド取り込み、Detachedの最小materialize/check縦切りまで反映）
 - 本書は差分の地図であり、作業順の正本は[現在の作業](README.md)とする。差分が解消したら行を消し、経緯は書き足さない。
 
 ## 1. 要約
 
-MMIはLinked（参照）を表で実装し、Extracted（取り込み）はExcel埋込画像で成立している。さらに、既存ブックを1回で下書きへ整理する経路をVS CodeとCLIで共有し、表は元ブックへ追従する参照のまま、埋込画像は通常の画像ファイルとして取り込み台帳へ記録するようにした。表ではない領域や抽出できない画像は確認事項として残す。ADR-0019 D0・D13のとおり、情報単位ごとにLinkedとExtractedを使い分ける。残る大きな差分は図形・Tree等へのExtracted一般化、人のレビューUI、実在設計書での観測、Detachedの完全性監査である。
+MMIはLinked（参照）を表で実装済みで、Extracted（取り込み）も表・Excel埋込画像の選択的取り込みまで成立した。両者は共通Candidateとimport ledgerを使い、取込済み・変更・stale・lineage・研究類似Evidenceを追跡できる。VS Codeでは表・画像を同じ後追いレビュー画面から既存extract経路へ渡せる。既存ブックの初回取り込みでは、表をLinked参照のまま、埋込画像をExtracted assetとして1回で下書きへまとめる経路をVS CodeとCLIで共有する。Detachedも表の標準Markdown化とartifact closure checkの最小縦切りが入った。ADR-0019 D0・D13のとおり、人がExcelで書き続ける情報はLinkedのままでよく、Linkedは過渡期の仮の姿ではない。残る大きな差分は図形・Tree等へのExtracted一般化、レビュー操作の完成、実在設計書での取り込み観測、Detachedの完全性監査と実務E2Eである。
 
 | 状態 | 実装 | 主な不足 |
 | --- | --- | --- |
 | Linked | 実装済み（表のみ）。VS Code・CLIの両方から使える | 画像・図形・ツリーの参照がない |
-| Extracted | **一部実装**（Excel埋込画像。既存ブックの一括取り込みで表Linked＋画像Extractedを併用） | 図形・Tree等のextract、レビューUI、実在設計書での観測 |
+| Extracted | **一部実装**（表・Excel埋込画像。共通Candidate/ledger、選択的extract、表・画像レビューUI、表Linked＋画像Extractedの一括取り込み） | 図形・Tree等のextract、修正採用/却下を含むレビュー完成、実在設計書での観測 |
 | Detached | **一部実装** | `materialize`で表とカード相当の表を通常Markdownへ実体化し、`detach-check`で残存MMI参照・未実体化marker・壊れた/境界外リンクを検査できる。原本内画像・非表Candidateの完全性監査とE2Eは未完 |
 
-Candidateの共通契約はissue-0193で実装済みで、表・画像が利用している。現在の主なギャップは、研究層の成果をCandidate検索・属性として製品面へ接続すること、画像以外のExtractedを増やすこと、人の作業を止めないレビューUI、実在設計書での取り込み観測、Detachedの完全性監査である。新しい研究段階を独立に増やすより、既存成果をこれらの製品経路へ接続する作業を優先する。
+Candidateの共通契約はissue-0193で実装済みで、表・画像が利用している。現在の主なギャップは、研究層の成果をCandidate検索・属性として製品面へ接続すること、図形・Tree等のExtractedを増やすこと、レビュー操作を完成させること、実在設計書で取り込みを観測すること、Detachedの完全性監査である。新しい研究段階を独立に増やすより、既存成果をこれらの製品経路へ接続する作業を優先する。
 
 ## 2. 能力ごとの差分
 
@@ -25,7 +25,7 @@ Candidateの共通契約はissue-0193で実装済みで、表・画像が利用�
 | 参照 | ● | MMI Notation v1、VS Codeプレビュー、CLI `render` | 表以外のCandidateの参照 | 2〜3 |
 | 目録 | ◐ | CLI `inspect`（表の領域・見出し・行数、Excel画像の位置・形式・ダイジェスト・近くの表、`--json`のCandidate形式。`src/cli/mmi.ts`） | 図形・注記・リンクの列挙 | 2〜3 |
 | 候補抽出 | ◐ | 共通Candidate型を実装し、表・Excel画像を`mmi inspect --json`へ出力。研究: 表らしさ・見出し境界（structured artifact）、既知書式（worksheet format） | Tree/Shape等のCandidate化、研究成果の製品接続 | 1〜3 |
-| 個別取り込み | ◐ | CLI `extract`（Excel画像をassetsへ、Markdown参照と出典つき。実Excelで検証済み。`src/cli/extract.ts`） | 表・図形・構造化データの`extract`、VS Code上の採否UI（issue-0202） | 2 |
+| 個別取り込み | ◐ | CLI `extract`でExcel画像を通常画像assetへ、検出済みTable Candidateを標準GFM Markdown assetへ選択的に取り込む。いずれも出典と既存ledgerへ記録し、sourceは変更しない。VS Codeの最小レビューUIから表・画像の既存extract経路を呼べる | 図形・Tree・構造化データのextract、修正採用/却下、実機E2E | 2 |
 | 一括変換 | ◐ | VS Codeの既存取り込みコマンドとCLI `mmi import`が同じmaterializerを使い、表をLinked参照、.xlsx/.xlsmの埋込画像をExtracted asset＋取り込み台帳として1回で下書き化する。非表領域と画像の問題は確認事項として残す | 実在設計書での観測、図形等の追加Candidate、外部Converterとの比較評価（[issue-0200](issues/issue-0200-baseline-bulk-import.md)） | 2 |
 | 重複回避 | ● | Candidate単位のfingerprint、`mmi.ledger/v1`、`imported/changed/stale/duplicate/unimported`、`--unimported` / `--exclude-imported`、lineage・similarity Evidence分離 | UIからの利用はissue-0202、一括変換からの登録はissue-0200 | 2 |
 | シートの画像化 | ○ | Windows補助プロセスの前例（ADR-0017、クリップボード） | 図形・レイアウトに意味があるシート・範囲を画像として取り込む`Sheet / Region snapshot`（ADR-0019 D0）。CIで再現できる描画を優先し、COMは手元の補助（ADR-0019 D14。いずれも未検証） | 2 |
@@ -35,9 +35,9 @@ Candidateの共通契約はissue-0193で実装済みで、表・画像が利用�
 | provenance | ◐ | Source Identity v1、納品物一覧（Linked）、import ledger（Extractedのsource/occurrence/fingerprint/output/conversion/review basis）。一括取り込みの画像も同じledgerへ登録 | 他Candidate種別への拡張、detach監査用の横断report | 2〜4 |
 | materialize | ◐ | `mmi materialize`で小表をinline GFM化し、カード相当の明示sheet表を独立Markdownへ実体化。source digest provenanceを保持 | 原本内画像・Tree/Shape等の採用Candidate実体化、実務E2E | 4 |
 | detach check | ◐ | `mmi detach-check`で残存MMI参照、未実体化marker、旧別紙カード、壊れた/境界外ローカルリンクをfailできる | ledgerと文書採用関係を用いたsource-only画像・非表Candidate監査 | 4 |
-| 執筆支援 | ● | 補完、貼り付け（Windowsの出所取得を含む）、説明からの検索、案内付きの作成、ホバー | 多環境の実機確認（issue-0110）、利用者の観測（issue-0111）、Candidateを非同期に採否するレビューUI（[issue-0202](issues/issue-0202-candidate-review-ui.md)） | 継続〜2 |
-| AI/CI利用 | ◐ | CLI 4コマンド、AI向け指示パック（`skills/mmi`）、基本設計書キット、執筆ベンチマーク v0 | 配布（npm等）、`extract`、Candidate形式のJSON、将来のMCP。外部LLMはMMIを呼ぶ側に置く | 1 |
-| 外部LLM handoff | ○ | issue-0112に安全境界のみ定義済み | Candidate・provenance・診断からprompt/evidence packageをローカル生成し、MMIからは送信しない | 1 |
+| 執筆支援 | ● | 補完、貼り付け（Windowsの出所取得を含む）、説明からの検索、案内付きの作成、ホバー、表・画像Candidateの後追いレビューUI | 多環境の実機確認（issue-0110）、利用者観測（issue-0111）、レビューUIの修正採用/却下・追加filter（issue-0202） | 継続〜2 |
+| AI/CI利用 | ◐ | CLIから`inspect`/`extract`/`check`/`render`/`materialize`/`detach-check`/`handoff`/提案再検証等を利用でき、Candidate JSON、AI向け指示パック（`skills/mmi`）、基本設計書キット、執筆ベンチマーク v0がある | 配布（npm等）、より安定したagent-facing contract、将来のMCP | 1 |
+| 外部LLM handoff | ◐ | local-only evidence package/promptを生成し、返却MMI記法とCandidate選択案をAuthority側でfail-closed再検証できる | 変換案の再検証、実利用E2E、agent-facing配布 | 1 |
 | 軽量認知 | ◐ | Fly-inspired matcher、worksheet format、Cognitive Contract等の研究資産 | 要件ごとのM0〜M4比較、deterministic/provider-dependent実行分離、Ollama/LM Studio等の既存local runtime再利用、model/profile artifact配布（issue-0204） | 1〜3 |
 | 応答性 | ● | 読込みの再利用と失効、検索索引の差分更新 | 画像を含む大きなブックでの測定 | 2 |
 
@@ -45,7 +45,7 @@ Candidateの共通契約はissue-0193で実装済みで、表・画像が利用�
 
 ADR-0020で、認知方式をモデル種別ではなく要件ごとに選ぶ方針を採用した。明示抽出（M0）、決定論的推定（M1）、軽量類似（M2）、bounded Judgment（M3）、local generative（M4）、external handoff（M5）を比較し、最も単純で十分な方式を優先する。
 
-特に未実装なのは、Candidate contractで `observed/inferred/confirmed/abstained` と `deterministic/provider-dependent` を直交して保持すること、provider-dependent処理を編集・CIの主経路から分離すること、model/profile artifactをCoreから分離すること、導入済みOllama/LM Studio等のruntime/model cacheを再利用することである。
+Candidate contractでは `observed/inferred/confirmed/abstained` と `deterministic/provider-dependent` を直交して保持する実装まで到達した。残る主な認知差分は、provider-dependent処理を編集・CIの主経路から運用上も分離すること、model/profile artifactをCoreから分離すること、導入済みOllama/LM Studio等のruntime/model cacheを再利用することである。
 
 ## AI利用境界の差分
 
