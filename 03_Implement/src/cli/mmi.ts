@@ -80,11 +80,6 @@ Commands:
       --sheet <name>  --columns <h1,h2>  --contains <text> [--in <heading>]  --first <n>
       --from <doc.md>         write the reference relative to this document
   find <description...>     Search workbooks under --root for tables matching a description
-  select <workbook>         Print the reference for a table chosen by name, columns/rows by heading
-      --table <name|range>    Excel table, name, title or A1 range (required)
-      --sheet <name>  --columns <h1,h2>  --contains <text> [--in <heading>]  --first <n>
-      --from <doc.md>         write the reference relative to this document
-  find <description...>     Search workbooks under --root for tables matching a description
   check <path...>           Validate MMI references in Markdown files or directories
                             (exit code 1 when any error is found)
   render <doc.md>           Expand references into Markdown tables (default) or HTML
