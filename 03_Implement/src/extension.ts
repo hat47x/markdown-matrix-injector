@@ -52,6 +52,7 @@ import {
 } from './dx/authoringFlow.js';
 import { readWorkbookCached } from './dx/sharedWorkbookCache.js';
 import { clearSearchIndexes, FIND_EMBED_COMMAND_ID, scriptedSearch, searchEmbedByDescription } from './dx/searchFlow.js';
+import { prioritizeWorkbookFiles } from './dx/workbookCandidateOrder.js';
 import { IMPORT_WORKBOOK_COMMAND_ID, importFromWorkbook } from './dx/importFlow.js';
 import {
   CATALOG_INSERT_TABLE_COMMAND_ID,
@@ -487,9 +488,12 @@ async function loadWorkspaceWorkbooksForContentMatch(
   workspaceRoot: string,
   token?: vscode.CancellationToken,
 ): Promise<WorkbookSheetsSource[]> {
-  const uris = (await vscode.workspace.findFiles(WORKBOOK_FILE_GLOB, '**/{node_modules,dist}/**'))
-    .filter((uri) => uri.fsPath.startsWith(workspaceRoot))
-    .slice(0, MAX_CONTENT_MATCH_WORKSPACE_FILES);
+  const uris = prioritizeWorkbookFiles(
+    markdownFilePath,
+    (await vscode.workspace.findFiles(WORKBOOK_FILE_GLOB, '**/{node_modules,dist}/**')).filter((uri) =>
+      uri.fsPath.startsWith(workspaceRoot),
+    ),
+  ).slice(0, MAX_CONTENT_MATCH_WORKSPACE_FILES);
 
   const workbooks: WorkbookSheetsSource[] = [];
   for (const uri of uris) {
