@@ -12,7 +12,7 @@ MMIはLinked（参照）を表で実装済みで、Extracted（取り込み）�
 | --- | --- | --- |
 | Linked | 実装済み（表のみ）。VS Code・CLIの両方から使える | 画像・図形・ツリーの参照がない |
 | Extracted | **一部実装**（表・Excel埋込画像。共通Candidate/ledger、選択的extract、表・画像レビューUIの最小縦切り） | 図形・Tree等のextract、修正採用/却下を含むレビュー完成、一括変換との統合 |
-| Detached | **一部実装** | `materialize`で表とカード相当の表を通常Markdownへ実体化し、`detach-check`で残存MMI参照・未実体化marker・壊れた/境界外リンクを検査できる。原本内画像・非表Candidateの完全性監査とE2Eは未完 |
+| Detached | **一部実装** | `materialize`で表・カード相当表を通常Markdownへ、ローカル画像をcontent-addressed assetへ実体化する。文書へ採用済みのExtracted表/画像はprovenance + ledger + current Candidateでfreshness確認し、`detach-check`でclosureを検査できる。実務E2Eと非表Candidate拡張は未完 |
 
 Candidateの共通契約はissue-0193で実装済みで、表・画像が利用している。現在の主なギャップは、研究層の成果をCandidate検索・属性として製品面へ接続すること、画像以外のExtractedを増やすこと、人の作業を止めないレビューUI、一括変換、Detachedである。新しい研究段階を独立に増やすより、既存成果をこれらの製品経路へ接続する作業を優先する。
 
@@ -33,8 +33,8 @@ Candidateの共通契約はissue-0193で実装済みで、表・画像が利用�
 | 変換・表示 | ● | 変換パイプライン、強調、コード表示、キャプション | 画像参照の表示 | 2 |
 | 検証 | ● | 診断コード6種、CLI `check`（JSON・終了コード） | Candidate・取り込み結果の診断 | 2 |
 | provenance | ◐ | Source Identity v1、納品物一覧（Linked）、import ledger（Extractedのsource/occurrence/fingerprint/output/conversion/review basis） | 他Candidate種別と一括変換への拡張、detach監査用の横断report | 2〜4 |
-| materialize | ◐ | `mmi materialize`で小表をinline GFM化し、カード相当の明示sheet表を独立Markdownへ実体化。source digest provenanceを保持 | 原本内画像・Tree/Shape等の採用Candidate実体化、実務E2E | 4 |
-| detach check | ◐ | `mmi detach-check`で残存MMI参照、未実体化marker、旧別紙カード、壊れた/境界外ローカルリンクをfailできる | ledgerと文書採用関係を用いたsource-only画像・非表Candidate監査 | 4 |
+| materialize | ◐ | `mmi materialize`で小表をinline GFM化、カード相当表を独立Markdown化、本文のローカル画像を`mmi-assets/`へdigest名で複製・rebase。採用済みExtracted表/画像のfreshnessも事前照合 | Tree/Shape等の採用Candidate実体化、実務E2E | 4 |
+| detach check | ◐ | materialize preflightで採用済みExtracted表/画像のchanged/stale/untrackedをfailし、`mmi detach-check`で残存MMI参照、未実体化marker、旧別紙カード、壊れた/境界外リンクをfailできる | 非表Candidateへの同契約拡張、実務E2E | 4 |
 | 執筆支援 | ● | 補完、貼り付け（Windowsの出所取得を含む）、説明からの検索、案内付きの作成、ホバー、表・画像Candidateの後追いレビューUI | 多環境の実機確認（issue-0110）、利用者観測（issue-0111）、レビューUIの修正採用/却下・追加filter（issue-0202） | 継続〜2 |
 | AI/CI利用 | ◐ | CLIから`inspect`/`extract`/`check`/`render`/`materialize`/`detach-check`/`handoff`/提案再検証等を利用でき、Candidate JSON、AI向け指示パック（`skills/mmi`）、基本設計書キット、執筆ベンチマーク v0がある | 配布（npm等）、より安定したagent-facing contract、将来のMCP | 1 |
 | 外部LLM handoff | ◐ | local-only evidence package/promptを生成し、返却MMI記法とCandidate選択案をAuthority側でfail-closed再検証できる | 変換案の再検証、実利用E2E、agent-facing配布 | 1 |
