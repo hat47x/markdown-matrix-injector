@@ -28,6 +28,10 @@ export interface CandidateReviewViewItem
  * hidden from active work queues and remain visible under the all-filter so a
  * person can restore them. Once content or reviewed Claim basis changes, the
  * stored rejection no longer matches and the Candidate naturally returns.
+ *
+ * A stale accepted Candidate deliberately remains `accepted`: review history
+ * and current validation freshness are separate axes. A content-changed
+ * Candidate is a different current Candidate and therefore returns unreviewed.
  */
 export function candidateReviewView(
   candidates: readonly Candidate[],
@@ -59,10 +63,11 @@ export function candidateReviewView(
         );
     if (rejected && filter !== 'all') return [];
     const reviewState: CandidateReviewViewItem['reviewState'] =
-      item.ledgerState === 'imported'
-        ? 'accepted'
-        : rejected
-          ? 'rejected'
+      rejected
+        ? 'rejected'
+        : item.ledgerState === 'imported'
+          || item.ledgerState === 'stale'
+          ? 'accepted'
           : 'unreviewed';
     return [{ ...item, reviewState, rejected: Boolean(rejected) }];
   });
