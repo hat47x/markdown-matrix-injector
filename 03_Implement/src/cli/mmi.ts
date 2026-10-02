@@ -31,8 +31,10 @@ import { sliceRegion } from '../core/tableGeometry.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
 import {
   createAiHandoffPackage,
+  parseAiHandoffPackage,
   renderAiHandoffPrompt,
 } from '../dx/aiHandoff.js';
+import { validateAiHandoffNotationProposal } from '../dx/aiHandoffProposalValidation.js';
 import { createDiagnosticsForDocument } from '../dx/vscodeAdapters.js';
 import { buildDeliveryManifestCsv } from '../manifest/collectDeliveryManifest.js';
 import { detectRegions } from '../search/regionDetector.js';
@@ -80,6 +82,10 @@ Commands:
       --document <doc.md>     include unresolved MMI diagnostics from this Markdown document
       --include-values        explicitly include Candidate Claim values and Evidence details
                             Default output is a human-readable prompt; --json emits the evidence package
+  validate-proposal <mmi>   Revalidate one returned MMI notation locally; never auto-apply it
+      --package <file>        locally generated mmi.ai-handoff/v1 JSON package (required)
+      --document <doc.md>     Markdown path used as the proposal reference base (required)
+                            Exit 0 only when every Authority check passes; --json emits the receipt
 
 Common options:
   --root <dir>              workspace boundary for references (default: current directory)
@@ -111,6 +117,7 @@ export async function main(argv: string[]): Promise<number> {
       in: { type: 'string' },
       first: { type: 'string' },
       task: { type: 'string' },
+      package: { type: 'string' },
       document: { type: 'string' },
       'include-values': { type: 'boolean', default: false },
       help: { type: 'boolean', short: 'h', default: false },
@@ -230,6 +237,30 @@ export async function main(argv: string[]): Promise<number> {
         : renderAiHandoffPrompt(handoff));
       return 0;
     }
+    case 'validate-proposal': {
+      if (args.length !== 1) return usageError('validate-proposal takes one MMI notation');
+      if (!values.package) return usageError('validate-proposal needs --package <file>');
+      if (!values.document) return usageError('validate-proposal needs --document <doc.md>');
+      const packagePath = path.resolve(values.package);
+      const documentPath = path.resolve(values.document);
+      if (!handoffPathWithinRoot(packagePath, root)) {
+        return usageError('validate-proposal --package must stay within --root workspace');
+      }
+      if (!handoffPathWithinRoot(documentPath, root)) {
+        return usageError('validate-proposal --document must stay within --root workspace');
+      }
+      const handoff = parseAiHandoffPackage(fs.readFileSync(packagePath, 'utf8'));
+      const validation = await validateAiHandoffNotationProposal({
+        handoff,
+        rawNotation: args[0],
+        markdownFilePath: documentPath,
+        workspaceRoot: root,
+      });
+      emit(values.json
+        ? JSON.stringify(validation, null, 2)
+        : formatAiHandoffProposalValidation(validation));
+      return validation.status === 'accepted' ? 0 : 1;
+    }
     default:
       return usageError(`unknown command: ${command}`);
   }
@@ -238,6 +269,16 @@ export async function main(argv: string[]): Promise<number> {
 function usageError(message: string): number {
   console.error(`mmi: ${message}\n\n${USAGE}`);
   return 2;
+}
+
+function formatAiHandoffProposalValidation(
+  validation: Awaited<ReturnType<typeof validateAiHandoffNotationProposal>>,
+): string {
+  return [
+    `proposal: ${validation.status}`,
+    ...validation.checks.map((check) =>
+      `  ${check.check}: ${check.status} ${check.code}${check.detail ? ` - ${check.detail}` : ''}`),
+  ].join('\n');
 }
 
 function handoffPathWithinRoot(target: string, root: string): boolean {
