@@ -7,7 +7,11 @@ import path from 'node:path';
 
 import { classify, readLedger } from '../src/core/importLedger.js';
 import { inspectSource } from '../src/cli/mmi.js';
-import { materializeWorkbookImport } from '../src/importAssist/importMaterialization.js';
+import { loadWorkbookFromBytes } from '../src/core/workbookLoader.js';
+import {
+  materializeWorkbookImport,
+  writeWorkbookImportDraft,
+} from '../src/importAssist/importMaterialization.js';
 import { buildXlsxWithImages, emfOf, pngOf, screenDesignWorkbook } from './helpers/buildXlsxWithImages.js';
 
 const digest = (file: string): string =>
@@ -30,6 +34,7 @@ test('one workbook import keeps tables linked and materializes embedded images i
 
   assert.equal(result.imageProblems.length, 0);
   assert.equal(result.extractedImages.length, 4);
+  assert.equal(result.sourceDigest, digest(sourcePath));
   assert.equal(fs.readdirSync(result.imageOutDir).length, 2, 'duplicate image bytes share one asset file');
   assert.equal((result.markdown.match(/<!-- mmi:extracted /gu) ?? []).length, 4);
   assert.match(
@@ -195,4 +200,194 @@ test('linked and missing workbook images stay visible as import warnings', () =>
   assert.match(result.markdown, /MMI_IMAGE_EXTERNAL_LINK/u);
   assert.match(result.markdown, /MMI_IMAGE_MEDIA_MISSING/u);
   assert.match(result.markdown, /\[画面\]/u);
+});
+
+
+test('transactional workbook import writes the draft only after materialization succeeds', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-commit-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  const draftPath = path.join(root, 'docs', 'design.md');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+
+  const result = writeWorkbookImportDraft({
+    sourcePath,
+    draftPath,
+    ledgerPath,
+  });
+
+  assert.equal(fs.readFileSync(draftPath, 'utf8'), result.markdown);
+  assert.equal(result.extractedImages.length, 4);
+  assert.equal(readLedger(ledgerPath).entries.length, 4);
+});
+
+test('workbook analysis failure happens before asset or ledger side effects', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-rollback-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  const draftPath = path.join(root, 'docs', 'design.md');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const imageOutDir = path.join(root, 'docs', 'assets', 'design');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+  fs.mkdirSync(imageOutDir, { recursive: true });
+  fs.writeFileSync(path.join(imageOutDir, 'keep.txt'), 'pre-existing asset');
+  const ledgerBefore = '{\n  "schema": "mmi.ledger/v1",\n  "entries": []\n}\n';
+  fs.writeFileSync(ledgerPath, ledgerBefore);
+  const preparedSourceDigest = digest(sourcePath);
+
+  assert.throws(
+    () => writeWorkbookImportDraft({
+      sourcePath,
+      draftPath,
+      ledgerPath,
+      imageOutDir,
+      // Invalid prepared analysis data must fail before extraction begins.
+      workbook: { sheets: null } as any,
+      preparedSourceDigest,
+    }),
+  );
+
+  assert.equal(fs.existsSync(draftPath), false);
+  assert.equal(fs.readFileSync(ledgerPath, 'utf8'), ledgerBefore);
+  assert.deepEqual(fs.readdirSync(imageOutDir), ['keep.txt']);
+  assert.equal(fs.readFileSync(path.join(imageOutDir, 'keep.txt'), 'utf8'), 'pre-existing asset');
+});
+
+test('transactional workbook import never overwrites an existing draft or mutates assets/ledger', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-existing-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  const draftPath = path.join(root, 'design.md');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+  fs.writeFileSync(draftPath, 'existing draft');
+
+  assert.throws(
+    () => writeWorkbookImportDraft({ sourcePath, draftPath, ledgerPath }),
+    /MMI_IMPORT_DRAFT_EXISTS/u,
+  );
+
+  assert.equal(fs.readFileSync(draftPath, 'utf8'), 'existing draft');
+  assert.equal(fs.existsSync(ledgerPath), false);
+  assert.equal(fs.existsSync(path.join(root, 'assets', 'design')), false);
+});
+
+
+test('transactional workbook import aborts and rolls back when the source changes during the operation', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-source-change-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  const draftPath = path.join(root, 'docs', 'design.md');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const imageOutDir = path.join(root, 'docs', 'assets', 'design');
+  const initialBytes = screenDesignWorkbook().bytes;
+  const changedBytes = screenDesignWorkbook({
+    login: pngOf(8, 6, [10, 180, 70]),
+  }).bytes;
+  fs.writeFileSync(sourcePath, initialBytes);
+  const preparedSourceDigest = digest(sourcePath);
+  const frozenWorkbook = loadWorkbookFromBytes(sourcePath, initialBytes);
+  let changed = false;
+  const workbook = {
+    get sheets() {
+      if (!changed) {
+        fs.writeFileSync(sourcePath, changedBytes);
+        changed = true;
+      }
+      return frozenWorkbook.sheets;
+    },
+  } as any;
+
+  assert.throws(
+    () => writeWorkbookImportDraft({
+      sourcePath,
+      draftPath,
+      ledgerPath,
+      imageOutDir,
+      workbook,
+      preparedSourceDigest,
+    }),
+    /MMI_IMPORT_SOURCE_CHANGED/u,
+  );
+
+  assert.equal(changed, true);
+  assert.equal(fs.existsSync(draftPath), false);
+  assert.equal(fs.existsSync(ledgerPath), false);
+  assert.equal(fs.existsSync(imageOutDir), false);
+  assert.equal(digest(sourcePath), `sha256:${createHash('sha256').update(changedBytes).digest('hex')}`);
+});
+
+
+test('workbook import rejects overlapping output roles before mutation', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-path-role-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+  const sourceBefore = digest(sourcePath);
+
+  const cases = [
+    {
+      draftPath: path.join(root, 'same.json'),
+      ledgerPath: path.join(root, 'same.json'),
+      imageOutDir: path.join(root, 'assets'),
+    },
+    {
+      draftPath: path.join(root, 'docs', 'draft.md'),
+      ledgerPath: sourcePath,
+      imageOutDir: path.join(root, 'assets'),
+    },
+    {
+      draftPath: path.join(root, 'out', 'draft.md'),
+      ledgerPath: path.join(root, 'ledger.json'),
+      imageOutDir: path.join(root, 'out'),
+    },
+    {
+      draftPath: path.join(root, 'draft.md'),
+      ledgerPath: path.join(root, 'out', 'ledger.json'),
+      imageOutDir: path.join(root, 'out'),
+    },
+    {
+      draftPath: path.join(root, 'draft.md'),
+      ledgerPath: path.join(root, 'ledger.json'),
+      imageOutDir: root,
+    },
+  ];
+
+  for (const options of cases) {
+    assert.throws(
+      () => writeWorkbookImportDraft({ sourcePath, ...options }),
+      /MMI_IMPORT_OUTPUT_CONFLICT/u,
+    );
+  }
+
+  assert.equal(digest(sourcePath), sourceBefore);
+  assert.equal(fs.existsSync(path.join(root, 'same.json')), false);
+  assert.equal(fs.existsSync(path.join(root, 'ledger.json')), false);
+});
+
+
+test('prepared workbook data must be explicitly bound to the current source snapshot', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-prepared-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  const draftPath = path.join(root, 'design.md');
+  const bytes = screenDesignWorkbook().bytes;
+  fs.writeFileSync(sourcePath, bytes);
+  const workbook = loadWorkbookFromBytes(sourcePath, bytes);
+
+  assert.throws(
+    () => writeWorkbookImportDraft({
+      sourcePath,
+      draftPath,
+      workbook,
+    }),
+    /MMI_IMPORT_PREPARED_SOURCE_DIGEST_REQUIRED/u,
+  );
+  assert.equal(fs.existsSync(draftPath), false);
+
+  assert.throws(
+    () => writeWorkbookImportDraft({
+      sourcePath,
+      draftPath,
+      workbook,
+      preparedSourceDigest: 'sha256:' + '0'.repeat(64),
+    }),
+    /MMI_IMPORT_PREPARED_SOURCE_STALE/u,
+  );
+  assert.equal(fs.existsSync(draftPath), false);
 });
