@@ -22,7 +22,7 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 | 2 | [取り込み台帳と未取込の表示](issues/issue-0195-import-ledger.md) | **Done**（`mmi.ledger/v1`、未取込/変更/stale、lineage、研究similarity Evidence） | 次: issue-0200のbaseline converter、issue-0202のレビューUIが同じ台帳契約を利用 |
 | 2 | [初回一括変換とCandidate基盤の接続](issues/issue-0200-baseline-bulk-import.md) | **In Progress**（MarkItDown評価・handoffは整備、実変換の導入判断は未確定） | Candidate・ledgerとの接続条件を保ったまま、デスクトップ実行結果でconverter採否を判断 |
 | 2 | [シート・範囲の画像化](issues/issue-0198-sheet-region-snapshot.md) | Draft | CIで動く描画方式（MMI自身の描画、LibreOffice）の比較。COMは手元の補助 |
-| 2 | [人の作業を止めないCandidateレビューUI](issues/issue-0202-candidate-review-ui.md) | **In Progress**（表・画像を同じレビュー画面から既存extractへ接続） | 修正採用/却下、type・epistemic filter、Windows実機E2E、利用者観測 |
+| 2 | [人の作業を止めないCandidateレビューUI](issues/issue-0202-candidate-review-ui.md) | **In Progress**（表・画像、import state＋type/status/execution facet、採用/却下/却下解除/保留を同じレビュー経路へ接続） | 修正して採用、Windows実機E2E、利用者観測 |
 | 2 | [既存設計書の取り込み候補](issues/issue-0205-import-assistance-prototype.md)（方眼紙の表の参照提案・役割候補・下書き） | In Progress（試作、架空データで評価済み） | 残: VS Code宿主での確認、実在の設計書での観測 |
 | 2 | [Excelを開かずに表・列・行を選ぶ入口](issues/issue-0206-table-navigation-and-agent-interface.md)（名前・テーブル・非表示、見出しによる選択） | In Progress（試作） | 残: 目視確認、[ADR-0022](adr/ADR-0022-semantic-selection-in-notation.md)の採否、CLIのselect/findをissue-0193のCandidate契約へ統合 |
 | 2（既存） | [Excel範囲貼り付け](issues/issue-0114-excel-range-paste.md) | Open | Paste As宿主dispatchの自動E2Eを追加済み（実行確認待ち）。残: Windows実ExcelのHTML/helper/視覚picker実機証拠。表Candidateを`confirmed`にする経路として扱う |
