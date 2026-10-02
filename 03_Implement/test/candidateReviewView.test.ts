@@ -246,6 +246,67 @@ test('stale validation preserves accepted review history without changing origin
   assert.equal(view[0].candidate.status, 'inferred');
 });
 
+test('stale Candidate can be newly deferred without erasing accepted history', () => {
+  const f = workspace();
+  const accepted = candidate('same-content');
+  const output = path.join(f.root, 'assets', 'table.md');
+  fs.mkdirSync(path.dirname(output), { recursive: true });
+  fs.writeFileSync(output, '| A | B |\n');
+  recordEntries(f.ledgerPath, [
+    entryFor(
+      f.ledgerPath,
+      f.source,
+      accepted,
+      output,
+      'test import',
+    ),
+  ]);
+
+  const stale: Candidate = {
+    ...accepted,
+    claims: accepted.claims.map((claim) => ({
+      ...claim,
+      reasonCode: 'changed-inference-basis',
+    })),
+  };
+  const decisions = recordDeferredDecision(
+    f.decisionPath,
+    f.source,
+    stale,
+    'review later',
+  );
+  const ledger = readLedger(f.ledgerPath);
+
+  assert.deepEqual(
+    candidateReviewView(
+      [stale],
+      ledger,
+      decisions,
+      f.ledgerPath,
+      f.decisionPath,
+      f.source,
+      'exclude-imported',
+    ),
+    [],
+  );
+
+  const all = candidateReviewView(
+    [stale],
+    ledger,
+    decisions,
+    f.ledgerPath,
+    f.decisionPath,
+    f.source,
+    'all',
+  );
+  assert.equal(all.length, 1);
+  assert.equal(all[0].ledgerState, 'stale');
+  assert.equal(all[0].ledgerReviewState, 'accepted');
+  assert.equal(all[0].reviewState, 'deferred');
+  assert.equal(all[0].deferred, true);
+  assert.equal(all[0].candidate.status, 'inferred');
+});
+
 test('modified adoption stays distinct from accepted while preserving Candidate origin', () => {
   const f = workspace();
   const reviewed = candidate('same-content');
