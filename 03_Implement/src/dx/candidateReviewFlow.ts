@@ -11,6 +11,13 @@ import {
   candidateLedgerView,
   type CandidateLedgerFilter,
 } from '../core/candidateLedgerView.js';
+import {
+  clearReviewDecisionForCandidate,
+  DEFAULT_REVIEW_DECISIONS_FILE,
+  readReviewDecisions,
+  recordRejectedDecision,
+  rejectedDecisionForCandidate,
+} from '../core/candidateReviewDecisions.js';
 import { placeOf, readLedger } from '../core/importLedger.js';
 
 export const REVIEW_CANDIDATES_COMMAND_ID =
@@ -66,7 +73,8 @@ async function chooseSource(target?: vscode.Uri): Promise<string | undefined> {
   return picked?.[0]?.fsPath;
 }
 
-function stateLabel(state: string): string {
+function stateLabel(state: string, rejected = false): string {
+  if (rejected) return '却下済み';
   switch (state) {
     case 'imported':
       return '取込済み';
@@ -112,6 +120,7 @@ function epistemicDetail(candidate: Candidate): string {
 function quickPickItem(
   source: CandidateReviewInventoryItem,
   ledgerState: string,
+  rejected: boolean,
   researchScores: readonly {
     provider: string;
     scale: string;
@@ -133,7 +142,7 @@ function quickPickItem(
           ?? image.name
           ?? `画像 ${image.ordinal}`}`,
       description:
-        `${stateLabel(ledgerState)} · ${image.sheet}${image.range
+        `${stateLabel(ledgerState, rejected)} · ${image.sheet}${image.range
           ? ` ${image.range}`
           : ''}`,
       detail: [
@@ -142,6 +151,7 @@ function quickPickItem(
         providerEvidence,
       ].join(' · '),
       source,
+      rejected,
     };
   }
 
@@ -149,12 +159,13 @@ function quickPickItem(
     label:
       `$(table) ${source.title ?? `${source.sheet} ${source.range}`}`,
     description:
-      `${stateLabel(ledgerState)} · ${source.sheet} ${source.range}`,
+      `${stateLabel(ledgerState, rejected)} · ${source.sheet} ${source.range}`,
     detail: [
       epistemicDetail(source.candidate),
       providerEvidence,
     ].join(' · '),
     source,
+    rejected,
   };
 }
 
@@ -164,6 +175,10 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
 
   const root = workspaceRoot(sourcePath);
   const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const reviewDecisionsPath = path.join(
+    root,
+    DEFAULT_REVIEW_DECISIONS_FILE,
+  );
   const sourceLabel =
     path.relative(root, sourcePath).split(path.sep).join('/')
     || path.basename(sourcePath);
@@ -201,7 +216,19 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
   const byKey = new Map(
     inventory.items.map((item) => [reviewKey(item.candidate), item]),
   );
-  const ledger = readLedger(ledgerPath);
+  let ledger;
+  let reviewDecisions;
+  try {
+    ledger = readLedger(ledgerPath);
+    reviewDecisions = readReviewDecisions(reviewDecisionsPath);
+  } catch (error) {
+    await vscode.window.showErrorMessage(
+      `MMI: レビュー状態を読み取れません: ${error instanceof Error
+        ? error.message
+        : String(error)}`,
+    );
+    return;
+  }
 
   const filterChoice = await vscode.window.showQuickPick(FILTERS, {
     title: 'MMI: Candidateレビュー',
@@ -216,7 +243,28 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     sourcePath,
     filterChoice.value,
   );
-  if (view.length === 0) {
+  const visibleItems = view.flatMap((item) => {
+    const source = byKey.get(reviewKey(item.candidate));
+    if (!source) return [];
+    const rejected = item.ledgerState === 'imported'
+      ? undefined
+      : rejectedDecisionForCandidate(
+          reviewDecisions,
+          reviewDecisionsPath,
+          sourcePath,
+          item.candidate,
+        );
+    if (rejected && filterChoice.value !== 'all') return [];
+    return [
+      quickPickItem(
+        source,
+        item.ledgerState,
+        Boolean(rejected),
+        item.researchScores,
+      ),
+    ];
+  });
+  if (visibleItems.length === 0) {
     await vscode.window.showInformationMessage(
       'MMI: 条件に合うCandidateはありません。',
     );
@@ -224,12 +272,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
   }
 
   const picked = await vscode.window.showQuickPick(
-    view.flatMap((item) => {
-      const source = byKey.get(reviewKey(item.candidate));
-      return source
-        ? [quickPickItem(source, item.ledgerState, item.researchScores)]
-        : [];
-    }),
+    visibleItems,
     {
       title: 'MMI: Candidateレビュー',
       placeHolder:
@@ -257,6 +300,18 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
         value: 'extract' as const,
         description: '既存のextract経路で標準資産と台帳へ記録',
       },
+      picked.rejected
+        ? {
+            label: '却下を解除',
+            value: 'unreject' as const,
+            description: 'このCandidateを再び通常レビューへ戻す',
+          }
+        : {
+            label: '却下',
+            value: 'reject' as const,
+            description:
+              '同じ内容・根拠のCandidateは変更されるまで表示しない',
+          },
       {
         label: '保留',
         value: 'defer' as const,
@@ -269,6 +324,47 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     },
   );
   if (!action || action.value === 'defer') return;
+
+  if (action.value === 'reject') {
+    try {
+      recordRejectedDecision(
+        reviewDecisionsPath,
+        sourcePath,
+        picked.source.candidate,
+        'MMI Candidate review UI',
+      );
+    } catch (error) {
+      await vscode.window.showErrorMessage(
+        'MMI: 却下状態を保存できません: '
+          + (error instanceof Error ? error.message : String(error)),
+      );
+      return;
+    }
+    await vscode.window.showInformationMessage(
+      'MMI: Candidateを却下しました。内容または判断根拠が変われば再表示されます。',
+    );
+    return;
+  }
+
+  if (action.value === 'unreject') {
+    try {
+      clearReviewDecisionForCandidate(
+        reviewDecisionsPath,
+        sourcePath,
+        picked.source.candidate,
+      );
+    } catch (error) {
+      await vscode.window.showErrorMessage(
+        'MMI: 却下状態を解除できません: '
+          + (error instanceof Error ? error.message : String(error)),
+      );
+      return;
+    }
+    await vscode.window.showInformationMessage(
+      'MMI: Candidateの却下を解除しました。',
+    );
+    return;
+  }
 
   const active = vscode.window.activeTextEditor;
   const markdownDocument =
@@ -325,6 +421,19 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     }
     extractedMarkdown = result.extracted.markdown;
     extractedFile = result.extracted.file;
+  }
+
+  try {
+    clearReviewDecisionForCandidate(
+      reviewDecisionsPath,
+      sourcePath,
+      picked.source.candidate,
+    );
+  } catch (error) {
+    await vscode.window.showWarningMessage(
+      'MMI: 取り込みは完了しましたが、旧い却下状態を消去できません: '
+        + (error instanceof Error ? error.message : String(error)),
+    );
   }
 
   if (active?.document.languageId === 'markdown') {

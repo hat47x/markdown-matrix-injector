@@ -264,3 +264,71 @@ test('materialize preflights attachment collisions before writing the detached d
   assert.equal(summary.written, false);
   assert.match(run.errors, /MMI_DETACH_NAME_COLLISION/u);
 });
+
+
+test('detach check rejects symlinked links that resolve outside the workspace', () => {
+  const { root } = workspace();
+  const detached = path.join(root, 'detached');
+  fs.mkdirSync(detached, { recursive: true });
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-detach-outside-'));
+  fs.writeFileSync(
+    path.join(outside, 'child.md'),
+    '# External\n\n![[source.xlsx#Sheet1|A1:B2]]\n',
+  );
+  const escape = path.join(detached, 'escape');
+  fs.symlinkSync(
+    outside,
+    escape,
+    process.platform === 'win32' ? 'junction' : 'dir',
+  );
+  const rootDoc = path.join(detached, 'root.md');
+  fs.writeFileSync(rootDoc, '[outside](./escape/child.md)\n');
+
+  const result = checkDetachedDocument({
+    markdownFilePath: rootDoc,
+    workspaceRoot: root,
+  });
+
+  assert.equal(result.errors, 1);
+  assert.equal(result.problems[0].code, 'MMI_DETACH_LINK_OUTSIDE_ROOT');
+  assert.equal(result.problems[0].file, 'detached/root.md');
+});
+
+test('detach check accepts in-root names beginning with two dots', () => {
+  const { root } = workspace();
+  const detached = path.join(root, 'detached');
+  const unusual = path.join(detached, '..notes');
+  fs.mkdirSync(unusual, { recursive: true });
+  fs.writeFileSync(path.join(unusual, 'child.md'), '# Child\n');
+  const rootDoc = path.join(detached, 'root.md');
+  fs.writeFileSync(rootDoc, '[child](./..notes/child.md)\n');
+
+  assert.deepEqual(
+    checkDetachedDocument({
+      markdownFilePath: rootDoc,
+      workspaceRoot: root,
+    }),
+    { errors: 0, problems: [] },
+  );
+});
+
+test('detach check terminates symlink-directory cycles inside the workspace', () => {
+  const { root } = workspace();
+  const detached = path.join(root, 'detached');
+  fs.mkdirSync(detached, { recursive: true });
+  const rootDoc = path.join(detached, 'root.md');
+  fs.writeFileSync(rootDoc, '[loop](./loop/root.md)\n');
+  fs.symlinkSync(
+    detached,
+    path.join(detached, 'loop'),
+    process.platform === 'win32' ? 'junction' : 'dir',
+  );
+
+  assert.deepEqual(
+    checkDetachedDocument({
+      markdownFilePath: rootDoc,
+      workspaceRoot: root,
+    }),
+    { errors: 0, problems: [] },
+  );
+});
