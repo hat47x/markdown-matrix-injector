@@ -33,17 +33,17 @@ issue-0195で確定した`mmi.ledger/v1`を再利用する。一括変換専用�
 
 ## Product path checkpoint（2026-10-02）
 
-`src/importAssist/importMaterialization.ts` を共通経路として、既存のVS Code取り込みコマンドとCLI `mmi import <workbook> --draft <file.md>` を接続した。外部Converterがなくても、既存Excelをモダナイズ用の下書きへ1回で整理できる。
+`src/importAssist/importMaterialization.ts`を共通経路として、既存のVS Code取り込みコマンドとCLI `mmi import <workbook> --draft <file.md>`を接続した。外部Converterがなくても、既存Excelをモダナイズ用の下書きへ1回で整理できる。
 
 - 表は値を複製せずMMI参照として残す。原本が更新されれば、通常のLinked参照として追従する。
-- .xlsx / .xlsm の埋込画像はcontent-addressedな通常画像ファイルへ抽出し、元シートごとにMarkdown参照を置く。各occurrenceは既存の `mmi.ledger/v1` へ記録する。
+- .xlsx / .xlsmの埋込画像はcontent-addressedな通常画像ファイルへ抽出し、元シートごとにMarkdown参照を置く。各occurrenceは既存の`mmi.ledger/v1`へ記録する。
 - 同一画像bytesを複数箇所で使っている場合、assetファイルは共用するが、occurrenceは別に保持する。
 - 表ではない領域は既存のimport-assistanceのrole/cautionとして残す。画像がないブックは正常に処理し、画像だけのシートも下書きへ残す。
 - Markdownで扱えない画像や読めない画像は「画像の注意」として下書きへ残し、黙って欠落させない。
-- 元ブックは変更しない。CLIではsource / draft / asset / ledgerを `--root` 内へ限定し、既存draftの上書きも拒否する。
-- VS Code宿主E2Eには、表1件と画像4occurrenceを持つコード生成ブックを追加した。draft、2個のcontent-addressed asset、4件のledger occurrence、原本hash不変を確認するテストである。今回のチャット環境ではテスト実行結果はまだ記録していない。
+- 元ブックは変更しない。CLIではsource / draft / asset / ledgerを`--root`内へ限定し、既存draftの上書きも拒否する。
+- 表をExtractedにしたい場合は、現在のCandidateレビューから明示的に表extractへ進める。一括取り込みの既定では表をLinkedに保つ。
 
-この経路が製品の初回取り込みの主経路であり、以下のMarkItDown評価は、この経路で不足する情報や外部Converterの得失を比較するために残す。
+この経路を初回取り込みの主経路とし、以下のMarkItDown評価は、この経路で不足する情報や外部Converterの得失を比較するために残す。
 
 ## Implementation checkpoint（2026-10-02）
 
