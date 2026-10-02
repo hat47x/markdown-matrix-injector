@@ -148,12 +148,14 @@ function stateLabel(state: string): string {
 function reviewStateLabel(
   state: Extract<
     ReviewState,
-    'unreviewed' | 'accepted' | 'rejected' | 'deferred'
+    'unreviewed' | 'accepted' | 'modified' | 'rejected' | 'deferred'
   >,
 ): string {
   switch (state) {
     case 'accepted':
       return 'accepted（採用済み）';
+    case 'modified':
+      return 'modified（修正して採用）';
     case 'rejected':
       return 'rejected（却下済み）';
     case 'deferred':
@@ -196,7 +198,7 @@ function quickPickItem(
   ledgerState: string,
   reviewState: Extract<
     ReviewState,
-    'unreviewed' | 'accepted' | 'rejected' | 'deferred'
+    'unreviewed' | 'accepted' | 'modified' | 'rejected' | 'deferred'
   >,
   rejected: boolean,
   deferred: boolean,
