@@ -11,8 +11,16 @@ import {
 } from './candidateReviewDecisions.js';
 import type { Ledger } from './importLedger.js';
 
+export type CandidateReviewState =
+  | 'unreviewed'
+  | 'accepted'
+  | 'rejected';
+
 export interface CandidateReviewViewItem
   extends CandidateLedgerViewItem {
+  /** Current decision for this exact Candidate occurrence/content/basis. */
+  reviewState: CandidateReviewState;
+  /** Transitional convenience field for existing callers. */
   rejected: boolean;
 }
 
@@ -54,6 +62,15 @@ export function candidateReviewView(
           item.candidate,
         );
     if (rejected && filter !== 'all') return [];
-    return [{ ...item, rejected: Boolean(rejected) }];
+    const reviewState: CandidateReviewState = item.ledgerState === 'imported'
+      ? 'accepted'
+      : rejected
+        ? 'rejected'
+        : 'unreviewed';
+    return [{
+      ...item,
+      reviewState,
+      rejected: reviewState === 'rejected',
+    }];
   });
 }
