@@ -90,6 +90,7 @@
     "onCommand:markdownMatrixInjector.findEmbedByDescription",
     "onCommand:markdownMatrixInjector.clearSearchIndex",
     "onCommand:markdownMatrixInjector.importFromWorkbook",
+    "onCommand:markdownMatrixInjector.reviewCandidates",
     "onView:markdownMatrixInjector.tableCatalog",
     "onLanguage:markdown"
   ],
@@ -147,6 +148,11 @@
       {
         "command": "markdownMatrixInjector.importFromWorkbook",
         "title": "%mmi.command.importFromWorkbook%",
+        "category": "MMI"
+      },
+      {
+        "command": "markdownMatrixInjector.reviewCandidates",
+        "title": "%mmi.command.reviewCandidates%",
         "category": "MMI"
       },
       {
