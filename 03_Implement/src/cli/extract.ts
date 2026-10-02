@@ -85,6 +85,26 @@ export interface ExtractTableResult {
   problems: ExtractProblem[];
 }
 
+export interface FinalizeReviewedTableOptions {
+  sourcePath: string;
+  outDir: string;
+  ledgerPath: string;
+  extracted: ExtractedTable;
+  editedMarkdown: string;
+  fromDocument?: string;
+  sourceLabel?: string;
+  basis?: string;
+}
+
+export interface FinalizedReviewedTable extends ExtractedTable {
+  reviewState: 'accepted' | 'modified';
+}
+
+export interface FinalizeReviewedTableResult {
+  extracted?: FinalizedReviewedTable;
+  problems: ExtractProblem[];
+}
+
 const EXTENSION: Record<string, string> = { png: 'png', jpeg: 'jpg', gif: 'gif', bmp: 'bmp', svg: 'svg' };
 
 const sha256 = (data: Buffer): string => `sha256:${createHash('sha256').update(data).digest('hex')}`;
@@ -351,6 +371,193 @@ export function extractTable(options: ExtractTableOptions): ExtractTableResult {
     ]);
   }
 
+  return result;
+}
+
+/**
+ * Delete only an unrecorded table asset created by this extraction call and
+ * only while its bytes still match the returned digest. Existing or edited
+ * files are never removed.
+ */
+export function discardUnrecordedTableExtraction(
+  extracted: ExtractedTable,
+): boolean {
+  if (
+    extracted.status !== 'written'
+    || !fs.existsSync(extracted.file)
+    || sha256(fs.readFileSync(extracted.file)) !== extracted.digest
+  ) {
+    return false;
+  }
+  fs.unlinkSync(extracted.file);
+  return true;
+}
+
+/**
+ * Finalize a human-reviewed table derivative without rewriting the source or
+ * changing the Candidate's epistemic state. The current source Candidate is
+ * re-read before recording, so a review cannot silently bind to changed input.
+ */
+export function finalizeReviewedTableExtraction(
+  options: FinalizeReviewedTableOptions,
+): FinalizeReviewedTableResult {
+  const result: FinalizeReviewedTableResult = { problems: [] };
+  const workbook = loadWorkbook({ absolutePath: options.sourcePath });
+  const sheet = workbook.sheets[options.extracted.sheet];
+  if (!sheet) {
+    result.problems.push({
+      code: 'MMI_TABLE_REVIEW_STALE',
+      message: `sheet changed during review: ${options.extracted.sheet}`,
+    });
+    return result;
+  }
+
+  const documentDirectory = path.dirname(
+    path.resolve(
+      options.fromDocument ?? path.join(process.cwd(), 'x.md'),
+    ),
+  );
+  const source = options.sourceLabel
+    ?? (
+      path.relative(documentDirectory, options.sourcePath)
+        .split(path.sep)
+        .join('/')
+      || path.basename(options.sourcePath)
+    );
+  const sourceDigest = readSourceFileIdentity(options.sourcePath).digest;
+  const candidate = tableCandidates({
+    source,
+    sourceDigest,
+    sheetName: options.extracted.sheet,
+    sheet,
+  }).find(
+    (item) => item.locator.range === options.extracted.range,
+  );
+  if (
+    !candidate
+    || candidate.fingerprint.digest
+      !== options.extracted.candidateFingerprint
+  ) {
+    result.problems.push({
+      code: 'MMI_TABLE_REVIEW_STALE',
+      message:
+        'table Candidate changed during review; reopen Candidate review before adopting the edited output',
+    });
+    return result;
+  }
+
+  const body = options.editedMarkdown
+    .replace(
+      /\s*<!-- mmi:extracted-table[\s\S]*?-->\s*$/u,
+      '',
+    )
+    .trimEnd();
+  if (body.trim().length === 0) {
+    result.problems.push({
+      code: 'MMI_TABLE_REVIEW_EMPTY',
+      message: 'reviewed table output must not be empty',
+    });
+    return result;
+  }
+
+  const provenance = tableProvenanceComment(
+    source,
+    options.extracted.sheet,
+    options.extracted.range,
+    sourceDigest,
+    candidate.fingerprint.digest,
+  );
+  const assetText = `${body}\n${provenance}\n`;
+  const data = Buffer.from(assetText, 'utf8');
+  const digest = sha256(data);
+  const originalBody = options.extracted.markdown
+    .replace(
+      /\s*<!-- mmi:extracted-table[\s\S]*?-->\s*$/u,
+      '',
+    )
+    .trimEnd();
+  const reviewState: FinalizedReviewedTable['reviewState'] =
+    body === originalBody ? 'accepted' : 'modified';
+
+  fs.mkdirSync(options.outDir, { recursive: true });
+  const outDirectory = fs.realpathSync(options.outDir);
+  const sourceReal = fs.realpathSync(options.sourcePath);
+  const file = path.join(
+    outDirectory,
+    `table-${digest.slice(7, 19)}.md`,
+  );
+  if (file === sourceReal) {
+    result.problems.push({
+      code: 'MMI_EXTRACT_TARGET_IS_SOURCE',
+      message: 'refusing to write over the source document',
+    });
+    return result;
+  }
+
+  let status: ExtractedTable['status'];
+  if (
+    path.resolve(file) === path.resolve(options.extracted.file)
+  ) {
+    status = options.extracted.status;
+  } else if (fs.existsSync(file)) {
+    if (sha256(fs.readFileSync(file)) !== digest) {
+      result.problems.push({
+        code: 'MMI_EXTRACT_NAME_COLLISION',
+        message:
+          `${file} exists with different content; it was not overwritten`,
+      });
+      return result;
+    }
+    status = 'unchanged';
+  } else {
+    fs.writeFileSync(file, data);
+    status = 'written';
+  }
+
+  if (
+    path.resolve(file) !== path.resolve(options.extracted.file)
+    && options.extracted.status === 'written'
+    && fs.existsSync(options.extracted.file)
+    && sha256(fs.readFileSync(options.extracted.file))
+      === options.extracted.digest
+  ) {
+    fs.unlinkSync(options.extracted.file);
+  }
+
+  const headerClaim = candidate.claims.find(
+    (claim) => claim.aspect === 'header',
+  );
+  const headerMode = headerClaim?.status === 'inferred'
+    && Array.isArray(headerClaim.value)
+    ? 'first'
+    : 'none';
+  recordEntries(options.ledgerPath, [
+    entryFor(
+      options.ledgerPath,
+      options.sourcePath,
+      candidate,
+      file,
+      options.basis ?? 'MMI Candidate review UI',
+      {
+        mode: 'gfm-table-v1',
+        header: headerMode,
+        reviewMode:
+          reviewState === 'modified'
+            ? 'modified-output-v1'
+            : 'accepted-output-v1',
+      },
+      reviewState,
+    ),
+  ]);
+
+  result.extracted = {
+    ...options.extracted,
+    digest,
+    file,
+    status,
+    markdown: assetText.trimEnd(),
+    reviewState,
+  };
   return result;
 }
 

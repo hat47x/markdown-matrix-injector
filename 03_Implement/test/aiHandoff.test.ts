@@ -310,9 +310,9 @@ test('CLI handoff refuses source and document paths outside the workspace root',
 });
 
 
-test('legacy confirmed Claims stay out of source-observed facts', () => {
+test('legacy confirmed epistemic tokens are rejected at the handoff boundary', () => {
   const base = candidate();
-  const legacyConfirmed: Candidate = {
+  const legacyConfirmed = {
     ...base,
     status: 'confirmed',
     claims: [{
@@ -323,16 +323,15 @@ test('legacy confirmed Claims stay out of source-observed facts', () => {
       method: 'M1',
       reasonCode: 'legacy-reviewed',
     }],
-  };
-  const pkg = createAiHandoffPackage({
-    task: '旧互換Candidateを確認する',
-    candidates: [legacyConfirmed],
-  });
+  } as unknown as Candidate;
 
-  assert.equal(pkg.confirmedFacts.length, 0);
-  assert.equal(pkg.inferredCandidates.length, 1);
-  assert.equal(pkg.inferredCandidates[0].claims[0].status, 'confirmed');
-  assert.equal(JSON.stringify(pkg).includes('旧互換'), false);
+  assert.throws(
+    () => createAiHandoffPackage({
+      task: '旧互換Candidateを確認する',
+      candidates: [legacyConfirmed],
+    }),
+    /invalid candidate epistemic status/u,
+  );
 });
 
 test('human-readable handoff prompt exposes Candidate identity and supported proposal formats without values', () => {

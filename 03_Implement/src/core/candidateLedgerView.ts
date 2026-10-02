@@ -1,4 +1,8 @@
-import type { Candidate, ProviderScore } from './candidate.js';
+import type {
+  Candidate,
+  ProviderScore,
+  ReviewState,
+} from './candidate.js';
 import {
   similarityEvidenceForCandidate,
   type CandidateSimilarityEvidenceDocument,
@@ -18,6 +22,8 @@ export interface CandidateLedgerViewItem {
   candidate: Candidate;
   ledgerState: LedgerState;
   staleClaims?: string[];
+  /** Historical adoption state for the matching ledger occurrence. */
+  ledgerReviewState?: Extract<ReviewState, 'accepted' | 'modified'>;
   lineageCandidates: LineageCandidate[];
   /**
    * Research/provider evidence stays separate from exact ledger identity.
@@ -48,10 +54,15 @@ export function candidateLedgerView(
 ): CandidateLedgerViewItem[] {
   const joined = candidates.map((candidate) => {
     const assessment = assessLedger(ledger, ledgerPath, absoluteSource, candidate);
+    const ledgerReviewState =
+      assessment.entry?.reviewState === 'confirmed'
+        ? 'accepted'
+        : assessment.entry?.reviewState;
     return {
       candidate,
       ledgerState: assessment.state,
       ...(assessment.staleClaims ? { staleClaims: assessment.staleClaims } : {}),
+      ...(ledgerReviewState ? { ledgerReviewState } : {}),
       lineageCandidates: lineageCandidates(ledger, ledgerPath, absoluteSource, candidate),
       researchScores: candidate.scores,
       similarityEvidence: similarity

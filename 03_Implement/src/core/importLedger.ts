@@ -58,7 +58,7 @@ export interface LedgerEntry {
    * Adoption/review state, separate from Candidate epistemic status.
    * `confirmed` is accepted only for legacy mmi.ledger/v1 records.
    */
-  reviewState: Extract<ReviewState, 'accepted'> | 'confirmed';
+  reviewState: Extract<ReviewState, 'accepted' | 'modified'> | 'confirmed';
   basis: string;
   reviewedAt: string;
 }
@@ -328,6 +328,7 @@ export function entryFor(
   outputFile: string,
   basis: string,
   conversion: Readonly<Record<string, string | number | boolean>> = {},
+  reviewState: Extract<ReviewState, 'accepted' | 'modified'> = 'accepted',
 ): LedgerEntry {
   return {
     kind: candidate.kind,
@@ -346,7 +347,7 @@ export function entryFor(
       ? { outputDigest: `sha256:${createHash('sha256').update(fs.readFileSync(outputFile)).digest('hex')}` }
       : {}),
     conversion,
-    reviewState: 'accepted',
+    reviewState,
     basis,
     reviewedAt: new Date().toISOString(),
   };
