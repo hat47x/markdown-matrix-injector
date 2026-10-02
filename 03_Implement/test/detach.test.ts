@@ -6,6 +6,7 @@ import path from 'node:path';
 
 import { checkDetachedDocument } from '../src/application/detachCheck.js';
 import { materializeDocument } from '../src/application/materialize.js';
+import { main } from '../src/cli/mmi.js';
 
 function workspace(): { root: string; source: string; doc: string; out: string } {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-detach-'));
@@ -22,8 +23,8 @@ function workspace(): { root: string; source: string; doc: string; out: string }
   return { root, source, doc, out };
 }
 
-test('materialize externalizes a card-sized table and detach check passes after files are written', () => {
-  const { root, doc, out } = workspace();
+test('materialize externalizes a card-sized table and detach check passes after the original source is removed', () => {
+  const { root, source, doc, out } = workspace();
   fs.writeFileSync(doc, '# Spec\n\n![[../data/wide.csv#Sheet1|A1:K2?header=first&caption=Wide]]\n');
   const result = materializeDocument({ markdownFilePath: doc, workspaceRoot: root, outputDocumentPath: out });
   assert.deepEqual(result.problems, []);
@@ -39,6 +40,8 @@ test('materialize externalizes a card-sized table and detach check passes after 
     fs.writeFileSync(file.absolutePath, file.content);
   }
 
+  fs.rmSync(path.dirname(source), { recursive: true, force: true });
+  assert.equal(fs.existsSync(source), false);
   assert.deepEqual(checkDetachedDocument({ markdownFilePath: out, workspaceRoot: root }), { errors: 0, problems: [] });
 });
 
@@ -156,4 +159,108 @@ test('materialize reports missing and workspace-external image targets without h
   );
   assert.match(result.markdown, /!\[missing\]\(\.\/missing\.png\)/u);
   assert.match(result.markdown, /!\[outside\]\(\.\.\/\.\.\/outside\.png\)/u);
+});
+
+
+test('detach check recursively validates linked Markdown attachments', () => {
+  const { root } = workspace();
+  const detached = path.join(root, 'detached');
+  fs.mkdirSync(detached, { recursive: true });
+  const rootDoc = path.join(detached, 'root.md');
+  const child = path.join(detached, 'child.md');
+  fs.writeFileSync(rootDoc, '# Root\n\n[child](./child.md)\n');
+  fs.writeFileSync(child, '# Child\n\n![[../data/wide.csv#Sheet1|A1:B2]]\n');
+
+  const result = checkDetachedDocument({
+    markdownFilePath: rootDoc,
+    workspaceRoot: root,
+  });
+
+  assert.equal(result.errors, 1);
+  assert.equal(result.problems[0].code, 'MMI_DETACH_REFERENCE_REMAINS');
+  assert.equal(result.problems[0].file, 'detached/child.md');
+  assert.equal(result.problems[0].line, 3);
+});
+
+test('detach check traverses cyclic Markdown links at most once', () => {
+  const { root } = workspace();
+  const detached = path.join(root, 'detached');
+  fs.mkdirSync(detached, { recursive: true });
+  const first = path.join(detached, 'first.md');
+  const second = path.join(detached, 'second.md');
+  fs.writeFileSync(first, '[second](./second.md)\n');
+  fs.writeFileSync(second, '[first](./first.md)\n');
+
+  assert.deepEqual(
+    checkDetachedDocument({
+      markdownFilePath: first,
+      workspaceRoot: root,
+    }),
+    { errors: 0, problems: [] },
+  );
+});
+
+async function captureMain(
+  argv: string[],
+): Promise<{ code: number; output: string; errors: string }> {
+  const output: string[] = [];
+  const errors: string[] = [];
+  const out = process.stdout.write.bind(process.stdout);
+  const err = console.error;
+  process.stdout.write = ((chunk: string) => (
+    output.push(String(chunk)),
+    true
+  )) as typeof process.stdout.write;
+  console.error = (...args: unknown[]) => {
+    errors.push(args.map(String).join(' '));
+  };
+  try {
+    return {
+      code: await main(argv),
+      output: output.join(''),
+      errors: errors.join('\n'),
+    };
+  } finally {
+    process.stdout.write = out;
+    console.error = err;
+  }
+}
+
+test('materialize preflights attachment collisions before writing the detached document', async () => {
+  const { root, doc, out } = workspace();
+  fs.writeFileSync(
+    doc,
+    '# Spec\n\n![[../data/wide.csv#Sheet1|A1:K2?header=first&caption=Wide]]\n',
+  );
+  const planned = materializeDocument({
+    markdownFilePath: doc,
+    workspaceRoot: root,
+    outputDocumentPath: out,
+  });
+  assert.equal(planned.files.length, 1);
+  fs.mkdirSync(path.dirname(planned.files[0].absolutePath), {
+    recursive: true,
+  });
+  fs.writeFileSync(planned.files[0].absolutePath, 'conflicting content\n');
+
+  const run = await captureMain([
+    'materialize',
+    doc,
+    '--root',
+    root,
+    '-o',
+    out,
+    '--json',
+  ]);
+
+  assert.equal(run.code, 1);
+  assert.equal(fs.existsSync(out), false);
+  assert.equal(
+    fs.readFileSync(planned.files[0].absolutePath, 'utf8'),
+    'conflicting content\n',
+  );
+  const summary = JSON.parse(run.output);
+  assert.deepEqual(summary.collisions, [planned.files[0].relativePath]);
+  assert.equal(summary.written, false);
+  assert.match(run.errors, /MMI_DETACH_NAME_COLLISION/u);
 });

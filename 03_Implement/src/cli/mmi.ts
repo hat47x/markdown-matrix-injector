@@ -282,26 +282,17 @@ export async function main(argv: string[]): Promise<number> {
         attachmentsDirectory,
         assetsDirectory,
       });
-      fs.mkdirSync(path.dirname(outputDocument), { recursive: true });
-      fs.writeFileSync(outputDocument, result.markdown);
-      let collision = false;
-      for (const file of result.files) {
-        fs.mkdirSync(path.dirname(file.absolutePath), { recursive: true });
-        if (fs.existsSync(file.absolutePath) && fs.readFileSync(file.absolutePath, 'utf8') !== file.content) {
-          console.error(`mmi: MMI_DETACH_NAME_COLLISION: ${file.absolutePath} exists with different content; it was not overwritten`);
-          collision = true;
-          continue;
-        }
-        fs.writeFileSync(file.absolutePath, file.content);
+      const fileCollisions = result.files.filter((file) =>
+        fs.existsSync(file.absolutePath)
+        && fs.readFileSync(file.absolutePath, 'utf8') !== file.content);
+      const assetCollisions = result.assets.filter((asset) =>
+        fs.existsSync(asset.absolutePath)
+        && !fs.readFileSync(asset.absolutePath).equals(asset.bytes));
+      for (const file of fileCollisions) {
+        console.error(`mmi: MMI_DETACH_NAME_COLLISION: ${file.absolutePath} exists with different content; materialization was not written`);
       }
-      for (const asset of result.assets) {
-        fs.mkdirSync(path.dirname(asset.absolutePath), { recursive: true });
-        if (fs.existsSync(asset.absolutePath) && !fs.readFileSync(asset.absolutePath).equals(asset.bytes)) {
-          console.error(`mmi: MMI_DETACH_NAME_COLLISION: ${asset.absolutePath} exists with different content; it was not overwritten`);
-          collision = true;
-          continue;
-        }
-        fs.writeFileSync(asset.absolutePath, asset.bytes);
+      for (const asset of assetCollisions) {
+        console.error(`mmi: MMI_DETACH_NAME_COLLISION: ${asset.absolutePath} exists with different content; materialization was not written`);
       }
       for (const problem of freshness.problems) {
         console.error(`mmi: ${problem.code} line ${problem.line}: ${problem.message}`);
@@ -309,6 +300,11 @@ export async function main(argv: string[]): Promise<number> {
       for (const problem of result.problems) {
         console.error(`mmi: ${problem.code} line ${problem.line}: ${problem.message}`);
       }
+      const collisions = [
+        ...fileCollisions.map((file) => file.relativePath),
+        ...assetCollisions.map((asset) => asset.relativePath),
+      ];
+      const writeAllowed = collisions.length === 0 && freshness.errors === 0;
       const summary = {
         output: path.relative(process.cwd(), outputDocument).split(path.sep).join('/'),
         attachments: result.files.map((file) => file.relativePath),
@@ -318,10 +314,24 @@ export async function main(argv: string[]): Promise<number> {
         })),
         freshness,
         problems: result.problems,
-        detachable: !collision && freshness.errors === 0 && result.problems.length === 0,
+        collisions,
+        written: writeAllowed,
+        detachable: writeAllowed && result.problems.length === 0,
       };
+      if (writeAllowed) {
+        fs.mkdirSync(path.dirname(outputDocument), { recursive: true });
+        fs.writeFileSync(outputDocument, result.markdown);
+        for (const file of result.files) {
+          fs.mkdirSync(path.dirname(file.absolutePath), { recursive: true });
+          fs.writeFileSync(file.absolutePath, file.content);
+        }
+        for (const asset of result.assets) {
+          fs.mkdirSync(path.dirname(asset.absolutePath), { recursive: true });
+          fs.writeFileSync(asset.absolutePath, asset.bytes);
+        }
+      }
       if (values.json) process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
-      else console.log(`materialized: ${summary.output} (${summary.attachments.length} table attachment(s), ${summary.assets.length} asset(s), ${freshness.errors} freshness error(s), ${result.problems.length} unresolved)`);
+      else console.log(`materialized: ${summary.output} (${summary.attachments.length} table attachment(s), ${summary.assets.length} asset(s), ${freshness.errors} freshness error(s), ${result.problems.length} unresolved, ${summary.collisions.length} collision(s), written=${summary.written})`);
       return summary.detachable ? 0 : 1;
     }
     case 'detach-check': {
@@ -335,7 +345,7 @@ export async function main(argv: string[]): Promise<number> {
         process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
       } else {
         const lines = result.problems.map((problem) =>
-          `${problem.line} ${problem.code} ${problem.message}`);
+          `${problem.file ? `${problem.file}:` : ''}${problem.line} ${problem.code} ${problem.message}`);
         process.stdout.write(`${[...lines, `${result.errors} detach error(s)`].join('\n')}\n`);
       }
       return result.errors > 0 ? 1 : 0;
