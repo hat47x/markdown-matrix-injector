@@ -8,7 +8,7 @@
 - Expected verification level: unit / manual-e2e
 
 ## Traceability
-- Related ADR/Spec: [ADR-0019](../adr/ADR-0019-ai-era-sier-document-value-and-policy.md) D7 優先度2、[ADR-0018](../adr/ADR-0018-cognitive-assistance-plane.md)、[ADR-0017 書式補助](../adr/ADR-0017-fly-inspired-format-deviation-assistance.md)、[記法仕様](../../04_Documentation/spec/mmi-notation-v1.md) §6・§7
+- Related ADR/Spec: [ADR-0019](../adr/ADR-0019-ai-era-sier-document-value-and-policy.md) D7優先度2、[ADR-0018](../adr/ADR-0018-cognitive-assistance-plane.md)、[ADR-0017 書式補助](../adr/ADR-0017-fly-inspired-format-deviation-assistance.md)、[記法仕様](../../04_Documentation/spec/mmi-notation-v1.md) §6・§7
 - Related Design: [取り込み支援](../../02_Architecture/import-assistance.md)、[認知機能の仮説カード](../cognitive-hypothesis-cards.md) K1・K2
 - Dependency: なし（既存の読込み・描画を使う）
 
@@ -42,7 +42,7 @@ node --import tsx ./test/e2e/runImport.ts
 
 架空データの3ブックで取り込みコマンドを実行し、下書きを`markdown.api.render`（プレビューと同じエンジン）で描画して、表・カード・エラーの数、診断、原本のハッシュを確かめる。`npm run build`は研究層の既存の型エラーで終了コードが0にならないが、出力は生成される。
 
-目視: 同じデータをワークスペースに置き、`MMI: Import Tables from Workbook`を実行する。下書きのプレビューで、方眼紙の表が表として描かれ、注意が表示されることを確かめる。
+目視: 同じデータをワークスペースに置き、`MMI: Import from Workbook`を実行する。下書きのプレビューで、方眼紙の表が表として描画され、注意が表示されることを確かめる。画像入りブックでは、画像参照とassetも合わせて確認する。
 
 ## Remaining work
 
@@ -54,7 +54,7 @@ node --import tsx ./test/e2e/runImport.ts
 - VS Code 1.134.0の拡張機能ホストで、3ブックの下書きの参照14件がすべて表として描画された（カード0、エラー0、診断0、原本のハッシュ不変）。2回実行して同じ結果。
 - 説明からの検索・補完・案内付きの作成を方眼紙に対応させた（[設計§6.6](../../02_Architecture/import-assistance.md#66-説明からの検索補完案内付きの作成)）。方眼紙の架空データで検索の1位が期待どおりの表になった依頼は2/7→5/7、候補5件内は2/7→6/7。issue-0115の評価は変更前と同値。案内付きの作成は拡張機能ホストで確認した。
 
-残り:
+残りは次のとおりです。
 
 - 画面操作の目視確認。
 - 別の作り手による未見の架空データでの1回評価と、実在の設計書での観測（ADR-0019 D9・D10の指標4）。
@@ -64,9 +64,9 @@ node --import tsx ./test/e2e/runImport.ts
 
 ## Bulk-import integration（2026-10-02）
 
-issue-0200の共通materializerから本Issueの解析・下書き生成を再利用し、既存のVS Code取り込みコマンドとCLI `mmi import` を同じ製品経路へ揃えた。本Issueは引き続き、表・key-value・prose・form・diagram等の**候補の質と人の判断支援**を担当する。一方、画像assetの抽出、取り込み台帳、一括materializeの書き込み境界はissue-0200が担当する。
+issue-0200の共通materializerから本Issueの解析・下書き生成を再利用し、既存のVS Code取り込みコマンドとCLI `mmi import`を同じ製品経路へ揃えた。本Issueは引き続き、表・key-value・prose・form・diagram等の候補の質と人の判断支援を担当する。画像assetの抽出、取り込み台帳、一括materializeの書き込み境界はissue-0200が担当する。
 
-これにより、取り込み支援のroleを権威的事実へ昇格させずに、表は追従参照、埋込画像は通常asset、その他はレビュー候補として1つの下書きにまとめられる。残る受入条件は従来どおり、画面操作の目視確認と実在設計書での採用・修正・却下の観測である。
+これにより、取り込み支援のroleを権威的事実へ昇格させずに、表は追従参照、埋込画像は通常asset、その他はレビュー候補として1つの下書きにまとめられる。残る受入条件は、画面操作の目視確認と実在設計書での採用・修正・却下の観測である。
 
 ## Product integration checkpoint（2026-10-02）
 
