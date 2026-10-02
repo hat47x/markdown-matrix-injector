@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * `mmi` -- the MMI engine without VS Code, for AI agents, CI and scripts.
- * Source workbooks/documents are never modified. Commands that materialize or
- * import write only to explicit draft/output, asset, attachment and ledger paths.
+ * Source workbooks/documents are never modified. Commands that materialize,
+ * extract or import write only to explicit output, asset, attachment and ledger paths.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -43,7 +43,7 @@ import { materializeWorkbookImport } from '../importAssist/importMaterialization
 import { buildDeliveryManifestCsv } from '../manifest/collectDeliveryManifest.js';
 import { detectRegions } from '../search/regionDetector.js';
 import { runFind, runSelect } from './navigateCommands.js';
-import { extractImages, formatImageDiagnostics } from './extract.js';
+import { extractImages, extractTable, formatImageDiagnostics } from './extract.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './render.js';
 
 const USAGE = `Usage: mmi <command> [options]
@@ -62,10 +62,13 @@ Commands:
       --exclude-imported      hide exact imported occurrences; keep changed/stale/duplicate/unimported
                             For .xlsx/.xlsm it also lists embedded pictures (sheet, anchor, format, size,
                             digest, nearest table) and names any that cannot be read.
-  extract <source.xlsx>     Write workbook pictures to an assets folder and print Markdown references
-      --image <n|all>         the picture number shown by inspect, or all (required)
-      --out-dir <dir>         assets folder (default: assets); files are named by content digest
-      --from <doc.md>         write references relative to this document
+  extract <source>          Extract one reviewed Candidate as a standard asset without modifying the source
+      --image <n|all>         workbook picture number shown by inspect, or all
+      --table <range>         exact detected table Candidate range (requires --sheet)
+      --sheet <name>          sheet for --table
+                            Exactly one of --image or --table is required
+      --out-dir <dir>         assets folder (default: assets); files are content-addressed
+      --from <doc.md>         provenance/source labels are relative to this document
       --ledger <file>         import ledger (default: <root>/mmi-ledger.json)
   import <workbook>         Create a modernization draft: tables stay live references, images become assets
       --draft <file.md>       new Markdown draft to create (required; existing files are not overwritten)
@@ -182,14 +185,38 @@ export async function main(argv: string[]): Promise<number> {
       return 0;
     }
     case 'extract': {
-      if (args.length !== 1) return usageError('extract takes one workbook');
-      if (!values.image) return usageError('extract needs --image <n|all>');
+      if (args.length !== 1) return usageError('extract takes one source file');
+      if (Boolean(values.image) === Boolean(values.table)) {
+        return usageError('extract needs exactly one of --image <n|all> or --table <range>');
+      }
+      const sourcePath = path.resolve(args[0]);
+      const outDir = path.resolve(values['out-dir'] ?? 'assets');
+      const ledgerPath = path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE);
+
+      if (values.table) {
+        if (!values.sheet) return usageError('extract --table needs --sheet <name>');
+        const result = extractTable({
+          sourcePath,
+          sheet: values.sheet,
+          range: values.table,
+          outDir,
+          fromDocument: values.from,
+          ledgerPath,
+        });
+        if (values.json) emit(JSON.stringify(result, null, 2));
+        else if (result.extracted) emit(result.extracted.markdown);
+        for (const problem of result.problems) {
+          console.error(`mmi: ${problem.code}: ${problem.message}`);
+        }
+        return result.problems.length > 0 ? 1 : 0;
+      }
+
       const result = extractImages({
-        sourcePath: path.resolve(args[0]),
-        selection: values.image,
-        outDir: path.resolve(values['out-dir'] ?? 'assets'),
+        sourcePath,
+        selection: values.image!,
+        outDir,
         fromDocument: values.from,
-        ledgerPath: path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE),
+        ledgerPath,
       });
       if (values.json) emit(JSON.stringify(result, null, 2));
       else if (result.extracted.length > 0) emit(result.extracted.map((item) => item.markdown).join('\n\n'));
@@ -223,7 +250,6 @@ export async function main(argv: string[]): Promise<number> {
         return 1;
       }
 
-      // Fail before touching assets/ledger when the draft directory cannot be created.
       fs.mkdirSync(path.dirname(draftPath), { recursive: true });
       const result = materializeWorkbookImport({
         sourcePath,
