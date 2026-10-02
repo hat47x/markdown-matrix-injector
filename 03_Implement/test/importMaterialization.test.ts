@@ -6,6 +6,11 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { classify, readLedger } from '../src/core/importLedger.js';
+import {
+  recordDeferredDecision,
+  recordRejectedDecision,
+} from '../src/core/candidateReviewDecisions.js';
+import { buildCandidateReviewInventory } from '../src/application/candidateReviewInventory.js';
 import { inspectSource } from '../src/cli/mmi.js';
 import { loadWorkbookFromBytes } from '../src/core/workbookLoader.js';
 import {
@@ -390,4 +395,122 @@ test('prepared workbook data must be explicitly bound to the current source snap
     /MMI_IMPORT_PREPARED_SOURCE_STALE/u,
   );
   assert.equal(fs.existsSync(draftPath), false);
+});
+
+
+test('bulk import preserves exact rejected and deferred image decisions', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-review-gate-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  const draftPath = path.join(root, 'docs', 'design.md');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const decisionPath = path.join(root, 'mmi-review-decisions.json');
+  fs.mkdirSync(path.dirname(draftPath), { recursive: true });
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+
+  const inventory = buildCandidateReviewInventory(sourcePath, './design.xlsx');
+  const images = inventory.items.filter((item) => item.kind === 'image');
+  assert.equal(images.length, 4);
+  recordRejectedDecision(
+    decisionPath,
+    sourcePath,
+    images[0].candidate,
+    'test rejection',
+  );
+  recordDeferredDecision(
+    decisionPath,
+    sourcePath,
+    images[1].candidate,
+    'test defer',
+  );
+
+  const result = writeWorkbookImportDraft({
+    sourcePath,
+    draftPath,
+    ledgerPath,
+    reviewDecisionsPath: decisionPath,
+  });
+
+  assert.deepEqual(
+    result.reviewSkippedImages.map((item) => [item.ordinal, item.code]),
+    [
+      [1, 'MMI_IMPORT_REVIEW_REJECTED'],
+      [2, 'MMI_IMPORT_REVIEW_DEFERRED'],
+    ],
+  );
+  assert.deepEqual(
+    result.extractedImages.map((item) => item.ordinal),
+    [3, 4],
+  );
+  assert.equal(readLedger(ledgerPath).entries.length, 2);
+  assert.match(result.markdown, /## 既存のレビュー判断/u);
+  assert.match(result.markdown, /却下 \[画面一覧\] 「ログイン画面」/u);
+  assert.match(result.markdown, /保留 \[画面一覧\] 「メニュー画面」/u);
+  assert.match(result.markdown, /以前に却下または保留した同一Candidate/u);
+});
+
+test('changed reviewed image basis returns to bulk import instead of inheriting rejection', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-review-refresh-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  const draftPath = path.join(root, 'design.md');
+  const decisionPath = path.join(root, 'mmi-review-decisions.json');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+
+  const inventory = buildCandidateReviewInventory(sourcePath, './design.xlsx');
+  const image = inventory.items.find(
+    (item) => item.kind === 'image' && item.image.ordinal === 1,
+  );
+  assert.ok(image && image.kind === 'image');
+  recordRejectedDecision(
+    decisionPath,
+    sourcePath,
+    image.candidate,
+    'test rejection',
+  );
+
+  // Content bytes and occurrence stay the same, but the observed drawing-name
+  // Claim used by the review decision changes. The old decision must expire.
+  fs.writeFileSync(
+    sourcePath,
+    screenDesignWorkbook({ loginName: 'ログイン画面（改名）' }).bytes,
+  );
+
+  const result = writeWorkbookImportDraft({
+    sourcePath,
+    draftPath,
+    reviewDecisionsPath: decisionPath,
+  });
+
+  assert.equal(result.reviewSkippedImages.length, 0);
+  assert.deepEqual(
+    result.extractedImages.map((item) => item.ordinal),
+    [1, 2, 3, 4],
+  );
+});
+
+test('malformed review decisions fail before bulk-import assets or ledger are written', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-review-invalid-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  const draftPath = path.join(root, 'docs', 'design.md');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const decisionPath = path.join(root, 'mmi-review-decisions.json');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+  fs.writeFileSync(decisionPath, '{"schema":"wrong","entries":[]}');
+
+  assert.throws(
+    () => writeWorkbookImportDraft({
+      sourcePath,
+      draftPath,
+      ledgerPath,
+      reviewDecisionsPath: decisionPath,
+    }),
+    /is not an mmi\.review-decisions\/v1 file/u,
+  );
+
+  assert.equal(fs.existsSync(draftPath), false);
+  assert.equal(fs.existsSync(ledgerPath), false);
+  assert.equal(
+    fs.existsSync(path.join(root, 'docs', 'assets', 'design')),
+    false,
+  );
+  assert.equal(fs.existsSync(decisionPath), true);
 });
