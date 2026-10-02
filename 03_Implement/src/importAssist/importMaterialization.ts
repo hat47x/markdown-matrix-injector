@@ -69,6 +69,7 @@ export function materializeWorkbookImport(
       fromDocument: draftPath,
       sourceLabel: referencePath,
       ledgerPath,
+      basis: 'mmi import',
     });
     extractedImages = extracted.extracted;
     const packageWarnings: ExtractProblem[] = readExcelImages(fs.readFileSync(sourcePath)).diagnostics
