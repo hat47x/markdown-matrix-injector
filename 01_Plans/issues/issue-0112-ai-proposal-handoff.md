@@ -25,7 +25,7 @@ MMI自身が課金を要する生成AIサービスを呼ぶことは原則とし
 - [x] 人向けには、そのpackageから自然言語の作業提案 / promptを生成できる。promptは成果物ではなく、利用者が選んだLLMへの手渡し用とする。
 - [x] source本文やセル値は既定で最小限とし、値を含める場合は明示操作にする。秘密情報を暗黙に全文投入しない。
 - [x] MMI自身は外部LLMへ送信せず、API key・課金アカウント・自動ログイン・自動クラウドfallbackを持たない。
-- [ ] 外部LLMから戻されたMMI記法・Candidate選択・変換案は、parser / schema / resolver / containment / source existence / preview等のAuthority Planeで再検証する。
+- [x] 外部LLMから戻されたMMI記法・Candidate選択・変換案は、parser / schema / resolver / containment / source existence / preview等のAuthority Planeで再検証する。MMI記法は既存preview Authority chain、Candidate選択はhandoff allowlist、変換案はcurrent sourceから再発見したCandidateと既存Linked/Extracted経路へ束縛し、いずれも自動適用しない。
 - [x] 戻り提案が存在しないシート、未対応集計、URL/外部パス、任意コマンド実行等を要求する場合は拒否または非対応として扱う。
 - [x] 外部LLMが利用できなくても、MMIのinspect / check / render / extractとローカル認知は継続する。
 
@@ -56,7 +56,17 @@ validation receiptは `mmi.ai-handoff-proposal-validation/v1` とし、各check�
 
 Candidate選択案については次の縦切りを追加した。handoff内のCandidateにはsource値を含めずにoccurrence/contentへ結び付く `candidateIdentity` を付与し、外部AIはそのidentityだけを選択案として返す。`validateAiHandoffCandidateSelection` は、返されたidentityが実際にhandoffへ提示されていたかをallowlist照合し、未知・捏造Candidateをblockedにする。選択案のschemaにはepistemic statusを書き換える欄を持たせず、成功状態も `accepted-for-review` として、AI選択をAuthorityへ昇格させない。receipt digestはnested proposal全体をcanonical化して束縛する。
 
-これによりMMI記法とCandidate選択の戻り検証が揃った。残る未実装は変換案のAuthority再検証であり、「戻されたMMI記法・Candidate選択・変換案をAuthority Planeで再検証する」という受入条件全体は引き続き未完了とする。
+これによりMMI記法とCandidate選択の戻り検証が揃った。
+
+### 変換案の戻り検証（2026-10-02）
+
+`src/dx/aiHandoffTransformationValidation.ts` に `mmi.ai-handoff-transformation-proposal/v1` / `mmi.ai-handoff-transformation-validation/v1` を追加した。外部AIが指定できるのは、handoffに含まれた `candidateIdentity`、希望する到達状態（`linked` / `extracted`）、rationale、未解決事項だけである。出力先、コマンド、conversion実装、MMI記法そのものを外部AIに指定させない。未知fieldを含むproposalはfail-closedで拒否する。
+
+validatorはhandoffの `suggest-user-review` 境界内でのみ動き、proposalのCandidateがhandoff allowlistに存在することを確認した後、sourceをworkspace containment下で再解決してdigestを照合する。さらにcurrent source bytesから表・画像CandidateをSource Adapterで再発見し、occurrence/content identityとalgorithm/runtime provenanceをhandoff時点と照合する。source変更・Candidate消失・adapter/runtime basis変更後の古いproposalは新しいhandoffを要求する。
+
+`linked` は外部AIがnotationを返すのではなく、再発見したcurrent Candidateのローカル `reference` だけを使い、既存 `validateAiHandoffNotationProposal` のparser → parameter schema → source allowlist → diagnostics → source identity → read-only previewを再度通す。`extracted` は表なら `gfm-table-v1`、画像なら既存の抽出可能formatに対する `raw-image-bytes-v1` だけをreview planとして返す。validator自身はfileを書かず、成功状態も `accepted-for-review` でありAuthority確定や自動適用を意味しない。
+
+これによりMMI記法・Candidate選択・変換案の3種類すべてが、外部AIの返答をそのままAuthorityへ昇格させずローカル再検証できる。
 
 ## Validation plan
 
