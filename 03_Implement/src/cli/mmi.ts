@@ -44,6 +44,7 @@ import { detectRegions } from '../search/regionDetector.js';
 import { runFind, runSelect } from './navigateCommands.js';
 import { extractImages, extractTable, formatImageDiagnostics } from './extract.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './render.js';
+import { formatTreeInspect, readTreeSource, runTree, treeSourceFormat, type TreeReport } from './tree.js';
 
 const USAGE = `Usage: mmi <command> [options]
 
@@ -61,6 +62,16 @@ Commands:
       --exclude-imported      hide exact imported occurrences; keep changed/stale/duplicate/unimported
                             For .xlsx/.xlsm it also lists embedded pictures (sheet, anchor, format, size,
                             digest, nearest table) and names any that cannot be read.
+                            For .json, generic .xml, .txt and .md it lists Tree / Hierarchy Candidates.
+  tree <source>             Print the hierarchy of a .json, .xml, .txt or .md file as a nested list
+      --method <m>            text only: auto (default; indent + numbering, + prefix when given),
+                              indent, numbering or prefix
+      --prefix <regex>        code at line start for the prefix method, e.g. "REQ-\\d+(?:-\\d+)*"
+      --max-depth <n>  --max-nodes <n>
+                              limits (default 64 / 100000); exceeding one is an error, never a cut
+                            Exit 1 when several structures are possible (they are listed) or none is found;
+                            XML Spreadsheet 2003 is refused (it is a table: use inspect). --json adds trees
+                            and Candidates
   extract <source>          Extract one reviewed Candidate as a standard asset without modifying the source
       --image <n|all>         workbook picture number shown by inspect, or all
       --table <range>         exact detected table Candidate range (requires --sheet)
@@ -134,6 +145,10 @@ export async function main(argv: string[]): Promise<number> {
       package: { type: 'string' },
       document: { type: 'string' },
       'include-values': { type: 'boolean', default: false },
+      method: { type: 'string' },
+      prefix: { type: 'string' },
+      'max-depth': { type: 'string' },
+      'max-nodes': { type: 'string' },
       help: { type: 'boolean', short: 'h', default: false },
     },
   });
@@ -217,6 +232,8 @@ export async function main(argv: string[]): Promise<number> {
       for (const problem of result.problems) console.error(`mmi: ${problem.code}${problem.ordinal ? ` (image ${problem.ordinal})` : ''}: ${problem.message}`);
       return result.problems.length > 0 ? 1 : 0;
     }
+    case 'tree':
+      return runTree(args, values, { out: emit, err: (text) => console.error(text), usage: usageError });
     case 'select':
       return runSelect(args, { ...values, json: values.json }, { out: emit, err: (text) => console.error(text), cwd: process.cwd() });
     case 'find':
@@ -432,6 +449,8 @@ export interface InspectResult {
   importAssistance?: InspectImportAssistanceCandidate[];
   /** Present when the CLI joined Candidates with an import ledger. */
   ledger?: InspectLedgerView;
+  /** Tree sources (.json, generic .xml, .txt, .md): the tree report; its Candidates are also in `candidates`. */
+  tree?: Omit<TreeReport, 'candidates' | 'choices'> & { choices: Omit<TreeReport['choices'][number], 'tree'>[] };
 }
 
 export interface InspectLedgerCandidate {
@@ -470,6 +489,18 @@ export interface InspectImage {
 }
 
 export function inspectSource(absolutePath: string, sampleRows: number, fromDocument?: string): InspectResult {
+  if (treeSourceFormat(absolutePath)) {
+    // Structure only, like tables: the nodes themselves come from `mmi tree`.
+    const { candidates, choices, ...tree } = readTreeSource(absolutePath, fromDocument ? { fromDocument } : {});
+    return {
+      source: tree.source,
+      sheets: [],
+      candidates,
+      images: [],
+      imageDiagnostics: [],
+      tree: { ...tree, choices: choices.map(({ index, method, variant }) => ({ index, method, variant })) },
+    };
+  }
   const workbook = loadWorkbook({ absolutePath });
   const sourceDigest = readSourceFileIdentity(absolutePath).digest;
   const isPackage = /\.(xlsx|xlsm)$/iu.test(absolutePath);
@@ -637,6 +668,7 @@ function formatInspect(result: InspectResult): string {
     }
   }
   if (result.imageDiagnostics.length > 0) lines.push('', 'image problems:', ...formatImageDiagnostics(result.imageDiagnostics).map((line) => `  ${line}`));
+  if (result.tree) lines.push('', ...formatTreeInspect({ ...result.tree, candidates: result.candidates }));
   return lines.join('\n');
 }
 
