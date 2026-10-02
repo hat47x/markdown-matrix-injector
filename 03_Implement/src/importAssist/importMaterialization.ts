@@ -37,6 +37,101 @@ export interface WorkbookImportMaterialization {
   imageProblems: ExtractProblem[];
 }
 
+export interface WorkbookImportPaths {
+  draftPath: string;
+  ledgerPath: string;
+  imageOutDir: string;
+}
+
+export function workbookImportPaths(
+  options: Pick<
+    WorkbookImportMaterializeOptions,
+    'sourcePath' | 'draftPath' | 'ledgerPath' | 'imageOutDir'
+  >,
+): WorkbookImportPaths {
+  const sourcePath = path.resolve(options.sourcePath);
+  const draftPath = path.resolve(options.draftPath);
+  const draftDir = path.dirname(draftPath);
+  const ledgerPath = path.resolve(
+    options.ledgerPath ?? path.join(draftDir, DEFAULT_LEDGER_FILE),
+  );
+  const baseName = path.basename(sourcePath).replace(/\.[^.]+$/u, '');
+  const imageOutDir = path.resolve(
+    options.imageOutDir
+      ?? path.join(draftDir, 'assets', safePathSegment(baseName)),
+  );
+  return { draftPath, ledgerPath, imageOutDir };
+}
+
+/**
+ * Commit the modernization draft and its extracted assets/ledger as one user
+ * operation. The source workbook is read-only. If materialization or the final
+ * draft write fails, files created by this operation and ledger mutations are
+ * rolled back to their previous state.
+ */
+export function writeWorkbookImportDraft(
+  options: WorkbookImportMaterializeOptions,
+): WorkbookImportMaterialization {
+  const paths = workbookImportPaths(options);
+  if (fs.existsSync(paths.draftPath)) {
+    throw new Error(
+      `MMI_IMPORT_DRAFT_EXISTS: refusing to overwrite existing draft: ${paths.draftPath}`,
+    );
+  }
+
+  const ledgerBefore = fs.existsSync(paths.ledgerPath)
+    ? fs.readFileSync(paths.ledgerPath)
+    : undefined;
+  const assetDirectoryExisted = fs.existsSync(paths.imageOutDir);
+  const assetsBefore = assetDirectoryExisted
+    ? new Set(fs.readdirSync(paths.imageOutDir))
+    : new Set<string>();
+
+  fs.mkdirSync(path.dirname(paths.draftPath), { recursive: true });
+
+  try {
+    const result = materializeWorkbookImport({
+      ...options,
+      draftPath: paths.draftPath,
+      ledgerPath: paths.ledgerPath,
+      imageOutDir: paths.imageOutDir,
+    });
+    // 'wx' closes the check/write race: another process cannot be overwritten.
+    fs.writeFileSync(paths.draftPath, result.markdown, { encoding: 'utf8', flag: 'wx' });
+    return result;
+  } catch (error) {
+    rollbackWorkbookImport(paths, ledgerBefore, assetDirectoryExisted, assetsBefore);
+    throw error;
+  }
+}
+
+function rollbackWorkbookImport(
+  paths: WorkbookImportPaths,
+  ledgerBefore: Buffer | undefined,
+  assetDirectoryExisted: boolean,
+  assetsBefore: ReadonlySet<string>,
+): void {
+  fs.rmSync(paths.draftPath, { force: true });
+
+  if (ledgerBefore) {
+    fs.mkdirSync(path.dirname(paths.ledgerPath), { recursive: true });
+    fs.writeFileSync(paths.ledgerPath, ledgerBefore);
+  } else {
+    fs.rmSync(paths.ledgerPath, { force: true });
+  }
+
+  if (fs.existsSync(paths.imageOutDir) && fs.statSync(paths.imageOutDir).isDirectory()) {
+    for (const name of fs.readdirSync(paths.imageOutDir)) {
+      if (!assetsBefore.has(name)) {
+        fs.rmSync(path.join(paths.imageOutDir, name), { recursive: true, force: true });
+      }
+    }
+    if (!assetDirectoryExisted && fs.readdirSync(paths.imageOutDir).length === 0) {
+      fs.rmSync(paths.imageOutDir, { recursive: true, force: true });
+    }
+  }
+}
+
 /**
  * Builds a usable modernization draft in one operation.
  *
@@ -47,16 +142,10 @@ export function materializeWorkbookImport(
   options: WorkbookImportMaterializeOptions,
 ): WorkbookImportMaterialization {
   const sourcePath = path.resolve(options.sourcePath);
-  const draftPath = path.resolve(options.draftPath);
-  const draftDir = path.dirname(draftPath);
+  const paths = workbookImportPaths(options);
+  const { draftPath, ledgerPath, imageOutDir } = paths;
   const workbook = options.workbook ?? loadWorkbook({ absolutePath: sourcePath });
   const structure = options.structure ?? readStructureOptional(sourcePath, workbook);
-  const ledgerPath = path.resolve(options.ledgerPath ?? path.join(draftDir, DEFAULT_LEDGER_FILE));
-
-  const baseName = path.basename(sourcePath).replace(/\.[^.]+$/u, '');
-  const imageOutDir = path.resolve(
-    options.imageOutDir ?? path.join(draftDir, 'assets', safePathSegment(baseName)),
-  );
   const referencePath = relativeReference(draftPath, sourcePath);
 
   let extractedImages: ExtractedImage[] = [];
