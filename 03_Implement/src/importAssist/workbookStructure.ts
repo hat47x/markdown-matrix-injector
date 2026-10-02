@@ -63,9 +63,27 @@ export interface WorkbookStructure {
 
 /** Reads the structure of the workbook at `absolutePath`. `workbook` supplies used ranges for whole-row/column names. */
 export function readWorkbookStructure(absolutePath: string, workbook?: WorkbookData): WorkbookStructure {
-  const bytes = fs.readFileSync(absolutePath);
+  return readWorkbookStructureFromBytes(
+    absolutePath,
+    fs.readFileSync(absolutePath),
+    workbook,
+  );
+}
+
+/**
+ * Same structure reader, but bound to bytes already captured by the caller.
+ * Bulk import uses this so cells, workbook declarations and embedded images
+ * are all derived from one source snapshot.
+ */
+export function readWorkbookStructureFromBytes(
+  absolutePath: string,
+  bytes: Uint8Array,
+  workbook?: WorkbookData,
+): WorkbookStructure {
   const extension = path.extname(absolutePath).toLowerCase();
-  const structure = extension === '.xlsx' || extension === '.xlsm' ? fromOoxml(bytes) : fromSheetJs(bytes, extension);
+  const structure = extension === '.xlsx' || extension === '.xlsm'
+    ? fromOoxml(bytes)
+    : fromSheetJs(bytes, extension);
   for (const name of structure.names) resolveName(name, workbook);
   return structure;
 }
