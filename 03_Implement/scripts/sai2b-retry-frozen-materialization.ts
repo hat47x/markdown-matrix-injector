@@ -949,14 +949,21 @@ export function validateZipContainer(
     if (!contentTypeChildren) {
       return { ok: false, reason: 'xlsx_content_types_invalid' };
     }
-    const workbookContentTypeDeclared = contentTypeChildren.some((child) => {
+    const workbookContentTypeOverrides = contentTypeChildren.filter((child) => {
       return child.local === 'Override'
         && child.namespace === OPC_CONTENT_TYPES_NAMESPACE
-        && xmlAttributeValue(child.raw, 'PartName') === '/xl/workbook.xml'
-        && xmlAttributeValue(child.raw, 'ContentType')
-          === 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml';
+        && xmlAttributeValue(child.raw, 'PartName') === '/xl/workbook.xml';
     });
-    if (!workbookContentTypeDeclared) {
+    if (workbookContentTypeOverrides.length === 0) {
+      return { ok: false, reason: 'xlsx_workbook_content_type_missing' };
+    }
+    if (workbookContentTypeOverrides.length !== 1) {
+      return { ok: false, reason: 'xlsx_workbook_content_type_ambiguous' };
+    }
+    if (
+      xmlAttributeValue(workbookContentTypeOverrides[0].raw, 'ContentType')
+      !== 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml'
+    ) {
       return { ok: false, reason: 'xlsx_workbook_content_type_missing' };
     }
 
@@ -972,7 +979,22 @@ export function validateZipContainer(
     if (!relationshipChildren) {
       return { ok: false, reason: 'xlsx_root_relationships_invalid' };
     }
-    const workbookRelationshipDeclared = relationshipChildren.some((child) => {
+    const relationshipIds = new Set<string>();
+    for (const child of relationshipChildren) {
+      if (
+        child.local !== 'Relationship'
+        || child.namespace !== OPC_RELATIONSHIPS_NAMESPACE
+      ) {
+        continue;
+      }
+      const id = xmlAttributeValue(child.raw, 'Id');
+      if (!id || relationshipIds.has(id)) {
+        return { ok: false, reason: 'xlsx_root_relationships_invalid' };
+      }
+      relationshipIds.add(id);
+    }
+
+    const officeDocumentRelationships = relationshipChildren.filter((child) => {
       if (
         child.local !== 'Relationship'
         || child.namespace !== OPC_RELATIONSHIPS_NAMESPACE
@@ -980,14 +1002,23 @@ export function validateZipContainer(
         return false;
       }
       const type = xmlAttributeValue(child.raw, 'Type');
-      const target = xmlAttributeValue(child.raw, 'Target');
-      const targetMode = xmlAttributeValue(child.raw, 'TargetMode');
       return typeof type === 'string'
-        && OOXML_OFFICE_DOCUMENT_RELATIONSHIP_TYPES.has(type)
-        && (target === 'xl/workbook.xml' || target === '/xl/workbook.xml')
-        && (targetMode === undefined || targetMode === 'Internal');
+        && OOXML_OFFICE_DOCUMENT_RELATIONSHIP_TYPES.has(type);
     });
-    if (!workbookRelationshipDeclared) {
+    if (officeDocumentRelationships.length === 0) {
+      return { ok: false, reason: 'xlsx_workbook_relationship_missing' };
+    }
+    if (officeDocumentRelationships.length !== 1) {
+      return { ok: false, reason: 'xlsx_workbook_relationship_ambiguous' };
+    }
+
+    const workbookRelationship = officeDocumentRelationships[0];
+    const target = xmlAttributeValue(workbookRelationship.raw, 'Target');
+    const targetMode = xmlAttributeValue(workbookRelationship.raw, 'TargetMode');
+    if (
+      (target !== 'xl/workbook.xml' && target !== '/xl/workbook.xml')
+      || (targetMode !== undefined && targetMode !== 'Internal')
+    ) {
       return { ok: false, reason: 'xlsx_workbook_relationship_missing' };
     }
 
