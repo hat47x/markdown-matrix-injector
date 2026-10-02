@@ -1,8 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 
-import { prioritizeWorkbookFiles } from '../src/dx/workbookCandidateOrder.js';
+import { prioritizeWorkbookFiles, selectContainedWorkbookFiles } from '../src/dx/workbookCandidateOrder.js';
 
 const candidate = (fsPath: string) => ({ fsPath, marker: fsPath });
 
@@ -51,4 +53,82 @@ test('locality ordering makes a nearby workbook survive a bounded prefix regardl
 
   assert.ok(bounded.some((item) => item.fsPath === nearby.fsPath));
   assert.ok(!bounded.some((item) => item.fsPath === far[far.length - 1].fsPath));
+});
+
+
+test('selectContainedWorkbookFiles rejects a sibling workspace whose path only shares a string prefix', () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-workbook-boundary-'));
+  const root = path.join(temp, 'work');
+  const sibling = path.join(temp, 'work-old');
+  fs.mkdirSync(path.join(root, 'docs'), { recursive: true });
+  fs.mkdirSync(sibling, { recursive: true });
+
+  const inside = path.join(root, 'source.xlsx');
+  const outside = path.join(sibling, 'source.xlsx');
+  fs.writeFileSync(inside, '');
+  fs.writeFileSync(outside, '');
+
+  const selected = selectContainedWorkbookFiles(
+    path.join(root, 'docs', 'spec.md'),
+    root,
+    [candidate(outside), candidate(inside)],
+    10,
+  );
+
+  assert.deepEqual(selected.map((item) => item.fsPath), [inside]);
+});
+
+test('selectContainedWorkbookFiles rejects a symlink that resolves outside the workspace boundary', (t) => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-workbook-symlink-'));
+  const root = path.join(temp, 'work');
+  const outsideDir = path.join(temp, 'outside');
+  fs.mkdirSync(root, { recursive: true });
+  fs.mkdirSync(outsideDir, { recursive: true });
+
+  const inside = path.join(root, 'inside.xlsx');
+  const outside = path.join(outsideDir, 'outside.xlsx');
+  const link = path.join(root, 'linked.xlsx');
+  fs.writeFileSync(inside, '');
+  fs.writeFileSync(outside, '');
+
+  try {
+    fs.symlinkSync(outside, link, 'file');
+  } catch {
+    t.skip('symlink creation is unavailable in this test environment');
+    return;
+  }
+
+  const selected = selectContainedWorkbookFiles(
+    path.join(root, 'spec.md'),
+    root,
+    [candidate(link), candidate(inside)],
+    10,
+  );
+
+  assert.deepEqual(selected.map((item) => item.fsPath), [inside]);
+});
+
+test('selectContainedWorkbookFiles applies the file limit after containment checks', () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-workbook-limit-'));
+  const root = path.join(temp, 'work');
+  const sibling = path.join(temp, 'work-old');
+  fs.mkdirSync(root, { recursive: true });
+  fs.mkdirSync(sibling, { recursive: true });
+
+  const insideA = path.join(root, 'a.xlsx');
+  const insideB = path.join(root, 'b.xlsx');
+  const outside = path.join(sibling, 'closer-looking.xlsx');
+  fs.writeFileSync(insideA, '');
+  fs.writeFileSync(insideB, '');
+  fs.writeFileSync(outside, '');
+
+  const selected = selectContainedWorkbookFiles(
+    path.join(root, 'spec.md'),
+    root,
+    [candidate(outside), candidate(insideB), candidate(insideA)],
+    1,
+  );
+
+  assert.equal(selected.length, 1);
+  assert.equal(selected[0].fsPath, insideA);
 });
