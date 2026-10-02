@@ -121,3 +121,45 @@ test('an image that cannot become a Markdown asset stays visible as an import wa
   assert.match(result.markdown, /通常画像/u);
   assert.match(result.markdown, /旧図形/u);
 });
+
+
+test('an image-free workbook stays a normal import without image warnings', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-materialize-'));
+  const sourcePath = path.join(root, 'plain.xlsx');
+  const draftPath = path.join(root, 'plain-import.md');
+  fs.writeFileSync(
+    sourcePath,
+    buildXlsxWithImages(
+      [{ name: '一覧', cells: [[0, 0, 'コード'], [0, 1, '名称'], [1, 0, '01'], [1, 1, '受付']] }],
+      {},
+    ),
+  );
+
+  const result = materializeWorkbookImport({ sourcePath, draftPath });
+
+  assert.equal(result.extractedImages.length, 0);
+  assert.deepEqual(result.imageProblems, []);
+  assert.doesNotMatch(result.markdown, /画像の注意/u);
+  assert.match(result.markdown, /!\[\[\.\/plain\.xlsx#一覧\|A1:B2\?header=first\]\]/u);
+});
+
+test('an image-only sheet still renders its extracted image instead of being called empty', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-materialize-'));
+  const sourcePath = path.join(root, 'image-only.xlsx');
+  const draftPath = path.join(root, 'image-only-import.md');
+  fs.writeFileSync(
+    sourcePath,
+    buildXlsxWithImages(
+      [{ name: '図', anchors: [{ kind: 'one', from: [1, 1], media: 'diagram.png', name: '構成図' }] }],
+      { 'diagram.png': pngOf(3, 3, [80, 90, 100]) },
+    ),
+  );
+
+  const result = materializeWorkbookImport({ sourcePath, draftPath });
+
+  assert.equal(result.extractedImages.length, 1);
+  assert.match(result.markdown, /## 図/u);
+  assert.match(result.markdown, /### 抽出した画像/u);
+  assert.match(result.markdown, /構成図/u);
+  assert.doesNotMatch(result.markdown, /## 図\n\n> 内容がありません。/u);
+});
