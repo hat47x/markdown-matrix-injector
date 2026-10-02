@@ -78,45 +78,6 @@ test('detach check reports remaining MMI refs, legacy cards and broken local lin
 });
 
 
-test('detach check recursively validates linked Markdown attachments', () => {
-  const { root } = workspace();
-  const detached = path.join(root, 'detached');
-  fs.mkdirSync(detached, { recursive: true });
-  const rootDoc = path.join(detached, 'root.md');
-  const child = path.join(detached, 'child.md');
-  fs.writeFileSync(rootDoc, '# Root\n\n[child](./child.md)\n');
-  fs.writeFileSync(child, '# Child\n\n![[../data/wide.csv#Sheet1|A1:B2]]\n');
-
-  const result = checkDetachedDocument({
-    markdownFilePath: rootDoc,
-    workspaceRoot: root,
-  });
-
-  assert.equal(result.errors, 1);
-  assert.equal(result.problems[0].code, 'MMI_DETACH_REFERENCE_REMAINS');
-  assert.equal(result.problems[0].file, 'detached/child.md');
-  assert.equal(result.problems[0].line, 3);
-});
-
-test('detach check traverses cyclic Markdown links at most once', () => {
-  const { root } = workspace();
-  const detached = path.join(root, 'detached');
-  fs.mkdirSync(detached, { recursive: true });
-  const first = path.join(detached, 'first.md');
-  const second = path.join(detached, 'second.md');
-  fs.writeFileSync(first, '[second](./second.md)\n');
-  fs.writeFileSync(second, '[first](./first.md)\n');
-
-  assert.deepEqual(
-    checkDetachedDocument({
-      markdownFilePath: first,
-      workspaceRoot: root,
-    }),
-    { errors: 0, problems: [] },
-  );
-});
-
-
 test('materialize copies local images into the detached package and rebases the link', () => {
   const { root, doc, out } = workspace();
   const sourceAssets = path.join(path.dirname(doc), 'assets');
@@ -200,6 +161,45 @@ test('materialize reports missing and workspace-external image targets without h
   assert.match(result.markdown, /!\[outside\]\(\.\.\/\.\.\/outside\.png\)/u);
 });
 
+
+test('detach check recursively validates linked Markdown attachments', () => {
+  const { root } = workspace();
+  const detached = path.join(root, 'detached');
+  fs.mkdirSync(detached, { recursive: true });
+  const rootDoc = path.join(detached, 'root.md');
+  const child = path.join(detached, 'child.md');
+  fs.writeFileSync(rootDoc, '# Root\n\n[child](./child.md)\n');
+  fs.writeFileSync(child, '# Child\n\n![[../data/wide.csv#Sheet1|A1:B2]]\n');
+
+  const result = checkDetachedDocument({
+    markdownFilePath: rootDoc,
+    workspaceRoot: root,
+  });
+
+  assert.equal(result.errors, 1);
+  assert.equal(result.problems[0].code, 'MMI_DETACH_REFERENCE_REMAINS');
+  assert.equal(result.problems[0].file, 'detached/child.md');
+  assert.equal(result.problems[0].line, 3);
+});
+
+test('detach check traverses cyclic Markdown links at most once', () => {
+  const { root } = workspace();
+  const detached = path.join(root, 'detached');
+  fs.mkdirSync(detached, { recursive: true });
+  const first = path.join(detached, 'first.md');
+  const second = path.join(detached, 'second.md');
+  fs.writeFileSync(first, '[second](./second.md)\n');
+  fs.writeFileSync(second, '[first](./first.md)\n');
+
+  assert.deepEqual(
+    checkDetachedDocument({
+      markdownFilePath: first,
+      workspaceRoot: root,
+    }),
+    { errors: 0, problems: [] },
+  );
+});
+
 async function captureMain(
   argv: string[],
 ): Promise<{ code: number; output: string; errors: string }> {
@@ -261,5 +261,6 @@ test('materialize preflights attachment collisions before writing the detached d
   );
   const summary = JSON.parse(run.output);
   assert.deepEqual(summary.collisions, [planned.files[0].relativePath]);
+  assert.equal(summary.written, false);
   assert.match(run.errors, /MMI_DETACH_NAME_COLLISION/u);
 });
