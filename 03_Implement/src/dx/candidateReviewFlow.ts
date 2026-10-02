@@ -12,9 +12,11 @@ import {
   type CandidateReviewFacetSelection,
 } from '../application/candidateReviewFilter.js';
 import {
+  discardUnrecordedImageExtraction,
   discardUnrecordedTableExtraction,
   extractImages,
   extractTable,
+  finalizeReviewedImageExtraction,
   finalizeReviewedTableExtraction,
 } from '../cli/extract.js';
 import type { Candidate, ReviewState } from '../core/candidate.js';
@@ -422,7 +424,14 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
             description:
               '抽出したMarkdown表を編集し、修正版として台帳へ記録',
           }]
-        : []),
+        : picked.source.kind === 'image'
+          ? [{
+              label: '説明を修正して取り込む',
+              value: 'extract-modified-image' as const,
+              description:
+                '画像bytesは変えず、alt textを人手修正して台帳へ記録',
+            }]
+          : []),
       ...(picked.ledgerState === 'imported'
         ? []
         : [
@@ -523,6 +532,67 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
   let extractedMarkdown: string;
   let extractedFile: string;
   if (
+    action.value === 'extract-modified-image'
+    && picked.source.kind === 'image'
+  ) {
+    const draft = extractImages({
+      sourcePath,
+      selection: String(picked.source.image.ordinal),
+      outDir,
+      ...(markdownDocument
+        ? { fromDocument: markdownDocument }
+        : {}),
+      sourceLabel,
+    });
+    if (
+      draft.problems.length > 0
+      || draft.extracted.length !== 1
+    ) {
+      await vscode.window.showErrorMessage(
+        `MMI: 修正用の画像参照を作成できません: ${draft.problems
+          .map((problem) => problem.message)
+          .join(' / ') || '画像を一意に抽出できませんでした'}`,
+      );
+      return;
+    }
+
+    const draftImage = draft.extracted[0];
+    const editedAltText = await vscode.window.showInputBox({
+      title: 'MMI: 画像の説明を修正',
+      prompt:
+        '画像bytesと原本は変更しません。Markdownのalt textだけを編集します。',
+      value: draftImage.altText,
+      placeHolder: '画像の説明',
+    });
+    if (editedAltText === undefined) {
+      discardUnrecordedImageExtraction(draftImage);
+      return;
+    }
+
+    const finalized = finalizeReviewedImageExtraction({
+      sourcePath,
+      ledgerPath,
+      extracted: draftImage,
+      candidate: picked.source.candidate,
+      altText: editedAltText,
+      ...(markdownDocument
+        ? { fromDocument: markdownDocument }
+        : {}),
+      sourceLabel,
+      basis: 'MMI Candidate review UI: reviewed image alt text',
+    });
+    if (finalized.problems.length > 0 || !finalized.extracted) {
+      discardUnrecordedImageExtraction(draftImage);
+      await vscode.window.showErrorMessage(
+        `MMI: 画像の修正版を採用できません: ${finalized.problems
+          .map((problem) => problem.message)
+          .join(' / ')}`,
+      );
+      return;
+    }
+    extractedMarkdown = finalized.extracted.markdown;
+    extractedFile = finalized.extracted.file;
+  } else if (
     action.value === 'extract-modified'
     && picked.source.kind === 'table'
   ) {
