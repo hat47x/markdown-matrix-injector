@@ -38,6 +38,7 @@ import {
 } from '../dx/aiHandoff.js';
 import { validateAiHandoffNotationProposal } from '../dx/aiHandoffProposalValidation.js';
 import { createDiagnosticsForDocument } from '../dx/vscodeAdapters.js';
+import { inspectImportAssistance, type InspectImportAssistanceCandidate } from '../importAssist/inspectImportAssistance.js';
 import { buildDeliveryManifestCsv } from '../manifest/collectDeliveryManifest.js';
 import { detectRegions } from '../search/regionDetector.js';
 import { runFind, runSelect } from './navigateCommands.js';
@@ -52,6 +53,7 @@ Commands:
                             method, provenance and fingerprint)
       --values <n>            also print the first n body rows of each region
       --from <doc.md>         write suggested references relative to this document
+      --import-assist          also show grid-layout import roles, revalidated reference proposals and cautions
       --ledger <file>         import ledger (default: <root>/mmi-ledger.json when ledger filtering is used)
       --similarity-evidence <file>
                               optional research similarity sidecar; display only, never import identity
@@ -118,6 +120,7 @@ export async function main(argv: string[]): Promise<number> {
       'similarity-evidence': { type: 'string' },
       unimported: { type: 'boolean', default: false },
       'exclude-imported': { type: 'boolean', default: false },
+      'import-assist': { type: 'boolean', default: false },
       table: { type: 'string' },
       sheet: { type: 'string' },
       columns: { type: 'string' },
@@ -147,6 +150,9 @@ export async function main(argv: string[]): Promise<number> {
       }
       const absoluteSource = path.resolve(args[0]);
       const raw = inspectSource(absoluteSource, Number(values.values) || 0, values.from);
+      if (values['import-assist']) {
+        raw.importAssistance = inspectImportAssistance(absoluteSource, values.from);
+      }
       const ledgerPath = path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE);
       const filter: CandidateLedgerFilter = values.unimported
         ? 'unimported'
@@ -392,6 +398,11 @@ export interface InspectResult {
   images: InspectImage[];
   /** Pictures or drawings that could not be read, by name. */
   imageDiagnostics: ImageDiagnostic[];
+  /**
+   * Optional non-authoritative import assistance. Kept separate from
+   * Semantic Candidates so inferred roles never become observed facts.
+   */
+  importAssistance?: InspectImportAssistanceCandidate[];
   /** Present when the CLI joined Candidates with an import ledger. */
   ledger?: InspectLedgerView;
 }
@@ -574,6 +585,14 @@ function formatInspect(result: InspectResult): string {
   };
   const lines = [`source: ${result.source}`];
   if (result.ledger) lines.push(`ledger: ${result.ledger.file} (${result.ledger.filter})`);
+  if (result.importAssistance) {
+    lines.push('', 'import assistance (non-authoritative):');
+    for (const item of result.importAssistance) {
+      const proposal = item.proposal ? `  proposal: ${item.proposal}` : '';
+      const cautions = item.cautions.length > 0 ? `  cautions: ${item.cautions.map((c) => c.code).join(', ')}` : '';
+      lines.push(`  ${item.sheet}!${item.range}  role: ${item.role}${proposal}${cautions}`);
+    }
+  }
   for (const sheet of result.sheets) {
     lines.push('', `sheet: ${sheet.name}${sheet.usedRange ? ` (used ${sheet.usedRange})` : ''}`);
     if (sheet.regions.length === 0) lines.push('  (no table regions)');

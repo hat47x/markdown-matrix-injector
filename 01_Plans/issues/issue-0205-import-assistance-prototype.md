@@ -59,5 +59,13 @@ node --import tsx ./test/e2e/runImport.ts
 - 画面操作の目視確認。
 - 別の作り手による未見の架空データでの1回評価と、実在の設計書での観測（ADR-0019 D9・D10の指標4）。
 - 「受注照会のイベント」のように、表題と同じ列名がある依頼の読み方（issue-0115で扱う）。
-- CLI `inspect`の表候補として出力する（ADR-0019 優先度1と合わせる）。
+- ~~CLI `inspect`の表候補として出力する（ADR-0019 優先度1と合わせる）。~~ **2026-10-02:** `mmi inspect --import-assist` として接続。Semantic Candidate本体とは分離し、既存解析のrole/reason、通常rendererで再検証済みの参照案、cautionだけを投影する。セル値/excerptはこの投影へ複製しない。
 - 記法仕様§6の`columns=`の列文字（範囲内の相対列）の明確化。仕様の判断として扱う。
+
+## Product integration checkpoint（2026-10-02）
+
+既存のVS Code試作をCLI/AI入口へ再利用するため、`mmi inspect --import-assist` を追加した。通常の `inspect` は従来どおりAuthority寄りのSemantic Candidateを返し、明示opt-in時だけ `importAssistance` を併記する。これにより、方眼紙向けヒューリスティックのroleをobserved事実へ昇格させない。
+
+投影するのは `sheet / role / range / reasons / revalidated proposal / caution code+cells` に限定した。元セル値やexcerptを複製しないため、AI/CLI利用時にも「候補を見つけるために設計書本文をもう一度コピーする」経路を増やさない。proposalは既存 `analyzeSheetForImport` が通常のparser → Smart Fallback → logical table rendererで再検証できた場合だけ出る。
+
+この接続により、VS Code UIを開かないAIエージェントやCLI利用者も、既存設計書について「どこを表として参照できるか」「どこがkey-value/prose/form/diagram候補か」「何を確認すべきか」を一度のinspectから取得できる。実在設計書での採用・修正・却下率と目視UI確認は引き続き実機/利用者観測として残す。
