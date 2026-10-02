@@ -221,7 +221,7 @@ test('transactional workbook import writes the draft only after materialization 
   assert.equal(readLedger(ledgerPath).entries.length, 4);
 });
 
-test('transactional workbook import rolls back new assets and restores the previous ledger after late failure', () => {
+test('workbook analysis failure happens before asset or ledger side effects', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-rollback-'));
   const sourcePath = path.join(root, 'design.xlsx');
   const draftPath = path.join(root, 'docs', 'design.md');
@@ -240,8 +240,7 @@ test('transactional workbook import rolls back new assets and restores the previ
       draftPath,
       ledgerPath,
       imageOutDir,
-      // Extraction runs from source bytes first; this forces the later draft
-      // analysis phase to fail after assets/ledger have been touched.
+      // Invalid prepared analysis data must fail before extraction begins.
       workbook: { sheets: null } as any,
       preparedSourceDigest,
     }),
