@@ -6,15 +6,15 @@
 
 ## 1. 要約
 
-MMIはLinked（参照）を表で実装済みで、Extracted（取り込み）も表・Excel埋込画像の選択的取り込みまで成立した。両者は共通Candidateとimport ledgerを使い、取込済み・変更・stale・lineage・研究類似Evidenceを追跡できる。VS Codeでは表・画像を同じ後追いレビュー画面から既存extract経路へ渡せる。既存ブックの初回取り込みでは、表をLinked参照のまま、埋込画像をExtracted assetとして1回で下書きへまとめる経路をVS CodeとCLIで共有する。Detachedも表の標準Markdown化とartifact closure checkの最小縦切りが入った。ADR-0019 D0・D13のとおり、人がExcelで書き続ける情報はLinkedのままでよく、Linkedは過渡期の仮の姿ではない。残る大きな差分は図形・Tree等へのExtracted一般化、レビュー操作の完成、実在設計書での取り込み観測、Detachedの完全性監査と実務E2Eである。
+MMIはLinked（参照）を表で実装済みで、Extracted（取り込み）も表・Excel埋込画像の選択的取り込みまで成立した。両者は共通Candidateとimport ledgerを使い、取込済み・変更・stale・lineage・研究類似Evidenceを追跡できる。VS Codeでは表・画像を同じ後追いレビュー画面から既存extract経路へ渡せる。初回取り込みでは、表をLinkedのまま残し、.xlsx/.xlsmの埋込画像だけをExtracted assetへ移すハイブリッド経路をVS CodeとCLIで共有する。Detachedも表の標準Markdown化とartifact closure checkの最小縦切りが入った。ADR-0019 D0・D13のとおり、人がExcelで書き続ける情報はLinkedのままでよく、Linkedは過渡期の仮の姿ではない。残る大きな差分は図形・Tree等へのExtracted一般化、レビュー操作の完成、実在設計書での取り込み観測、Detachedの完全性監査と実務E2Eである。
 
 | 状態 | 実装 | 主な不足 |
 | --- | --- | --- |
 | Linked | 実装済み（表のみ）。VS Code・CLIの両方から使える | 画像・図形・ツリーの参照がない |
-| Extracted | **一部実装**（表・Excel埋込画像。共通Candidate/ledger、選択的extract、表・画像レビューUI、表Linked＋画像Extractedの一括取り込み） | 図形・Tree等のextract、修正採用/却下を含むレビュー完成、実在設計書での観測 |
-| Detached | **一部実装** | `materialize`で表とカード相当の表を通常Markdownへ実体化し、`detach-check`で残存MMI参照・未実体化marker・壊れた/境界外リンクを検査できる。原本内画像・非表Candidateの完全性監査とE2Eは未完 |
+| Extracted | **一部実装**（表・Excel埋込画像。共通Candidate/ledger、選択的extract、表・画像レビューUI、facet絞り込み、内容・Claim basisへ結び付く却下decision。初回取り込みでは表Linked＋画像Extractedを併用） | 図形・Tree等のextract、修正して採用、実在設計書での観測、実機E2E |
+| Detached | **一部実装** | `materialize`で表・カード相当表を通常Markdownへ、ローカル画像をcontent-addressed assetへ実体化する。文書へ採用済みのExtracted表/画像はprovenance + ledger + current Candidateでfreshness確認し、`detach-check`でclosureを検査できる。実務E2Eと非表Candidate拡張は未完 |
 
-Candidateの共通契約はissue-0193で実装済みで、表・画像が利用している。現在の主なギャップは、研究層の成果をCandidate検索・属性として製品面へ接続すること、図形・Tree等のExtractedを増やすこと、レビュー操作を完成させること、実在設計書で取り込みを観測すること、Detachedの完全性監査である。新しい研究段階を独立に増やすより、既存成果をこれらの製品経路へ接続する作業を優先する。
+Candidateの共通契約はissue-0193で実装済みで、表・画像が利用している。現在の主なギャップは、研究層の成果をCandidate検索・属性として製品面へ接続すること、画像以外のExtractedを増やすこと、人の作業を止めないレビューUI、実在設計書での取り込み観測、Detachedである。新しい研究段階を独立に増やすより、既存成果をこれらの製品経路へ接続する作業を優先する。
 
 ## 2. 能力ごとの差分
 
@@ -25,17 +25,17 @@ Candidateの共通契約はissue-0193で実装済みで、表・画像が利用�
 | 参照 | ● | MMI Notation v1、VS Codeプレビュー、CLI `render` | 表以外のCandidateの参照 | 2〜3 |
 | 目録 | ◐ | CLI `inspect`（表の領域・見出し・行数、Excel画像の位置・形式・ダイジェスト・近くの表、`--json`のCandidate形式。`src/cli/mmi.ts`） | 図形・注記・リンクの列挙 | 2〜3 |
 | 候補抽出 | ◐ | 共通Candidate型を実装し、表・Excel画像を`mmi inspect --json`へ出力。研究: 表らしさ・見出し境界（structured artifact）、既知書式（worksheet format） | Tree/Shape等のCandidate化、研究成果の製品接続 | 1〜3 |
-| 個別取り込み | ◐ | CLI `extract`でExcel画像を通常画像assetへ、検出済みTable Candidateを標準GFM Markdown assetへ選択的に取り込む。いずれも出典と既存ledgerへ記録し、sourceは変更しない。VS Codeの最小レビューUIから表・画像の既存extract経路を呼べる | 図形・Tree・構造化データのextract、修正採用/却下、実機E2E | 2 |
+| 個別取り込み | ◐ | CLI `extract`でExcel画像を通常画像assetへ、検出済みTable Candidateを標準GFM Markdown assetへ選択的に取り込む。VS Codeではimport stateとtype/status/executionで絞り、採用・却下・却下解除・保留を行える。却下は内容またはClaim basisが変わると自動失効する | 図形・Tree・構造化データのextract、修正して採用、実機E2E | 2 |
 | 一括変換 | ◐ | VS Codeの既存取り込みコマンドとCLI `mmi import`が同じmaterializerを使い、表をLinked参照、.xlsx/.xlsmの埋込画像をExtracted asset＋取り込み台帳として1回で下書き化する。非表領域と画像の問題は確認事項として残す | 実在設計書での観測、図形等の追加Candidate、外部Converterとの比較評価（[issue-0200](issues/issue-0200-baseline-bulk-import.md)） | 2 |
 | 重複回避 | ● | Candidate単位のfingerprint、`mmi.ledger/v1`、`imported/changed/stale/duplicate/unimported`、`--unimported` / `--exclude-imported`、lineage・similarity Evidence分離 | UIからの利用はissue-0202、一括変換からの登録はissue-0200 | 2 |
 | シートの画像化 | ○ | Windows補助プロセスの前例（ADR-0017、クリップボード） | 図形・レイアウトに意味があるシート・範囲を画像として取り込む`Sheet / Region snapshot`（ADR-0019 D0）。CIで再現できる描画を優先し、COMは手元の補助（ADR-0019 D14。いずれも未検証） | 2 |
 | 構造化 | ○ | なし（研究に階層関係のラベル`region.hierarchy_relation`がある） | JSON/XMLの明示ツリー、フラットテキスト・配置からの推定ツリー（[issue-0199](issues/issue-0199-tree-structured-source-adapters.md)） | 3 |
 | 変換・表示 | ● | 変換パイプライン、強調、コード表示、キャプション | 画像参照の表示 | 2 |
 | 検証 | ● | 診断コード6種、CLI `check`（JSON・終了コード） | Candidate・取り込み結果の診断 | 2 |
-| provenance | ◐ | Source Identity v1、納品物一覧（Linked）、import ledger（Extractedのsource/occurrence/fingerprint/output/conversion/review basis）。一括取り込みの画像も同じledgerへ登録 | 他Candidate種別への拡張、detach監査用の横断report | 2〜4 |
-| materialize | ◐ | `mmi materialize`で小表をinline GFM化し、カード相当の明示sheet表を独立Markdownへ実体化。source digest provenanceを保持 | 原本内画像・Tree/Shape等の採用Candidate実体化、実務E2E | 4 |
-| detach check | ◐ | `mmi detach-check`で残存MMI参照、未実体化marker、旧別紙カード、壊れた/境界外ローカルリンクをfailできる | ledgerと文書採用関係を用いたsource-only画像・非表Candidate監査 | 4 |
-| 執筆支援 | ● | 補完、貼り付け（Windowsの出所取得を含む）、説明からの検索、案内付きの作成、ホバー、表・画像Candidateの後追いレビューUI | 多環境の実機確認（issue-0110）、利用者観測（issue-0111）、レビューUIの修正採用/却下・追加filter（issue-0202） | 継続〜2 |
+| provenance | ◐ | Source Identity v1、納品物一覧（Linked）、import ledger（Extractedのsource/occurrence/fingerprint/output/conversion/review basis） | 他Candidate種別と一括変換への拡張、detach監査用の横断report | 2〜4 |
+| materialize | ◐ | `mmi materialize`で小表をinline GFM化、カード相当表を独立Markdown化、本文のローカル画像を`mmi-assets/`へdigest名で複製・rebase。採用済みExtracted表/画像のfreshnessも事前照合 | Tree/Shape等の採用Candidate実体化、実務E2E | 4 |
+| detach check | ◐ | materialize preflightで採用済みExtracted表/画像のchanged/stale/untrackedをfailし、`mmi detach-check`で残存MMI参照、未実体化marker、旧別紙カード、壊れた/境界外リンクをfailできる | 非表Candidateへの同契約拡張、実務E2E | 4 |
+| 執筆支援 | ● | 補完、貼り付け（Windowsの出所取得を含む）、説明からの検索、案内付きの作成、ホバー、表・画像Candidateの後追いレビューUI（facet絞り込み、採用/却下/却下解除/保留） | 多環境の実機確認（issue-0110）、利用者観測（issue-0111）、レビューUIの修正して採用（issue-0202） | 継続〜2 |
 | AI/CI利用 | ◐ | CLIから`inspect`/`extract`/`check`/`render`/`materialize`/`detach-check`/`handoff`/提案再検証等を利用でき、Candidate JSON、AI向け指示パック（`skills/mmi`）、基本設計書キット、執筆ベンチマーク v0がある | 配布（npm等）、より安定したagent-facing contract、将来のMCP | 1 |
 | 外部LLM handoff | ◐ | local-only evidence package/promptを生成し、返却MMI記法とCandidate選択案をAuthority側でfail-closed再検証できる | 変換案の再検証、実利用E2E、agent-facing配布 | 1 |
 | 軽量認知 | ◐ | Fly-inspired matcher、worksheet format、Cognitive Contract等の研究資産 | 要件ごとのM0〜M4比較、deterministic/provider-dependent実行分離、Ollama/LM Studio等の既存local runtime再利用、model/profile artifact配布（issue-0204） | 1〜3 |
@@ -61,7 +61,7 @@ Candidate contractでは `observed/inferred/confirmed/abstained` と `determinis
 
 - **執筆ベンチマーク v0（[結果](../04_Documentation/benchmarks/ai-writing/results/2026-09-30-v0.md)）:** 12行程度の表では、MMIなしでもAIは表を誤って写さなかった。差が出たのは正本の変更後で、写した表は古くなり、参照した表は追従した。Linkedの価値は単発の正確さより追従にある。ADR-0019がExtracted・Detachedへ価値を広げたことと整合する。
 - **本文と表の矛盾は未検出:** 正本の変更後、参照した表は追従したが、本文の説明（「申請者は承認できない」）は古いまま残った。ADR-0019 D12のとおり業務的正しさは保証外だが、人がExcel側を直し続ける運用では、Markdown側の本文が気づかれずに古くなる危険がある。
-- **人の作業を止めない設計の未検証:** 現行の診断は、VS Codeで書いている最中にも「問題」パネルへ同じ強さで出る。ADR-0019 D13の「執筆中は控えめに、レビュー・CI・AIには網羅的に」の区別はまだない。
+- **執筆中の診断（2026-10-03対応）:** 入力を止めて0.4秒後に検査し、カーソルのある行の参照の診断は、別の行へ移る・保存する・開くまで控える（`markdownMatrixInjector.diagnostics.whileTyping`で`full`にできる）。CLI `check`とCIは従来どおり網羅的。純粋な方針関数の単体テストと拡張機能ホストの起動確認まで。入力中の表示を人が目視で確かめる確認と、手戻り・中断の観測（issue-0111）は未実施。
 - **画像の読み取り:** SheetJSの`bookFiles`からOOXML drawing/mediaを読み、画像Candidate化と`extract`を実装した。コード生成fixtureに加え、実Excelブックで4枚のanchorがExcel自身の開始・終了セルと一致し、抽出bytesも元画像と一致することを確認済み。
 
 ## 4. 計画と運用の差分
@@ -73,7 +73,6 @@ Candidate contractでは `observed/inferred/confirmed/abstained` と `determinis
 | `planning_queue.py`が補足付きの状態（`In Progress（…）`）を未完了と判定しない | issue-0110・0111・0115・0190が一覧から漏れる | 状態の先頭語で判定するよう修正（本改訂で実施） |
 | issue-0190の状態が独自表記（`Implementation complete; local execution pending`） | 一覧で拾えない | 規定の状態（In Progress）へ直す |
 | 優先度3のTree一般化、初回一括変換、CandidateレビューUI、上位名称の検討が未追跡だった | 価値定義はあるが着手条件が曖昧になる | issue-0199〜0202へ切り出し。既存0193〜0198への依存を明記 |
-| 執筆中とレビュー時で診断の出し方を分けていない（ADR-0019 D13） | 人の執筆を止める可能性 | 優先度2のVS Code UIの設計で扱う。測定は利用者の観測（issue-0111）で行う |
 | `xlsx`の依存がCDNのtarball | CLIをnpmで配布するときの障害になり得る | issue-0197で配布形態と合わせて判断 |
 | プロダクト名「Markdown Matrix Injector」が現在の価値範囲より狭い | 表注入ツールと誤解され、Core / Agent / detachabilityの価値が伝わりにくい | [issue-0201](issues/issue-0201-product-name-and-compatibility-layer.md)で、MMIをNotation/compatibility layerとして残す案を含めて比較。決定前は実装名を変えない |
 
