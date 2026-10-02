@@ -53,6 +53,7 @@ import {
 import { readWorkbookCached } from './dx/sharedWorkbookCache.js';
 import { clearSearchIndexes, FIND_EMBED_COMMAND_ID, scriptedSearch, searchEmbedByDescription } from './dx/searchFlow.js';
 import { IMPORT_WORKBOOK_COMMAND_ID, importFromWorkbook } from './dx/importFlow.js';
+import { REVIEW_CANDIDATES_COMMAND_ID, reviewCandidates } from './dx/candidateReviewFlow.js';
 import {
   CATALOG_INSERT_TABLE_COMMAND_ID,
   CATALOG_REFRESH_COMMAND_ID,
@@ -198,6 +199,9 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
     }),
     vscode.commands.registerCommand(IMPORT_WORKBOOK_COMMAND_ID, (target?: vscode.Uri) =>
       importFromWorkbook(WORKBOOK_FILE_GLOB, target instanceof vscode.Uri ? target : undefined),
+    ),
+    vscode.commands.registerCommand(REVIEW_CANDIDATES_COMMAND_ID, (target?: vscode.Uri) =>
+      reviewCandidates(target instanceof vscode.Uri ? target : undefined),
     ),
     ...registerTableCatalog(),
     vscode.commands.registerCommand(CLEAR_SEARCH_INDEX_COMMAND_ID, () => {
