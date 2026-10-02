@@ -211,7 +211,7 @@ flowchart TD
 | `inferRangeFromHtmlTable` | HTMLの行列数から常に`A1:`起点の範囲を返す | **修正済み（2026-09-14）。** 関数を削除し、`extractHtmlTableShape`（形状のみ、開始位置を生成しない）に置き換えた。`suggestEmbedFromClipboardHtml`はもう範囲を生成しない |
 | 行数の数え方 | `<tr>`をHTML全体から数える | 維持（断片内だけを数えない。§1.5）。`extractHtmlTableShape`で単一行コピーの回帰テストあり |
 | 列数の数え方 | colspanを加算して最大値を取る | **修正済み（2026-09-14）。** `extractHtmlTableShape`が結合の占有グリッドから列位置と幅を求める（レビューR2）。rowspanの反例をテストで固定 |
-| 転送値の取得 | `trim()`を適用 | **修正済み（2026-09-14、境界セルは2026-10-02追加修正）。** `parseTsv`を追加し、ExcelのTSV引用規則を実機確認して移植した。さらにDataTransferとparserの全体`trim()`が先頭/末尾TAB（=空の境界セル）まで消して矩形幅を変えることを確認したため、`text/plain`は生payloadを保持し、Excelの構造的な末尾行区切り1個だけを除去する。空の先頭/末尾列・意図的な空最終行を保持する回帰を追加した。 |
+| 転送値の取得 | `trim()`を適用 | **修正済み（2026-09-14、追加修正2026-10-02）。** `parseTsv`を追加し、ExcelのTSV引用規則を実機確認して移植した。DataTransferとparserの全体`trim()`は先頭/末尾TABを消して矩形幅を変えるため撤去した。さらに、非引用セルへ残っていたフィールド単位の`trim()`も撤去した。最終照合では空白を値として扱う設計契約に合わせ、引用の有無にかかわらず表示文字列の前後空白を保持する。 |
 | シート名 | HTMLの`title`や`data-sheet`を採用 | **修正済み（2026-09-14）。** `extractSheetNameFromHtml`を削除した。`suggestEmbedFromClipboardHtml`はシート名を一切推測しない |
 | 内容照合ロジック本体 | 存在しなかった | **実装済み（2026-09-14〜15）。** `src/core/contentMatch.ts`の`findContentMatches`が§5手順2〜4を単一`SheetSource`に対して行い、`src/dx/contentMatchSearch.ts`の`findWorkbookContentMatches`が複数ワークブックへ集約する（手順1） |
 | VS Code統合 | 存在しなかった | **実装済み。** (1) 明示コマンド`markdownMatrixInjector.insertEmbedByContentMatch`（2026-09-15）、結果は必ず`showQuickPick`を経由。**実VS Code e2eで動作確認済み（2026-09-17）**——この過程で`registerTextEditorCommand`の非同期未サポートという実装バグを発見・修正した。(2) `editor.action.pasteAs`（Ctrl+.）への統合（2026-09-16）、`context.triggerKind === PasteAs`の場合のみVS Code標準ドロップダウンへ候補を追加。**通常のCtrl+V（`Automatic`）には統合していない**——複数`DocumentPasteEdit`は`Automatic`だと最初の1件を自動適用してしまうため（R1違反リスク）。**こちらはe2e未確認**（実クリップボードへの`text/html`設定手段が無い）。理由は下記「2026-09-16の変更のまとめ」「2026-09-17の変更のまとめ」 |
@@ -251,7 +251,7 @@ flowchart TD
 - 見出し・caption・grepを勝手に付けない。挿入するのは既存文法のみ。
 - 一般のテキスト、対象外のファイル、境界外、未信頼workspace、読み込み失敗では通常の貼り付けを妨げない。
 
-**未達のまま残る点**: 2026-10-02時点で、候補にはファイル・シート・範囲に加え、原本側の`MatchContext`（表題・見出し・直前/直後の行）を短い1行へ圧縮して表示する。`Paste As`では全体72文字、各行は先頭3セル・1セル18文字までに制限し、改行・連続空白を正規化するため、重複一致を周辺文脈で識別できる。ただしコピーした値そのものの先頭数行プレビューは表示しない。明示コマンド経路（経路3）は実VS Code（1.138.0）でのe2e確認済み（2026-09-17）——WSLg由来の実表示によりxvfb無しでExtension Host e2eが動作した。`editor.action.pasteAs`（経路2）はplain TSVを使うExtension Host自動E2Eを2026-10-01に追加済みだが、このWeb作業環境では未実行。 これが通ればVS Code組み込みPaste As→登録provider→内容照合→挿入の宿主dispatchは自動証拠化できる。一方、実Excelの`text/html`、Windows helperが返すconfirmed provenance、Ctrl+./視覚pickerを人が選ぶ実操作は引き続きWindows実機確認が必要（[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)参照）。
+**未達のまま残る点**: 2026-10-02時点で、候補にはファイル・シート・範囲に加え、原本側の`MatchContext`（表題・見出し・候補範囲の先頭2行・直前/直後の行）を表示する。`Paste As`では全体72文字、各行は先頭3セル・1セル18文字までに制限し、改行・連続空白を正規化する。明示QuickPickでは候補範囲の先頭2行も詳細に表示する。明示コマンド経路（経路3）は実VS Code（1.138.0）でのe2e確認済み（2026-09-17）——WSLg由来の実表示によりxvfb無しでExtension Host e2eが動作した。`editor.action.pasteAs`（経路2）はplain TSVを使うExtension Host自動E2Eを2026-10-01に追加済みだが、このWeb作業環境では未実行。 これが通ればVS Code組み込みPaste As→登録provider→内容照合→挿入の宿主dispatchは自動証拠化できる。一方、実Excelの`text/html`、Windows helperが返すconfirmed provenance、Ctrl+./視覚pickerを人が選ぶ実操作は引き続きWindows実機確認が必要（[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)参照）。
 
 ## 8. 未確認事項
 

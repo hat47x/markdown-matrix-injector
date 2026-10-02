@@ -294,10 +294,17 @@ test('parseTsv leaves a bare quote unescaped when nothing forces quoting', () =>
   ]);
 });
 
-test('parseTsv trims unquoted cells but preserves whitespace inside quoted cells', () => {
+test('parseTsv preserves displayed whitespace in both quoted and unquoted cells', () => {
   assert.deepEqual(parseTsv('A\tB\r\n" padded "\t unquoted \r\n'), [
     ['A', 'B'],
-    [' padded ', 'unquoted'],
+    [' padded ', ' unquoted '],
+  ]);
+});
+
+test('parseTsv preserves whitespace-only cells instead of treating them as an empty payload', () => {
+  assert.deepEqual(parseTsv('  \t \r\n   \t\r\n'), [
+    ['  ', ' '],
+    ['   ', ''],
   ]);
 });
 
@@ -315,9 +322,9 @@ test('parseTsv preserves an intentionally empty final row while removing only Ex
   ]);
 });
 
-test('parseTsv returns an empty matrix for blank input', () => {
+test('parseTsv returns an empty matrix only for an actually empty payload', () => {
   assert.deepEqual(parseTsv(''), []);
-  assert.deepEqual(parseTsv('   \r\n  '), []);
+  assert.deepEqual(parseTsv('   \r\n  '), [['   '], ['  ']]);
 });
 
 test('isSupportedWorkbookPath only accepts workbook-like extensions', () => {
