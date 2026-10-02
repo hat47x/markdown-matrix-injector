@@ -175,7 +175,7 @@ export function materializeWorkbookImport(
       basis: 'mmi import',
     });
     extractedImages = extracted.extracted;
-    const packageWarnings: ExtractProblem[] = extracted.diagnostics
+    const packageWarnings: ExtractProblem[] = (extracted.diagnostics ?? [])
       .filter((diagnostic) =>
         diagnostic.severity === 'warning'
         // Non-extractable media is represented with an ordinal by extractImages.
