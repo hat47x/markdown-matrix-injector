@@ -1,8 +1,8 @@
 #!/usr/bin/env node
 /**
  * `mmi` -- the MMI engine without VS Code, for AI agents, CI and scripts.
- * Every command is read-only: it never writes to a source workbook, and only
- * writes a file when `-o` is given.
+ * Source workbooks/documents are never modified. Commands that materialize or
+ * import write only to explicit draft/output, asset, attachment and ledger paths.
  */
 import fs from 'node:fs';
 import path from 'node:path';
@@ -10,6 +10,8 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import XLSX from 'xlsx';
 import { WorkbookCache } from '../cache/workbookCache.js';
+import { checkDetachedDocument } from '../application/detachCheck.js';
+import { materializeDocument } from '../application/materialize.js';
 import { imageCandidates, readExcelImages, relationToTables, type ImageDiagnostic, type TableRect } from '../adapters/excelImageAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import type { Candidate, ProviderScore } from '../core/candidate.js';
@@ -36,8 +38,9 @@ import {
 } from '../dx/aiHandoff.js';
 import { validateAiHandoffNotationProposal } from '../dx/aiHandoffProposalValidation.js';
 import { createDiagnosticsForDocument } from '../dx/vscodeAdapters.js';
-import { buildDeliveryManifestCsv } from '../manifest/collectDeliveryManifest.js';
+import { inspectImportAssistance, type InspectImportAssistanceCandidate } from '../importAssist/inspectImportAssistance.js';
 import { materializeWorkbookImport } from '../importAssist/importMaterialization.js';
+import { buildDeliveryManifestCsv } from '../manifest/collectDeliveryManifest.js';
 import { detectRegions } from '../search/regionDetector.js';
 import { runFind, runSelect } from './navigateCommands.js';
 import { extractImages, formatImageDiagnostics } from './extract.js';
@@ -51,6 +54,7 @@ Commands:
                             method, provenance and fingerprint)
       --values <n>            also print the first n body rows of each region
       --from <doc.md>         write suggested references relative to this document
+      --import-assist          also show grid-layout import roles, revalidated reference proposals and cautions
       --ledger <file>         import ledger (default: <root>/mmi-ledger.json when ledger filtering is used)
       --similarity-evidence <file>
                               optional research similarity sidecar; display only, never import identity
@@ -81,6 +85,11 @@ Commands:
                             (exit code 1 when any error is found)
   render <doc.md>           Expand references into Markdown tables (default) or HTML
       --to md|html
+  materialize <doc.md>      Write a source-independent Markdown projection for detaching
+      -o, --out <file>        detached Markdown output (required; must differ from source)
+      --attachments-dir <dir> directory for card-sized table attachments
+  detach-check <doc.md>     Verify a Markdown artifact has no MMI refs, unresolved cards,
+                            broken local links or links outside --root
   manifest <doc.md>         List references that fall back to 別紙 cards as CSV
   handoff <source>          Build a local-only evidence package/prompt for a user-chosen external LLM
       --task <text>           work to ask for (required)
@@ -112,10 +121,12 @@ export async function main(argv: string[]): Promise<number> {
       image: { type: 'string' },
       'out-dir': { type: 'string' },
       draft: { type: 'string' },
+      'attachments-dir': { type: 'string' },
       ledger: { type: 'string' },
       'similarity-evidence': { type: 'string' },
       unimported: { type: 'boolean', default: false },
       'exclude-imported': { type: 'boolean', default: false },
+      'import-assist': { type: 'boolean', default: false },
       table: { type: 'string' },
       sheet: { type: 'string' },
       columns: { type: 'string' },
@@ -145,6 +156,9 @@ export async function main(argv: string[]): Promise<number> {
       }
       const absoluteSource = path.resolve(args[0]);
       const raw = inspectSource(absoluteSource, Number(values.values) || 0, values.from);
+      if (values['import-assist']) {
+        raw.importAssistance = inspectImportAssistance(absoluteSource, values.from);
+      }
       const ledgerPath = path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE);
       const filter: CandidateLedgerFilter = values.unimported
         ? 'unimported'
@@ -185,16 +199,19 @@ export async function main(argv: string[]): Promise<number> {
     case 'import': {
       if (args.length !== 1) return usageError('import takes one workbook');
       if (!values.draft) return usageError('import needs --draft <file.md>');
+      if (values.out) return usageError('import does not use -o/--out; use --draft <file.md>');
+
       const sourcePath = path.resolve(args[0]);
       const draftPath = path.resolve(values.draft);
+      const ledgerPath = path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE);
+      const imageOutDir = values['out-dir'] ? path.resolve(values['out-dir']) : undefined;
+
       if (!handoffPathWithinRoot(sourcePath, root)) {
         return usageError('import source must stay within --root workspace');
       }
       if (!handoffPathWithinRoot(path.dirname(draftPath), root)) {
         return usageError('import draft folder must stay within --root workspace');
       }
-      const ledgerPath = path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE);
-      const imageOutDir = values['out-dir'] ? path.resolve(values['out-dir']) : undefined;
       if (!handoffPathWithinRoot(ledgerPath, root)) {
         return usageError('import ledger must stay within --root workspace');
       }
@@ -206,13 +223,14 @@ export async function main(argv: string[]): Promise<number> {
         return 1;
       }
 
+      // Fail before touching assets/ledger when the draft directory cannot be created.
+      fs.mkdirSync(path.dirname(draftPath), { recursive: true });
       const result = materializeWorkbookImport({
         sourcePath,
         draftPath,
         ledgerPath,
         ...(imageOutDir ? { imageOutDir } : {}),
       });
-      fs.mkdirSync(path.dirname(draftPath), { recursive: true });
       fs.writeFileSync(draftPath, result.markdown, 'utf8');
 
       const summary = {
@@ -222,14 +240,15 @@ export async function main(argv: string[]): Promise<number> {
         extractedImages: result.extractedImages.length,
         imageProblems: result.imageProblems,
       };
-      emit(values.json
+      const summaryText = values.json
         ? JSON.stringify(summary, null, 2)
         : [
             `draft: ${summary.draft}`,
             `images: ${summary.extractedImages}`,
             `ledger: ${summary.ledger}`,
             ...(result.imageProblems.length > 0 ? [`image warnings: ${result.imageProblems.length}`] : []),
-          ].join('\n'));
+          ].join('\n');
+      process.stdout.write(summaryText.endsWith('\n') ? summaryText : `${summaryText}\n`);
       for (const problem of result.imageProblems) {
         console.error(`mmi: ${problem.code}${problem.ordinal ? ` (image ${problem.ordinal})` : ''}: ${problem.message}`);
       }
@@ -260,6 +279,70 @@ export async function main(argv: string[]): Promise<number> {
         return 1;
       }
       return 0;
+    }
+    case 'materialize': {
+      if (args.length !== 1) return usageError('materialize takes one Markdown file');
+      if (!values.out) return usageError('materialize needs -o, --out <file>');
+      const sourceDocument = path.resolve(args[0]);
+      const outputDocument = path.resolve(values.out);
+      if (sourceDocument === outputDocument) {
+        return usageError('materialize output must differ from the source Markdown file');
+      }
+      if (!handoffPathWithinRoot(sourceDocument, root) || !handoffPathWithinRoot(outputDocument, root)) {
+        return usageError('materialize source and output must stay within --root workspace');
+      }
+      const attachmentsDirectory = values['attachments-dir']
+        ? path.resolve(values['attachments-dir'])
+        : path.join(path.dirname(outputDocument), 'mmi-materialized');
+      if (!handoffPathWithinRoot(attachmentsDirectory, root)) {
+        return usageError('materialize --attachments-dir must stay within --root workspace');
+      }
+      const result = materializeDocument({
+        markdownFilePath: sourceDocument,
+        workspaceRoot: root,
+        outputDocumentPath: outputDocument,
+        attachmentsDirectory,
+      });
+      fs.mkdirSync(path.dirname(outputDocument), { recursive: true });
+      fs.writeFileSync(outputDocument, result.markdown);
+      let collision = false;
+      for (const file of result.files) {
+        fs.mkdirSync(path.dirname(file.absolutePath), { recursive: true });
+        if (fs.existsSync(file.absolutePath) && fs.readFileSync(file.absolutePath, 'utf8') !== file.content) {
+          console.error(`mmi: MMI_DETACH_NAME_COLLISION: ${file.absolutePath} exists with different content; it was not overwritten`);
+          collision = true;
+          continue;
+        }
+        fs.writeFileSync(file.absolutePath, file.content);
+      }
+      for (const problem of result.problems) {
+        console.error(`mmi: ${problem.code} line ${problem.line}: ${problem.message}`);
+      }
+      const summary = {
+        output: path.relative(process.cwd(), outputDocument).split(path.sep).join('/'),
+        attachments: result.files.map((file) => file.relativePath),
+        problems: result.problems,
+        detachable: !collision && result.problems.length === 0,
+      };
+      if (values.json) process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
+      else console.log(`materialized: ${summary.output} (${summary.attachments.length} attachment(s), ${result.problems.length} unresolved)`);
+      return summary.detachable ? 0 : 1;
+    }
+    case 'detach-check': {
+      if (args.length !== 1) return usageError('detach-check takes one Markdown file');
+      const markdownFilePath = path.resolve(args[0]);
+      if (!handoffPathWithinRoot(markdownFilePath, root)) {
+        return usageError('detach-check document must stay within --root workspace');
+      }
+      const result = checkDetachedDocument({ markdownFilePath, workspaceRoot: root });
+      if (values.json) {
+        process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
+      } else {
+        const lines = result.problems.map((problem) =>
+          `${problem.line} ${problem.code} ${problem.message}`);
+        process.stdout.write(`${[...lines, `${result.errors} detach error(s)`].join('\n')}\n`);
+      }
+      return result.errors > 0 ? 1 : 0;
     }
     case 'manifest': {
       if (args.length !== 1) return usageError('manifest takes one Markdown file');
@@ -379,6 +462,11 @@ export interface InspectResult {
   images: InspectImage[];
   /** Pictures or drawings that could not be read, by name. */
   imageDiagnostics: ImageDiagnostic[];
+  /**
+   * Optional non-authoritative import assistance. Kept separate from
+   * Semantic Candidates so inferred roles never become observed facts.
+   */
+  importAssistance?: InspectImportAssistanceCandidate[];
   /** Present when the CLI joined Candidates with an import ledger. */
   ledger?: InspectLedgerView;
 }
@@ -561,6 +649,14 @@ function formatInspect(result: InspectResult): string {
   };
   const lines = [`source: ${result.source}`];
   if (result.ledger) lines.push(`ledger: ${result.ledger.file} (${result.ledger.filter})`);
+  if (result.importAssistance) {
+    lines.push('', 'import assistance (non-authoritative):');
+    for (const item of result.importAssistance) {
+      const proposal = item.proposal ? `  proposal: ${item.proposal}` : '';
+      const cautions = item.cautions.length > 0 ? `  cautions: ${item.cautions.map((c) => c.code).join(', ')}` : '';
+      lines.push(`  ${item.sheet}!${item.range}  role: ${item.role}${proposal}${cautions}`);
+    }
+  }
   for (const sheet of result.sheets) {
     lines.push('', `sheet: ${sheet.name}${sheet.usedRange ? ` (used ${sheet.usedRange})` : ''}`);
     if (sheet.regions.length === 0) lines.push('  (no table regions)');
