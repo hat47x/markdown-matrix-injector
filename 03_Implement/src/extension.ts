@@ -52,7 +52,9 @@ import {
 } from './dx/authoringFlow.js';
 import { readWorkbookCached } from './dx/sharedWorkbookCache.js';
 import { clearSearchIndexes, FIND_EMBED_COMMAND_ID, scriptedSearch, searchEmbedByDescription } from './dx/searchFlow.js';
+import { prioritizeWorkbookFiles } from './dx/workbookCandidateOrder.js';
 import { IMPORT_WORKBOOK_COMMAND_ID, importFromWorkbook } from './dx/importFlow.js';
+import { REVIEW_CANDIDATES_COMMAND_ID, reviewCandidates } from './dx/candidateReviewFlow.js';
 import {
   CATALOG_INSERT_TABLE_COMMAND_ID,
   CATALOG_REFRESH_COMMAND_ID,
@@ -198,6 +200,9 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
     }),
     vscode.commands.registerCommand(IMPORT_WORKBOOK_COMMAND_ID, (target?: vscode.Uri) =>
       importFromWorkbook(WORKBOOK_FILE_GLOB, target instanceof vscode.Uri ? target : undefined),
+    ),
+    vscode.commands.registerCommand(REVIEW_CANDIDATES_COMMAND_ID, (target?: vscode.Uri) =>
+      reviewCandidates(target instanceof vscode.Uri ? target : undefined),
     ),
     ...registerTableCatalog(),
     vscode.commands.registerCommand(CLEAR_SEARCH_INDEX_COMMAND_ID, () => {
@@ -487,9 +492,12 @@ async function loadWorkspaceWorkbooksForContentMatch(
   workspaceRoot: string,
   token?: vscode.CancellationToken,
 ): Promise<WorkbookSheetsSource[]> {
-  const uris = (await vscode.workspace.findFiles(WORKBOOK_FILE_GLOB, '**/{node_modules,dist}/**'))
-    .filter((uri) => uri.fsPath.startsWith(workspaceRoot))
-    .slice(0, MAX_CONTENT_MATCH_WORKSPACE_FILES);
+  const uris = prioritizeWorkbookFiles(
+    markdownFilePath,
+    (await vscode.workspace.findFiles(WORKBOOK_FILE_GLOB, '**/{node_modules,dist}/**')).filter((uri) =>
+      uri.fsPath.startsWith(workspaceRoot),
+    ),
+  ).slice(0, MAX_CONTENT_MATCH_WORKSPACE_FILES);
 
   const workbooks: WorkbookSheetsSource[] = [];
   for (const uri of uris) {
@@ -569,9 +577,16 @@ interface ContentMatchPickItem extends vscode.QuickPickItem {
 function describeMatchContext(match: WorkbookContentMatch): string {
   const context = match.context;
   if (!context) return '';
-  const join = (values?: readonly string[]) => values?.map((value) => value || '（空）').join(' | ');
+  const clean = (value: string): string => value.replace(/\s+/gu, ' ').trim() || '（空）';
+  const join = (values?: readonly string[]) => values?.map(clean).join(' | ');
+  const preview = context.previewRows
+    ?.slice(0, 2)
+    .map((row) => join(row))
+    .filter((row): row is string => Boolean(row))
+    .join(' ／ ');
   return [
     context.headers ? `見出し: ${join(context.headers)}` : '',
+    preview ? `範囲内: ${preview}` : '',
     context.rowAbove ? `直前の行: ${join(context.rowAbove)}` : '',
     context.rowBelow ? `直後の行: ${join(context.rowBelow)}` : '',
   ]
