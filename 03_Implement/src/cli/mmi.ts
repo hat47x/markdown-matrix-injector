@@ -40,6 +40,7 @@ import { buildDeliveryManifestCsv } from '../manifest/collectDeliveryManifest.js
 import { detectRegions } from '../search/regionDetector.js';
 import { runFind, runSelect } from './navigateCommands.js';
 import { extractImages, formatImageDiagnostics } from './extract.js';
+import { detachCheck } from './detach.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './render.js';
 
 const USAGE = `Usage: mmi <command> [options]
@@ -76,6 +77,11 @@ Commands:
                             (exit code 1 when any error is found)
   render <doc.md>           Expand references into Markdown tables (default) or HTML
       --to md|html
+      --materialize <dir>     (with -o) write attachment cards as CSV files in <dir> with a
+                              provenance manifest, and link them; the document then needs no source
+  detach-check [path...]    Report what would break if the source workbooks were removed (unexpanded
+                            references, unlinked attachments, broken or outside links, missing assets);
+                            checks Markdown under --root (default: current directory). Exit 1 on findings
   manifest <doc.md>         List references that fall back to 別紙 cards as CSV
   handoff <source>          Build a local-only evidence package/prompt for a user-chosen external LLM
       --task <text>           work to ask for (required)
@@ -111,6 +117,7 @@ export async function main(argv: string[]): Promise<number> {
       unimported: { type: 'boolean', default: false },
       'exclude-imported': { type: 'boolean', default: false },
       table: { type: 'string' },
+      materialize: { type: 'string' },
       sheet: { type: 'string' },
       columns: { type: 'string' },
       contains: { type: 'string' },
@@ -192,7 +199,12 @@ export async function main(argv: string[]): Promise<number> {
     case 'render': {
       if (args.length !== 1) return usageError('render takes one Markdown file');
       if (values.to !== 'md' && values.to !== 'html') return usageError('--to must be md or html');
-      const options = { markdownFilePath: path.resolve(args[0]), workspaceRoot: root };
+      if (values.materialize && (values.to !== 'md' || !values.out)) return usageError('--materialize needs --to md and -o (links are relative to the output file)');
+      const options = {
+        markdownFilePath: path.resolve(args[0]),
+        workspaceRoot: root,
+        ...(values.materialize ? { materialize: { dir: path.resolve(values.materialize), linkBase: path.dirname(path.resolve(values.out as string)) } } : {}),
+      };
       try {
         emit(values.to === 'html' ? renderDocumentHtml(options) : renderDocumentMarkdown(options));
       } catch (error) {
@@ -201,6 +213,14 @@ export async function main(argv: string[]): Promise<number> {
         return 1;
       }
       return 0;
+    }
+    case 'detach-check': {
+      const targets = args.length > 0 ? args : [root];
+      const findings = detachCheck(root, targets.flatMap(collectMarkdownFiles));
+      emit(values.json
+        ? JSON.stringify({ findings: findings.length, details: findings }, null, 2)
+        : findings.map((f) => `${f.file}:${f.line} ${f.code} ${f.message}`).concat(findings.length === 0 ? 'detachable: no dependency on the source workbooks found' : `${findings.length} finding(s)`).join('\n'));
+      return findings.length > 0 ? 1 : 0;
     }
     case 'manifest': {
       if (args.length !== 1) return usageError('manifest takes one Markdown file');

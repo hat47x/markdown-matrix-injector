@@ -14,11 +14,19 @@ import { getImmediateSmartFallbackDecision, getSmartFallbackDecisionAfterLoad } 
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
 import { extractEmbedQueries, type EmbedQuery } from '../parser/embedSyntax.js';
 import { markdownMatrixPlugin } from '../plugin/markdownMatrixPlugin.js';
+import { readSourceFileIdentity } from '../core/sourceIdentity.js';
+import { recordMaterialized, toCsv, writeMaterializedTable, type MaterializedEntry } from './materialize.js';
 
 export interface RenderOptions {
   markdownFilePath: string;
   workspaceRoot: string;
   cache?: WorkbookCache<WorkbookData>;
+  /**
+   * Turn attachment cards into CSV files in `dir` (issue-0196) instead of a bare
+   * "別紙:" line. `linkBase` is the folder the output document will live in; links
+   * are written relative to it. Without this option the output is unchanged.
+   */
+  materialize?: { dir: string; linkBase: string };
 }
 
 export class RenderError extends Error {}
@@ -49,8 +57,14 @@ export function renderDocumentHtml(options: RenderOptions): string {
 }
 
 export function renderDocumentMarkdown(options: RenderOptions): string {
+  return renderDocumentMarkdownDetailed(options).markdown;
+}
+
+export function renderDocumentMarkdownDetailed(options: RenderOptions): { markdown: string; materialized: MaterializedEntry[] } {
   const cache = options.cache ?? new WorkbookCache<WorkbookData>();
   const errors: string[] = [];
+  const materialized: MaterializedEntry[] = [];
+  const created: string[] = [];
   let inFence = false;
   const lines = fs.readFileSync(options.markdownFilePath, 'utf8').split(/\r?\n/);
   const out = lines.map((line, index) => {
@@ -59,18 +73,22 @@ export function renderDocumentMarkdown(options: RenderOptions): string {
     let result = line;
     for (const embed of extractEmbedQueries(line)) {
       try {
-        result = result.replace(embed.raw, () => `\n\n${expandEmbed(embed, options, cache)}\n\n`);
+        result = result.replace(embed.raw, () => `\n\n${expandEmbed(embed, options, cache, materialized, created)}\n\n`);
       } catch (error) {
         errors.push(`${index + 1}: ${embed.raw}: ${error instanceof Error ? error.message : String(error)}`);
       }
     }
     return result;
   });
-  if (errors.length > 0) throw new RenderError(`MMI reference errors must be resolved before export. Run \`mmi check\`.\n${errors.join('\n')}`);
-  return out.join('\n').replace(/\n{3,}/g, '\n\n');
+  if (errors.length > 0) {
+    for (const file of created) fs.rmSync(file, { force: true }); // a failed run leaves no orphan tables behind
+    throw new RenderError(`MMI reference errors must be resolved before export. Run \`mmi check\`.\n${errors.join('\n')}`);
+  }
+  if (options.materialize && materialized.length > 0) recordMaterialized(options.materialize.dir, materialized);
+  return { markdown: out.join('\n').replace(/\n{3,}/g, '\n\n'), materialized };
 }
 
-function expandEmbed(embed: EmbedQuery, options: RenderOptions, cache: WorkbookCache<WorkbookData>): string {
+function expandEmbed(embed: EmbedQuery, options: RenderOptions, cache: WorkbookCache<WorkbookData>, materialized: MaterializedEntry[], created: string[]): string {
   const absolutePath = resolveSourcePath({
     markdownFilePath: options.markdownFilePath,
     sourcePath: embed.filepath,
@@ -86,6 +104,23 @@ function expandEmbed(embed: EmbedQuery, options: RenderOptions, cache: WorkbookC
   }
   if (decision.renderMode === 'card' || !workbook) {
     const location = [embed.target, embed.range].filter(Boolean).join('!');
+    if (options.materialize) {
+      workbook ??= loadWorkbook({ absolutePath, cache });
+      const table = buildLogicalTable(embed, workbook);
+      const entry = writeMaterializedTable(options.materialize.dir, {
+        source: embed.filepath,
+        sourceSha256: readSourceFileIdentity(absolutePath).digest,
+        sheet: embed.target ?? Object.keys(workbook.sheets)[0],
+        range: embed.range ?? '',
+        params: embed.params.toString(),
+        rows: table.bodyRows.length,
+        columns: table.bodyRows.reduce((width, row) => Math.max(width, row.length), table.headers?.length ?? 0),
+        document: path.relative(options.workspaceRoot, options.markdownFilePath).split(path.sep).join('/'),
+      }, toCsv(table), embed.params.get('id') || path.basename(embed.filepath), (file) => created.push(file));
+      materialized.push(entry);
+      const link = path.relative(options.materialize.linkBase, path.join(options.materialize.dir, entry.output)).split(path.sep).join('/');
+      return `${captionLine}> 別紙: [${entry.output}](${encodeURI(link).replace(/\(/g, '%28').replace(/\)/g, '%29')})（出典: ${embed.filepath}${location ? ` ${location}` : ''}）`;
+    }
     return `${captionLine}> 別紙: ${embed.filepath}${location ? ` (${location})` : ''}`;
   }
   return captionLine + toGfmTable(buildLogicalTable(embed, workbook));

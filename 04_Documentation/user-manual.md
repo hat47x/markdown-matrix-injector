@@ -192,7 +192,8 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 | `mmi inspect <正本>` | シートごとの表の範囲・見出し・行数と、そのまま使える参照の例を表示。既定ではセル値を出さない（`--values 3`で先頭3行を表示）。`.xlsx`では画像も一覧に出す。取り込み台帳がある場合は `imported / changed / stale / duplicate / unimported` を照合し、`--unimported`で一度も取り込んでいないoccurrenceだけ、`--exclude-imported`で完全一致の取込済み以外を表示できる。台帳は`--ledger`で指定可能。研究用のpairwise similarity sidecarは`--similarity-evidence <file>`で併記できるが、取込済み判定には使わない |
 | `mmi extract <ブック.xlsx> --image <番号\|all>` | Excelに貼られた画像を`assets/`（`--out-dir`で変更）へ書き出し、Markdownの画像参照と出典を出力する。CLIでは同時に`<root>/mmi-ledger.json`へoccurrence・content fingerprint・出力先・変換条件・review basisを記録する（`--ledger`で変更）。同じ画像が別の場所にもある場合は別occurrenceとして残し、review stateを自動継承しない |
 | `mmi check <文書またはフォルダー>` | 参照の誤りを「問題」パネルと同じ診断コードで表示。誤りがあれば終了コード1 |
-| `mmi render <文書>` | 参照を展開したMarkdownを出力。`--to html`でPDF変換用のHTML |
+| `mmi render <文書>` | 参照を展開したMarkdownを出力。`--to html`でPDF変換用のHTML。`-o`と`--materialize <dir>`を併用すると、別紙カードになる大きな表を`<dir>`のCSVへ実体化して本文からリンクし、出典（原本・シート・範囲・原本と出力のダイジェスト）を`<dir>/materialized.json`に残す。何も指定しなければ従来どおり「別紙: パス」の1行 |
+| `mmi detach-check [パス...]` | 展開後の文書が、原本を外しても成立するかを調べる。未展開の参照、実体化されていない別紙、壊れたリンク、フォルダー外（原本側）へのリンク、台帳の資産や実体化した表の欠落・改変を、ファイル:行つきで表示する。指摘があれば終了コード1。本文の説明が表と合っているかは調べない |
 | `mmi manifest <文書>` | 別紙カードになる参照の一覧をCSVで出力 |
 | `mmi handoff <正本> --task <依頼>` | Candidate・provenance・任意の文書診断から、外部LLMへ手渡すpromptをローカル生成する。`--json`で機械可読package、`--document`で文書診断を追加。既定ではClaim値を省略し、必要な場合だけ`--include-values`で明示的に含める。MMI自身は外部LLMへ送信しない |
 | `mmi validate-proposal <MMI記法> --package <handoff.json> --document <文書>` | 外部LLMから戻ったMMI記法1件を、handoff時source・parser・parameter schema・workspace境界・sheet・read-only preview・source digestで再検証する。全検証通過時のみ終了コード0。結果を自動適用しない |
@@ -204,6 +205,15 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 **取り込み台帳について。** 台帳は通常のJSONで、MMIを外しても読めます。セル位置や画像のanchorなどのoccurrence identityと、画像bytesや表内容のcontent fingerprintは分けて記録します。同じ画像bytesが別の場所にあっても、その場所を「取込済み」にはしません（`duplicate`）。同じ場所の内容が変わった場合は`changed`として再確認対象にします。内容fingerprintが同じでも、review時に根拠にしたClaim・evidence・methodが変わった場合は`stale`として示し、変わったClaim名を確認できます。別の場所へ移動した可能性があるCandidateは、同一content、同一sheet、object名、source-native object、近傍表などをlineage evidenceとして候補表示しますが、自動的に同一物とはみなしません。研究層の類似判定は完全一致・lineage evidenceとは別の証拠として扱います。`--json`ではCandidate自身が持つprovider別・scale別の値を`researchScores`として確認できます。別のoccurrenceとの比較結果は`--similarity-evidence <file>`で読み込んだsidecarから`similarityEvidence`として表示し、比較対象・provider/version・metric semanticsも一緒に保持します。異なるprovider/scale/namespaceの値を平均したり、scoreが高いという理由だけで`imported`・`duplicate`へ変更したり、`--unimported`から自動除外したりしません。
 
 **画像について。** Excelに画面ダンプなどを貼って設計を整理する書き方は、そのまま続けられます。`extract`は画像を取り出して参照できる形にするだけで、Excel側の画像は変わりません。Excelで画像を差し替えたり動かしたりしても、次に`inspect`を実行すれば現在の位置と内容が分かります。取り出せるのはPNG・JPEG・GIF・BMP・SVGです。EMF・WMF・TIFF、外部ファイルへのリンク、壊れた図形は、取り出さずに理由を表示します。`.xls`（旧形式）の画像は読めません。
+
+**原本を外して納品物にする手順。** 原本の廃止を決めた範囲について、次の順に行います。原本を残したまま使い続ける範囲には必要ありません。
+
+```bash
+mmi render docs/設計書.md --root . -o dist/設計書.md --materialize dist/attachments
+mmi detach-check dist --root dist
+```
+
+`detach-check`の`--root`には、渡す予定のフォルダー（ここでは`dist`）を指定します。`dist`だけを別の場所へコピーし、同じ`detach-check`が指摘0件であれば、原本とMMIが無くても読める状態です。本文の中で原本ファイルへ張ったリンクは、原本を外すと壊れるものとして指摘されます。
 
 現在はNode.js 20以上と、リポジトリの`03_Implement`での`npm ci`が必要です。実行例です。
 

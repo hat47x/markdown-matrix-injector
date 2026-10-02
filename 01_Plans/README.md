@@ -31,7 +31,7 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 | **3 Source Adapterの一般化** | [Tree / Hierarchy、JSON/XML、フラットテキスト](issues/issue-0199-tree-structured-source-adapters.md) | Draft | issue-0193の共通契約後に、明示構造→推定構造の順で縦切り |
 | 3 | Shape、Choice list | 未起票 | issue-0193・0199でNode/Candidate表現を固めてから起票 |
 | 3（研究） | structured artifact（SAI）、worksheet format、[review route](issues/issue-0190-review-route-evaluation-pipeline-regression.md) | In Progress | 新しい研究段階は、issue-0193の対応表のどの行を強くするかを示してから始める |
-| **4 Detachability** | [実体化とdetach check](issues/issue-0196-materialize-detach-check.md) | Draft | 別紙カードの実体化は依存なしで着手できる |
+| **4 Detachability** | [実体化とdetach check](issues/issue-0196-materialize-detach-check.md) | In Progress | 別紙カードの実体化と`detach-check`は実装・実サンプルで検証済み（2026-10-02）。残: 画像を含む通しの確認、本文の古さの扱い |
 | 4 | 参照台帳と影響分析 | 未起票 | issue-0195の台帳と合わせて設計 |
 | **5 組織導入** | 文書キットの追加、CI関門、執筆ベンチマーク v1（大きな表・複数シート・本文と表の矛盾） | 未起票 | 優先度2の縦切りの後 |
 | 5 | [外部の判断記録からの根拠の固定（SEI）](issues/issue-0192-sei-decision-basis-table-binding.md) | Draft | CLIの契約が固まった後 |

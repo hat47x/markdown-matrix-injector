@@ -125,5 +125,6 @@ mmi validate-proposal '![[../masters/設計.xlsx#画面一覧|A1:F13?header=firs
 
 - PDF: `mmi render 文書.md --to html -o 文書.html`の後、HTMLをPDFへ変換する（確認済みの経路はWeasyPrint）。
 - 別紙の一覧: `mmi manifest 文書.md -o 文書.delivery-manifest.csv`
+- 原本を外して渡す場合（人が原本の廃止を決めた範囲だけ）: `mmi render 文書.md --root . -o dist/文書.md --materialize dist/attachments` の後、`mmi detach-check dist --root dist` が指摘0件になることを確かめる。原本を残す運用で勝手に実体化しない。
 
 仕様の正本は[MMI Notation v1](https://github.com/hat47x/markdown-matrix-injector/blob/main/04_Documentation/spec/mmi-notation-v1.md)。
