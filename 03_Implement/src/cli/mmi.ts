@@ -480,21 +480,32 @@ function formatAiHandoffProposalValidation(
 }
 
 function handoffPathWithinRoot(target: string, root: string): boolean {
-  const resolvedRoot = path.resolve(root);
-  const resolvedTarget = path.resolve(target);
-  let checkedRoot = resolvedRoot;
-  let checkedTarget = resolvedTarget;
-  try {
-    checkedRoot = fs.realpathSync(resolvedRoot);
-  } catch {
-    // Missing roots fail later through normal source/document loading.
+  return isPathWithinBoundary(
+    canonicalPathForContainment(target),
+    canonicalPathForContainment(root),
+  );
+}
+
+/**
+ * Canonicalize the nearest existing ancestor, then append any not-yet-created
+ * suffix. This prevents a path such as <root>/link/new.md from escaping when
+ * <root>/link is an existing symlink or junction to a directory outside root.
+ */
+function canonicalPathForContainment(target: string): string {
+  const absolute = path.resolve(target);
+  let existing = absolute;
+  const suffix: string[] = [];
+  while (!fs.existsSync(existing)) {
+    const parent = path.dirname(existing);
+    if (parent === existing) return absolute;
+    suffix.unshift(path.basename(existing));
+    existing = parent;
   }
   try {
-    checkedTarget = fs.realpathSync(resolvedTarget);
+    return path.join(fs.realpathSync(existing), ...suffix);
   } catch {
-    // Missing targets fail later through normal source/document loading.
+    return absolute;
   }
-  return isPathWithinBoundary(checkedTarget, checkedRoot);
 }
 
 export interface InspectRegion {
