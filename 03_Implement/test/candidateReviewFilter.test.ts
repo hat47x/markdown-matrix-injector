@@ -138,12 +138,12 @@ test('duplicate facet selections do not duplicate filter values', () => {
     candidateReviewFacetFilter([
       { axis: 'kind', value: 'image' },
       { axis: 'kind', value: 'image' },
-      { axis: 'status', value: 'abstained' },
-      { axis: 'status', value: 'abstained' },
+      { axis: 'status', value: 'observed' },
+      { axis: 'status', value: 'observed' },
     ]),
     {
       kinds: ['image'],
-      statuses: ['abstained'],
+      statuses: ['observed'],
       executions: [],
     },
   );
