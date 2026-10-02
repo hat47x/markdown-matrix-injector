@@ -310,3 +310,49 @@ test('transactional workbook import aborts and rolls back when the source change
   assert.equal(fs.existsSync(imageOutDir), false);
   assert.equal(digest(sourcePath), `sha256:${createHash('sha256').update(changedBytes).digest('hex')}`);
 });
+
+
+test('workbook import rejects overlapping output roles before mutation', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-path-role-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+
+  const cases = [
+    {
+      draftPath: path.join(root, 'same.json'),
+      ledgerPath: path.join(root, 'same.json'),
+      imageOutDir: path.join(root, 'assets'),
+    },
+    {
+      draftPath: path.join(root, 'docs', 'draft.md'),
+      ledgerPath: sourcePath,
+      imageOutDir: path.join(root, 'assets'),
+    },
+    {
+      draftPath: path.join(root, 'out', 'draft.md'),
+      ledgerPath: path.join(root, 'ledger.json'),
+      imageOutDir: path.join(root, 'out'),
+    },
+    {
+      draftPath: path.join(root, 'draft.md'),
+      ledgerPath: path.join(root, 'out', 'ledger.json'),
+      imageOutDir: path.join(root, 'out'),
+    },
+    {
+      draftPath: path.join(root, 'draft.md'),
+      ledgerPath: path.join(root, 'ledger.json'),
+      imageOutDir: root,
+    },
+  ];
+
+  for (const options of cases) {
+    assert.throws(
+      () => writeWorkbookImportDraft({ sourcePath, ...options }),
+      /MMI_IMPORT_OUTPUT_CONFLICT/u,
+    );
+  }
+
+  assert.equal(digest(sourcePath), digest(sourcePath));
+  assert.equal(fs.existsSync(path.join(root, 'same.json')), false);
+  assert.equal(fs.existsSync(path.join(root, 'ledger.json')), false);
+});
