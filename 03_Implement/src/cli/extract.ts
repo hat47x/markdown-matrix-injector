@@ -59,7 +59,7 @@ export interface ExtractResult {
   extracted: ExtractedImage[];
   problems: ExtractProblem[];
   /** Raw package diagnostics from the same image parse used for extraction. */
-  diagnostics: ImageDiagnostic[];
+  diagnostics?: ImageDiagnostic[];
 }
 
 export interface ExtractTableOptions {
