@@ -219,6 +219,15 @@ test('serialized handoff package rejects Authority-contract tampering', () => {
     () => parseAiHandoffPackage(JSON.stringify(tampered)),
     /Authority return contract is invalid/u,
   );
+
+  const expandedAuthority = {
+    ...f.handoff,
+    allowedOperations: [...f.handoff.allowedOperations, 'execute-command'],
+  };
+  assert.throws(
+    () => parseAiHandoffPackage(JSON.stringify(expandedAuthority)),
+    /operation boundaries were changed/u,
+  );
 });
 
 test('CLI validate-proposal returns 0 only for a locally revalidated proposal', async () => {
