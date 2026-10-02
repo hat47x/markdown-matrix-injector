@@ -5,10 +5,15 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { extractImages } from '../src/cli/extract.js';
+import {
+  discardUnrecordedImageExtraction,
+  extractImages,
+  finalizeReviewedImageExtraction,
+} from '../src/cli/extract.js';
 import { sliceRegion } from '../src/core/tableGeometry.js';
 import { loadWorkbook } from '../src/core/workbookLoader.js';
 import { inspectSource, main } from '../src/cli/mmi.js';
+import { readLedger } from '../src/core/importLedger.js';
 import { buildXlsxWithImages, emfOf, pngOf, screenDesignWorkbook } from './helpers/buildXlsxWithImages.js';
 
 function workspace(): { root: string; book: string; doc: string; bytes: Buffer; media: Record<string, Buffer> } {
@@ -74,6 +79,154 @@ test('extract writes each distinct picture once, named by digest; references are
   // A re-run changes nothing.
   const again = extractImages({ sourcePath: book, selection: 'all', outDir, fromDocument: doc });
   assert.deepEqual(again.extracted.map((item) => item.status), ['unchanged', 'unchanged', 'unchanged', 'unchanged']);
+});
+
+test('human-reviewed image alt text is recorded without changing image bytes or Candidate origin', () => {
+  const { root, book, doc } = workspace();
+  fs.mkdirSync(path.dirname(doc), { recursive: true });
+  const outDir = path.join(root, 'docs', 'assets');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const sourceBefore = fileDigest(book);
+  const reviewed = inspectSource(book, 0, doc).candidates.find(
+    (candidate) =>
+      candidate.kind === 'image'
+      && candidate.locator.sheet === '画面一覧'
+      && candidate.locator.range === 'D1:F4',
+  );
+  assert.ok(reviewed);
+
+  const draft = extractImages({
+    sourcePath: book,
+    selection: '1',
+    outDir,
+    fromDocument: doc,
+  });
+  assert.deepEqual(draft.problems, []);
+  assert.equal(draft.extracted.length, 1);
+  const imageBefore = fileDigest(draft.extracted[0].file);
+
+  const finalized = finalizeReviewedImageExtraction({
+    sourcePath: book,
+    ledgerPath,
+    extracted: draft.extracted[0],
+    candidate: reviewed,
+    altText: 'ログイン画面（レビュー修正）',
+    fromDocument: doc,
+    basis: 'test reviewed image alt text',
+  });
+
+  assert.deepEqual(finalized.problems, []);
+  assert.ok(finalized.extracted);
+  assert.equal(finalized.extracted.reviewState, 'modified');
+  assert.equal(
+    finalized.extracted.altText,
+    'ログイン画面（レビュー修正）',
+  );
+  assert.match(
+    finalized.extracted.markdown,
+    /^!\[ログイン画面（レビュー修正）\]\(/u,
+  );
+  assert.equal(fileDigest(finalized.extracted.file), imageBefore);
+  assert.equal(fileDigest(book), sourceBefore);
+
+  const ledger = readLedger(ledgerPath);
+  assert.equal(ledger.entries.length, 1);
+  assert.equal(ledger.entries[0].reviewState, 'modified');
+  assert.equal(
+    ledger.entries[0].conversion.reviewMode,
+    'modified-reference-v1',
+  );
+  assert.equal(
+    ledger.entries[0].conversion.altText,
+    'ログイン画面（レビュー修正）',
+  );
+  assert.equal(ledger.entries[0].outputDigest, imageBefore);
+});
+
+test('unchanged image alt text remains accepted and stale review context fails closed', () => {
+  const { root, book, doc } = workspace();
+  fs.mkdirSync(path.dirname(doc), { recursive: true });
+  const outDir = path.join(root, 'docs', 'assets');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const reviewed = inspectSource(book, 0, doc).candidates.find(
+    (candidate) =>
+      candidate.kind === 'image'
+      && candidate.locator.sheet === '画面一覧'
+      && candidate.locator.range === 'D1:F4',
+  );
+  assert.ok(reviewed);
+
+  const draft = extractImages({
+    sourcePath: book,
+    selection: '1',
+    outDir,
+    fromDocument: doc,
+  });
+  assert.deepEqual(draft.problems, []);
+  const accepted = finalizeReviewedImageExtraction({
+    sourcePath: book,
+    ledgerPath,
+    extracted: draft.extracted[0],
+    candidate: reviewed,
+    altText: draft.extracted[0].altText,
+    fromDocument: doc,
+  });
+  assert.ok(accepted.extracted);
+  assert.equal(accepted.extracted.reviewState, 'accepted');
+  assert.equal(readLedger(ledgerPath).entries[0].reviewState, 'accepted');
+
+  const staleDraft = extractImages({
+    sourcePath: book,
+    selection: '1',
+    outDir: path.join(root, 'stale-assets'),
+    fromDocument: doc,
+  });
+  assert.equal(staleDraft.extracted.length, 1);
+  fs.writeFileSync(
+    book,
+    screenDesignWorkbook({ loginName: 'ログイン画面（改名）' }).bytes,
+  );
+  const stale = finalizeReviewedImageExtraction({
+    sourcePath: book,
+    ledgerPath,
+    extracted: staleDraft.extracted[0],
+    candidate: reviewed,
+    altText: '人手説明',
+    fromDocument: doc,
+  });
+  assert.equal(stale.extracted, undefined);
+  assert.equal(stale.problems[0].code, 'MMI_IMAGE_REVIEW_STALE');
+});
+
+test('unrecorded image review draft is removed only when this review created it', () => {
+  const { root, book, doc } = workspace();
+  const created = extractImages({
+    sourcePath: book,
+    selection: '1',
+    outDir: path.join(root, 'review-assets'),
+    fromDocument: doc,
+  }).extracted[0];
+  assert.equal(created.status, 'written');
+  assert.equal(discardUnrecordedImageExtraction(created), true);
+  assert.equal(fs.existsSync(created.file), false);
+
+  const existingDir = path.join(root, 'existing-assets');
+  const first = extractImages({
+    sourcePath: book,
+    selection: '1',
+    outDir: existingDir,
+    fromDocument: doc,
+  }).extracted[0];
+  const existing = extractImages({
+    sourcePath: book,
+    selection: '1',
+    outDir: existingDir,
+    fromDocument: doc,
+  }).extracted[0];
+  assert.equal(first.status, 'written');
+  assert.equal(existing.status, 'unchanged');
+  assert.equal(discardUnrecordedImageExtraction(existing), false);
+  assert.equal(fs.existsSync(existing.file), true);
 });
 
 test('extract: one picture by number; unknown numbers, non-xlsx sources and name collisions are refused with a code', () => {
