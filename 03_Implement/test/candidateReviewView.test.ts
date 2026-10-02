@@ -5,13 +5,13 @@ import os from 'node:os';
 import path from 'node:path';
 
 import {
-  emptyReviewDecisions,
   recordRejectedDecision,
 } from '../src/core/candidateReviewDecisions.js';
 import { candidateReviewView } from '../src/core/candidateReviewView.js';
 import {
   emptyLedger,
   entryFor,
+  readLedger,
   recordEntries,
 } from '../src/core/importLedger.js';
 import {
@@ -158,14 +158,10 @@ test('imported Candidate is governed by the import ledger, not an old rejection'
     'old rejection',
   );
 
+  const ledger = readLedger(f.ledgerPath);
   const all = candidateReviewView(
     [reviewed],
-    {
-      schema: 'mmi.ledger/v1',
-      entries: JSON.parse(
-        fs.readFileSync(f.ledgerPath, 'utf8'),
-      ).entries,
-    },
+    ledger,
     decisions,
     f.ledgerPath,
     f.decisionPath,
@@ -179,7 +175,7 @@ test('imported Candidate is governed by the import ledger, not an old rejection'
   assert.deepEqual(
     candidateReviewView(
       [reviewed],
-      JSON.parse(fs.readFileSync(f.ledgerPath, 'utf8')),
+      ledger,
       decisions,
       f.ledgerPath,
       f.decisionPath,
