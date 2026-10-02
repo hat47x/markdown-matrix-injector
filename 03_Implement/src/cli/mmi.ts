@@ -25,6 +25,7 @@ import {
   type LedgerState,
   type LineageCandidate,
 } from '../core/importLedger.js';
+import { isPathWithinBoundary } from '../core/pathResolver.js';
 import { readSourceFileIdentity } from '../core/sourceIdentity.js';
 import { sliceRegion } from '../core/tableGeometry.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
@@ -208,6 +209,12 @@ export async function main(argv: string[]): Promise<number> {
       if (!values.task?.trim()) return usageError('handoff needs --task <text>');
       const absoluteSource = path.resolve(args[0]);
       const documentPath = values.document ? path.resolve(values.document) : undefined;
+      if (!handoffPathWithinRoot(absoluteSource, root)) {
+        return usageError('handoff source must stay within --root workspace');
+      }
+      if (documentPath && !handoffPathWithinRoot(documentPath, root)) {
+        return usageError('handoff --document must stay within --root workspace');
+      }
       const inspected = inspectSource(absoluteSource, 0, documentPath);
       const diagnostics = documentPath
         ? await checkPaths([documentPath], root)
@@ -231,6 +238,24 @@ export async function main(argv: string[]): Promise<number> {
 function usageError(message: string): number {
   console.error(`mmi: ${message}\n\n${USAGE}`);
   return 2;
+}
+
+function handoffPathWithinRoot(target: string, root: string): boolean {
+  const resolvedRoot = path.resolve(root);
+  const resolvedTarget = path.resolve(target);
+  let checkedRoot = resolvedRoot;
+  let checkedTarget = resolvedTarget;
+  try {
+    checkedRoot = fs.realpathSync(resolvedRoot);
+  } catch {
+    // Missing roots fail later through normal source/document loading.
+  }
+  try {
+    checkedTarget = fs.realpathSync(resolvedTarget);
+  } catch {
+    // Missing targets fail later through normal source/document loading.
+  }
+  return isPathWithinBoundary(checkedTarget, checkedRoot);
 }
 
 export interface InspectRegion {
