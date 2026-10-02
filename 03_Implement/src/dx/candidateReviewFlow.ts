@@ -12,7 +12,7 @@ import {
   type CandidateReviewFacetSelection,
 } from '../application/candidateReviewFilter.js';
 import { extractImages, extractTable } from '../cli/extract.js';
-import type { Candidate } from '../core/candidate.js';
+import type { Candidate, ReviewState } from '../core/candidate.js';
 import type { CandidateLedgerFilter } from '../core/candidateLedgerView.js';
 import {
   clearReviewDecisionForCandidate,
@@ -20,10 +20,7 @@ import {
   readReviewDecisions,
   recordRejectedDecision,
 } from '../core/candidateReviewDecisions.js';
-import {
-  candidateReviewView,
-  type CandidateReviewState,
-} from '../core/candidateReviewView.js';
+import { candidateReviewView } from '../core/candidateReviewView.js';
 import { placeOf, readLedger } from '../core/importLedger.js';
 
 export const REVIEW_CANDIDATES_COMMAND_ID =
@@ -72,8 +69,6 @@ function facetLabel(facet: CandidateReviewFacetSelection): string {
         return '由来: observed（原本に明示）';
       case 'inferred':
         return '由来: inferred（推定）';
-      case 'confirmed':
-        return '由来: confirmed（旧互換の採用表現）';
       case 'abstained':
         return '由来: abstained（主張せず）';
     }
@@ -90,7 +85,7 @@ function facetDescription(
     case 'kind':
       return 'Candidate type';
     case 'status':
-      return 'origin / epistemic state（confirmedはv1互換）';
+      return 'origin / epistemic state';
     case 'execution':
       return 'execution characteristic';
   }
@@ -149,7 +144,9 @@ function stateLabel(state: string): string {
   }
 }
 
-function reviewStateLabel(state: CandidateReviewState): string {
+function reviewStateLabel(
+  state: Extract<ReviewState, 'unreviewed' | 'accepted' | 'rejected'>,
+): string {
   switch (state) {
     case 'accepted':
       return 'accepted（採用済み）';
@@ -191,7 +188,10 @@ function epistemicDetail(candidate: Candidate): string {
 function quickPickItem(
   source: CandidateReviewInventoryItem,
   ledgerState: string,
-  reviewState: CandidateReviewState,
+  reviewState: Extract<
+    ReviewState,
+    'unreviewed' | 'accepted' | 'rejected'
+  >,
   rejected: boolean,
   researchScores: readonly {
     provider: string;
