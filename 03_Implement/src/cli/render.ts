@@ -8,6 +8,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import MarkdownIt from 'markdown-it';
 import { WorkbookCache } from '../cache/workbookCache.js';
+import { escapeMarkdownTableCell, logicalTableToGfm } from '../core/gfmTable.js';
 import { resolveSourcePath } from '../core/pathResolver.js';
 import { buildLogicalTable } from '../core/renderTable.js';
 import { getImmediateSmartFallbackDecision, getSmartFallbackDecisionAfterLoad } from '../core/smartFallback.js';
@@ -77,7 +78,7 @@ function expandEmbed(embed: EmbedQuery, options: RenderOptions, cache: WorkbookC
     workspaceRoot: options.workspaceRoot,
   });
   const caption = embed.params.get('caption')?.trim();
-  const captionLine = caption ? `**${escapeCell(caption)}**\n\n` : '';
+  const captionLine = caption ? `**${escapeMarkdownTableCell(caption)}**\n\n` : '';
   let decision = getImmediateSmartFallbackDecision(embed);
   let workbook: WorkbookData | undefined;
   if (decision.renderMode !== 'card') {
@@ -91,17 +92,6 @@ function expandEmbed(embed: EmbedQuery, options: RenderOptions, cache: WorkbookC
   return captionLine + logicalTableToGfm(buildLogicalTable(embed, workbook));
 }
 
-export function logicalTableToGfm(table: { headers?: string[]; bodyRows: string[][] }): string {
-  const width = Math.max(table.headers?.length ?? 0, ...table.bodyRows.map((row) => row.length), 1);
-  const pad = (row: string[]) => Array.from({ length: width }, (_, index) => escapeCell(row[index] ?? ''));
-  const header = table.headers ? pad(table.headers) : Array.from({ length: width }, () => '');
-  const rows = [header, Array.from({ length: width }, () => '---'), ...table.bodyRows.map(pad)];
-  return rows.map((row) => `| ${row.join(' | ')} |`).join('\n');
-}
-
-function escapeCell(value: string): string {
-  return value.replace(/\\/g, '\\\\').replace(/\|/g, '\\|').replace(/\r?\n/g, '<br>');
-}
 
 export function defaultWorkspaceRoot(markdownFilePath: string): string {
   return path.dirname(path.resolve(markdownFilePath));
