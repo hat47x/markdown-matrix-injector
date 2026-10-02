@@ -1,12 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
+import { main } from '../src/cli/mmi.js';
 import { fingerprintOf, type Candidate } from '../src/core/candidate.js';
 import {
   AI_HANDOFF_SCHEMA,
   createAiHandoffPackage,
   renderAiHandoffPrompt,
 } from '../src/dx/aiHandoff.js';
+import { screenDesignWorkbook } from './helpers/buildXlsxWithImages.js';
 
 function candidate(): Candidate {
   const sourceDigest = fingerprintOf('source-bytes-v1', 'source').digest;
@@ -173,4 +178,99 @@ test('source list is deduplicated by locator source and source digest', () => {
   });
   assert.equal(pkg.sources.length, 1);
   assert.equal(pkg.sources[0].source, './data/design.xlsx');
+});
+
+
+async function captureMain(argv: string[]): Promise<{ code: number; output: string }> {
+  const written: string[] = [];
+  const out = process.stdout.write.bind(process.stdout);
+  const err = console.error;
+  process.stdout.write = ((chunk: string) => (written.push(String(chunk)), true)) as typeof process.stdout.write;
+  console.error = () => undefined;
+  try {
+    return { code: await main(argv), output: written.join('') };
+  } finally {
+    process.stdout.write = out;
+    console.error = err;
+  }
+}
+
+test('CLI handoff emits a local evidence package with diagnostics and keeps values opt-in', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-ai-handoff-'));
+  const data = path.join(root, 'data');
+  const docs = path.join(root, 'docs');
+  fs.mkdirSync(data);
+  fs.mkdirSync(docs);
+  const source = path.join(data, 'design.xlsx');
+  const document = path.join(docs, 'spec.md');
+  fs.writeFileSync(source, screenDesignWorkbook().bytes);
+  fs.writeFileSync(
+    document,
+    '# Spec\n\n![[../data/design.xlsx#存在しないシート|A1:B3]]\n',
+  );
+
+  const safe = await captureMain([
+    'handoff',
+    source,
+    '--task',
+    'この設計書で使うMMI参照案を提案する',
+    '--document',
+    document,
+    '--root',
+    root,
+    '--json',
+  ]);
+  assert.equal(safe.code, 0);
+  const pkg = JSON.parse(safe.output);
+  assert.equal(pkg.schema, AI_HANDOFF_SCHEMA);
+  assert.equal(pkg.privacy.sourceValues, 'omitted');
+  assert.equal(
+    pkg.unresolvedIssues.some((item: any) =>
+      item.kind === 'diagnostic' && item.code === 'MMI_SHEET_NOT_FOUND'),
+    true,
+  );
+  assert.equal(safe.output.includes('ログイン画面のダンプ'), false);
+  assert.equal(safe.output.includes('"画面ID"'), false);
+  assert.equal(safe.output.includes('"ログイン"'), false);
+
+  const prompt = await captureMain([
+    'handoff',
+    source,
+    '--task',
+    'この設計書で使うMMI参照案を提案する',
+    '--document',
+    document,
+    '--root',
+    root,
+  ]);
+  assert.equal(prompt.code, 0);
+  assert.match(prompt.output, /MMI自身は外部サービスへ送信していません/u);
+  assert.match(prompt.output, /MMI_SHEET_NOT_FOUND/u);
+  assert.doesNotMatch(prompt.output, /ログイン画面のダンプ/u);
+
+  const withValues = await captureMain([
+    'handoff',
+    source,
+    '--task',
+    '候補の値も含めて説明する',
+    '--root',
+    root,
+    '--json',
+    '--include-values',
+  ]);
+  assert.equal(withValues.code, 0);
+  assert.equal(JSON.parse(withValues.output).privacy.sourceValues, 'included-explicitly');
+  assert.equal(
+    withValues.output.includes('ログイン画面のダンプ')
+      || withValues.output.includes('画面ID')
+      || withValues.output.includes('ログイン'),
+    true,
+  );
+});
+
+test('CLI handoff requires an explicit task', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-ai-handoff-'));
+  const source = path.join(root, 'design.xlsx');
+  fs.writeFileSync(source, screenDesignWorkbook().bytes);
+  assert.equal((await captureMain(['handoff', source])).code, 2);
 });
