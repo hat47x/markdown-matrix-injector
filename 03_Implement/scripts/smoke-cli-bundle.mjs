@@ -43,6 +43,12 @@ expect('detach-check passes on the materialized copy', result.status === 0, resu
 result = run(['materialize', '基本設計書.md', '-o', 'dist/基本設計書.md', '--root', '.']);
 result = run(['detach-check', 'dist/基本設計書.md', '--root', '.']);
 expect('detach-check flags the kit prose that links to the workbook', result.status !== 0 && /BROKEN_LINK/.test(result.stdout), result.stdout + result.stderr);
+fs.writeFileSync(path.join(work, 'kit/outline.md'), '- 要件\n  - 認証\n  - 権限\n- 設計\n');
+result = run(['tree', 'outline.md', '--root', '.']);
+expect('tree prints the nested list', result.status === 0 && /- 要件/.test(result.stdout), result.stdout + result.stderr);
+result = run(['snapshot', 'masters/基本設計.xlsx', '--sheet', '権限', '-o', 'perm.svg', '--root', '.']);
+const svg = fs.existsSync(path.join(work, 'kit/perm.svg')) ? fs.readFileSync(path.join(work, 'kit/perm.svg'), 'utf8') : '';
+expect('snapshot writes an SVG', result.status === 0 && svg.startsWith('<svg') && svg.includes('OP-06'), result.stdout + result.stderr);
 result = run(['check', '基本設計書.md', '--root', '/nonexistent-root-for-smoke']);
 expect('a wrong --root is reported, not ignored', result.status !== 0, result.stdout + result.stderr);
 

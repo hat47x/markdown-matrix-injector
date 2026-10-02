@@ -21,14 +21,14 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 | **2 モダナイズの最小縦切り** | [Excel画像の候補化と取り込み](issues/issue-0194-excel-image-candidates.md) | **Done**（`inspect`の画像一覧、`mmi extract`、実Excel検証、issue-0195による変更検知） | 次: VS Code上の採否UI（issue-0202）、他Candidate種別への展開 |
 | 2 | [取り込み台帳と未取込の表示](issues/issue-0195-import-ledger.md) | **Done**（`mmi.ledger/v1`、未取込/変更/stale、lineage、研究similarity Evidence） | 次: issue-0200のbaseline converter、issue-0202のレビューUIが同じ台帳契約を利用 |
 | 2 | [初回一括変換とCandidate基盤の接続](issues/issue-0200-baseline-bulk-import.md) | **In Progress**（MarkItDown評価・handoffは整備、実変換の導入判断は未確定） | Candidate・ledgerとの接続条件を保ったまま、デスクトップ実行結果でconverter採否を判断 |
-| 2 | [シート・範囲の画像化](issues/issue-0198-sheet-region-snapshot.md) | Draft | CIで動く描画方式（MMI自身の描画、LibreOffice）の比較。COMは手元の補助 |
+| 2 | [シート・範囲の画像化](issues/issue-0198-sheet-region-snapshot.md) | In Progress | SVG（CIでバイト一致）の書き出しを実装・検証済み（`mmi snapshot`）。残: PNG化、Excel実物との目視比較、Candidate・台帳との接続 |
 | 2 | [人の作業を止めないCandidateレビューUI](issues/issue-0202-candidate-review-ui.md) | **In Progress**（表・画像、import state＋type/status/execution facet、採用/却下/却下解除/保留を同じレビュー経路へ接続） | 修正して採用、Windows実機E2E、利用者観測 |
 | 2 | [既存設計書の取り込み候補](issues/issue-0205-import-assistance-prototype.md)（方眼紙の表の参照提案・役割候補・下書き） | In Progress（試作、架空データで評価済み） | 残: VS Code宿主での確認、実在の設計書での観測 |
 | 2 | [Excelを開かずに表・列・行を選ぶ入口](issues/issue-0206-table-navigation-and-agent-interface.md)（名前・テーブル・非表示、見出しによる選択） | In Progress（試作） | 残: 目視確認、[ADR-0022](adr/ADR-0022-semantic-selection-in-notation.md)の採否、CLIのselect/findをissue-0193のCandidate契約へ統合 |
 | 2（既存） | [Excel範囲貼り付け](issues/issue-0114-excel-range-paste.md) | Open | Paste As宿主dispatchの自動E2Eを追加済み（実行確認待ち）。残: Windows実ExcelのHTML/helper/視覚picker実機証拠。表Candidateを`confirmed`にする経路として扱う |
 | 2（既存） | [CPUでの範囲探索](issues/issue-0115-cpu-range-search.md) | In Progress | 言い換え対応。Candidateの検索として扱う |
 | 2（既存） | [文脈に応じた補完](issues/issue-0110-contextual-input-completion.md)、[参照の作成・編集](issues/issue-0111-reference-authoring-flow.md) | In Progress | 多環境の実機確認、利用者の観測 |
-| **3 Source Adapterの一般化** | [Tree / Hierarchy、JSON/XML、フラットテキスト](issues/issue-0199-tree-structured-source-adapters.md) | Draft | issue-0193の共通契約後に、明示構造→推定構造の順で縦切り |
+| **3 Source Adapterの一般化** | [Tree / Hierarchy、JSON/XML、フラットテキスト](issues/issue-0199-tree-structured-source-adapters.md) | In Progress | JSON・汎用XML・テキスト（indent/番号/接頭辞）のTree Candidateと`mmi tree`を実装・検証済み。残: YAML、Excel/CSVの親列のCLI接続、台帳との接続 |
 | 3 | Shape、Choice list | 未起票 | issue-0193・0199でNode/Candidate表現を固めてから起票 |
 | 3（研究） | structured artifact（SAI）、worksheet format、[review route](issues/issue-0190-review-route-evaluation-pipeline-regression.md) | In Progress | 新しい研究段階は、issue-0193の対応表のどの行を強くするかを示してから始める |
 | **4 Detachability** | [実体化とdetach check](issues/issue-0196-materialize-detach-check.md) | **In Progress**（表・別紙・ローカル画像のmaterialize、採用済みExtracted Candidateのfreshness preflight、artifact closureを実装） | build/unitと実務E2Eを確認し、Tree/Shape等がExtracted可能になったら同じprovenance/freshness契約へ拡張 |
