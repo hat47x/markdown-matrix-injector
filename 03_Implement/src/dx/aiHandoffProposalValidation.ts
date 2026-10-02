@@ -3,6 +3,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { evaluateEmbed } from '../core/evaluateEmbed.js';
+import { resolveSourcePath } from '../core/pathResolver.js';
 import { readSourceFileIdentity } from '../core/sourceIdentity.js';
 import { loadWorkbook } from '../core/workbookLoader.js';
 import { createDiagnosticsForDocument } from './vscodeAdapters.js';
@@ -61,8 +62,8 @@ const CHECK_ORDER: readonly AiHandoffProposalCheckName[] = [
   'parameter-schema',
   'source-allowlist',
   'diagnostics',
-  'preview',
   'source-identity',
+  'preview',
 ];
 
 export async function validateAiHandoffNotationProposal(
@@ -146,35 +147,21 @@ export async function validateAiHandoffNotationProposal(
   }
   pass(checks, 'diagnostics', 'PROPOSAL_DIAGNOSTICS_CLEAR');
 
-  const outcome = evaluateEmbed(query, {
-    markdownFilePath: input.markdownFilePath,
-    workspaceRoot: input.workspaceRoot,
-  });
-  if (outcome.kind === 'error') {
-    fail(
-      checks,
-      'preview',
-      'PROPOSAL_PREVIEW_BLOCKED',
-      outcome.message,
-    );
-    return finish(input.rawNotation, checks);
-  }
-  pass(
-    checks,
-    'preview',
-    outcome.kind === 'table'
-      ? 'READ_ONLY_TABLE_PREVIEW_ACCEPTED'
-      : 'READ_ONLY_CARD_PREVIEW_ACCEPTED',
-  );
-
+  let resolvedPath: string;
+  let digestBefore: string;
   try {
-    const digest = readSourceFileIdentity(outcome.absolutePath).digest;
-    if (digest !== source.sourceDigest) {
+    resolvedPath = resolveSourcePath({
+      markdownFilePath: input.markdownFilePath,
+      sourcePath: query.filepath,
+      workspaceRoot: input.workspaceRoot,
+    });
+    digestBefore = readSourceFileIdentity(resolvedPath).digest;
+    if (digestBefore !== source.sourceDigest) {
       fail(
         checks,
         'source-identity',
         'PROPOSAL_SOURCE_DIGEST_MISMATCH',
-        `Current source digest ${digest} does not match handoff digest ${source.sourceDigest}.`,
+        `Current source digest ${digestBefore} does not match handoff digest ${source.sourceDigest}.`,
       );
       return finish(input.rawNotation, checks);
     }
@@ -188,6 +175,49 @@ export async function validateAiHandoffNotationProposal(
     return finish(input.rawNotation, checks);
   }
   pass(checks, 'source-identity', 'PROPOSAL_SOURCE_DIGEST_MATCHED');
+
+  const outcome = evaluateEmbed(query, {
+    markdownFilePath: input.markdownFilePath,
+    workspaceRoot: input.workspaceRoot,
+  });
+  if (outcome.kind === 'error') {
+    fail(
+      checks,
+      'preview',
+      'PROPOSAL_PREVIEW_BLOCKED',
+      outcome.message,
+    );
+    return finish(input.rawNotation, checks);
+  }
+
+  try {
+    const digestAfter = readSourceFileIdentity(resolvedPath).digest;
+    if (digestAfter !== digestBefore) {
+      fail(
+        checks,
+        'source-identity',
+        'PROPOSAL_SOURCE_CHANGED_DURING_PREVIEW',
+        `Source digest changed during preview: ${digestBefore} -> ${digestAfter}.`,
+      );
+      return finish(input.rawNotation, checks);
+    }
+  } catch (error) {
+    fail(
+      checks,
+      'source-identity',
+      'PROPOSAL_SOURCE_DIGEST_POST_PREVIEW_UNAVAILABLE',
+      error instanceof Error ? error.message : String(error),
+    );
+    return finish(input.rawNotation, checks);
+  }
+
+  pass(
+    checks,
+    'preview',
+    outcome.kind === 'table'
+      ? 'READ_ONLY_TABLE_PREVIEW_ACCEPTED'
+      : 'READ_ONLY_CARD_PREVIEW_ACCEPTED',
+  );
 
   return finish(input.rawNotation, checks);
 }
