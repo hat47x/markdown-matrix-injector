@@ -55,10 +55,10 @@ export function candidateReviewView(
   );
 
   return ledgerView.flatMap((item) => {
-    const adoptedByLedger =
-      item.ledgerState === 'imported'
-      || item.ledgerState === 'stale';
-    const rejected = adoptedByLedger
+    const imported = item.ledgerState === 'imported';
+    const adoptedHistory =
+      imported || item.ledgerState === 'stale';
+    const rejected = imported
       ? undefined
       : rejectedDecisionForCandidate(
           decisions,
@@ -66,7 +66,7 @@ export function candidateReviewView(
           absoluteSource,
           item.candidate,
         );
-    const deferred = adoptedByLedger || rejected
+    const deferred = imported || rejected
       ? undefined
       : deferredDecisionForCandidate(
           decisions,
@@ -80,7 +80,7 @@ export function candidateReviewView(
         ? 'rejected'
         : deferred
           ? 'deferred'
-          : adoptedByLedger
+          : adoptedHistory
             ? item.ledgerReviewState ?? 'accepted'
             : 'unreviewed';
     return [{
