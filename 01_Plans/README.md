@@ -4,7 +4,7 @@
 
 **製品方針:** [ADR-0019](adr/ADR-0019-ai-era-sier-document-value-and-policy.md)（2026-10-01採択・同日改訂）により、MMIは**人が慣れた道具で書き続けたまま、その内容をAIと機械が扱える形へ緩やかに移し、最終的には元文書やMMIからも安全に切り離せる基盤**である。MMIは、Excel方眼紙をレガシーとみなす見方と既存のスタイルの両方を否定せず、両者の橋になる。Excelで書き続ける人はそのままAIと協業でき、Markdownへ移りたい人は資産を失わずに移れる。図形やレイアウトに意味があるシート・範囲は、そのまま画像として取り込んでよい（D0）。Linked（参照）・Extracted（取り込み）・Detached（切り離し）は情報単位ごとに選ぶ状態で、順に進む段階ではない。人の作業を止めないことを移行の速さより優先する（D13）。表参照・Read-only・決定論的なAuthority Planeは中核の保証として継続し、軽量認知は表・画像・図形・ツリー等の候補（Semantic Candidate）を見つける非権威的な支援とする。
 
-**実装の到達点:** Linkedは表で実装済み。ExtractedはExcel埋込画像の最小縦切りがCLIで成立し、`inspect`で画像Candidateを列挙し、`extract`でassetsへ取り込み、`mmi-ledger.json`でoccurrence/content/review basis・変更・lineage・研究類似Evidenceを追跡できる。表・図形・Tree等のExtracted一般化とDetachedは未実装。VS Code拡張（プレビュー、補完、貼り付け、説明からの検索、案内付きの作成、診断）と、CLI（`inspect`・`extract`・`check`・`render`・`manifest`）、AI向け指示パック（`skills/mmi`）、基本設計書キット、執筆ベンチマーク v0がある。記法仕様はDraft、配布物は公開準備中の検証版。差分の詳細は[ギャップ分析](product-gap-analysis.md)を参照する。
+**実装の到達点:** Linkedは表で実装済み。ExtractedはExcel埋込画像で成立し、`inspect`で画像Candidateを列挙し、`extract`でassetsへ取り込み、`mmi-ledger.json`でoccurrence/content/review basis・変更・lineage・研究類似Evidenceを追跡できる。既存ブックの取り込みでは、VS CodeとCLI `mmi import`が同じ処理を使い、表をLinked参照、.xlsx/.xlsmの埋込画像をExtracted assetとして1回で下書き化する。Detachedも`materialize`と`detach-check`の最小縦切りがある。図形・Tree等のExtracted一般化、レビューUI、実在設計書での観測、Detachedの完全性監査は未完。VS Code拡張（プレビュー、補完、貼り付け、説明からの検索、案内付きの作成、診断）とCLI、AI向け指示パック（`skills/mmi`）、基本設計書キット、執筆ベンチマーク v0がある。記法仕様はDraft、配布物は公開準備中の検証版。差分の詳細は[ギャップ分析](product-gap-analysis.md)を参照する。
 
 ## 優先度と作業
 
@@ -20,10 +20,10 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 | 1〜3（横断） | [認知model/profile資産の配布](issues/issue-0204-cognitive-artifact-distribution.md) | Draft | Coreと大型artifactを分離し、既存local runtime/cacheと外部model置き場を交換可能にする |
 | **2 モダナイズの最小縦切り** | [Excel画像の候補化と取り込み](issues/issue-0194-excel-image-candidates.md) | **Done**（`inspect`の画像一覧、`mmi extract`、実Excel検証、issue-0195による変更検知） | 次: VS Code上の採否UI（issue-0202）、他Candidate種別への展開 |
 | 2 | [取り込み台帳と未取込の表示](issues/issue-0195-import-ledger.md) | **Done**（`mmi.ledger/v1`、未取込/変更/stale、lineage、研究similarity Evidence） | 次: issue-0200のbaseline converter、issue-0202のレビューUIが同じ台帳契約を利用 |
-| 2 | [初回一括変換とCandidate基盤の接続](issues/issue-0200-baseline-bulk-import.md) | Draft | issue-0193・0195の契約を使い、MarkItDown等をbaseline converterとして比較 |
+| 2 | [初回一括変換とCandidate基盤の接続](issues/issue-0200-baseline-bulk-import.md) | **In Progress**（表Linked＋画像Extractedの組み込み一括取り込みをVS Code/CLIへ接続） | 実在設計書で観測し、MarkItDown等の外部Converterは比較候補として評価 |
 | 2 | [シート・範囲の画像化](issues/issue-0198-sheet-region-snapshot.md) | Draft | CIで動く描画方式（MMI自身の描画、LibreOffice）の比較。COMは手元の補助 |
 | 2 | [人の作業を止めないCandidateレビューUI](issues/issue-0202-candidate-review-ui.md) | Draft | issue-0194のCLI動作確認は済み。同じCoreのextract経路へ接続できる |
-| 2 | [既存設計書の取り込み候補](issues/issue-0205-import-assistance-prototype.md)（方眼紙の表の参照提案・役割候補・下書き） | In Progress（試作、架空データで評価済み） | 残: VS Code宿主での確認、実在の設計書での観測 |
+| 2 | [既存設計書の取り込み候補](issues/issue-0205-import-assistance-prototype.md)（方眼紙の表の参照提案・役割候補・下書き） | **In Progress**（VS Code/CLIへ接続、架空データで評価済み） | 残: 画面操作の目視確認、実在設計書で候補の採用・修正・却下を観測 |
 | 2 | [Excelを開かずに表・列・行を選ぶ入口](issues/issue-0206-table-navigation-and-agent-interface.md)（名前・テーブル・非表示、見出しによる選択） | In Progress（試作） | 残: 目視確認、[ADR-0022](adr/ADR-0022-semantic-selection-in-notation.md)の採否、CLIのselect/findをissue-0193のCandidate契約へ統合 |
 | 2（既存） | [Excel範囲貼り付け](issues/issue-0114-excel-range-paste.md) | Open | Paste As宿主dispatchの自動E2Eを追加済み（実行確認待ち）。残: Windows実ExcelのHTML/helper/視覚picker実機証拠。表Candidateを`confirmed`にする経路として扱う |
 | 2（既存） | [CPUでの範囲探索](issues/issue-0115-cpu-range-search.md) | In Progress | 言い換え対応。Candidateの検索として扱う |
@@ -31,7 +31,7 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 | **3 Source Adapterの一般化** | [Tree / Hierarchy、JSON/XML、フラットテキスト](issues/issue-0199-tree-structured-source-adapters.md) | Draft | issue-0193の共通契約後に、明示構造→推定構造の順で縦切り |
 | 3 | Shape、Choice list | 未起票 | issue-0193・0199でNode/Candidate表現を固めてから起票 |
 | 3（研究） | structured artifact（SAI）、worksheet format、[review route](issues/issue-0190-review-route-evaluation-pipeline-regression.md) | In Progress | 新しい研究段階は、issue-0193の対応表のどの行を強くするかを示してから始める |
-| **4 Detachability** | [実体化とdetach check](issues/issue-0196-materialize-detach-check.md) | Draft | 別紙カードの実体化は依存なしで着手できる |
+| **4 Detachability** | [実体化とdetach check](issues/issue-0196-materialize-detach-check.md) | **In Progress**（表・別紙のmaterialize、artifact closure checkを実装） | build/unit/E2E確認後、ledgerの採用関係から原本内画像・非表Candidateの不足監査へ拡張 |
 | 4 | 参照台帳と影響分析 | 未起票 | issue-0195の台帳と合わせて設計 |
 | **5 組織導入** | 文書キットの追加、CI関門、執筆ベンチマーク v1（大きな表・複数シート・本文と表の矛盾） | 未起票 | 優先度2の縦切りの後 |
 | 5 | [外部の判断記録からの根拠の固定（SEI）](issues/issue-0192-sei-decision-basis-table-binding.md) | Draft | CLIの契約が固まった後 |
