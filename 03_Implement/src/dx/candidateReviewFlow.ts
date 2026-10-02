@@ -23,6 +23,7 @@ import {
   clearReviewDecisionForCandidate,
   DEFAULT_REVIEW_DECISIONS_FILE,
   readReviewDecisions,
+  recordDeferredDecision,
   recordRejectedDecision,
 } from '../core/candidateReviewDecisions.js';
 import { candidateReviewView } from '../core/candidateReviewView.js';
@@ -152,7 +153,7 @@ function stateLabel(state: string): string {
 function reviewStateLabel(
   state: Extract<
     ReviewState,
-    'unreviewed' | 'accepted' | 'modified' | 'rejected'
+    'unreviewed' | 'accepted' | 'modified' | 'rejected' | 'deferred'
   >,
 ): string {
   switch (state) {
@@ -162,6 +163,8 @@ function reviewStateLabel(
       return 'modified（修正採用）';
     case 'rejected':
       return 'rejected（却下済み）';
+    case 'deferred':
+      return 'deferred（保留中）';
     case 'unreviewed':
       return 'unreviewed（未採用）';
   }
@@ -200,9 +203,10 @@ function quickPickItem(
   ledgerState: string,
   reviewState: Extract<
     ReviewState,
-    'unreviewed' | 'accepted' | 'modified' | 'rejected'
+    'unreviewed' | 'accepted' | 'modified' | 'rejected' | 'deferred'
   >,
   rejected: boolean,
+  deferred: boolean,
   researchScores: readonly {
     provider: string;
     scale: string;
@@ -234,6 +238,8 @@ function quickPickItem(
       ].join(' · '),
       source,
       rejected,
+      deferred,
+      reviewState,
       ledgerState,
     };
   }
@@ -249,6 +255,8 @@ function quickPickItem(
     ].join(' · '),
     source,
     rejected,
+    deferred,
+    reviewState,
     ledgerState,
   };
 }
@@ -374,6 +382,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
               item.ledgerState,
               item.reviewState,
               item.rejected,
+              item.deferred,
               item.researchScores,
             ),
           ]
@@ -417,54 +426,74 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
       ...(picked.ledgerState === 'imported'
         ? []
         : [
-            picked.rejected
-              ? {
+            ...(picked.rejected
+              ? [{
                   label: '却下を解除',
-                  value: 'unreject' as const,
+                  value: 'clear-decision' as const,
                   description: 'このCandidateを再び通常レビューへ戻す',
-                }
-              : {
-                  label: '却下',
-                  value: 'reject' as const,
-                  description:
-                    '同じ内容・根拠のCandidateは変更されるまで表示しない',
-                },
+                }]
+              : picked.deferred
+                ? [{
+                    label: '保留を解除',
+                    value: 'clear-decision' as const,
+                    description: 'このCandidateを再び通常レビューへ戻す',
+                  }]
+                : [
+                    {
+                      label: '却下',
+                      value: 'reject' as const,
+                      description:
+                        '同じ内容・根拠のCandidateは変更されるまで表示しない',
+                    },
+                    {
+                      label: '保留',
+                      value: 'defer' as const,
+                      description:
+                        '同じ内容・根拠のCandidateを通常レビューから一時的に外す',
+                    },
+                  ]),
           ]),
-      {
-        label: '保留',
-        value: 'defer' as const,
-        description: '何も変更せずレビューを閉じる',
-      },
     ],
     {
       title: 'MMI: Candidateの扱い',
       placeHolder: '原本は変更しません',
     },
   );
-  if (!action || action.value === 'defer') return;
+  if (!action) return;
 
-  if (action.value === 'reject') {
+  if (action.value === 'reject' || action.value === 'defer') {
     try {
-      recordRejectedDecision(
-        reviewDecisionsPath,
-        sourcePath,
-        picked.source.candidate,
-        'MMI Candidate review UI',
-      );
+      if (action.value === 'reject') {
+        recordRejectedDecision(
+          reviewDecisionsPath,
+          sourcePath,
+          picked.source.candidate,
+          'MMI Candidate review UI',
+        );
+      } else {
+        recordDeferredDecision(
+          reviewDecisionsPath,
+          sourcePath,
+          picked.source.candidate,
+          'MMI Candidate review UI',
+        );
+      }
     } catch (error) {
       await vscode.window.showErrorMessage(
-        'MMI: 却下状態を保存できません: '
+        `MMI: ${action.value === 'reject' ? '却下' : '保留'}状態を保存できません: `
           + (error instanceof Error ? error.message : String(error)),
       );
       return;
     }
     await vscode.window.showInformationMessage(
-      'MMI: Candidateを却下しました。内容または判断根拠が変われば再表示されます。',
+      action.value === 'reject'
+        ? 'MMI: Candidateを却下しました。内容または判断根拠が変われば再表示されます。'
+        : 'MMI: Candidateを保留しました。通常レビューから外れますが、すべて表示から解除できます。',
     );
     return;
   }
 
-  if (action.value === 'unreject') {
+  if (action.value === 'clear-decision') {
     try {
       clearReviewDecisionForCandidate(
         reviewDecisionsPath,
@@ -473,13 +502,13 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
       );
     } catch (error) {
       await vscode.window.showErrorMessage(
-        'MMI: 却下状態を解除できません: '
+        'MMI: レビュー状態を解除できません: '
           + (error instanceof Error ? error.message : String(error)),
       );
       return;
     }
     await vscode.window.showInformationMessage(
-      'MMI: Candidateの却下を解除しました。',
+      'MMI: Candidateのレビュー状態を解除しました。',
     );
     return;
   }
@@ -613,7 +642,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     );
   } catch (error) {
     await vscode.window.showWarningMessage(
-      'MMI: 取り込みは完了しましたが、旧い却下状態を消去できません: '
+      'MMI: 取り込みは完了しましたが、旧いレビュー状態を消去できません: '
         + (error instanceof Error ? error.message : String(error)),
     );
   }

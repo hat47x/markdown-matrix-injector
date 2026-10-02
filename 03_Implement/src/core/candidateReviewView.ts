@@ -6,6 +6,7 @@ import {
   type CandidateSimilarityEvidenceSource,
 } from './candidateLedgerView.js';
 import {
+  deferredDecisionForCandidate,
   rejectedDecisionForCandidate,
   type CandidateReviewDecisions,
 } from './candidateReviewDecisions.js';
@@ -15,9 +16,10 @@ export interface CandidateReviewViewItem
   extends CandidateLedgerViewItem {
   reviewState: Extract<
     ReviewState,
-    'unreviewed' | 'accepted' | 'modified' | 'rejected'
+    'unreviewed' | 'accepted' | 'modified' | 'rejected' | 'deferred'
   >;
   rejected: boolean;
+  deferred: boolean;
 }
 
 /**
@@ -53,7 +55,10 @@ export function candidateReviewView(
   );
 
   return ledgerView.flatMap((item) => {
-    const rejected = item.ledgerState === 'imported'
+    const imported = item.ledgerState === 'imported';
+    const adoptedHistory =
+      imported || item.ledgerState === 'stale';
+    const rejected = imported
       ? undefined
       : rejectedDecisionForCandidate(
           decisions,
@@ -61,14 +66,28 @@ export function candidateReviewView(
           absoluteSource,
           item.candidate,
         );
-    if (rejected && filter !== 'all') return [];
+    const deferred = imported || rejected
+      ? undefined
+      : deferredDecisionForCandidate(
+          decisions,
+          decisionPath,
+          absoluteSource,
+          item.candidate,
+        );
+    if ((rejected || deferred) && filter !== 'all') return [];
     const reviewState: CandidateReviewViewItem['reviewState'] =
       rejected
         ? 'rejected'
-        : item.ledgerState === 'imported'
-          || item.ledgerState === 'stale'
-          ? item.ledgerReviewState ?? 'accepted'
-          : 'unreviewed';
-    return [{ ...item, reviewState, rejected: Boolean(rejected) }];
+        : deferred
+          ? 'deferred'
+          : adoptedHistory
+            ? item.ledgerReviewState ?? 'accepted'
+            : 'unreviewed';
+    return [{
+      ...item,
+      reviewState,
+      rejected: Boolean(rejected),
+      deferred: Boolean(deferred),
+    }];
   });
 }
