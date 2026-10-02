@@ -32,6 +32,8 @@ export interface ExtractOptions {
   sourceLabel?: string;
   /** When set, each extracted picture is recorded in this import ledger (issue-0195). */
   ledgerPath?: string;
+  /** Operation recorded as the review/import basis. */
+  basis?: string;
 }
 
 export interface ExtractedImage {
@@ -48,6 +50,7 @@ export interface ExtractedImage {
 
 export interface ExtractProblem {
   ordinal?: number;
+  sheet?: string;
   code: string;
   message: string;
 }
@@ -122,7 +125,11 @@ export function extractImages(options: ExtractOptions): ExtractResult {
   }
   const read = readExcelImages(packageBytes);
   for (const diagnostic of read.diagnostics.filter((d) => d.severity === 'error')) {
-    result.problems.push({ code: diagnostic.code, message: diagnostic.message });
+    result.problems.push({
+      code: diagnostic.code,
+      message: diagnostic.message,
+      ...(diagnostic.sheet ? { sheet: diagnostic.sheet } : {}),
+    });
   }
   if (result.problems.length > 0) return result;
 
@@ -137,7 +144,10 @@ export function extractImages(options: ExtractOptions): ExtractResult {
     }
     chosen = [found];
   }
-  if (chosen.length === 0) result.problems.push({ code: 'MMI_IMAGE_NONE', message: 'the workbook contains no images' });
+  if (chosen.length === 0) {
+    result.problems.push({ code: 'MMI_IMAGE_NONE', message: 'the workbook contains no images' });
+    return result;
+  }
 
   const documentDirectory = path.dirname(path.resolve(options.fromDocument ?? path.join(process.cwd(), 'x.md')));
   const source = options.sourceLabel ?? (path.relative(documentDirectory, options.sourcePath).split(path.sep).join('/') || path.basename(options.sourcePath));
@@ -147,25 +157,25 @@ export function extractImages(options: ExtractOptions): ExtractResult {
 
   for (const image of chosen) {
     if (!image.extractable) {
-      result.problems.push({ ordinal: image.ordinal, code: 'MMI_IMAGE_UNSUPPORTED_FORMAT', message: `image ${image.ordinal} (${image.name ?? image.sheet}) is ${image.format}; Markdown cannot show it, so it was not extracted` });
+      result.problems.push({ ordinal: image.ordinal, sheet: image.sheet, code: 'MMI_IMAGE_UNSUPPORTED_FORMAT', message: `image ${image.ordinal} (${image.name ?? image.sheet}) is ${image.format}; Markdown cannot show it, so it was not extracted` });
       continue;
     }
     let data: Buffer;
     try {
       data = readImageBytes(packageBytes, image);
     } catch (error) {
-      result.problems.push({ ordinal: image.ordinal, code: 'MMI_IMAGE_MEDIA_MISSING', message: error instanceof Error ? error.message : String(error) });
+      result.problems.push({ ordinal: image.ordinal, sheet: image.sheet, code: 'MMI_IMAGE_MEDIA_MISSING', message: error instanceof Error ? error.message : String(error) });
       continue;
     }
     const file = path.join(outDirectory, `${image.digest.slice(7, 19)}.${EXTENSION[image.format]}`);
     if (file === sourceReal) {
-      result.problems.push({ ordinal: image.ordinal, code: 'MMI_EXTRACT_TARGET_IS_SOURCE', message: 'refusing to write over the source workbook' });
+      result.problems.push({ ordinal: image.ordinal, sheet: image.sheet, code: 'MMI_EXTRACT_TARGET_IS_SOURCE', message: 'refusing to write over the source workbook' });
       continue;
     }
     let status: ExtractedImage['status'] = 'written';
     if (fs.existsSync(file)) {
       if (sha256(fs.readFileSync(file)) !== image.digest) {
-        result.problems.push({ ordinal: image.ordinal, code: 'MMI_EXTRACT_NAME_COLLISION', message: `${file} exists with different content; it was not overwritten` });
+        result.problems.push({ ordinal: image.ordinal, sheet: image.sheet, code: 'MMI_EXTRACT_NAME_COLLISION', message: `${file} exists with different content; it was not overwritten` });
         continue;
       }
       status = 'unchanged';
@@ -196,7 +206,7 @@ export function extractImages(options: ExtractOptions): ExtractResult {
         options.sourcePath,
         candidate,
         item.file,
-        'mmi extract',
+        options.basis ?? 'mmi extract',
         { mode: 'raw-image-bytes-v1', format: image.format },
       ));
     }

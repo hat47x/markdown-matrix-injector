@@ -12,6 +12,25 @@ import { describeDifferenceJa, summarizeLayouts, type LayoutSummary, type SheetC
 import { cellRangeToA1 } from '../core/tableGeometry.js';
 import type { DefinedName, WorkbookStructure } from './workbookStructure.js';
 
+export interface ImportDraftAsset {
+  ordinal: number;
+  sheet: string;
+  /** Ordinary Markdown image/reference text already carrying provenance. */
+  markdown: string;
+}
+
+export interface ImportDraftProblem {
+  code: string;
+  message: string;
+  sheet?: string;
+  ordinal?: number;
+}
+
+export interface WorkbookImportOptions extends Omit<ImportAnalysisOptions, 'referencePath' | 'workbook'> {
+  assets?: readonly ImportDraftAsset[];
+  assetProblems?: readonly ImportDraftProblem[];
+}
+
 export interface WorkbookImport {
   /** Display name, usually the file name. */
   book: string;
@@ -19,20 +38,30 @@ export interface WorkbookImport {
   referencePath: string;
   sheets: SheetCandidates[];
   structure?: WorkbookStructure;
+  assets: ImportDraftAsset[];
+  assetProblems: ImportDraftProblem[];
 }
 
 export function analyzeWorkbookForImport(
   book: string,
   referencePath: string,
   workbook: WorkbookData,
-  options: Omit<ImportAnalysisOptions, 'referencePath' | 'workbook'> = {},
+  options: WorkbookImportOptions = {},
 ): WorkbookImport {
+  const { assets = [], assetProblems = [], ...analysisOptions } = options;
   const sheets = Object.entries(workbook.sheets).map(([sheet, source]) => ({
     book,
     sheet,
-    candidates: analyzeSheetForImport(sheet, source, { ...options, referencePath, workbook }),
+    candidates: analyzeSheetForImport(sheet, source, { ...analysisOptions, referencePath, workbook }),
   }));
-  return { book, referencePath, sheets, ...(options.structure ? { structure: options.structure } : {}) };
+  return {
+    book,
+    referencePath,
+    sheets,
+    ...(analysisOptions.structure ? { structure: analysisOptions.structure } : {}),
+    assets: [...assets],
+    assetProblems: [...assetProblems],
+  };
 }
 
 const NAME_KIND_JA: Record<DefinedName['kind'], string> = {
@@ -78,12 +107,28 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
     '',
   );
   lines.push(`- 表の候補: ${tables.length}件（注意あり: ${withCautions.length}件）`);
+  if (workbookImport.assets.length > 0) {
+    lines.push(`- 抽出した画像: ${workbookImport.assets.length}件（元のシート位置と出典を保持）`);
+  }
+  if (workbookImport.assetProblems.length > 0) {
+    lines.push(`- 画像の注意: ${workbookImport.assetProblems.length}件`);
+  }
   const counts = countBy(others.map((candidate) => ROLE_JA[candidate.role]));
   if (counts.length > 0) lines.push(`- 表ではない領域: ${counts.map(([role, count]) => `${role} ${count}件`).join('、')}`);
   lines.push('');
 
   const layoutLines = renderLayout(layout);
   if (layoutLines.length > 0) lines.push('## 書式のまとまり', '', ...layoutLines, '');
+
+  if (workbookImport.assetProblems.length > 0) {
+    lines.push('## 画像の注意', '', '> 抽出できなかった画像は黙って捨てず、ここに残します。原本を開いて必要性を確認してください。', '');
+    for (const problem of workbookImport.assetProblems) {
+      const where = problem.sheet ? ` [${escapeText(problem.sheet)}]` : '';
+      const ordinal = problem.ordinal ? ` #${problem.ordinal}` : '';
+      lines.push(`- ${escapeText(problem.code)}${ordinal}${where}: ${escapeText(problem.message)}`);
+    }
+    lines.push('');
+  }
 
   const names = workbookImport.structure?.names ?? [];
   if (names.length > 0) {
@@ -100,11 +145,18 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
     const visibility = workbookImport.structure?.sheets.find((entry) => entry.name === sheet.sheet)?.visibility;
     const hiddenNote = visibility === 'veryHidden' ? '（Excelの画面からは表示できないシート）' : visibility === 'hidden' ? '（非表示のシート）' : '';
     lines.push('---', '', `## ${escapeText(sheet.sheet)}${hiddenNote}`, '');
-    if (sheet.candidates.length === 0) {
+    const assets = workbookImport.assets.filter((asset) => asset.sheet === sheet.sheet);
+    if (sheet.candidates.length === 0 && assets.length === 0) {
       lines.push('> 内容がありません。', '');
       continue;
     }
     for (const candidate of sheet.candidates) lines.push(...renderCandidate(candidate));
+
+    if (assets.length > 0) {
+      lines.push('### 抽出した画像', '');
+      lines.push('> 画像は通常のMarkdownファイルとして取り込み済みです。必要な位置へ移動し、不要ならこの参照を削除してください。原本の画像自体は変更していません。', '');
+      for (const asset of assets) lines.push(asset.markdown, '');
+    }
   }
   return `${lines.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd()}\n`;
 }

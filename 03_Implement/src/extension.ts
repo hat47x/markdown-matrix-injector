@@ -82,7 +82,7 @@ interface RenderEmbedForTestArgs {
 
 const MARKDOWN_SELECTOR: vscode.DocumentSelector = [{ language: 'markdown' }];
 const SUPPORTED_COMPLETION_TRIGGER_CHARACTERS = ['[', '#', '|', '?', '&', '=', ','] as const;
-const WORKBOOK_FILE_GLOB = '**/*.{xlsx,xls,csv,xml}';
+const WORKBOOK_FILE_GLOB = '**/*.{xlsx,xlsm,xls,csv,xml}';
 const NATIVE_PASTE_DROP_EDIT_KIND = vscode.DocumentDropOrPasteEditKind.Text.append('markdownMatrixInjector', 'embed');
 const CONTENT_MATCH_PASTE_EDIT_KIND = NATIVE_PASTE_DROP_EDIT_KIND.append('contentMatch');
 const PASTE_MIME_TYPES = ['text/html', 'text/plain', 'files'] as const;
