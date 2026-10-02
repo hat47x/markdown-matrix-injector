@@ -145,6 +145,9 @@
 
 ### `parseTsv`の追加 — 表示値行列の抽出（2026-09-14）
 
+**2026-10-02 空端セルの偽陰性修正**: `parseTsv()` とDataTransfer読取りが `.trim()` を使っていたため、コピー矩形の先頭/末尾TAB（=空の先頭/末尾セル）が消え、列数と物理rangeを縮めていたことを確認した。`text/plain` は生payloadを保持し、TSV parserはExcelが付ける末尾の行区切り1個だけを構造文字として除去する。先頭/末尾TABと、`\t\r\n` で表される意図的な空行は保持する。DataTransfer、parser、content-match統合の3層で回帰を追加した。
+
+
 内容照合（[出所設計](../../02_Architecture/input-assistance-paste-provenance.md)§4/§5）には、形状（`extractHtmlTableShape`）に加えて**実際のセル値**が要る。`text/plain`（TSV）から値行列を取り出す`parseTsv`を追加した。
 
 実機で引用規則を検証してから実装した（推測しない）。
