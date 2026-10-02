@@ -470,10 +470,14 @@ export function finalizeReviewedTableExtraction(
   const assetText = `${body}\n${provenance}\n`;
   const data = Buffer.from(assetText, 'utf8');
   const digest = sha256(data);
+  const originalBody = options.extracted.markdown
+    .replace(
+      /\s*<!-- mmi:extracted-table[\s\S]*?-->\s*$/u,
+      '',
+    )
+    .trimEnd();
   const reviewState: FinalizedReviewedTable['reviewState'] =
-    assetText.trimEnd() === options.extracted.markdown.trimEnd()
-      ? 'accepted'
-      : 'modified';
+    body === originalBody ? 'accepted' : 'modified';
 
   fs.mkdirSync(options.outDir, { recursive: true });
   const outDirectory = fs.realpathSync(options.outDir);

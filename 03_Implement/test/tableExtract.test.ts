@@ -153,6 +153,9 @@ test('unchanged reviewed table remains accepted and an abandoned draft is remova
   });
   assert.ok(draft.extracted);
 
+  // Updating source bytes outside the detected table changes provenance but
+  // must not turn an unchanged reviewed table body into a human modification.
+  fs.appendFileSync(f.source, '\n');
   const finalized = finalizeReviewedTableExtraction({
     sourcePath: f.source,
     outDir: f.outDir,
