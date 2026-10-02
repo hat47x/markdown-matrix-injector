@@ -198,10 +198,12 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 | `mmi manifest <文書>` | 別紙カードになる参照の一覧をCSVで出力 |
 | `mmi handoff <正本> --task <依頼>` | Candidate・provenance・任意の文書診断から、外部LLMへ手渡すpromptをローカル生成する。`--json`で機械可読package、`--document`で文書診断を追加。既定ではClaim値を省略し、必要な場合だけ`--include-values`で明示的に含める。MMI自身は外部LLMへ送信しない |
 | `mmi validate-proposal <MMI記法> --package <handoff.json> --document <文書>` | 外部LLMから戻ったMMI記法1件を、handoff時source・parser・parameter schema・workspace境界・sheet・read-only preview・source digestで再検証する。全検証通過時のみ終了コード0。結果を自動適用しない |
+| `mmi validate-selection <proposal.json> --package <handoff.json>` | 外部LLMから戻ったCandidate選択案をhandoff時のCandidate identity allowlistで再検証する。成功しても`accepted-for-review`であり、Candidateのepistemic stateを変更しない |
+| `mmi validate-transformation <proposal.json> --package <handoff.json> --document <文書>` | Linked / Extractedへの変換案をcurrent sourceからCandidateを再発見して検証する。表は`gfm-table-v1`、画像は`raw-image-bytes-v1`の既存経路だけをreview planとして返し、assetや文書を自動生成しない |
 
 参照を検証する範囲（ワークスペース）は、実行したフォルダーです。`--root`で変えられます。`--json`を付けると機械可読な出力になります。
 
-**外部LLMへのhandoffについて。** `mmi handoff`は判断材料をローカルに整形するだけで、ChatGPT等への送信、ログイン、API keyの利用、課金サービスへの自動fallbackは行いません。packageは「依頼」「observed/confirmedの事実」「inferredの候補」「診断・abstainedの未解決事項」「許可/禁止操作」を分離します。sourceと`--document`は`--root`内に限定されます。返ってきたMMI記法は未検証の提案です。`mmi validate-proposal`で単一MMI記法としてparseし、未知parameterを含む場合はfail-closedにし、handoff時source、resolver・containment・source existence・sheet existence、read-only preview、source digestを再確認できます。すべて通っても文書や原本へ自動適用はしません。Candidate選択案・変換案の戻り検証は今後の対象です。
+**外部LLMへのhandoffについて。** `mmi handoff`は判断材料をローカルに整形するだけで、ChatGPT等への送信、ログイン、API keyの利用、課金サービスへの自動fallbackは行いません。packageは「依頼」「observed/confirmedの事実」「inferredの候補」「診断・abstainedの未解決事項」「許可/禁止操作」を分離します。sourceと`--document`は`--root`内に限定されます。外部LLMから戻った内容は未検証の提案です。MMI記法は`validate-proposal`、Candidate選択案は`validate-selection`、Linked / Extractedへの変換案は`validate-transformation`で再検証します。変換案ではcurrent sourceからCandidateを再発見し、source digestとprovenanceを再確認します。検証が通っても、文書・原本・asset・review stateを自動変更しません。
 
 **Detachedについて。** `materialize`は通常の`render`とは別の経路です。日常のLinked文書やプレビューを変えず、原本を廃止すると決めた範囲だけで使います。例えば `mmi materialize docs/spec.md -o detached/spec.md --root .` とすると、小さい表は通常のGFM表へ、大きくてカードになる表は `detached/mmi-materialized/table-<digest>.md` へ実体化されます。本文が参照するローカル画像は内容digestで `detached/mmi-assets/` へ複製され、Detached側の相対リンクへ書き換えられます。同じ画像bytesは1コピーにまとめます。`--assets-dir`で保存先を変更できます。
 

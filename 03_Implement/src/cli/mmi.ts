@@ -37,7 +37,9 @@ import {
   parseAiHandoffPackage,
   renderAiHandoffPrompt,
 } from '../dx/aiHandoff.js';
+import { validateAiHandoffCandidateSelection } from '../dx/aiHandoffCandidateSelectionValidation.js';
 import { validateAiHandoffNotationProposal } from '../dx/aiHandoffProposalValidation.js';
+import { validateAiHandoffTransformationProposal } from '../dx/aiHandoffTransformationValidation.js';
 import { createDiagnosticsForDocument } from '../dx/vscodeAdapters.js';
 import { inspectImportAssistance, type InspectImportAssistanceCandidate } from '../importAssist/inspectImportAssistance.js';
 import { buildDeliveryManifestCsv } from '../manifest/collectDeliveryManifest.js';
@@ -101,6 +103,14 @@ Commands:
       --package <file>        locally generated mmi.ai-handoff/v1 JSON package (required)
       --document <doc.md>     Markdown path used as the proposal reference base (required)
                             Exit 0 only when every Authority check passes; --json emits the receipt
+  validate-selection <json> Revalidate one returned Candidate-selection proposal JSON; review-only
+      --package <file>        locally generated mmi.ai-handoff/v1 JSON package (required)
+                            Exit 0 only for an allowlisted accepted-for-review selection
+  validate-transformation <json>
+                            Revalidate one returned Candidate transformation proposal JSON; review-only
+      --package <file>        locally generated mmi.ai-handoff/v1 JSON package (required)
+      --document <doc.md>     Markdown path used for source resolution/preview (required)
+                            Exit 0 only for an accepted-for-review local plan; nothing is applied
 
 Common options:
   --root <dir>              workspace boundary for references (default: current directory)
@@ -409,6 +419,54 @@ export async function main(argv: string[]): Promise<number> {
         : formatAiHandoffProposalValidation(validation));
       return validation.status === 'accepted' ? 0 : 1;
     }
+    case 'validate-selection': {
+      if (args.length !== 1) return usageError('validate-selection takes one proposal JSON file');
+      if (!values.package) return usageError('validate-selection needs --package <file>');
+      const proposalPath = path.resolve(args[0]);
+      const packagePath = path.resolve(values.package);
+      if (!handoffPathWithinRoot(proposalPath, root)) {
+        return usageError('validate-selection proposal must stay within --root workspace');
+      }
+      if (!handoffPathWithinRoot(packagePath, root)) {
+        return usageError('validate-selection --package must stay within --root workspace');
+      }
+      const handoff = parseAiHandoffPackage(fs.readFileSync(packagePath, 'utf8'));
+      const proposal = readJsonFile(proposalPath, 'Candidate-selection proposal');
+      const validation = validateAiHandoffCandidateSelection(handoff, proposal);
+      emit(values.json
+        ? JSON.stringify(validation, null, 2)
+        : formatReviewOnlyValidation('candidate selection', validation.status, validation.checks));
+      return validation.status === 'accepted-for-review' ? 0 : 1;
+    }
+    case 'validate-transformation': {
+      if (args.length !== 1) return usageError('validate-transformation takes one proposal JSON file');
+      if (!values.package) return usageError('validate-transformation needs --package <file>');
+      if (!values.document) return usageError('validate-transformation needs --document <doc.md>');
+      const proposalPath = path.resolve(args[0]);
+      const packagePath = path.resolve(values.package);
+      const documentPath = path.resolve(values.document);
+      if (!handoffPathWithinRoot(proposalPath, root)) {
+        return usageError('validate-transformation proposal must stay within --root workspace');
+      }
+      if (!handoffPathWithinRoot(packagePath, root)) {
+        return usageError('validate-transformation --package must stay within --root workspace');
+      }
+      if (!handoffPathWithinRoot(documentPath, root)) {
+        return usageError('validate-transformation --document must stay within --root workspace');
+      }
+      const handoff = parseAiHandoffPackage(fs.readFileSync(packagePath, 'utf8'));
+      const proposal = readJsonFile(proposalPath, 'transformation proposal');
+      const validation = await validateAiHandoffTransformationProposal({
+        handoff,
+        proposal,
+        markdownFilePath: documentPath,
+        workspaceRoot: root,
+      });
+      emit(values.json
+        ? JSON.stringify(validation, null, 2)
+        : formatReviewOnlyValidation('transformation', validation.status, validation.checks));
+      return validation.status === 'accepted-for-review' ? 0 : 1;
+    }
     default:
       return usageError(`unknown command: ${command}`);
   }
@@ -417,6 +475,26 @@ export async function main(argv: string[]): Promise<number> {
 function usageError(message: string): number {
   console.error(`mmi: ${message}\n\n${USAGE}`);
   return 2;
+}
+
+function readJsonFile(filepath: string, label: string): unknown {
+  try {
+    return JSON.parse(fs.readFileSync(filepath, 'utf8'));
+  } catch (error) {
+    throw new Error(`${label} is not valid readable JSON: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+function formatReviewOnlyValidation(
+  label: string,
+  status: string,
+  checks: readonly { check: string; status: string; code: string; detail?: string }[],
+): string {
+  return [
+    `${label}: ${status}`,
+    ...checks.map((check) =>
+      `  ${check.check}: ${check.status} ${check.code}${check.detail ? ` - ${check.detail}` : ''}`),
+  ].join('\n');
 }
 
 function formatAiHandoffProposalValidation(
