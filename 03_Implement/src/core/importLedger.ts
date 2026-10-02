@@ -7,7 +7,12 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
-import type { Candidate, CandidateKind, Fingerprint } from './candidate.js';
+import type {
+  Candidate,
+  CandidateKind,
+  Fingerprint,
+  ReviewState,
+} from './candidate.js';
 
 export const LEDGER_SCHEMA = 'mmi.ledger/v1';
 export const DEFAULT_LEDGER_FILE = 'mmi-ledger.json';
@@ -49,8 +54,11 @@ export interface LedgerEntry {
   outputDigest?: string;
   /** Conversion/extraction conditions that produced the output. */
   conversion: Readonly<Record<string, string | number | boolean>>;
-  /** Transitional v1 review state; ADR-0021 treats this as an accepted decision, not epistemic truth. */
-  reviewState: 'confirmed';
+  /**
+   * Adoption/review state, separate from Candidate epistemic status.
+   * `confirmed` is accepted only for legacy mmi.ledger/v1 records.
+   */
+  reviewState: Extract<ReviewState, 'accepted'> | 'confirmed';
   basis: string;
   reviewedAt: string;
 }
@@ -329,7 +337,7 @@ export function entryFor(
       ? { outputDigest: `sha256:${createHash('sha256').update(fs.readFileSync(outputFile)).digest('hex')}` }
       : {}),
     conversion,
-    reviewState: 'confirmed',
+    reviewState: 'accepted',
     basis,
     reviewedAt: new Date().toISOString(),
   };

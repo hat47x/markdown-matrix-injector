@@ -1,4 +1,4 @@
-import type { Candidate } from './candidate.js';
+import type { Candidate, ReviewState } from './candidate.js';
 import {
   candidateLedgerView,
   type CandidateLedgerFilter,
@@ -13,6 +13,10 @@ import type { Ledger } from './importLedger.js';
 
 export interface CandidateReviewViewItem
   extends CandidateLedgerViewItem {
+  reviewState: Extract<
+    ReviewState,
+    'unreviewed' | 'accepted' | 'rejected'
+  >;
   rejected: boolean;
 }
 
@@ -54,6 +58,12 @@ export function candidateReviewView(
           item.candidate,
         );
     if (rejected && filter !== 'all') return [];
-    return [{ ...item, rejected: Boolean(rejected) }];
+    const reviewState: CandidateReviewViewItem['reviewState'] =
+      item.ledgerState === 'imported'
+        ? 'accepted'
+        : rejected
+          ? 'rejected'
+          : 'unreviewed';
+    return [{ ...item, reviewState, rejected: Boolean(rejected) }];
   });
 }

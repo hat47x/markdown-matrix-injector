@@ -5,9 +5,12 @@
  *
  * Three things are kept deliberately separate:
  *
- *   epistemic status   observed | inferred | confirmed | abstained
- *                      -- what we know and how: read from the source, derived
- *                      by a method, decided by a person, or declined.
+ *   epistemic status   observed | inferred | abstained
+ *                      -- what the source/method can justify: read from the
+ *                      source, derived by a method, or declined.
+ *   review state       unreviewed | accepted | rejected | modified | deferred
+ *                      -- a downstream decision; it never upgrades an
+ *                      inference into a source fact.
  *   execution          deterministic | provider-dependent
  *                      -- whether the same input reproduces the same output
  *                      without a model/provider. Orthogonal to status: a rule
@@ -36,7 +39,8 @@ export type CandidateKind =
   | 'link'
   | 'section';
 
-export type EpistemicStatus = 'observed' | 'inferred' | 'confirmed' | 'abstained';
+export type EpistemicStatus = 'observed' | 'inferred' | 'abstained';
+export type ReviewState = 'unreviewed' | 'accepted' | 'rejected' | 'modified' | 'deferred';
 export type ExecutionProperty = 'deterministic' | 'provider-dependent';
 /** M0 explicit extraction, M1 deterministic inference, M2 light similarity, M3 bounded judgment, M4 local generative, M5 external handoff. */
 export type MethodClass = 'M0' | 'M1' | 'M2' | 'M3' | 'M4' | 'M5';
