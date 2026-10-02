@@ -45,6 +45,8 @@ export interface LedgerEntry {
   lineageHints?: LedgerLineageHints;
   /** Where the imported asset was written, relative to the ledger file. */
   output: string;
+  /** Optional for legacy v1 records; new records bind the reviewed output bytes. */
+  outputDigest?: string;
   /** Conversion/extraction conditions that produced the output. */
   conversion: Readonly<Record<string, string | number | boolean>>;
   /** Transitional v1 review state; ADR-0021 treats this as an accepted decision, not epistemic truth. */
@@ -323,6 +325,9 @@ export function entryFor(
     claimBasis: claimBasisOf(candidate),
     lineageHints: lineageHintsOf(candidate),
     output: path.relative(path.dirname(path.resolve(ledgerPath)), path.resolve(outputFile)).split(path.sep).join('/'),
+    ...(fs.existsSync(outputFile) && fs.statSync(outputFile).isFile()
+      ? { outputDigest: `sha256:${createHash('sha256').update(fs.readFileSync(outputFile)).digest('hex')}` }
+      : {}),
     conversion,
     reviewState: 'confirmed',
     basis,
