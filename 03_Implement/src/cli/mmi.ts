@@ -282,13 +282,18 @@ export async function main(argv: string[]): Promise<number> {
         attachmentsDirectory,
         assetsDirectory,
       });
-      const fileCollisions = result.files.filter((file) =>
+
+      const attachmentCollisions = result.files.filter((file) =>
         fs.existsSync(file.absolutePath)
         && fs.readFileSync(file.absolutePath, 'utf8') !== file.content);
       const assetCollisions = result.assets.filter((asset) =>
         fs.existsSync(asset.absolutePath)
         && !fs.readFileSync(asset.absolutePath).equals(asset.bytes));
-      for (const file of fileCollisions) {
+      const collisions = [
+        ...attachmentCollisions.map((file) => file.relativePath),
+        ...assetCollisions.map((asset) => asset.relativePath),
+      ];
+      for (const file of attachmentCollisions) {
         console.error(`mmi: MMI_DETACH_NAME_COLLISION: ${file.absolutePath} exists with different content; materialization was not written`);
       }
       for (const asset of assetCollisions) {
@@ -300,11 +305,7 @@ export async function main(argv: string[]): Promise<number> {
       for (const problem of result.problems) {
         console.error(`mmi: ${problem.code} line ${problem.line}: ${problem.message}`);
       }
-      const collisions = [
-        ...fileCollisions.map((file) => file.relativePath),
-        ...assetCollisions.map((asset) => asset.relativePath),
-      ];
-      const writeAllowed = collisions.length === 0 && freshness.errors === 0;
+
       const summary = {
         output: path.relative(process.cwd(), outputDocument).split(path.sep).join('/'),
         attachments: result.files.map((file) => file.relativePath),
@@ -315,10 +316,10 @@ export async function main(argv: string[]): Promise<number> {
         freshness,
         problems: result.problems,
         collisions,
-        written: writeAllowed,
-        detachable: writeAllowed && result.problems.length === 0,
+        detachable: collisions.length === 0 && freshness.errors === 0 && result.problems.length === 0,
       };
-      if (writeAllowed) {
+
+      if (collisions.length === 0) {
         fs.mkdirSync(path.dirname(outputDocument), { recursive: true });
         fs.writeFileSync(outputDocument, result.markdown);
         for (const file of result.files) {
@@ -330,8 +331,9 @@ export async function main(argv: string[]): Promise<number> {
           fs.writeFileSync(asset.absolutePath, asset.bytes);
         }
       }
+
       if (values.json) process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
-      else console.log(`materialized: ${summary.output} (${summary.attachments.length} table attachment(s), ${summary.assets.length} asset(s), ${freshness.errors} freshness error(s), ${result.problems.length} unresolved, ${summary.collisions.length} collision(s), written=${summary.written})`);
+      else console.log(`materialized: ${summary.output} (${summary.attachments.length} table attachment(s), ${summary.assets.length} asset(s), ${freshness.errors} freshness error(s), ${result.problems.length} unresolved, ${summary.collisions.length} collision(s))`);
       return summary.detachable ? 0 : 1;
     }
     case 'detach-check': {
@@ -345,7 +347,7 @@ export async function main(argv: string[]): Promise<number> {
         process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
       } else {
         const lines = result.problems.map((problem) =>
-          `${problem.file ? `${problem.file}:` : ''}${problem.line} ${problem.code} ${problem.message}`);
+          `${problem.line} ${problem.code} ${problem.message}`);
         process.stdout.write(`${[...lines, `${result.errors} detach error(s)`].join('\n')}\n`);
       }
       return result.errors > 0 ? 1 : 0;
