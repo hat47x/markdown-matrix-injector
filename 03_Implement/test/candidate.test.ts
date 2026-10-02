@@ -86,6 +86,8 @@ test('contract invariants reject malformed candidates', () => {
     return candidateProblem(candidate);
   };
   assert.match(mutate((c) => ((c.claims as Candidate['claims'] & unknown[]).length = 0))!, /at least one claim/u);
+  assert.match(mutate((c) => ((c as { status: string }).status = 'confirmed'))!, /invalid candidate epistemic status/u);
+  assert.match(mutate((c) => ((c.claims[0] as { status: string }).status = 'confirmed'))!, /invalid claim .* epistemic status/u);
   assert.match(mutate((c) => ((c.claims[0] as { method: string }).method = 'M1'))!, /observed claim .* must be M0/u);
   assert.match(mutate((c) => ((c.claims[3] as { value?: unknown }).value = undefined))!, /needs a value/u);
   assert.match(mutate((c) => ((c.claims[3] as { status: string }).status = 'abstained'))!, /must not carry a value/u);

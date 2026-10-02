@@ -103,6 +103,29 @@ test('ledger is readable JSON and survives a write/read round trip', () => {
   assert.match(raw, /"reviewedAt": "/u);
 });
 
+test('legacy confirmed ledger state is read as accepted without rewriting the file', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-ledger-'));
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const source = path.join(root, 'design.xlsx');
+  const first = candidate('image-a');
+  const legacy = entryFor(
+    ledgerPath,
+    source,
+    first,
+    path.join(root, 'assets', 'image-a.png'),
+    'legacy import',
+  );
+  legacy.reviewState = 'confirmed';
+  fs.writeFileSync(
+    ledgerPath,
+    JSON.stringify({ schema: 'mmi.ledger/v1', entries: [legacy] }, null, 2) + '\n',
+    'utf8',
+  );
+
+  assert.equal(readLedger(ledgerPath).entries[0].reviewState, 'accepted');
+  assert.match(fs.readFileSync(ledgerPath, 'utf8'), /\"reviewState\": \"confirmed\"/u);
+});
+
 
 test('same digest under a different fingerprint representation is changed, not imported', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-ledger-'));
