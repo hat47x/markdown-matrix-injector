@@ -19,7 +19,7 @@ Candidateを製品価値へつなぐには、検出精度だけでなく、人�
 
 ## Acceptance criteria
 
-- [ ] Candidateをsource / type / epistemic state（observed・inferred・confirmed・abstained）/ execution characteristic（deterministic・provider-dependent）/ import stateで絞り込める。
+- [x] Candidateをsource / type / epistemic state（observed・inferred・confirmed・abstained）/ execution characteristic（deterministic・provider-dependent）/ import stateで絞り込める。sourceはレビュー開始時のsource picker、import stateは既存の3状態filter、type / epistemic / executionは複数選択facet（同一軸OR・軸間AND・未選択軸=全件）で実装。
 - [x] 「すべて」「未取込のみ」「完全一致の取込済みを除外」をUIから選べる。
 - [x] Authority由来の事実とCognitive Assistance由来の候補を表示上区別する。さらに`inferred + deterministic`と`inferred + provider-dependent`を区別し、決定論的推定をobservedとして見せない。provider間confidenceを1本の総合スコアへ合成しない。
 - [ ] Candidateを採用、修正して採用、却下、保留できる。未確認候補が存在しても通常の編集を妨げない。
@@ -42,7 +42,7 @@ Candidateを製品価値へつなぐには、検出精度だけでなく、人�
 ## Remaining work
 
 - 「修正して採用」「却下」の状態と記録を追加する。現時点のUIは採用・保留まで。
-- source / Candidate type / epistemic state / execution characteristicの明示フィルタを追加する。
+- ~~source / Candidate type / epistemic state / execution characteristicの明示フィルタを追加する。~~ → 実装済み。source picker＋import-state filter＋type/status/execution facetを分離し、Candidate契約上の軸を混同しない。
 - Windows実機で表・画像を含むreview → extract → changed/stale表示をE2E確認する。
 - Tree / Shape等は各Source Adapterの実装後に同じUIへ追加する。
 - Candidate数が多い場合のページング・検索は実測後に決める。
