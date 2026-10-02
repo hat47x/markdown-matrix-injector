@@ -6,7 +6,9 @@ import path from 'node:path';
 
 import {
   clearReviewDecisionForCandidate,
+  deferredDecisionForCandidate,
   readReviewDecisions,
+  recordDeferredDecision,
   recordRejectedDecision,
   rejectedDecisionForCandidate,
   REVIEW_DECISIONS_SCHEMA,
@@ -96,6 +98,104 @@ test('rejected decision survives round trip for the exact reviewed Candidate', (
   assert.match(
     fs.readFileSync(decisionsPath, 'utf8'),
     /"schema": "mmi\.review-decisions\/v1"/u,
+  );
+});
+
+test('deferred decision survives round trip for the exact reviewed Candidate', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-review-decision-'));
+  const source = path.join(root, 'design.csv');
+  const decisionsPath = path.join(root, 'mmi-review-decisions.json');
+  fs.writeFileSync(source, 'A,B\n1,2\n');
+  const reviewed = candidate('A\u001fB\u001e1\u001f2');
+
+  recordDeferredDecision(
+    decisionsPath,
+    source,
+    reviewed,
+    'candidate review UI',
+  );
+  const decisions = readReviewDecisions(decisionsPath);
+
+  assert.equal(decisions.entries.length, 1);
+  assert.equal(
+    deferredDecisionForCandidate(
+      decisions,
+      decisionsPath,
+      source,
+      reviewed,
+    )?.decision,
+    'deferred',
+  );
+  assert.equal(
+    rejectedDecisionForCandidate(
+      decisions,
+      decisionsPath,
+      source,
+      reviewed,
+    ),
+    undefined,
+  );
+});
+
+test('changed Candidate evidence invalidates a deferred decision', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-review-decision-'));
+  const source = path.join(root, 'design.csv');
+  const decisionsPath = path.join(root, 'mmi-review-decisions.json');
+  fs.writeFileSync(source, 'A,B\n1,2\n');
+  const reviewed = candidate('same-content');
+  recordDeferredDecision(decisionsPath, source, reviewed, 'review');
+
+  assert.equal(
+    deferredDecisionForCandidate(
+      readReviewDecisions(decisionsPath),
+      decisionsPath,
+      source,
+      candidate('changed-content'),
+    ),
+    undefined,
+  );
+  assert.equal(
+    deferredDecisionForCandidate(
+      readReviewDecisions(decisionsPath),
+      decisionsPath,
+      source,
+      candidate('same-content', {
+        reasonCode: 'different-boundary-evidence',
+      }),
+    ),
+    undefined,
+  );
+});
+
+test('a later exact review decision replaces the previous decision at the same occurrence', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-review-decision-'));
+  const source = path.join(root, 'design.csv');
+  const decisionsPath = path.join(root, 'mmi-review-decisions.json');
+  fs.writeFileSync(source, 'A,B\n1,2\n');
+  const reviewed = candidate('content');
+
+  recordDeferredDecision(decisionsPath, source, reviewed, 'defer');
+  recordRejectedDecision(decisionsPath, source, reviewed, 'reject');
+  const decisions = readReviewDecisions(decisionsPath);
+
+  assert.equal(decisions.entries.length, 1);
+  assert.equal(decisions.entries[0].decision, 'rejected');
+  assert.ok(
+    rejectedDecisionForCandidate(
+      decisions,
+      decisionsPath,
+      source,
+      reviewed,
+    ),
+  );
+  assert.equal(
+    deferredDecisionForCandidate(
+      decisions,
+      decisionsPath,
+      source,
+      reviewed,
+    ),
+    undefined,
   );
 });
 
