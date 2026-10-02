@@ -186,6 +186,20 @@ export function assertAiHandoffPackage(
     }
   }
   if (
+    !pkg.privacy
+    || !['omitted', 'included-explicitly'].includes(pkg.privacy.sourceValues)
+    || !['omitted', 'included-explicitly'].includes(pkg.privacy.evidenceDetails)
+  ) {
+    throw new Error('AI handoff package privacy policy is invalid.');
+  }
+  if (
+    !Array.isArray(pkg.confirmedFacts)
+    || !Array.isArray(pkg.inferredCandidates)
+    || !Array.isArray(pkg.unresolvedIssues)
+  ) {
+    throw new Error('AI handoff package evidence sections are missing.');
+  }
+  if (
     !pkg.returnContract
     || pkg.returnContract.proposalOnly !== true
     || pkg.returnContract.authorityRevalidationRequired !== true
@@ -193,9 +207,21 @@ export function assertAiHandoffPackage(
   ) {
     throw new Error('AI handoff package Authority return contract is invalid.');
   }
-  if (!Array.isArray(pkg.allowedOperations) || !Array.isArray(pkg.forbiddenOperations)) {
-    throw new Error('AI handoff package operation boundaries are missing.');
+  if (
+    !sameOperationBoundary(pkg.allowedOperations, ALLOWED_OPERATIONS)
+    || !sameOperationBoundary(pkg.forbiddenOperations, FORBIDDEN_OPERATIONS)
+  ) {
+    throw new Error('AI handoff package operation boundaries were changed.');
   }
+}
+
+function sameOperationBoundary(
+  actual: readonly string[] | undefined,
+  expected: readonly string[],
+): boolean {
+  return Array.isArray(actual)
+    && actual.length === expected.length
+    && actual.every((item, index) => item === expected[index]);
 }
 
 const ALLOWED_OPERATIONS: readonly HandoffAllowedOperation[] = [
