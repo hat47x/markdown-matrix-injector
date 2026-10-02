@@ -266,17 +266,11 @@ export async function main(argv: string[]): Promise<number> {
         outputDocumentPath: outputDocument,
         attachmentsDirectory,
       });
-      fs.mkdirSync(path.dirname(outputDocument), { recursive: true });
-      fs.writeFileSync(outputDocument, result.markdown);
-      let collision = false;
-      for (const file of result.files) {
-        fs.mkdirSync(path.dirname(file.absolutePath), { recursive: true });
-        if (fs.existsSync(file.absolutePath) && fs.readFileSync(file.absolutePath, 'utf8') !== file.content) {
-          console.error(`mmi: MMI_DETACH_NAME_COLLISION: ${file.absolutePath} exists with different content; it was not overwritten`);
-          collision = true;
-          continue;
-        }
-        fs.writeFileSync(file.absolutePath, file.content);
+      const collisions = result.files.filter((file) =>
+        fs.existsSync(file.absolutePath)
+        && fs.readFileSync(file.absolutePath, 'utf8') !== file.content);
+      for (const file of collisions) {
+        console.error(`mmi: MMI_DETACH_NAME_COLLISION: ${file.absolutePath} exists with different content; materialization was not written`);
       }
       for (const problem of result.problems) {
         console.error(`mmi: ${problem.code} line ${problem.line}: ${problem.message}`);
@@ -285,10 +279,19 @@ export async function main(argv: string[]): Promise<number> {
         output: path.relative(process.cwd(), outputDocument).split(path.sep).join('/'),
         attachments: result.files.map((file) => file.relativePath),
         problems: result.problems,
-        detachable: !collision && result.problems.length === 0,
+        collisions: collisions.map((file) => file.relativePath),
+        detachable: collisions.length === 0 && result.problems.length === 0,
       };
+      if (collisions.length === 0) {
+        fs.mkdirSync(path.dirname(outputDocument), { recursive: true });
+        fs.writeFileSync(outputDocument, result.markdown);
+        for (const file of result.files) {
+          fs.mkdirSync(path.dirname(file.absolutePath), { recursive: true });
+          fs.writeFileSync(file.absolutePath, file.content);
+        }
+      }
       if (values.json) process.stdout.write(`${JSON.stringify(summary, null, 2)}\n`);
-      else console.log(`materialized: ${summary.output} (${summary.attachments.length} attachment(s), ${result.problems.length} unresolved)`);
+      else console.log(`materialized: ${summary.output} (${summary.attachments.length} attachment(s), ${result.problems.length} unresolved, ${summary.collisions.length} collision(s))`);
       return summary.detachable ? 0 : 1;
     }
     case 'detach-check': {
@@ -302,7 +305,7 @@ export async function main(argv: string[]): Promise<number> {
         process.stdout.write(`${JSON.stringify(result, null, 2)}\n`);
       } else {
         const lines = result.problems.map((problem) =>
-          `${problem.line} ${problem.code} ${problem.message}`);
+          `${problem.file ? `${problem.file}:` : ''}${problem.line} ${problem.code} ${problem.message}`);
         process.stdout.write(`${[...lines, `${result.errors} detach error(s)`].join('\n')}\n`);
       }
       return result.errors > 0 ? 1 : 0;
