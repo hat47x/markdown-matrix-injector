@@ -80,3 +80,58 @@ test('proposal receipt digest changes when nested selection content changes', ()
   });
   assert.notEqual(first.proposalDigest, second.proposalDigest);
 });
+
+
+test('proposal schema rejects authority-expanding or executable extra fields', () => {
+  const handoff = createAiHandoffPackage({ task: '取り込む候補を選ぶ', candidates: [candidate()] });
+  const identity = handoff.inferredCandidates[0].candidateIdentity;
+  for (const extra of [
+    { status: 'confirmed' },
+    { command: 'rm -rf /' },
+    { outputPath: '../../outside.md' },
+  ]) {
+    const result = validateAiHandoffCandidateSelection(handoff, {
+      schema: AI_HANDOFF_CANDIDATE_SELECTION_SCHEMA,
+      selected: [identity],
+      rationale: '候補を選ぶ',
+      unresolved: [],
+      ...extra,
+    });
+    assert.equal(result.status, 'blocked');
+    assert.equal(result.checks.at(-1)?.code, 'CANDIDATE_SELECTION_SCHEMA_INVALID');
+  }
+});
+
+test('proposal receipt digest binds nested Candidate identity content', () => {
+  const handoff = createAiHandoffPackage({ task: '取り込む候補を選ぶ', candidates: [candidate()] });
+  const identity = handoff.inferredCandidates[0].candidateIdentity;
+  const first = validateAiHandoffCandidateSelection(handoff, {
+    schema: AI_HANDOFF_CANDIDATE_SELECTION_SCHEMA,
+    selected: [identity],
+    rationale: '同じ理由',
+    unresolved: [],
+  });
+  const second = validateAiHandoffCandidateSelection(handoff, {
+    schema: AI_HANDOFF_CANDIDATE_SELECTION_SCHEMA,
+    selected: [{
+      ...identity,
+      digest: fingerprintOf('fabricated', 'different-candidate').digest,
+    }],
+    rationale: '同じ理由',
+    unresolved: [],
+  });
+  assert.notEqual(first.proposalDigest, second.proposalDigest);
+});
+
+test('Candidate identity objects reject extra fields', () => {
+  const handoff = createAiHandoffPackage({ task: '取り込む候補を選ぶ', candidates: [candidate()] });
+  const identity = handoff.inferredCandidates[0].candidateIdentity;
+  const result = validateAiHandoffCandidateSelection(handoff, {
+    schema: AI_HANDOFF_CANDIDATE_SELECTION_SCHEMA,
+    selected: [{ ...identity, authority: 'confirmed' }],
+    rationale: '候補を選ぶ',
+    unresolved: [],
+  });
+  assert.equal(result.status, 'blocked');
+  assert.equal(result.checks.at(-1)?.code, 'CANDIDATE_SELECTION_SCHEMA_INVALID');
+});
