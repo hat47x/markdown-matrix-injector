@@ -8,8 +8,6 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-
-import { readExcelImages } from '../adapters/excelImageAdapter.js';
 import { extractImages, type ExtractProblem, type ExtractedImage } from '../cli/extract.js';
 import { DEFAULT_LEDGER_FILE } from '../core/importLedger.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
@@ -177,7 +175,7 @@ export function materializeWorkbookImport(
       basis: 'mmi import',
     });
     extractedImages = extracted.extracted;
-    const packageWarnings: ExtractProblem[] = readExcelImages(fs.readFileSync(sourcePath)).diagnostics
+    const packageWarnings: ExtractProblem[] = extracted.diagnostics
       .filter((diagnostic) =>
         diagnostic.severity === 'warning'
         // Non-extractable media is represented with an ordinal by extractImages.
