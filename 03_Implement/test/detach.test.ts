@@ -6,6 +6,7 @@ import path from 'node:path';
 
 import { checkDetachedDocument } from '../src/application/detachCheck.js';
 import { materializeDocument } from '../src/application/materialize.js';
+import { main } from '../src/cli/mmi.js';
 
 function workspace(): { root: string; source: string; doc: string; out: string } {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-detach-'));
@@ -113,4 +114,69 @@ test('detach check traverses cyclic Markdown links at most once', () => {
     }),
     { errors: 0, problems: [] },
   );
+});
+
+
+async function captureMain(
+  argv: string[],
+): Promise<{ code: number; output: string; errors: string }> {
+  const output: string[] = [];
+  const errors: string[] = [];
+  const out = process.stdout.write.bind(process.stdout);
+  const err = console.error;
+  process.stdout.write = ((chunk: string) => (
+    output.push(String(chunk)),
+    true
+  )) as typeof process.stdout.write;
+  console.error = (...args: unknown[]) => {
+    errors.push(args.map(String).join(' '));
+  };
+  try {
+    return {
+      code: await main(argv),
+      output: output.join(''),
+      errors: errors.join('\n'),
+    };
+  } finally {
+    process.stdout.write = out;
+    console.error = err;
+  }
+}
+
+test('materialize preflights attachment collisions before writing the detached document', async () => {
+  const { root, doc, out } = workspace();
+  fs.writeFileSync(
+    doc,
+    '# Spec\n\n![[../data/wide.csv#Sheet1|A1:K2?header=first&caption=Wide]]\n',
+  );
+  const planned = materializeDocument({
+    markdownFilePath: doc,
+    workspaceRoot: root,
+    outputDocumentPath: out,
+  });
+  assert.equal(planned.files.length, 1);
+  fs.mkdirSync(path.dirname(planned.files[0].absolutePath), {
+    recursive: true,
+  });
+  fs.writeFileSync(planned.files[0].absolutePath, 'conflicting content\n');
+
+  const run = await captureMain([
+    'materialize',
+    doc,
+    '--root',
+    root,
+    '-o',
+    out,
+    '--json',
+  ]);
+
+  assert.equal(run.code, 1);
+  assert.equal(fs.existsSync(out), false);
+  assert.equal(
+    fs.readFileSync(planned.files[0].absolutePath, 'utf8'),
+    'conflicting content\n',
+  );
+  const summary = JSON.parse(run.output);
+  assert.deepEqual(summary.collisions, [planned.files[0].relativePath]);
+  assert.match(run.errors, /MMI_DETACH_NAME_COLLISION/u);
 });
