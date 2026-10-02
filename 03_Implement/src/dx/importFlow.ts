@@ -47,7 +47,7 @@ export async function importFromWorkbook(workbookGlob: string, target?: vscode.U
     ? path.join(workspaceFolder.uri.fsPath, 'mmi-ledger.json')
     : path.join(path.dirname(draftUri.fsPath), 'mmi-ledger.json');
 
-  let materialized;
+  let materialized: ReturnType<typeof writeWorkbookImportDraft>;
   try {
     materialized = await vscode.window.withProgress(
       { location: vscode.ProgressLocation.Notification, title: 'MMI: 表と画像を取り込み候補へ整理しています' },
