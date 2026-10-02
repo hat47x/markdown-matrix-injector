@@ -10,6 +10,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import * as vscode from 'vscode';
+import { screenDesignWorkbook } from '../../helpers/buildXlsxWithImages.js';
 
 const LOG = '[mmi:import-e2e]';
 const problems: string[] = [];
@@ -58,6 +59,43 @@ async function checkBook(folder: string, book: string, expected: { tables: numbe
 }
 
 type Transcript = { title: string; placeholder: string; items: string[] }[];
+
+async function checkHybridImageImport(folder: string): Promise<void> {
+  const workbook = path.join(folder, 'image-design.xlsx');
+  fs.writeFileSync(workbook, screenDesignWorkbook().bytes);
+  const before = digest(workbook);
+  const draft = path.join(folder, 'image-design_取り込み候補.md');
+
+  const written = await vscode.commands.executeCommand<string | undefined>(
+    'markdownMatrixInjector.__test.importFromWorkbook',
+    { workbook, draft },
+  );
+  expect(written !== undefined, 'image import: command did not return a draft path');
+  if (!written) return;
+
+  const markdown = fs.readFileSync(draft, 'utf8');
+  const document = await vscode.workspace.openTextDocument(draft);
+  const html = await vscode.commands.executeCommand<string>('markdown.api.render', document);
+  const assetDir = path.join(folder, 'assets', 'image-design');
+  const ledgerPath = path.join(folder, 'mmi-ledger.json');
+  const ledger = JSON.parse(fs.readFileSync(ledgerPath, 'utf8')) as { entries: Array<{ kind: string }> };
+  const observed = {
+    provenanceComments: count(markdown, /<!-- mmi:extracted /g),
+    renderedImages: count(html, /<img\b/g),
+    renderedTables: count(html, /<table class="mmi-table">/g),
+    assetFiles: fs.readdirSync(assetDir).length,
+    ledgerImages: ledger.entries.filter((entry) => entry.kind === 'image').length,
+    sourceUnchanged: digest(workbook) === before,
+  };
+  note('hybrid-image-import', observed);
+
+  expect(observed.provenanceComments === 4, `image import: expected 4 provenance comments, got ${observed.provenanceComments}`);
+  expect(observed.renderedImages === 4, `image import: expected 4 rendered images, got ${observed.renderedImages}`);
+  expect(observed.renderedTables === 1, `image import: expected 1 linked table, got ${observed.renderedTables}`);
+  expect(observed.assetFiles === 2, `image import: expected 2 distinct content-addressed assets, got ${observed.assetFiles}`);
+  expect(observed.ledgerImages === 4, `image import: expected 4 image occurrences in ledger, got ${observed.ledgerImages}`);
+  expect(observed.sourceUnchanged, 'image import: source workbook changed');
+}
 
 /** Guided authoring: choosing a 方眼紙 table presets header/columns/mode, and the confirm step shows a table. */
 async function checkGuidedAuthoring(folder: string): Promise<void> {
@@ -122,6 +160,11 @@ export async function run(): Promise<void> {
     } catch (error) {
       problems.push(`${book} threw: ${error instanceof Error ? error.stack : String(error)}`);
     }
+  }
+  try {
+    await checkHybridImageImport(folder);
+  } catch (error) {
+    problems.push(`hybrid image import threw: ${error instanceof Error ? error.stack : String(error)}`);
   }
   try {
     await checkGuidedAuthoring(folder);
