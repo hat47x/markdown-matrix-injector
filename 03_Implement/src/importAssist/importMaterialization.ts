@@ -89,6 +89,7 @@ export function writeWorkbookImportDraft(
 
   fs.mkdirSync(path.dirname(paths.draftPath), { recursive: true });
 
+  let draftWriteStarted = false;
   try {
     const result = materializeWorkbookImport({
       ...options,
@@ -97,10 +98,24 @@ export function writeWorkbookImportDraft(
       imageOutDir: paths.imageOutDir,
     });
     // 'wx' closes the check/write race: another process cannot be overwritten.
-    fs.writeFileSync(paths.draftPath, result.markdown, { encoding: 'utf8', flag: 'wx' });
+    draftWriteStarted = true;
+    fs.writeFileSync(
+      paths.draftPath,
+      result.markdown,
+      { encoding: 'utf8', flag: 'wx' },
+    );
     return result;
   } catch (error) {
-    rollbackWorkbookImport(paths, ledgerBefore, assetDirectoryExisted, assetsBefore);
+    const removeDraft =
+      draftWriteStarted
+      && !(isNodeError(error) && error.code === 'EEXIST');
+    rollbackWorkbookImport(
+      paths,
+      ledgerBefore,
+      assetDirectoryExisted,
+      assetsBefore,
+      removeDraft,
+    );
     throw error;
   }
 }
@@ -110,8 +125,9 @@ function rollbackWorkbookImport(
   ledgerBefore: Buffer | undefined,
   assetDirectoryExisted: boolean,
   assetsBefore: ReadonlySet<string>,
+  removeDraft: boolean,
 ): void {
-  fs.rmSync(paths.draftPath, { force: true });
+  if (removeDraft) fs.rmSync(paths.draftPath, { force: true });
 
   if (ledgerBefore) {
     fs.mkdirSync(path.dirname(paths.ledgerPath), { recursive: true });
@@ -209,6 +225,11 @@ export function materializeWorkbookImport(
   };
 }
 
+
+
+function isNodeError(error: unknown): error is NodeJS.ErrnoException {
+  return error instanceof Error && 'code' in error;
+}
 
 function distinctProblems(problems: readonly ExtractProblem[]): ExtractProblem[] {
   const seen = new Set<string>();
