@@ -69,7 +69,7 @@ export function materializeWorkbookImport(
       ledgerPath,
     });
     extractedImages = extracted.extracted;
-    imageProblems = extracted.problems;
+    imageProblems = extracted.problems.filter((problem) => problem.code !== 'MMI_IMAGE_NONE');
   }
 
   const assets: ImportDraftAsset[] = extractedImages.map((image) => ({
