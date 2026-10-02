@@ -11,7 +11,12 @@ import {
   matchesCandidateReviewFacets,
   type CandidateReviewFacetSelection,
 } from '../application/candidateReviewFilter.js';
-import { extractImages, extractTable } from '../cli/extract.js';
+import {
+  discardUnrecordedTableExtraction,
+  extractImages,
+  extractTable,
+  finalizeReviewedTableExtraction,
+} from '../cli/extract.js';
 import type { Candidate, ReviewState } from '../core/candidate.js';
 import type { CandidateLedgerFilter } from '../core/candidateLedgerView.js';
 import {
@@ -155,7 +160,7 @@ function reviewStateLabel(
     case 'accepted':
       return 'accepted（採用済み）';
     case 'modified':
-      return 'modified（修正して採用）';
+      return 'modified（修正採用）';
     case 'rejected':
       return 'rejected（却下済み）';
     case 'deferred':
@@ -410,6 +415,14 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
         value: 'extract' as const,
         description: '既存のextract経路で標準資産と台帳へ記録',
       },
+      ...(picked.source.kind === 'table'
+        ? [{
+            label: '修正して取り込む',
+            value: 'extract-modified' as const,
+            description:
+              '抽出したMarkdown表を編集し、修正版として台帳へ記録',
+          }]
+        : []),
       ...(picked.ledgerState === 'imported'
         ? []
         : [
@@ -509,7 +522,71 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
 
   let extractedMarkdown: string;
   let extractedFile: string;
-  if (picked.source.kind === 'image') {
+  if (
+    action.value === 'extract-modified'
+    && picked.source.kind === 'table'
+  ) {
+    const draft = extractTable({
+      sourcePath,
+      sheet: picked.source.sheet,
+      range: picked.source.range,
+      outDir,
+      ...(markdownDocument
+        ? { fromDocument: markdownDocument }
+        : {}),
+      sourceLabel,
+    });
+    if (draft.problems.length > 0 || !draft.extracted) {
+      await vscode.window.showErrorMessage(
+        `MMI: 修正用の表を作成できません: ${draft.problems
+          .map((problem) => problem.message)
+          .join(' / ')}`,
+      );
+      return;
+    }
+
+    const reviewDocument = await vscode.workspace.openTextDocument({
+      content: draft.extracted.markdown,
+      language: 'markdown',
+    });
+    await vscode.window.showTextDocument(
+      reviewDocument,
+      { preview: false },
+    );
+    const reviewAction = await vscode.window.showInformationMessage(
+      'MMI: 表を必要な形へ修正してください。完了後に「修正内容を採用」を選ぶと、原本を変えずに修正版とprovenanceを記録します。',
+      '修正内容を採用',
+      'キャンセル',
+    );
+    if (reviewAction !== '修正内容を採用') {
+      discardUnrecordedTableExtraction(draft.extracted);
+      return;
+    }
+
+    const finalized = finalizeReviewedTableExtraction({
+      sourcePath,
+      outDir,
+      ledgerPath,
+      extracted: draft.extracted,
+      editedMarkdown: reviewDocument.getText(),
+      ...(markdownDocument
+        ? { fromDocument: markdownDocument }
+        : {}),
+      sourceLabel,
+      basis: 'MMI Candidate review UI: reviewed table output',
+    });
+    if (finalized.problems.length > 0 || !finalized.extracted) {
+      discardUnrecordedTableExtraction(draft.extracted);
+      await vscode.window.showErrorMessage(
+        `MMI: 修正版を採用できません: ${finalized.problems
+          .map((problem) => problem.message)
+          .join(' / ')}`,
+      );
+      return;
+    }
+    extractedMarkdown = finalized.extracted.markdown;
+    extractedFile = finalized.extracted.file;
+  } else if (picked.source.kind === 'image') {
     const result = extractImages({
       sourcePath,
       selection: String(picked.source.image.ordinal),
@@ -592,7 +669,11 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
       },
     );
     if (insert?.value) {
-      await active.edit((edit) =>
+      const targetEditor = await vscode.window.showTextDocument(
+        active.document,
+        active.viewColumn,
+      );
+      await targetEditor.edit((edit) =>
         edit.insert(
           active.selection.active,
           `${extractedMarkdown}\n`,
