@@ -44,6 +44,7 @@ test('one workbook import keeps tables linked and materializes embedded images i
   const ledger = readLedger(ledgerPath);
   assert.equal(ledger.entries.length, 4);
   assert.ok(ledger.entries.every((entry) => entry.kind === 'image'));
+  assert.ok(ledger.entries.every((entry) => entry.basis === 'mmi import'));
 
   const inspected = inspectSource(sourcePath, 0, draftPath);
   const imageStates = inspected.candidates
