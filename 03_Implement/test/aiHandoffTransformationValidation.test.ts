@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { main } from '../src/cli/mmi.js';
 import {
   imageCandidates,
   readExcelImages,
@@ -311,3 +312,100 @@ test('proposal receipt digest binds nested identity and rationale content', asyn
   assert.notEqual(first.proposalDigest, second.proposalDigest);
   assert.notEqual(first.proposalDigest, third.proposalDigest);
 });
+
+
+async function captureMain(argv: string[]): Promise<{ code: number; output: string }> {
+  const written: string[] = [];
+  const out = process.stdout.write.bind(process.stdout);
+  const err = console.error;
+  process.stdout.write = ((chunk: string) => (written.push(String(chunk)), true)) as typeof process.stdout.write;
+  console.error = () => undefined;
+  try {
+    return { code: await main(argv), output: written.join('') };
+  } finally {
+    process.stdout.write = out;
+    console.error = err;
+  }
+}
+
+test('CLI validate-transformation returns only a review plan and never writes assets', async () => {
+  const f = tableFixture();
+  const handoffPath = path.join(f.root, 'handoff.json');
+  const proposalPath = path.join(f.root, 'transformation.json');
+  fs.writeFileSync(handoffPath, JSON.stringify(f.handoff, null, 2));
+  fs.writeFileSync(proposalPath, JSON.stringify(
+    proposal(f.identity, 'extracted'),
+    null,
+    2,
+  ));
+  const before = listFiles(f.root);
+
+  const accepted = await captureMain([
+    'validate-transformation',
+    proposalPath,
+    '--package',
+    handoffPath,
+    '--document',
+    f.markdownFilePath,
+    '--root',
+    f.root,
+    '--json',
+  ]);
+
+  assert.equal(accepted.code, 0);
+  const receipt = JSON.parse(accepted.output);
+  assert.equal(receipt.status, 'accepted-for-review');
+  assert.equal(receipt.plan.operation, 'extract-standard-asset');
+  assert.equal(receipt.plan.conversion, 'gfm-table-v1');
+  assert.deepEqual(listFiles(f.root), before);
+});
+
+test('CLI validate-transformation blocks stale source proposals and boundary escapes', async () => {
+  const f = tableFixture();
+  const handoffPath = path.join(f.root, 'handoff.json');
+  const proposalPath = path.join(f.root, 'transformation.json');
+  fs.writeFileSync(handoffPath, JSON.stringify(f.handoff));
+  fs.writeFileSync(proposalPath, JSON.stringify(proposal(f.identity, 'extracted')));
+  fs.appendFileSync(f.sourcePath, '2,changed\n');
+
+  const blocked = await captureMain([
+    'validate-transformation',
+    proposalPath,
+    '--package',
+    handoffPath,
+    '--document',
+    f.markdownFilePath,
+    '--root',
+    f.root,
+    '--json',
+  ]);
+  assert.equal(blocked.code, 1);
+  assert.equal(JSON.parse(blocked.output).status, 'blocked');
+
+  const outside = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-ai-transform-outside-'));
+  const outsideProposal = path.join(outside, 'transformation.json');
+  fs.writeFileSync(outsideProposal, JSON.stringify(proposal(f.identity, 'extracted')));
+  assert.equal((await captureMain([
+    'validate-transformation',
+    outsideProposal,
+    '--package',
+    handoffPath,
+    '--document',
+    f.markdownFilePath,
+    '--root',
+    f.root,
+  ])).code, 2);
+});
+
+function listFiles(root: string): string[] {
+  const out: string[] = [];
+  const visit = (directory: string) => {
+    for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+      const absolute = path.join(directory, entry.name);
+      if (entry.isDirectory()) visit(absolute);
+      else out.push(path.relative(root, absolute).split(path.sep).join('/'));
+    }
+  };
+  visit(root);
+  return out.sort();
+}
