@@ -69,8 +69,6 @@ function facetLabel(facet: CandidateReviewFacetSelection): string {
         return '状態: observed（観測）';
       case 'inferred':
         return '状態: inferred（推定）';
-      case 'confirmed':
-        return '状態: confirmed（確認済み）';
       case 'abstained':
         return '状態: abstained（判断保留）';
     }
