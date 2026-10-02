@@ -15,7 +15,8 @@ import { imageCandidates, readExcelImages, readImageBytes, type ExcelImage, type
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 
 import { toGfmTable } from '../core/markdownTable.js';
-import { entryFor, recordEntries, type LedgerEntry } from '../core/importLedger.js';
+import { claimBasisOf, entryFor, placeOf, recordEntries, type LedgerEntry } from '../core/importLedger.js';
+import type { Candidate } from '../core/candidate.js';
 import { buildLogicalTable } from '../core/renderTable.js';
 import {
   createSourceIdentityFromBytes,
@@ -50,6 +51,8 @@ export interface ExtractedImage {
   /** `written`, or `unchanged` when the same bytes were already there. */
   status: 'written' | 'unchanged';
   reference: string;
+  /** Human-visible Markdown alt text generated from source metadata. */
+  altText: string;
   markdown: string;
 }
 
@@ -65,6 +68,27 @@ export interface ExtractResult {
   problems: ExtractProblem[];
   /** Raw package diagnostics from the same image parse used for extraction. */
   diagnostics?: ImageDiagnostic[];
+}
+
+export interface FinalizeReviewedImageOptions {
+  sourcePath: string;
+  ledgerPath: string;
+  extracted: ExtractedImage;
+  /** Candidate shown to the reviewer before the human edit. */
+  candidate: Candidate;
+  altText: string;
+  fromDocument?: string;
+  sourceLabel?: string;
+  basis?: string;
+}
+
+export interface FinalizedReviewedImage extends ExtractedImage {
+  reviewState: 'accepted' | 'modified';
+}
+
+export interface FinalizeReviewedImageResult {
+  extracted?: FinalizedReviewedImage;
+  problems: ExtractProblem[];
 }
 
 export interface ExtractTableOptions {
@@ -123,9 +147,16 @@ function provenanceValue(text: string): string {
     .replace(/[\r\n]+/gu, ' ');
 }
 
+function normalizeImageAltText(value: string): string {
+  return value
+    .replace(/[\r\n]+/gu, ' ')
+    .replace(/[[\]]/gu, '')
+    .trim();
+}
+
 function altText(image: ExcelImage): string {
   const raw = image.description ?? image.name ?? `${image.sheet} 画像${image.ordinal}`;
-  return raw.replace(/[\r\n]+/gu, ' ').replace(/[[\]]/gu, '').trim();
+  return normalizeImageAltText(raw);
 }
 
 /** Provenance as an HTML comment: invisible in rendered Markdown, greppable, and `--` is escaped so it cannot end the comment early. */
@@ -144,8 +175,13 @@ function tableProvenanceComment(
 }
 
 export function extractImages(options: ExtractOptions): ExtractResult {
-  const result: ExtractResult = { extracted: [], problems: [], diagnostics: [] };
-  const packageBytes = options.sourceBytes ?? fs.readFileSync(options.sourcePath);
+  const result: ExtractResult = {
+    extracted: [],
+    problems: [],
+    diagnostics: [],
+  };
+  const packageBytes =
+    options.sourceBytes ?? fs.readFileSync(options.sourcePath);
   if (!/\.(xlsx|xlsm)$/iu.test(options.sourcePath)) {
     result.problems.push({ code: 'MMI_IMAGE_PACKAGE_UNSUPPORTED', message: 'images can only be extracted from .xlsx / .xlsm workbooks' });
     return result;
@@ -212,6 +248,7 @@ export function extractImages(options: ExtractOptions): ExtractResult {
     }
     const relative = path.relative(documentDirectory, file).split(path.sep).join('/');
     const reference = /\s/u.test(relative) ? relative.replace(/ /gu, '%20') : relative;
+    const generatedAltText = altText(image);
     result.extracted.push({
       ordinal: image.ordinal,
       sheet: image.sheet,
@@ -220,7 +257,10 @@ export function extractImages(options: ExtractOptions): ExtractResult {
       file,
       status,
       reference,
-      markdown: `![${altText(image)}](${reference})\n${provenanceComment(source, image)}`,
+      altText: generatedAltText,
+      markdown:
+        `![${generatedAltText}](${reference})\n`
+        + provenanceComment(source, image),
     });
   }
   if (options.ledgerPath && result.extracted.length > 0) {
@@ -237,11 +277,178 @@ export function extractImages(options: ExtractOptions): ExtractResult {
         candidate,
         item.file,
         options.basis ?? 'mmi extract',
-        { mode: 'raw-image-bytes-v1', format: image.format },
+        {
+          mode: 'raw-image-bytes-v1',
+          format: image.format,
+          reviewMode: 'accepted-reference-v1',
+          altText: item.altText,
+        },
       ));
     }
     recordEntries(options.ledgerPath, entries);
   }
+  return result;
+}
+
+
+function sameCandidateReviewBasis(
+  before: Candidate,
+  after: Candidate,
+): boolean {
+  if (
+    before.kind !== after.kind
+    || before.fingerprint.representation
+      !== after.fingerprint.representation
+    || before.fingerprint.digest !== after.fingerprint.digest
+  ) {
+    return false;
+  }
+  const previous = claimBasisOf(before);
+  const current = claimBasisOf(after);
+  return previous.length === current.length
+    && previous.every((item, index) =>
+      item.index === current[index]?.index
+      && item.aspect === current[index]?.aspect
+      && item.digest === current[index]?.digest);
+}
+
+/**
+ * Remove only an image asset created by the current unrecorded review draft.
+ * Existing content-addressed assets are never removed.
+ */
+export function discardUnrecordedImageExtraction(
+  extracted: ExtractedImage,
+): boolean {
+  if (
+    extracted.status !== 'written'
+    || !fs.existsSync(extracted.file)
+    || sha256(fs.readFileSync(extracted.file)) !== extracted.digest
+  ) {
+    return false;
+  }
+  fs.unlinkSync(extracted.file);
+  return true;
+}
+
+/**
+ * Finalize a human-edited image reference without changing the source image
+ * bytes or Candidate epistemic state. The source Candidate is rediscovered
+ * before recording so stale review context cannot be adopted silently.
+ */
+export function finalizeReviewedImageExtraction(
+  options: FinalizeReviewedImageOptions,
+): FinalizeReviewedImageResult {
+  const result: FinalizeReviewedImageResult = { problems: [] };
+  if (
+    !fs.existsSync(options.extracted.file)
+    || sha256(fs.readFileSync(options.extracted.file))
+      !== options.extracted.digest
+  ) {
+    result.problems.push({
+      code: 'MMI_IMAGE_REVIEW_ASSET_CHANGED',
+      message:
+        'extracted image asset changed during review; reopen Candidate review',
+    });
+    return result;
+  }
+
+  let read: ReturnType<typeof readExcelImages>;
+  try {
+    read = readExcelImages(fs.readFileSync(options.sourcePath));
+  } catch (error) {
+    result.problems.push({
+      code: 'MMI_IMAGE_REVIEW_STALE',
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return result;
+  }
+  const fatal = read.diagnostics.find(
+    (diagnostic) => diagnostic.severity === 'error',
+  );
+  if (fatal) {
+    result.problems.push({
+      code: 'MMI_IMAGE_REVIEW_STALE',
+      message: fatal.message,
+      ...(fatal.sheet ? { sheet: fatal.sheet } : {}),
+    });
+    return result;
+  }
+
+  const documentDirectory = path.dirname(
+    path.resolve(
+      options.fromDocument ?? path.join(process.cwd(), 'x.md'),
+    ),
+  );
+  const source = options.sourceLabel
+    ?? (
+      path.relative(documentDirectory, options.sourcePath)
+        .split(path.sep)
+        .join('/')
+      || path.basename(options.sourcePath)
+    );
+  const sourceDigest = readSourceFileIdentity(options.sourcePath).digest;
+  const currentCandidates = imageCandidates({
+    source,
+    sourceDigest,
+    images: read.images,
+  });
+  const reviewedPlace = placeOf(options.candidate);
+  const currentIndex = currentCandidates.findIndex(
+    (candidate) =>
+      candidate.locator.sheet === options.candidate.locator.sheet
+      && placeOf(candidate) === reviewedPlace,
+  );
+  const currentCandidate = currentCandidates[currentIndex];
+  const currentImage = read.images[currentIndex];
+  if (
+    !currentCandidate
+    || !currentImage
+    || !sameCandidateReviewBasis(options.candidate, currentCandidate)
+    || currentImage.digest !== options.extracted.digest
+  ) {
+    result.problems.push({
+      code: 'MMI_IMAGE_REVIEW_STALE',
+      message:
+        'image Candidate changed during review; reopen Candidate review before adopting the edited description',
+    });
+    return result;
+  }
+
+  const reviewedAltText = normalizeImageAltText(options.altText);
+  const reviewState: FinalizedReviewedImage['reviewState'] =
+    reviewedAltText === options.extracted.altText
+      ? 'accepted'
+      : 'modified';
+  const markdown =
+    `![${reviewedAltText}](${options.extracted.reference})\n`
+    + provenanceComment(source, currentImage);
+
+  recordEntries(options.ledgerPath, [
+    entryFor(
+      options.ledgerPath,
+      options.sourcePath,
+      currentCandidate,
+      options.extracted.file,
+      options.basis ?? 'MMI Candidate review UI',
+      {
+        mode: 'raw-image-bytes-v1',
+        format: currentImage.format,
+        reviewMode:
+          reviewState === 'modified'
+            ? 'modified-reference-v1'
+            : 'accepted-reference-v1',
+        altText: reviewedAltText,
+      },
+      reviewState,
+    ),
+  ]);
+
+  result.extracted = {
+    ...options.extracted,
+    altText: reviewedAltText,
+    markdown,
+    reviewState,
+  };
   return result;
 }
 
