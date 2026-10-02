@@ -40,7 +40,7 @@ MMIの参照は、Excel・CSVなどの正本から必要な表だけをMarkdown�
    参照を展開したMarkdownが出る。本文の主張（「承認できるのは承認者のみ」など）が表と矛盾しないか確かめる。
 5. 報告する。 使った正本、参照した範囲、`check`の結果、本文と表の確認結果を利用者に伝える。
 
-`mmi`コマンドが無い場合は、MMIリポジトリの`03_Implement`で`npm run mmi -- <command> ...`を使う。
+`mmi`は配布されたCLI tarballをNode.js 20以上の環境へ導入して使う。開発用checkoutで作業していて配布CLIが無い場合だけ、MMIリポジトリの`03_Implement`で`npm run mmi -- <command> ...`を使う。
 
 ## 外部LLMへ相談する（MMIは送信しない）
 
