@@ -37,6 +37,7 @@ import {
 import { validateAiHandoffNotationProposal } from '../dx/aiHandoffProposalValidation.js';
 import { createDiagnosticsForDocument } from '../dx/vscodeAdapters.js';
 import { buildDeliveryManifestCsv } from '../manifest/collectDeliveryManifest.js';
+import { materializeWorkbookImport } from '../importAssist/importMaterialization.js';
 import { detectRegions } from '../search/regionDetector.js';
 import { runFind, runSelect } from './navigateCommands.js';
 import { extractImages, formatImageDiagnostics } from './extract.js';
@@ -61,6 +62,10 @@ Commands:
       --image <n|all>         the picture number shown by inspect, or all (required)
       --out-dir <dir>         assets folder (default: assets); files are named by content digest
       --from <doc.md>         write references relative to this document
+      --ledger <file>         import ledger (default: <root>/mmi-ledger.json)
+  import <workbook>         Create a modernization draft: tables stay live references, images become assets
+      --draft <file.md>       new Markdown draft to create (required; existing files are not overwritten)
+      --out-dir <dir>         optional image asset folder (default: <draft>/assets/<workbook>/)
       --ledger <file>         import ledger (default: <root>/mmi-ledger.json)
   select <workbook>         Print the reference for a table chosen by name, with columns/rows chosen by heading
       --table <name|range>    Excel table, name, title or A1 range (required)
@@ -105,7 +110,8 @@ export async function main(argv: string[]): Promise<number> {
       values: { type: 'string', default: '0' },
       from: { type: 'string' },
       image: { type: 'string' },
-      'out-dir': { type: 'string', default: 'assets' },
+      'out-dir': { type: 'string' },
+      draft: { type: 'string' },
       ledger: { type: 'string' },
       'similarity-evidence': { type: 'string' },
       unimported: { type: 'boolean', default: false },
@@ -175,6 +181,51 @@ export async function main(argv: string[]): Promise<number> {
       else if (result.extracted.length > 0) emit(result.extracted.map((item) => item.markdown).join('\n\n'));
       for (const problem of result.problems) console.error(`mmi: ${problem.code}${problem.ordinal ? ` (image ${problem.ordinal})` : ''}: ${problem.message}`);
       return result.problems.length > 0 ? 1 : 0;
+    }
+    case 'import': {
+      if (args.length !== 1) return usageError('import takes one workbook');
+      if (!values.draft) return usageError('import needs --draft <file.md>');
+      const sourcePath = path.resolve(args[0]);
+      const draftPath = path.resolve(values.draft);
+      if (!handoffPathWithinRoot(sourcePath, root)) {
+        return usageError('import source must stay within --root workspace');
+      }
+      if (!handoffPathWithinRoot(path.dirname(draftPath), root)) {
+        return usageError('import draft folder must stay within --root workspace');
+      }
+      if (fs.existsSync(draftPath)) {
+        console.error(`mmi: import draft already exists; refusing to overwrite: ${draftPath}`);
+        return 1;
+      }
+
+      const result = materializeWorkbookImport({
+        sourcePath,
+        draftPath,
+        ledgerPath: path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE),
+        ...(values['out-dir'] ? { imageOutDir: path.resolve(values['out-dir']) } : {}),
+      });
+      fs.mkdirSync(path.dirname(draftPath), { recursive: true });
+      fs.writeFileSync(draftPath, result.markdown, 'utf8');
+
+      const summary = {
+        draft: path.relative(process.cwd(), draftPath).split(path.sep).join('/') || path.basename(draftPath),
+        ledger: path.relative(process.cwd(), result.ledgerPath).split(path.sep).join('/') || path.basename(result.ledgerPath),
+        imageOutDir: path.relative(process.cwd(), result.imageOutDir).split(path.sep).join('/') || path.basename(result.imageOutDir),
+        extractedImages: result.extractedImages.length,
+        imageProblems: result.imageProblems,
+      };
+      emit(values.json
+        ? JSON.stringify(summary, null, 2)
+        : [
+            `draft: ${summary.draft}`,
+            `images: ${summary.extractedImages}`,
+            `ledger: ${summary.ledger}`,
+            ...(result.imageProblems.length > 0 ? [`image warnings: ${result.imageProblems.length}`] : []),
+          ].join('\n'));
+      for (const problem of result.imageProblems) {
+        console.error(`mmi: ${problem.code}${problem.ordinal ? ` (image ${problem.ordinal})` : ''}: ${problem.message}`);
+      }
+      return result.imageProblems.length > 0 ? 1 : 0;
     }
     case 'select':
       return runSelect(args, { ...values, json: values.json }, { out: emit, err: (text) => console.error(text), cwd: process.cwd() });
