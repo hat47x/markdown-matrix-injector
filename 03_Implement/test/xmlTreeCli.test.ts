@@ -111,9 +111,9 @@ test('extractXmlTree projects one explicit subtree and records the shared ledger
     '/catalog[1]/service[1]',
   );
   assert.equal(digest(result.extracted.file), result.extracted.digest);
-  assert.match(result.extracted.markdown, /^- \\<service\\>/u);
+  assert.equal(result.extracted.markdown.includes('- \\<service\\>'), true);
   assert.match(result.extracted.markdown, /- @id: "billing"/u);
-  assert.match(result.extracted.markdown, /- \\<endpoint\\>/u);
+  assert.equal(result.extracted.markdown.includes('- \\<endpoint\\>'), true);
   assert.match(result.extracted.markdown, /- #text: "\/pay"/u);
   assert.match(
     result.extracted.markdown,
@@ -267,11 +267,16 @@ test('XML Tree projection escapes Markdown-significant element/text content', ()
 
   assert.deepEqual(result.problems, []);
   assert.ok(result.extracted);
-  assert.match(result.extracted.markdown, /^- \\<root\\>/u);
-  assert.match(result.extracted.markdown, /- @note: "\\*literal\\*"/u);
-  assert.match(
-    result.extracted.markdown,
-    /- #text: "\\<b\\>\\*not markup\\*\\<\\\/b\\>"/u,
+  assert.equal(result.extracted.markdown.includes('- \\<root\\>'), true);
+  assert.equal(
+    result.extracted.markdown.includes('- @note: "\\*literal\\*"'),
+    true,
+  );
+  assert.equal(
+    result.extracted.markdown.includes(
+      '- #text: "\\<b\\>\\*not markup\\*\\</b\\>"',
+    ),
+    true,
   );
 });
 
