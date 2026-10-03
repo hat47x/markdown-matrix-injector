@@ -1,5 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import os from 'node:os';
+import path from 'node:path';
 
 import {
   SEMANTIC_CANDIDATE_CONTRACT,
@@ -140,5 +143,43 @@ test('CLI schema command fails closed on unknown contracts', async () => {
   assert.match(
     run.error,
     /schema currently supports exactly/u,
+  );
+});
+
+
+test('inspect JSON declares the Candidate contract beside Candidate payloads', async () => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'mmi-candidate-contract-'),
+  );
+  const source = path.join(root, 'service.json');
+  fs.writeFileSync(
+    source,
+    JSON.stringify({
+      service: { name: 'billing' },
+    }),
+  );
+
+  const run = await captureMain([
+    'inspect',
+    source,
+    '--root',
+    root,
+    '--json',
+  ]);
+  assert.equal(run.code, 0);
+  assert.equal(run.error, '');
+
+  const result = JSON.parse(run.output);
+  assert.equal(
+    result.candidateContract,
+    'mmi.semantic-candidate/v1',
+  );
+  assert.equal(
+    result.candidates.every(
+      (candidate: unknown) =>
+        typeof candidate === 'object'
+        && candidate !== null,
+    ),
+    true,
   );
 });

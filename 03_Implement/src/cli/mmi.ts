@@ -699,6 +699,8 @@ export interface InspectTree {
 
 export interface InspectResult {
   source: string;
+  /** Public machine-readable contract used by every item in candidates. */
+  candidateContract: typeof SEMANTIC_CANDIDATE_CONTRACT;
   sheets: { name: string; usedRange?: string; regions: InspectRegion[] }[];
   /** Explicit JSON hierarchy nodes; absent for non-JSON sources. */
   trees?: InspectTree[];
@@ -768,6 +770,7 @@ export function inspectSource(absolutePath: string, sampleRows: number, fromDocu
     );
     return {
       source: relative,
+      candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
       candidates: [...tree.candidates],
       trees: tree.nodes.map((node) => ({
         pointer: node.pointer,
@@ -798,6 +801,7 @@ export function inspectSource(absolutePath: string, sampleRows: number, fromDocu
   );
   return {
     source: relative,
+    candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
     candidates: [
       ...Object.entries(workbook.sheets).flatMap(([sheetName, sheet]) => tableCandidates({ source: relative, sourceDigest, sheetName, sheet })),
       ...imageCandidates({ source: relative, sourceDigest, images: imageRead.images, tablesBySheet }),
