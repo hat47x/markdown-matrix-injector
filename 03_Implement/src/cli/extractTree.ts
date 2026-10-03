@@ -57,8 +57,12 @@ function objectEntries(value: { [key: string]: JsonValue }): [string, JsonValue]
     .map((key) => [key, value[key]]);
 }
 
+function escapeMarkdownInline(text: string): string {
+  return text.replace(/([\\`*_[\]{}()#+\-.!<>|])/gu, '\\$1');
+}
+
 function renderLabel(text: string): string {
-  return JSON.stringify(text);
+  return escapeMarkdownInline(JSON.stringify(text));
 }
 
 function renderNestedList(
@@ -83,7 +87,7 @@ function renderNestedList(
     ];
   }
   return [
-    `${indent}- ${label}: ${canonicalJsonValue(value)}`,
+    `${indent}- ${label}: ${escapeMarkdownInline(canonicalJsonValue(value))}`,
   ];
 }
 
