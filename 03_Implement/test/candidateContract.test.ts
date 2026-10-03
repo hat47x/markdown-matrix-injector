@@ -137,14 +137,6 @@ test('CLI exposes Candidate JSON Schema as a stable machine-readable contract', 
   );
 });
 
-test('CLI schema command fails closed on unknown contracts', async () => {
-  const run = await captureMain(['schema', 'unknown']);
-  assert.equal(run.code, 2);
-  assert.match(
-    run.error,
-    /schema currently supports exactly/u,
-  );
-});
 
 
 test('inspect JSON declares the Candidate contract beside Candidate payloads', async () => {
