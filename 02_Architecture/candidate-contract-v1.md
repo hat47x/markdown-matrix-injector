@@ -2,7 +2,7 @@
 
 - 状態: 実装済み（型・不変条件・表・画像・JSON TreeのSource Adapter、`mmi inspect --json`、`mmi extract`）。2026-10-03のIssue #417で認識論上の状態と採用状態を分離した。TreeはJSONの明示構造まで実装し、XML・フラットテキストの階層、図形、メモ、リスト、見出しのAdapterは未実装。
 - 関連: [ADR-0019](../01_Plans/adr/ADR-0019-ai-era-sier-document-value-and-policy.md) D4・D6・D8、[ADR-0018](../01_Plans/adr/ADR-0018-cognitive-assistance-plane.md) D1〜D5、[ADR-0020](../01_Plans/adr/ADR-0020-requirement-oriented-cognition-method-selection.md)、[issue-0193](../01_Plans/issues/issue-0193-candidate-source-adapter-contract.md)
-- 実装: `src/core/candidate.ts`（型と不変条件）、`src/adapters/tableRegionAdapter.ts`、`src/adapters/excelImageAdapter.ts`、`src/adapters/jsonTreeAdapter.ts`
+- 実装: `src/core/candidate.ts`（型とruntime不変条件）、`src/core/candidateContract.ts`（公開JSON Schema）、`src/adapters/tableRegionAdapter.ts`、`src/adapters/excelImageAdapter.ts`、`src/adapters/jsonTreeAdapter.ts`
 
 Candidateは、Source Adapterが見つけた「情報の単位」を、取り込み・参照・レビュー・台帳が共通に扱うための型である。入力形式とMarkdown出力を直接結ばず、Source Adapter → Observed Structure → Candidate → 確認／参照／取り込み、の順に流す（ADR-0019 D4）。
 
@@ -35,7 +35,7 @@ run       deterministic       { inputDigest, config, implementationVersion }
 - **providerごとの信頼度を共通の尺度に合成しない**（ADR-0018 D4）。`scores`は`provider`と`scale`で区別する一覧で、最上位に`confidence`は存在しない。同じproviderの同じ尺度は1件だけ。規則による方式は`scores`を持たない。
 - 再現性は`run`で表す。決定論的な経路は「入力ダイジェスト＋設定＋実装版」で再現でき、provider依存の経路はprovider・model・artifact版・parametersを必ず残す。
 
-`candidateProblem(candidate)`が次の不変条件を検査する（テストで各項目を確認）。
+`candidateProblem(candidate)`が次の不変条件を検査する。外部ツール向けには同じ境界を`mmi.semantic-candidate/v1`のJSON Schemaとして`src/core/candidateContract.ts`に公開し、`mmi schema candidate`で取得できる。JSON Schemaで表現しにくい入力digestとsource digestの一致、provider/scale重複等はruntime側で追加検査する。
 
 1. 主張が1つ以上ある。
 2. `execution`が`provenance.run`と一致する。決定論的なCandidateにprovider依存の主張を入れない。
@@ -100,7 +100,7 @@ Markdownへの変換はSource Adapterに含めない。`extractJsonTree()`が選
 
 ## 4. CLI
 
-`mmi inspect <source> --json`は表・画像に加えてJSONのTree Candidateも返す。JSONのテキスト出力ではobject / arrayごとのJSON Pointer、node type、直下child数を表示する。
+`mmi inspect <source> --json`は表・画像に加えてJSONのTree Candidateも返す。JSON出力には`candidateContract: "mmi.semantic-candidate/v1"`を併記し、外部AIや他ツールがCandidate配列の契約を推測しなくてよいようにする。契約本体は`mmi schema candidate`で取得する。JSONのテキスト出力ではobject / arrayごとのJSON Pointer、node type、直下child数を表示する。
 
 - 実務サンプルの全20ブック（CSV・TSV・XLSX・XML 2003）と基本設計書キットのマスター（5シート）で、`candidates`の件数が`regions`の件数と一致し、各Candidateが不変条件と`reference`の一致を満たすことを確認した。
 - 認知側の処理が`check`の診断と`render`の論理表を変えないことを、同一入力での実行前後の比較と、権威経路（`render`・診断・表の描画）が`adapters/`・`search/`・`experimental/`・`core/candidate`を読み込まないことの静的検査で確かめる（`test/candidate.test.ts`）。
