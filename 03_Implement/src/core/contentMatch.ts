@@ -57,6 +57,18 @@ interface Position {
 
 const DEFAULT_MAX_CANDIDATES = 200;
 const DEFAULT_MAX_INDEXED_CELLS = 200_000;
+
+export class ContentMatchIndexLimitError extends Error {
+  readonly code = 'MMI_CONTENT_MATCH_SHEET_TOO_LARGE' as const;
+
+  constructor(
+    readonly cellCount: number,
+    readonly limit: number,
+  ) {
+    super(`Content-match sheet has ${cellCount} cells, which exceeds the indexable limit of ${limit}`);
+    this.name = 'ContentMatchIndexLimitError';
+  }
+}
 /** How many of the needle's rarest anchors are cross-checked (§5 step 3). */
 const MAX_ANCHORS = 5;
 
@@ -95,10 +107,7 @@ export function findContentMatches(
 
   const maxIndexedCells = options?.maxIndexedCells ?? DEFAULT_MAX_INDEXED_CELLS;
   if (sheetDimensions.cellCount > maxIndexedCells) {
-    throw new Error(
-      `findContentMatches: sheet used range has ${sheetDimensions.cellCount} cells, ` +
-        `which exceeds the indexable limit of ${maxIndexedCells}`,
-    );
+    throw new ContentMatchIndexLimitError(sheetDimensions.cellCount, maxIndexedCells);
   }
 
   const index = buildValueIndex(sheet, usedRange);
