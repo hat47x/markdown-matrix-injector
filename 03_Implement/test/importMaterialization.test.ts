@@ -127,7 +127,7 @@ test('an image that cannot become a Markdown asset stays visible as an import wa
   assert.equal(result.imageProblems.length, 1);
   assert.equal(result.imageProblems[0].sheet, '画面');
   assert.equal(result.imageProblems[0].code, 'MMI_IMAGE_UNSUPPORTED_FORMAT');
-  assert.match(result.markdown, /## 画像の注意/u);
+  assert.match(result.markdown, /## 画像・図形の注意/u);
   assert.match(result.markdown, /MMI_IMAGE_UNSUPPORTED_FORMAT/u);
   assert.match(result.markdown, /\[画面\]/u);
   assert.match(result.markdown, /通常画像/u);
@@ -202,7 +202,7 @@ test('linked and missing workbook images stay visible as import warnings', () =>
   assert.equal(result.extractedImages.length, 0);
   assert.ok(codes.includes('MMI_IMAGE_EXTERNAL_LINK'));
   assert.ok(codes.includes('MMI_IMAGE_MEDIA_MISSING'));
-  assert.match(result.markdown, /## 画像の注意/u);
+  assert.match(result.markdown, /## 画像・図形の注意/u);
   assert.match(result.markdown, /MMI_IMAGE_EXTERNAL_LINK/u);
   assert.match(result.markdown, /MMI_IMAGE_MEDIA_MISSING/u);
   assert.match(result.markdown, /\[画面\]/u);
