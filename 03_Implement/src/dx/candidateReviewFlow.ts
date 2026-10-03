@@ -72,7 +72,7 @@ function facetLabel(facet: CandidateReviewFacetSelection): string {
       case 'image':
         return '$(file-media) 種別: 画像';
       case 'tree':
-        return '$(symbol-structure) 種別: Tree';
+        return '$(list-tree) 種別: ツリー';
       default:
         return `種別: ${facet.value}`;
     }
@@ -217,6 +217,25 @@ function quickPickItem(
         .join(', ')}`
     : 'provider scoreなし';
 
+  if (source.kind === 'tree') {
+    const pointer = source.pointer || '(root)';
+    return {
+      label: `$(list-tree) ${pointer}`,
+      description:
+        `${stateLabel(ledgerState)} · 採用: ${reviewStateLabel(reviewState)} · JSON Tree`,
+      detail: [
+        epistemicDetail(source.candidate),
+        `${source.nodeType} · ${source.childCount} children · ${source.leafCount} scalar children`,
+        providerEvidence,
+      ].join(' · '),
+      source,
+      rejected,
+      deferred,
+      reviewState,
+      ledgerState,
+    };
+  }
+
   if (source.kind === 'image') {
     const image = source.image;
     return {
@@ -231,25 +250,6 @@ function quickPickItem(
       detail: [
         epistemicDetail(source.candidate),
         `${image.format.toUpperCase()} · ${image.bytes} bytes`,
-        providerEvidence,
-      ].join(' · '),
-      source,
-      rejected,
-      deferred,
-      reviewState,
-      ledgerState,
-    };
-  }
-
-  if (source.kind === 'tree') {
-    return {
-      label:
-        `$(symbol-structure) JSON ${source.pointer || '(root)'}`,
-      description:
-        `${stateLabel(ledgerState)} · 採用: ${reviewStateLabel(reviewState)} · ${source.nodeType}`,
-      detail: [
-        epistemicDetail(source.candidate),
-        `子: ${source.childCount} · scalar: ${source.leafCount}`,
         providerEvidence,
       ].join(' · '),
       source,
@@ -310,7 +310,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     await vscode.window.showWarningMessage(
       `MMI: 画像Candidateの一部を読み取れません: ${imageErrors
         .map((item) => item.message)
-        .join(' / ')}。利用できる表Candidateは引き続き確認できます。`,
+        .join(' / ')}。利用できる他のCandidateは引き続き確認できます。`,
     );
   }
 
@@ -717,29 +717,6 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     }
     extractedMarkdown = finalized.extracted.markdown;
     extractedFile = finalized.extracted.file;
-  } else if (picked.source.kind === 'tree') {
-    const result = extractJsonTree({
-      sourcePath,
-      pointer: picked.source.pointer,
-      outDir,
-      ...(markdownDocument
-        ? { fromDocument: markdownDocument }
-        : {}),
-      sourceLabel,
-      ledgerPath,
-      expectedCandidateFingerprint:
-        picked.source.candidate.fingerprint.digest,
-    });
-    if (result.problems.length > 0 || !result.extracted) {
-      await vscode.window.showErrorMessage(
-        `MMI: Treeの取り込みに失敗しました: ${result.problems
-          .map((problem) => problem.message)
-          .join(' / ')}`,
-      );
-      return;
-    }
-    extractedMarkdown = result.extracted.markdown;
-    extractedFile = result.extracted.file;
   } else if (picked.source.kind === 'image') {
     const result = extractImages({
       sourcePath,
@@ -764,6 +741,29 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     }
     extractedMarkdown = result.extracted[0].markdown;
     extractedFile = result.extracted[0].file;
+  } else if (picked.source.kind === 'tree') {
+    const result = extractJsonTree({
+      sourcePath,
+      pointer: picked.source.pointer,
+      outDir,
+      ...(markdownDocument
+        ? { fromDocument: markdownDocument }
+        : {}),
+      sourceLabel,
+      ledgerPath,
+      expectedCandidateFingerprint:
+        picked.source.candidate.fingerprint.digest,
+    });
+    if (result.problems.length > 0 || !result.extracted) {
+      await vscode.window.showErrorMessage(
+        `MMI: 取り込みに失敗しました: ${result.problems
+          .map((problem) => problem.message)
+          .join(' / ')}`,
+      );
+      return;
+    }
+    extractedMarkdown = result.extracted.markdown;
+    extractedFile = result.extracted.file;
   } else {
     const result = extractTable({
       sourcePath,
