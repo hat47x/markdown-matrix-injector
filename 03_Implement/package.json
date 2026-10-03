@@ -62,7 +62,6 @@
   },
   "dependencies": {
     "markdown-it": "^14.1.0",
-    "saxes": "6.0.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
@@ -325,6 +324,11 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "%mmi.setting.useClipboardSource%"
+        },
+        "markdownMatrixInjector.reviewObservation.enabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%mmi.setting.reviewObservation%"
         }
       }
     }

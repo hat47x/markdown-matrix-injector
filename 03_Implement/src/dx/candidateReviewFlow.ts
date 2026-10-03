@@ -11,6 +11,12 @@ import {
   type CandidateReviewFacetSelection,
 } from '../application/candidateReviewFilter.js';
 import {
+  appendCandidateReviewObservation,
+  candidateReviewObservationSnapshot,
+  createCandidateReviewObservation,
+  DEFAULT_CANDIDATE_REVIEW_OBSERVATION_FILE,
+} from '../application/candidateReviewObservation.js';
+import {
   candidateReviewSessionKey,
   remainingCandidateReviewItems,
 } from '../application/candidateReviewSession.js';
@@ -118,6 +124,22 @@ function facetQuickPickItem(
 function workspaceRoot(sourcePath: string): string {
   return vscode.workspace.getWorkspaceFolder(vscode.Uri.file(sourcePath))
     ?.uri.fsPath ?? path.dirname(sourcePath);
+}
+
+function reviewObservationFile(sourcePath: string): string | undefined {
+  const uri = vscode.Uri.file(sourcePath);
+  const folder = vscode.workspace.getWorkspaceFolder(uri);
+  if (!folder) return undefined;
+
+  const enabled = vscode.workspace
+    .getConfiguration('markdownMatrixInjector', uri)
+    .get<boolean>('reviewObservation.enabled', false);
+  return enabled
+    ? path.join(
+        folder.uri.fsPath,
+        DEFAULT_CANDIDATE_REVIEW_OBSERVATION_FILE,
+      )
+    : undefined;
 }
 
 function supportedReviewSource(sourcePath: string): boolean {
@@ -384,7 +406,25 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     && vscode.window.activeTextEditor.document.uri.scheme === 'file'
       ? vscode.window.activeTextEditor
       : undefined;
+  const observationFile = reviewObservationFile(sourcePath);
+  const observationStartedAtUtc = new Date().toISOString();
+  const observationInitial = observationFile
+    ? candidateReviewObservationSnapshot(
+        candidateReviewView(
+          inventory.items.map((item) => item.candidate),
+          ledger,
+          reviewDecisions,
+          ledgerPath,
+          reviewDecisionsPath,
+          sourcePath,
+          'all',
+        ),
+        facetFilter,
+      )
+    : undefined;
+  let selectedCount = 0;
 
+  try {
   for (;;) {
     try {
       ledger = readLedger(ledgerPath);
@@ -446,6 +486,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
       },
     );
     if (!picked) return;
+    selectedCount += 1;
 
   if (
     picked.source.kind === 'image'
@@ -853,5 +894,49 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     `MMI: ${path.relative(root, extractedFile)} に取り込み、mmi-ledger.jsonへ記録しました。`,
   );
   processedKeys.add(candidateReviewSessionKey(picked.source.candidate));
+  }
+  } finally {
+    if (observationFile && observationInitial) {
+      try {
+        const finalLedger = readLedger(ledgerPath);
+        const finalReviewDecisions = readReviewDecisions(
+          reviewDecisionsPath,
+        );
+        const finalView = candidateReviewView(
+          inventory.items.map((item) => item.candidate),
+          finalLedger,
+          finalReviewDecisions,
+          ledgerPath,
+          reviewDecisionsPath,
+          sourcePath,
+          'all',
+        );
+        const observation = createCandidateReviewObservation({
+          sourceLabel,
+          sourceDigest:
+            inventory.items[0].candidate.locator.sourceDigest,
+          startedAtUtc: observationStartedAtUtc,
+          endedAtUtc: new Date().toISOString(),
+          interruptedMarkdownEditing: Boolean(sessionMarkdownEditor),
+          ledgerFilter: filterChoice.value,
+          facetFilter,
+          selectedCount,
+          initial: observationInitial,
+          final: candidateReviewObservationSnapshot(
+            finalView,
+            facetFilter,
+          ),
+        });
+        appendCandidateReviewObservation(
+          observationFile,
+          observation,
+        );
+      } catch (error) {
+        void vscode.window.showWarningMessage(
+          'MMI: Candidateレビューの観測記録を保存できません: '
+            + (error instanceof Error ? error.message : String(error)),
+        );
+      }
+    }
   }
 }
