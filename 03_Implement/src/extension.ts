@@ -472,7 +472,7 @@ async function insertEmbedByContentMatch(): Promise<void> {
     confirmedCopySource(extensionRootPath, editor.document, clipboardText),
     loadWorkspaceWorkbooksForContentMatch(documentUri.fsPath, workspaceRoot),
   ]);
-  let searchResult;
+  let searchResult: ReturnType<typeof findWorkbookContentMatchesDetailed>;
   try {
     searchResult = findWorkbookContentMatchesDetailed(clipboardText, loadResult.workbooks);
   } catch (error) {
@@ -607,7 +607,7 @@ async function getContentMatchPasteEdits(
     return [];
   }
 
-  let searchResult;
+  let searchResult: ReturnType<typeof findWorkbookContentMatchesDetailed>;
   try {
     searchResult = findWorkbookContentMatchesDetailed(plainText, loadResult.workbooks);
   } catch (error) {
