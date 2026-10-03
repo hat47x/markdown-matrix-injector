@@ -22,7 +22,7 @@ import {
   finalizeReviewedImageExtraction,
   finalizeReviewedTableExtraction,
 } from '../cli/extract.js';
-import { extractJsonTree } from '../cli/extractTree.js';
+import { extractJsonTree, extractXmlTree } from '../cli/extractTree.js';
 import type { Candidate, ReviewState } from '../core/candidate.js';
 import type { CandidateLedgerFilter } from '../core/candidateLedgerView.js';
 import {
@@ -222,7 +222,7 @@ function quickPickItem(
     return {
       label: `$(list-tree) ${pointer}`,
       description:
-        `${stateLabel(ledgerState)} · 採用: ${reviewStateLabel(reviewState)} · JSON Tree`,
+        `${stateLabel(ledgerState)} · 採用: ${reviewStateLabel(reviewState)} · ${source.format.toUpperCase()} Tree`,
       detail: [
         epistemicDetail(source.candidate),
         `${source.nodeType} · ${source.childCount} children · ${source.leafCount} scalar children`,
@@ -742,7 +742,11 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     extractedMarkdown = result.extracted[0].markdown;
     extractedFile = result.extracted[0].file;
   } else if (picked.source.kind === 'tree') {
-    const result = extractJsonTree({
+    const extractTree =
+      picked.source.format === 'xml'
+        ? extractXmlTree
+        : extractJsonTree;
+    const result = extractTree({
       sourcePath,
       pointer: picked.source.pointer,
       outDir,
