@@ -165,27 +165,27 @@
 
 ### `findContentMatches`の追加：内容照合アルゴリズム本体（2026-09-14）
 
-2026-10-02に偽陰性を修正した。旧実装では`maxCandidates`を完全一致の検証前に適用し、候補原点を先頭N件で切っていた。このため、頻出アンカーから偽候補が多数生じると、真の一致がN+1件目以降に隠れる。上限は「返す完全一致数」に移し、候補原点を順に検証するよう変更した。回帰では`anchor|wrong`を205行並べ、その後ろにだけ`anchor|target`を置いた。これにより、重複結果数の上限を維持しつつ、アンカーの出現頻度だけを理由に「一致なし」と誤判定しない。
+2026-10-02に偽陰性を修正した。旧実装では`maxCandidates`を完全一致の検証前に適用し、候補原点を先頭N件で切っていた。このため、頻出アンカーから偽候補が多数生じると、真の一致がN+1件目以降に隠れる。上限は「返す完全一致数」に移し、候補原点を順に検証するよう変更した。回帰テストでは`anchor|wrong`を205行並べ、その後ろにだけ`anchor|target`を置き、この条件を固定した。これにより、重複結果数の上限を維持しつつ、アンカーの出現頻度だけを理由に「一致なし」と誤判定しない。
 
-形状を表す`extractHtmlTableShape`と、値行列を返す`parseTsv`が揃ったため、[出所設計](../../02_Architecture/input-assistance-paste-provenance.md)§5「内容照合」の手順2〜4を`src/core/contentMatch.ts`へ実装した。対象はアンカー選定、転置索引による候補抽出、複数アンカーの突き合わせ、矩形全体の照合である。
+形状を表す`extractHtmlTableShape`と、値行列を返す`parseTsv`が揃ったため、[出所設計](../../02_Architecture/input-assistance-paste-provenance.md)§5「内容照合」の手順2〜4を`src/core/contentMatch.ts`の`findContentMatches(sheet, needle, options?)`へ実装した。対象はアンカー選定、転置索引による候補抽出、複数アンカーの突き合わせ、矩形全体の照合である。
 
 - **入力**：検索対象の`SheetSource`1枚と、`parseTsv`などが返す貼り付け値行列`string[][]`。
-- **出力**：完全一致した矩形の一覧`{ range: CellRange }[]`。部分一致は候補にしない。同一内容が複数箇所にある場合も、自動で1件へ絞り込まない。
-- **アルゴリズム**：検索値行列`needle`の非空セルから、原本での出現回数が最も少ない値をアンカーに選ぶ。原本の使用範囲を1回走査して作った転置索引から出現位置を取得し、希少なアンカー最大4件で候補原点を絞り込む。総当たり走査は行わず、生き残った候補だけ矩形全体を照合する。
+- **出力**：完全一致した矩形の一覧`{ range: CellRange }[]`。部分一致は候補にしない。同一内容が複数箇所にある場合は、返却上限の範囲で一致をすべて返す。候補が複数ある場合は必ず一覧提示し、自動で1件へ絞り込まない。
+- **アルゴリズム**：検索値行列`needle`の非空セルから、原本での出現回数が最も少ない値をアンカーに選ぶ。原本の使用範囲を1回走査して作った転置索引から出現位置を取得し、希少なアンカー最大4件で候補原点を絞り込む。総当たり走査は行わず、生き残った候補だけ矩形全体を実際に読んで照合する。
 - **上限**：`maxIndexedCells`は既定20万セル、`maxCandidates`は既定200件とする。2026-10-04には詳細結果を追加した。200件に達しただけでは打ち切りとみなさず、201件目の完全一致を確認した場合だけ`truncated=true`とする。これにより、ちょうど200件の完全な候補集合と、201件以上あるため200件へ切り詰めた候補集合を区別できる。
-- **この時点で含めなかったもの**：探索対象ブックの決定、候補選択UI、`extension.ts`への配線。3点とも2026-09-15に実装した。詳細は後述の「作業D：内容照合コマンドの実装」を参照する。
+- **この時点で意図的に含めなかったもの**：探索対象ブックの決定、候補選択UI、`extension.ts`への配線。3点とも2026-09-15に実装した。詳細は後述の「作業D：内容照合コマンドの実装」を参照する。
 
-`test/contentMatch.test.ts`には11件のテストを追加した。単一一致、非A1原点の物理座標、不一致、内容重複、部分一致の棄却、空の検索値行列、検索値行列がシートより大きい場合、使用範囲外の候補、`maxIndexedCells`超過、`maxCandidates`による上限処理を検証する。当時の`npm test`は339件すべて成功した。
+`test/contentMatch.test.ts`には11件のテストを追加した。単一一致、非A1原点での物理座標保持、不一致、内容重複時の候補返却、部分一致の棄却、全セルが空の検索値行列の早期終了、検索値行列がシートより大きい場合の早期終了、使用範囲外の候補を除外してクラッシュしないこと、`maxIndexedCells`超過時の例外、`maxCandidates`による上限処理を検証する。当時の`npm test`は339件すべて成功した。
 
 ### 作業D：内容照合コマンドの実装（2026-09-15）
 
-`findContentMatches`、`extractHtmlTableShape`、`parseTsv`が揃ったため、残っていた探索対象ブックの決定、候補選択UI、`extension.ts`への配線を実装した。
+`findContentMatches`、`extractHtmlTableShape`、`parseTsv`が揃ったため、issue-0114で残っていた探索対象ブックの決定、候補選択UI、`extension.ts`への配線を実装した。
 
-- [`src/dx/contentMatchSearch.ts`](../../03_Implement/src/dx/contentMatchSearch.ts)を追加し、複数のワークブックとシートを横断して内容照合を集約した。`findWorkbookContentMatchesDetailed`は、完全一致、`skippedSheets`、`truncatedSheets`を分けて返す。`maxIndexedCells`超過は`MMI_CONTENT_MATCH_SHEET_TOO_LARGE`として扱う。候補上限を超えた場合は、検索済みだが候補集合が切り詰められた状態として保持する。その他の予期しない例外は握りつぶさない。
+- 新規に[`src/dx/contentMatchSearch.ts`](../../03_Implement/src/dx/contentMatchSearch.ts)を追加し、複数のワークブックとシートを横断して内容照合を集約した。`findWorkbookContentMatchesDetailed`は、完全一致、`skippedSheets`、`truncatedSheets`を分けて返す。`maxIndexedCells`超過は`MMI_CONTENT_MATCH_SHEET_TOO_LARGE`として扱う。候補上限を超えた場合は、検索済みだが候補集合が切り詰められた状態として保持する。その他の予期しない例外は握りつぶさない。
 - `src/core/tableGeometry.ts`に`indexToColumn`と`cellRangeToA1`を追加した。`columnToIndex`と`parseRangeToCellRange`の逆変換にあたり、物理座標からA1文字列へ戻す。内容照合の結果をMMI記法へ変換するために必要な処理である。
 - `src/extension.ts`に`insertEmbedByContentMatch`と新規コマンド`markdownMatrixInjector.insertEmbedByContentMatch`（`MMI: Insert Embed by Content Match`）を追加した。
   - **探索対象ブックの決定（§5手順1）**：`vscode.workspace.findFiles(WORKBOOK_FILE_GLOB, ...)`で候補を列挙し、編集中のMarkdownが属するワークスペースフォルダ内だけを採用する。2026-10-03には、`startsWith(workspaceRoot)`による文字列比較を廃止し、記法P4と同じ`isPathWithinBoundary()`と`realpath`による検査へ統一した。これにより、マルチルートワークスペースで`work`と`work-old`のようにパスの接頭辞が一致していても、別のルートを探索しない。ワークスペース内のシンボリックリンクが外部ファイルを指す場合も除外する。
-  - **候補選択UI（§4「自動確定の規則」）**：結果が1件でも複数件でも、必ず`vscode.window.showQuickPick`を経由する。VS Code標準の選択UIを使い、独自UIは実装しない。Escでキャンセルした場合は何も挿入しない（R1）。
+  - **候補選択UI（§4「自動確定の規則」）**：結果が1件でも複数件でも、必ず`vscode.window.showQuickPick`を経由する。VS Code標準の明示選択UIを使い、独自UIの実装を避けた。Escでキャンセルした場合は何も挿入しない（R1）。
   - ブックを読めない場合、シートが索引上限を超える場合、候補上限によって完全一致が切り詰められた場合は、候補集合を不完全として扱う。0件でも「一致なし」と断定しない。候補がある場合は、明示コマンドで警告し、Paste Asでは各候補に「検索不完全」と表示する。索引上限以外の予期しない照合エラーは利用者に表示し、MMIの候補は返さない。
 
 `test/contentMatchSearch.test.ts`には6件、`test/tableGeometry.test.ts`には`indexToColumn`と`cellRangeToA1`の3件を追加した。`test/extensionIntegration.test.ts`には構造テストを追加した。
