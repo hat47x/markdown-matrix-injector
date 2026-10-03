@@ -1,3 +1,4 @@
+import { TextDecoder } from 'node:util';
 import {
   candidateProblem,
   fingerprintOf,
@@ -33,6 +34,14 @@ export interface XmlTreeDocument {
   root: XmlElement;
   nodes: readonly XmlTreeNode[];
   candidates: readonly Candidate[];
+}
+
+export function decodeXmlUtf8(bytes: Uint8Array): string {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    throw new Error('Generic Tree XML must be valid UTF-8 bytes.');
+  }
 }
 
 export function readXmlTree(
