@@ -213,7 +213,7 @@ func ensureEOF(decoder *json.Decoder) error {
 }
 
 func parseCSV(contents string) ([][]string, error) {
-	text := strings.TrimSpace(strings.TrimPrefix(contents, "﻿"))
+	text := strings.TrimSpace(strings.TrimPrefix(contents, "\uFEFF"))
 	if text == "" {
 		return [][]string{}, nil
 	}
@@ -262,9 +262,10 @@ func parseCSV(contents string) ([][]string, error) {
 		switch ch {
 		case ',':
 			flushField()
-		case '':
-		case '
-':
+		case '\r':
+			// CRLF is completed by the following LF. Standalone CR is
+			// tolerated and ignored to preserve the TypeScript profile.
+		case '\n':
 			flushRow()
 		default:
 			field.WriteRune(ch)
@@ -557,9 +558,9 @@ func toCandidate(source, sourceDigest string, rows [][]string, r region, maxScan
 		for col := r.left; col <= r.right; col++ {
 			values = append(values, cell(rows, row, col))
 		}
-		materialRows = append(materialRows, strings.Join(values, ""))
+		materialRows = append(materialRows, strings.Join(values, "\x1f"))
 	}
-	material := strings.Join(materialRows, "")
+	material := strings.Join(materialRows, "\x1e")
 	fpSum := sha256.Sum256([]byte(material))
 	reference := fmt.Sprintf("![[%s#Sheet1|%s", source, r.a1)
 	if r.headerConfidence == "likely" && r.headers != nil {
