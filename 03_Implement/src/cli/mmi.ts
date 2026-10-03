@@ -333,7 +333,7 @@ export async function main(argv: string[]): Promise<number> {
 
       const summary = {
         status: result.imageProblems.length > 0 ? 'created-with-warnings' : 'created',
-        source: sourcePath,
+        source: path.relative(process.cwd(), sourcePath).split(path.sep).join('/') || path.basename(sourcePath),
         draft: path.relative(process.cwd(), draftPath).split(path.sep).join('/') || path.basename(draftPath),
         ledger: path.relative(process.cwd(), result.ledgerPath).split(path.sep).join('/') || path.basename(result.ledgerPath),
         imageOutDir: path.relative(process.cwd(), result.imageOutDir).split(path.sep).join('/') || path.basename(result.imageOutDir),
