@@ -2,7 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { buildCandidateReviewInventory } from './candidateReviewInventory.js';
-import type { Candidate } from '../core/candidate.js';
+import { fingerprintOf, type Candidate } from '../core/candidate.js';
 import {
   assessLedger,
   placeOf,
@@ -176,7 +176,8 @@ function extractedProvenance(markdown: string): ExtractedProvenance[] {
           source: attrs.source,
           sheet: attrs.sheet,
           ...(attrs.anchor ? { place: attrs.anchor } : {}),
-          fingerprintDigest: normalizedSha256(attrs.sha256),
+          // The comment carries the raw media digest; the Candidate fingerprint is derived from it.
+          fingerprintDigest: fingerprintOf('image-media-bytes-v1', normalizedSha256(attrs.sha256)).digest,
         });
       }
     }

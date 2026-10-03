@@ -130,9 +130,9 @@ test('extractXmlTree preserves attributes and text in nested Markdown and ledger
 
   assert.deepEqual(result.problems, []);
   assert.ok(result.extracted);
-  assert.match(result.extracted.markdown, /^- \\<endpoint\\>/u);
+  assert.match(result.extracted.markdown, /^- <endpoint>/u);
   assert.match(result.extracted.markdown, /- @method: "POST"/u);
-  assert.match(result.extracted.markdown, /- #text: "\\/refund\\?x=1&y=2"/u);
+  assert.match(result.extracted.markdown, /- #text: "\/refund\?x=1&y=2"/u);
   assert.match(
     result.extracted.markdown,
     /path="\/service\[1\]\/endpoint\[2\]".*projection="xml-nested-list-v1"/u,
