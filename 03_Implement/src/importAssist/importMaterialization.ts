@@ -15,6 +15,7 @@ import { extractImages, type ExtractProblem, type ExtractedImage } from '../cli/
 import {
   DEFAULT_LEDGER_FILE,
   assessLedger,
+  emptyLedger,
   readLedger,
 } from '../core/importLedger.js';
 import {
@@ -47,7 +48,7 @@ export interface WorkbookImportMaterializeOptions {
   ledgerPath?: string;
   /** Extracted images. Defaults to assets/<workbook-name>/ next to the draft. */
   imageOutDir?: string;
-  /** Review decisions consulted before automatic image adoption. */
+  /** Review decisions consulted before table proposals / image adoption. */
   reviewDecisionsPath?: string;
   /**
    * Reuse prepared workbook data. When workbook/structure is supplied,
@@ -298,7 +299,14 @@ export function materializeWorkbookImport(
     );
   }
   // The ledger supplies the chronological adoption side of the same decision.
-  const ledger = readLedger(ledgerPath);
+  // Do not make table-only non-OOXML import depend on an unrelated ledger when
+  // there are no review decisions to reconcile.
+  const ledger = (
+    reviewDecisions.entries.length > 0
+    || /\.(xlsx|xlsm)$/iu.test(sourcePath)
+  )
+    ? readLedger(ledgerPath)
+    : emptyLedger();
 
   const importTableKeys = new Set(
     analyzedBase.sheets.flatMap((sheet) =>
