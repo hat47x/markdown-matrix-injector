@@ -30,7 +30,7 @@ Excel・CSV・XMLの表を参照しながら、Markdownで設計書や運用手�
 ```
 
 この場合、設計書には `./data/要件.csv` と書きます。Markdownの場所を基準に探し、見つからない場合にワークスペースのルートを探します。
-参照対象はワークスペース内に置いてください。外部URLや境界外のファイルの直接参照は対象外です。
+参照対象はワークスペース内に置いてください。外部URLや境界外のファイルを直接参照することはできません。既存のExcelがワークスペース外にある場合、VS Codeの取り込みコマンドでは原本を選んだ後にワークスペース内のコピー先を指定します。CLIでは`mmi import --copy-source <保存先>`を使います。MMIは元ファイルと同じbytesをその保存先へ取り込み、そのコピーをLinked参照の正本として使います。既存の別内容ファイルは上書きしません。
 
 元データの修正はExcelなど、普段使うツールで行います。原本を保存したあとは、プレビューを開き直して表示を確認してください。
 MMIには更新日時に基づく読み込みキャッシュがあります。正本と文書の変更を常時監視・自動通知する機能とは異なります。
@@ -137,20 +137,20 @@ Markdownを開いた状態で右クリックすると「MMI: 参照を作成・�
 
 **`MMI: Import from Workbook`**（日本語表示では「既存のExcel設計書から取り込み候補を作る」）を使うと、既存の設計書からMarkdownの下書きを作れます。エクスプローラーでブックを右クリックしても実行できます。
 
-1. 取り込むブックを選びます。
+1. 取り込むブックを選びます。ワークスペース内の一覧にない場合は、別のExcelファイルを選べます。
 2. 下書きの保存先を選びます（新しいMarkdownファイルです。ブックは変更しません）。
-3. MMIが表・画像・その他の領域を整理し、下書きとプレビューを開きます。
+3. 選んだブックが下書きのワークスペース外にある場合は、Linked参照に使う原本コピーの保存先をワークスペース内で選びます。
+4. MMIが表・画像・その他の領域を整理し、下書きとプレビューを開きます。
 
 表と画像は性質に合わせて扱いを分けます。表は値をコピーせず、元ブックへ追従するMMI参照として置きます。.xlsx / .xlsmに埋め込まれた画像は通常の画像ファイルとして`assets/<ブック名>/`へ取り込み、元のシートごとにMarkdown画像参照を置きます。画像のoccurrenceはプロジェクトの`mmi-ledger.json`に記録します。同じ画像bytesが複数箇所にある場合、画像ファイルは共用しますが、各occurrenceは別に記録します。
 
 - 下書きには、シートごとの見出し、表の参照、取り込んだ画像、表ではない領域（項目と値の組、文章、押印欄、図）の番地と扱いの目安が並びます。残す参照を選び、画像は必要な位置へ移動できます。不要な画像参照は下書きから削除できます。
 - Markdownで扱えない形式や読み取れない画像は黙って捨てず、「画像の注意」に理由を残します。原本を開いて必要性を確認してください。
-- 以前のCandidateレビューで同一画像を「却下」または「保留」にしている場合、一括取り込みはその判断を上書きしません。対象画像は自動取り込みせず、下書きの「既存のレビュー判断」に残します。画像内容や判断根拠が変われば、その古い判断は引き継がず再び候補になります。
 - 方眼紙の表には`columns=A,C,I`のような指定が付きます。結合したセルの先頭の列だけを選んで、項目ごとに1列で見せるための指定です（列文字は範囲の先頭をAとして数えます）。表の幅が広いため`mode=table`も付きます。
 - 見出しが2段の表、縦に結合したセル、表の途中の空行や区切り行、見出しの列に揃っていないセルがあると、下書きに**注意**が出ます。揃っていないセルの値は表示されないため、番地を示します。
 - 「同じ書式」のシートと、近い書式との違い（「表『2. 画面項目』に列『初期値』があります」など）も示します。同じ書式のシートは同じ判断で取り込めます。
 - 候補は推定です。表の範囲や見出しが違う場合は、参照を直すか削除してください。画像の抽出と台帳への記録は、表の役割推定を確定扱いにするものではありません。
-- 表自体を通常Markdownとして取り込みたい場合は、コマンド「MMI: 取り込み候補を確認（表・画像・取込状態・出典）」から表を明示的に採用します。初回一括取り込みの既定では、表はLinkedのまま残します。表Candidateでは「修正して取り込む」も選べます。抽出されたMarkdown表を編集し、「修正内容を採用」を選ぶと、原本とCandidateの由来は変更せず、修正版を別のcontent-addressed assetとして保存します。台帳には`reviewState: modified`と修正版のoutput digestが残ります。レビュー中に元のCandidate自体が変わった場合は採用せず、レビューをやり直すよう求めます。画像Candidateでは「説明を修正して取り込む」を選ぶと、画像bytesを変えずにalt textだけを人手修正できます。採用前に現在のCandidateを再照合し、原本側の画像・位置・説明など判断根拠が変わっていれば採用せずレビューをやり直します。修正した場合は台帳に`reviewState: modified`、alt text、画像assetのoutput digestを記録します。
+- Candidateを後から確認する場合は、コマンド「MMI: 取り込み候補を確認」から表・画像・JSON Treeを同じレビュー画面で扱えます。source、取込状態、type/status/executionの絞り込みはセッション中保持され、採用・却下・保留などの後は次のCandidateへ進みます。Escで終了するまで1件ごとに条件を選び直す必要はありません。表Candidateでは抽出Markdownを修正採用でき、画像Candidateでは画像bytesを変えずalt textを修正採用できます。JSON TreeはRFC 6901 pathで選んだsubtreeをnested Markdownへ取り込みます。いずれも原本は変更しません。初回一括取り込みの既定では、表はLinkedのまま残します。
 
 ### 参照を確かめる・直す
 
@@ -194,12 +194,14 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 
 | コマンド | 内容 |
 | --- | --- |
-| `mmi inspect <正本>` | シートごとの表の範囲・見出し・行数と、そのまま使える参照の例を表示。既定ではセル値を出さない（`--values 3`で先頭3行を表示）。`.xlsx`では画像も一覧に出す。取り込み台帳がある場合は `imported / changed / stale / duplicate / unimported` を照合し、`--unimported`で一度も取り込んでいないoccurrenceだけ、`--exclude-imported`で完全一致の取込済み以外を表示できる。台帳は`--ledger`で指定可能。研究用のpairwise similarity sidecarは`--similarity-evidence <file>`で併記できるが、取込済み判定には使わない |
+| `mmi schema candidate` | Semantic Candidateの公開JSON Schemaを出力する。契約名は`mmi.semantic-candidate/v1`。外部AI、CI、連携ツールがCandidateのkind、status、execution、method、Claim、provenance、fingerprint等を機械的に解釈するために使う。review stateはCandidate本体に含めない |
+| `mmi inspect <正本>` | Excel / CSV等では表の範囲・見出し・行数を表示し、`.xlsx`では画像も一覧に出す。`.json`ではobject / arrayをTree Candidateとして列挙し、RFC 6901 JSON Pointer、node type、直下child数を表示する。`--json`では`candidateContract`に契約名を併記し、Candidateのstatus・method・provenance・fingerprintを確認できる。取り込み台帳がある場合は`imported / changed / stale / duplicate / unimported`を照合し、`--unimported`や`--exclude-imported`で絞り込める |
 | `mmi extract <ブック.xlsx> --image <番号\|all>` | Excelに貼られた画像を`assets/`（`--out-dir`で変更）へ書き出し、Markdownの画像参照と出典を出力する。CLIでは同時に`<root>/mmi-ledger.json`へoccurrence・content fingerprint・出力先・変換条件・review basisを記録する（`--ledger`で変更）。同じ画像が別の場所にもある場合は別occurrenceとして残し、review stateを自動継承しない |
-| `mmi import <ブック> --draft <下書き.md>` | 既存ブックを1回でモダナイズ用の下書きへ整理する。表は元ブックへ追従する参照のまま残し、.xlsx / .xlsmの埋込画像はcontent-addressedな画像ファイルとして取り込み、occurrenceを同じ取り込み台帳へ記録する。既存レビューで却下・保留した同一画像は自動採用しない。表でない領域や抽出できない画像は確認事項として下書きに残す。下書き・assets・台帳は`--root`内に限定し、既存の下書きは上書きしない |
+| `mmi extract <file.json> --tree <JSON Pointer\|root>` | JSONのobject / arrayから1つのTree Candidateを選び、nested listのMarkdown assetへ取り込む。`root`は文書全体、`/service/endpoints`のような値はRFC 6901 JSON Pointer。原本JSONは変更しない。JSON文字列中のMarkdown記号は文字として保持し、取り込み台帳にはpointer、subtree fingerprint、出力digest、Projection方式を記録する |
+| `mmi import <ブック> --draft <下書き.md>` | 既存ブックを1回でモダナイズ用の下書きへ整理する。表は元ブックへ追従する参照のまま残し、.xlsx / .xlsmの埋込画像はcontent-addressedな画像ファイルとして取り込み、occurrenceを同じ取り込み台帳へ記録する。ワークスペース外の原本は`--copy-source <保存先>`でproject内へ同一bytesのsourceとして取り込める。表でない領域や抽出できない画像は確認事項として下書きに残す。下書き作成に成功した場合、画像の注意があっても終了コードは0で、JSONの`status`は`created-with-warnings`になる。下書き・sourceコピー・assets・台帳の書込先は`--root`内に限定し、既存ファイルを異なる内容で上書きしない |
 | `mmi check <文書またはフォルダー>` | 参照の誤りを「問題」パネルと同じ診断コードで表示。誤りがあれば終了コード1 |
 | `mmi render <文書>` | 参照を展開したMarkdownを出力。`--to html`でPDF変換用のHTML |
-| `mmi materialize <文書> -o <出力.md>` | 原本を外すためのMarkdownを生成する。小表は本文へ、別紙相当表は`mmi-materialized/`へ、ローカル画像は`mmi-assets/`へcontent-addressedで実体化する。provenance付きで採用済みのExtracted表/画像は現在sourceとledgerへfreshness照合し、変更・stale・未追跡なら終了コード1 |
+| `mmi materialize <文書> -o <出力.md>` | 原本を外すためのMarkdownを生成する。小表は本文へ、別紙相当表は`mmi-materialized/`へ、ローカル画像は`mmi-assets/`へcontent-addressedで実体化する。provenance付きで採用済みのExtracted表・画像・JSON Treeは現在sourceとledgerへfreshness照合し、変更・stale・未追跡なら終了コード1 |
 | `mmi detach-check <文書>` | Detached成果物にMMI参照、未実体化marker、旧「別紙」カード、壊れたローカルリンク、ワークスペース外へのローカルリンクが残っていないか検査する。問題があれば終了コード1 |
 | `mmi manifest <文書>` | 別紙カードになる参照の一覧をCSVで出力 |
 | `mmi handoff <正本> --task <依頼>` | Candidate・provenance・任意の文書診断から、外部LLMへ手渡すpromptをローカル生成する。`--json`で機械可読package、`--document`で文書診断を追加。既定ではClaim値を省略し、必要な場合だけ`--include-values`で明示的に含める。MMI自身は外部LLMへ送信しない |
@@ -213,11 +215,13 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 
 **Detachedについて。** `materialize`は通常の`render`とは別の経路です。日常のLinked文書やプレビューを変えず、原本を廃止すると決めた範囲だけで使います。例えば `mmi materialize docs/spec.md -o detached/spec.md --root .` とすると、小さい表は通常のGFM表へ、大きくてカードになる表は `detached/mmi-materialized/table-<digest>.md` へ実体化されます。本文が参照するローカル画像は内容digestで `detached/mmi-assets/` へ複製され、Detached側の相対リンクへ書き換えられます。同じ画像bytesは1コピーにまとめます。`--assets-dir`で保存先を変更できます。
 
-また、本文に `mmi:extracted` / `mmi:extracted-table` provenanceがある場合、`materialize`は現在のsource Candidateと`mmi-ledger.json`を照合します。取り込み後に原本側の画像・表が変わった、review basisがstaleになった、ledgerが無い、といった場合は出力を確認用に生成しても終了コード1となり、detach可能とは扱いません。原本に存在するだけで本文へ採用していないCandidateはblockerにしません。
+また、本文に`mmi:extracted` / `mmi:extracted-table` / `mmi:extracted-tree` provenanceがある場合、`materialize`は現在のsource Candidateと`mmi-ledger.json`を照合します。取り込み後に原本側の画像・表・選択したJSON subtreeが変わった、review basisがstaleになった、ledgerが無い、といった場合は終了コード1となり、detach可能とは扱いません。JSON Treeは選択したsubtreeのfingerprintで判定するため、同じJSON文書でも対象外の部分だけが変わった場合は採用を失効させません。原本に存在するだけで本文へ採用していないCandidateはblockerにしません。
 
-生成後は `mmi detach-check detached/spec.md --root .` を実行します。これは成果物側にMMI参照、未実体化marker、壊れた/境界外ローカルリンクが残っていないことを確認します。つまり、**materialize時のfreshness preflight → 原本の除去 → detach-checkによるartifact closure** の二段階で確認します。Tree/Shape等の非表Candidateは、各Source Adapterの実装後に同じ仕組みへ接続する予定です。
+生成後は`mmi detach-check detached/spec.md --root .`を実行します。これは成果物側にMMI参照、未実体化marker、壊れた/境界外ローカルリンクが残っていないことを確認します。つまり、**materialize時のfreshness preflight → 原本の除去 → detach-checkによるartifact closure**の二段階で確認します。JSON Treeはこのfreshness preflightへ接続済みです。XML TreeやShape等は、各Source Adapterの実装後に同じ仕組みへ追加します。
 
 **取り込み台帳について。** 台帳は通常のJSONで、MMIを外しても読めます。セル位置や画像のanchorなどのoccurrence identityと、画像bytesや表内容のcontent fingerprintは分けて記録します。同じ画像bytesが別の場所にあっても、その場所を「取込済み」にはしません（`duplicate`）。同じ場所の内容が変わった場合は`changed`として再確認対象にします。内容fingerprintが同じでも、review時に根拠にしたClaim・evidence・methodが変わった場合は`stale`として示し、変わったClaim名を確認できます。別の場所へ移動した可能性があるCandidateは、同一content、同一sheet、object名、source-native object、近傍表などをlineage evidenceとして候補表示しますが、自動的に同一物とはみなしません。研究層の類似判定は完全一致・lineage evidenceとは別の証拠として扱います。`--json`ではCandidate自身が持つprovider別・scale別の値を`researchScores`として確認できます。別のoccurrenceとの比較結果は`--similarity-evidence <file>`で読み込んだsidecarから`similarityEvidence`として表示し、比較対象・provider/version・metric semanticsも一緒に保持します。異なるprovider/scale/namespaceの値を平均したり、scoreが高いという理由だけで`imported`・`duplicate`へ変更したり、`--unimported`から自動除外したりしません。
+
+**JSON Treeについて。** JSONのobject / arrayは原本に親子関係が明示されているため、MMIはそれを推測せず`observed + deterministic`なTree Candidateとして扱います。CLIの`inspect` / `extract`に加え、VS Codeの「取り込み候補を確認」からJSONファイルを選び、表・画像と同じ画面で採用・却下・保留できます。レビュー一覧を表示した後で選択したsubtreeが変わった場合は、レビュー時fingerprintと一致しないため採用せず、レビューを開き直すよう求めます。対象外のJSON箇所だけが変わった場合は、その理由だけで採用を止めません。`inspect`・レビューinventory・`extract`・Detached freshness確認では、それぞれ1回読み込んだ同じbytesからsource digestとTree Candidateを作り、読み込み途中の変更で内容とidentityが食い違うことを避けます。Treeの修正採用、汎用XML、インデント等からの推定Treeは未対応です。
 
 **画像について。** Excelに画面ダンプなどを貼って設計を整理する書き方は、そのまま続けられます。`extract`は画像を取り出して参照できる形にするだけで、Excel側の画像は変わりません。Excelで画像を差し替えたり動かしたりしても、次に`inspect`を実行すれば現在の位置と内容が分かります。取り出せるのはPNG・JPEG・GIF・BMP・SVGです。EMF・WMF・TIFF、外部ファイルへのリンク、壊れた図形は、取り出さずに理由を表示します。`.xls`（旧形式）の画像は読めません。
 
@@ -226,6 +230,7 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 ```bash
 npm install -g ./markdown-matrix-injector-<version>.tgz
 mmi --help
+mmi --version
 mmi check ./basic-design --root ./basic-design
 ```
 
@@ -294,7 +299,7 @@ VS Codeの「Markdown PDF」拡張からの直接出力は、今回の検証済�
 
 ## 対応範囲
 
-表示対象はExcel（XLSX/XLS）、UTF-8（BOM有無）またはCP932のCSV、TSV、XML Spreadsheet 2003です。補完や貼り付けの対象形式は表示対象より狭い場合があります。
+表示対象はExcel（XLSX/XLS）、UTF-8（BOM有無）またはCP932のCSV、TSV、XML Spreadsheet 2003です。JSONはMMI記法の表示対象ではありませんが、明示Tree Candidateとして`inspect`・`extract --tree`・VS Codeレビューの対象です。補完や貼り付けの対象形式は表示対象より狭い場合があります。
 数式を再計算する機能ではなく、保存済みの値を使います。数式は元アプリで再計算・保存してから参照してください。
 画像・図形・マクロ・Excelの詳細レイアウトは再現しません。
 

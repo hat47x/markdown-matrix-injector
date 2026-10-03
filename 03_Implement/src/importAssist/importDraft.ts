@@ -31,6 +31,16 @@ export interface ImportDraftReviewSkip {
   sheet: string;
   name?: string;
   decision: 'rejected' | 'deferred';
+  code: 'MMI_IMPORT_REVIEW_REJECTED' | 'MMI_IMPORT_REVIEW_DEFERRED';
+  message: string;
+}
+
+export interface ImportDraftTableReviewSkip {
+  sheet: string;
+  range: string;
+  title?: string;
+  decision: 'rejected' | 'deferred';
+  code: 'MMI_IMPORT_REVIEW_REJECTED' | 'MMI_IMPORT_REVIEW_DEFERRED';
   message: string;
 }
 
@@ -38,6 +48,7 @@ export interface WorkbookImportOptions extends Omit<ImportAnalysisOptions, 'refe
   assets?: readonly ImportDraftAsset[];
   assetProblems?: readonly ImportDraftProblem[];
   reviewSkippedAssets?: readonly ImportDraftReviewSkip[];
+  reviewSkippedTables?: readonly ImportDraftTableReviewSkip[];
 }
 
 export interface WorkbookImport {
@@ -50,6 +61,7 @@ export interface WorkbookImport {
   assets: ImportDraftAsset[];
   assetProblems: ImportDraftProblem[];
   reviewSkippedAssets: ImportDraftReviewSkip[];
+  reviewSkippedTables: ImportDraftTableReviewSkip[];
 }
 
 export function analyzeWorkbookForImport(
@@ -62,6 +74,7 @@ export function analyzeWorkbookForImport(
     assets = [],
     assetProblems = [],
     reviewSkippedAssets = [],
+    reviewSkippedTables = [],
     ...analysisOptions
   } = options;
   const sheets = Object.entries(workbook.sheets).map(([sheet, source]) => ({
@@ -77,6 +90,7 @@ export function analyzeWorkbookForImport(
     assets: [...assets],
     assetProblems: [...assetProblems],
     reviewSkippedAssets: [...reviewSkippedAssets],
+    reviewSkippedTables: [...reviewSkippedTables],
   };
 }
 
@@ -129,6 +143,11 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
   if (workbookImport.assetProblems.length > 0) {
     lines.push(`- 画像の注意: ${workbookImport.assetProblems.length}件`);
   }
+  if (workbookImport.reviewSkippedTables.length > 0) {
+    lines.push(
+      `- 既存のレビュー判断により通常候補から外した表: ${workbookImport.reviewSkippedTables.length}件`,
+    );
+  }
   if (workbookImport.reviewSkippedAssets.length > 0) {
     lines.push(
       `- 既存のレビュー判断により取り込まなかった画像: ${workbookImport.reviewSkippedAssets.length}件`,
@@ -141,16 +160,28 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
   const layoutLines = renderLayout(layout);
   if (layoutLines.length > 0) lines.push('## 書式のまとまり', '', ...layoutLines, '');
 
-  if (workbookImport.reviewSkippedAssets.length > 0) {
+  if (
+    workbookImport.reviewSkippedTables.length > 0
+    || workbookImport.reviewSkippedAssets.length > 0
+  ) {
     lines.push(
       '## 既存のレビュー判断',
       '',
-      '> 以前に却下または保留した同一Candidateは、一括取り込みで自動的に採用しません。内容や判断根拠が変われば、再びレビュー対象になります。',
+      '> 以前に却下または保留した同一Candidateは、通常の候補・取り込み結果として再提示しません。内容や判断根拠が変われば、再びレビュー対象になります。',
       '',
     );
+    for (const item of workbookImport.reviewSkippedTables) {
+      const decision = item.decision === 'rejected' ? '却下' : '保留';
+      const title = item.title ? `「${escapeText(item.title)}」` : '';
+      lines.push(
+        `- ${decision} [${escapeText(item.sheet)}] 表 ${escapeText(item.range)}${title}: ${escapeText(item.message)}`,
+      );
+    }
     for (const item of workbookImport.reviewSkippedAssets) {
       const decision = item.decision === 'rejected' ? '却下' : '保留';
-      const name = item.name ? `「${escapeText(item.name)}」` : `画像 #${item.ordinal}`;
+      const name = item.name
+        ? `「${escapeText(item.name)}」`
+        : `画像 #${item.ordinal}`;
       lines.push(
         `- ${decision} [${escapeText(item.sheet)}] ${name}: ${escapeText(item.message)}`,
       );

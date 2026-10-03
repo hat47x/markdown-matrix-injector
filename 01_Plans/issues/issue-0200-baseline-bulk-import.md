@@ -40,11 +40,15 @@ issue-0195で確定した`mmi.ledger/v1`を再利用する。一括変換専用�
 - 同一画像bytesを複数箇所で使っている場合、assetファイルは共用するが、occurrenceは別に保持する。
 - 表ではない領域は既存のimport-assistanceのrole/cautionとして残す。画像がないブックは正常に処理し、画像だけのシートも下書きへ残す。
 - Markdownで扱えない画像や読めない画像は「画像の注意」として下書きへ残し、黙って欠落させない。
-- 元ブックは変更しない。CLIではsource / draft / asset / ledgerを`--root`内へ限定し、既存draftの上書きも拒否する。
+- 元ブックは変更しない。Linked参照が後で解決できるよう、通常のsourceは`--root`内に置く。
+- ワークスペース外の既存Excelは、直接Linked参照にしない。VS Codeでは外部ファイルを選んだ後にproject内のsourceコピー保存先を確認し、CLIでは`--copy-source <workspace-file>`を明示する。両方とも同じsource-intake helperを使い、元ファイルと同じbytesをproject内へ取り込んでから、そのコピーをLinked sourceとして使う。コピー先に同一bytesがあれば再利用し、異なる内容があれば上書きせず停止する。後続のmaterializeが失敗した場合、この操作で新規作成したsourceコピーも削除する。
+- draft / sourceコピー / asset / ledgerの書込先は`--root`内へ限定し、既存draftの上書きも拒否する。
+- 画像の形式などに確認事項があっても、下書き自体を正常にcommitできた場合はCLIを失敗扱いにしない。JSON summaryは`created-with-warnings`を返し、注意事項は下書き・stderr・JSONのすべてに残す。
 - draft・asset・ledgerは1回の取り込み操作としてcommitする。解析や下書き保存が失敗した場合、この操作で追加したassetを削除し、既存ledgerを元のbytesへ戻す。既存draftは競合時も上書き・削除しない。
 - 取り込み開始時に原本bytesを1回固定し、表解析・workbook structure・画像抽出・ledger source digestを同じsnapshotから作る。commit直前に原本digestを再確認し、途中で原本が保存されていれば確定せずrollbackして再実行を求める。
 - 表をExtractedにしたい場合は、現在のCandidateレビューから明示的に表extractへ進める。一括取り込みの既定では表をLinkedに保つ。
-- 既存の`mmi.review-decisions/v1`を一括取り込みでも参照する。未採用の画像Candidateに対するexactな「却下」「保留」は自動取り込みせず、draftの「既存のレビュー判断」に残す。内容またはClaim basisが変われば既存契約どおり判断は失効し、再び取り込み対象になる。すでにledgerへ採用済みの履歴はreview決定より優先する。
+- 既存の`mmi.review-decisions/v1`も一括取り込みの入力として扱う。exactな却下・保留decisionが残る未採用画像は自動採用せず、下書きの「既存のレビュー判断」に残す。画像内容またはClaim basisが変わればdecisionは失効し、再び候補になる。同じCandidateに採用履歴とdecisionの両方がある場合は`reviewedAt`を比較し、後の判断を優先する。古い却下の後に明示採用した場合は採用が勝ち、採用後に改めて却下・保留した場合は自動取り込みを止める。decisionファイルもsourceと同様にcommit中のsnapshot変化を検知し、変わった場合はrollbackして再実行を求める。
+- 表Candidateにも同じreview decisionを適用する。ただしimport-assistanceの表候補とSemantic Candidateが同一sheet・同一A1 rangeへexactに対応する場合だけ通常のLinked候補から外す。rangeがずれる・対応が曖昧な場合は過去の判断を流用せず、候補として残す。
 
 この経路を初回取り込みの主経路とし、以下のMarkItDown評価は、この経路で不足する情報や外部Converterの得失を比較するために残す。
 
@@ -118,11 +122,11 @@ node --import tsx scripts/baseline-converter-eval/assess-markitdown-handoff.ts \
 
 ## Validation plan
 
-まずMMI組み込み経路について、コード生成fixtureで表Linked・画像Extracted・重複asset・台帳・再実行・画像なし・画像のみ・unsupported画像・workspace境界を確認する。VS Code宿主E2Eでは実際の取り込みコマンドからpreviewまでを通す。
+まずMMI組み込み経路について、コード生成fixtureで表Linked・画像Extracted・重複asset・台帳・再実行・画像なし・画像のみ・unsupported画像・workspace境界・外部source intakeを確認する。VS Code宿主E2Eでは、workspace内ブックに加え、workspace外の旧Excelをproject内へ同一bytesで取り込んでからpreviewまで通す。
 
 ```sh
 cd 03_Implement
-node --import tsx --test test/importMaterialization.test.ts test/importCli.test.ts
+node --import tsx --test test/sourceIntake.test.ts test/importMaterialization.test.ts test/importCli.test.ts
 npm run build
 node --import tsx ./test/e2e/runImport.ts
 ```

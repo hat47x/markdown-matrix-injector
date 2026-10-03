@@ -1,0 +1,30 @@
+{
+  "schema": "mmi.portable-core-conformance/v1",
+  "request": {
+    "schema": "mmi.portable-core-request/v1",
+    "operation": "inspect",
+    "source": {
+      "name": "fixture.json",
+      "label": "./fixture.json",
+      "bytesBase64": "eyJwcm9qZWN0Ijp7Im5hbWUiOiJBbHBoYSIsInN0ZXBzIjpbeyJpZCI6MX0seyJpZCI6Mn1dfX0K"
+    },
+    "executionPolicy": {
+      "allowProviderDependent": false
+    }
+  },
+  "expected": {
+    "source": {
+      "format": "json",
+      "digest": "sha256:eae422df00a2372b771c3b6c43b04b30d3c4022c60d3e92425a47f6d2452094a",
+      "byteLength": 57
+    },
+    "candidateCount": 5,
+    "candidates": [
+      {"kind":"tree","structuralPath":"","execution":"deterministic","method":"M0","provenanceAlgorithm":"mmi.json-tree-adapter","fingerprintRepresentation":"json-subtree-canonical-v1"},
+      {"kind":"tree","structuralPath":"/project","execution":"deterministic","method":"M0","provenanceAlgorithm":"mmi.json-tree-adapter","fingerprintRepresentation":"json-subtree-canonical-v1"},
+      {"kind":"tree","structuralPath":"/project/steps","execution":"deterministic","method":"M0","provenanceAlgorithm":"mmi.json-tree-adapter","fingerprintRepresentation":"json-subtree-canonical-v1"},
+      {"kind":"tree","structuralPath":"/project/steps/0","execution":"deterministic","method":"M0","provenanceAlgorithm":"mmi.json-tree-adapter","fingerprintRepresentation":"json-subtree-canonical-v1"},
+      {"kind":"tree","structuralPath":"/project/steps/1","execution":"deterministic","method":"M0","provenanceAlgorithm":"mmi.json-tree-adapter","fingerprintRepresentation":"json-subtree-canonical-v1"}
+    ]
+  }
+}

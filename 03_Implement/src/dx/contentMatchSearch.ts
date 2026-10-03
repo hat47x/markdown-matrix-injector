@@ -11,7 +11,7 @@
  * actual "which files" policy (and any `vscode.workspace.findFiles` call) in
  * the host layer, where it belongs.
  */
-import { findContentMatches, type ContentMatch } from '../core/contentMatch.js';
+import { ContentMatchIndexLimitError, findContentMatchesDetailed } from '../core/contentMatch.js';
 import { cellRangeToA1 } from '../core/tableGeometry.js';
 import type { CellRange, SheetSource } from '../core/sheetSource.js';
 import { parseTsv } from './pasteDrop.js';
@@ -29,6 +29,26 @@ export interface WorkbookContentMatch {
   readonly range: CellRange;
   /** Where the match sits, so identical copies in different places can be told apart. */
   readonly context?: MatchContext;
+}
+
+export interface ContentMatchSkippedSheet {
+  readonly filepath: string;
+  readonly sheet: string;
+  readonly reason: 'sheet-too-large';
+  readonly cellCount: number;
+  readonly limit: number;
+}
+
+export interface ContentMatchTruncatedSheet {
+  readonly filepath: string;
+  readonly sheet: string;
+  readonly limit: number;
+}
+
+export interface WorkbookContentMatchSearchResult {
+  readonly matches: readonly WorkbookContentMatch[];
+  readonly skippedSheets: readonly ContentMatchSkippedSheet[];
+  readonly truncatedSheets: readonly ContentMatchTruncatedSheet[];
 }
 
 export interface MatchContext {
@@ -86,7 +106,9 @@ export function matchContext(sheet: SheetSource, range: CellRange): MatchContext
  * Searches every sheet of every given workbook for a rectangle whose
  * displayed values exactly match `clipboardPlainText` (parsed as TSV --
  * `pasteDrop.ts::parseTsv`). Returns every exact match found across every
- * workbook/sheet; the caller decides what to do with 0, 1, or many results
+ * workbook/sheet, bounded by the core candidate cap; the detailed result also
+ * reports sheets whose exact-match list was truncated so the caller does not
+ * present a bounded prefix as a complete candidate set
  * (design §4 "自動確定の規則": multiple matches must never be auto-resolved to
  * one).
  *
@@ -99,18 +121,30 @@ export function findWorkbookContentMatches(
   clipboardPlainText: string,
   workbooks: readonly WorkbookSheetsSource[],
 ): WorkbookContentMatch[] {
+  return [...findWorkbookContentMatchesDetailed(clipboardPlainText, workbooks).matches];
+}
+
+export function findWorkbookContentMatchesDetailed(
+  clipboardPlainText: string,
+  workbooks: readonly WorkbookSheetsSource[],
+): WorkbookContentMatchSearchResult {
   const needle = parseTsv(clipboardPlainText);
   if (needle.length === 0) {
-    return [];
+    return { matches: [], skippedSheets: [], truncatedSheets: [] };
   }
 
   const matches: WorkbookContentMatch[] = [];
+  const skippedSheets: ContentMatchSkippedSheet[] = [];
+  const truncatedSheets: ContentMatchTruncatedSheet[] = [];
   for (const workbook of workbooks) {
     for (const [sheetName, sheet] of Object.entries(workbook.sheets)) {
-      matches.push(...matchesForSheet(workbook.filepath, sheetName, sheet, needle));
+      const result = matchesForSheet(workbook.filepath, sheetName, sheet, needle);
+      matches.push(...result.matches);
+      if (result.skipped) skippedSheets.push(result.skipped);
+      if (result.truncated) truncatedSheets.push(result.truncated);
     }
   }
-  return matches;
+  return { matches, skippedSheets, truncatedSheets };
 }
 
 function matchesForSheet(
@@ -118,20 +152,39 @@ function matchesForSheet(
   sheetName: string,
   sheet: SheetSource,
   needle: readonly (readonly string[])[],
-): WorkbookContentMatch[] {
-  let sheetMatches: readonly ContentMatch[];
+): {
+  matches: WorkbookContentMatch[];
+  skipped?: ContentMatchSkippedSheet;
+  truncated?: ContentMatchTruncatedSheet;
+} {
+  let sheetResult: ReturnType<typeof findContentMatchesDetailed>;
   try {
-    sheetMatches = findContentMatches(sheet, needle);
-  } catch {
-    return []; // sheet too large to index (maxIndexedCells) -- skip, don't abort the whole search
+    sheetResult = findContentMatchesDetailed(sheet, needle);
+  } catch (error) {
+    if (error instanceof ContentMatchIndexLimitError) {
+      return {
+        matches: [],
+        skipped: {
+          filepath,
+          sheet: sheetName,
+          reason: 'sheet-too-large',
+          cellCount: error.cellCount,
+          limit: error.limit,
+        },
+      };
+    }
+    throw error;
   }
 
-  return sheetMatches.map((match) => ({
-    filepath,
-    sheet: sheetName,
-    range: match.range,
-    context: matchContext(sheet, match.range),
-  }));
+  return {
+    matches: sheetResult.matches.map((match) => ({
+      filepath,
+      sheet: sheetName,
+      range: match.range,
+      context: matchContext(sheet, match.range),
+    })),
+    truncated: sheetResult.truncated ? { filepath, sheet: sheetName, limit: sheetResult.limit } : undefined,
+  };
 }
 
 /**

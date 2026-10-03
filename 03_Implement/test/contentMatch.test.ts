@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { findContentMatches } from '../src/core/contentMatch.js';
+import { ContentMatchIndexLimitError, findContentMatches, findContentMatchesDetailed } from '../src/core/contentMatch.js';
 import { sheetSourceFromMatrix, type CellRange, type SheetSource } from '../src/core/sheetSource.js';
 
 /** A `SheetSource` whose used range starts away from physical (0,0), like `workbookCache.test.ts`'s fixtures. */
@@ -142,13 +142,22 @@ test('findContentMatches drops a candidate whose implied origin falls outside th
   assert.deepEqual(findContentMatches(sheet, needle), []);
 });
 
-test('findContentMatches throws when the sheet\'s used range exceeds maxIndexedCells (a silent partial search could miss the true match)', () => {
+test('findContentMatches throws a typed limit error when the sheet is too large to search completely', () => {
   const sheet = sheetSourceFromMatrix([
     ['a', 'b', 'c'],
     ['d', 'e', 'f'],
     ['g', 'h', 'i'],
   ]);
-  assert.throws(() => findContentMatches(sheet, [['a']], { maxIndexedCells: 4 }), /exceeds the indexable limit/);
+  assert.throws(
+    () => findContentMatches(sheet, [['a']], { maxIndexedCells: 4 }),
+    (error: unknown) => {
+      assert.ok(error instanceof ContentMatchIndexLimitError);
+      assert.equal(error.code, 'MMI_CONTENT_MATCH_SHEET_TOO_LARGE');
+      assert.equal(error.cellCount, 9);
+      assert.equal(error.limit, 4);
+      return true;
+    },
+  );
 });
 
 test('findContentMatches does not let early anchor-only hits hide a later exact match', () => {
@@ -162,12 +171,23 @@ test('findContentMatches does not let early anchor-only hits hide a later exact 
   ]);
 });
 
-test('findContentMatches caps the number of verified candidates at maxCandidates without crashing', () => {
-  const sheet = sheetSourceFromMatrix([['x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x', 'x']]);
-  const matches = findContentMatches(sheet, [['x']], { maxCandidates: 3 });
-  assert.deepEqual(matches, [
+test('findContentMatchesDetailed reports when exact matches exceed maxCandidates', () => {
+  const sheet = sheetSourceFromMatrix([['x', 'x', 'x', 'x']]);
+  const result = findContentMatchesDetailed(sheet, [['x']], { maxCandidates: 3 });
+
+  assert.deepEqual(result.matches, [
     { range: { startRow: 0, startCol: 0, endRow: 0, endCol: 0 } },
     { range: { startRow: 0, startCol: 1, endRow: 0, endCol: 1 } },
     { range: { startRow: 0, startCol: 2, endRow: 0, endCol: 2 } },
   ]);
+  assert.equal(result.truncated, true);
+  assert.equal(result.limit, 3);
+});
+
+test('findContentMatchesDetailed does not call an exactly-full result set truncated', () => {
+  const sheet = sheetSourceFromMatrix([['x', 'x', 'x']]);
+  const result = findContentMatchesDetailed(sheet, [['x']], { maxCandidates: 3 });
+
+  assert.equal(result.matches.length, 3);
+  assert.equal(result.truncated, false);
 });

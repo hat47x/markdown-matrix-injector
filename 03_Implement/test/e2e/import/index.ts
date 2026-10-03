@@ -8,6 +8,7 @@
  */
 import crypto from 'node:crypto';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import * as vscode from 'vscode';
 import * as XLSX from 'xlsx';
@@ -96,6 +97,51 @@ async function checkHybridImageImport(folder: string): Promise<void> {
   expect(observed.assetFiles === 2, `image import: expected 2 distinct content-addressed assets, got ${observed.assetFiles}`);
   expect(observed.ledgerImages === 4, `image import: expected 4 image occurrences in ledger, got ${observed.ledgerImages}`);
   expect(observed.sourceUnchanged, 'image import: source workbook changed');
+}
+
+async function checkExternalWorkbookIntake(folder: string): Promise<void> {
+  const legacyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-e2e-legacy-'));
+  const workbook = path.join(legacyRoot, 'external-design.xlsx');
+  fs.writeFileSync(workbook, screenDesignWorkbook().bytes);
+  const before = digest(workbook);
+  const copiedSource = path.join(folder, 'data', 'imported', 'external-design.xlsx');
+  const draft = path.join(folder, 'external-design_取り込み候補.md');
+
+  const written = await vscode.commands.executeCommand<string | undefined>(
+    'markdownMatrixInjector.__test.importFromWorkbook',
+    { workbook, draft, sourceCopy: copiedSource },
+  );
+  expect(written !== undefined, 'external import: command did not return a draft path');
+  if (!written) return;
+
+  const markdown = fs.readFileSync(draft, 'utf8');
+  const document = await vscode.workspace.openTextDocument(draft);
+  const html = await vscode.commands.executeCommand<string>('markdown.api.render', document);
+  const ledgerPath = path.join(folder, 'mmi-ledger.json');
+  const ledger = JSON.parse(fs.readFileSync(ledgerPath, 'utf8')) as {
+    entries: Array<{ kind: string; source: string }>;
+  };
+  const importedSourceEntries = ledger.entries.filter(
+    (entry) => entry.source === 'data/imported/external-design.xlsx',
+  );
+  const observed = {
+    sourceUnchanged: digest(workbook) === before,
+    sourceCopied: fs.existsSync(copiedSource),
+    copyMatchesSource: fs.existsSync(copiedSource) && digest(copiedSource) === before,
+    linkedToCopy: markdown.includes('./data/imported/external-design.xlsx#画面一覧|A1:B3'),
+    renderedTables: count(html, /<table class="mmi-table">/g),
+    renderedImages: count(html, /<img\b/g),
+    ledgerImagesForCopy: importedSourceEntries.filter((entry) => entry.kind === 'image').length,
+  };
+  note('external-workbook-intake', observed);
+
+  expect(observed.sourceUnchanged, 'external import: original workbook changed');
+  expect(observed.sourceCopied, 'external import: workspace source copy was not created');
+  expect(observed.copyMatchesSource, 'external import: source copy differs from original bytes');
+  expect(observed.linkedToCopy, 'external import: draft does not link to the workspace source copy');
+  expect(observed.renderedTables === 1, `external import: expected 1 linked table, got ${observed.renderedTables}`);
+  expect(observed.renderedImages === 4, `external import: expected 4 images, got ${observed.renderedImages}`);
+  expect(observed.ledgerImagesForCopy === 4, `external import: expected 4 ledger image occurrences, got ${observed.ledgerImagesForCopy}`);
 }
 
 /** Guided authoring: choosing a 方眼紙 table presets header/columns/mode, and the confirm step shows a table. */
@@ -188,6 +234,11 @@ export async function run(): Promise<void> {
     await checkHybridImageImport(folder);
   } catch (error) {
     problems.push(`hybrid image import threw: ${error instanceof Error ? error.stack : String(error)}`);
+  }
+  try {
+    await checkExternalWorkbookIntake(folder);
+  } catch (error) {
+    problems.push(`external workbook intake threw: ${error instanceof Error ? error.stack : String(error)}`);
   }
   try {
     await checkGuidedAuthoring(folder);

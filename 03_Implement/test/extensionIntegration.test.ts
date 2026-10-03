@@ -533,16 +533,18 @@ test('standalone content-match command exists and never auto-inserts', async () 
   );
   assert.match(source, /async function insertEmbedByContentMatch\(\): Promise<void> \{\s*const editor = vscode\.window\.activeTextEditor;/s);
 
-  // Reuses the exact workspace file-discovery scope already used by autocomplete
-  // (same glob, same node_modules/dist exclusion) -- not a new scanning policy.
+  // Uses the shared P4 containment helper rather than string-prefix matching,
+  // then applies the existing bounded search budget.
   assert.match(
     source,
-    /vscode\.workspace\.findFiles\(WORKBOOK_FILE_GLOB, '\*\*\/\{node_modules,dist\}\/\*\*'\)\)\s*\.filter\(\(uri\) => uri\.fsPath\.startsWith\(workspaceRoot\)\)\s*\.slice\(0, MAX_CONTENT_MATCH_WORKSPACE_FILES\)/s,
+    /selectContainedWorkbookFiles\(\s*markdownFilePath,\s*workspaceRoot,\s*await vscode\.workspace\.findFiles\(WORKBOOK_FILE_GLOB, '\*\*\/\{node_modules,dist\}\/\*\*'\),\s*MAX_CONTENT_MATCH_WORKSPACE_FILES,\s*\)/s,
   );
 
   // Every result -- one match or many -- is routed through showQuickPick and
   // the edit only happens if the user actually picked something (R1: no
   // auto-confirm).
+  assert.match(source, /Some workbook data could not be searched\. The candidate list may be incomplete/);
+  assert.match(source, /MMI: Content-match search failed:/);
   assert.match(source, /const picked = await pickContentMatch\(matches\);\s*if \(!picked\) \{/s);
   assert.match(source, /await vscode\.window\.showQuickPick\(items, \{ placeHolder \}\);/);
   // Re-resolves the active editor immediately before the final edit rather
@@ -608,8 +610,15 @@ test('content-match search integrates into paste via the PasteAs trigger only, n
   assert.match(source, /summarizeContentMatchContext\(match, 72\)/);
   // Cancellation is honoured mid-search (VS Code can cancel a PasteAs request,
   // e.g. the user pressing Escape or starting another edit).
-  assert.match(source, /if \(token\?\.isCancellationRequested\) \{\s*break;\s*\}/s);
-  assert.match(source, /if \(token\.isCancellationRequested\) \{\s*return \[\];\s*\}/s);
+  assert.match(source, /if \(token\?\.isCancellationRequested\) \{\s*cancelled = true;\s*break;\s*\}/s);
+  assert.match(source, /if \(token\.isCancellationRequested \|\| loadResult\.cancelled\) \{\s*return \[\];\s*\}/s);
+  // A zero-result search must not claim completeness when workbook loads or
+  // sheet indexing were skipped.
+  assert.match(source, /findWorkbookContentMatchesDetailed\(plainText, loadResult\.workbooks\)/);
+  assert.match(source, /Content-match Paste As found no match in the sheets that could be searched/);
+  assert.match(source, /MMI: Content-match Paste As failed:/);
+  assert.match(source, /候補上限に達したシート/);
+  assert.match(source, /const completeness = incomplete \? '（検索不完全）' : '';/);
 });
 
 test('e2e lane keeps paste/drop observation ahead of autocomplete to isolate known completion instability', async () => {

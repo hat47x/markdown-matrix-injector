@@ -12,9 +12,11 @@
 npm run package:cli
 ```
 
-`npm run build`の後、CLI専用packageを`artifacts/cli-package-stage/`へ組み立てます。そのstageでproduction依存だけを導入し、npmの`bundleDependencies`を使って1つの`.tgz`へまとめます。成果物とSHA-256は`artifacts/cli-package/`へ出力します。stageはpack後に削除します。
+`npm run build`の後、compiled CLI entryから相対module依存を再帰追跡し、CLIから到達できるruntime moduleだけを`artifacts/cli-package-stage/`へ組み立てます。production依存はリポジトリの`package-lock.json`に固定されたgraphを`npm ci --omit=dev`で導入し、npmの`bundleDependencies`を使って1つの`.tgz`へまとめます。成果物とSHA-256は`artifacts/cli-package/`へ出力します。stageはpack後に削除します。pack後のoffline smokeでは、`mmi schema candidate` / `ledger` / `review-decisions`で3つの公開契約を取得できること、表の`check` / `render`、JSON Treeの`inspect` / `extract`、共通ledgerへの記録を確認します。
 
-配布artifactには、コンパイル済みMMI runtime、`markdown-it`、SheetJS CE、プレビュー用CSS、MMIのLICENSE、第三者ライセンス表示を含めます。開発依存、TypeScript source、test、計画文書は含めません。
+配布artifactには、CLIから到達するコンパイル済みMMI runtime、`markdown-it`、SheetJS CE、プレビュー用CSS、MMIのLICENSE、第三者ライセンス表示を含めます。VS Code extension entry、experimental code、開発依存、TypeScript source、test、計画文書は通常のpackage内容に含めません。相対moduleが見つからない場合やcompiled root外を参照する場合はpack前に失敗します。
+
+生成したtarballは、その場で空の専用npm cacheを使った`npm install --offline`へ通します。インストールした`mmi`で`--help`、`--version`、3種の`schema`、`check`、`render`、JSON Treeの`inspect` / `extract`を実行し、いずれかが失敗した場合は`package:cli`自体を失敗させます。
 
 ## 利用する
 
@@ -23,6 +25,7 @@ npm run package:cli
 ```sh
 npm install -g ./markdown-matrix-injector-0.1.0.tgz
 mmi --help
+mmi --version
 mmi check docs/ --root .
 ```
 
@@ -40,4 +43,4 @@ npm exec --yes --package ./markdown-matrix-injector-0.1.0.tgz -- \
 - Node.js 20以上のruntimeは必要です。
 - CLI tarballはVS Code拡張を置き換えません。GUI、プレビュー統合、CandidateレビューUI等はVS Code拡張の役割です。
 - CLIは元データを読み取り専用で扱う原則を維持します。`extract`、`import`、`materialize`等の明示的な出力操作だけが利用者指定の成果物へ書き込みます。
-- WindowsとLinuxでの新規環境manual-e2eは、配布artifactを作成した後に実施します。
+- `package:cli`の自己検証は生成したOS上のsmokeです。WindowsとLinuxでの新規環境manual-e2eは、同じ配布artifactを使って別途実施します。
