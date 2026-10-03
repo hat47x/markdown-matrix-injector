@@ -7,10 +7,16 @@ import {
   type ImageDiagnostic,
 } from '../adapters/excelImageAdapter.js';
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
-import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
+import {
+  decodeXmlUtf8,
+  readXmlTree,
+} from '../adapters/xmlTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import type { Candidate } from '../core/candidate.js';
-import { readSourceFileIdentity } from '../core/sourceIdentity.js';
+import {
+  createSourceIdentityFromBytes,
+  readSourceFileIdentity,
+} from '../core/sourceIdentity.js';
 import {
   isXmlSpreadsheet2003Text,
   loadWorkbook,
@@ -49,11 +55,11 @@ export function buildCandidateReviewInventory(
   sourcePath: string,
   sourceLabel: string,
 ): CandidateReviewInventory {
-  const sourceDigest = readSourceFileIdentity(sourcePath).digest;
-
   if (/\.json$/iu.test(sourcePath)) {
+    const bytes = fs.readFileSync(sourcePath);
+    const sourceDigest = createSourceIdentityFromBytes(bytes).digest;
     const tree = readJsonTree(
-      fs.readFileSync(sourcePath, 'utf8'),
+      bytes.toString('utf8'),
       sourceLabel,
       sourceDigest,
     );
@@ -72,8 +78,10 @@ export function buildCandidateReviewInventory(
   }
 
   if (/\.xml$/iu.test(sourcePath)) {
-    const xml = fs.readFileSync(sourcePath, 'utf8');
+    const bytes = fs.readFileSync(sourcePath);
+    const xml = decodeXmlUtf8(bytes);
     if (!isXmlSpreadsheet2003Text(xml)) {
+      const sourceDigest = createSourceIdentityFromBytes(bytes).digest;
       const tree = readXmlTree(xml, sourceLabel, sourceDigest);
       return {
         items: tree.nodes.map((node) => ({
@@ -90,6 +98,7 @@ export function buildCandidateReviewInventory(
     }
   }
 
+  const sourceDigest = readSourceFileIdentity(sourcePath).digest;
   const workbook = loadWorkbook({ absolutePath: sourcePath });
 
   const tableItems: CandidateReviewInventoryItem[] = Object.entries(
