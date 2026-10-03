@@ -90,6 +90,34 @@ test('inspect exposes generic XML hierarchy as observed deterministic Tree Candi
   );
 });
 
+test('generic XML Tree supports Unicode names and rejects DTD-dependent parsing', () => {
+  const f = workspace();
+  fs.writeFileSync(
+    f.source,
+    '<?xml version="1.0" encoding="UTF-8"?><設定 環境="本番"><項目>値</項目></設定>',
+  );
+  const result = inspectSource(f.source, 0);
+  assert.deepEqual(
+    result.trees?.map((tree) => tree.pointer),
+    ['/設定[1]', '/設定[1]/項目[1]'],
+  );
+  assert.deepEqual(
+    result.candidates[0].claims.find(
+      (claim) => claim.aspect === 'attributes',
+    )?.value,
+    ['@環境="本番"'],
+  );
+
+  fs.writeFileSync(
+    f.source,
+    '<!DOCTYPE service [<!ENTITY x "value">]><service>&x;</service>',
+  );
+  assert.throws(
+    () => inspectSource(f.source, 0),
+    /DTD\/declaration syntax is not supported/u,
+  );
+});
+
 test('extractXmlTree preserves attributes and text in nested Markdown and ledger provenance', () => {
   const f = workspace();
   const result = extractXmlTree({
