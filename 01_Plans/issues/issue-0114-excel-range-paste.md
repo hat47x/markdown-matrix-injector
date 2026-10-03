@@ -163,32 +163,32 @@
 
 `test/pasteDrop.test.ts`では、基本分割、実キャプチャ再現、タブ引用、改行引用、引用符エスケープ、裸引用符、境界空セル、空白保持を回帰として扱う。過去の`trim`前提は2026-10-02に撤去した。
 
-### `findContentMatches`の追加 — 内容照合アルゴリズム本体（2026-09-14）
-**2026-10-02 偽陰性修正**: `maxCandidates` の適用位置を再点検し、旧実装が完全一致検証**前**の候補原点を先頭N件で切っていたため、頻出アンカーの偽候補が多数あると真の一致がN+1件目以降に隠れることを確認した。上限を「返却する完全一致数」へ移し、候補原点は完全一致が上限件数見つかるまで順に検証する。`anchor|wrong` を205行並べ、その後ろにだけ `anchor|target` を置く回帰で固定した。これにより重複結果数の上限は維持しつつ、アンカー頻度だけを理由に「一致なし」と誤判定しない。
+### `findContentMatches`の追加：内容照合アルゴリズム本体（2026-09-14）
 
+2026-10-02に偽陰性を修正した。旧実装では`maxCandidates`を完全一致の検証前に適用し、候補原点を先頭N件で切っていた。このため、頻出アンカーから偽候補が多数生じると、真の一致がN+1件目以降に隠れる。上限は「返す完全一致数」に移し、候補原点を順に検証するよう変更した。回帰では`anchor|wrong`を205行並べ、その後ろにだけ`anchor|target`を置いた。これにより、重複結果数の上限を維持しつつ、アンカーの出現頻度だけを理由に「一致なし」と誤判定しない。
 
-形状（`extractHtmlTableShape`）と値行列（`parseTsv`）という2つの入力が揃ったことを受け、[出所設計](../../02_Architecture/input-assistance-paste-provenance.md)§5「内容照合」の手順2〜4（アンカー選定→転置索引での引き当て→複数アンカーの突き合わせ→矩形全体の照合）を`src/core/contentMatch.ts`の`findContentMatches(sheet, needle, options?)`として実装した。
+形状を表す`extractHtmlTableShape`と、値行列を返す`parseTsv`が揃ったため、[出所設計](../../02_Architecture/input-assistance-paste-provenance.md)§5「内容照合」の手順2〜4を`src/core/contentMatch.ts`へ実装した。対象はアンカー選定、転置索引による候補抽出、複数アンカーの突き合わせ、矩形全体の照合である。
 
-- **入力**: 検索対象の`SheetSource`1枚と、貼り付け値行列（`parseTsv`等の出力と同じ`string[][]`）。
-- **出力**: 完全一致した矩形の一覧（`{ range: CellRange }[]`）。部分一致は候補にしない（§4手順5「違う→棄却」）。同一内容が複数箇所にあれば全件返す——どれか1つを選ぶ判断はしない（§4「自動確定の規則」：候補複数は必ず一覧提示）。
-- **アルゴリズム**: needle内の非空セルのうち原本での出現回数が最も少ないものをアンカーとし、転置索引（原本の使用範囲を1回走査して構築）から出現位置を引く。次に希少なアンカー最大4件でオフセット候補を突き合わせて絞り込んでから（総当たり走査はしない、§5手順4）、生き残った候補だけ矩形全体を実際に読んで照合する。
-- **上限**: `maxIndexedCells`（既定20万セル、原本の使用範囲がこれを超えたら例外）と`maxCandidates`（既定200件、完全一致として返す結果数）の2つ。候補原点は完全一致が上限件数見つかるまで検証する。2026-10-04、200件に達しただけでは打ち切らず、201件目の完全一致を1件確認した場合だけ`truncated=true`とする詳細結果を追加した。これにより、ちょうど200件の完全な候補集合と、201件以上あるため200件へ切り詰めた集合を区別できる。
-- **この時点で意図的に含まなかったもの**: (1) 探索対象ブックの決定（ワークスペース内のどこまで探すか、§5手順1）。(2) 候補選択UI（QuickPick等）。(3) `extension.ts`への配線。**いずれも2026-09-15に実装した（下記「作業D: 内容照合コマンドの実装」節）。**
+- **入力**：検索対象の`SheetSource`1枚と、`parseTsv`などが返す貼り付け値行列`string[][]`。
+- **出力**：完全一致した矩形の一覧`{ range: CellRange }[]`。部分一致は候補にしない。同一内容が複数箇所にある場合も、自動で1件へ絞り込まない。
+- **アルゴリズム**：検索値行列`needle`の非空セルから、原本での出現回数が最も少ない値をアンカーに選ぶ。原本の使用範囲を1回走査して作った転置索引から出現位置を取得し、希少なアンカー最大4件で候補原点を絞り込む。総当たり走査は行わず、生き残った候補だけ矩形全体を照合する。
+- **上限**：`maxIndexedCells`は既定20万セル、`maxCandidates`は既定200件とする。2026-10-04には詳細結果を追加した。200件に達しただけでは打ち切りとみなさず、201件目の完全一致を確認した場合だけ`truncated=true`とする。これにより、ちょうど200件の完全な候補集合と、201件以上あるため200件へ切り詰めた候補集合を区別できる。
+- **この時点で含めなかったもの**：探索対象ブックの決定、候補選択UI、`extension.ts`への配線。3点とも2026-09-15に実装した。詳細は後述の「作業D：内容照合コマンドの実装」を参照する。
 
-**テスト**: `test/contentMatch.test.ts`を新規追加（11件）。単一一致・非A1原点での物理座標保持・不一致・内容重複時の全件返却・部分一致の確実な棄却・全セル空needleの早期return・needleがsheetより大きい場合の早期return・アンカー起点が使用範囲外になる候補の除外（クラッシュしない）・`maxIndexedCells`超過時の例外・`maxCandidates`による打ち切りを検証。`npm test`は339件全成功。
+`test/contentMatch.test.ts`には11件のテストを追加した。単一一致、非A1原点の物理座標、不一致、内容重複、部分一致の棄却、空の検索値行列、検索値行列がシートより大きい場合、使用範囲外の候補、`maxIndexedCells`超過、`maxCandidates`による上限処理を検証する。当時の`npm test`は339件すべて成功した。
 
-### 作業D: 内容照合コマンドの実装（2026-09-15）
+### 作業D：内容照合コマンドの実装（2026-09-15）
 
-`findContentMatches`・`extractHtmlTableShape`・`parseTsv`という3つの部品が揃ったことを受け、issue-0114の残り3点——探索対象ブックの決定、候補選択UI、`extension.ts`配線——を実装した。
+`findContentMatches`、`extractHtmlTableShape`、`parseTsv`が揃ったため、残っていた探索対象ブックの決定、候補選択UI、`extension.ts`への配線を実装した。
 
-- 新規 [`src/dx/contentMatchSearch.ts`](../../03_Implement/src/dx/contentMatchSearch.ts): 複数ワークブック・複数シートを横断して内容照合を集約する。`findWorkbookContentMatchesDetailed`は完全一致、`skippedSheets`、`truncatedSheets`を分けて返す。`maxIndexedCells`超過は`MMI_CONTENT_MATCH_SHEET_TOO_LARGE`として扱い、候補上限超過は検索済みだが候補集合が切り詰められた状態として保持する。その他の予期しない例外は握りつぶさない。
-- 新規 `src/core/tableGeometry.ts`に`indexToColumn`・`cellRangeToA1`を追加。`columnToIndex`・`parseRangeToCellRange`の逆変換（物理座標→A1文字列）で、内容照合結果をnotationへ戻すのに必要だった（貼り付け機能はこれまで「A1文字列→物理座標」の方向にしか変換していなかった）。
-- **`src/extension.ts`**: `insertEmbedByContentMatch`関数と新規コマンド`markdownMatrixInjector.insertEmbedByContentMatch`（`MMI: Insert Embed by Content Match`）を追加。
-  - **探索対象ブックの決定（§5手順1）**: `vscode.workspace.findFiles(WORKBOOK_FILE_GLOB, ...)`で候補を列挙し、編集中Markdownが属するworkspace folderの内側だけを採用する。2026-10-03、文字列`startsWith(workspaceRoot)`による絞り込みを廃止し、記法P4と同じ`isPathWithinBoundary()`とrealpath検査へ統一した。これによりmulti-root workspaceで`work`と`work-old`のようなprefix衝突があっても別rootを検索せず、workspace内のsymlinkが外部ファイルを指す場合も探索対象から除外する。
-  - **候補選択UI（§4「自動確定の規則」）**: 結果が1件でも複数件でも、必ず`vscode.window.showQuickPick`を経由する。VS Codeの標準的な明示選択UIを使うことで、独自UIの実装を避けた。Escでキャンセルすれば何も挿入しない（R1）。
-  - ブックを読めない場合、シートが索引上限を超える場合、完全一致が候補上限を超えて切り詰められた場合は、いずれも候補集合が完全ではない状態として扱う。0件時は「一致なし」と断定しない。候補がある場合も、明示コマンドでは警告し、Paste Asでは各候補へ「検索不完全」を付ける。索引上限以外の予期しない照合エラーは可視エラーにし、MMI候補だけを返さない。
+- [`src/dx/contentMatchSearch.ts`](../../03_Implement/src/dx/contentMatchSearch.ts)を追加し、複数のワークブックとシートを横断して内容照合を集約した。`findWorkbookContentMatchesDetailed`は、完全一致、`skippedSheets`、`truncatedSheets`を分けて返す。`maxIndexedCells`超過は`MMI_CONTENT_MATCH_SHEET_TOO_LARGE`として扱う。候補上限を超えた場合は、検索済みだが候補集合が切り詰められた状態として保持する。その他の予期しない例外は握りつぶさない。
+- `src/core/tableGeometry.ts`に`indexToColumn`と`cellRangeToA1`を追加した。`columnToIndex`と`parseRangeToCellRange`の逆変換にあたり、物理座標からA1文字列へ戻す。内容照合の結果をMMI記法へ変換するために必要な処理である。
+- `src/extension.ts`に`insertEmbedByContentMatch`と新規コマンド`markdownMatrixInjector.insertEmbedByContentMatch`（`MMI: Insert Embed by Content Match`）を追加した。
+  - **探索対象ブックの決定（§5手順1）**：`vscode.workspace.findFiles(WORKBOOK_FILE_GLOB, ...)`で候補を列挙し、編集中のMarkdownが属するワークスペースフォルダ内だけを採用する。2026-10-03には、`startsWith(workspaceRoot)`による文字列比較を廃止し、記法P4と同じ`isPathWithinBoundary()`と`realpath`による検査へ統一した。これにより、マルチルートワークスペースで`work`と`work-old`のようにパスの接頭辞が一致していても、別のルートを探索しない。ワークスペース内のシンボリックリンクが外部ファイルを指す場合も除外する。
+  - **候補選択UI（§4「自動確定の規則」）**：結果が1件でも複数件でも、必ず`vscode.window.showQuickPick`を経由する。VS Code標準の選択UIを使い、独自UIは実装しない。Escでキャンセルした場合は何も挿入しない（R1）。
+  - ブックを読めない場合、シートが索引上限を超える場合、候補上限によって完全一致が切り詰められた場合は、候補集合を不完全として扱う。0件でも「一致なし」と断定しない。候補がある場合は、明示コマンドで警告し、Paste Asでは各候補に「検索不完全」と表示する。索引上限以外の予期しない照合エラーは利用者に表示し、MMIの候補は返さない。
 
-**テスト**: `test/contentMatchSearch.test.ts`を新規追加（6件）、`test/tableGeometry.test.ts`へ3件追加（`indexToColumn`/`cellRangeToA1`）、`test/extensionIntegration.test.ts`へ構造テスト。
+`test/contentMatchSearch.test.ts`には6件、`test/tableGeometry.test.ts`には`indexToColumn`と`cellRangeToA1`の3件を追加した。`test/extensionIntegration.test.ts`には構造テストを追加した。
 
 ### 作業D続き: 自動貼り付け（Ctrl+V）への統合（2026-09-16）
 
