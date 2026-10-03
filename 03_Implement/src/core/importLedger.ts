@@ -17,6 +17,20 @@ import type {
 export const LEDGER_SCHEMA = 'mmi.ledger/v1';
 export const DEFAULT_LEDGER_FILE = 'mmi-ledger.json';
 
+const LEDGER_KINDS = new Set<CandidateKind>([
+  'table-range',
+  'image',
+  'region-snapshot',
+  'shape',
+  'diagram',
+  'tree',
+  'choice-list',
+  'note',
+  'link',
+  'section',
+]);
+const SHA256_DIGEST = /^sha256:[0-9a-f]{64}$/u;
+
 export interface ClaimBasis {
   /** Claim order is part of the deterministic Candidate contract. */
   index: number;
@@ -104,6 +118,14 @@ export function readLedger(ledgerPath: string): Ledger {
   if (parsed.schema !== LEDGER_SCHEMA || !Array.isArray(parsed.entries)) {
     throw new Error(`${ledgerPath} is not an ${LEDGER_SCHEMA} ledger`);
   }
+  parsed.entries.forEach((entry, index) => {
+    const problem = ledgerEntryProblem(entry);
+    if (problem) {
+      throw new Error(
+        `${ledgerPath} has invalid ${LEDGER_SCHEMA} entry ${index}: ${problem}`,
+      );
+    }
+  });
   return {
     schema: LEDGER_SCHEMA,
     entries: parsed.entries.map((entry) => ({
@@ -114,6 +136,95 @@ export function readLedger(ledgerPath: string): Ledger {
           : entry.reviewState,
     })),
   };
+}
+
+function ledgerEntryProblem(value: unknown): string | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return 'entry must be an object';
+  }
+  const entry = value as Partial<LedgerEntry>;
+  if (!entry.kind || !LEDGER_KINDS.has(entry.kind)) return 'kind is invalid';
+  if (typeof entry.source !== 'string' || !entry.source) return 'source is required';
+  if (entry.sheet !== undefined && typeof entry.sheet !== 'string') return 'sheet must be a string';
+  if (typeof entry.place !== 'string' || !entry.place) return 'place is required';
+  if (!fingerprintProblem(entry.fingerprint)) {
+    // valid
+  } else {
+    return `fingerprint ${fingerprintProblem(entry.fingerprint)}`;
+  }
+  if (typeof entry.sourceDigest !== 'string' || !SHA256_DIGEST.test(entry.sourceDigest)) {
+    return 'sourceDigest must be a sha256 digest';
+  }
+  if (entry.claimBasis !== undefined) {
+    const problem = claimBasisProblem(entry.claimBasis);
+    if (problem) return problem;
+  }
+  if (entry.lineageHints !== undefined) {
+    if (!entry.lineageHints || typeof entry.lineageHints !== 'object' || Array.isArray(entry.lineageHints)) {
+      return 'lineageHints must be an object';
+    }
+    for (const field of ['objectName', 'sourceObject', 'nearbyTable'] as const) {
+      const item = entry.lineageHints[field];
+      if (item !== undefined && typeof item !== 'string') {
+        return `lineageHints.${field} must be a string`;
+      }
+    }
+  }
+  if (typeof entry.output !== 'string' || !entry.output) return 'output is required';
+  if (entry.outputDigest !== undefined
+    && (typeof entry.outputDigest !== 'string' || !SHA256_DIGEST.test(entry.outputDigest))) {
+    return 'outputDigest must be a sha256 digest';
+  }
+  if (!primitiveRecord(entry.conversion)) return 'conversion must contain only primitive values';
+  if (!['accepted', 'modified', 'confirmed'].includes(String(entry.reviewState))) {
+    return 'reviewState must be accepted, modified or legacy confirmed';
+  }
+  if (typeof entry.basis !== 'string' || !entry.basis) return 'basis is required';
+  if (typeof entry.reviewedAt !== 'string' || !entry.reviewedAt) return 'reviewedAt is required';
+  return undefined;
+}
+
+function fingerprintProblem(
+  value: LedgerEntry['fingerprint'] | undefined,
+): string | undefined {
+  if (!value || typeof value !== 'object') return 'must be an object';
+  if (typeof value.representation !== 'string' || !value.representation) {
+    return 'representation is required';
+  }
+  if (typeof value.digest !== 'string' || !SHA256_DIGEST.test(value.digest)) {
+    return 'digest must be sha256';
+  }
+  return undefined;
+}
+
+function claimBasisProblem(value: unknown): string | undefined {
+  if (!Array.isArray(value)) return 'claimBasis must be an array';
+  for (const [index, item] of value.entries()) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      return `claimBasis[${index}] must be an object`;
+    }
+    const basis = item as Partial<ClaimBasis>;
+    if (!Number.isInteger(basis.index) || (basis.index ?? -1) < 0) {
+      return `claimBasis[${index}].index must be a non-negative integer`;
+    }
+    if (typeof basis.aspect !== 'string' || !basis.aspect) {
+      return `claimBasis[${index}].aspect is required`;
+    }
+    if (typeof basis.digest !== 'string' || !SHA256_DIGEST.test(basis.digest)) {
+      return `claimBasis[${index}].digest must be sha256`;
+    }
+  }
+  return undefined;
+}
+
+function primitiveRecord(value: unknown): boolean {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  return Object.values(value).every(
+    (item) =>
+      typeof item === 'string'
+      || typeof item === 'number'
+      || typeof item === 'boolean',
+  );
 }
 
 /** Where a candidate sits inside its source, independent of content identity. */

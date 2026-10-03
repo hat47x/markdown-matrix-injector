@@ -319,3 +319,52 @@ test('clearing with no prior decision does not create an empty project file', ()
   assert.deepEqual(cleared.entries, []);
   assert.equal(fs.existsSync(decisionsPath), false);
 });
+
+
+test('review decision reader fails closed on unknown decision states', () => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'mmi-review-decision-invalid-'),
+  );
+  const source = path.join(root, 'design.csv');
+  const decisionsPath = path.join(root, 'mmi-review-decisions.json');
+  fs.writeFileSync(source, 'A,B\n1,2\n');
+  recordRejectedDecision(
+    decisionsPath,
+    source,
+    candidate('content'),
+    'review',
+  );
+
+  const raw = JSON.parse(fs.readFileSync(decisionsPath, 'utf8'));
+  raw.entries[0].decision = 'accepted';
+  fs.writeFileSync(decisionsPath, JSON.stringify(raw, null, 2));
+
+  assert.throws(
+    () => readReviewDecisions(decisionsPath),
+    /decision must be rejected or deferred/u,
+  );
+});
+
+test('review decision reader rejects malformed claim-basis evidence', () => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'mmi-review-decision-invalid-'),
+  );
+  const source = path.join(root, 'design.csv');
+  const decisionsPath = path.join(root, 'mmi-review-decisions.json');
+  fs.writeFileSync(source, 'A,B\n1,2\n');
+  recordDeferredDecision(
+    decisionsPath,
+    source,
+    candidate('content'),
+    'review',
+  );
+
+  const raw = JSON.parse(fs.readFileSync(decisionsPath, 'utf8'));
+  raw.entries[0].claimBasis[0].digest = 'sha256:short';
+  fs.writeFileSync(decisionsPath, JSON.stringify(raw, null, 2));
+
+  assert.throws(
+    () => readReviewDecisions(decisionsPath),
+    /claimBasis\[0\]\.digest must be sha256/u,
+  );
+});
