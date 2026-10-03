@@ -7,6 +7,7 @@ import {
   type ImageDiagnostic,
 } from '../adapters/excelImageAdapter.js';
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
+import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import type { Candidate } from '../core/candidate.js';
 import {
@@ -14,6 +15,7 @@ import {
   readSourceFileIdentity,
 } from '../core/sourceIdentity.js';
 import { loadWorkbook } from '../core/workbookLoader.js';
+import { isXmlSpreadsheet2003 } from '../core/xmlFormat.js';
 
 export type CandidateReviewInventoryItem =
   | {
@@ -32,7 +34,8 @@ export type CandidateReviewInventoryItem =
       kind: 'tree';
       candidate: Candidate;
       pointer: string;
-      nodeType: 'object' | 'array';
+      format: 'json' | 'xml';
+      nodeType: 'object' | 'array' | 'element';
       childCount: number;
       leafCount: number;
     };
@@ -60,12 +63,36 @@ export function buildCandidateReviewInventory(
         kind: 'tree' as const,
         candidate: node.candidate,
         pointer: node.pointer,
+        format: 'json' as const,
         nodeType: node.nodeType,
         childCount: node.childPointers.length,
         leafCount: node.leafValues.length,
       })),
       imageDiagnostics: [],
     };
+  }
+
+  if (/\.xml$/iu.test(sourcePath)) {
+    const sourceBytes = fs.readFileSync(sourcePath);
+    const xml = sourceBytes.toString('utf8');
+    if (!isXmlSpreadsheet2003(xml)) {
+      const sourceDigest =
+        createSourceIdentityFromBytes(sourceBytes).digest;
+      const tree = readXmlTree(xml, sourceLabel, sourceDigest);
+      return {
+        items: tree.nodes.map((node) => ({
+          kind: 'tree' as const,
+          candidate: node.candidate,
+          pointer: node.path,
+          format: 'xml' as const,
+          nodeType: 'element' as const,
+          childCount: node.childPaths.length,
+          leafCount:
+            node.attributeValues.length + node.textValues.length,
+        })),
+        imageDiagnostics: [],
+      };
+    }
   }
 
   const sourceDigest = readSourceFileIdentity(sourcePath).digest;
