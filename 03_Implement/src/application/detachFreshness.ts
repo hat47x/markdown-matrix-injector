@@ -2,7 +2,6 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { buildCandidateReviewInventory } from './candidateReviewInventory.js';
-import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
 import type { Candidate } from '../core/candidate.js';
 import {
   assessLedger,
@@ -12,7 +11,6 @@ import {
   type Ledger,
   type LedgerState,
 } from '../core/importLedger.js';
-import { createSourceIdentityFromBytes } from '../core/sourceIdentity.js';
 
 export type DetachFreshnessProblemCode =
   | 'MMI_DETACH_LEDGER_MISSING'
@@ -223,18 +221,6 @@ function candidatesFromCurrentSource(
   sourcePath: string,
   sourceLabel: string,
 ): Candidate[] {
-  if (/\.json$/iu.test(sourcePath)) {
-    const sourceBytes = fs.readFileSync(sourcePath);
-    const sourceDigest =
-      createSourceIdentityFromBytes(sourceBytes).digest;
-    return [
-      ...readJsonTree(
-        sourceBytes.toString('utf8'),
-        sourceLabel,
-        sourceDigest,
-      ).candidates,
-    ];
-  }
   return buildCandidateReviewInventory(sourcePath, sourceLabel)
     .items.map((item) => item.candidate);
 }
