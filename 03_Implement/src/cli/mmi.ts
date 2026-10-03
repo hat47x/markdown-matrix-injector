@@ -28,7 +28,9 @@ import {
   type LedgerState,
   type LineageCandidate,
 } from '../core/importLedger.js';
-import { isPathWithinBoundary } from '../core/pathResolver.js';
+import { isPathWithinBoundary, resolveSourcePath } from '../core/pathResolver.js';
+import { findUnknownProseIds, UNKNOWN_PROSE_ID_CODE, type ProseIdSource } from '../application/proseIdCheck.js';
+import { extractEmbedQueries } from '../parser/embedSyntax.js';
 import { readSourceFileIdentity } from '../core/sourceIdentity.js';
 import { sliceRegion } from '../core/tableGeometry.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
@@ -847,7 +849,8 @@ export async function checkPaths(files: string[], root: string): Promise<CheckPr
   const problems: CheckProblem[] = [];
   for (const file of files) {
     const absolute = path.resolve(file);
-    const items = await createDiagnosticsForDocument(fs.readFileSync(absolute, 'utf8'), absolute, root, {
+    const text = fs.readFileSync(absolute, 'utf8');
+    const items = await createDiagnosticsForDocument(text, absolute, root, {
       fileExists: async (filepath) => fs.existsSync(filepath) && fs.statSync(filepath).isFile(),
       readFile: async (filepath) => fs.readFileSync(filepath),
       readWorkbookSheetNames: async (filepath) => Object.keys(loadWorkbook({ absolutePath: filepath, cache }).sheets),
@@ -862,8 +865,40 @@ export async function checkPaths(files: string[], root: string): Promise<CheckPr
         message: diagnostic.message,
       });
     }
+    // Prose IDs the referenced sheets do not have (warnings; the reference errors above stay the gate).
+    const displayFile = path.relative(process.cwd(), absolute).split(path.sep).join('/');
+    for (const finding of findUnknownProseIds(text, referencedSheets(text, absolute, root, cache))) {
+      problems.push({
+        file: displayFile,
+        line: finding.line,
+        column: finding.column,
+        severity: 'warning',
+        code: UNKNOWN_PROSE_ID_CODE,
+        message: `本文の「${finding.id}」は、参照している表（${finding.sources.join('、')}）のどのセルにもありません（同じ形式の例: ${finding.example}）。正本の変更で消えた・変わったIDか、書き間違いの可能性があります。`,
+      });
+    }
   }
   return problems;
+}
+
+/** The sheets this document references, resolved like the renderer does; unreadable ones are skipped (already diagnosed). */
+function referencedSheets(text: string, markdownFilePath: string, root: string, cache: WorkbookCache<WorkbookData>): ProseIdSource[] {
+  const seen = new Set<string>();
+  const out: ProseIdSource[] = [];
+  for (const embed of extractEmbedQueries(text)) {
+    try {
+      const absolutePath = resolveSourcePath({ markdownFilePath, sourcePath: embed.filepath, workspaceRoot: root });
+      const workbook = loadWorkbook({ absolutePath, cache });
+      const sheetName = embed.target ?? Object.keys(workbook.sheets)[0];
+      const key = `${absolutePath}#${sheetName}`;
+      if (seen.has(key) || !workbook.sheets[sheetName]) continue;
+      seen.add(key);
+      out.push({ label: `${embed.filepath}#${sheetName}`, sheet: workbook.sheets[sheetName] });
+    } catch {
+      // missing file, outside the boundary, unsupported format: reported by the reference diagnostics
+    }
+  }
+  return out;
 }
 
 function collectMarkdownFiles(target: string): string[] {
