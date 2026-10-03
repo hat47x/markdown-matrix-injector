@@ -474,13 +474,13 @@ async function insertEmbedByContentMatch(): Promise<void> {
   ]);
   const searchResult = findWorkbookContentMatchesDetailed(clipboardText, loadResult.workbooks);
   const matches = withSource(source.match, searchResult.matches);
+  const incomplete = describeIncompleteContentMatchSearch(
+    loadResult.skippedFiles.length,
+    searchResult.skippedSheets.length,
+    loadResult.cancelled,
+  );
 
   if (matches.length === 0) {
-    const incomplete = describeIncompleteContentMatchSearch(
-      loadResult.skippedFiles.length,
-      searchResult.skippedSheets.length,
-      loadResult.cancelled,
-    );
     const why = source.reason ? ` (${source.reason})` : '';
     if (incomplete) {
       void vscode.window.showWarningMessage(`MMI: No matching range was found in the sheets that could be searched. ${incomplete}${why}`);
@@ -490,6 +490,9 @@ async function insertEmbedByContentMatch(): Promise<void> {
     return;
   }
 
+  if (incomplete) {
+    void vscode.window.showWarningMessage(`MMI: Some workbook data could not be searched. The candidate list may be incomplete. ${incomplete}`);
+  }
   const picked = await pickContentMatch(matches);
   if (!picked) {
     return; // cancelled (Esc) -- never insert without an explicit pick (R1)
@@ -599,15 +602,13 @@ async function getContentMatchPasteEdits(
 
   const searchResult = findWorkbookContentMatchesDetailed(plainText, loadResult.workbooks);
   const matches = withSource(source.match, searchResult.matches);
-  if (matches.length === 0) {
-    const incomplete = describeIncompleteContentMatchSearch(
-      loadResult.skippedFiles.length,
-      searchResult.skippedSheets.length,
-      false,
-    );
-    if (incomplete) {
-      void vscode.window.showWarningMessage(`MMI: Content-match Paste As found no match in the sheets that could be searched. ${incomplete}`);
-    }
+  const incomplete = describeIncompleteContentMatchSearch(
+    loadResult.skippedFiles.length,
+    searchResult.skippedSheets.length,
+    false,
+  );
+  if (matches.length === 0 && incomplete) {
+    void vscode.window.showWarningMessage(`MMI: Content-match Paste As found no match in the sheets that could be searched. ${incomplete}`);
   }
   return matches.map((match) => {
     // Paste As offers one compact line per edit. Reuse the source-derived
@@ -616,7 +617,8 @@ async function getContentMatchPasteEdits(
     const context = summarizeContentMatchContext(match, 72);
     const where = context ? ` ${context}` : '';
     const how = isConfirmedSource(match) ? '（コピー元を確認済み）' : '（内容から推定）';
-    const title = `MMI: ${match.filepath}#${match.sheet} (${cellRangeToA1(match.range)})${where}${how}`;
+    const completeness = incomplete ? '（検索不完全）' : '';
+    const title = `MMI: ${match.filepath}#${match.sheet} (${cellRangeToA1(match.range)})${where}${how}${completeness}`;
     return new vscode.DocumentPasteEdit(buildContentMatchMarkdown(match), title, CONTENT_MATCH_PASTE_EDIT_KIND);
   });
 }
