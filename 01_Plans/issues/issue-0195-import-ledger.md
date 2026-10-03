@@ -26,7 +26,7 @@
 
 ## Implementation checkpoint (2026-10-01)
 
-`src/core/importLedger.ts` に可読JSON台帳 `mmi.ledger/v1` を追加した。既定名は `mmi-ledger.json`。entryはsource / sheet / place（occurrence identity）、fingerprint（content identity）、kind、source digest、output、変換条件、review state、basis、reviewedAtを保持する。fingerprintはdigestだけでなくrepresentationも同一性に含める。
+`src/core/importLedger.ts`に可読JSON台帳`mmi.ledger/v1`を追加した。既定名は`mmi-ledger.json`。entryはsource / sheet / place（occurrence identity）、fingerprint（content identity）、kind、source digest、output、変換条件、review state、basis、reviewedAtを保持する。fingerprintはdigestだけでなくrepresentationも同一性に含める。`mmi schema ledger`で機械可読なJSON Schemaを取得でき、`readLedger()`はentry内部も検査して不正なreview state・digest・Claim basis等をfail-closedで拒否する。旧`confirmed`はlegacy v1読込互換だけで許可し、メモリ上では`accepted`へ正規化する。
 
 ADR-0021に合わせ、occurrence identityとcontent identityは分離する。同じoccurrence・同じfingerprintは `imported`、同じoccurrenceで内容が変わったものは `changed`、別occurrenceの同じfingerprintは `duplicate`、該当なしは `unimported` とする。duplicateは証拠であり、そのoccurrenceへreview stateを継承しない。
 

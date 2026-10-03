@@ -79,6 +79,16 @@ export function verifyCliPackage(tarballPath) {
     ['schema', 'candidate'],
     workspace,
   );
+  const ledgerSchema = run(
+    bin,
+    ['schema', 'ledger'],
+    workspace,
+  );
+  const reviewDecisionsSchema = run(
+    bin,
+    ['schema', 'review-decisions'],
+    workspace,
+  );
   const check = run(bin, ['check', 'docs', '--root', '.'], workspace);
   const render = run(
     bin,
@@ -133,6 +143,27 @@ export function verifyCliPackage(tarballPath) {
     throw new Error(
       `mmi schema candidate failed:\n${candidateSchema.stderr || candidateSchema.stdout}`,
     );
+  }
+  for (const [name, runResult, expectedContract] of [
+    ['ledger', ledgerSchema, 'mmi.ledger/v1'],
+    ['review-decisions', reviewDecisionsSchema, 'mmi.review-decisions/v1'],
+  ]) {
+    let parsed;
+    try {
+      parsed = JSON.parse(runResult.stdout);
+    } catch {
+      throw new Error(
+        `mmi schema ${name} returned invalid JSON:\n${runResult.stderr || runResult.stdout}`,
+      );
+    }
+    if (
+      runResult.status !== 0
+      || parsed['x-mmi-contract'] !== expectedContract
+    ) {
+      throw new Error(
+        `mmi schema ${name} failed:\n${runResult.stderr || runResult.stdout}`,
+      );
+    }
   }
   if (check.status !== 0) {
     throw new Error(`mmi check failed:\n${check.stderr || check.stdout}`);
@@ -206,6 +237,8 @@ export function verifyCliPackage(tarballPath) {
         help: 'passed',
         version: 'passed',
         candidateSchema: 'passed',
+        ledgerSchema: 'passed',
+        reviewDecisionsSchema: 'passed',
         check: 'passed',
         render: 'passed',
         jsonTreeInspect: 'passed',
