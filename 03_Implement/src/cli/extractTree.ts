@@ -16,7 +16,6 @@ import {
 } from '../adapters/xmlTreeAdapter.js';
 import type { Candidate } from '../core/candidate.js';
 import { entryFor, recordEntries } from '../core/importLedger.js';
-import { readSourceFileIdentity } from '../core/sourceIdentity.js';
 import { isXmlSpreadsheet2003Text } from '../core/workbookLoader.js';
 
 export interface ExtractTreeOptions {
@@ -27,6 +26,8 @@ export interface ExtractTreeOptions {
   fromDocument?: string;
   sourceLabel?: string;
   ledgerPath?: string;
+  /** Review-time identity guard; extraction fails if the current Candidate changed. */
+  expectedCandidateFingerprint?: string;
 }
 
 export interface ExtractXmlTreeOptions {
@@ -37,6 +38,8 @@ export interface ExtractXmlTreeOptions {
   fromDocument?: string;
   sourceLabel?: string;
   ledgerPath?: string;
+  /** Review-time identity guard; extraction fails if the current Candidate changed. */
+  expectedCandidateFingerprint?: string;
 }
 
 export interface ExtractTreeSelectionOptions {
@@ -47,6 +50,8 @@ export interface ExtractTreeSelectionOptions {
   fromDocument?: string;
   sourceLabel?: string;
   ledgerPath?: string;
+  /** Review-time identity guard; extraction fails if the current Candidate changed. */
+  expectedCandidateFingerprint?: string;
 }
 
 export interface ExtractedTree {
@@ -87,8 +92,12 @@ function objectEntries(value: { [key: string]: JsonValue }): [string, JsonValue]
     .map((key) => [key, value[key]]);
 }
 
+function escapeMarkdownInline(text: string): string {
+  return text.replace(/([\\`*_[\]{}()#+\-.!<>|])/gu, '\\$1');
+}
+
 function renderLabel(text: string): string {
-  return JSON.stringify(text);
+  return escapeMarkdownInline(JSON.stringify(text));
 }
 
 function renderJsonNestedList(
@@ -113,7 +122,7 @@ function renderJsonNestedList(
     ];
   }
   return [
-    `${indent}- ${label}: ${canonicalJsonValue(value)}`,
+    `${indent}- ${label}: ${escapeMarkdownInline(canonicalJsonValue(value))}`,
   ];
 }
 
@@ -122,15 +131,21 @@ function renderXmlNestedList(
   depth = 0,
 ): string[] {
   const indent = '  '.repeat(depth);
-  const lines = [`${indent}- <${element.name}>`];
+  const lines = [
+    `${indent}- ${escapeMarkdownInline(`<${element.name}>`)}`,
+  ];
   for (const [name, value] of Object.entries(element.attributes)
     .sort(([left], [right]) => left.localeCompare(right))) {
-    lines.push(`${indent}  - @${name}: ${JSON.stringify(value)}`);
+    lines.push(
+      `${indent}  - ${escapeMarkdownInline(`@${name}`)}: ${escapeMarkdownInline(JSON.stringify(value))}`,
+    );
   }
   for (const item of element.content) {
     if (item.kind === 'text') {
       if (item.value.trim().length > 0) {
-        lines.push(`${indent}  - #text: ${JSON.stringify(item.value)}`);
+        lines.push(
+          `${indent}  - #text: ${escapeMarkdownInline(JSON.stringify(item.value))}`,
+        );
       }
     } else {
       lines.push(...renderXmlNestedList(item.element, depth + 1));
@@ -195,7 +210,7 @@ export function extractJsonTree(
   }
 
   const sourceBytes = fs.readFileSync(options.sourcePath);
-  const sourceDigest = readSourceFileIdentity(options.sourcePath).digest;
+  const sourceDigest = sha256(sourceBytes);
   const source = sourceLabel(options, options.sourcePath);
 
   let tree;
@@ -218,6 +233,17 @@ export function extractJsonTree(
       code: 'MMI_TREE_CANDIDATE_NOT_FOUND',
       message:
         `no Tree Candidate at JSON Pointer ${options.pointer || '(root)'}; run \`mmi inspect\` to list detected Tree Candidates`,
+    });
+    return result;
+  }
+  if (
+    options.expectedCandidateFingerprint
+    && candidate.fingerprint.digest !== options.expectedCandidateFingerprint
+  ) {
+    result.problems.push({
+      code: 'MMI_TREE_CANDIDATE_CHANGED',
+      message:
+        `Tree Candidate at JSON Pointer ${options.pointer || '(root)'} changed after review; review the current Candidate before extraction`,
     });
     return result;
   }
@@ -266,7 +292,7 @@ export function extractXmlTree(
     return result;
   }
 
-  const sourceDigest = readSourceFileIdentity(options.sourcePath).digest;
+  const sourceDigest = sha256(sourceBytes);
   const source = sourceLabel(options, options.sourcePath);
 
   let tree;
@@ -300,6 +326,17 @@ export function extractXmlTree(
       code: 'MMI_TREE_CANDIDATE_NOT_FOUND',
       message:
         `no Tree Candidate at XML path ${structuralPath}; run \`mmi inspect\` to list detected Tree Candidates`,
+    });
+    return result;
+  }
+  if (
+    options.expectedCandidateFingerprint
+    && candidate.fingerprint.digest !== options.expectedCandidateFingerprint
+  ) {
+    result.problems.push({
+      code: 'MMI_TREE_CANDIDATE_CHANGED',
+      message:
+        `Tree Candidate at XML path ${structuralPath} changed after review; review the current Candidate before extraction`,
     });
     return result;
   }
