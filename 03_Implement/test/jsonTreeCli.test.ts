@@ -210,5 +210,31 @@ test('review-bound Tree extraction rejects a changed Candidate', () => {
     result.problems.map((problem) => problem.code),
     ['MMI_TREE_CANDIDATE_CHANGED'],
   );
+  assert.equal(fs.existsSync(f.outDir), false);
   assert.equal(fs.existsSync(f.ledgerPath), false);
+});
+
+test('review-bound Tree extraction tolerates unrelated source changes when the reviewed subtree is unchanged', () => {
+  const f = workspace();
+  const reviewed = inspectSource(f.source, 0).candidates.find(
+    (candidate) =>
+      candidate.kind === 'tree'
+      && candidate.locator.structuralPath === '/service',
+  );
+  assert.ok(reviewed);
+
+  const changed = JSON.parse(fs.readFileSync(f.source, 'utf8'));
+  changed.enabled = false;
+  fs.writeFileSync(f.source, JSON.stringify(changed, null, 2));
+
+  const result = extractJsonTree({
+    sourcePath: f.source,
+    pointer: '/service',
+    outDir: f.outDir,
+    ledgerPath: f.ledgerPath,
+    expectedCandidateFingerprint: reviewed.fingerprint.digest,
+  });
+
+  assert.deepEqual(result.problems, []);
+  assert.ok(result.extracted);
 });
