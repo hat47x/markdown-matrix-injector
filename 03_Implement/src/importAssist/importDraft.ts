@@ -31,6 +31,7 @@ export interface ImportDraftReviewSkip {
   sheet: string;
   name?: string;
   decision: 'rejected' | 'deferred';
+  code: 'MMI_IMPORT_REVIEW_REJECTED' | 'MMI_IMPORT_REVIEW_DEFERRED';
   message: string;
 }
 
@@ -150,7 +151,9 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
     );
     for (const item of workbookImport.reviewSkippedAssets) {
       const decision = item.decision === 'rejected' ? '却下' : '保留';
-      const name = item.name ? `「${escapeText(item.name)}」` : `画像 #${item.ordinal}`;
+      const name = item.name
+        ? `「${escapeText(item.name)}」`
+        : `画像 #${item.ordinal}`;
       lines.push(
         `- ${decision} [${escapeText(item.sheet)}] ${name}: ${escapeText(item.message)}`,
       );

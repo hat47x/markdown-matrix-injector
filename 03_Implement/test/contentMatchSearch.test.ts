@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { buildContentMatchMarkdown, findWorkbookContentMatches, summarizeContentMatchContext, type WorkbookSheetsSource } from '../src/dx/contentMatchSearch.js';
+import { buildContentMatchMarkdown, findWorkbookContentMatches, findWorkbookContentMatchesDetailed, summarizeContentMatchContext, type WorkbookSheetsSource } from '../src/dx/contentMatchSearch.js';
 import { loadWorkbook } from '../src/core/workbookLoader.js';
 import { sheetSourceFromMatrix, type SheetSource } from '../src/core/sheetSource.js';
 import type { WorkbookContentMatch } from '../src/dx/contentMatchSearch.js';
@@ -119,9 +119,9 @@ test('findWorkbookContentMatches returns nothing when no workbook contains the v
   assert.deepEqual(findWorkbookContentMatches('a\tb\r\n', workbooks), []);
 });
 
-test('findWorkbookContentMatches skips a sheet too large to index instead of aborting the whole search', () => {
+test('findWorkbookContentMatchesDetailed reports a sheet that was skipped by the index limit', () => {
   const hugeSheet: SheetSource = {
-    usedRange: { startRow: 0, startCol: 0, endRow: 999, endCol: 999 }, // 1,000,000 cells
+    usedRange: { startRow: 0, startCol: 0, endRow: 999, endCol: 999 },
     merges: [],
     cellAt: () => {
       throw new Error('cellAt must not be called -- the size check must reject this sheet first');
@@ -137,11 +137,35 @@ test('findWorkbookContentMatches skips a sheet too large to index instead of abo
     }),
   ];
 
-  const matches = findWorkbookContentMatches('a\tb\r\nc\td\r\n', workbooks);
+  const result = findWorkbookContentMatchesDetailed('a\tb\r\nc\td\r\n', workbooks);
 
-  assert.deepEqual(matches.map(located), [
+  assert.deepEqual(result.matches.map(located), [
     { filepath: './small.xlsx', sheet: 'Sheet1', range: { startRow: 0, startCol: 0, endRow: 1, endCol: 1 } },
   ]);
+  assert.deepEqual(result.skippedSheets, [
+    {
+      filepath: './huge.xlsx',
+      sheet: 'TooBig',
+      reason: 'sheet-too-large',
+      cellCount: 1_000_000,
+      limit: 200_000,
+    },
+  ]);
+});
+
+test('findWorkbookContentMatchesDetailed does not hide unexpected sheet read failures as no-match', () => {
+  const brokenSheet: SheetSource = {
+    usedRange: { startRow: 0, startCol: 0, endRow: 1, endCol: 1 },
+    merges: [],
+    cellAt: () => {
+      throw new Error('fixture read failure');
+    },
+  };
+
+  assert.throws(
+    () => findWorkbookContentMatchesDetailed('a\tb\r\nc\td\r\n', [{ filepath: './broken.xlsx', sheets: { Sheet1: brokenSheet } }]),
+    /fixture read failure/,
+  );
 });
 
 test('buildContentMatchMarkdown renders file#sheet|range, including a non-A1 origin', () => {

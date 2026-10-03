@@ -60,6 +60,11 @@ export interface SourceLocator {
   sheet?: string;
   /** A1 range of the candidate in the source (physical coordinates). */
   range?: string;
+  /**
+   * Format-native structural location when cells are not the address space.
+   * Examples: RFC 6901 JSON Pointer or a deterministic XML element path.
+   */
+  structuralPath?: string;
 }
 
 export interface Evidence {

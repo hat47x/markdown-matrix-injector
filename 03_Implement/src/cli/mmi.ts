@@ -14,6 +14,7 @@ import { checkDetachedDocument } from '../application/detachCheck.js';
 import { checkExtractedProvenanceFreshness } from '../application/detachFreshness.js';
 import { materializeDocument } from '../application/materialize.js';
 import { imageCandidates, readExcelImages, relationToTables, type ImageDiagnostic, type TableRect } from '../adapters/excelImageAdapter.js';
+import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import type { Candidate, ProviderScore } from '../core/candidate.js';
 import { candidateLedgerView, type CandidateLedgerFilter } from '../core/candidateLedgerView.js';
@@ -47,14 +48,14 @@ import { buildDeliveryManifestCsv } from '../manifest/collectDeliveryManifest.js
 import { detectTableRegions, regionReference } from '../importAssist/tableRegions.js';
 import { runFind, runSelect } from './navigateCommands.js';
 import { extractImages, extractTable, formatImageDiagnostics } from './extract.js';
+import { extractJsonTree } from './extractTree.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './render.js';
 
 const USAGE = `Usage: mmi <command> [options]
 
 Commands:
-  inspect <source>          List sheets and table regions of a workbook/CSV (structure only by default;
-                            --json adds "candidates": the same regions as Semantic Candidates with status,
-                            method, provenance and fingerprint)
+  inspect <source>          List workbook/CSV table regions or explicit JSON tree structure.
+                            --json adds Semantic Candidates with status, method, provenance and fingerprint
       --values <n>            also print the first n body rows of each region
       --from <doc.md>         write suggested references relative to this document
       --import-assist          also show grid-layout import roles, revalidated reference proposals and cautions
@@ -65,11 +66,13 @@ Commands:
       --exclude-imported      hide exact imported occurrences; keep changed/stale/duplicate/unimported
                             For .xlsx/.xlsm it also lists embedded pictures (sheet, anchor, format, size,
                             digest, nearest table) and names any that cannot be read.
+                            For .json it lists object/array nodes by RFC 6901 JSON Pointer.
   extract <source>          Extract one reviewed Candidate as a standard asset without modifying the source
       --image <n|all>         workbook picture number shown by inspect, or all
       --table <range>         exact detected table Candidate range (requires --sheet)
+      --tree <pointer|root>   exact JSON Tree Candidate pointer shown by inspect; root means document root
       --sheet <name>          sheet for --table
-                            Exactly one of --image or --table is required
+                            Exactly one of --image, --table or --tree is required
       --out-dir <dir>         assets folder (default: assets); files are content-addressed
       --from <doc.md>         provenance/source labels are relative to this document
       --ledger <file>         import ledger (default: <root>/mmi-ledger.json)
@@ -131,6 +134,7 @@ export async function main(argv: string[]): Promise<number> {
       values: { type: 'string', default: '0' },
       from: { type: 'string' },
       image: { type: 'string' },
+      tree: { type: 'string' },
       'out-dir': { type: 'string' },
       draft: { type: 'string' },
       'attachments-dir': { type: 'string' },
@@ -197,14 +201,38 @@ export async function main(argv: string[]): Promise<number> {
     }
     case 'extract': {
       if (args.length !== 1) return usageError('extract takes one source file');
-      if (Boolean(values.image) === Boolean(values.table)) {
-        return usageError('extract needs exactly one of --image <n|all> or --table <range>');
+      const selectors = [
+        values.image !== undefined,
+        values.table !== undefined,
+        values.tree !== undefined,
+      ].filter(Boolean).length;
+      if (selectors !== 1) {
+        return usageError(
+          'extract needs exactly one of --image <n|all>, --table <range> or --tree <pointer|root>',
+        );
       }
       const sourcePath = path.resolve(args[0]);
       const outDir = path.resolve(values['out-dir'] ?? 'assets');
       const ledgerPath = path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE);
 
-      if (values.table) {
+      if (values.tree !== undefined) {
+        const pointer = values.tree === 'root' ? '' : values.tree;
+        const result = extractJsonTree({
+          sourcePath,
+          pointer,
+          outDir,
+          fromDocument: values.from,
+          ledgerPath,
+        });
+        if (values.json) emit(JSON.stringify(result, null, 2));
+        else if (result.extracted) emit(result.extracted.markdown);
+        for (const problem of result.problems) {
+          console.error(`mmi: ${problem.code}: ${problem.message}`);
+        }
+        return result.problems.length > 0 ? 1 : 0;
+      }
+
+      if (values.table !== undefined) {
         if (!values.sheet) return usageError('extract --table needs --sheet <name>');
         const result = extractTable({
           sourcePath,
@@ -610,10 +638,20 @@ export interface InspectRegion {
   sample?: string[][];
 }
 
+export interface InspectTree {
+  /** RFC 6901 JSON Pointer. Root is the empty string. */
+  pointer: string;
+  nodeType: 'object' | 'array';
+  childPointers: readonly string[];
+  leafValues: readonly string[];
+}
+
 export interface InspectResult {
   source: string;
   sheets: { name: string; usedRange?: string; regions: InspectRegion[] }[];
-  /** The same structure as Semantic Candidates (issue-0193). `--json` only; the text output is unchanged. */
+  /** Explicit JSON hierarchy nodes; absent for non-JSON sources. */
+  trees?: InspectTree[];
+  /** The same structure as Semantic Candidates (issue-0193). */
   candidates: Candidate[];
   /** Embedded pictures of an .xlsx/.xlsm (empty for other sources). */
   images: InspectImage[];
@@ -664,8 +702,33 @@ export interface InspectImage {
 }
 
 export function inspectSource(absolutePath: string, sampleRows: number, fromDocument?: string): InspectResult {
-  const workbook = loadWorkbook({ absolutePath });
   const sourceDigest = readSourceFileIdentity(absolutePath).digest;
+  const base = fromDocument ? path.dirname(path.resolve(fromDocument)) : process.cwd();
+  let relative = path.relative(base, absolutePath).split(path.sep).join('/');
+  if (!relative.startsWith('.')) relative = `./${relative}`;
+
+  if (/\.json$/iu.test(absolutePath)) {
+    const tree = readJsonTree(
+      fs.readFileSync(absolutePath, 'utf8'),
+      relative,
+      sourceDigest,
+    );
+    return {
+      source: relative,
+      candidates: [...tree.candidates],
+      trees: tree.nodes.map((node) => ({
+        pointer: node.pointer,
+        nodeType: node.nodeType,
+        childPointers: node.childPointers,
+        leafValues: node.leafValues,
+      })),
+      images: [],
+      imageDiagnostics: [],
+      sheets: [],
+    };
+  }
+
+  const workbook = loadWorkbook({ absolutePath });
   const isPackage = /\.(xlsx|xlsm)$/iu.test(absolutePath);
   const imageRead = isPackage
     ? readExcelImages(fs.readFileSync(absolutePath))
@@ -679,9 +742,6 @@ export function inspectSource(absolutePath: string, sampleRows: number, fromDocu
   const tablesBySheet: Record<string, TableRect[]> = Object.fromEntries(
     detected.map(({ name, regions }) => [name, regions.map((r) => ({ a1: r.a1, startRow: r.range.startRow, startCol: r.range.startCol, endRow: r.range.endRow, endCol: r.range.endCol }))]),
   );
-  const base = fromDocument ? path.dirname(path.resolve(fromDocument)) : process.cwd();
-  let relative = path.relative(base, absolutePath).split(path.sep).join('/');
-  if (!relative.startsWith('.')) relative = `./${relative}`;
   return {
     source: relative,
     candidates: [
@@ -760,6 +820,12 @@ function applyLedgerView(
       const place = image.range ?? `name:${image.name ?? ''}`;
       return allowed.has(`image\u0000${image.sheet}\u0000${place}`);
     }),
+    ...(result.trees
+      ? {
+          trees: result.trees.filter((tree) =>
+            allowed.has(`tree\u0000\u0000path:${tree.pointer}`)),
+        }
+      : {}),
     sheets: result.sheets.map((sheet) => ({
       ...sheet,
       regions: sheet.regions.filter((region) =>
@@ -811,6 +877,15 @@ function formatInspect(result: InspectResult): string {
       const proposal = item.proposal ? `  proposal: ${item.proposal}` : '';
       const cautions = item.cautions.length > 0 ? `  cautions: ${item.cautions.map((c) => c.code).join(', ')}` : '';
       lines.push(`  ${item.sheet}!${item.range}  role: ${item.role}${proposal}${cautions}`);
+    }
+  }
+  if (result.trees?.length) {
+    lines.push('', 'tree nodes:');
+    for (const tree of result.trees) {
+      const pointer = tree.pointer || '(root)';
+      lines.push(
+        `  ${pointer}  ${tree.nodeType}  ${tree.childPointers.length} children${ledgerSuffix('tree', '', `path:${tree.pointer}`)}`,
+      );
     }
   }
   for (const sheet of result.sheets) {

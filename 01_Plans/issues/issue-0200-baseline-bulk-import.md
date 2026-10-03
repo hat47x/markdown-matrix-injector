@@ -44,7 +44,7 @@ issue-0195で確定した`mmi.ledger/v1`を再利用する。一括変換専用�
 - draft・asset・ledgerは1回の取り込み操作としてcommitする。解析や下書き保存が失敗した場合、この操作で追加したassetを削除し、既存ledgerを元のbytesへ戻す。既存draftは競合時も上書き・削除しない。
 - 取り込み開始時に原本bytesを1回固定し、表解析・workbook structure・画像抽出・ledger source digestを同じsnapshotから作る。commit直前に原本digestを再確認し、途中で原本が保存されていれば確定せずrollbackして再実行を求める。
 - 表をExtractedにしたい場合は、現在のCandidateレビューから明示的に表extractへ進める。一括取り込みの既定では表をLinkedに保つ。
-- 既存の`mmi.review-decisions/v1`を一括取り込みでも参照する。未採用の画像Candidateに対するexactな「却下」「保留」は自動取り込みせず、draftの「既存のレビュー判断」に残す。内容またはClaim basisが変われば既存契約どおり判断は失効し、再び取り込み対象になる。すでにledgerへ採用済みの履歴はreview決定より優先する。
+- 既存の`mmi.review-decisions/v1`も一括取り込みの入力として扱う。exactな却下・保留decisionが残る未採用画像は自動採用せず、下書きの「既存のレビュー判断」に残す。画像内容またはClaim basisが変わればdecisionは失効し、再び候補になる。すでにledgerへ採用済みの履歴は後から残ったdecisionより優先する。decisionファイルもsourceと同様にcommit中のsnapshot変化を検知し、変わった場合はrollbackして再実行を求める。
 
 この経路を初回取り込みの主経路とし、以下のMarkItDown評価は、この経路で不足する情報や外部Converterの得失を比較するために残す。
 
