@@ -172,7 +172,7 @@
 - **入力**: 検索対象の`SheetSource`1枚と、貼り付け値行列（`parseTsv`等の出力と同じ`string[][]`）。
 - **出力**: 完全一致した矩形の一覧（`{ range: CellRange }[]`）。部分一致は候補にしない（§4手順5「違う→棄却」）。同一内容が複数箇所にあれば全件返す——どれか1つを選ぶ判断はしない（§4「自動確定の規則」：候補複数は必ず一覧提示）。
 - **アルゴリズム**: needle内の非空セルのうち原本での出現回数が最も少ないものをアンカーとし、転置索引（原本の使用範囲を1回走査して構築）から出現位置を引く。次に希少なアンカー最大4件でオフセット候補を突き合わせて絞り込んでから（総当たり走査はしない、§5手順4）、生き残った候補だけ矩形全体を実際に読んで照合する。
-- **上限**: `maxIndexedCells`（既定20万セル、原本の使用範囲がこれを超えたら**例外を投げる**——黙って一部だけ探すと真の一致を見逃しても気づけないため）と`maxCandidates`（既定200件、**完全一致として返す結果数**の上限。候補原点は完全一致が上限件数見つかるまで検証するため、頻出アンカーの偽候補だけで探索枠を使い切らない。内容が広範囲に重複する場合は返却件数だけを抑え、§4の自動確定禁止規則を維持する）の2つ（§5手順5）。
+- **上限**: `maxIndexedCells`（既定20万セル、原本の使用範囲がこれを超えたら例外）と`maxCandidates`（既定200件、完全一致として返す結果数）の2つ。候補原点は完全一致が上限件数見つかるまで検証する。2026-10-04、200件に達しただけでは打ち切らず、201件目の完全一致を1件確認した場合だけ`truncated=true`とする詳細結果を追加した。これにより、ちょうど200件の完全な候補集合と、201件以上あるため200件へ切り詰めた集合を区別できる。
 - **この時点で意図的に含まなかったもの**: (1) 探索対象ブックの決定（ワークスペース内のどこまで探すか、§5手順1）。(2) 候補選択UI（QuickPick等）。(3) `extension.ts`への配線。**いずれも2026-09-15に実装した（下記「作業D: 内容照合コマンドの実装」節）。**
 
 **テスト**: `test/contentMatch.test.ts`を新規追加（11件）。単一一致・非A1原点での物理座標保持・不一致・内容重複時の全件返却・部分一致の確実な棄却・全セル空needleの早期return・needleがsheetより大きい場合の早期return・アンカー起点が使用範囲外になる候補の除外（クラッシュしない）・`maxIndexedCells`超過時の例外・`maxCandidates`による打ち切りを検証。`npm test`は339件全成功。
@@ -181,12 +181,12 @@
 
 `findContentMatches`・`extractHtmlTableShape`・`parseTsv`という3つの部品が揃ったことを受け、issue-0114の残り3点——探索対象ブックの決定、候補選択UI、`extension.ts`配線——を実装した。
 
-- 新規 [`src/dx/contentMatchSearch.ts`](../../03_Implement/src/dx/contentMatchSearch.ts): 複数ワークブック・複数シートを横断して`findContentMatches`を集約する。2026-10-03、検索不能なシートを黙って「一致なし」に変換しないよう、`findWorkbookContentMatchesDetailed`が完全一致と`skippedSheets`を分けて返す形へ拡張した。`maxIndexedCells`超過は型付きの`MMI_CONTENT_MATCH_SHEET_TOO_LARGE`として扱い、その他の予期しない例外は握りつぶさない。`buildContentMatchMarkdown`が結果を`![[file#sheet|range]]`へ整形する。
+- 新規 [`src/dx/contentMatchSearch.ts`](../../03_Implement/src/dx/contentMatchSearch.ts): 複数ワークブック・複数シートを横断して内容照合を集約する。`findWorkbookContentMatchesDetailed`は完全一致、`skippedSheets`、`truncatedSheets`を分けて返す。`maxIndexedCells`超過は`MMI_CONTENT_MATCH_SHEET_TOO_LARGE`として扱い、候補上限超過は検索済みだが候補集合が切り詰められた状態として保持する。その他の予期しない例外は握りつぶさない。
 - 新規 `src/core/tableGeometry.ts`に`indexToColumn`・`cellRangeToA1`を追加。`columnToIndex`・`parseRangeToCellRange`の逆変換（物理座標→A1文字列）で、内容照合結果をnotationへ戻すのに必要だった（貼り付け機能はこれまで「A1文字列→物理座標」の方向にしか変換していなかった）。
 - **`src/extension.ts`**: `insertEmbedByContentMatch`関数と新規コマンド`markdownMatrixInjector.insertEmbedByContentMatch`（`MMI: Insert Embed by Content Match`）を追加。
   - **探索対象ブックの決定（§5手順1）**: `vscode.workspace.findFiles(WORKBOOK_FILE_GLOB, ...)`で候補を列挙し、編集中Markdownが属するworkspace folderの内側だけを採用する。2026-10-03、文字列`startsWith(workspaceRoot)`による絞り込みを廃止し、記法P4と同じ`isPathWithinBoundary()`とrealpath検査へ統一した。これによりmulti-root workspaceで`work`と`work-old`のようなprefix衝突があっても別rootを検索せず、workspace内のsymlinkが外部ファイルを指す場合も探索対象から除外する。
   - **候補選択UI（§4「自動確定の規則」）**: 結果が1件でも複数件でも、必ず`vscode.window.showQuickPick`を経由する。VS Codeの標準的な明示選択UIを使うことで、独自UIの実装を避けた。Escでキャンセルすれば何も挿入しない（R1）。
-  - ブックを読めない場合やシートが索引上限を超える場合も検索全体は続ける。ただし2026-10-03以降は未検索件数を保持し、0件時に「一致なし」と断定しない。候補が見つかった場合も、明示コマンドでは候補集合が不完全であることを警告し、Paste Asでは各候補へ「検索不完全」を付ける。索引上限以外の予期しない照合エラーは握りつぶさず、明示コマンドでは可視エラー、Paste Asでは可視エラーを出してMMI候補だけを返さない。
+  - ブックを読めない場合、シートが索引上限を超える場合、完全一致が候補上限を超えて切り詰められた場合は、いずれも候補集合が完全ではない状態として扱う。0件時は「一致なし」と断定しない。候補がある場合も、明示コマンドでは警告し、Paste Asでは各候補へ「検索不完全」を付ける。索引上限以外の予期しない照合エラーは可視エラーにし、MMI候補だけを返さない。
 
 **テスト**: `test/contentMatchSearch.test.ts`を新規追加（6件）、`test/tableGeometry.test.ts`へ3件追加（`indexToColumn`/`cellRangeToA1`）、`test/extensionIntegration.test.ts`へ構造テスト。
 
