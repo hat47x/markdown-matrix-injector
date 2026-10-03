@@ -15,7 +15,10 @@ import { checkExtractedProvenanceFreshness } from '../application/detachFreshnes
 import { materializeDocument } from '../application/materialize.js';
 import { imageCandidates, readExcelImages, relationToTables, type ImageDiagnostic, type TableRect } from '../adapters/excelImageAdapter.js';
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
-import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
+import {
+  decodeXmlUtf8,
+  readXmlTree,
+} from '../adapters/xmlTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import type { Candidate, ProviderScore } from '../core/candidate.js';
 import { candidateLedgerView, type CandidateLedgerFilter } from '../core/candidateLedgerView.js';
@@ -31,7 +34,10 @@ import {
   type LineageCandidate,
 } from '../core/importLedger.js';
 import { isPathWithinBoundary } from '../core/pathResolver.js';
-import { readSourceFileIdentity } from '../core/sourceIdentity.js';
+import {
+  createSourceIdentityFromBytes,
+  readSourceFileIdentity,
+} from '../core/sourceIdentity.js';
 import { sliceRegion } from '../core/tableGeometry.js';
 import {
   isXmlSpreadsheet2003Text,
@@ -739,14 +745,15 @@ export interface InspectImage {
 }
 
 export function inspectSource(absolutePath: string, sampleRows: number, fromDocument?: string): InspectResult {
-  const sourceDigest = readSourceFileIdentity(absolutePath).digest;
   const base = fromDocument ? path.dirname(path.resolve(fromDocument)) : process.cwd();
   let relative = path.relative(base, absolutePath).split(path.sep).join('/');
   if (!relative.startsWith('.')) relative = `./${relative}`;
 
   if (/\.json$/iu.test(absolutePath)) {
+    const bytes = fs.readFileSync(absolutePath);
+    const sourceDigest = createSourceIdentityFromBytes(bytes).digest;
     const tree = readJsonTree(
-      fs.readFileSync(absolutePath, 'utf8'),
+      bytes.toString('utf8'),
       relative,
       sourceDigest,
     );
@@ -768,8 +775,10 @@ export function inspectSource(absolutePath: string, sampleRows: number, fromDocu
   }
 
   if (/\.xml$/iu.test(absolutePath)) {
-    const xml = fs.readFileSync(absolutePath, 'utf8');
+    const bytes = fs.readFileSync(absolutePath);
+    const xml = decodeXmlUtf8(bytes);
     if (!isXmlSpreadsheet2003Text(xml)) {
+      const sourceDigest = createSourceIdentityFromBytes(bytes).digest;
       const tree = readXmlTree(xml, relative, sourceDigest);
       return {
         source: relative,
@@ -793,6 +802,7 @@ export function inspectSource(absolutePath: string, sampleRows: number, fromDocu
     }
   }
 
+  const sourceDigest = readSourceFileIdentity(absolutePath).digest;
   const workbook = loadWorkbook({ absolutePath });
   const isPackage = /\.(xlsx|xlsm)$/iu.test(absolutePath);
   const imageRead = isPackage
