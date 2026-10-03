@@ -13,6 +13,7 @@ import { WorkbookCache } from '../cache/workbookCache.js';
 import { checkDetachedDocument } from '../application/detachCheck.js';
 import { checkExtractedProvenanceFreshness } from '../application/detachFreshness.js';
 import { materializeDocument } from '../application/materialize.js';
+import { runPortableCoreRequest } from '../application/portableCoreProtocol.js';
 import { imageCandidates, readExcelImages, relationToTables, type ImageDiagnostic, type TableRect } from '../adapters/excelImageAdapter.js';
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
 import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
@@ -35,6 +36,10 @@ import {
   type LineageCandidate,
 } from '../core/importLedger.js';
 import { isPathWithinBoundary } from '../core/pathResolver.js';
+import {
+  importLedgerSchemaJson,
+  reviewDecisionsSchemaJson,
+} from '../core/reviewContracts.js';
 import {
   createSourceIdentityFromBytes,
   readSourceFileIdentity,
@@ -66,8 +71,13 @@ export const SEMANTIC_CANDIDATE_SCHEMA_NAME =
 const USAGE = `Usage: mmi <command> [options]
 
 Commands:
-  schema candidate         Print the public JSON Schema for mmi.semantic-candidate/v1.
-                            Machine-readable Source Adapter / AI / integration contract.
+  schema <contract>        Print a public JSON Schema.
+                            candidate        mmi.semantic-candidate/v1
+                            ledger           mmi.ledger/v1
+                            review-decisions mmi.review-decisions/v1
+  core <request.json|->     Execute one mmi.portable-core-request/v1 and emit JSON.
+                            Use - to read the request from stdin; source bytes are embedded in the request.
+                            This boundary performs no source-file discovery or VS Code access.
   inspect <source>          List workbook/CSV table regions or explicit JSON/XML tree structure.
                             --json adds Semantic Candidates with status, method, provenance and fingerprint
       --values <n>            also print the first n body rows of each region
@@ -211,12 +221,42 @@ export async function main(argv: string[]): Promise<number> {
 
   switch (command) {
     case 'schema': {
-      if (args.length !== 1 || args[0] !== 'candidate') {
+      if (args.length !== 1) {
         return usageError(
-          'schema currently supports exactly: schema candidate',
+          'schema needs one of: candidate, ledger, review-decisions',
         );
       }
-      emit(JSON.stringify(semanticCandidateSchemaJson(), null, 2));
+      const schemas: Record<string, () => Record<string, unknown>> = {
+        candidate: semanticCandidateSchemaJson,
+        ledger: importLedgerSchemaJson,
+        'review-decisions': reviewDecisionsSchemaJson,
+      };
+      const schema = schemas[args[0]];
+      if (!schema) {
+        return usageError(
+          'schema needs one of: candidate, ledger, review-decisions',
+        );
+      }
+      emit(JSON.stringify(schema(), null, 2));
+      return 0;
+    }
+    case 'core': {
+      if (args.length !== 1) {
+        return usageError('core takes one request JSON file or - for stdin');
+      }
+      const requestText = args[0] === '-'
+        ? fs.readFileSync(0, 'utf8')
+        : fs.readFileSync(path.resolve(args[0]), 'utf8');
+      let request: unknown;
+      try {
+        request = JSON.parse(requestText);
+      } catch (error) {
+        return usageError(
+          `core request is not valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+      const response = runPortableCoreRequest(request);
+      emit(JSON.stringify(response, null, 2));
       return 0;
     }
     case 'inspect': {
@@ -983,7 +1023,7 @@ function formatInspect(result: InspectResult): string {
     for (const tree of result.trees) {
       const pointer = tree.pointer || '(root)';
       lines.push(
-        `  ${pointer}  ${tree.format}/${tree.nodeType}  ${tree.childPointers.length} children${ledgerSuffix('tree', '', `path:${tree.pointer}`)}`,
+        `  ${pointer}  ${tree.nodeType}  ${tree.childPointers.length} children${ledgerSuffix('tree', '', `path:${tree.pointer}`)}`,
       );
     }
   }
