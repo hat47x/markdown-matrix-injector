@@ -11,7 +11,7 @@
  * actual "which files" policy (and any `vscode.workspace.findFiles` call) in
  * the host layer, where it belongs.
  */
-import { ContentMatchIndexLimitError, findContentMatches, type ContentMatch } from '../core/contentMatch.js';
+import { ContentMatchIndexLimitError, findContentMatchesDetailed, type ContentMatch } from '../core/contentMatch.js';
 import { cellRangeToA1 } from '../core/tableGeometry.js';
 import type { CellRange, SheetSource } from '../core/sheetSource.js';
 import { parseTsv } from './pasteDrop.js';
@@ -39,9 +39,16 @@ export interface ContentMatchSkippedSheet {
   readonly limit: number;
 }
 
+export interface ContentMatchTruncatedSheet {
+  readonly filepath: string;
+  readonly sheet: string;
+  readonly limit: number;
+}
+
 export interface WorkbookContentMatchSearchResult {
   readonly matches: readonly WorkbookContentMatch[];
   readonly skippedSheets: readonly ContentMatchSkippedSheet[];
+  readonly truncatedSheets: readonly ContentMatchTruncatedSheet[];
 }
 
 export interface MatchContext {
@@ -121,19 +128,21 @@ export function findWorkbookContentMatchesDetailed(
 ): WorkbookContentMatchSearchResult {
   const needle = parseTsv(clipboardPlainText);
   if (needle.length === 0) {
-    return { matches: [], skippedSheets: [] };
+    return { matches: [], skippedSheets: [], truncatedSheets: [] };
   }
 
   const matches: WorkbookContentMatch[] = [];
   const skippedSheets: ContentMatchSkippedSheet[] = [];
+  const truncatedSheets: ContentMatchTruncatedSheet[] = [];
   for (const workbook of workbooks) {
     for (const [sheetName, sheet] of Object.entries(workbook.sheets)) {
       const result = matchesForSheet(workbook.filepath, sheetName, sheet, needle);
       matches.push(...result.matches);
       if (result.skipped) skippedSheets.push(result.skipped);
+      if (result.truncated) truncatedSheets.push(result.truncated);
     }
   }
-  return { matches, skippedSheets };
+  return { matches, skippedSheets, truncatedSheets };
 }
 
 function matchesForSheet(
@@ -141,10 +150,14 @@ function matchesForSheet(
   sheetName: string,
   sheet: SheetSource,
   needle: readonly (readonly string[])[],
-): { matches: WorkbookContentMatch[]; skipped?: ContentMatchSkippedSheet } {
-  let sheetMatches: readonly ContentMatch[];
+): {
+  matches: WorkbookContentMatch[];
+  skipped?: ContentMatchSkippedSheet;
+  truncated?: ContentMatchTruncatedSheet;
+} {
+  let sheetResult: ReturnType<typeof findContentMatchesDetailed>;
   try {
-    sheetMatches = findContentMatches(sheet, needle);
+    sheetResult = findContentMatchesDetailed(sheet, needle);
   } catch (error) {
     if (error instanceof ContentMatchIndexLimitError) {
       return {
@@ -162,12 +175,13 @@ function matchesForSheet(
   }
 
   return {
-    matches: sheetMatches.map((match) => ({
+    matches: sheetResult.matches.map((match) => ({
       filepath,
       sheet: sheetName,
       range: match.range,
       context: matchContext(sheet, match.range),
     })),
+    truncated: sheetResult.truncated ? { filepath, sheet: sheetName, limit: sheetResult.limit } : undefined,
   };
 }
 
