@@ -193,12 +193,13 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 
 | コマンド | 内容 |
 | --- | --- |
-| `mmi inspect <正本>` | シートごとの表の範囲・見出し・行数と、そのまま使える参照の例を表示。既定ではセル値を出さない（`--values 3`で先頭3行を表示）。`.xlsx`では画像も一覧に出す。取り込み台帳がある場合は `imported / changed / stale / duplicate / unimported` を照合し、`--unimported`で一度も取り込んでいないoccurrenceだけ、`--exclude-imported`で完全一致の取込済み以外を表示できる。台帳は`--ledger`で指定可能。研究用のpairwise similarity sidecarは`--similarity-evidence <file>`で併記できるが、取込済み判定には使わない |
+| `mmi inspect <正本>` | Excel / CSV等では表の範囲・見出し・行数を表示し、`.xlsx`では画像も一覧に出す。`.json`ではobject / array、汎用UTF-8 `.xml`ではelementをTree Candidateとして列挙し、JSON PointerまたはXML element path、node type、直下child数を表示する。XML Spreadsheet 2003は従来どおり表として扱う。`--json`でCandidateのstatus・method・provenance・fingerprintを確認できる。取り込み台帳がある場合は`imported / changed / stale / duplicate / unimported`を照合し、`--unimported`や`--exclude-imported`で絞り込める |
 | `mmi extract <ブック.xlsx> --image <番号\|all>` | Excelに貼られた画像を`assets/`（`--out-dir`で変更）へ書き出し、Markdownの画像参照と出典を出力する。CLIでは同時に`<root>/mmi-ledger.json`へoccurrence・content fingerprint・出力先・変換条件・review basisを記録する（`--ledger`で変更）。同じ画像が別の場所にもある場合は別occurrenceとして残し、review stateを自動継承しない |
+| `mmi extract <file.json\|file.xml> --tree <path\|root>` | JSONのobject / arrayまたは汎用XMLのelementから1つのTree Candidateを選び、nested listのMarkdown assetへ取り込む。`root`は文書全体。JSONはRFC 6901 JSON Pointer、XMLは`/catalog[1]/item[2]`形式のelement pathを使う。原本は変更しない。Markdown記号は文字としてエスケープし、取り込み台帳にはstructural path、subtree fingerprint、出力digest、Projection方式を記録する |
 | `mmi import <ブック> --draft <下書き.md>` | 既存ブックを1回でモダナイズ用の下書きへ整理する。表は元ブックへ追従する参照のまま残し、.xlsx / .xlsmの埋込画像はcontent-addressedな画像ファイルとして取り込み、occurrenceを同じ取り込み台帳へ記録する。表でない領域や抽出できない画像は確認事項として下書きに残す。下書き・assets・台帳は`--root`内に限定し、既存の下書きは上書きしない |
 | `mmi check <文書またはフォルダー>` | 参照の誤りを「問題」パネルと同じ診断コードで表示。誤りがあれば終了コード1 |
 | `mmi render <文書>` | 参照を展開したMarkdownを出力。`--to html`でPDF変換用のHTML |
-| `mmi materialize <文書> -o <出力.md>` | 原本を外すためのMarkdownを生成する。小表は本文へ、別紙相当表は`mmi-materialized/`へ、ローカル画像は`mmi-assets/`へcontent-addressedで実体化する。provenance付きで採用済みのExtracted表/画像は現在sourceとledgerへfreshness照合し、変更・stale・未追跡なら終了コード1 |
+| `mmi materialize <文書> -o <出力.md>` | 原本を外すためのMarkdownを生成する。小表は本文へ、別紙相当表は`mmi-materialized/`へ、ローカル画像は`mmi-assets/`へcontent-addressedで実体化する。provenance付きで採用済みのExtracted表・画像・JSON/XML Treeは現在sourceとledgerへfreshness照合し、変更・stale・未追跡なら終了コード1 |
 | `mmi detach-check <文書>` | Detached成果物にMMI参照、未実体化marker、旧「別紙」カード、壊れたローカルリンク、ワークスペース外へのローカルリンクが残っていないか検査する。問題があれば終了コード1 |
 | `mmi manifest <文書>` | 別紙カードになる参照の一覧をCSVで出力 |
 | `mmi handoff <正本> --task <依頼>` | Candidate・provenance・任意の文書診断から、外部LLMへ手渡すpromptをローカル生成する。`--json`で機械可読package、`--document`で文書診断を追加。既定ではClaim値を省略し、必要な場合だけ`--include-values`で明示的に含める。MMI自身は外部LLMへ送信しない |
@@ -212,11 +213,13 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 
 **Detachedについて。** `materialize`は通常の`render`とは別の経路です。日常のLinked文書やプレビューを変えず、原本を廃止すると決めた範囲だけで使います。例えば `mmi materialize docs/spec.md -o detached/spec.md --root .` とすると、小さい表は通常のGFM表へ、大きくてカードになる表は `detached/mmi-materialized/table-<digest>.md` へ実体化されます。本文が参照するローカル画像は内容digestで `detached/mmi-assets/` へ複製され、Detached側の相対リンクへ書き換えられます。同じ画像bytesは1コピーにまとめます。`--assets-dir`で保存先を変更できます。
 
-また、本文に `mmi:extracted` / `mmi:extracted-table` provenanceがある場合、`materialize`は現在のsource Candidateと`mmi-ledger.json`を照合します。取り込み後に原本側の画像・表が変わった、review basisがstaleになった、ledgerが無い、といった場合は出力を確認用に生成しても終了コード1となり、detach可能とは扱いません。原本に存在するだけで本文へ採用していないCandidateはblockerにしません。
+また、本文に`mmi:extracted` / `mmi:extracted-table` / `mmi:extracted-tree` provenanceがある場合、`materialize`は現在のsource Candidateと`mmi-ledger.json`を照合します。取り込み後に原本側の画像・表・選択したJSON/XML subtreeが変わった、review basisがstaleになった、ledgerが無い、といった場合は終了コード1となり、detach可能とは扱いません。JSON/XML Treeは選択したsubtreeのfingerprintで判定するため、同じsourceでも対象外の部分だけが変わった場合は採用を失効させません。原本に存在するだけで本文へ採用していないCandidateはblockerにしません。
 
-生成後は `mmi detach-check detached/spec.md --root .` を実行します。これは成果物側にMMI参照、未実体化marker、壊れた/境界外ローカルリンクが残っていないことを確認します。つまり、**materialize時のfreshness preflight → 原本の除去 → detach-checkによるartifact closure** の二段階で確認します。Tree/Shape等の非表Candidateは、各Source Adapterの実装後に同じ仕組みへ接続する予定です。
+生成後は`mmi detach-check detached/spec.md --root .`を実行します。これは成果物側にMMI参照、未実体化marker、壊れた/境界外ローカルリンクが残っていないことを確認します。つまり、**materialize時のfreshness preflight → 原本の除去 → detach-checkによるartifact closure**の二段階で確認します。JSON/XML Treeはこのfreshness preflightへ接続済みです。Shape等は、各Source Adapterの実装後に同じ仕組みへ追加します。
 
 **取り込み台帳について。** 台帳は通常のJSONで、MMIを外しても読めます。セル位置や画像のanchorなどのoccurrence identityと、画像bytesや表内容のcontent fingerprintは分けて記録します。同じ画像bytesが別の場所にあっても、その場所を「取込済み」にはしません（`duplicate`）。同じ場所の内容が変わった場合は`changed`として再確認対象にします。内容fingerprintが同じでも、review時に根拠にしたClaim・evidence・methodが変わった場合は`stale`として示し、変わったClaim名を確認できます。別の場所へ移動した可能性があるCandidateは、同一content、同一sheet、object名、source-native object、近傍表などをlineage evidenceとして候補表示しますが、自動的に同一物とはみなしません。研究層の類似判定は完全一致・lineage evidenceとは別の証拠として扱います。`--json`ではCandidate自身が持つprovider別・scale別の値を`researchScores`として確認できます。別のoccurrenceとの比較結果は`--similarity-evidence <file>`で読み込んだsidecarから`similarityEvidence`として表示し、比較対象・provider/version・metric semanticsも一緒に保持します。異なるprovider/scale/namespaceの値を平均したり、scoreが高いという理由だけで`imported`・`duplicate`へ変更したり、`--unimported`から自動除外したりしません。
+
+**Tree（JSON / XML）について。** JSONのobject / arrayと汎用XMLのelementは原本に親子関係が明示されているため、MMIはそれを推測せず`observed + deterministic`なTree Candidateとして扱います。JSONはRFC 6901 JSON Pointer、XMLは同名兄弟の出現順を含むelement pathを`structuralPath`として使います。XML属性・本文・CDATAはCandidate根拠へ保持し、DOCTYPE/custom entityは展開しません。XML Spreadsheet 2003はTreeにせず、従来の表として扱います。CLIの`inspect` / `extract`に加え、VS Codeの「取り込み候補を確認」からJSONファイルを選び、表・画像と同じ画面で採用・却下・保留できます。レビュー一覧を表示した後で選択したsubtreeが変わった場合は採用せず、レビューを開き直すよう求めます。対象外のJSON箇所だけが変わった場合は、その理由だけで採用を止めません。Treeの修正採用と、インデント・見出し番号・prefix等からの推定Treeは未対応です。
 
 **画像について。** Excelに画面ダンプなどを貼って設計を整理する書き方は、そのまま続けられます。`extract`は画像を取り出して参照できる形にするだけで、Excel側の画像は変わりません。Excelで画像を差し替えたり動かしたりしても、次に`inspect`を実行すれば現在の位置と内容が分かります。取り出せるのはPNG・JPEG・GIF・BMP・SVGです。EMF・WMF・TIFF、外部ファイルへのリンク、壊れた図形は、取り出さずに理由を表示します。`.xls`（旧形式）の画像は読めません。
 
@@ -280,7 +283,7 @@ VS Codeの「Markdown PDF」拡張からの直接出力は、今回の検証済�
 | 記法がそのまま表示される | 拡張が有効か、更新後の再読み込みが済んだか、コード例の中ではないか |
 | ファイルが見つからない | Markdown基準の相対パス、dataフォルダー、ワークスペース境界 |
 | シートが見つからない | 全角・半角を含むシート名。CSVは`Sheet1` |
-| XMLのエラーが出る | XML Spreadsheet 2003形式か。一般の設定XMLは対象外 |
+| XMLのエラーが出る | 表として使う場合はXML Spreadsheet 2003か確認。汎用Tree XMLはUTF-8のみで、DOCTYPE/custom entityや不正なXMLは受け付けない |
 | 検索すると0行になる | 列を絞った後にも検索対象が残るか。見出し行は検索対象外 |
 | 列を減らしてもカードのまま | `mode=table`も指定したか |
 | 外部アプリが開かない | ローカルの信頼済みワークスペースか、既定アプリがあるか |
@@ -294,7 +297,7 @@ VS Codeの「Markdown PDF」拡張からの直接出力は、今回の検証済�
 
 ## 対応範囲
 
-表示対象はExcel（XLSX/XLS）、UTF-8（BOM有無）またはCP932のCSV、TSV、XML Spreadsheet 2003です。補完や貼り付けの対象形式は表示対象より狭い場合があります。
+表示対象はExcel（XLSX/XLS）、UTF-8（BOM有無）またはCP932のCSV、TSV、XML Spreadsheet 2003、およびTreeとして読む汎用UTF-8 XMLです。補完や貼り付けの対象形式は表示対象より狭い場合があります。
 数式を再計算する機能ではなく、保存済みの値を使います。数式は元アプリで再計算・保存してから参照してください。
 画像・図形・マクロ・Excelの詳細レイアウトは再現しません。
 
