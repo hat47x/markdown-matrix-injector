@@ -741,8 +741,13 @@ function registerTestCommands(nativePasteDropState: NativePasteDropState): vscod
     ),
     vscode.commands.registerCommand(
       'markdownMatrixInjector.__test.importFromWorkbook',
-      async (args: { workbook: string; draft: string }) =>
-        (await importFromWorkbook(WORKBOOK_FILE_GLOB, vscode.Uri.file(args.workbook), vscode.Uri.file(args.draft)))?.fsPath,
+      async (args: { workbook: string; draft: string; sourceCopy?: string }) =>
+        (await importFromWorkbook(
+          WORKBOOK_FILE_GLOB,
+          vscode.Uri.file(args.workbook),
+          vscode.Uri.file(args.draft),
+          args.sourceCopy ? vscode.Uri.file(args.sourceCopy) : undefined,
+        ))?.fsPath,
     ),
     vscode.commands.registerCommand(
       'markdownMatrixInjector.__test.getPasteInsertTextFromDataTransfer',

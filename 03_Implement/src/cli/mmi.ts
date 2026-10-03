@@ -34,7 +34,6 @@ import {
   type LedgerState,
   type LineageCandidate,
 } from '../core/importLedger.js';
-import { isPathWithinBoundary } from '../core/pathResolver.js';
 import {
   importLedgerSchemaJson,
   reviewDecisionsSchemaJson,
@@ -56,6 +55,7 @@ import { validateAiHandoffTransformationProposal } from '../dx/aiHandoffTransfor
 import { createDiagnosticsForDocument } from '../dx/vscodeAdapters.js';
 import { inspectImportAssistance, type InspectImportAssistanceCandidate } from '../importAssist/inspectImportAssistance.js';
 import { writeWorkbookImportDraft } from '../importAssist/importMaterialization.js';
+import { intakeSourceFile, pathWithinBoundaryForWrite } from '../importAssist/sourceIntake.js';
 import { buildDeliveryManifestCsv } from '../manifest/collectDeliveryManifest.js';
 import { detectTableRegions, regionReference } from '../importAssist/tableRegions.js';
 import { runFind, runSelect } from './navigateCommands.js';
@@ -395,7 +395,7 @@ export async function main(argv: string[]): Promise<number> {
       let sourceCopied = false;
       if (requestedSourceCopy) {
         try {
-          const intake = copyImportSourceIntoWorkspace(inputSourcePath, requestedSourceCopy);
+          const intake = intakeSourceFile(inputSourcePath, requestedSourceCopy);
           sourcePath = intake.sourcePath;
           sourceCopyCreated = intake.created;
           sourceCopied = sourcePath !== inputSourcePath;
@@ -734,78 +734,8 @@ function portableDisplayPath(target: string): string {
     || path.basename(target);
 }
 
-function copyImportSourceIntoWorkspace(
-  inputSourcePath: string,
-  destinationPath: string,
-): { sourcePath: string; created: boolean } {
-  const input = path.resolve(inputSourcePath);
-  const destination = path.resolve(destinationPath);
-  if (input === destination) return { sourcePath: input, created: false };
-
-  if (!fs.existsSync(input) || !fs.statSync(input).isFile()) {
-    throw new Error(`source file does not exist: ${input}`);
-  }
-  const inputExtension = path.extname(input).toLowerCase();
-  const destinationExtension = path.extname(destination).toLowerCase();
-  if (!inputExtension || destinationExtension !== inputExtension) {
-    throw new Error(
-      `--copy-source must keep the source extension ${inputExtension || '(none)'}`,
-    );
-  }
-
-  const sourceBytes = fs.readFileSync(input);
-  if (fs.existsSync(destination)) {
-    if (!fs.statSync(destination).isFile()) {
-      throw new Error(`--copy-source destination is not a file: ${destination}`);
-    }
-    const existing = fs.readFileSync(destination);
-    if (!existing.equals(sourceBytes)) {
-      throw new Error(
-        `--copy-source destination already exists with different content: ${destination}`,
-      );
-    }
-    return { sourcePath: destination, created: false };
-  }
-
-  fs.mkdirSync(path.dirname(destination), { recursive: true });
-  fs.writeFileSync(destination, sourceBytes, { flag: 'wx' });
-  const sourceAfterCopy = fs.readFileSync(input);
-  if (!sourceAfterCopy.equals(sourceBytes)) {
-    fs.rmSync(destination, { force: true });
-    throw new Error(
-      'source changed while being copied into the workspace; run the import again',
-    );
-  }
-  return { sourcePath: destination, created: true };
-}
-
 function handoffPathWithinRoot(target: string, root: string): boolean {
-  return isPathWithinBoundary(
-    canonicalPathForContainment(target),
-    canonicalPathForContainment(root),
-  );
-}
-
-/**
- * Canonicalize the nearest existing ancestor, then append any not-yet-created
- * suffix. This prevents a path such as <root>/link/new.md from escaping when
- * <root>/link is an existing symlink or junction to a directory outside root.
- */
-function canonicalPathForContainment(target: string): string {
-  const absolute = path.resolve(target);
-  let existing = absolute;
-  const suffix: string[] = [];
-  while (!fs.existsSync(existing)) {
-    const parent = path.dirname(existing);
-    if (parent === existing) return absolute;
-    suffix.unshift(path.basename(existing));
-    existing = parent;
-  }
-  try {
-    return path.join(fs.realpathSync(existing), ...suffix);
-  } catch {
-    return absolute;
-  }
+  return pathWithinBoundaryForWrite(target, root);
 }
 
 export interface InspectRegion {

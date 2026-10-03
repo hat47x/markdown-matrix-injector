@@ -41,7 +41,7 @@ issue-0195で確定した`mmi.ledger/v1`を再利用する。一括変換専用�
 - 表ではない領域は既存のimport-assistanceのrole/cautionとして残す。画像がないブックは正常に処理し、画像だけのシートも下書きへ残す。
 - Markdownで扱えない画像や読めない画像は「画像の注意」として下書きへ残し、黙って欠落させない。
 - 元ブックは変更しない。Linked参照が後で解決できるよう、通常のsourceは`--root`内に置く。
-- ワークスペース外の既存ExcelをCLIから取り込む場合は`--copy-source <workspace-file>`を明示する。元ファイルと同じbytesをproject内へ取り込み、そのコピーをLinked sourceとして使う。コピー先に同一bytesがあれば再利用し、異なる内容があれば上書きせず停止する。後続のmaterializeが失敗した場合、この操作で新規作成したsourceコピーも削除する。
+- ワークスペース外の既存Excelは、直接Linked参照にしない。VS Codeでは外部ファイルを選んだ後にproject内のsourceコピー保存先を確認し、CLIでは`--copy-source <workspace-file>`を明示する。両方とも同じsource-intake helperを使い、元ファイルと同じbytesをproject内へ取り込んでから、そのコピーをLinked sourceとして使う。コピー先に同一bytesがあれば再利用し、異なる内容があれば上書きせず停止する。後続のmaterializeが失敗した場合、この操作で新規作成したsourceコピーも削除する。
 - draft / sourceコピー / asset / ledgerの書込先は`--root`内へ限定し、既存draftの上書きも拒否する。
 - 画像の形式などに確認事項があっても、下書き自体を正常にcommitできた場合はCLIを失敗扱いにしない。JSON summaryは`created-with-warnings`を返し、注意事項は下書き・stderr・JSONのすべてに残す。
 - draft・asset・ledgerは1回の取り込み操作としてcommitする。解析や下書き保存が失敗した場合、この操作で追加したassetを削除し、既存ledgerを元のbytesへ戻す。既存draftは競合時も上書き・削除しない。
@@ -122,11 +122,11 @@ node --import tsx scripts/baseline-converter-eval/assess-markitdown-handoff.ts \
 
 ## Validation plan
 
-まずMMI組み込み経路について、コード生成fixtureで表Linked・画像Extracted・重複asset・台帳・再実行・画像なし・画像のみ・unsupported画像・workspace境界を確認する。VS Code宿主E2Eでは実際の取り込みコマンドからpreviewまでを通す。
+まずMMI組み込み経路について、コード生成fixtureで表Linked・画像Extracted・重複asset・台帳・再実行・画像なし・画像のみ・unsupported画像・workspace境界・外部source intakeを確認する。VS Code宿主E2Eでは、workspace内ブックに加え、workspace外の旧Excelをproject内へ同一bytesで取り込んでからpreviewまで通す。
 
 ```sh
 cd 03_Implement
-node --import tsx --test test/importMaterialization.test.ts test/importCli.test.ts
+node --import tsx --test test/sourceIntake.test.ts test/importMaterialization.test.ts test/importCli.test.ts
 npm run build
 node --import tsx ./test/e2e/runImport.ts
 ```
