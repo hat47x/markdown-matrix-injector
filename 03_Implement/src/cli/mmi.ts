@@ -35,6 +35,10 @@ import {
 } from '../core/importLedger.js';
 import { isPathWithinBoundary } from '../core/pathResolver.js';
 import {
+  importLedgerSchemaJson,
+  reviewDecisionsSchemaJson,
+} from '../core/reviewContracts.js';
+import {
   createSourceIdentityFromBytes,
   readSourceFileIdentity,
 } from '../core/sourceIdentity.js';
@@ -64,8 +68,10 @@ export const SEMANTIC_CANDIDATE_SCHEMA_NAME =
 const USAGE = `Usage: mmi <command> [options]
 
 Commands:
-  schema candidate         Print the public JSON Schema for mmi.semantic-candidate/v1.
-                            Machine-readable Source Adapter / AI / integration contract.
+  schema <contract>        Print a public JSON Schema.
+                            candidate        mmi.semantic-candidate/v1
+                            ledger           mmi.ledger/v1
+                            review-decisions mmi.review-decisions/v1
   inspect <source>          List workbook/CSV table regions or explicit JSON tree structure.
                             --json adds Semantic Candidates with status, method, provenance and fingerprint
       --values <n>            also print the first n body rows of each region
@@ -209,12 +215,23 @@ export async function main(argv: string[]): Promise<number> {
 
   switch (command) {
     case 'schema': {
-      if (args.length !== 1 || args[0] !== 'candidate') {
+      if (args.length !== 1) {
         return usageError(
-          'schema currently supports exactly: schema candidate',
+          'schema needs one of: candidate, ledger, review-decisions',
         );
       }
-      emit(JSON.stringify(semanticCandidateSchemaJson(), null, 2));
+      const schemas: Record<string, () => Record<string, unknown>> = {
+        candidate: semanticCandidateSchemaJson,
+        ledger: importLedgerSchemaJson,
+        'review-decisions': reviewDecisionsSchemaJson,
+      };
+      const schema = schemas[args[0]];
+      if (!schema) {
+        return usageError(
+          'schema needs one of: candidate, ledger, review-decisions',
+        );
+      }
+      emit(JSON.stringify(schema(), null, 2));
       return 0;
     }
     case 'inspect': {
