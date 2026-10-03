@@ -181,7 +181,10 @@ test('mmi import can read a legacy workbook outside --root while keeping every w
   assert.equal(result.code, 0, result.err);
   const summary = JSON.parse(result.out);
   assert.equal(summary.status, 'created');
-  assert.equal(summary.source, source);
+  assert.equal(
+    summary.source,
+    path.relative(process.cwd(), source).split(path.sep).join('/') || path.basename(source),
+  );
   assert.equal(fs.existsSync(draft), true);
   assert.equal(fs.existsSync(path.join(root, 'mmi-ledger.json')), true);
   assert.equal(fs.existsSync(path.join(root, 'docs', 'assets', 'legacy-design')), true);
