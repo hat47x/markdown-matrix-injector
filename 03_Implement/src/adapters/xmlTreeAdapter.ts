@@ -354,7 +354,7 @@ function parseStartTag(
   if (selfClosing) raw = raw.slice(0, -1).trimEnd();
 
   let position = 0;
-  const name = readToken(raw, () => /\s/u);
+  const name = readToken(raw, (character) => /\s/u.test(character));
   position = name.length;
   assertXmlName(name, offset);
 
