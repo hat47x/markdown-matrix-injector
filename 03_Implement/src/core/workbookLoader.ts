@@ -24,6 +24,10 @@ const XML_SPREADSHEET_SIGNATURES = [
   'urn:schemas-microsoft-com:office:spreadsheet',
 ];
 
+export function isXmlSpreadsheet2003Text(xml: string): boolean {
+  return XML_SPREADSHEET_SIGNATURES.some((signature) => xml.includes(signature));
+}
+
 export function loadWorkbook(options: LoadWorkbookOptions): WorkbookData {
   const snapshot = readSnapshot(options.absolutePath);
   const cache = options.cache;
@@ -65,7 +69,7 @@ export function loadWorkbookFromBytes(absolutePath: string, bytes: Buffer): Work
 
   if (extension === '.xml') {
     const xml = bytes.toString('utf8');
-    if (!XML_SPREADSHEET_SIGNATURES.some((signature) => xml.includes(signature))) {
+    if (!isXmlSpreadsheet2003Text(xml)) {
       throw new Error('Unsupported XML format: only XML Spreadsheet 2003 is allowed.');
     }
   }
