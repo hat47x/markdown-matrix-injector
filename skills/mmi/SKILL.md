@@ -18,27 +18,34 @@ MMIの参照は、Excel・CSVなどの正本から必要な表だけをMarkdown�
 - `mmi check`がエラー0件になるまで直す。 エラーが残ったまま完了と報告しない。
 - 記法で表せない依頼を言い換えない。 集計・計算・複数条件の絞り込みはMMIではできない。正本側で集計シートを作るよう提案するか、できないと報告する。`grep`は部分一致の絞り込みにすぎない。
 - 画像の中身を推測で文章にしない。 Excelの画像は`mmi inspect`が番号・位置・近くの表を示す。取り込む必要があるときだけ`mmi extract <ブック> --image <番号>`で`assets/`へ書き出し、出力された画像参照と`<!-- mmi:extracted ... -->`の出典コメントをそのまま文書へ置く。画像に何が写っているかは、見ていない限り書かない。EMFなど取り出せない画像は、その旨を利用者へ報告する。
-- 正本の値を必要以上にAIへ渡さない。 `inspect`は既定で構造だけを返す。値が必要なときだけ`--values`を使い、利用者の組織の規則に従う。
+- 正本の値を必要以上にAIへ渡さない。`inspect`は既定で構造だけを返す。値が必要なときだけ`--values`を使い、利用者の組織の規則に従う。
+- Candidateを機械可読に扱うときは、最初に`mmi schema candidate`で`mmi.semantic-candidate/v1`を取得する。`inspect --json`の`candidateContract`が同じ契約名であることを確認し、独自の状態語彙を足さない。
+- JSONのobject / arrayは明示Tree Candidateとして扱える。`mmi inspect <file.json> --json`でJSON Pointerを確認し、取り込む場合だけ`mmi extract <file.json> --tree <pointer|root>`を使う。JSONの明示構造を推測し直さない。
 
 ## 作業の順序
 
-1. 目録を見る。
+1. Candidateを機械可読に扱う場合は契約を見る。
+   ```sh
+   mmi schema candidate
+   ```
+   `mmi.semantic-candidate/v1`のJSON Schemaが出る。review stateはこのCandidate本体には含まれない。
+2. 目録を見る。
    ```sh
    mmi inspect masters/設計.xlsx --from docs/基本設計書.md
    ```
-   シートごとの表の範囲、見出し、行数と、そのまま使える参照の例が出る。`--from`で書き込む文書を指定すると、参照のパスがその文書からの相対パスになる。`--json`で機械可読になる。
-2. 参照を書く。 本文を起案し、表は参照で置く。必要な列と行だけに絞る。
-3. 検証する。
+   シートごとの表の範囲、見出し、行数と、そのまま使える参照の例が出る。`--from`で書き込む文書を指定すると、参照のパスがその文書からの相対パスになる。`--json`では`candidateContract`とCandidate一覧も返る。
+3. 参照を書く。本文を起案し、表は参照で置く。必要な列と行だけに絞る。
+4. 検証する。
    ```sh
    mmi check docs/
    ```
    `ファイル:行:列 error コード メッセージ`の形で出る。終了コードは、エラーがあれば1。
-4. 読み戻す。
+5. 読み戻す。
    ```sh
    mmi render docs/基本設計書.md
    ```
    参照を展開したMarkdownが出る。本文の主張（「承認できるのは承認者のみ」など）が表と矛盾しないか確かめる。
-5. 報告する。 使った正本、参照した範囲、`check`の結果、本文と表の確認結果を利用者に伝える。
+6. 報告する。 使った正本、参照した範囲、`check`の結果、本文と表の確認結果を利用者に伝える。
 
 `mmi`は配布されたCLI tarballをNode.js 20以上の環境へ導入して使う。開発用checkoutで作業していて配布CLIが無い場合だけ、MMIリポジトリの`03_Implement`で`npm run mmi -- <command> ...`を使う。
 
@@ -55,7 +62,7 @@ mmi handoff masters/設計.xlsx \
 
 既定出力は人がコピーして利用者の選んだLLMへ渡すpromptである。MMI自身は送信、ログイン、API keyの利用、課金サービスへのfallbackを行わない。機械可読なpackageが必要なら`--json`を付ける。
 
-既定ではCandidateのClaim値とEvidence詳細をpackageへ含めない。値が本当に必要で、利用者の組織の規則上も許される場合だけ`--include-values`を明示する。この指定でも原本全体を全文投入するのではなく、Candidateが持つClaim値だけが追加される。promptにはCandidate identityが表示されるため、値を含めなくてもCandidate選択案と変換案は同じ候補を指定できる。Candidate v1の`confirmed`は採用済みの互換表現として扱い、`observed`と同じ原本事実にはしない。
+既定ではCandidateのClaim値とEvidence詳細をpackageへ含めない。値が本当に必要で、利用者の組織の規則上も許される場合だけ`--include-values`を明示する。この指定でも原本全体を全文投入するのではなく、Candidateが持つClaim値だけが追加される。promptにはCandidate identityが表示されるため、値を含めなくてもCandidate選択案と変換案は同じ候補を指定できる。Candidateの認識論状態は`observed / inferred / abstained`である。採用・却下・修正・保留は別のreview stateとして扱い、`confirmed`をCandidateの状態として生成・解釈しない。
 
 handoffの返答は**提案**であって確定結果ではない。MMI記法が返ってきた場合は、handoff packageをJSONで保存し、ローカルで再検証する。
 
@@ -86,7 +93,7 @@ mmi validate-transformation transformation.json \
   --root .
 ```
 
-`validate-selection`はhandoffに提示したCandidate identityだけを受け入れ、AIの選択を`observed`や`confirmed`へ昇格させない。`validate-transformation`はcurrent sourceからCandidateを再発見し、source digestとprovenanceを再確認する。LinkedはMMIが再生成したreferenceを既存Authority経路へ通し、Extractedは表の`gfm-table-v1`または画像の`raw-image-bytes-v1`だけをreview planとして返す。どちらもfileやreview stateを自動変更しない。
+`validate-selection`はhandoffに提示したCandidate identityだけを受け入れ、AIの選択でCandidateの認識論状態を変更しない。採用判断を`observed`へ昇格させない。`validate-transformation`はcurrent sourceからCandidateを再発見し、source digestとprovenanceを再確認する。LinkedはMMIが再生成したreferenceを既存Authority経路へ通し、Extractedは表の`gfm-table-v1`または画像の`raw-image-bytes-v1`だけをreview planとして返す。どちらもfileやreview stateを自動変更しない。
 
 
 ## 記法
