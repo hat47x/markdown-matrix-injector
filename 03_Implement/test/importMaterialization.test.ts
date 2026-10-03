@@ -655,3 +655,120 @@ test('when every image is rejected or deferred, bulk import writes no image asse
     /既存のレビュー判断により取り込まなかった画像: 4件/u,
   );
 });
+
+
+test('bulk import keeps an exact rejected table out of normal Linked proposals', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-table-review-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  const draftPath = path.join(root, 'draft.md');
+  const decisionPath = path.join(root, 'mmi-review-decisions.json');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+
+  const inventory = buildCandidateReviewInventory(sourcePath, './design.xlsx');
+  const table = inventory.items.find(
+    (item) =>
+      item.kind === 'table'
+      && item.sheet === '画面一覧'
+      && item.range === 'A1:B3',
+  );
+  assert.ok(table && table.kind === 'table');
+  recordRejectedDecision(
+    decisionPath,
+    sourcePath,
+    table.candidate,
+    'not part of the modernized document',
+  );
+
+  const result = writeWorkbookImportDraft({
+    sourcePath,
+    draftPath,
+    reviewDecisionsPath: decisionPath,
+  });
+
+  assert.deepEqual(
+    result.reviewSkippedTables.map((item) => [
+      item.sheet,
+      item.range,
+      item.decision,
+    ]),
+    [['画面一覧', 'A1:B3', 'rejected']],
+  );
+  assert.doesNotMatch(
+    result.markdown,
+    /!\[\[\.\/design\.xlsx#画面一覧\|A1:B3\?header=first\]\]/u,
+  );
+  assert.match(result.markdown, /## 既存のレビュー判断/u);
+  assert.match(result.markdown, /却下 \[画面一覧\] 表 A1:B3/u);
+  assert.equal(
+    result.extractedImages.length,
+    4,
+    'table review decisions must not suppress unrelated image adoption',
+  );
+});
+
+test('a review decision for a different table range is not reused by bulk import', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-table-review-range-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  const draftPath = path.join(root, 'draft.md');
+  const decisionPath = path.join(root, 'mmi-review-decisions.json');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+
+  const inventory = buildCandidateReviewInventory(sourcePath, './design.xlsx');
+  const table = inventory.items.find(
+    (item) =>
+      item.kind === 'table'
+      && item.sheet === '画面一覧'
+      && item.range === 'A1:B3',
+  );
+  assert.ok(table && table.kind === 'table');
+
+  const shifted = {
+    ...table.candidate,
+    locator: {
+      ...table.candidate.locator,
+      range: 'A1:B2',
+    },
+  };
+  recordRejectedDecision(
+    decisionPath,
+    sourcePath,
+    shifted,
+    'different reviewed range',
+  );
+
+  const result = writeWorkbookImportDraft({
+    sourcePath,
+    draftPath,
+    reviewDecisionsPath: decisionPath,
+  });
+
+  assert.deepEqual(result.reviewSkippedTables, []);
+  assert.match(
+    result.markdown,
+    /!\[\[\.\/design\.xlsx#画面一覧\|A1:B3\?header=first\]\]/u,
+  );
+});
+
+
+test('table-only non-OOXML import does not depend on an unrelated malformed ledger', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-table-only-ledger-'));
+  const sourcePath = path.join(root, 'plain.csv');
+  const draftPath = path.join(root, 'plain.md');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  fs.writeFileSync(sourcePath, 'コード,名称\n01,受付\n', 'utf8');
+  fs.writeFileSync(ledgerPath, '{"schema":"wrong","entries":[]}\n', 'utf8');
+
+  const result = writeWorkbookImportDraft({
+    sourcePath,
+    draftPath,
+    ledgerPath,
+  });
+
+  assert.equal(fs.existsSync(draftPath), true);
+  assert.match(result.markdown, /plain\.csv/u);
+  assert.equal(
+    fs.readFileSync(ledgerPath, 'utf8'),
+    '{"schema":"wrong","entries":[]}\n',
+    'unrelated ledger must be left untouched',
+  );
+});

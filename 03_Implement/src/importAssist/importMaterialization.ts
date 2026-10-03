@@ -10,10 +10,12 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { imageCandidates, readExcelImages } from '../adapters/excelImageAdapter.js';
+import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import { extractImages, type ExtractProblem, type ExtractedImage } from '../cli/extract.js';
 import {
   DEFAULT_LEDGER_FILE,
   assessLedger,
+  emptyLedger,
   readLedger,
 } from '../core/importLedger.js';
 import {
@@ -21,7 +23,10 @@ import {
   deferredDecisionForCandidate,
   readReviewDecisions,
   rejectedDecisionForCandidate,
+  type CandidateReviewDecisionEntry,
+  type CandidateReviewDecisions,
 } from '../core/candidateReviewDecisions.js';
+import type { Candidate } from '../core/candidate.js';
 import {
   createSourceIdentityFromBytes,
   readSourceFileIdentity,
@@ -43,7 +48,7 @@ export interface WorkbookImportMaterializeOptions {
   ledgerPath?: string;
   /** Extracted images. Defaults to assets/<workbook-name>/ next to the draft. */
   imageOutDir?: string;
-  /** Review decisions consulted before automatic image adoption. */
+  /** Review decisions consulted before table proposals / image adoption. */
   reviewDecisionsPath?: string;
   /**
    * Reuse prepared workbook data. When workbook/structure is supplied,
@@ -66,6 +71,15 @@ export interface ImportSkippedImage {
   message: string;
 }
 
+export interface ImportSkippedTable {
+  sheet: string;
+  range: string;
+  title?: string;
+  decision: 'rejected' | 'deferred';
+  code: 'MMI_IMPORT_REVIEW_REJECTED' | 'MMI_IMPORT_REVIEW_DEFERRED';
+  message: string;
+}
+
 export interface WorkbookImportMaterialization {
   markdown: string;
   /** Source bytes used consistently for this materialization. */
@@ -78,6 +92,7 @@ export interface WorkbookImportMaterialization {
   extractedImages: ExtractedImage[];
   imageProblems: ExtractProblem[];
   reviewSkippedImages: ImportSkippedImage[];
+  reviewSkippedTables: ImportSkippedTable[];
 }
 
 export interface WorkbookImportPaths {
@@ -274,23 +289,86 @@ export function materializeWorkbookImport(
     },
   );
 
+  // Review decisions are a control input to both Linked table proposals and
+  // automatic image adoption. Freeze them before any asset/ledger writes.
+  const reviewDecisionsSnapshot = optionalFileSnapshot(reviewDecisionsPath);
+  const reviewDecisions = readReviewDecisions(reviewDecisionsPath);
+  if (optionalFileSnapshot(reviewDecisionsPath) !== reviewDecisionsSnapshot) {
+    throw new Error(
+      'MMI_IMPORT_REVIEW_DECISIONS_CHANGED: review decisions changed while being read; run the import again',
+    );
+  }
+  // The ledger supplies the chronological adoption side of the same decision.
+  // Do not make table-only non-OOXML import depend on an unrelated ledger when
+  // there are no review decisions to reconcile.
+  const ledger = (
+    reviewDecisions.entries.length > 0
+    || /\.(xlsx|xlsm)$/iu.test(sourcePath)
+  )
+    ? readLedger(ledgerPath)
+    : emptyLedger();
+
+  const importTableKeys = new Set(
+    analyzedBase.sheets.flatMap((sheet) =>
+      sheet.candidates
+        .filter((candidate) => candidate.role === 'table')
+        .map((candidate) => tableKey(sheet.sheet, candidate.a1))),
+  );
+  const skippedTableKeys = new Set<string>();
+  const reviewSkippedTables: ImportSkippedTable[] = [];
+  for (const [sheetName, sheet] of Object.entries(workbook.sheets)) {
+    for (const candidate of tableCandidates({
+      source: referencePath,
+      sourceDigest,
+      sheetName,
+      sheet,
+    })) {
+      const range = candidate.locator.range;
+      if (!range || !importTableKeys.has(tableKey(sheetName, range))) continue;
+      const reviewDecision = winningReviewDecision(
+        reviewDecisions,
+        reviewDecisionsPath,
+        ledger,
+        ledgerPath,
+        sourcePath,
+        candidate,
+      );
+      if (!reviewDecision) continue;
+      skippedTableKeys.add(tableKey(sheetName, range));
+      const title = candidate.claims.find(
+        (claim) => claim.aspect === 'title',
+      )?.value;
+      reviewSkippedTables.push({
+        sheet: sheetName,
+        range,
+        ...(typeof title === 'string' ? { title } : {}),
+        decision: reviewDecision.decision,
+        code: reviewDecision.decision === 'rejected'
+          ? 'MMI_IMPORT_REVIEW_REJECTED'
+          : 'MMI_IMPORT_REVIEW_DEFERRED',
+        message: reviewDecision.decision === 'rejected'
+          ? '同一表Candidateに有効な却下判断があります。'
+          : '同一表Candidateに有効な保留判断があります。',
+      });
+    }
+  }
+  const reviewFilteredBase = {
+    ...analyzedBase,
+    sheets: analyzedBase.sheets.map((sheet) => ({
+      ...sheet,
+      candidates: sheet.candidates.filter(
+        (candidate) =>
+          candidate.role !== 'table'
+          || !skippedTableKeys.has(tableKey(sheet.sheet, candidate.a1)),
+      ),
+    })),
+  };
+
   let extractedImages: ExtractedImage[] = [];
   let imageProblems: ExtractProblem[] = [];
   let reviewSkippedImages: ImportSkippedImage[] = [];
-  let reviewDecisionsSnapshot: string | undefined;
 
   if (/\.(xlsx|xlsm)$/iu.test(sourcePath)) {
-    // Review decisions are a control input to automatic adoption. Freeze them
-    // before any asset/ledger writes, just like the source workbook snapshot.
-    reviewDecisionsSnapshot = optionalFileSnapshot(reviewDecisionsPath);
-    const reviewDecisions = readReviewDecisions(reviewDecisionsPath);
-    if (optionalFileSnapshot(reviewDecisionsPath) !== reviewDecisionsSnapshot) {
-      throw new Error(
-        'MMI_IMPORT_REVIEW_DECISIONS_CHANGED: review decisions changed while being read; run the import again',
-      );
-    }
-    // A malformed existing ledger must also fail before this import writes.
-    const ledger = readLedger(ledgerPath);
     const imageRead = readExcelImages(sourceBytes);
     const imageCandidateList = imageCandidates({
       source: referencePath,
@@ -321,39 +399,16 @@ export function materializeWorkbookImport(
       for (let index = 0; index < imageRead.images.length; index += 1) {
         const image = imageRead.images[index];
         const candidate = imageCandidateList[index];
-        const ledgerAssessment = assessLedger(
+        const reviewDecision = winningReviewDecision(
+          reviewDecisions,
+          reviewDecisionsPath,
           ledger,
           ledgerPath,
           sourcePath,
           candidate,
         );
-        const rejected = rejectedDecisionForCandidate(
-          reviewDecisions,
-          reviewDecisionsPath,
-          sourcePath,
-          candidate,
-        );
-        const deferred = rejected
-          ? undefined
-          : deferredDecisionForCandidate(
-              reviewDecisions,
-              reviewDecisionsPath,
-              sourcePath,
-              candidate,
-            );
-        const reviewDecision = rejected ?? deferred;
-        const adoptedAt = ledgerAssessment.state === 'imported'
-          ? ledgerAssessment.entry?.reviewedAt
-          : undefined;
-        const reviewWins = Boolean(
-          reviewDecision
-          && (
-            !adoptedAt
-            || reviewDecision.reviewedAt >= adoptedAt
-          ),
-        );
-        if (reviewDecision && reviewWins) {
-          const decision = rejected ? 'rejected' as const : 'deferred' as const;
+        if (reviewDecision) {
+          const decision = reviewDecision.decision;
           reviewSkippedImages.push({
             ordinal: image.ordinal,
             sheet: image.sheet,
@@ -408,10 +463,11 @@ export function materializeWorkbookImport(
   }));
 
   const analyzed = {
-    ...analyzedBase,
+    ...reviewFilteredBase,
     assets,
     assetProblems: problems,
     reviewSkippedAssets: reviewSkippedImages,
+    reviewSkippedTables,
   };
 
   return {
@@ -424,6 +480,7 @@ export function materializeWorkbookImport(
     extractedImages,
     imageProblems,
     reviewSkippedImages,
+    reviewSkippedTables,
   };
 }
 
@@ -468,6 +525,50 @@ function assertImportPathRoles(
   }
 }
 
+
+
+function tableKey(sheet: string, range: string): string {
+  return `${sheet}\u0000${range}`;
+}
+
+function winningReviewDecision(
+  decisions: CandidateReviewDecisions,
+  decisionPath: string,
+  ledger: ReturnType<typeof readLedger>,
+  ledgerPath: string,
+  sourcePath: string,
+  candidate: Candidate,
+): CandidateReviewDecisionEntry | undefined {
+  const rejected = rejectedDecisionForCandidate(
+    decisions,
+    decisionPath,
+    sourcePath,
+    candidate,
+  );
+  const deferred = rejected
+    ? undefined
+    : deferredDecisionForCandidate(
+        decisions,
+        decisionPath,
+        sourcePath,
+        candidate,
+      );
+  const reviewDecision = rejected ?? deferred;
+  if (!reviewDecision) return undefined;
+
+  const ledgerAssessment = assessLedger(
+    ledger,
+    ledgerPath,
+    sourcePath,
+    candidate,
+  );
+  const adoptedAt = ledgerAssessment.state === 'imported'
+    ? ledgerAssessment.entry?.reviewedAt
+    : undefined;
+  return !adoptedAt || reviewDecision.reviewedAt >= adoptedAt
+    ? reviewDecision
+    : undefined;
+}
 
 function optionalFileSnapshot(filePath: string): string {
   if (!fs.existsSync(filePath)) return 'absent';
