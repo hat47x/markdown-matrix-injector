@@ -40,7 +40,10 @@ issue-0195で確定した`mmi.ledger/v1`を再利用する。一括変換専用�
 - 同一画像bytesを複数箇所で使っている場合、assetファイルは共用するが、occurrenceは別に保持する。
 - 表ではない領域は既存のimport-assistanceのrole/cautionとして残す。画像がないブックは正常に処理し、画像だけのシートも下書きへ残す。
 - Markdownで扱えない画像や読めない画像は「画像の注意」として下書きへ残し、黙って欠落させない。
-- 元ブックは変更しない。CLIではsource / draft / asset / ledgerを`--root`内へ限定し、既存draftの上書きも拒否する。
+- 元ブックは変更しない。Linked参照が後で解決できるよう、通常のsourceは`--root`内に置く。
+- ワークスペース外の既存ExcelをCLIから取り込む場合は`--copy-source <workspace-file>`を明示する。元ファイルと同じbytesをproject内へ取り込み、そのコピーをLinked sourceとして使う。コピー先に同一bytesがあれば再利用し、異なる内容があれば上書きせず停止する。後続のmaterializeが失敗した場合、この操作で新規作成したsourceコピーも削除する。
+- draft / sourceコピー / asset / ledgerの書込先は`--root`内へ限定し、既存draftの上書きも拒否する。
+- 画像の形式などに確認事項があっても、下書き自体を正常にcommitできた場合はCLIを失敗扱いにしない。JSON summaryは`created-with-warnings`を返し、注意事項は下書き・stderr・JSONのすべてに残す。
 - draft・asset・ledgerは1回の取り込み操作としてcommitする。解析や下書き保存が失敗した場合、この操作で追加したassetを削除し、既存ledgerを元のbytesへ戻す。既存draftは競合時も上書き・削除しない。
 - 取り込み開始時に原本bytesを1回固定し、表解析・workbook structure・画像抽出・ledger source digestを同じsnapshotから作る。commit直前に原本digestを再確認し、途中で原本が保存されていれば確定せずrollbackして再実行を求める。
 - 表をExtractedにしたい場合は、現在のCandidateレビューから明示的に表extractへ進める。一括取り込みの既定では表をLinkedに保つ。
