@@ -100,6 +100,31 @@ test('extractJsonTree projects one explicit subtree to nested Markdown and recor
   assert.equal(ledger.entries[0].conversion.pointer, '/service');
 });
 
+test('tree projection escapes Markdown syntax inside JSON keys and scalar values', () => {
+  const f = workspace();
+  fs.writeFileSync(
+    f.source,
+    JSON.stringify({
+      '*section*': {
+        '[label]': '*literal*',
+        html: '<b>not markup</b>',
+      },
+    }, null, 2),
+  );
+
+  const result = extractJsonTree({
+    sourcePath: f.source,
+    pointer: '/*section*',
+    outDir: f.outDir,
+  });
+
+  assert.deepEqual(result.problems, []);
+  assert.ok(result.extracted);
+  assert.match(result.extracted.markdown, /^- "\\*section\\*" \(object\)/u);
+  assert.match(result.extracted.markdown, /- "\\[label\\]": "\\*literal\\*"/u);
+  assert.match(result.extracted.markdown, /- "html": "\\<b\\>not markup\\<\/b\\>"/u);
+});
+
 test('CLI inspect and extract support JSON Pointer selection while scalar paths fail closed', async () => {
   const f = workspace();
   const inspected = await captureMain([
