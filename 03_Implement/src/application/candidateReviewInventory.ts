@@ -6,10 +6,15 @@ import {
   type ExcelImage,
   type ImageDiagnostic,
 } from '../adapters/excelImageAdapter.js';
+import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
+import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import type { Candidate } from '../core/candidate.js';
 import { readSourceFileIdentity } from '../core/sourceIdentity.js';
-import { loadWorkbook } from '../core/workbookLoader.js';
+import {
+  isXmlSpreadsheet2003Text,
+  loadWorkbook,
+} from '../core/workbookLoader.js';
 
 export type CandidateReviewInventoryItem =
   | {
@@ -23,6 +28,16 @@ export type CandidateReviewInventoryItem =
       kind: 'image';
       candidate: Candidate;
       image: ExcelImage;
+    }
+  | {
+      kind: 'tree';
+      candidate: Candidate;
+      /** JSON Pointer or deterministic XML element path. */
+      pointer: string;
+      format: 'json' | 'xml';
+      nodeType: 'object' | 'array' | 'element';
+      childCount: number;
+      leafCount: number;
     };
 
 export interface CandidateReviewInventory {
@@ -35,6 +50,46 @@ export function buildCandidateReviewInventory(
   sourceLabel: string,
 ): CandidateReviewInventory {
   const sourceDigest = readSourceFileIdentity(sourcePath).digest;
+
+  if (/\.json$/iu.test(sourcePath)) {
+    const tree = readJsonTree(
+      fs.readFileSync(sourcePath, 'utf8'),
+      sourceLabel,
+      sourceDigest,
+    );
+    return {
+      items: tree.nodes.map((node) => ({
+        kind: 'tree' as const,
+        candidate: node.candidate,
+        pointer: node.pointer,
+        format: 'json' as const,
+        nodeType: node.nodeType,
+        childCount: node.childPointers.length,
+        leafCount: node.leafValues.length,
+      })),
+      imageDiagnostics: [],
+    };
+  }
+
+  if (/\.xml$/iu.test(sourcePath)) {
+    const xml = fs.readFileSync(sourcePath, 'utf8');
+    if (!isXmlSpreadsheet2003Text(xml)) {
+      const tree = readXmlTree(xml, sourceLabel, sourceDigest);
+      return {
+        items: tree.nodes.map((node) => ({
+          kind: 'tree' as const,
+          candidate: node.candidate,
+          pointer: node.path,
+          format: 'xml' as const,
+          nodeType: 'element' as const,
+          childCount: node.childPaths.length,
+          leafCount: node.attributeValues.length + node.textSegments.length,
+        })),
+        imageDiagnostics: [],
+      };
+    }
+  }
+
   const workbook = loadWorkbook({ absolutePath: sourcePath });
 
   const tableItems: CandidateReviewInventoryItem[] = Object.entries(
