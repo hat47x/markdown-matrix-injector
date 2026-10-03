@@ -50,13 +50,13 @@ export function buildCandidateReviewInventory(
     const sourceBytes = fs.readFileSync(sourcePath);
     const sourceDigest =
       createSourceIdentityFromBytes(sourceBytes).digest;
-    const document = readJsonTree(
+    const tree = readJsonTree(
       sourceBytes.toString('utf8'),
       sourceLabel,
       sourceDigest,
     );
     return {
-      items: document.nodes.map((node) => ({
+      items: tree.nodes.map((node) => ({
         kind: 'tree' as const,
         candidate: node.candidate,
         pointer: node.pointer,
