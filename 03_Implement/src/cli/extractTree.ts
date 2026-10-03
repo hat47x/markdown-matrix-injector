@@ -20,6 +20,11 @@ export interface ExtractTreeOptions {
   fromDocument?: string;
   sourceLabel?: string;
   ledgerPath?: string;
+  /**
+   * Optional review-time identity guard. When supplied, extraction fails if
+   * the current Candidate at the pointer no longer matches what was reviewed.
+   */
+  expectedCandidateFingerprint?: string;
 }
 
 export interface ExtractedTree {
@@ -152,6 +157,18 @@ export function extractJsonTree(
       code: 'MMI_TREE_CANDIDATE_NOT_FOUND',
       message:
         `no Tree Candidate at JSON Pointer ${options.pointer || '(root)'}; run \`mmi inspect\` to list detected Tree Candidates`,
+    });
+    return result;
+  }
+  if (
+    options.expectedCandidateFingerprint
+    && candidate.fingerprint.digest
+      !== options.expectedCandidateFingerprint
+  ) {
+    result.problems.push({
+      code: 'MMI_TREE_CANDIDATE_CHANGED',
+      message:
+        `Tree Candidate at JSON Pointer ${options.pointer || '(root)'} changed after review; review the current Candidate before extraction`,
     });
     return result;
   }
