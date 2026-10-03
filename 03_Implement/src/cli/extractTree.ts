@@ -10,7 +10,6 @@ import {
   type JsonValue,
 } from '../adapters/jsonTreeAdapter.js';
 import { entryFor, recordEntries } from '../core/importLedger.js';
-import { readSourceFileIdentity } from '../core/sourceIdentity.js';
 
 export interface ExtractTreeOptions {
   sourcePath: string;
@@ -20,7 +19,10 @@ export interface ExtractTreeOptions {
   fromDocument?: string;
   sourceLabel?: string;
   ledgerPath?: string;
-  /** When reviewing an already displayed Candidate, fail if current content changed. */
+  /**
+   * Optional review-time identity guard. When supplied, extraction fails if
+   * the current Candidate at the pointer no longer matches what was reviewed.
+   */
   expectedCandidateFingerprint?: string;
 }
 
@@ -124,7 +126,7 @@ export function extractJsonTree(
   }
 
   const sourceBytes = fs.readFileSync(options.sourcePath);
-  const sourceDigest = readSourceFileIdentity(options.sourcePath).digest;
+  const sourceDigest = sha256(sourceBytes);
   const documentDirectory = path.dirname(
     path.resolve(
       options.fromDocument ?? path.join(process.cwd(), 'x.md'),
@@ -163,12 +165,13 @@ export function extractJsonTree(
   }
   if (
     options.expectedCandidateFingerprint
-    && candidate.fingerprint.digest !== options.expectedCandidateFingerprint
+    && candidate.fingerprint.digest
+      !== options.expectedCandidateFingerprint
   ) {
     result.problems.push({
-      code: 'MMI_TREE_REVIEW_STALE',
+      code: 'MMI_TREE_CANDIDATE_CHANGED',
       message:
-        'Tree Candidate changed after it was shown for review; reopen Candidate review before adopting it',
+        `Tree Candidate at JSON Pointer ${options.pointer || '(root)'} changed after review; review the current Candidate before extraction`,
     });
     return result;
   }

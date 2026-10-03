@@ -484,6 +484,7 @@ async function insertEmbedByContentMatch(): Promise<void> {
   const incomplete = describeIncompleteContentMatchSearch(
     loadResult.skippedFiles.length,
     searchResult.skippedSheets.length,
+    searchResult.truncatedSheets.length,
     loadResult.cancelled,
   );
 
@@ -554,11 +555,13 @@ async function loadWorkspaceWorkbooksForContentMatch(
 function describeIncompleteContentMatchSearch(
   skippedFileCount: number,
   skippedSheetCount: number,
+  truncatedSheetCount: number,
   cancelled: boolean,
 ): string {
   const parts = [
     skippedFileCount > 0 ? `読めないブック ${skippedFileCount}件` : '',
     skippedSheetCount > 0 ? `索引上限を超えたシート ${skippedSheetCount}件` : '',
+    truncatedSheetCount > 0 ? `候補上限に達したシート ${truncatedSheetCount}件` : '',
     cancelled ? '検索が中断されました' : '',
   ].filter(Boolean);
   return parts.length > 0 ? `検索は完全ではありません（${parts.join('、')}）。` : '';
@@ -619,6 +622,7 @@ async function getContentMatchPasteEdits(
   const incomplete = describeIncompleteContentMatchSearch(
     loadResult.skippedFiles.length,
     searchResult.skippedSheets.length,
+    searchResult.truncatedSheets.length,
     false,
   );
   if (matches.length === 0 && incomplete) {

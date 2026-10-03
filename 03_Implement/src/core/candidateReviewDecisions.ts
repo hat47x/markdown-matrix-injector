@@ -12,6 +12,20 @@ import {
 export const REVIEW_DECISIONS_SCHEMA = 'mmi.review-decisions/v1';
 export const DEFAULT_REVIEW_DECISIONS_FILE = 'mmi-review-decisions.json';
 
+const REVIEW_DECISION_KINDS = new Set<CandidateKind>([
+  'table-range',
+  'image',
+  'region-snapshot',
+  'shape',
+  'diagram',
+  'tree',
+  'choice-list',
+  'note',
+  'link',
+  'section',
+]);
+const SHA256_DIGEST = /^sha256:[0-9a-f]{64}$/u;
+
 export interface CandidateReviewDecisionEntry {
   kind: CandidateKind;
   /** Source path relative to the decision file. */
@@ -49,10 +63,61 @@ export function readReviewDecisions(
       `${decisionPath} is not an ${REVIEW_DECISIONS_SCHEMA} file`,
     );
   }
+  parsed.entries.forEach((entry, index) => {
+    const problem = reviewDecisionEntryProblem(entry);
+    if (problem) {
+      throw new Error(
+        `${decisionPath} has invalid ${REVIEW_DECISIONS_SCHEMA} entry ${index}: ${problem}`,
+      );
+    }
+  });
   return {
     schema: REVIEW_DECISIONS_SCHEMA,
     entries: parsed.entries,
   };
+}
+
+function reviewDecisionEntryProblem(value: unknown): string | undefined {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) {
+    return 'entry must be an object';
+  }
+  const entry = value as Partial<CandidateReviewDecisionEntry>;
+  if (!entry.kind || !REVIEW_DECISION_KINDS.has(entry.kind)) return 'kind is invalid';
+  if (typeof entry.source !== 'string' || !entry.source) return 'source is required';
+  if (entry.sheet !== undefined && typeof entry.sheet !== 'string') return 'sheet must be a string';
+  if (typeof entry.place !== 'string' || !entry.place) return 'place is required';
+  if (!entry.fingerprint || typeof entry.fingerprint !== 'object') {
+    return 'fingerprint must be an object';
+  }
+  if (typeof entry.fingerprint.representation !== 'string'
+    || !entry.fingerprint.representation) {
+    return 'fingerprint representation is required';
+  }
+  if (typeof entry.fingerprint.digest !== 'string'
+    || !SHA256_DIGEST.test(entry.fingerprint.digest)) {
+    return 'fingerprint digest must be sha256';
+  }
+  if (!Array.isArray(entry.claimBasis)) return 'claimBasis must be an array';
+  for (const [index, item] of entry.claimBasis.entries()) {
+    if (!item || typeof item !== 'object' || Array.isArray(item)) {
+      return `claimBasis[${index}] must be an object`;
+    }
+    if (!Number.isInteger(item.index) || item.index < 0) {
+      return `claimBasis[${index}].index must be a non-negative integer`;
+    }
+    if (typeof item.aspect !== 'string' || !item.aspect) {
+      return `claimBasis[${index}].aspect is required`;
+    }
+    if (typeof item.digest !== 'string' || !SHA256_DIGEST.test(item.digest)) {
+      return `claimBasis[${index}].digest must be sha256`;
+    }
+  }
+  if (entry.decision !== 'rejected' && entry.decision !== 'deferred') {
+    return 'decision must be rejected or deferred';
+  }
+  if (typeof entry.basis !== 'string' || !entry.basis) return 'basis is required';
+  if (typeof entry.reviewedAt !== 'string' || !entry.reviewedAt) return 'reviewedAt is required';
+  return undefined;
 }
 
 function sameOccurrence(

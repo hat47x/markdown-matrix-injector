@@ -74,6 +74,11 @@ export function verifyCliPackage(tarballPath) {
 
   const help = run(bin, ['--help'], workspace);
   const version = run(bin, ['--version'], workspace);
+  const candidateSchema = run(
+    bin,
+    ['schema', 'candidate'],
+    workspace,
+  );
   const check = run(bin, ['check', 'docs', '--root', '.'], workspace);
   const render = run(
     bin,
@@ -110,6 +115,23 @@ export function verifyCliPackage(tarballPath) {
   ) {
     throw new Error(
       `mmi --version did not match installed package version: expected ${packageJson.version}, got ${version.stdout.trim() || version.stderr.trim()}`,
+    );
+  }
+  let parsedCandidateSchema;
+  try {
+    parsedCandidateSchema = JSON.parse(candidateSchema.stdout);
+  } catch {
+    throw new Error(
+      `mmi schema candidate returned invalid JSON:\n${candidateSchema.stderr || candidateSchema.stdout}`,
+    );
+  }
+  if (
+    candidateSchema.status !== 0
+    || parsedCandidateSchema['x-mmi-contract']
+      !== 'mmi.semantic-candidate/v1'
+  ) {
+    throw new Error(
+      `mmi schema candidate failed:\n${candidateSchema.stderr || candidateSchema.stdout}`,
     );
   }
   if (check.status !== 0) {
@@ -183,6 +205,7 @@ export function verifyCliPackage(tarballPath) {
         bin: 'passed',
         help: 'passed',
         version: 'passed',
+        candidateSchema: 'passed',
         check: 'passed',
         render: 'passed',
         jsonTreeInspect: 'passed',

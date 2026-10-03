@@ -45,11 +45,36 @@ export type ExecutionProperty = 'deterministic' | 'provider-dependent';
 /** M0 explicit extraction, M1 deterministic inference, M2 light similarity, M3 bounded judgment, M4 local generative, M5 external handoff. */
 export type MethodClass = 'M0' | 'M1' | 'M2' | 'M3' | 'M4' | 'M5';
 
+const CANDIDATE_KINDS = new Set<CandidateKind>([
+  'table-range',
+  'image',
+  'region-snapshot',
+  'shape',
+  'diagram',
+  'tree',
+  'choice-list',
+  'note',
+  'link',
+  'section',
+]);
 const EPISTEMIC_STATUSES = new Set<EpistemicStatus>([
   'observed',
   'inferred',
   'abstained',
 ]);
+const EXECUTION_PROPERTIES = new Set<ExecutionProperty>([
+  'deterministic',
+  'provider-dependent',
+]);
+const METHOD_CLASSES = new Set<MethodClass>([
+  'M0',
+  'M1',
+  'M2',
+  'M3',
+  'M4',
+  'M5',
+]);
+const SHA256_DIGEST = /^sha256:[0-9a-f]{64}$/u;
 
 /** Where in which source. Source paths are as the caller wants them written (e.g. relative to a document). */
 export interface SourceLocator {
@@ -143,22 +168,63 @@ export interface Candidate {
 
 /** The first violated invariant, or undefined when the candidate is well-formed. */
 export function candidateProblem(candidate: Candidate): string | undefined {
+  if (!CANDIDATE_KINDS.has(candidate.kind)) {
+    return `invalid candidate kind: ${String(candidate.kind)}`;
+  }
+  if (!candidate.locator.source) {
+    return 'candidate locator needs a source';
+  }
+  if (!SHA256_DIGEST.test(candidate.locator.sourceDigest)) {
+    return 'sourceDigest must be a sha256: digest';
+  }
   if (!EPISTEMIC_STATUSES.has(candidate.status)) {
     return `invalid candidate epistemic status: ${String(candidate.status)}`;
   }
+  if (!EXECUTION_PROPERTIES.has(candidate.execution)) {
+    return `invalid candidate execution: ${String(candidate.execution)}`;
+  }
+  if (!METHOD_CLASSES.has(candidate.method)) {
+    return `invalid candidate method: ${String(candidate.method)}`;
+  }
   if (candidate.claims.length === 0) return 'a candidate needs at least one claim';
+  if (!candidate.provenance.algorithm) return 'provenance needs an algorithm';
   if (candidate.provenance.run.execution !== candidate.execution) return 'execution disagrees with provenance.run';
-  if (!candidate.locator.sourceDigest.startsWith('sha256:')) return 'sourceDigest must be a sha256: digest';
+  if (!SHA256_DIGEST.test(candidate.provenance.run.inputDigest)) return 'run.inputDigest must be a sha256: digest';
   if (candidate.provenance.run.inputDigest !== candidate.locator.sourceDigest) return 'run.inputDigest must be the sourceDigest';
   for (const claim of candidate.claims) {
+    if (!claim.aspect) return 'claim needs an aspect';
     if (!EPISTEMIC_STATUSES.has(claim.status)) {
       return `invalid claim "${claim.aspect}" epistemic status: ${String(claim.status)}`;
+    }
+    if (!EXECUTION_PROPERTIES.has(claim.execution)) {
+      return `invalid claim "${claim.aspect}" execution: ${String(claim.execution)}`;
+    }
+    if (!METHOD_CLASSES.has(claim.method)) {
+      return `invalid claim "${claim.aspect}" method: ${String(claim.method)}`;
+    }
+    if (claim.value !== undefined
+      && typeof claim.value !== 'string'
+      && (!Array.isArray(claim.value)
+        || claim.value.some((item) => typeof item !== 'string'))) {
+      return `claim "${claim.aspect}" value must be a string or string array`;
     }
     if (claim.status === 'abstained' && claim.value !== undefined) return `abstained claim "${claim.aspect}" must not carry a value`;
     if (claim.status !== 'abstained' && claim.value === undefined) return `claim "${claim.aspect}" needs a value`;
     if (!claim.reasonCode) return `claim "${claim.aspect}" needs a reasonCode`;
+    if (claim.evidence?.some((item) => !item.code)) {
+      return `claim "${claim.aspect}" evidence needs a code`;
+    }
     if (candidate.execution === 'deterministic' && claim.execution !== 'deterministic') return `claim "${claim.aspect}" is provider-dependent inside a deterministic candidate`;
     if (claim.status === 'observed' && claim.method !== 'M0') return `observed claim "${claim.aspect}" must be M0 (explicit extraction)`;
+  }
+  if (candidate.fingerprint.algorithm !== 'sha256') {
+    return 'fingerprint algorithm must be sha256';
+  }
+  if (!candidate.fingerprint.representation) {
+    return 'fingerprint needs a representation';
+  }
+  if (!SHA256_DIGEST.test(candidate.fingerprint.digest)) {
+    return 'fingerprint digest must be a sha256: digest';
   }
   const run = candidate.provenance.run;
   if (run.execution === 'provider-dependent' && !(run.provider && run.model && run.artifactVersion)) return 'provider-dependent run needs provider, model and artifactVersion';
@@ -166,6 +232,9 @@ export function candidateProblem(candidate: Candidate): string | undefined {
   if (candidate.execution === 'deterministic' && candidate.scores.length > 0) return 'a deterministic rule method has no provider scores';
   const seen = new Set<string>();
   for (const score of candidate.scores) {
+    if (!score.provider || !score.scale || !Number.isFinite(score.value)) {
+      return 'provider score needs provider, scale and a finite value';
+    }
     const key = `${score.provider}\u0000${score.scale}`;
     if (seen.has(key)) return `duplicate score for ${score.provider}/${score.scale}`;
     seen.add(key);

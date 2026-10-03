@@ -392,3 +392,65 @@ test('newly discovered Claims do not retroactively stale an earlier review basis
     'imported',
   );
 });
+
+
+test('ledger reader fails closed on malformed authority-bearing entries', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-ledger-invalid-'));
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const source = path.join(root, 'design.xlsx');
+  const entry = entryFor(
+    ledgerPath,
+    source,
+    candidate('image-a'),
+    path.join(root, 'assets', 'image.png'),
+    'review',
+  );
+
+  fs.writeFileSync(
+    ledgerPath,
+    JSON.stringify({
+      schema: 'mmi.ledger/v1',
+      entries: [{
+        ...entry,
+        reviewState: 'observed',
+      }],
+    }, null, 2),
+  );
+
+  assert.throws(
+    () => readLedger(ledgerPath),
+    /reviewState must be accepted, modified or legacy confirmed/u,
+  );
+});
+
+test('ledger reader rejects malformed digests instead of trusting typed casts', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-ledger-invalid-'));
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const source = path.join(root, 'design.xlsx');
+  const entry = entryFor(
+    ledgerPath,
+    source,
+    candidate('image-a'),
+    path.join(root, 'assets', 'image.png'),
+    'review',
+  );
+
+  fs.writeFileSync(
+    ledgerPath,
+    JSON.stringify({
+      schema: 'mmi.ledger/v1',
+      entries: [{
+        ...entry,
+        fingerprint: {
+          ...entry.fingerprint,
+          digest: 'sha256:short',
+        },
+      }],
+    }, null, 2),
+  );
+
+  assert.throws(
+    () => readLedger(ledgerPath),
+    /fingerprint digest must be sha256/u,
+  );
+});
