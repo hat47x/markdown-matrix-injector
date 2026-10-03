@@ -772,3 +772,41 @@ test('table-only non-OOXML import does not depend on an unrelated malformed ledg
     'unrelated ledger must be left untouched',
   );
 });
+
+
+test('workbook shapes and graphic frames stay visible as drawing warnings', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-materialize-'));
+  const sourcePath = path.join(root, 'drawing.xlsx');
+  const draftPath = path.join(root, 'drawing-import.md');
+  const drawing = [
+    '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing">',
+    '<xdr:twoCellAnchor>',
+    '<xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>',
+    '<xdr:to><xdr:col>2</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>2</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>',
+    '<xdr:sp/><xdr:cxnSp/><xdr:clientData/>',
+    '</xdr:twoCellAnchor>',
+    '<xdr:absoluteAnchor>',
+    '<xdr:pos x="0" y="0"/><xdr:ext cx="1000" cy="1000"/>',
+    '<xdr:graphicFrame/><xdr:clientData/>',
+    '</xdr:absoluteAnchor>',
+    '</xdr:wsDr>',
+  ].join('');
+  fs.writeFileSync(
+    sourcePath,
+    buildXlsxWithImages(
+      [{ name: '構成図', cells: [[0, 0, '構成図']], rawDrawing: drawing }],
+      {},
+    ),
+  );
+
+  const result = materializeWorkbookImport({ sourcePath, draftPath });
+  const codes = result.imageProblems.map((problem) => problem.code);
+
+  assert.equal(result.extractedImages.length, 0);
+  assert.ok(codes.includes('MMI_DRAWING_SHAPES_NOT_EXTRACTED'));
+  assert.ok(codes.includes('MMI_DRAWING_GRAPHIC_FRAMES_NOT_EXTRACTED'));
+  assert.match(result.markdown, /## 画像・図形の注意/u);
+  assert.match(result.markdown, /MMI_DRAWING_SHAPES_NOT_EXTRACTED/u);
+  assert.match(result.markdown, /MMI_DRAWING_GRAPHIC_FRAMES_NOT_EXTRACTED/u);
+  assert.match(result.markdown, /\[構成図\]/u);
+});
