@@ -1,8 +1,8 @@
 # Semantic Candidate 契約 v1
 
-- 状態: 実装済み（型・不変条件・表・画像・JSON TreeのSource Adapter、`mmi inspect --json`、`mmi extract`）。2026-10-03のIssue #417で認識論上の状態と採用状態を分離した。TreeはJSONの明示構造まで実装し、XML・フラットテキストの階層、図形、メモ、リスト、見出しのAdapterは未実装。
+- 状態: 実装済み（型・不変条件・表・画像・JSON/XML TreeのSource Adapter、`mmi inspect --json`、`mmi extract`）。2026-10-03のIssue #417で認識論上の状態と採用状態を分離した。TreeはJSONと汎用XMLの明示構造まで実装し、フラットテキストやExcel / CSVからの推定階層、図形、メモ、リスト、見出しのAdapterは未実装。
 - 関連: [ADR-0019](../01_Plans/adr/ADR-0019-ai-era-sier-document-value-and-policy.md) D4・D6・D8、[ADR-0018](../01_Plans/adr/ADR-0018-cognitive-assistance-plane.md) D1〜D5、[ADR-0020](../01_Plans/adr/ADR-0020-requirement-oriented-cognition-method-selection.md)、[issue-0193](../01_Plans/issues/issue-0193-candidate-source-adapter-contract.md)
-- 実装: `src/core/candidate.ts`（型とruntime不変条件）、`src/core/candidateContract.ts`（公開JSON Schema）、`src/adapters/tableRegionAdapter.ts`、`src/adapters/excelImageAdapter.ts`、`src/adapters/jsonTreeAdapter.ts`
+- 実装: `src/core/candidate.ts`（型とruntime不変条件）、`src/core/candidateContract.ts`（公開JSON Schema）、`src/adapters/tableRegionAdapter.ts`、`src/adapters/excelImageAdapter.ts`、`src/adapters/jsonTreeAdapter.ts`、`src/adapters/xmlTreeAdapter.ts`
 
 Candidateは、Source Adapterが見つけた「情報の単位」を、取り込み・参照・レビュー・台帳が共通に扱うための型である。入力形式とMarkdown出力を直接結ばず、Source Adapter → Observed Structure → Candidate → 確認／参照／取り込み、の順に流す（ADR-0019 D4）。
 
@@ -94,13 +94,21 @@ Candidate全体は`observed + deterministic + M0`とする。object keyはfinger
 
 Markdownへの変換はSource Adapterに含めない。`extractJsonTree()`が選択したsubtreeを`json-nested-list-v1`として投影し、content-addressedなMarkdown assetと`mmi:extracted-tree` provenanceを生成する。JSON文字列中のMarkdown記号はエスケープし、表示時に原文の文字が装飾やリンクへ変わらないようにする。採用後は既存ledgerとdetach freshnessへ接続する。VS CodeレビューUIも同じCandidateと`extractJsonTree()`を利用し、Tree専用の採用状態は作らない。UIからの採用では表示時のCandidate fingerprintを`expectedCandidateFingerprint`として渡し、同じJSON Pointerでもsubtreeが変わっていれば再レビューを要求する。
 
+## 3d. 汎用XML TreeのSource Adapter（issue-0199）
+
+XML Spreadsheet 2003は従来のworkbook/table経路に残し、それ以外のXMLだけを`readXmlTree()`へ渡す。elementのqualified name、同名兄弟の出現順、属性、本文、親子関係を原本の明示構造として`observed + deterministic + M0`で保持する。`structuralPath`は`/service[1]/endpoint[2]`のようなelement pathとする。
+
+構文解析にはnamespaceを有効にした`saxes`を使う。未束縛のnamespace prefixやnamespace展開後に重複する属性など、well-formedness違反を受け入れない。DTDに依存する解釈は拒否する。汎用XML TreeはUTF-8を対象とし、入力bytesはfatal decodeする。XML宣言が別のencodingを指定した場合もfail closedとする。attribute順はfingerprint計算時に正規化し、elementと本文の順序は保持する。
+
+`extractXmlTree()`は選択したelement subtreeを`xml-nested-list-v1`として投影する。JSON Treeと同じledger、Candidateレビュー、review-time fingerprint guard、detach freshnessを使い、XML専用の採用状態は作らない。
+
 ### fingerprint（暫定）
 
 表のfingerprintは、範囲の**表示セル値の列**（セルを`U+001F`、行を`U+001E`で連結）のsha256とし、`representation`は`table-display-cells-v1`とする。**位置を含めない**ので、表が別の行へ動いても同じfingerprintになり、セルを1つ変えると変わる。位置は`locator`が別に持つ。ADR-0019 D8のとおり方式は種別ごとに異なってよい。台帳での使い方（移動・再取り込みの判定）は[issue-0195](../01_Plans/issues/issue-0195-import-ledger.md)で確定し、必要なら`representation`を上げる。
 
 ## 4. CLI
 
-`mmi inspect <source> --json`は表・画像に加えてJSONのTree Candidateも返す。JSON出力には`candidateContract: "mmi.semantic-candidate/v1"`を併記し、外部AIや他ツールがCandidate配列の契約を推測しなくてよいようにする。契約本体は`mmi schema candidate`で取得する。JSONのテキスト出力ではobject / arrayごとのJSON Pointer、node type、直下child数を表示する。
+`mmi inspect <source> --json`は表・画像に加えてJSON/XMLのTree Candidateも返す。JSON出力には`candidateContract: "mmi.semantic-candidate/v1"`を併記し、外部AIや他ツールがCandidate配列の契約を推測しなくてよいようにする。契約本体は`mmi schema candidate`で取得する。JSONではRFC 6901 JSON Pointer、XMLではelement pathを構造位置として扱う。
 
 - 実務サンプルの全20ブック（CSV・TSV・XLSX・XML 2003）と基本設計書キットのマスター（5シート）で、`candidates`の件数が`regions`の件数と一致し、各Candidateが不変条件と`reference`の一致を満たすことを確認した。
 - 認知側の処理が`check`の診断と`render`の論理表を変えないことを、同一入力での実行前後の比較と、権威経路（`render`・診断・表の描画）が`adapters/`・`search/`・`experimental/`・`core/candidate`を読み込まないことの静的検査で確かめる（`test/candidate.test.ts`）。
@@ -146,11 +154,11 @@ Markdownへの変換はSource Adapterに含めない。`extractJsonTree()`が選
 [ギャップ分析](../01_Plans/product-gap-analysis.md)の旧§5は、次を研究済みの成果として並べていたが、実コードでは生成されていない。
 
 - `region.hierarchy_relation`、`region.repeated_block`、`ambiguous_or_non_table`は、`structuredArtifactNeutralObservation.ts`に**ラベル名として宣言があるだけ**で、`src`にも`test`にも出力する生成コードが無い。中立アダプタは`labels: {}`を返し、ラベルを持つのは合成fixtureの正解側だけである。
-- この研究ラベル自体を生成する製品コードは現在も無い。一方、Tree / Hierarchyは研究ラベルを経由せず、JSONの明示構造を読む製品Adapterから実装を開始した。Note、Choice list、Sectionと、XML・フラットテキストのTreeは未実装である。
+- この研究ラベル自体を生成する製品コードは現在も無い。一方、Tree / Hierarchyは研究ラベルを経由せず、JSON/XMLの明示構造を読む製品Adapterから実装した。Note、Choice list、Sectionと、フラットテキストやExcel / CSVから推定するTreeは未実装である。
 
 ## 7. 次に強くする行
 
 1. **Table / Range**（製品の領域検出＋出所照合＋再照合）。`observed` / `inferred` の由来を保ったまま、別軸の `accepted` reviewへつなぐ経路が動いている。fingerprintを台帳で使う形に固める（issue-0195）。
 2. **`cognitiveContract.ts`の器**。provenanceとscoreの名前空間が契約に近い。足りないのは状態・method class・fingerprint・locatorで、状態語彙の変換（§5）を先に確定する。
-3. **Tree / Hierarchy・Section**。TreeはJSONの明示構造から着手済み。次はXMLの明示構造を追加し、その後にフラットテキストやExcel / CSVの推定階層へ進む（issue-0199）。Sectionは未着手。
+3. **Tree / Hierarchy・Section**。TreeはJSONと汎用XMLの明示構造まで実装した。次はフラットテキストやExcel / CSVの推定階層へ進む（issue-0199）。Sectionは未着手。
 4. SAI2の結果は合成18グループのみで、製品の特徴に使う前に実データでの検証が要る。

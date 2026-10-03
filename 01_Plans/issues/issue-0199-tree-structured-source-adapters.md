@@ -35,13 +35,13 @@ JSONと汎用XMLの明示構造を、同じ`tree` Candidate契約へ接続した
 
 CLIの`inspect`、`extract --tree`、VS CodeのCandidateレビュー、`mmi-ledger.json`、detach前のfreshness確認はJSON/XMLで同じ経路を使う。レビュー後の採用ではsubtree fingerprintを現在のsourceと再照合し、対象subtreeが変わっていれば採用しない。対象外のbranchだけが変わった場合は、同じsubtreeの採用を妨げない。
 
-XML Spreadsheet 2003は既存のworkbook/table経路を維持する。その他のXMLだけをTree Adapterへ流す。XML Treeのnested list Projectionではelement名、属性、本文を保持する。DTDと外部entityに依存する解釈は行わず、決定論的に読めない入力はfail closedとする。日本語を含むUnicodeのelement名・属性名も扱う。
+XML Spreadsheet 2003は既存のworkbook/table経路を維持する。その他のXMLだけをTree Adapterへ流す。構文解析にはnamespaceを有効にした`saxes`を使い、未束縛のprefixやnamespace展開後に重複する属性などのwell-formedness違反を拒否する。XML Treeのnested list Projectionではelement名、属性、本文を保持する。DTDに依存する解釈は行わない。汎用XMLはUTF-8をfatal decodeし、XML宣言が別encodingを指定する場合もfail closedとする。日本語を含むUnicodeのelement名・属性名も扱う。
 
 残るTree一般化は、インデント・見出し番号・接頭辞コード等から構造を推定するフラットテキストと、Excel / CSVの親列・階層列である。これらは明示構造ではないためM1以降として扱い、曖昧な場合に自動確定しない。
 
 ## Validation plan
 
-JSONとXMLの明示構造はfixtureで親子関係、属性・本文、fingerprint、review guard、ledger、detach freshnessを確認する。XML Spreadsheet 2003はTreeではなく既存の表経路へ残ることも回帰対象とする。今後追加する推定構造ではmethodとevidenceを必須とし、曖昧なfixtureを誤確定しないことを確認する。
+JSONとXMLの明示構造はfixtureで親子関係、属性・本文、fingerprint、review guard、ledger、detach freshnessを確認する。XMLではnamespace未束縛、展開後の重複属性、不正な文字参照、非UTF-8 bytes・encoding宣言もfail-closedの回帰対象とする。配布CLIのoffline smokeでもXML Treeの`inspect` / `extract`を実行する。XML Spreadsheet 2003はTreeではなく既存の表経路へ残ることを確認する。今後追加する推定構造ではmethodとevidenceを必須とし、曖昧なfixtureを誤確定しないことを確認する。
 
 ## Remaining work
 
