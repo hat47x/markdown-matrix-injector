@@ -617,6 +617,7 @@ test('content-match search integrates into paste via the PasteAs trigger only, n
   assert.match(source, /findWorkbookContentMatchesDetailed\(plainText, loadResult\.workbooks\)/);
   assert.match(source, /Content-match Paste As found no match in the sheets that could be searched/);
   assert.match(source, /MMI: Content-match Paste As failed:/);
+  assert.match(source, /候補上限に達したシート/);
   assert.match(source, /const completeness = incomplete \? '（検索不完全）' : '';/);
 });
 
