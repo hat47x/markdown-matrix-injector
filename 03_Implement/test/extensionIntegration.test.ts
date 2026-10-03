@@ -543,6 +543,7 @@ test('standalone content-match command exists and never auto-inserts', async () 
   // Every result -- one match or many -- is routed through showQuickPick and
   // the edit only happens if the user actually picked something (R1: no
   // auto-confirm).
+  assert.match(source, /Some workbook data could not be searched\. The candidate list may be incomplete/);
   assert.match(source, /const picked = await pickContentMatch\(matches\);\s*if \(!picked\) \{/s);
   assert.match(source, /await vscode\.window\.showQuickPick\(items, \{ placeHolder \}\);/);
   // Re-resolves the active editor immediately before the final edit rather
@@ -614,6 +615,7 @@ test('content-match search integrates into paste via the PasteAs trigger only, n
   // sheet indexing were skipped.
   assert.match(source, /findWorkbookContentMatchesDetailed\(plainText, loadResult\.workbooks\)/);
   assert.match(source, /Content-match Paste As found no match in the sheets that could be searched/);
+  assert.match(source, /const completeness = incomplete \? '（検索不完全）' : '';/);
 });
 
 test('e2e lane keeps paste/drop observation ahead of autocomplete to isolate known completion instability', async () => {
