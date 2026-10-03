@@ -407,20 +407,15 @@ function collectNodes(
     candidate,
   });
 
-  siblingCounts.clear();
-  let childIndex = 0;
-  for (const child of childElements) {
-    const ordinal = (siblingCounts.get(child.name) ?? 0) + 1;
-    siblingCounts.set(child.name, ordinal);
+  childElements.forEach((child, index) => {
     collectNodes(
       child,
-      childPaths[childIndex],
+      childPaths[index],
       source,
       sourceDigest,
       out,
     );
-    childIndex += 1;
-  }
+  });
 }
 
 export function readXmlTree(
