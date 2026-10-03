@@ -6,7 +6,7 @@ import path from 'node:path';
 
 import { main } from '../src/cli/mmi.js';
 import { readLedger } from '../src/core/importLedger.js';
-import { screenDesignWorkbook } from './helpers/buildXlsxWithImages.js';
+import { buildXlsxWithImages, emfOf, pngOf, screenDesignWorkbook } from './helpers/buildXlsxWithImages.js';
 
 async function quiet(argv: string[]): Promise<{ code: number; out: string; err: string }> {
   const outChunks: string[] = [];
@@ -48,8 +48,11 @@ test('mmi import creates one modernization draft, content-addressed assets and t
 
   assert.equal(result.code, 0, result.err);
   const summary = JSON.parse(result.out);
+  assert.equal(summary.status, 'created');
   assert.equal(summary.extractedImages, 4);
   assert.deepEqual(summary.imageProblems, []);
+  assert.deepEqual(summary.reviewSkippedImages, []);
+  assert.deepEqual(summary.reviewSkippedTables, []);
   assert.equal(fs.existsSync(draft), true);
   const markdown = fs.readFileSync(draft, 'utf8');
   assert.match(markdown, /!\[\[\.\.\/design\.xlsx#画面一覧\|A1:B3\?header=first\]\]/u);
@@ -157,4 +160,74 @@ test('mmi import rejects a not-yet-created output below a symlink that leaves --
   assert.equal(fs.existsSync(path.join(outside, 'new-assets')), false);
   assert.equal(fs.existsSync(path.join(root, 'draft.md')), false);
   assert.equal(fs.existsSync(path.join(root, 'mmi-ledger.json')), false);
+});
+
+
+test('mmi import can read a legacy workbook outside --root while keeping every write inside the project', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-project-'));
+  const legacyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-legacy-'));
+  const source = path.join(legacyRoot, 'legacy-design.xlsx');
+  const draft = path.join(root, 'docs', 'legacy-design.md');
+  fs.writeFileSync(source, screenDesignWorkbook().bytes);
+
+  const result = await quiet([
+    'import',
+    source,
+    '--root', root,
+    '--draft', draft,
+    '--json',
+  ]);
+
+  assert.equal(result.code, 0, result.err);
+  const summary = JSON.parse(result.out);
+  assert.equal(summary.status, 'created');
+  assert.equal(summary.source, source);
+  assert.equal(fs.existsSync(draft), true);
+  assert.equal(fs.existsSync(path.join(root, 'mmi-ledger.json')), true);
+  assert.equal(fs.existsSync(path.join(root, 'docs', 'assets', 'legacy-design')), true);
+
+  const markdown = fs.readFileSync(draft, 'utf8');
+  const relativeSource = path.relative(path.dirname(draft), source).split(path.sep).join('/');
+  assert.match(markdown, new RegExp(relativeSource.replace(/[.*+?^{}()|[\]\\]/gu, '\\$&'), 'u'));
+  assert.equal(fs.readdirSync(legacyRoot).sort().join(','), 'legacy-design.xlsx');
+});
+
+test('mmi import succeeds with created-with-warnings when unsupported images are preserved as review notes', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-cli-'));
+  const source = path.join(root, 'legacy-shape.xlsx');
+  const draft = path.join(root, 'legacy-shape.md');
+  fs.writeFileSync(
+    source,
+    buildXlsxWithImages(
+      [{
+        name: '画面',
+        cells: [[0, 0, '画面']],
+        anchors: [
+          { kind: 'one', from: [0, 2], media: 'ok.png', name: '通常画像' },
+          { kind: 'one', from: [3, 2], media: 'legacy.emf', name: '旧図形' },
+        ],
+      }],
+      {
+        'ok.png': pngOf(2, 2, [20, 30, 40]),
+        'legacy.emf': emfOf(),
+      },
+    ),
+  );
+
+  const result = await quiet([
+    'import',
+    source,
+    '--root', root,
+    '--draft', draft,
+    '--json',
+  ]);
+
+  assert.equal(result.code, 0, result.err);
+  const summary = JSON.parse(result.out);
+  assert.equal(summary.status, 'created-with-warnings');
+  assert.equal(summary.extractedImages, 1);
+  assert.equal(summary.imageProblems.length, 1);
+  assert.equal(summary.imageProblems[0].code, 'MMI_IMAGE_UNSUPPORTED_FORMAT');
+  assert.match(result.err, /warning: MMI_IMAGE_UNSUPPORTED_FORMAT/u);
+  assert.match(fs.readFileSync(draft, 'utf8'), /## 画像の注意/u);
 });
