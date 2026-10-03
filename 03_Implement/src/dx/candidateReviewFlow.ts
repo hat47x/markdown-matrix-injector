@@ -8,9 +8,12 @@ import {
 import {
   availableCandidateReviewFacets,
   candidateReviewFacetFilter,
-  matchesCandidateReviewFacets,
   type CandidateReviewFacetSelection,
 } from '../application/candidateReviewFilter.js';
+import {
+  candidateReviewSessionKey,
+  remainingCandidateReviewItems,
+} from '../application/candidateReviewSession.js';
 import {
   discardUnrecordedImageExtraction,
   discardUnrecordedTableExtraction,
@@ -172,17 +175,6 @@ function reviewStateLabel(
   }
 }
 
-function reviewKey(candidate: Candidate): string {
-  return [
-    candidate.kind,
-    candidate.locator.source,
-    candidate.locator.sheet ?? '',
-    placeOf(candidate),
-    candidate.fingerprint.representation,
-    candidate.fingerprint.digest,
-  ].join('\u0000');
-}
-
 function epistemicDetail(candidate: Candidate): string {
   const inferred = candidate.claims.filter(
     (claim) => claim.status === 'inferred',
@@ -308,7 +300,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
   }
 
   const byKey = new Map(
-    inventory.items.map((item) => [reviewKey(item.candidate), item]),
+    inventory.items.map((item) => [candidateReviewSessionKey(item.candidate), item]),
   );
   let ledger: ReturnType<typeof readLedger>;
   let reviewDecisions: ReturnType<typeof readReviewDecisions>;
@@ -330,7 +322,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
   });
   if (!filterChoice) return;
 
-  const view = candidateReviewView(
+  const initialView = candidateReviewView(
     inventory.items.map((item) => item.candidate),
     ledger,
     reviewDecisions,
@@ -339,7 +331,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     sourcePath,
     filterChoice.value,
   );
-  if (view.length === 0) {
+  if (initialView.length === 0) {
     await vscode.window.showInformationMessage(
       'MMI: 条件に合うCandidateはありません。',
     );
@@ -347,7 +339,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
   }
 
   const facetOptions = availableCandidateReviewFacets(
-    view.map((item) => item.candidate),
+    initialView.map((item) => item.candidate),
   ).map(facetQuickPickItem);
   const selectedFacets = await vscode.window.showQuickPick(
     facetOptions,
@@ -364,19 +356,52 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
   const facetFilter = candidateReviewFacetFilter(
     selectedFacets.map((item) => item.facet),
   );
-  const filteredView = view.filter((item) =>
-    matchesCandidateReviewFacets(item.candidate, facetFilter),
-  );
-  if (filteredView.length === 0) {
-    await vscode.window.showInformationMessage(
-      'MMI: 絞り込み条件に合うCandidateはありません。',
-    );
-    return;
-  }
+  const processedKeys = new Set<string>();
+  const sessionMarkdownEditor =
+    vscode.window.activeTextEditor?.document.languageId === 'markdown'
+    && vscode.window.activeTextEditor.document.uri.scheme === 'file'
+      ? vscode.window.activeTextEditor
+      : undefined;
 
-  const picked = await vscode.window.showQuickPick(
-    filteredView.flatMap((item) => {
-      const source = byKey.get(reviewKey(item.candidate));
+  for (;;) {
+    try {
+      ledger = readLedger(ledgerPath);
+      reviewDecisions = readReviewDecisions(reviewDecisionsPath);
+    } catch (error) {
+      await vscode.window.showErrorMessage(
+        `MMI: レビュー状態を再読み込みできません: ${error instanceof Error
+          ? error.message
+          : String(error)}`,
+      );
+      return;
+    }
+
+    const view = candidateReviewView(
+      inventory.items.map((item) => item.candidate),
+      ledger,
+      reviewDecisions,
+      ledgerPath,
+      reviewDecisionsPath,
+      sourcePath,
+      filterChoice.value,
+    );
+    const filteredView = remainingCandidateReviewItems(
+      view,
+      facetFilter,
+      processedKeys,
+    );
+    if (filteredView.length === 0) {
+      await vscode.window.showInformationMessage(
+        processedKeys.size > 0
+          ? 'MMI: この条件のCandidateレビューが完了しました。'
+          : 'MMI: 絞り込み条件に合うCandidateはありません。',
+      );
+      return;
+    }
+
+    const picked = await vscode.window.showQuickPick(
+      filteredView.flatMap((item) => {
+      const source = byKey.get(candidateReviewSessionKey(item.candidate));
       return source
         ? [
             quickPickItem(
@@ -390,15 +415,15 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
           ]
         : [];
     }),
-    {
-      title: 'MMI: Candidateレビュー',
-      placeHolder:
-        `取り込むCandidateを選択（${filteredView.length}/${view.length}件。閉じても編集は継続できます）`,
-      matchOnDescription: true,
-      matchOnDetail: true,
-    },
-  );
-  if (!picked) return;
+      {
+        title: 'MMI: Candidateレビュー',
+        placeHolder:
+          `Candidateを選択（残り${filteredView.length}件。Escでレビューを終了）`,
+        matchOnDescription: true,
+        matchOnDetail: true,
+      },
+    );
+    if (!picked) return;
 
   if (
     picked.source.kind === 'image'
@@ -407,7 +432,8 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     await vscode.window.showWarningMessage(
       `MMI: ${picked.source.image.format} はMarkdownへ取り込めません。Candidateは確認のみです。`,
     );
-    return;
+    processedKeys.add(candidateReviewSessionKey(picked.source.candidate));
+    continue;
   }
 
   const action = await vscode.window.showQuickPick(
@@ -468,7 +494,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
       placeHolder: '原本は変更しません',
     },
   );
-  if (!action) return;
+  if (!action) continue;
 
   if (action.value === 'reject' || action.value === 'defer') {
     try {
@@ -499,7 +525,8 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
         ? 'MMI: Candidateを却下しました。内容または判断根拠が変われば再表示されます。'
         : 'MMI: Candidateを保留しました。通常レビューから外れますが、すべて表示から解除できます。',
     );
-    return;
+    processedKeys.add(candidateReviewSessionKey(picked.source.candidate));
+    continue;
   }
 
   if (action.value === 'clear-decision') {
@@ -519,10 +546,10 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     await vscode.window.showInformationMessage(
       'MMI: Candidateのレビュー状態を解除しました。',
     );
-    return;
+    continue;
   }
 
-  const active = vscode.window.activeTextEditor;
+  const active = sessionMarkdownEditor;
   const markdownDocument =
     active?.document.languageId === 'markdown'
       ? active.document.uri.fsPath
@@ -566,7 +593,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     });
     if (editedAltText === undefined) {
       discardUnrecordedImageExtraction(draftImage);
-      return;
+      continue;
     }
 
     const finalized = finalizeReviewedImageExtraction({
@@ -630,7 +657,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     );
     if (reviewAction !== '修正内容を採用') {
       discardUnrecordedTableExtraction(draft.extracted);
-      return;
+      continue;
     }
 
     const finalized = finalizeReviewedTableExtraction({
@@ -743,15 +770,23 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
         active.document,
         active.viewColumn,
       );
-      await targetEditor.edit((edit) =>
-        edit.insert(
-          active.selection.active,
-          `${extractedMarkdown}\n`,
-        ));
+      const insertAt = targetEditor.selection.active;
+      const insertedText = `${extractedMarkdown}\n`;
+      const edited = await targetEditor.edit((edit) =>
+        edit.insert(insertAt, insertedText));
+      if (edited) {
+        const endOffset =
+          targetEditor.document.offsetAt(insertAt) + insertedText.length;
+        const end = targetEditor.document.positionAt(endOffset);
+        targetEditor.selection = new vscode.Selection(end, end);
+        targetEditor.revealRange(new vscode.Range(end, end));
+      }
     }
   }
 
   await vscode.window.showInformationMessage(
     `MMI: ${path.relative(root, extractedFile)} に取り込み、mmi-ledger.jsonへ記録しました。`,
   );
+  processedKeys.add(candidateReviewSessionKey(picked.source.candidate));
+  }
 }
