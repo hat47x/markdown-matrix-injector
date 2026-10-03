@@ -92,7 +92,7 @@ Candidate全体は`observed + deterministic + M0`とする。object keyはfinger
 
 セル座標を持たないため、occurrence identityには`locator.structuralPath`を使う。import ledgerでは`path:<JSON Pointer>`として記録し、content fingerprintとは分ける。これにより、同じ場所のsubtreeが変われば`changed`となり、別の場所に同じsubtreeがあっても自動的に同じ採用とは扱わない。
 
-Markdownへの変換はSource Adapterに含めない。`extractJsonTree()`が選択したsubtreeを`json-nested-list-v1`として投影し、content-addressedなMarkdown assetと`mmi:extracted-tree` provenanceを生成する。JSON文字列中のMarkdown記号はエスケープし、表示時に原文の文字が装飾やリンクへ変わらないようにする。採用後は既存ledgerとdetach freshnessへ接続する。
+Markdownへの変換はSource Adapterに含めない。`extractJsonTree()`が選択したsubtreeを`json-nested-list-v1`として投影し、content-addressedなMarkdown assetと`mmi:extracted-tree` provenanceを生成する。JSON文字列中のMarkdown記号はエスケープし、表示時に原文の文字が装飾やリンクへ変わらないようにする。採用後は既存ledgerとdetach freshnessへ接続する。VS CodeレビューUIも同じCandidateと`extractJsonTree()`を利用し、Tree専用の採用状態は作らない。UIからの採用では表示時のCandidate fingerprintを`expectedCandidateFingerprint`として渡し、同じJSON Pointerでもsubtreeが変わっていれば再レビューを要求する。
 
 ### fingerprint（暫定）
 
