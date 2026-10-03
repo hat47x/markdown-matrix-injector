@@ -6,7 +6,13 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { classify, readLedger } from '../src/core/importLedger.js';
+import {
+  recordDeferredDecision,
+  recordRejectedDecision,
+} from '../src/core/candidateReviewDecisions.js';
+import { buildCandidateReviewInventory } from '../src/application/candidateReviewInventory.js';
 import { inspectSource } from '../src/cli/mmi.js';
+import { extractImages } from '../src/cli/extract.js';
 import { loadWorkbookFromBytes } from '../src/core/workbookLoader.js';
 import {
   materializeWorkbookImport,
@@ -390,4 +396,262 @@ test('prepared workbook data must be explicitly bound to the current source snap
     /MMI_IMPORT_PREPARED_SOURCE_STALE/u,
   );
   assert.equal(fs.existsSync(draftPath), false);
+});
+
+
+test('bulk import preserves exact rejected and deferred image decisions', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-review-gate-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  const draftPath = path.join(root, 'draft.md');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const decisionPath = path.join(root, 'mmi-review-decisions.json');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+
+  const inventory = buildCandidateReviewInventory(sourcePath, './design.xlsx');
+  const images = inventory.items.filter((item) => item.kind === 'image');
+  assert.equal(images.length, 4);
+  recordRejectedDecision(
+    decisionPath,
+    sourcePath,
+    images[0].candidate,
+    'test rejection',
+  );
+  recordDeferredDecision(
+    decisionPath,
+    sourcePath,
+    images[1].candidate,
+    'test defer',
+  );
+
+  const result = writeWorkbookImportDraft({
+    sourcePath,
+    draftPath,
+    ledgerPath,
+    reviewDecisionsPath: decisionPath,
+  });
+
+  assert.deepEqual(
+    result.reviewSkippedImages.map((item) => [item.ordinal, item.code]),
+    [
+      [1, 'MMI_IMPORT_REVIEW_REJECTED'],
+      [2, 'MMI_IMPORT_REVIEW_DEFERRED'],
+    ],
+  );
+  assert.deepEqual(
+    result.extractedImages.map((item) => item.ordinal),
+    [3, 4],
+  );
+  assert.equal(readLedger(ledgerPath).entries.length, 2);
+  assert.match(result.markdown, /## 既存のレビュー判断/u);
+  assert.match(result.markdown, /却下 \[画面一覧\] 「ログイン画面」/u);
+  assert.match(result.markdown, /保留 \[画面一覧\] 「メニュー画面」/u);
+});
+
+test('changed reviewed image basis returns to bulk import instead of inheriting rejection', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-review-refresh-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  const draftPath = path.join(root, 'draft.md');
+  const decisionPath = path.join(root, 'mmi-review-decisions.json');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+
+  const inventory = buildCandidateReviewInventory(sourcePath, './design.xlsx');
+  const image = inventory.items.find(
+    (item) => item.kind === 'image' && item.image.ordinal === 1,
+  );
+  assert.ok(image && image.kind === 'image');
+  recordRejectedDecision(
+    decisionPath,
+    sourcePath,
+    image.candidate,
+    'test rejection',
+  );
+
+  // Content bytes and occurrence stay the same, but the observed drawing-name
+  // Claim used by the old review decision changes.
+  fs.writeFileSync(
+    sourcePath,
+    screenDesignWorkbook({ loginName: 'ログイン画面（改名）' }).bytes,
+  );
+
+  const result = writeWorkbookImportDraft({
+    sourcePath,
+    draftPath,
+    reviewDecisionsPath: decisionPath,
+  });
+
+  assert.equal(result.reviewSkippedImages.length, 0);
+  assert.deepEqual(
+    result.extractedImages.map((item) => item.ordinal),
+    [1, 2, 3, 4],
+  );
+});
+
+test('malformed review decisions fail before bulk-import side effects', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-review-invalid-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  const draftPath = path.join(root, 'draft.md');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const decisionPath = path.join(root, 'mmi-review-decisions.json');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+  fs.writeFileSync(decisionPath, '{"schema":"wrong","entries":[]}');
+
+  assert.throws(
+    () => writeWorkbookImportDraft({
+      sourcePath,
+      draftPath,
+      ledgerPath,
+      reviewDecisionsPath: decisionPath,
+    }),
+    /is not an mmi\.review-decisions\/v1 file/u,
+  );
+  assert.equal(fs.existsSync(draftPath), false);
+  assert.equal(fs.existsSync(ledgerPath), false);
+  assert.equal(
+    fs.existsSync(path.join(root, 'assets', 'design')),
+    false,
+  );
+});
+
+test('a newer exact rejection overrides older adopted history', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-review-newer-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  const firstDraft = path.join(root, 'first.md');
+  const secondDraft = path.join(root, 'second.md');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const decisionPath = path.join(root, 'mmi-review-decisions.json');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+
+  const first = writeWorkbookImportDraft({
+    sourcePath,
+    draftPath: firstDraft,
+    ledgerPath,
+    reviewDecisionsPath: decisionPath,
+  });
+  assert.equal(first.extractedImages.length, 4);
+
+  // Make ledger time unambiguously older than the later human decision.
+  const ledger = JSON.parse(fs.readFileSync(ledgerPath, 'utf8'));
+  for (const entry of ledger.entries) entry.reviewedAt = '2000-01-01T00:00:00.000Z';
+  fs.writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2) + '\n');
+
+  const inventory = buildCandidateReviewInventory(sourcePath, './design.xlsx');
+  const image = inventory.items.find(
+    (item) => item.kind === 'image' && item.image.ordinal === 1,
+  );
+  assert.ok(image && image.kind === 'image');
+  recordRejectedDecision(
+    decisionPath,
+    sourcePath,
+    image.candidate,
+    'rejected after earlier adoption',
+  );
+
+  const second = writeWorkbookImportDraft({
+    sourcePath,
+    draftPath: secondDraft,
+    ledgerPath,
+    reviewDecisionsPath: decisionPath,
+  });
+  assert.deepEqual(
+    second.reviewSkippedImages.map((item) => [item.ordinal, item.decision]),
+    [[1, 'rejected']],
+  );
+  assert.deepEqual(
+    second.extractedImages.map((item) => item.ordinal),
+    [2, 3, 4],
+  );
+});
+
+test('a later explicit extraction supersedes an older rejection', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-review-later-adopt-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  const draftPath = path.join(root, 'draft.md');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const decisionPath = path.join(root, 'mmi-review-decisions.json');
+  const outDir = path.join(root, 'manual-assets');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+
+  const inventory = buildCandidateReviewInventory(sourcePath, './design.xlsx');
+  const image = inventory.items.find(
+    (item) => item.kind === 'image' && item.image.ordinal === 1,
+  );
+  assert.ok(image && image.kind === 'image');
+  recordRejectedDecision(
+    decisionPath,
+    sourcePath,
+    image.candidate,
+    'old rejection',
+  );
+  const decisions = JSON.parse(fs.readFileSync(decisionPath, 'utf8'));
+  decisions.entries[0].reviewedAt = '2000-01-01T00:00:00.000Z';
+  fs.writeFileSync(decisionPath, JSON.stringify(decisions, null, 2) + '\n');
+
+  const adopted = extractImages({
+    sourcePath,
+    selection: '1',
+    outDir,
+    ledgerPath,
+    basis: 'manual adoption after rejection',
+  });
+  assert.equal(adopted.problems.length, 0);
+  assert.equal(adopted.extracted.length, 1);
+
+  const result = writeWorkbookImportDraft({
+    sourcePath,
+    draftPath,
+    ledgerPath,
+    reviewDecisionsPath: decisionPath,
+  });
+
+  assert.equal(result.reviewSkippedImages.length, 0);
+  assert.deepEqual(
+    result.extractedImages.map((item) => item.ordinal),
+    [1, 2, 3, 4],
+  );
+});
+
+test('when every image is rejected or deferred, bulk import writes no image assets or ledger', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-review-all-skipped-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  const draftPath = path.join(root, 'draft.md');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const decisionPath = path.join(root, 'mmi-review-decisions.json');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+
+  const inventory = buildCandidateReviewInventory(sourcePath, './design.xlsx');
+  const images = inventory.items.filter((item) => item.kind === 'image');
+  images.forEach((item, index) => {
+    if (index % 2 === 0) {
+      recordRejectedDecision(
+        decisionPath,
+        sourcePath,
+        item.candidate,
+        'test rejection',
+      );
+    } else {
+      recordDeferredDecision(
+        decisionPath,
+        sourcePath,
+        item.candidate,
+        'test defer',
+      );
+    }
+  });
+
+  const result = writeWorkbookImportDraft({
+    sourcePath,
+    draftPath,
+    ledgerPath,
+    reviewDecisionsPath: decisionPath,
+  });
+
+  assert.equal(result.reviewSkippedImages.length, 4);
+  assert.equal(result.extractedImages.length, 0);
+  assert.equal(fs.existsSync(result.imageOutDir), false);
+  assert.equal(fs.existsSync(ledgerPath), false);
+  assert.equal(fs.existsSync(draftPath), true);
+  assert.match(
+    result.markdown,
+    /既存のレビュー判断により取り込まなかった画像: 4件/u,
+  );
 });
