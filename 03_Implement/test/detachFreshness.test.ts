@@ -6,7 +6,7 @@ import path from 'node:path';
 
 import { checkExtractedProvenanceFreshness } from '../src/application/detachFreshness.js';
 import { extractImages } from '../src/cli/extract.js';
-import { extractJsonTree } from '../src/cli/extractTree.js';
+import { extractJsonTree, extractXmlTree } from '../src/cli/extractTree.js';
 import { main } from '../src/cli/mmi.js';
 import { pngOf, screenDesignWorkbook } from './helpers/buildXlsxWithImages.js';
 
@@ -33,6 +33,33 @@ function adoptedTreeWorkspace() {
   const extracted = extractJsonTree({
     sourcePath: source,
     pointer: '/service',
+    outDir: path.join(docs, 'assets'),
+    fromDocument: doc,
+    ledgerPath: ledger,
+  });
+  assert.deepEqual(extracted.problems, []);
+  assert.ok(extracted.extracted);
+  fs.writeFileSync(doc, `# Spec\n\n${extracted.extracted.markdown}\n`);
+  return { root, source, doc, ledger };
+}
+
+function adoptedXmlTreeWorkspace() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-detach-xml-tree-'));
+  const data = path.join(root, 'data');
+  const docs = path.join(root, 'docs');
+  fs.mkdirSync(data);
+  fs.mkdirSync(docs);
+  const source = path.join(data, 'service.xml');
+  const doc = path.join(docs, 'spec.md');
+  const ledger = path.join(root, 'mmi-ledger.json');
+  fs.writeFileSync(
+    source,
+    '<catalog><service id="billing"><endpoint>/pay</endpoint></service><enabled>true</enabled></catalog>',
+  );
+
+  const extracted = extractXmlTree({
+    sourcePath: source,
+    structuralPath: '/catalog[1]/service[1]',
     outDir: path.join(docs, 'assets'),
     fromDocument: doc,
     ledgerPath: ledger,
@@ -220,4 +247,46 @@ test('detach freshness rejects an adopted JSON Tree Candidate when its subtree c
   assert.equal(result.problems[0].code, 'MMI_DETACH_EXTRACTED_STALE');
   assert.equal(result.problems[0].ledgerState, 'changed');
   assert.equal(result.problems[0].place, 'path:/service');
+});
+
+
+test('detach freshness tracks an adopted XML Tree Candidate without treating sibling edits as stale', () => {
+  const { root, source, doc, ledger } = adoptedXmlTreeWorkspace();
+
+  const fresh = checkExtractedProvenanceFreshness({
+    markdownFilePath: doc,
+    workspaceRoot: root,
+    ledgerPath: ledger,
+  });
+  assert.deepEqual(fresh, { checked: 1, errors: 0, problems: [] });
+
+  fs.writeFileSync(
+    source,
+    '<catalog><service id="billing"><endpoint>/pay</endpoint></service><enabled>false</enabled></catalog>',
+  );
+  const unrelated = checkExtractedProvenanceFreshness({
+    markdownFilePath: doc,
+    workspaceRoot: root,
+    ledgerPath: ledger,
+  });
+  assert.deepEqual(unrelated, { checked: 1, errors: 0, problems: [] });
+});
+
+test('detach freshness rejects an adopted XML Tree Candidate when its subtree changes', () => {
+  const { root, source, doc, ledger } = adoptedXmlTreeWorkspace();
+  fs.writeFileSync(
+    source,
+    '<catalog><service id="payments"><endpoint>/pay</endpoint></service><enabled>true</enabled></catalog>',
+  );
+
+  const result = checkExtractedProvenanceFreshness({
+    markdownFilePath: doc,
+    workspaceRoot: root,
+    ledgerPath: ledger,
+  });
+
+  assert.equal(result.errors, 1);
+  assert.equal(result.problems[0].code, 'MMI_DETACH_EXTRACTED_STALE');
+  assert.equal(result.problems[0].ledgerState, 'changed');
+  assert.equal(result.problems[0].place, 'path:/catalog[1]/service[1]');
 });
