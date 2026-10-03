@@ -10,7 +10,6 @@ import {
   type JsonValue,
 } from '../adapters/jsonTreeAdapter.js';
 import { entryFor, recordEntries } from '../core/importLedger.js';
-import { readSourceFileIdentity } from '../core/sourceIdentity.js';
 
 export interface ExtractTreeOptions {
   sourcePath: string;
@@ -62,8 +61,12 @@ function objectEntries(value: { [key: string]: JsonValue }): [string, JsonValue]
     .map((key) => [key, value[key]]);
 }
 
+function escapeMarkdownInline(text: string): string {
+  return text.replace(/([\\`*_[\]{}()#+\-.!<>|])/gu, '\\$1');
+}
+
 function renderLabel(text: string): string {
-  return JSON.stringify(text);
+  return escapeMarkdownInline(JSON.stringify(text));
 }
 
 function renderNestedList(
@@ -88,7 +91,7 @@ function renderNestedList(
     ];
   }
   return [
-    `${indent}- ${label}: ${canonicalJsonValue(value)}`,
+    `${indent}- ${label}: ${escapeMarkdownInline(canonicalJsonValue(value))}`,
   ];
 }
 
@@ -123,7 +126,7 @@ export function extractJsonTree(
   }
 
   const sourceBytes = fs.readFileSync(options.sourcePath);
-  const sourceDigest = readSourceFileIdentity(options.sourcePath).digest;
+  const sourceDigest = sha256(sourceBytes);
   const documentDirectory = path.dirname(
     path.resolve(
       options.fromDocument ?? path.join(process.cwd(), 'x.md'),
