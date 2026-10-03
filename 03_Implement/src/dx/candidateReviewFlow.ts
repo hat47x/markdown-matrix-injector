@@ -465,6 +465,13 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
         value: 'extract' as const,
         description: '既存のextract経路で標準資産と台帳へ記録',
       },
+      ...(picked.source.kind === 'tree'
+        ? [{
+            label: '確認のみで次へ',
+            value: 'next' as const,
+            description: 'Treeを取り込まず、確認だけして次へ進む',
+          }]
+        : []),
       ...(picked.source.kind === 'table'
         ? [{
             label: '修正して取り込む',
@@ -517,6 +524,11 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     },
   );
   if (!action) continue;
+
+  if (action.value === 'next') {
+    processedKeys.add(candidateReviewSessionKey(picked.source.candidate));
+    continue;
+  }
 
   if (action.value === 'reject' || action.value === 'defer') {
     try {

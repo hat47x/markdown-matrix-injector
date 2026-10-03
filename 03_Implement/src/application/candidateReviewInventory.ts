@@ -9,7 +9,10 @@ import {
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import type { Candidate } from '../core/candidate.js';
-import { readSourceFileIdentity } from '../core/sourceIdentity.js';
+import {
+  createSourceIdentityFromBytes,
+  readSourceFileIdentity,
+} from '../core/sourceIdentity.js';
 import { loadWorkbook } from '../core/workbookLoader.js';
 
 export type CandidateReviewInventoryItem =
@@ -43,11 +46,12 @@ export function buildCandidateReviewInventory(
   sourcePath: string,
   sourceLabel: string,
 ): CandidateReviewInventory {
-  const sourceDigest = readSourceFileIdentity(sourcePath).digest;
-
   if (/\.json$/iu.test(sourcePath)) {
+    const sourceBytes = fs.readFileSync(sourcePath);
+    const sourceDigest =
+      createSourceIdentityFromBytes(sourceBytes).digest;
     const tree = readJsonTree(
-      fs.readFileSync(sourcePath, 'utf8'),
+      sourceBytes.toString('utf8'),
       sourceLabel,
       sourceDigest,
     );
@@ -64,6 +68,7 @@ export function buildCandidateReviewInventory(
     };
   }
 
+  const sourceDigest = readSourceFileIdentity(sourcePath).digest;
   const workbook = loadWorkbook({ absolutePath: sourcePath });
 
   const tableItems: CandidateReviewInventoryItem[] = Object.entries(

@@ -149,7 +149,7 @@ Markdownを開いた状態で右クリックすると「MMI: 参照を作成・�
 - 見出しが2段の表、縦に結合したセル、表の途中の空行や区切り行、見出しの列に揃っていないセルがあると、下書きに**注意**が出ます。揃っていないセルの値は表示されないため、番地を示します。
 - 「同じ書式」のシートと、近い書式との違い（「表『2. 画面項目』に列『初期値』があります」など）も示します。同じ書式のシートは同じ判断で取り込めます。
 - 候補は推定です。表の範囲や見出しが違う場合は、参照を直すか削除してください。画像の抽出と台帳への記録は、表の役割推定を確定扱いにするものではありません。
-- 表自体を通常Markdownとして取り込みたい場合は、コマンド「MMI: 取り込み候補を確認（表・画像・取込状態・出典）」から表を明示的に採用します。初回一括取り込みの既定では、表はLinkedのまま残します。表Candidateでは「修正して取り込む」も選べます。抽出されたMarkdown表を編集し、「修正内容を採用」を選ぶと、原本とCandidateの由来は変更せず、修正版を別のcontent-addressed assetとして保存します。台帳には`reviewState: modified`と修正版のoutput digestが残ります。レビュー中に元のCandidate自体が変わった場合は採用せず、レビューをやり直すよう求めます。画像Candidateでは「説明を修正して取り込む」を選ぶと、画像bytesを変えずにalt textだけを人手修正できます。採用前に現在のCandidateを再照合し、原本側の画像・位置・説明など判断根拠が変わっていれば採用せずレビューをやり直します。修正した場合は台帳に`reviewState: modified`、alt text、画像assetのoutput digestを記録します。
+- Candidateを後から確認する場合は、コマンド「MMI: 取り込み候補を確認」から表・画像・JSON Treeを同じレビュー画面で扱えます。source、取込状態、type/status/executionの絞り込みはセッション中保持され、採用・却下・保留などの後は次のCandidateへ進みます。Escで終了するまで1件ごとに条件を選び直す必要はありません。表Candidateでは抽出Markdownを修正採用でき、画像Candidateでは画像bytesを変えずalt textを修正採用できます。JSON TreeはRFC 6901 pathで選んだsubtreeをnested Markdownへ取り込みます。いずれも原本は変更しません。初回一括取り込みの既定では、表はLinkedのまま残します。
 
 ### 参照を確かめる・直す
 
@@ -219,7 +219,7 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 
 **取り込み台帳について。** 台帳は通常のJSONで、MMIを外しても読めます。セル位置や画像のanchorなどのoccurrence identityと、画像bytesや表内容のcontent fingerprintは分けて記録します。同じ画像bytesが別の場所にあっても、その場所を「取込済み」にはしません（`duplicate`）。同じ場所の内容が変わった場合は`changed`として再確認対象にします。内容fingerprintが同じでも、review時に根拠にしたClaim・evidence・methodが変わった場合は`stale`として示し、変わったClaim名を確認できます。別の場所へ移動した可能性があるCandidateは、同一content、同一sheet、object名、source-native object、近傍表などをlineage evidenceとして候補表示しますが、自動的に同一物とはみなしません。研究層の類似判定は完全一致・lineage evidenceとは別の証拠として扱います。`--json`ではCandidate自身が持つprovider別・scale別の値を`researchScores`として確認できます。別のoccurrenceとの比較結果は`--similarity-evidence <file>`で読み込んだsidecarから`similarityEvidence`として表示し、比較対象・provider/version・metric semanticsも一緒に保持します。異なるprovider/scale/namespaceの値を平均したり、scoreが高いという理由だけで`imported`・`duplicate`へ変更したり、`--unimported`から自動除外したりしません。
 
-**JSON Treeについて。** JSONのobject / arrayは原本に親子関係が明示されているため、MMIはそれを推測せず`observed + deterministic`なTree Candidateとして扱います。CLIの`inspect` / `extract`に加え、VS Codeの「取り込み候補を確認」からJSONファイルを選び、表・画像と同じ画面で採用・却下・保留できます。レビュー一覧を表示した後で選択したsubtreeが変わった場合は採用せず、レビューを開き直すよう求めます。対象外のJSON箇所だけが変わった場合は、その理由だけで採用を止めません。Treeの修正採用、汎用XML、インデント等からの推定Treeは未対応です。
+**JSON Treeについて。** JSONのobject / arrayは原本に親子関係が明示されているため、MMIはそれを推測せず`observed + deterministic`なTree Candidateとして扱います。CLIの`inspect` / `extract`に加え、VS Codeの「取り込み候補を確認」からJSONファイルを選び、表・画像と同じ画面で採用・却下・保留できます。レビュー一覧を表示した後で選択したsubtreeが変わった場合は、レビュー時fingerprintと一致しないため採用せず、レビューを開き直すよう求めます。対象外のJSON箇所だけが変わった場合は、その理由だけで採用を止めません。`inspect`・レビューinventory・`extract`・Detached freshness確認では、それぞれ1回読み込んだ同じbytesからsource digestとTree Candidateを作り、読み込み途中の変更で内容とidentityが食い違うことを避けます。Treeの修正採用、汎用XML、インデント等からの推定Treeは未対応です。
 
 **画像について。** Excelに画面ダンプなどを貼って設計を整理する書き方は、そのまま続けられます。`extract`は画像を取り出して参照できる形にするだけで、Excel側の画像は変わりません。Excelで画像を差し替えたり動かしたりしても、次に`inspect`を実行すれば現在の位置と内容が分かります。取り出せるのはPNG・JPEG・GIF・BMP・SVGです。EMF・WMF・TIFF、外部ファイルへのリンク、壊れた図形は、取り出さずに理由を表示します。`.xls`（旧形式）の画像は読めません。
 
@@ -297,7 +297,7 @@ VS Codeの「Markdown PDF」拡張からの直接出力は、今回の検証済�
 
 ## 対応範囲
 
-表示対象はExcel（XLSX/XLS）、UTF-8（BOM有無）またはCP932のCSV、TSV、XML Spreadsheet 2003です。補完や貼り付けの対象形式は表示対象より狭い場合があります。
+表示対象はExcel（XLSX/XLS）、UTF-8（BOM有無）またはCP932のCSV、TSV、XML Spreadsheet 2003です。JSONはMMI記法の表示対象ではありませんが、明示Tree Candidateとして`inspect`・`extract --tree`・VS Codeレビューの対象です。補完や貼り付けの対象形式は表示対象より狭い場合があります。
 数式を再計算する機能ではなく、保存済みの値を使います。数式は元アプリで再計算・保存してから参照してください。
 画像・図形・マクロ・Excelの詳細レイアウトは再現しません。
 

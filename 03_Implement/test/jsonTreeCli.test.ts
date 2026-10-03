@@ -125,60 +125,6 @@ test('tree projection escapes Markdown syntax inside JSON keys and scalar values
   assert.match(result.extracted.markdown, /- "html": "\\<b\\>not markup\\<\/b\\>"/u);
 });
 
-test('review-bound tree extraction fails closed when the displayed subtree changed', () => {
-  const f = workspace();
-  const before = inspectSource(f.source, 0);
-  const reviewed = before.candidates.find(
-    (candidate) =>
-      candidate.kind === 'tree'
-      && candidate.locator.structuralPath === '/service',
-  );
-  assert.ok(reviewed);
-
-  const changed = JSON.parse(fs.readFileSync(f.source, 'utf8'));
-  changed.service.name = 'payments';
-  fs.writeFileSync(f.source, JSON.stringify(changed, null, 2));
-
-  const result = extractJsonTree({
-    sourcePath: f.source,
-    pointer: '/service',
-    outDir: f.outDir,
-    ledgerPath: f.ledgerPath,
-    expectedCandidateFingerprint: reviewed.fingerprint.digest,
-  });
-
-  assert.equal(result.extracted, undefined);
-  assert.equal(result.problems[0]?.code, 'MMI_TREE_REVIEW_STALE');
-  assert.equal(fs.existsSync(f.outDir), false);
-  assert.equal(fs.existsSync(f.ledgerPath), false);
-});
-
-test('review-bound tree extraction tolerates unrelated source changes when the subtree is unchanged', () => {
-  const f = workspace();
-  const before = inspectSource(f.source, 0);
-  const reviewed = before.candidates.find(
-    (candidate) =>
-      candidate.kind === 'tree'
-      && candidate.locator.structuralPath === '/service',
-  );
-  assert.ok(reviewed);
-
-  const changed = JSON.parse(fs.readFileSync(f.source, 'utf8'));
-  changed.enabled = false;
-  fs.writeFileSync(f.source, JSON.stringify(changed, null, 2));
-
-  const result = extractJsonTree({
-    sourcePath: f.source,
-    pointer: '/service',
-    outDir: f.outDir,
-    ledgerPath: f.ledgerPath,
-    expectedCandidateFingerprint: reviewed.fingerprint.digest,
-  });
-
-  assert.deepEqual(result.problems, []);
-  assert.ok(result.extracted);
-});
-
 test('CLI inspect and extract support JSON Pointer selection while scalar paths fail closed', async () => {
   const f = workspace();
   const inspected = await captureMain([
@@ -225,4 +171,70 @@ test('CLI inspect and extract support JSON Pointer selection while scalar paths 
   ]);
   assert.equal(scalar.code, 1);
   assert.match(scalar.error, /MMI_TREE_CANDIDATE_NOT_FOUND/u);
+});
+
+
+test('review-bound Tree extraction rejects a changed Candidate', () => {
+  const f = workspace();
+  const reviewed = inspectSource(f.source, 0).candidates.find(
+    (candidate) =>
+      candidate.kind === 'tree'
+      && candidate.locator.structuralPath === '/service',
+  );
+  assert.ok(reviewed);
+
+  fs.writeFileSync(
+    f.source,
+    JSON.stringify({
+      service: {
+        name: 'billing-v2',
+        endpoints: [
+          { path: '/pay', method: 'POST' },
+          { path: '/refund', method: 'POST' },
+        ],
+      },
+      enabled: true,
+    }, null, 2),
+  );
+
+  const result = extractJsonTree({
+    sourcePath: f.source,
+    pointer: '/service',
+    outDir: f.outDir,
+    ledgerPath: f.ledgerPath,
+    expectedCandidateFingerprint: reviewed.fingerprint.digest,
+  });
+
+  assert.equal(result.extracted, undefined);
+  assert.deepEqual(
+    result.problems.map((problem) => problem.code),
+    ['MMI_TREE_CANDIDATE_CHANGED'],
+  );
+  assert.equal(fs.existsSync(f.outDir), false);
+  assert.equal(fs.existsSync(f.ledgerPath), false);
+});
+
+test('review-bound Tree extraction tolerates unrelated source changes when the reviewed subtree is unchanged', () => {
+  const f = workspace();
+  const reviewed = inspectSource(f.source, 0).candidates.find(
+    (candidate) =>
+      candidate.kind === 'tree'
+      && candidate.locator.structuralPath === '/service',
+  );
+  assert.ok(reviewed);
+
+  const changed = JSON.parse(fs.readFileSync(f.source, 'utf8'));
+  changed.enabled = false;
+  fs.writeFileSync(f.source, JSON.stringify(changed, null, 2));
+
+  const result = extractJsonTree({
+    sourcePath: f.source,
+    pointer: '/service',
+    outDir: f.outDir,
+    ledgerPath: f.ledgerPath,
+    expectedCandidateFingerprint: reviewed.fingerprint.digest,
+  });
+
+  assert.deepEqual(result.problems, []);
+  assert.ok(result.extracted);
 });
