@@ -15,7 +15,10 @@ import {
   type XmlElementNode,
 } from '../adapters/xmlTreeAdapter.js';
 import { entryFor, recordEntries } from '../core/importLedger.js';
-import { isXmlSpreadsheet2003 } from '../core/xmlFormat.js';
+import {
+  decodeGenericXmlUtf8,
+  isXmlSpreadsheet2003,
+} from '../core/xmlFormat.js';
 
 export interface ExtractTreeOptions {
   sourcePath: string;
@@ -305,12 +308,23 @@ export function extractXmlTree(
   }
 
   const sourceBytes = fs.readFileSync(options.sourcePath);
-  const xml = sourceBytes.toString('utf8');
-  if (isXmlSpreadsheet2003(xml)) {
+  const classificationText = sourceBytes.toString('utf8');
+  if (isXmlSpreadsheet2003(classificationText)) {
     result.problems.push({
       code: 'MMI_TREE_XML_SPREADSHEET_TABLE_SOURCE',
       message:
         'XML Spreadsheet 2003 remains a workbook/table source; inspect and extract its Table Candidates instead',
+    });
+    return result;
+  }
+
+  let xml: string;
+  try {
+    xml = decodeGenericXmlUtf8(sourceBytes);
+  } catch (error) {
+    result.problems.push({
+      code: 'MMI_TREE_XML_INVALID',
+      message: error instanceof Error ? error.message : String(error),
     });
     return result;
   }

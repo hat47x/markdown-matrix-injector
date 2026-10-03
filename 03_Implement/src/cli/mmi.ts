@@ -48,7 +48,10 @@ import {
 } from '../core/sourceIdentity.js';
 import { sliceRegion } from '../core/tableGeometry.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
-import { isXmlSpreadsheet2003 } from '../core/xmlFormat.js';
+import {
+  decodeGenericXmlUtf8,
+  isXmlSpreadsheet2003,
+} from '../core/xmlFormat.js';
 import {
   createAiHandoffPackage,
   parseAiHandoffPackage,
@@ -862,8 +865,9 @@ export function inspectSource(absolutePath: string, sampleRows: number, fromDocu
 
   if (/\.xml$/iu.test(absolutePath)) {
     const sourceBytes = fs.readFileSync(absolutePath);
-    const xml = sourceBytes.toString('utf8');
-    if (!isXmlSpreadsheet2003(xml)) {
+    const classificationText = sourceBytes.toString('utf8');
+    if (!isXmlSpreadsheet2003(classificationText)) {
+      const xml = decodeGenericXmlUtf8(sourceBytes);
       const sourceDigest =
         createSourceIdentityFromBytes(sourceBytes).digest;
       const tree = readXmlTree(xml, relative, sourceDigest);
