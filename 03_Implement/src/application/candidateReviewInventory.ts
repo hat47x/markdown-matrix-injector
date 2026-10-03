@@ -15,7 +15,10 @@ import {
   readSourceFileIdentity,
 } from '../core/sourceIdentity.js';
 import { loadWorkbook } from '../core/workbookLoader.js';
-import { isXmlSpreadsheet2003 } from '../core/xmlFormat.js';
+import {
+  decodeGenericXmlUtf8,
+  isXmlSpreadsheet2003,
+} from '../core/xmlFormat.js';
 
 export type CandidateReviewInventoryItem =
   | {
@@ -74,8 +77,9 @@ export function buildCandidateReviewInventory(
 
   if (/\.xml$/iu.test(sourcePath)) {
     const sourceBytes = fs.readFileSync(sourcePath);
-    const xml = sourceBytes.toString('utf8');
-    if (!isXmlSpreadsheet2003(xml)) {
+    const classificationText = sourceBytes.toString('utf8');
+    if (!isXmlSpreadsheet2003(classificationText)) {
+      const xml = decodeGenericXmlUtf8(sourceBytes);
       const sourceDigest =
         createSourceIdentityFromBytes(sourceBytes).digest;
       const tree = readXmlTree(xml, sourceLabel, sourceDigest);

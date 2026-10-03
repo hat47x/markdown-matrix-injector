@@ -286,3 +286,92 @@ test('CLI inspect/extract supports XML paths while XML Spreadsheet 2003 stays on
     false,
   );
 });
+
+
+test('generic XML Tree enforces namespace well-formedness instead of accepting prefix-shaped text', () => {
+  const f = workspace();
+  fs.writeFileSync(
+    f.source,
+    '<p:service><p:name>billing</p:name></p:service>',
+  );
+  assert.throws(
+    () => inspectSource(f.source, 0),
+    /unbound namespace prefix/u,
+  );
+
+  fs.writeFileSync(
+    f.source,
+    '<service xmlns:a="urn:test" xmlns:b="urn:test" a:id="1" b:id="2"/>',
+  );
+  assert.throws(
+    () => inspectSource(f.source, 0),
+    /duplicate attribute/u,
+  );
+});
+
+test('generic XML Tree preserves qualified namespaces and mixed content', () => {
+  const f = workspace();
+  fs.writeFileSync(
+    f.source,
+    [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<svc:service xmlns:svc="urn:service" svc:id="billing">',
+      'before<svc:name>Billing &amp; Payments</svc:name><![CDATA[after<raw>]]>',
+      '</svc:service>',
+    ].join(''),
+  );
+
+  const inspected = inspectSource(f.source, 0);
+  assert.deepEqual(
+    inspected.trees?.map((tree) => tree.pointer),
+    [
+      '/svc:service[1]',
+      '/svc:service[1]/svc:name[1]',
+    ],
+  );
+  const root = inspected.candidates[0];
+  assert.deepEqual(
+    root.claims.find((claim) => claim.aspect === 'text')?.value,
+    ['before', 'after<raw>'],
+  );
+  const attributes = root.claims.find(
+    (claim) => claim.aspect === 'attributes',
+  )?.value;
+  assert.ok(Array.isArray(attributes));
+  assert.ok(attributes.includes('@svc:id="billing"'));
+  assert.ok(attributes.includes('@xmlns:svc="urn:service"'));
+});
+
+test('generic XML Tree rejects invalid character references and non-UTF-8 declarations', () => {
+  const f = workspace();
+  fs.writeFileSync(f.source, '<service>&#0;</service>');
+  assert.throws(
+    () => inspectSource(f.source, 0),
+    /character|entity|XML/u,
+  );
+
+  fs.writeFileSync(
+    f.source,
+    '<?xml version="1.0" encoding="Shift_JIS"?><service/>',
+  );
+  assert.throws(
+    () => inspectSource(f.source, 0),
+    /must declare UTF-8/u,
+  );
+});
+
+test('generic XML Tree rejects byte sequences that are not valid UTF-8', () => {
+  const f = workspace();
+  fs.writeFileSync(
+    f.source,
+    Buffer.from([
+      0x3c, 0x73, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x3e,
+      0x80,
+      0x3c, 0x2f, 0x73, 0x65, 0x72, 0x76, 0x69, 0x63, 0x65, 0x3e,
+    ]),
+  );
+  assert.throws(
+    () => inspectSource(f.source, 0),
+    /valid UTF-8/u,
+  );
+});
