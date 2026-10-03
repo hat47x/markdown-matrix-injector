@@ -86,7 +86,7 @@ export interface ExcelImage {
 export interface ImageReadResult {
   images: ExcelImage[];
   diagnostics: ImageDiagnostic[];
-  /** Drawing objects seen but not extracted here (shapes, connectors, charts): recorded, not interpreted. */
+  /** Drawing objects seen but not extracted here: recorded, not interpreted. `charts` is the legacy graphicFrame count and may also include diagrams. */
   skipped: { shapes: number; charts: number };
 }
 
