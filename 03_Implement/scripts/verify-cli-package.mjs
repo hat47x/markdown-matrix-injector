@@ -71,6 +71,15 @@ export function verifyCliPackage(tarballPath) {
       },
     }, null, 2) + '\n',
   );
+  fs.writeFileSync(
+    path.join(workspace, 'service.xml'),
+    [
+      '<?xml version="1.0" encoding="UTF-8"?>',
+      '<svc:service xmlns:svc="urn:service" id="billing">',
+      '<svc:endpoint method="POST">/pay</svc:endpoint>',
+      '</svc:service>',
+    ].join(''),
+  );
 
   const help = run(bin, ['--help'], workspace);
   const version = run(bin, ['--version'], workspace);
@@ -109,6 +118,26 @@ export function verifyCliPackage(tarballPath) {
       '/service',
       '--out-dir',
       'tree-assets',
+      '--root',
+      '.',
+      '--json',
+    ],
+    workspace,
+  );
+  const xmlTreeInspect = run(
+    bin,
+    ['inspect', 'service.xml', '--root', '.', '--json'],
+    workspace,
+  );
+  const xmlTreeExtract = run(
+    bin,
+    [
+      'extract',
+      'service.xml',
+      '--tree',
+      '/svc:service[1]/svc:endpoint[1]',
+      '--out-dir',
+      'xml-tree-assets',
       '--root',
       '.',
       '--json',
@@ -208,6 +237,41 @@ export function verifyCliPackage(tarballPath) {
       `mmi extract JSON Tree failed:\n${treeExtract.stderr || treeExtract.stdout}`,
     );
   }
+  let inspectedXmlTree;
+  let extractedXmlTree;
+  try {
+    inspectedXmlTree = JSON.parse(xmlTreeInspect.stdout);
+    extractedXmlTree = JSON.parse(xmlTreeExtract.stdout);
+  } catch {
+    throw new Error(
+      `mmi XML Tree smoke returned invalid JSON:\n${xmlTreeInspect.stderr || xmlTreeInspect.stdout}\n${xmlTreeExtract.stderr || xmlTreeExtract.stdout}`,
+    );
+  }
+  if (
+    xmlTreeInspect.status !== 0
+    || !inspectedXmlTree.candidates?.some(
+      (candidate) =>
+        candidate.kind === 'tree'
+        && candidate.locator?.structuralPath
+          === '/svc:service[1]/svc:endpoint[1]',
+    )
+  ) {
+    throw new Error(
+      `mmi inspect XML Tree failed:\n${xmlTreeInspect.stderr || xmlTreeInspect.stdout}`,
+    );
+  }
+  if (
+    xmlTreeExtract.status !== 0
+    || extractedXmlTree.extracted?.pointer
+      !== '/svc:service[1]/svc:endpoint[1]'
+    || !extractedXmlTree.extracted?.file
+    || !fs.existsSync(extractedXmlTree.extracted.file)
+  ) {
+    throw new Error(
+      `mmi extract XML Tree failed:\n${xmlTreeExtract.stderr || xmlTreeExtract.stdout}`,
+    );
+  }
+
   const ledger = JSON.parse(
     fs.readFileSync(path.join(workspace, 'mmi-ledger.json'), 'utf8'),
   );
@@ -244,6 +308,8 @@ export function verifyCliPackage(tarballPath) {
         jsonTreeInspect: 'passed',
         jsonTreeExtract: 'passed',
         jsonTreeLedger: 'passed',
+        xmlTreeInspect: 'passed',
+        xmlTreeExtract: 'passed',
       },
     };
   } finally {
