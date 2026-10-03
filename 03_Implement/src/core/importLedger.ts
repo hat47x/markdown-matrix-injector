@@ -116,9 +116,12 @@ export function readLedger(ledgerPath: string): Ledger {
   };
 }
 
-/** Where a candidate sits: its cell range, else its object name (anchor-less pictures). */
+/** Where a candidate sits inside its source, independent of content identity. */
 export function placeOf(candidate: Candidate): string {
   if (candidate.locator.range) return candidate.locator.range;
+  if (candidate.locator.structuralPath !== undefined) {
+    return `path:${candidate.locator.structuralPath}`;
+  }
   const name = candidate.claims.find((claim) => claim.aspect === 'name')?.value;
   return `name:${typeof name === 'string' ? name : ''}`;
 }
