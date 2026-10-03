@@ -1,0 +1,34 @@
+{
+  "schema": "mmi.portable-core-conformance/v1",
+  "request": {
+    "schema": "mmi.portable-core-request/v1",
+    "operation": "inspect",
+    "source": {
+      "name": "fixture.csv",
+      "label": "./fixture.csv",
+      "bytesBase64": "SUQsTmFtZQoxLEFsaWNlCjIsQm9iCg=="
+    },
+    "executionPolicy": {
+      "allowProviderDependent": false
+    }
+  },
+  "expected": {
+    "source": {
+      "format": "csv",
+      "digest": "sha256:7ac6d91269cfad8e97630c5ca16fa716405ac8c48821658271b5a903f8b08d8f",
+      "byteLength": 22
+    },
+    "candidateCount": 1,
+    "candidates": [
+      {
+        "kind": "table-range",
+        "sheet": "Sheet1",
+        "range": "A1:B3",
+        "execution": "deterministic",
+        "method": "M1",
+        "provenanceAlgorithm": "mmi.table-region-detector",
+        "fingerprintRepresentation": "table-display-cells-v1"
+      }
+    ]
+  }
+}
