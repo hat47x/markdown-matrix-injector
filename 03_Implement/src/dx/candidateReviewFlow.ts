@@ -70,6 +70,8 @@ function facetLabel(facet: CandidateReviewFacetSelection): string {
         return '$(table) 種別: 表';
       case 'image':
         return '$(file-media) 種別: 画像';
+      case 'tree':
+        return '$(symbol-structure) 種別: Tree';
       default:
         return `種別: ${facet.value}`;
     }
@@ -118,7 +120,7 @@ function workspaceRoot(sourcePath: string): string {
 }
 
 function supportedReviewSource(sourcePath: string): boolean {
-  return /\.(xlsx|xlsm|csv|xml)$/iu.test(sourcePath);
+  return /\.(xlsx|xlsm|csv|xml|json)$/iu.test(sourcePath);
 }
 
 async function chooseSource(target?: vscode.Uri): Promise<string | undefined> {
@@ -133,7 +135,7 @@ async function chooseSource(target?: vscode.Uri): Promise<string | undefined> {
     canSelectFolders: false,
     canSelectMany: false,
     filters: {
-      'MMI source': ['xlsx', 'xlsm', 'csv', 'xml'],
+      'MMI source': ['xlsx', 'xlsm', 'csv', 'xml', 'json'],
     },
     title: 'MMI: Candidateを確認するsourceを選択',
   });
@@ -228,6 +230,25 @@ function quickPickItem(
       detail: [
         epistemicDetail(source.candidate),
         `${image.format.toUpperCase()} · ${image.bytes} bytes`,
+        providerEvidence,
+      ].join(' · '),
+      source,
+      rejected,
+      deferred,
+      reviewState,
+      ledgerState,
+    };
+  }
+
+  if (source.kind === 'tree') {
+    return {
+      label:
+        `$(symbol-structure) JSON ${source.pointer || '(root)'}`,
+      description:
+        `${stateLabel(ledgerState)} · 採用: ${reviewStateLabel(reviewState)} · ${source.nodeType}`,
+      detail: [
+        epistemicDetail(source.candidate),
+        `子: ${source.childCount} · scalar: ${source.leafCount}`,
         providerEvidence,
       ].join(' · '),
       source,
@@ -438,11 +459,18 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
 
   const action = await vscode.window.showQuickPick(
     [
-      {
-        label: '取り込む',
-        value: 'extract' as const,
-        description: '既存のextract経路で標準資産と台帳へ記録',
-      },
+      ...(picked.source.kind === 'table' || picked.source.kind === 'image'
+        ? [{
+            label: '取り込む',
+            value: 'extract' as const,
+            description: '既存のextract経路で標準資産と台帳へ記録',
+          }]
+        : [{
+            label: '確認のみで次へ',
+            value: 'next' as const,
+            description:
+              'Treeのextractは未実装。Candidateの内容だけ確認して次へ進む',
+          }]),
       ...(picked.source.kind === 'table'
         ? [{
             label: '修正して取り込む',
@@ -496,6 +524,11 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
   );
   if (!action) continue;
 
+  if (action.value === 'next') {
+    processedKeys.add(candidateReviewSessionKey(picked.source.candidate));
+    continue;
+  }
+
   if (action.value === 'reject' || action.value === 'defer') {
     try {
       if (action.value === 'reject') {
@@ -546,6 +579,11 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     await vscode.window.showInformationMessage(
       'MMI: Candidateのレビュー状態を解除しました。',
     );
+    continue;
+  }
+
+  if (picked.source.kind === 'tree') {
+    processedKeys.add(candidateReviewSessionKey(picked.source.candidate));
     continue;
   }
 
