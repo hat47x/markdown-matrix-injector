@@ -748,3 +748,27 @@ test('a review decision for a different table range is not reused by bulk import
     /!\[\[\.\/design\.xlsx#画面一覧\|A1:B3\?header=first\]\]/u,
   );
 });
+
+
+test('table-only non-OOXML import does not depend on an unrelated malformed ledger', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-table-only-ledger-'));
+  const sourcePath = path.join(root, 'plain.csv');
+  const draftPath = path.join(root, 'plain.md');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  fs.writeFileSync(sourcePath, 'コード,名称\n01,受付\n', 'utf8');
+  fs.writeFileSync(ledgerPath, '{"schema":"wrong","entries":[]}\n', 'utf8');
+
+  const result = writeWorkbookImportDraft({
+    sourcePath,
+    draftPath,
+    ledgerPath,
+  });
+
+  assert.equal(fs.existsSync(draftPath), true);
+  assert.match(result.markdown, /plain\.csv/u);
+  assert.equal(
+    fs.readFileSync(ledgerPath, 'utf8'),
+    '{"schema":"wrong","entries":[]}\n',
+    'unrelated ledger must be left untouched',
+  );
+});
