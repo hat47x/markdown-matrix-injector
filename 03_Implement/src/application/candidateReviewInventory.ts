@@ -6,6 +6,7 @@ import {
   type ExcelImage,
   type ImageDiagnostic,
 } from '../adapters/excelImageAdapter.js';
+import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import type { Candidate } from '../core/candidate.js';
 import { readSourceFileIdentity } from '../core/sourceIdentity.js';
@@ -23,6 +24,14 @@ export type CandidateReviewInventoryItem =
       kind: 'image';
       candidate: Candidate;
       image: ExcelImage;
+    }
+  | {
+      kind: 'tree';
+      candidate: Candidate;
+      pointer: string;
+      nodeType: 'object' | 'array';
+      childCount: number;
+      leafCount: number;
     };
 
 export interface CandidateReviewInventory {
@@ -35,6 +44,26 @@ export function buildCandidateReviewInventory(
   sourceLabel: string,
 ): CandidateReviewInventory {
   const sourceDigest = readSourceFileIdentity(sourcePath).digest;
+
+  if (/\.json$/iu.test(sourcePath)) {
+    const tree = readJsonTree(
+      fs.readFileSync(sourcePath, 'utf8'),
+      sourceLabel,
+      sourceDigest,
+    );
+    return {
+      items: tree.nodes.map((node) => ({
+        kind: 'tree' as const,
+        candidate: node.candidate,
+        pointer: node.pointer,
+        nodeType: node.nodeType,
+        childCount: node.childPointers.length,
+        leafCount: node.leafValues.length,
+      })),
+      imageDiagnostics: [],
+    };
+  }
+
   const workbook = loadWorkbook({ absolutePath: sourcePath });
 
   const tableItems: CandidateReviewInventoryItem[] = Object.entries(
