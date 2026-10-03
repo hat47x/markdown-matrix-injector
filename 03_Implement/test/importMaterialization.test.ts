@@ -12,6 +12,7 @@ import {
 } from '../src/core/candidateReviewDecisions.js';
 import { buildCandidateReviewInventory } from '../src/application/candidateReviewInventory.js';
 import { inspectSource } from '../src/cli/mmi.js';
+import { extractImages } from '../src/cli/extract.js';
 import { loadWorkbookFromBytes } from '../src/core/workbookLoader.js';
 import {
   materializeWorkbookImport,
@@ -511,8 +512,8 @@ test('malformed review decisions fail before bulk-import side effects', () => {
   );
 });
 
-test('existing adopted image history takes precedence over an obsolete rejection record', () => {
-  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-review-adopted-'));
+test('a newer exact rejection overrides older adopted history', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-review-newer-'));
   const sourcePath = path.join(root, 'design.xlsx');
   const firstDraft = path.join(root, 'first.md');
   const secondDraft = path.join(root, 'second.md');
@@ -528,6 +529,11 @@ test('existing adopted image history takes precedence over an obsolete rejection
   });
   assert.equal(first.extractedImages.length, 4);
 
+  // Make ledger time unambiguously older than the later human decision.
+  const ledger = JSON.parse(fs.readFileSync(ledgerPath, 'utf8'));
+  for (const entry of ledger.entries) entry.reviewedAt = '2000-01-01T00:00:00.000Z';
+  fs.writeFileSync(ledgerPath, JSON.stringify(ledger, null, 2) + '\n');
+
   const inventory = buildCandidateReviewInventory(sourcePath, './design.xlsx');
   const image = inventory.items.find(
     (item) => item.kind === 'image' && item.image.ordinal === 1,
@@ -537,7 +543,7 @@ test('existing adopted image history takes precedence over an obsolete rejection
     decisionPath,
     sourcePath,
     image.candidate,
-    'obsolete rejection after adoption',
+    'rejected after earlier adoption',
   );
 
   const second = writeWorkbookImportDraft({
@@ -546,9 +552,60 @@ test('existing adopted image history takes precedence over an obsolete rejection
     ledgerPath,
     reviewDecisionsPath: decisionPath,
   });
-  assert.equal(second.reviewSkippedImages.length, 0);
+  assert.deepEqual(
+    second.reviewSkippedImages.map((item) => [item.ordinal, item.decision]),
+    [[1, 'rejected']],
+  );
   assert.deepEqual(
     second.extractedImages.map((item) => item.ordinal),
+    [2, 3, 4],
+  );
+});
+
+test('a later explicit extraction supersedes an older rejection', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-review-later-adopt-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  const draftPath = path.join(root, 'draft.md');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const decisionPath = path.join(root, 'mmi-review-decisions.json');
+  const outDir = path.join(root, 'manual-assets');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+
+  const inventory = buildCandidateReviewInventory(sourcePath, './design.xlsx');
+  const image = inventory.items.find(
+    (item) => item.kind === 'image' && item.image.ordinal === 1,
+  );
+  assert.ok(image && image.kind === 'image');
+  recordRejectedDecision(
+    decisionPath,
+    sourcePath,
+    image.candidate,
+    'old rejection',
+  );
+  const decisions = JSON.parse(fs.readFileSync(decisionPath, 'utf8'));
+  decisions.entries[0].reviewedAt = '2000-01-01T00:00:00.000Z';
+  fs.writeFileSync(decisionPath, JSON.stringify(decisions, null, 2) + '\n');
+
+  const adopted = extractImages({
+    sourcePath,
+    selection: '1',
+    outDir,
+    ledgerPath,
+    basis: 'manual adoption after rejection',
+  });
+  assert.equal(adopted.problems.length, 0);
+  assert.equal(adopted.extracted.length, 1);
+
+  const result = writeWorkbookImportDraft({
+    sourcePath,
+    draftPath,
+    ledgerPath,
+    reviewDecisionsPath: decisionPath,
+  });
+
+  assert.equal(result.reviewSkippedImages.length, 0);
+  assert.deepEqual(
+    result.extractedImages.map((item) => item.ordinal),
     [1, 2, 3, 4],
   );
 });
