@@ -62,6 +62,15 @@ export function verifyCliPackage(tarballPath) {
     path.join(docs, 'spec.md'),
     '# Spec\n\n![[../data.csv#Sheet1|A1:B2?header=first]]\n',
   );
+  fs.writeFileSync(
+    path.join(workspace, 'service.json'),
+    JSON.stringify({
+      service: {
+        name: 'billing',
+        endpoints: [{ path: '/pay', method: 'POST' }],
+      },
+    }, null, 2) + '\n',
+  );
 
   const help = run(bin, ['--help'], workspace);
   const version = run(bin, ['--version'], workspace);
@@ -69,6 +78,26 @@ export function verifyCliPackage(tarballPath) {
   const render = run(
     bin,
     ['render', 'docs/spec.md', '--root', '.'],
+    workspace,
+  );
+  const treeInspect = run(
+    bin,
+    ['inspect', 'service.json', '--root', '.', '--json'],
+    workspace,
+  );
+  const treeExtract = run(
+    bin,
+    [
+      'extract',
+      'service.json',
+      '--tree',
+      '/service',
+      '--out-dir',
+      'tree-assets',
+      '--root',
+      '.',
+      '--json',
+    ],
     workspace,
   );
 
@@ -94,6 +123,52 @@ export function verifyCliPackage(tarballPath) {
     throw new Error(`mmi render failed:\n${render.stderr || render.stdout}`);
   }
 
+  let inspectedTree;
+  let extractedTree;
+  try {
+    inspectedTree = JSON.parse(treeInspect.stdout);
+    extractedTree = JSON.parse(treeExtract.stdout);
+  } catch {
+    throw new Error(
+      `mmi JSON Tree smoke returned invalid JSON:\n${treeInspect.stderr || treeInspect.stdout}\n${treeExtract.stderr || treeExtract.stdout}`,
+    );
+  }
+  if (
+    treeInspect.status !== 0
+    || !inspectedTree.candidates?.some(
+      (candidate) =>
+        candidate.kind === 'tree'
+        && candidate.locator?.structuralPath === '/service',
+    )
+  ) {
+    throw new Error(
+      `mmi inspect JSON Tree failed:\n${treeInspect.stderr || treeInspect.stdout}`,
+    );
+  }
+  if (
+    treeExtract.status !== 0
+    || extractedTree.extracted?.pointer !== '/service'
+    || !extractedTree.extracted?.file
+    || !fs.existsSync(extractedTree.extracted.file)
+  ) {
+    throw new Error(
+      `mmi extract JSON Tree failed:\n${treeExtract.stderr || treeExtract.stdout}`,
+    );
+  }
+  const ledger = JSON.parse(
+    fs.readFileSync(path.join(workspace, 'mmi-ledger.json'), 'utf8'),
+  );
+  if (
+    !ledger.entries?.some(
+      (entry) =>
+        entry.kind === 'tree'
+        && entry.place === 'path:/service'
+        && entry.reviewState === 'accepted',
+    )
+  ) {
+    throw new Error('mmi extract JSON Tree did not record the shared import ledger.');
+  }
+
     return {
       schema: 'mmi.cli-package-verification/v1',
       platform: process.platform,
@@ -110,6 +185,9 @@ export function verifyCliPackage(tarballPath) {
         version: 'passed',
         check: 'passed',
         render: 'passed',
+        jsonTreeInspect: 'passed',
+        jsonTreeExtract: 'passed',
+        jsonTreeLedger: 'passed',
       },
     };
   } finally {
