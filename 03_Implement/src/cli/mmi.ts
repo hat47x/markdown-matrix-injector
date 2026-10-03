@@ -120,7 +120,31 @@ Common options:
   --root <dir>              workspace boundary for references (default: current directory)
   --json                    machine-readable output
   -o, --out <file>          write output to a file instead of stdout
-  -h, --help`;
+  -h, --help
+  -v, --version            print the installed MMI package version`;
+
+export function readCliVersion(): string {
+  const candidates = [
+    new URL('../../package.json', import.meta.url),
+    new URL('../../../package.json', import.meta.url),
+  ];
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(candidate, 'utf8')) as {
+        version?: unknown;
+      };
+      if (
+        typeof parsed.version === 'string'
+        && /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/u.test(parsed.version)
+      ) {
+        return parsed.version;
+      }
+    } catch {
+      // Try the source/compiled alternative location.
+    }
+  }
+  throw new Error('MMI package version metadata was not found.');
+}
 
 export async function main(argv: string[]): Promise<number> {
   const { values, positionals } = parseArgs({
@@ -156,9 +180,14 @@ export async function main(argv: string[]): Promise<number> {
       document: { type: 'string' },
       'include-values': { type: 'boolean', default: false },
       help: { type: 'boolean', short: 'h', default: false },
+      version: { type: 'boolean', short: 'v', default: false },
     },
   });
   const [command, ...args] = positionals;
+  if (values.version) {
+    console.log(readCliVersion());
+    return 0;
+  }
   if (values.help || !command) {
     console.log(USAGE);
     return command || values.help ? 0 : 2;

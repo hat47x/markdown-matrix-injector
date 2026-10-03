@@ -225,6 +225,7 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 ```bash
 npm install -g ./markdown-matrix-injector-<version>.tgz
 mmi --help
+mmi --version
 mmi check ./basic-design --root ./basic-design
 ```
 
