@@ -34,7 +34,7 @@ Candidateを製品価値へつなぐには、検出精度だけでなく、人�
 
 ## Current slice
 
-- 表・画像Candidateを同じレビュー画面へ出し、`all / unimported / exclude-imported`を既存ledgerで切り替える。却下済みCandidateは通常キューから除外し、`all`では復元可能な状態で表示する。
+- 表・画像・JSON Tree Candidateを同じレビュー画面へ出し、`all / unimported / exclude-imported`を既存ledgerで切り替える。却下済みCandidateは通常キューから除外し、`all`では復元可能な状態で表示する。JSON TreeはRFC 6901 JSON Pointerをoccurrenceとして使い、採用時に表示時fingerprintを再照合する。
 - 採用時は表なら`extractTable`、画像なら`extractImages`を呼び、原本を変更せず標準資産とledgerへ記録する。表の「修正して取り込む」は抽出結果だけを編集し、現在sourceのCandidateを再照合してからcontent-addressedなMarkdownへ確定する。画像の「説明を修正して取り込む」は画像bytesを変えずalt textだけを編集する。どちらも再照合後に、人手差分がある場合だけ`reviewState: modified`として最終output digestとreview metadataを台帳へ固定する。
 - `observed / inferred`、`deterministic / provider-dependent`、provider別Evidenceを合成せず表示する。
 - レビューを閉じる操作は通常編集へ影響しない。保留は`mmi.review-decisions/v1`へ永続化し、通常レビューキューから外すが、`すべて`表示では解除できる。
@@ -44,5 +44,5 @@ Candidateを製品価値へつなぐには、検出精度だけでなく、人�
 
 - ~~source / Candidate type / epistemic state / execution characteristicの明示フィルタを追加する。~~ → 実装済み。source picker＋import-state filter＋type/status/execution facetを分離し、Candidate契約上の軸を混同しない。
 - Windows実機で表・画像を含むreview → extract → changed/stale表示をE2E確認する。
-- Tree / Shape等は各Source Adapterの実装後に同じUIへ追加する。
+- JSON Treeはissue-0199の明示構造Adapterから同じUIへ接続済み。Shape等は各Source Adapterの実装後に追加する。
 - Candidate数が多い場合のページング・検索は実測後に決める。
