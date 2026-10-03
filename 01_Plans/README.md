@@ -21,7 +21,7 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 | **2 モダナイズの最小縦切り** | [Excel画像の候補化と取り込み](issues/issue-0194-excel-image-candidates.md) | **Done**（`inspect`の画像一覧、`mmi extract`、実Excel検証、issue-0195による変更検知） | 次: VS Code上の採否UI（issue-0202）、他Candidate種別への展開 |
 | 2 | [取り込み台帳と未取込の表示](issues/issue-0195-import-ledger.md) | **Done**（`mmi.ledger/v1`、未取込/変更/stale、lineage、研究similarity Evidence） | 次: issue-0200のbaseline converter、issue-0202のレビューUIが同じ台帳契約を利用 |
 | 2 | [初回一括変換とCandidate基盤の接続](issues/issue-0200-baseline-bulk-import.md) | **In Progress**（表Linked＋画像Extractedの組み込み一括取り込みをVS Code/CLIへ接続。MarkItDown評価経路も整備） | 実在設計書で組み込み経路を観測し、外部Converterは比較候補としてデスクトップ実測で判断 |
-| 2 | [シート・範囲の画像化](issues/issue-0198-sheet-region-snapshot.md) | Draft | CIで動く描画方式（MMI自身の描画、LibreOffice）の比較。COMは手元の補助 |
+| 2 | [シート・範囲の画像化](issues/issue-0198-sheet-region-snapshot.md) | **In Progress**（AutoShape・コネクタ・graphic frameの存在をOOXMLから検出し、未抽出warningを`inspect`・一括取り込みへ表示） | 次: MMI自身の描画とLibreOfficeを同じfixtureで比較し、CIで再現できるsnapshot方式を選ぶ |
 | 2 | [人の作業を止めないCandidateレビューUI](issues/issue-0202-candidate-review-ui.md) | **In Progress**（表・画像・JSON/XML Tree、import state＋type/status/execution facet、採用/修正採用/却下/却下解除/永続保留を同じレビュー経路へ接続。修正採用は表・画像） | Windows実機E2E、利用者観測 |
 | 2 | [既存設計書の取り込み候補](issues/issue-0205-import-assistance-prototype.md)（方眼紙の表の参照提案・役割候補・下書き） | **In Progress**（VS Code/CLIへ接続、架空データで評価済み） | 残: 画面操作の目視確認、実在設計書で候補の採用・修正・却下を観測 |
 | 2 | [Excelを開かずに表・列・行を選ぶ入口](issues/issue-0206-table-navigation-and-agent-interface.md)（名前・テーブル・非表示、見出しによる選択） | In Progress（試作） | 残: 目視確認、[ADR-0022](adr/ADR-0022-semantic-selection-in-notation.md)の採否（select/findのCandidate指紋対応は実施済み） |
