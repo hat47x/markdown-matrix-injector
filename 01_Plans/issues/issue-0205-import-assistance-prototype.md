@@ -75,3 +75,5 @@ issue-0200の共通materializerから本Issueの解析・下書き生成を再�
 投影するのは `sheet / role / range / reasons / revalidated proposal / caution code+cells` に限定した。元セル値やexcerptを複製しないため、AI/CLI利用時にも「候補を見つけるために設計書本文をもう一度コピーする」経路を増やさない。proposalは既存 `analyzeSheetForImport` が通常のparser → Smart Fallback → logical table rendererで再検証できた場合だけ出る。
 
 この接続により、VS Code UIを開かないAIエージェントやCLI利用者も、既存設計書について「どこを表として参照できるか」「どこがkey-value/prose/form/diagram候補か」「何を確認すべきか」を一度のinspectから取得できる。実在設計書での採用・修正・却下率と目視UI確認は引き続き実機/利用者観測として残す。
+
+**2026-10-03:** origin/mainとのマージ後に、`dist`のCLIで`mmi import`を方眼紙の架空ブックへ実行し、表7件・書式のまとまり・役割の候補を含む下書きが出ることを確認した。拡張機能ホストの取り込み・案内付きの作成・表の目録の確認も問題0件（VS Code 1.134.0）。
