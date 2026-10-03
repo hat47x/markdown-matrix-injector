@@ -8,9 +8,12 @@ import {
 import {
   availableCandidateReviewFacets,
   candidateReviewFacetFilter,
-  matchesCandidateReviewFacets,
   type CandidateReviewFacetSelection,
 } from '../application/candidateReviewFilter.js';
+import {
+  candidateReviewSessionKey,
+  remainingCandidateReviewItems,
+} from '../application/candidateReviewSession.js';
 import {
   discardUnrecordedImageExtraction,
   discardUnrecordedTableExtraction,
@@ -172,17 +175,6 @@ function reviewStateLabel(
   }
 }
 
-function reviewKey(candidate: Candidate): string {
-  return [
-    candidate.kind,
-    candidate.locator.source,
-    candidate.locator.sheet ?? '',
-    placeOf(candidate),
-    candidate.fingerprint.representation,
-    candidate.fingerprint.digest,
-  ].join('\u0000');
-}
-
 function epistemicDetail(candidate: Candidate): string {
   const inferred = candidate.claims.filter(
     (claim) => claim.status === 'inferred',
@@ -308,7 +300,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
   }
 
   const byKey = new Map(
-    inventory.items.map((item) => [reviewKey(item.candidate), item]),
+    inventory.items.map((item) => [candidateReviewSessionKey(item.candidate), item]),
   );
   let ledger: ReturnType<typeof readLedger>;
   let reviewDecisions: ReturnType<typeof readReviewDecisions>;
@@ -393,9 +385,10 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
       sourcePath,
       filterChoice.value,
     );
-    const filteredView = view.filter((item) =>
-      !processedKeys.has(reviewKey(item.candidate))
-      && matchesCandidateReviewFacets(item.candidate, facetFilter),
+    const filteredView = remainingCandidateReviewItems(
+      view,
+      facetFilter,
+      processedKeys,
     );
     if (filteredView.length === 0) {
       await vscode.window.showInformationMessage(
@@ -408,7 +401,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
 
     const picked = await vscode.window.showQuickPick(
       filteredView.flatMap((item) => {
-      const source = byKey.get(reviewKey(item.candidate));
+      const source = byKey.get(candidateReviewSessionKey(item.candidate));
       return source
         ? [
             quickPickItem(
@@ -439,7 +432,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     await vscode.window.showWarningMessage(
       `MMI: ${picked.source.image.format} はMarkdownへ取り込めません。Candidateは確認のみです。`,
     );
-    processedKeys.add(reviewKey(picked.source.candidate));
+    processedKeys.add(candidateReviewSessionKey(picked.source.candidate));
     continue;
   }
 
@@ -532,7 +525,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
         ? 'MMI: Candidateを却下しました。内容または判断根拠が変われば再表示されます。'
         : 'MMI: Candidateを保留しました。通常レビューから外れますが、すべて表示から解除できます。',
     );
-    processedKeys.add(reviewKey(picked.source.candidate));
+    processedKeys.add(candidateReviewSessionKey(picked.source.candidate));
     continue;
   }
 
@@ -794,6 +787,6 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
   await vscode.window.showInformationMessage(
     `MMI: ${path.relative(root, extractedFile)} に取り込み、mmi-ledger.jsonへ記録しました。`,
   );
-  processedKeys.add(reviewKey(picked.source.candidate));
+  processedKeys.add(candidateReviewSessionKey(picked.source.candidate));
   }
 }
