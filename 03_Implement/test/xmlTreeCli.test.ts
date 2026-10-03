@@ -111,9 +111,9 @@ test('extractXmlTree projects one explicit subtree and records the shared ledger
     '/catalog[1]/service[1]',
   );
   assert.equal(digest(result.extracted.file), result.extracted.digest);
-  assert.match(result.extracted.markdown, /^- <service>/u);
+  assert.match(result.extracted.markdown, /^- \\<service\\>/u);
   assert.match(result.extracted.markdown, /- @id: "billing"/u);
-  assert.match(result.extracted.markdown, /- <endpoint>/u);
+  assert.match(result.extracted.markdown, /- \\<endpoint\\>/u);
   assert.match(result.extracted.markdown, /- #text: "\/pay"/u);
   assert.match(
     result.extracted.markdown,
@@ -249,4 +249,58 @@ test('XML Spreadsheet 2003 stays on the table path instead of generic Tree extra
     inspected.candidates.some((candidate) => candidate.kind === 'tree'),
     false,
   );
+});
+
+
+test('XML Tree projection escapes Markdown-significant element/text content', () => {
+  const f = workspace();
+  fs.writeFileSync(
+    f.source,
+    '<root note="*literal*"><item><![CDATA[<b>*not markup*</b>]]></item></root>',
+  );
+
+  const result = extractXmlTree({
+    sourcePath: f.source,
+    structuralPath: '/root[1]',
+    outDir: f.outDir,
+  });
+
+  assert.deepEqual(result.problems, []);
+  assert.ok(result.extracted);
+  assert.match(result.extracted.markdown, /^- \\<root\\>/u);
+  assert.match(result.extracted.markdown, /- @note: "\\*literal\\*"/u);
+  assert.match(
+    result.extracted.markdown,
+    /- #text: "\\<b\\>\\*not markup\\*\\<\\\/b\\>"/u,
+  );
+});
+
+test('review-bound XML extraction rejects a changed subtree Candidate', () => {
+  const f = workspace();
+  const reviewed = inspectSource(f.source, 0).candidates.find(
+    (candidate) =>
+      candidate.kind === 'tree'
+      && candidate.locator.structuralPath === '/catalog[1]/service[1]',
+  );
+  assert.ok(reviewed);
+
+  fs.writeFileSync(
+    f.source,
+    '<catalog version="1"><service id="billing-v2"><endpoint method="POST">/pay</endpoint></service></catalog>',
+  );
+
+  const result = extractXmlTree({
+    sourcePath: f.source,
+    structuralPath: '/catalog[1]/service[1]',
+    outDir: f.outDir,
+    ledgerPath: f.ledgerPath,
+    expectedCandidateFingerprint: reviewed.fingerprint.digest,
+  });
+
+  assert.equal(result.extracted, undefined);
+  assert.deepEqual(
+    result.problems.map((problem) => problem.code),
+    ['MMI_TREE_CANDIDATE_CHANGED'],
+  );
+  assert.equal(fs.existsSync(f.ledgerPath), false);
 });
