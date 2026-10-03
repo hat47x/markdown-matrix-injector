@@ -153,6 +153,23 @@ test('findWorkbookContentMatchesDetailed reports a sheet that was skipped by the
   ]);
 });
 
+test('findWorkbookContentMatchesDetailed reports sheets whose exact candidates were truncated', () => {
+  const rows = [Array.from({ length: 201 }, () => 'x')];
+  const result = findWorkbookContentMatchesDetailed('x\r\n', [
+    workbook('./duplicates.xlsx', { Sheet1: rows }),
+  ]);
+
+  assert.equal(result.matches.length, 200);
+  assert.deepEqual(result.truncatedSheets, [
+    {
+      filepath: './duplicates.xlsx',
+      sheet: 'Sheet1',
+      limit: 200,
+    },
+  ]);
+  assert.deepEqual(result.skippedSheets, []);
+});
+
 test('findWorkbookContentMatchesDetailed does not hide unexpected sheet read failures as no-match', () => {
   const brokenSheet: SheetSource = {
     usedRange: { startRow: 0, startCol: 0, endRow: 1, endCol: 1 },
