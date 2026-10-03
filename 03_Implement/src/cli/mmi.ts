@@ -15,6 +15,7 @@ import { checkExtractedProvenanceFreshness } from '../application/detachFreshnes
 import { materializeDocument } from '../application/materialize.js';
 import { imageCandidates, readExcelImages, relationToTables, type ImageDiagnostic, type TableRect } from '../adapters/excelImageAdapter.js';
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
+import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import type { Candidate, ProviderScore } from '../core/candidate.js';
 import {
@@ -40,6 +41,7 @@ import {
 } from '../core/sourceIdentity.js';
 import { sliceRegion } from '../core/tableGeometry.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
+import { isXmlSpreadsheet2003 } from '../core/xmlFormat.js';
 import {
   createAiHandoffPackage,
   parseAiHandoffPackage,
@@ -55,7 +57,7 @@ import { buildDeliveryManifestCsv } from '../manifest/collectDeliveryManifest.js
 import { detectTableRegions, regionReference } from '../importAssist/tableRegions.js';
 import { runFind, runSelect } from './navigateCommands.js';
 import { extractImages, extractTable, formatImageDiagnostics } from './extract.js';
-import { extractJsonTree } from './extractTree.js';
+import { extractJsonTree, extractXmlTree } from './extractTree.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './render.js';
 
 export const SEMANTIC_CANDIDATE_SCHEMA_NAME =
@@ -66,7 +68,7 @@ const USAGE = `Usage: mmi <command> [options]
 Commands:
   schema candidate         Print the public JSON Schema for mmi.semantic-candidate/v1.
                             Machine-readable Source Adapter / AI / integration contract.
-  inspect <source>          List workbook/CSV table regions or explicit JSON tree structure.
+  inspect <source>          List workbook/CSV table regions or explicit JSON/XML tree structure.
                             --json adds Semantic Candidates with status, method, provenance and fingerprint
       --values <n>            also print the first n body rows of each region
       --from <doc.md>         write suggested references relative to this document
@@ -78,11 +80,11 @@ Commands:
       --exclude-imported      hide exact imported occurrences; keep changed/stale/duplicate/unimported
                             For .xlsx/.xlsm it also lists embedded pictures (sheet, anchor, format, size,
                             digest, nearest table) and names any that cannot be read.
-                            For .json it lists object/array nodes by RFC 6901 JSON Pointer.
+                            For .json it lists object/array nodes by RFC 6901 JSON Pointer.\n                            Generic .xml lists explicit element nodes; XML Spreadsheet 2003 remains a table source.
   extract <source>          Extract one reviewed Candidate as a standard asset without modifying the source
       --image <n|all>         workbook picture number shown by inspect, or all
       --table <range>         exact detected table Candidate range (requires --sheet)
-      --tree <pointer|root>   exact JSON Tree Candidate pointer shown by inspect; root means document root
+      --tree <path|root>      exact JSON/XML Tree Candidate structural path shown by inspect; root means document root
       --sheet <name>          sheet for --table
                             Exactly one of --image, --table or --tree is required
       --out-dir <dir>         assets folder (default: assets); files are content-addressed
@@ -225,9 +227,9 @@ export async function main(argv: string[]): Promise<number> {
       const absoluteSource = path.resolve(args[0]);
       const raw = inspectSource(absoluteSource, Number(values.values) || 0, values.from);
       if (values['import-assist']) {
-        if (/\.json$/iu.test(absoluteSource)) {
+        if (raw.trees !== undefined) {
           return usageError(
-            'inspect --import-assist applies to workbook/grid sources, not JSON Tree sources',
+            'inspect --import-assist applies to workbook/grid sources, not explicit Tree sources',
           );
         }
         raw.importAssistance = inspectImportAssistance(absoluteSource, values.from);
@@ -272,13 +274,21 @@ export async function main(argv: string[]): Promise<number> {
 
       if (values.tree !== undefined) {
         const pointer = values.tree === 'root' ? '' : values.tree;
-        const result = extractJsonTree({
-          sourcePath,
-          pointer,
-          outDir,
-          fromDocument: values.from,
-          ledgerPath,
-        });
+        const result = /\.xml$/iu.test(sourcePath)
+          ? extractXmlTree({
+              sourcePath,
+              pointer,
+              outDir,
+              fromDocument: values.from,
+              ledgerPath,
+            })
+          : extractJsonTree({
+              sourcePath,
+              pointer,
+              outDir,
+              fromDocument: values.from,
+              ledgerPath,
+            });
         if (values.json) emit(JSON.stringify(result, null, 2));
         else if (result.extracted) emit(result.extracted.markdown);
         for (const problem of result.problems) {
@@ -690,9 +700,10 @@ export interface InspectRegion {
 }
 
 export interface InspectTree {
-  /** RFC 6901 JSON Pointer. Root is the empty string. */
+  /** Format-native structural path. JSON uses RFC 6901; XML uses element paths. */
   pointer: string;
-  nodeType: 'object' | 'array';
+  format: 'json' | 'xml';
+  nodeType: 'object' | 'array' | 'element';
   childPointers: readonly string[];
   leafValues: readonly string[];
 }
@@ -702,7 +713,7 @@ export interface InspectResult {
   /** Public machine-readable contract used by every item in candidates. */
   candidateContract: typeof SEMANTIC_CANDIDATE_CONTRACT;
   sheets: { name: string; usedRange?: string; regions: InspectRegion[] }[];
-  /** Explicit JSON hierarchy nodes; absent for non-JSON sources. */
+  /** Explicit JSON/XML hierarchy nodes; absent for non-Tree sources. */
   trees?: InspectTree[];
   /** The same structure as Semantic Candidates (issue-0193). */
   candidates: Candidate[];
@@ -774,6 +785,7 @@ export function inspectSource(absolutePath: string, sampleRows: number, fromDocu
       candidates: [...tree.candidates],
       trees: tree.nodes.map((node) => ({
         pointer: node.pointer,
+        format: 'json' as const,
         nodeType: node.nodeType,
         childPointers: node.childPointers,
         leafValues: node.leafValues,
@@ -782,6 +794,35 @@ export function inspectSource(absolutePath: string, sampleRows: number, fromDocu
       imageDiagnostics: [],
       sheets: [],
     };
+  }
+
+  if (/\.xml$/iu.test(absolutePath)) {
+    const sourceBytes = fs.readFileSync(absolutePath);
+    const xml = sourceBytes.toString('utf8');
+    if (!isXmlSpreadsheet2003(xml)) {
+      const sourceDigest =
+        createSourceIdentityFromBytes(sourceBytes).digest;
+      const tree = readXmlTree(xml, relative, sourceDigest);
+      return {
+        source: relative,
+        candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
+        candidates: [...tree.candidates],
+        trees: tree.nodes.map((node) => ({
+          pointer: node.path,
+          format: 'xml' as const,
+          nodeType: 'element' as const,
+          childPointers: node.childPaths,
+          leafValues: [
+            ...node.attributeValues,
+            ...node.textValues.map((value) =>
+              `#text=${JSON.stringify(value)}`),
+          ],
+        })),
+        images: [],
+        imageDiagnostics: [],
+        sheets: [],
+      };
+    }
   }
 
   const sourceDigest = readSourceFileIdentity(absolutePath).digest;
@@ -942,7 +983,7 @@ function formatInspect(result: InspectResult): string {
     for (const tree of result.trees) {
       const pointer = tree.pointer || '(root)';
       lines.push(
-        `  ${pointer}  ${tree.nodeType}  ${tree.childPointers.length} children${ledgerSuffix('tree', '', `path:${tree.pointer}`)}`,
+        `  ${pointer}  ${tree.format}/${tree.nodeType}  ${tree.childPointers.length} children${ledgerSuffix('tree', '', `path:${tree.pointer}`)}`,
       );
     }
   }
