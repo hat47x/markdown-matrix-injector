@@ -6,6 +6,9 @@ import {
 
 export const XML_TREE_ADAPTER_VERSION = '1';
 
+const XML_NAME_PATTERN =
+  /^[:_\p{L}\p{Nl}][:_\-.\u00b7\p{L}\p{Nl}\p{Mn}\p{Mc}\p{Nd}\p{Pc}]*/u;
+
 export interface XmlAttribute {
   name: string;
   value: string;
@@ -107,7 +110,7 @@ function parseStartTag(raw: string): {
   const selfClosing = body.endsWith('/');
   if (selfClosing) body = body.slice(0, -1).trimEnd();
 
-  const name = /^[A-Za-z_][A-Za-z0-9_.:-]*/u.exec(body)?.[0];
+  const name = XML_NAME_PATTERN.exec(body)?.[0];
   if (!name) throw new Error('invalid XML element name');
 
   const attributes: XmlAttribute[] = [];
@@ -117,7 +120,7 @@ function parseStartTag(raw: string): {
     while (index < body.length && /[\t\n\r ]/u.test(body[index])) index += 1;
     if (index >= body.length) break;
 
-    const attribute = /^[A-Za-z_][A-Za-z0-9_.:-]*/u.exec(
+    const attribute = XML_NAME_PATTERN.exec(
       body.slice(index),
     )?.[0];
     if (!attribute) throw new Error('invalid XML attribute name');
@@ -205,7 +208,7 @@ function parseXml(text: string): XmlElementNode {
       const end = input.indexOf('>', open + 2);
       if (end < 0) throw new Error('unterminated XML closing tag');
       const name = input.slice(open + 2, end).trim();
-      if (!/^[A-Za-z_][A-Za-z0-9_.:-]*$/u.test(name)) {
+      if (XML_NAME_PATTERN.exec(name)?.[0] !== name) {
         throw new Error('invalid XML closing tag');
       }
       const current = stack.pop();
