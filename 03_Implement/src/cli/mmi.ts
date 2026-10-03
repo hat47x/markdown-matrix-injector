@@ -13,6 +13,7 @@ import { WorkbookCache } from '../cache/workbookCache.js';
 import { checkDetachedDocument } from '../application/detachCheck.js';
 import { checkExtractedProvenanceFreshness } from '../application/detachFreshness.js';
 import { materializeDocument } from '../application/materialize.js';
+import { runPortableCoreRequest } from '../application/portableCoreProtocol.js';
 import { imageCandidates, readExcelImages, relationToTables, type ImageDiagnostic, type TableRect } from '../adapters/excelImageAdapter.js';
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
@@ -72,6 +73,9 @@ Commands:
                             candidate        mmi.semantic-candidate/v1
                             ledger           mmi.ledger/v1
                             review-decisions mmi.review-decisions/v1
+  core <request.json|->     Execute one mmi.portable-core-request/v1 and emit JSON.
+                            Use - to read the request from stdin; source bytes are embedded in the request.
+                            This boundary performs no source-file discovery or VS Code access.
   inspect <source>          List workbook/CSV table regions or explicit JSON tree structure.
                             --json adds Semantic Candidates with status, method, provenance and fingerprint
       --values <n>            also print the first n body rows of each region
@@ -232,6 +236,25 @@ export async function main(argv: string[]): Promise<number> {
         );
       }
       emit(JSON.stringify(schema(), null, 2));
+      return 0;
+    }
+    case 'core': {
+      if (args.length !== 1) {
+        return usageError('core takes one request JSON file or - for stdin');
+      }
+      const requestText = args[0] === '-'
+        ? fs.readFileSync(0, 'utf8')
+        : fs.readFileSync(path.resolve(args[0]), 'utf8');
+      let request: unknown;
+      try {
+        request = JSON.parse(requestText);
+      } catch (error) {
+        return usageError(
+          `core request is not valid JSON: ${error instanceof Error ? error.message : String(error)}`,
+        );
+      }
+      const response = runPortableCoreRequest(request);
+      emit(JSON.stringify(response, null, 2));
       return 0;
     }
     case 'inspect': {
