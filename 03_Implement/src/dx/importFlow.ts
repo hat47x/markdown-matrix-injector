@@ -171,7 +171,9 @@ async function pickWorkbook(workbookGlob: string): Promise<vscode.Uri | undefine
     },
   );
 
-  return 'browse' in (picked ?? {}) ? browseWorkbook() : picked?.uri;
+  if (!picked) return undefined;
+  if ('browse' in picked) return browseWorkbook();
+  return picked.uri;
 }
 
 async function browseWorkbook(): Promise<vscode.Uri | undefined> {
