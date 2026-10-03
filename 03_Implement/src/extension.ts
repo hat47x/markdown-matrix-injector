@@ -472,7 +472,14 @@ async function insertEmbedByContentMatch(): Promise<void> {
     confirmedCopySource(extensionRootPath, editor.document, clipboardText),
     loadWorkspaceWorkbooksForContentMatch(documentUri.fsPath, workspaceRoot),
   ]);
-  const searchResult = findWorkbookContentMatchesDetailed(clipboardText, loadResult.workbooks);
+  let searchResult;
+  try {
+    searchResult = findWorkbookContentMatchesDetailed(clipboardText, loadResult.workbooks);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`MMI: Content-match search failed: ${reason}`);
+    return;
+  }
   const matches = withSource(source.match, searchResult.matches);
   const incomplete = describeIncompleteContentMatchSearch(
     loadResult.skippedFiles.length,
@@ -600,7 +607,14 @@ async function getContentMatchPasteEdits(
     return [];
   }
 
-  const searchResult = findWorkbookContentMatchesDetailed(plainText, loadResult.workbooks);
+  let searchResult;
+  try {
+    searchResult = findWorkbookContentMatchesDetailed(plainText, loadResult.workbooks);
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`MMI: Content-match Paste As failed: ${reason}`);
+    return [];
+  }
   const matches = withSource(source.match, searchResult.matches);
   const incomplete = describeIncompleteContentMatchSearch(
     loadResult.skippedFiles.length,
