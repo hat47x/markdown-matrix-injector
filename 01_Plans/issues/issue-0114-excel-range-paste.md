@@ -181,12 +181,12 @@
 
 `findContentMatches`・`extractHtmlTableShape`・`parseTsv`という3つの部品が揃ったことを受け、issue-0114の残り3点——探索対象ブックの決定、候補選択UI、`extension.ts`配線——を実装した。
 
-- 新規 [`src/dx/contentMatchSearch.ts`](../../03_Implement/src/dx/contentMatchSearch.ts): `findWorkbookContentMatches(clipboardPlainText, workbooks)` — 複数ワークブック・複数シートを横断して`findContentMatches`を集約する。1シートが`maxIndexedCells`を超えて検索不能でも、そのシートだけ読み飛ばして他の検索を続行する（1つの巨大シートが全体を止めない）。`buildContentMatchMarkdown`が結果を`![[file#sheet|range]]`へ整形する。
+- 新規 [`src/dx/contentMatchSearch.ts`](../../03_Implement/src/dx/contentMatchSearch.ts): 複数ワークブック・複数シートを横断して`findContentMatches`を集約する。2026-10-03、検索不能なシートを黙って「一致なし」に変換しないよう、`findWorkbookContentMatchesDetailed`が完全一致と`skippedSheets`を分けて返す形へ拡張した。`maxIndexedCells`超過は型付きの`MMI_CONTENT_MATCH_SHEET_TOO_LARGE`として扱い、その他の予期しない例外は握りつぶさない。`buildContentMatchMarkdown`が結果を`![[file#sheet|range]]`へ整形する。
 - 新規 `src/core/tableGeometry.ts`に`indexToColumn`・`cellRangeToA1`を追加。`columnToIndex`・`parseRangeToCellRange`の逆変換（物理座標→A1文字列）で、内容照合結果をnotationへ戻すのに必要だった（貼り付け機能はこれまで「A1文字列→物理座標」の方向にしか変換していなかった）。
 - **`src/extension.ts`**: `insertEmbedByContentMatch`関数と新規コマンド`markdownMatrixInjector.insertEmbedByContentMatch`（`MMI: Insert Embed by Content Match`）を追加。
   - **探索対象ブックの決定（§5手順1）**: `vscode.workspace.findFiles(WORKBOOK_FILE_GLOB, ...)`で候補を列挙し、編集中Markdownが属するworkspace folderの内側だけを採用する。2026-10-03、文字列`startsWith(workspaceRoot)`による絞り込みを廃止し、記法P4と同じ`isPathWithinBoundary()`とrealpath検査へ統一した。これによりmulti-root workspaceで`work`と`work-old`のようなprefix衝突があっても別rootを検索せず、workspace内のsymlinkが外部ファイルを指す場合も探索対象から除外する。
   - **候補選択UI（§4「自動確定の規則」）**: 結果が1件でも複数件でも、必ず`vscode.window.showQuickPick`を経由する。VS Codeの標準的な明示選択UIを使うことで、独自UIの実装を避けた。Escでキャンセルすれば何も挿入しない（R1）。
-  - 1シートが読み込めない（壊れたファイル等）場合はそのファイルを読み飛ばし、検索全体を止めない。
+  - ブックを読めない場合やシートが索引上限を超える場合も検索全体は続ける。ただし2026-10-03以降は未検索件数を保持し、0件時に「一致なし」と断定しない。候補が見つかった場合も、明示コマンドでは候補集合が不完全であることを警告し、Paste Asでは各候補へ「検索不完全」を付ける。索引上限以外の予期しない照合エラーは握りつぶさず、明示コマンドでは可視エラー、Paste Asでは可視エラーを出してMMI候補だけを返さない。
 
 **テスト**: `test/contentMatchSearch.test.ts`を新規追加（6件）、`test/tableGeometry.test.ts`へ3件追加（`indexToColumn`/`cellRangeToA1`）、`test/extensionIntegration.test.ts`へ構造テスト。
 
