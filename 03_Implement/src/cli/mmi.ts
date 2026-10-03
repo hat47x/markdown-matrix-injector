@@ -30,7 +30,10 @@ import {
   type LineageCandidate,
 } from '../core/importLedger.js';
 import { isPathWithinBoundary } from '../core/pathResolver.js';
-import { readSourceFileIdentity } from '../core/sourceIdentity.js';
+import {
+  createSourceIdentityFromBytes,
+  readSourceFileIdentity,
+} from '../core/sourceIdentity.js';
 import { sliceRegion } from '../core/tableGeometry.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
 import {
@@ -120,7 +123,31 @@ Common options:
   --root <dir>              workspace boundary for references (default: current directory)
   --json                    machine-readable output
   -o, --out <file>          write output to a file instead of stdout
-  -h, --help`;
+  -h, --help
+  -v, --version            print the installed MMI package version`;
+
+export function readCliVersion(): string {
+  const candidates = [
+    new URL('../../package.json', import.meta.url),
+    new URL('../../../package.json', import.meta.url),
+  ];
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(fs.readFileSync(candidate, 'utf8')) as {
+        version?: unknown;
+      };
+      if (
+        typeof parsed.version === 'string'
+        && /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?$/u.test(parsed.version)
+      ) {
+        return parsed.version;
+      }
+    } catch {
+      // Try the source/compiled alternative location.
+    }
+  }
+  throw new Error('MMI package version metadata was not found.');
+}
 
 export async function main(argv: string[]): Promise<number> {
   const { values, positionals } = parseArgs({
@@ -156,9 +183,14 @@ export async function main(argv: string[]): Promise<number> {
       document: { type: 'string' },
       'include-values': { type: 'boolean', default: false },
       help: { type: 'boolean', short: 'h', default: false },
+      version: { type: 'boolean', short: 'v', default: false },
     },
   });
   const [command, ...args] = positionals;
+  if (values.version) {
+    console.log(readCliVersion());
+    return 0;
+  }
   if (values.help || !command) {
     console.log(USAGE);
     return command || values.help ? 0 : 2;
@@ -175,6 +207,11 @@ export async function main(argv: string[]): Promise<number> {
       const absoluteSource = path.resolve(args[0]);
       const raw = inspectSource(absoluteSource, Number(values.values) || 0, values.from);
       if (values['import-assist']) {
+        if (/\.json$/iu.test(absoluteSource)) {
+          return usageError(
+            'inspect --import-assist applies to workbook/grid sources, not JSON Tree sources',
+          );
+        }
         raw.importAssistance = inspectImportAssistance(absoluteSource, values.from);
       }
       const ledgerPath = path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE);
@@ -698,14 +735,16 @@ export interface InspectImage {
 }
 
 export function inspectSource(absolutePath: string, sampleRows: number, fromDocument?: string): InspectResult {
-  const sourceDigest = readSourceFileIdentity(absolutePath).digest;
   const base = fromDocument ? path.dirname(path.resolve(fromDocument)) : process.cwd();
   let relative = path.relative(base, absolutePath).split(path.sep).join('/');
   if (!relative.startsWith('.')) relative = `./${relative}`;
 
   if (/\.json$/iu.test(absolutePath)) {
+    const sourceBytes = fs.readFileSync(absolutePath);
+    const sourceDigest =
+      createSourceIdentityFromBytes(sourceBytes).digest;
     const tree = readJsonTree(
-      fs.readFileSync(absolutePath, 'utf8'),
+      sourceBytes.toString('utf8'),
       relative,
       sourceDigest,
     );
@@ -724,6 +763,7 @@ export function inspectSource(absolutePath: string, sampleRows: number, fromDocu
     };
   }
 
+  const sourceDigest = readSourceFileIdentity(absolutePath).digest;
   const workbook = loadWorkbook({ absolutePath });
   const isPackage = /\.(xlsx|xlsm)$/iu.test(absolutePath);
   const imageRead = isPackage
