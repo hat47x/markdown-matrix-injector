@@ -32,6 +32,13 @@ export interface ContentMatch {
   readonly range: CellRange;
 }
 
+export interface ContentMatchSearchResult {
+  readonly matches: readonly ContentMatch[];
+  /** True when at least one additional exact match existed beyond maxCandidates. */
+  readonly truncated: boolean;
+  readonly limit: number;
+}
+
 export interface ContentMatchOptions {
   /**
    * Upper bound on exact matches returned to the caller (§5 step 5:
@@ -83,26 +90,37 @@ export function findContentMatches(
   needle: readonly (readonly string[])[],
   options?: ContentMatchOptions,
 ): ContentMatch[] {
+  return [...findContentMatchesDetailed(sheet, needle, options).matches];
+}
+
+export function findContentMatchesDetailed(
+  sheet: SheetSource,
+  needle: readonly (readonly string[])[],
+  options?: ContentMatchOptions,
+): ContentMatchSearchResult {
+  const maxCandidates = options?.maxCandidates ?? DEFAULT_MAX_CANDIDATES;
+  const empty = (): ContentMatchSearchResult => ({ matches: [], truncated: false, limit: maxCandidates });
+
   const rowCount = needle.length;
   const columnCount = needle.reduce((max, row) => Math.max(max, row.length), 0);
   if (rowCount === 0 || columnCount === 0) {
-    return [];
+    return empty();
   }
 
   const anchors = collectAnchors(needle, rowCount, columnCount);
   if (anchors.length === 0) {
     // Every needle cell is empty -- content alone cannot anchor a search
     // (§5 step 6: "全セルが空...の場合は曖昧さを保ち"). Nothing to find.
-    return [];
+    return empty();
   }
 
   const usedRange = sheet.usedRange;
   if (!usedRange) {
-    return [];
+    return empty();
   }
   const sheetDimensions = rangeDimensions(usedRange);
   if (rowCount > sheetDimensions.rowCount || columnCount > sheetDimensions.columnCount) {
-    return [];
+    return empty();
   }
 
   const maxIndexedCells = options?.maxIndexedCells ?? DEFAULT_MAX_INDEXED_CELLS;
@@ -113,24 +131,30 @@ export function findContentMatches(
   const index = buildValueIndex(sheet, usedRange);
   const candidateOrigins = candidateOriginsFromAnchors(anchors, index);
   if (candidateOrigins.length === 0) {
-    return [];
+    return empty();
   }
 
-  const maxCandidates = options?.maxCandidates ?? DEFAULT_MAX_CANDIDATES;
   const results: ContentMatch[] = [];
+  let truncated = false;
   for (const origin of sortOrigins(candidateOrigins)) {
     const range = candidateRange(origin, rowCount, columnCount);
     if (!fitsWithin(range, usedRange)) {
       continue;
     }
-    if (rectangleMatches(sheet, range, needle)) {
-      results.push({ range });
-      if (results.length >= maxCandidates) {
-        break;
-      }
+    if (!rectangleMatches(sheet, range, needle)) {
+      continue;
     }
+    if (results.length < maxCandidates) {
+      results.push({ range });
+      continue;
+    }
+    // Do not call a full result set "complete" merely because the configured
+    // return cap was reached. Finding one additional exact match is enough to
+    // prove truncation; stop there without enumerating every duplicate.
+    truncated = true;
+    break;
   }
-  return results;
+  return { matches: results, truncated, limit: maxCandidates };
 }
 
 interface Anchor extends Position {
