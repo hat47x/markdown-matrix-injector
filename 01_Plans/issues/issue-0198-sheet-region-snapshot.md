@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Feature
-- Status: Draft
+- Status: In Progress
 - Priority: Medium
 - Scope: src/core（`Sheet / Region snapshot`のCandidateと描画）、src/cli（`extract`）、CIでの再現性の検査、docs。ExcelのCOM操作は手元の補助に限る
 - Expected verification level: manual-e2e
@@ -26,8 +26,20 @@ Excel方眼紙で、罫線・セル結合・AutoShape・画面ダンプを組み
 - [ ] 変換器が無い、ブックが開けない、範囲が不正、図形を描けない、のいずれでも、黙って失敗せず診断を出す。他の機能（表の参照・取り込み）は止まらない。
 - [ ] COMを使う場合は、利用者のExcelで作業中のブックを妨げない（別プロセスで開く、または開いているブックに触れない）。
 
+## Current slice（2026-10-04）
+
+画像化方式を選ぶ前段として、原本にある図形等を取り込み結果から黙って落とさない経路を追加した。
+
+既存のOOXML drawing readerは、埋込画像とは別にAutoShape・コネクタとgraphic frameの存在を読み取っていたが、件数は内部の集計にとどまり、利用者には表示していなかった。現在はシート単位で集計し、`MMI_DRAWING_SHAPES_NOT_EXTRACTED` と `MMI_DRAWING_GRAPHIC_FRAMES_NOT_EXTRACTED` をwarningとして返す。`graphicFrame`はグラフ以外の図を含む場合があるため、MMIは種類を断定しない。
+
+このwarningは `mmi inspect` と既存ブックの一括取り込みに流し、下書きの「画像・図形の注意」に残す。表や埋込画像の既存処理は継続し、図形があることだけを理由に全体の取り込みを止めない。
+
+この段階では、図形をCandidate化せず、画像化・抽出も行わない。したがって、本Issueの描画方式比較、PNG生成、再現性、provenanceに関する受入条件は未完了のままとする。まず欠落の存在を観測可能にし、その実測をもとにMMI自身の描画とLibreOfficeの比較へ進む。
+
 ## Validation plan
 AutoShapeと画面ダンプを含む架空の設計シートを、CIで動く方式で画像化し、Excelでの見た目と比べる（目視）。同じ処理をGitHub ActionsのLinuxで実行し、手元と同じダイジェストになるかを確かめる。COMを使う場合はWindows実機で行う。原本のダイジェストを前後で比較する。Excelを開いて作業中の状態でも実行し、作業中のブックに影響が無いことを確かめる。
+
+前段の自動テストでは、コード生成したOOXML drawingにAutoShape・コネクタ・graphic frameを含め、画像reader、`mmi inspect`、一括取り込みの下書きまでwarningが伝わることを確認する。warningがあっても、同じブックの表・埋込画像の処理は継続する。
 
 ## Remaining work
 - MMI自身の描画で、どこまでの図形（直線、矩形、矢印、テキストボックス）を扱えば実務の大半を覆えるか。
