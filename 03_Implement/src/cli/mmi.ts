@@ -459,7 +459,7 @@ export async function main(argv: string[]): Promise<number> {
             `draft: ${summary.draft}`,
             `images: ${summary.extractedImages}`,
             `ledger: ${summary.ledger}`,
-            ...(result.imageProblems.length > 0 ? [`image warnings: ${result.imageProblems.length}`] : []),
+            ...(result.imageProblems.length > 0 ? [`image/drawing warnings: ${result.imageProblems.length}`] : []),
             ...(result.reviewSkippedImages.length > 0 ? [`images skipped by review: ${result.reviewSkippedImages.length}`] : []),
             ...(result.reviewSkippedTables.length > 0 ? [`tables skipped by review: ${result.reviewSkippedTables.length}`] : []),
           ].join('\n');
@@ -1071,7 +1071,7 @@ function formatInspect(result: InspectResult): string {
       lines.push(`  image #${image.ordinal}  ${image.range ?? '(no cell anchor)'}  ${image.format}  ${image.bytes} bytes  ${image.digest.slice(0, 19)}…${image.name ? `  "${image.name}"` : ''}${near}${image.extractable ? '' : '  (not extractable)'}${ledgerSuffix('image', sheet.name, place)}`);
     }
   }
-  if (result.imageDiagnostics.length > 0) lines.push('', 'image problems:', ...formatImageDiagnostics(result.imageDiagnostics).map((line) => `  ${line}`));
+  if (result.imageDiagnostics.length > 0) lines.push('', 'drawing problems:', ...formatImageDiagnostics(result.imageDiagnostics).map((line) => `  ${line}`));
   return lines.join('\n');
 }
 
