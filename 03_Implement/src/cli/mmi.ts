@@ -17,6 +17,10 @@ import { imageCandidates, readExcelImages, relationToTables, type ImageDiagnosti
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import type { Candidate, ProviderScore } from '../core/candidate.js';
+import {
+  SEMANTIC_CANDIDATE_CONTRACT,
+  semanticCandidateSchemaJson,
+} from '../core/candidateContract.js';
 import { candidateLedgerView, type CandidateLedgerFilter } from '../core/candidateLedgerView.js';
 import {
   readCandidateSimilarityEvidence,
@@ -30,7 +34,14 @@ import {
   type LineageCandidate,
 } from '../core/importLedger.js';
 import { isPathWithinBoundary } from '../core/pathResolver.js';
-import { readSourceFileIdentity } from '../core/sourceIdentity.js';
+import {
+  importLedgerSchemaJson,
+  reviewDecisionsSchemaJson,
+} from '../core/reviewContracts.js';
+import {
+  createSourceIdentityFromBytes,
+  readSourceFileIdentity,
+} from '../core/sourceIdentity.js';
 import { sliceRegion } from '../core/tableGeometry.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
 import {
@@ -51,9 +62,16 @@ import { extractImages, extractTable, formatImageDiagnostics } from './extract.j
 import { extractJsonTree } from './extractTree.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './render.js';
 
+export const SEMANTIC_CANDIDATE_SCHEMA_NAME =
+  SEMANTIC_CANDIDATE_CONTRACT;
+
 const USAGE = `Usage: mmi <command> [options]
 
 Commands:
+  schema <contract>        Print a public JSON Schema.
+                            candidate        mmi.semantic-candidate/v1
+                            ledger           mmi.ledger/v1
+                            review-decisions mmi.review-decisions/v1
   inspect <source>          List workbook/CSV table regions or explicit JSON tree structure.
                             --json adds Semantic Candidates with status, method, provenance and fingerprint
       --values <n>            also print the first n body rows of each region
@@ -198,6 +216,26 @@ export async function main(argv: string[]): Promise<number> {
   const emit = (text: string) => (values.out ? fs.writeFileSync(values.out, text) : process.stdout.write(text.endsWith('\n') ? text : `${text}\n`));
 
   switch (command) {
+    case 'schema': {
+      if (args.length !== 1) {
+        return usageError(
+          'schema needs one of: candidate, ledger, review-decisions',
+        );
+      }
+      const schemas: Record<string, () => Record<string, unknown>> = {
+        candidate: semanticCandidateSchemaJson,
+        ledger: importLedgerSchemaJson,
+        'review-decisions': reviewDecisionsSchemaJson,
+      };
+      const schema = schemas[args[0]];
+      if (!schema) {
+        return usageError(
+          'schema needs one of: candidate, ledger, review-decisions',
+        );
+      }
+      emit(JSON.stringify(schema(), null, 2));
+      return 0;
+    }
     case 'inspect': {
       if (args.length !== 1) return usageError('inspect takes one source file');
       if (values.unimported && values['exclude-imported']) {
@@ -334,17 +372,12 @@ export async function main(argv: string[]): Promise<number> {
       let sourceCopied = false;
       if (requestedSourceCopy) {
         try {
-          const intake = copyImportSourceIntoWorkspace(
-            inputSourcePath,
-            requestedSourceCopy,
-          );
+          const intake = copyImportSourceIntoWorkspace(inputSourcePath, requestedSourceCopy);
           sourcePath = intake.sourcePath;
           sourceCopyCreated = intake.created;
           sourceCopied = sourcePath !== inputSourcePath;
         } catch (error) {
-          console.error(
-            `mmi: import source intake failed: ${error instanceof Error ? error.message : String(error)}`,
-          );
+          console.error(`mmi: import source intake failed: ${error instanceof Error ? error.message : String(error)}`);
           return 1;
         }
       }
@@ -370,9 +403,9 @@ export async function main(argv: string[]): Promise<number> {
         sourceInput: portableDisplayPath(inputSourcePath),
         source: portableDisplayPath(sourcePath),
         sourceCopied,
-        draft: path.relative(process.cwd(), draftPath).split(path.sep).join('/') || path.basename(draftPath),
-        ledger: path.relative(process.cwd(), result.ledgerPath).split(path.sep).join('/') || path.basename(result.ledgerPath),
-        imageOutDir: path.relative(process.cwd(), result.imageOutDir).split(path.sep).join('/') || path.basename(result.imageOutDir),
+        draft: portableDisplayPath(draftPath),
+        ledger: portableDisplayPath(result.ledgerPath),
+        imageOutDir: portableDisplayPath(result.imageOutDir),
         extractedImages: result.extractedImages.length,
         imageProblems: result.imageProblems,
         reviewSkippedImages: result.reviewSkippedImages,
@@ -393,8 +426,6 @@ export async function main(argv: string[]): Promise<number> {
       for (const problem of result.imageProblems) {
         console.error(`mmi: warning: ${problem.code}${problem.ordinal ? ` (image ${problem.ordinal})` : ''}: ${problem.message}`);
       }
-      // A committed draft with explicit warnings is a successful import.
-      // Warnings remain in the draft/JSON/stderr for people and automation to inspect.
       return 0;
     }
     case 'select':
@@ -673,7 +704,6 @@ function formatAiHandoffProposalValidation(
   ].join('\n');
 }
 
-
 function portableDisplayPath(target: string): string {
   return path.relative(process.cwd(), target).split(path.sep).join('/')
     || path.basename(target);
@@ -693,9 +723,7 @@ function copyImportSourceIntoWorkspace(
   const inputExtension = path.extname(input).toLowerCase();
   const destinationExtension = path.extname(destination).toLowerCase();
   if (!inputExtension || destinationExtension !== inputExtension) {
-    throw new Error(
-      `--copy-source must keep the source extension ${inputExtension || '(none)'}`,
-    );
+    throw new Error(`--copy-source must keep the source extension ${inputExtension || '(none)'}`);
   }
 
   const sourceBytes = fs.readFileSync(input);
@@ -705,9 +733,7 @@ function copyImportSourceIntoWorkspace(
     }
     const existing = fs.readFileSync(destination);
     if (!existing.equals(sourceBytes)) {
-      throw new Error(
-        `--copy-source destination already exists with different content: ${destination}`,
-      );
+      throw new Error(`--copy-source destination already exists with different content: ${destination}`);
     }
     return { sourcePath: destination, created: false };
   }
@@ -717,9 +743,7 @@ function copyImportSourceIntoWorkspace(
   const sourceAfterCopy = fs.readFileSync(input);
   if (!sourceAfterCopy.equals(sourceBytes)) {
     fs.rmSync(destination, { force: true });
-    throw new Error(
-      'source changed while being copied into the workspace; run the import again',
-    );
+    throw new Error('source changed while being copied into the workspace; run the import again');
   }
   return { sourcePath: destination, created: true };
 }
@@ -775,6 +799,8 @@ export interface InspectTree {
 
 export interface InspectResult {
   source: string;
+  /** Public machine-readable contract used by every item in candidates. */
+  candidateContract: typeof SEMANTIC_CANDIDATE_CONTRACT;
   sheets: { name: string; usedRange?: string; regions: InspectRegion[] }[];
   /** Explicit JSON hierarchy nodes; absent for non-JSON sources. */
   trees?: InspectTree[];
@@ -829,19 +855,22 @@ export interface InspectImage {
 }
 
 export function inspectSource(absolutePath: string, sampleRows: number, fromDocument?: string): InspectResult {
-  const sourceDigest = readSourceFileIdentity(absolutePath).digest;
   const base = fromDocument ? path.dirname(path.resolve(fromDocument)) : process.cwd();
   let relative = path.relative(base, absolutePath).split(path.sep).join('/');
   if (!relative.startsWith('.')) relative = `./${relative}`;
 
   if (/\.json$/iu.test(absolutePath)) {
+    const sourceBytes = fs.readFileSync(absolutePath);
+    const sourceDigest =
+      createSourceIdentityFromBytes(sourceBytes).digest;
     const tree = readJsonTree(
-      fs.readFileSync(absolutePath, 'utf8'),
+      sourceBytes.toString('utf8'),
       relative,
       sourceDigest,
     );
     return {
       source: relative,
+      candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
       candidates: [...tree.candidates],
       trees: tree.nodes.map((node) => ({
         pointer: node.pointer,
@@ -855,6 +884,7 @@ export function inspectSource(absolutePath: string, sampleRows: number, fromDocu
     };
   }
 
+  const sourceDigest = readSourceFileIdentity(absolutePath).digest;
   const workbook = loadWorkbook({ absolutePath });
   const isPackage = /\.(xlsx|xlsm)$/iu.test(absolutePath);
   const imageRead = isPackage
@@ -871,6 +901,7 @@ export function inspectSource(absolutePath: string, sampleRows: number, fromDocu
   );
   return {
     source: relative,
+    candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
     candidates: [
       ...Object.entries(workbook.sheets).flatMap(([sheetName, sheet]) => tableCandidates({ source: relative, sourceDigest, sheetName, sheet })),
       ...imageCandidates({ source: relative, sourceDigest, images: imageRead.images, tablesBySheet }),
