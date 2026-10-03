@@ -11,7 +11,7 @@
  * actual "which files" policy (and any `vscode.workspace.findFiles` call) in
  * the host layer, where it belongs.
  */
-import { ContentMatchIndexLimitError, findContentMatchesDetailed, type ContentMatch } from '../core/contentMatch.js';
+import { ContentMatchIndexLimitError, findContentMatchesDetailed } from '../core/contentMatch.js';
 import { cellRangeToA1 } from '../core/tableGeometry.js';
 import type { CellRange, SheetSource } from '../core/sheetSource.js';
 import { parseTsv } from './pasteDrop.js';
@@ -106,7 +106,9 @@ export function matchContext(sheet: SheetSource, range: CellRange): MatchContext
  * Searches every sheet of every given workbook for a rectangle whose
  * displayed values exactly match `clipboardPlainText` (parsed as TSV --
  * `pasteDrop.ts::parseTsv`). Returns every exact match found across every
- * workbook/sheet; the caller decides what to do with 0, 1, or many results
+ * workbook/sheet, bounded by the core candidate cap; the detailed result also
+ * reports sheets whose exact-match list was truncated so the caller does not
+ * present a bounded prefix as a complete candidate set
  * (design §4 "自動確定の規則": multiple matches must never be auto-resolved to
  * one).
  *
