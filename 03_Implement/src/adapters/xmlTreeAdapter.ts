@@ -264,9 +264,16 @@ function parseXml(text: string): XmlElementNode {
   return root;
 }
 
+function compareXmlName(
+  left: { name: string },
+  right: { name: string },
+): number {
+  return left.name < right.name ? -1 : left.name > right.name ? 1 : 0;
+}
+
 function canonicalElement(element: XmlElementNode): string {
   const attributes = [...element.attributes]
-    .sort((a, b) => a.name.localeCompare(b.name))
+    .sort(compareXmlName)
     .map((attribute) => [attribute.name, attribute.value]);
   const content = element.content.map((item) =>
     item.kind === 'text'
