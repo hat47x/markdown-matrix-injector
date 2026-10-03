@@ -132,7 +132,7 @@ export async function importFromWorkbook(
 
   if (materialized.imageProblems.length > 0) {
     void vscode.window.showWarningMessage(
-      `MMI: 下書きを作成しました。抽出できなかった画像が ${materialized.imageProblems.length} 件あります。下書きの「画像の注意」を確認してください。`,
+      `MMI: 下書きを作成しました。画像・図形に関する注意が ${materialized.imageProblems.length} 件あります。下書きの「画像・図形の注意」を確認してください。`,
     );
   }
 
