@@ -1,0 +1,98 @@
+{
+  "schema": "mmi.portable-core-benchmark/v1",
+  "recordedAt": "2026-10-04",
+  "profile": "standard-go-csv-minimum",
+  "status": "experimental-comparison-only",
+  "environment": {
+    "go": "go1.23.2",
+    "os": "linux",
+    "arch": "amd64",
+    "node": "v22.16.0"
+  },
+  "conformance": {
+    "fixture": "03_Implement/test/fixtures/portable-core-v1/csv-table.case.json",
+    "sharedCsvCase": "passed",
+    "branchTestsBeforeCsvSemanticExpansion": {
+      "passed": 2,
+      "failed": 0,
+      "note": "Exact branch main_test.go was executed after the compile-portability fix and before the later CSV semantic regression cases were added."
+    },
+    "focusedCsvSemanticCheck": {
+      "execution": "independent exact-function reproduction",
+      "passed": 6,
+      "failed": 0,
+      "cases": [
+        "utf8-bom-and-crlf",
+        "quoted-comma-and-escaped-quote",
+        "quoted-newline",
+        "unquoted-trim-and-quoted-preserve-space",
+        "standalone-cr-ignored-like-typescript-reference",
+        "unterminated-quoted-field-rejected"
+      ],
+      "note": "This focused check reproduced the branch parseCSV function exactly; it is not a rerun of the repository go test command after the new cases were committed."
+    },
+    "nativeAndWasmResponse": {
+      "byteIdentical": true,
+      "sha256": "156a1d7d65682217f9883ae2cbaa9a3b22146040e537b0169ec706730eb8d9e1"
+    }
+  },
+  "artifacts": {
+    "linuxAmd64": {
+      "build": "go build -trimpath -ldflags=-s -w",
+      "bytes": 1953944,
+      "sha256": "85fa68f0259c7b84426e37645bd2b7fbab0e5edbc679a6166631517060879ddf"
+    },
+    "windowsAmd64CrossBuild": {
+      "bytes": 2084864,
+      "sha256": "15782fab1177d8019137b6ef0b741c4f5e6e405536496af7e7070e98f977b266"
+    },
+    "standardGoWasm": {
+      "goos": "js",
+      "goarch": "wasm",
+      "bytes": 3336166,
+      "sha256": "53470b5d8754477dd235e58a8066c7db87584d711ec3f78ac376b75d6449b1c8"
+    }
+  },
+  "processMeasurements": {
+    "linuxNative": {
+      "request": "shared tiny CSV conformance request",
+      "runs": 100,
+      "firstMs": 1.216104,
+      "medianMs": 0.82859,
+      "p95Ms": 1.043754,
+      "minMs": 0.707998,
+      "maxMs": 1.302224,
+      "peakRssKiB": {
+        "runs": 30,
+        "median": 2456,
+        "min": 2392,
+        "max": 2520
+      }
+    },
+    "standardGoWasmOnNode": {
+      "request": "same shared tiny CSV conformance request",
+      "runner": "Go wasm_exec_node.js",
+      "runs": 30,
+      "firstMs": 69.738786,
+      "medianMs": 70.446629,
+      "p95Ms": 81.218007,
+      "minMs": 62.63539,
+      "maxMs": 133.004374,
+      "peakRssKiB": {
+        "runs": 10,
+        "median": 52848,
+        "min": 51396,
+        "max": 54852
+      }
+    }
+  },
+  "unavailable": {
+    "tinyGo": "not installed in the measurement environment"
+  },
+  "interpretation": [
+    "The standard-Go CSV minimum matches the current shared CSV conformance case.",
+    "Standard Go WASM produced byte-identical JSON for that case, but Node-host process overhead was much larger than native.",
+    "These measurements do not select Go, TinyGo, native, or WASM for production.",
+    "XLSX and JSON Tree parity are not established by this profile."
+  ]
+}
