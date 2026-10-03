@@ -4,6 +4,9 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import ts from 'typescript';
+
+import { verifyCliPackage } from './verify-cli-package.mjs';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_PROJECT_ROOT = path.resolve(SCRIPT_DIR, '..');
@@ -38,6 +41,13 @@ export function createCliPackageManifest(sourcePackage) {
     repository: sourcePackage.repository,
     bugs: sourcePackage.bugs,
     homepage: sourcePackage.homepage,
+    files: [
+      'dist',
+      'media',
+      'README.md',
+      'LICENSE',
+      'THIRD_PARTY_NOTICES.md',
+    ],
     dependencies,
     bundleDependencies: true,
   };
@@ -66,10 +76,10 @@ export function stageCliPackage(options = {}) {
   fs.rmSync(stageDirectory, { recursive: true, force: true });
   fs.mkdirSync(stageDirectory, { recursive: true });
 
-  copyRequired(
+  const runtimeFiles = copyRuntimeModuleGraph(
+    cliEntry,
     compiledRoot,
     path.join(stageDirectory, 'dist', 'src'),
-    'compiled runtime',
   );
   copyRequired(
     path.join(projectRoot, 'media', 'markdown-matrix.css'),
@@ -103,6 +113,7 @@ export function stageCliPackage(options = {}) {
     manifest,
     sourcePackageText,
     sourceLockPath,
+    runtimeFiles,
   };
 }
 
@@ -184,8 +195,15 @@ export function buildCliPackage(options = {}) {
     `${digest.slice('sha256:'.length)}  ${path.basename(tarballPath)}\n`,
   );
 
-  if (options.keepStage !== true) {
-    fs.rmSync(staged.stageDirectory, { recursive: true, force: true });
+  let verification;
+  try {
+    verification = options.verify === false
+      ? undefined
+      : verifyTarballOrRemove(tarballPath, digestPath);
+  } finally {
+    if (options.keepStage !== true) {
+      fs.rmSync(staged.stageDirectory, { recursive: true, force: true });
+    }
   }
 
   return {
@@ -195,7 +213,136 @@ export function buildCliPackage(options = {}) {
     digest,
     digestPath,
     npmPackReport: report[0],
+    ...(verification ? { verification } : {}),
   };
+}
+
+export function collectRuntimeModuleGraph(entryPath, rootDirectory) {
+  const root = fs.realpathSync(path.resolve(rootDirectory));
+  const entry = fs.realpathSync(path.resolve(entryPath));
+  if (!pathWithin(entry, root)) {
+    throw new Error(`CLI entry must stay within compiled root: ${entry}`);
+  }
+
+  const pending = [entry];
+  const seen = new Set();
+
+  while (pending.length > 0) {
+    const current = pending.pop();
+    if (!current || seen.has(current)) continue;
+    seen.add(current);
+
+    const source = fs.readFileSync(current, 'utf8');
+    for (const specifier of relativeModuleSpecifiers(source, current)) {
+      const resolved = resolveRuntimeSpecifier(current, specifier, root);
+      if (!seen.has(resolved)) pending.push(resolved);
+    }
+  }
+
+  return [...seen]
+    .map((absolute) => path.relative(root, absolute))
+    .sort();
+}
+
+export function copyRuntimeModuleGraph(
+  entryPath,
+  rootDirectory,
+  destinationRoot,
+) {
+  const root = fs.realpathSync(path.resolve(rootDirectory));
+  const files = collectRuntimeModuleGraph(entryPath, root);
+  for (const relative of files) {
+    copyRequired(
+      path.join(root, relative),
+      path.join(destinationRoot, relative),
+      `CLI runtime module ${relative}`,
+    );
+  }
+  return files;
+}
+
+export function relativeModuleSpecifiers(source, filename = 'runtime.js') {
+  const found = [];
+  const sourceFile = ts.createSourceFile(
+    filename,
+    source,
+    ts.ScriptTarget.Latest,
+    true,
+    ts.ScriptKind.JS,
+  );
+
+  const add = (node) => {
+    if (ts.isStringLiteralLike(node) && node.text.startsWith('.')) {
+      found.push(node.text);
+    }
+  };
+
+  const visit = (node) => {
+    if (
+      (ts.isImportDeclaration(node) || ts.isExportDeclaration(node))
+      && node.moduleSpecifier
+    ) {
+      add(node.moduleSpecifier);
+    } else if (
+      ts.isCallExpression(node)
+      && node.expression.kind === ts.SyntaxKind.ImportKeyword
+      && node.arguments.length === 1
+    ) {
+      add(node.arguments[0]);
+    } else if (
+      ts.isCallExpression(node)
+      && ts.isIdentifier(node.expression)
+      && node.expression.text === 'require'
+      && node.arguments.length === 1
+    ) {
+      add(node.arguments[0]);
+    }
+    ts.forEachChild(node, visit);
+  };
+
+  visit(sourceFile);
+  return found;
+}
+
+function resolveRuntimeSpecifier(importer, specifier, root) {
+  const raw = path.resolve(path.dirname(importer), specifier);
+  const candidates = path.extname(raw)
+    ? [raw]
+    : [raw, `${raw}.js`, path.join(raw, 'index.js')];
+
+  for (const candidate of candidates) {
+    if (!fs.existsSync(candidate) || !fs.statSync(candidate).isFile()) continue;
+    const real = fs.realpathSync(candidate);
+    if (!pathWithin(real, root)) {
+      throw new Error(
+        `CLI runtime import escapes compiled root: ${specifier} from ${importer}`,
+      );
+    }
+    return real;
+  }
+
+  throw new Error(
+    `CLI runtime import is missing: ${specifier} from ${importer}`,
+  );
+}
+
+function pathWithin(target, root) {
+  const relative = path.relative(root, target);
+  return relative === '' || (!relative.startsWith('..') && !path.isAbsolute(relative));
+}
+
+export function verifyTarballOrRemove(
+  tarballPath,
+  digestPath,
+  verifier = verifyCliPackage,
+) {
+  try {
+    return verifier(tarballPath);
+  } catch (error) {
+    fs.rmSync(tarballPath, { force: true });
+    fs.rmSync(digestPath, { force: true });
+    throw error;
+  }
 }
 
 function copyRequired(source, destination, label) {
@@ -237,7 +384,9 @@ if (isMainModule()) {
       `${JSON.stringify({
         tarball: result.tarballPath,
         sha256: result.digest,
+        runtimeFiles: result.runtimeFiles,
         bundled: result.npmPackReport?.bundled ?? [],
+        verification: result.verification ?? null,
       }, null, 2)}\n`,
     );
   } catch (error) {

@@ -3,7 +3,12 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { checkPaths, inspectSource } from '../src/cli/mmi.js';
+import {
+  checkPaths,
+  inspectSource,
+  main,
+  readCliVersion,
+} from '../src/cli/mmi.js';
 import { RenderError, renderDocumentMarkdown } from '../src/cli/render.js';
 
 function fixture(markdown: string): { root: string; doc: string; csv: string } {
@@ -15,6 +20,27 @@ function fixture(markdown: string): { root: string; doc: string; csv: string } {
   fs.writeFileSync(doc, markdown);
   return { root, doc, csv };
 }
+
+test('CLI --version and -v report the package version', async () => {
+  const expected = JSON.parse(
+    fs.readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
+  ).version;
+  assert.equal(readCliVersion(), expected);
+
+  for (const option of ['--version', '-v']) {
+    const lines: string[] = [];
+    const original = console.log;
+    console.log = (...args: unknown[]) => {
+      lines.push(args.map((value) => String(value)).join(' '));
+    };
+    try {
+      assert.equal(await main([option]), 0);
+    } finally {
+      console.log = original;
+    }
+    assert.deepEqual(lines, [expected]);
+  }
+});
 
 test('inspect lists regions with headers and a reference relative to the document, without cell values by default', () => {
   const { csv, doc } = fixture('');
