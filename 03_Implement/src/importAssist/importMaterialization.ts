@@ -13,7 +13,7 @@ import { imageCandidates, readExcelImages } from '../adapters/excelImageAdapter.
 import { extractImages, type ExtractProblem, type ExtractedImage } from '../cli/extract.js';
 import {
   DEFAULT_LEDGER_FILE,
-  classify,
+  assessLedger,
   readLedger,
 } from '../core/importLedger.js';
 import {
@@ -321,46 +321,52 @@ export function materializeWorkbookImport(
       for (let index = 0; index < imageRead.images.length; index += 1) {
         const image = imageRead.images[index];
         const candidate = imageCandidateList[index];
-        const ledgerState = classify(
+        const ledgerAssessment = assessLedger(
           ledger,
           ledgerPath,
           sourcePath,
           candidate,
         );
-
-        // A Candidate already adopted into the ledger remains adopted even if
-        // an obsolete rejection/defer record exists later.
-        if (ledgerState !== 'imported' && ledgerState !== 'stale') {
-          const rejected = rejectedDecisionForCandidate(
-            reviewDecisions,
-            reviewDecisionsPath,
-            sourcePath,
-            candidate,
-          );
-          const deferred = rejected
-            ? undefined
-            : deferredDecisionForCandidate(
-                reviewDecisions,
-                reviewDecisionsPath,
-                sourcePath,
-                candidate,
-              );
-          if (rejected || deferred) {
-            const decision = rejected ? 'rejected' as const : 'deferred' as const;
-            reviewSkippedImages.push({
-              ordinal: image.ordinal,
-              sheet: image.sheet,
-              ...(image.name ? { name: image.name } : {}),
-              decision,
-              code: decision === 'rejected'
-                ? 'MMI_IMPORT_REVIEW_REJECTED'
-                : 'MMI_IMPORT_REVIEW_DEFERRED',
-              message: decision === 'rejected'
-                ? '同一Candidateは以前に却下されています。'
-                : '同一Candidateは以前に保留されています。',
-            });
-            continue;
-          }
+        const rejected = rejectedDecisionForCandidate(
+          reviewDecisions,
+          reviewDecisionsPath,
+          sourcePath,
+          candidate,
+        );
+        const deferred = rejected
+          ? undefined
+          : deferredDecisionForCandidate(
+              reviewDecisions,
+              reviewDecisionsPath,
+              sourcePath,
+              candidate,
+            );
+        const reviewDecision = rejected ?? deferred;
+        const adoptedAt = ledgerAssessment.state === 'imported'
+          ? ledgerAssessment.entry?.reviewedAt
+          : undefined;
+        const reviewWins = Boolean(
+          reviewDecision
+          && (
+            !adoptedAt
+            || reviewDecision.reviewedAt >= adoptedAt
+          ),
+        );
+        if (reviewDecision && reviewWins) {
+          const decision = rejected ? 'rejected' as const : 'deferred' as const;
+          reviewSkippedImages.push({
+            ordinal: image.ordinal,
+            sheet: image.sheet,
+            ...(image.name ? { name: image.name } : {}),
+            decision,
+            code: decision === 'rejected'
+              ? 'MMI_IMPORT_REVIEW_REJECTED'
+              : 'MMI_IMPORT_REVIEW_DEFERRED',
+            message: decision === 'rejected'
+              ? '同一Candidateに、採用履歴より新しい却下判断があります。'
+              : '同一Candidateに、採用履歴より新しい保留判断があります。',
+          });
+          continue;
         }
 
         const extracted = extractImages({
