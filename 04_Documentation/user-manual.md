@@ -149,7 +149,6 @@ Markdownを開いた状態で右クリックすると「MMI: 参照を作成・�
 - 見出しが2段の表、縦に結合したセル、表の途中の空行や区切り行、見出しの列に揃っていないセルがあると、下書きに**注意**が出ます。揃っていないセルの値は表示されないため、番地を示します。
 - 「同じ書式」のシートと、近い書式との違い（「表『2. 画面項目』に列『初期値』があります」など）も示します。同じ書式のシートは同じ判断で取り込めます。
 - 候補は推定です。表の範囲や見出しが違う場合は、参照を直すか削除してください。画像の抽出と台帳への記録は、表の役割推定を確定扱いにするものではありません。
-- 以前のCandidateレビューで同一画像を「却下」または「保留」にしている場合、一括取り込みはその判断を上書きしません。対象画像は自動取り込みせず、下書きの「既存のレビュー判断」に残します。採用履歴と判断が両方ある場合は新しい方を優先します。画像内容や判断根拠が変われば、その古い判断は引き継がず再び候補になります。
 - 表自体を通常Markdownとして取り込みたい場合は、コマンド「MMI: 取り込み候補を確認（表・画像・取込状態・出典）」から表を明示的に採用します。初回一括取り込みの既定では、表はLinkedのまま残します。表Candidateでは「修正して取り込む」も選べます。抽出されたMarkdown表を編集し、「修正内容を採用」を選ぶと、原本とCandidateの由来は変更せず、修正版を別のcontent-addressed assetとして保存します。台帳には`reviewState: modified`と修正版のoutput digestが残ります。レビュー中に元のCandidate自体が変わった場合は採用せず、レビューをやり直すよう求めます。画像Candidateでは「説明を修正して取り込む」を選ぶと、画像bytesを変えずにalt textだけを人手修正できます。採用前に現在のCandidateを再照合し、原本側の画像・位置・説明など判断根拠が変わっていれば採用せずレビューをやり直します。修正した場合は台帳に`reviewState: modified`、alt text、画像assetのoutput digestを記録します。
 
 ### 参照を確かめる・直す
@@ -197,7 +196,7 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 | `mmi inspect <正本>` | Excel / CSV等では表の範囲・見出し・行数を表示し、`.xlsx`では画像も一覧に出す。`.json`ではobject / arrayをTree Candidateとして列挙し、RFC 6901 JSON Pointer、node type、直下child数を表示する。`--json`でCandidateのstatus・method・provenance・fingerprintを確認できる。取り込み台帳がある場合は`imported / changed / stale / duplicate / unimported`を照合し、`--unimported`や`--exclude-imported`で絞り込める |
 | `mmi extract <ブック.xlsx> --image <番号\|all>` | Excelに貼られた画像を`assets/`（`--out-dir`で変更）へ書き出し、Markdownの画像参照と出典を出力する。CLIでは同時に`<root>/mmi-ledger.json`へoccurrence・content fingerprint・出力先・変換条件・review basisを記録する（`--ledger`で変更）。同じ画像が別の場所にもある場合は別occurrenceとして残し、review stateを自動継承しない |
 | `mmi extract <file.json> --tree <JSON Pointer\|root>` | JSONのobject / arrayから1つのTree Candidateを選び、nested listのMarkdown assetへ取り込む。`root`は文書全体、`/service/endpoints`のような値はRFC 6901 JSON Pointer。原本JSONは変更しない。JSON文字列中のMarkdown記号は文字として保持し、取り込み台帳にはpointer、subtree fingerprint、出力digest、Projection方式を記録する |
-| `mmi import <ブック> --draft <下書き.md>` | 既存ブックを1回でモダナイズ用の下書きへ整理する。表は元ブックへ追従する参照のまま残し、.xlsx / .xlsmの埋込画像はcontent-addressedな画像ファイルとして取り込み、occurrenceを同じ取り込み台帳へ記録する。既存レビューで却下・保留した同一画像は、より新しい明示採用がない限り自動採用しない。表でない領域や抽出できない画像は確認事項として下書きに残す。下書き・assets・台帳は`--root`内に限定し、既存の下書きは上書きしない |
+| `mmi import <ブック> --draft <下書き.md>` | 既存ブックを1回でモダナイズ用の下書きへ整理する。表は元ブックへ追従する参照のまま残し、.xlsx / .xlsmの埋込画像はcontent-addressedな画像ファイルとして取り込み、occurrenceを同じ取り込み台帳へ記録する。表でない領域や抽出できない画像は確認事項として下書きに残す。下書き・assets・台帳は`--root`内に限定し、既存の下書きは上書きしない |
 | `mmi check <文書またはフォルダー>` | 参照の誤りを「問題」パネルと同じ診断コードで表示。誤りがあれば終了コード1 |
 | `mmi render <文書>` | 参照を展開したMarkdownを出力。`--to html`でPDF変換用のHTML |
 | `mmi materialize <文書> -o <出力.md>` | 原本を外すためのMarkdownを生成する。小表は本文へ、別紙相当表は`mmi-materialized/`へ、ローカル画像は`mmi-assets/`へcontent-addressedで実体化する。provenance付きで採用済みのExtracted表・画像・JSON Treeは現在sourceとledgerへfreshness照合し、変更・stale・未追跡なら終了コード1 |
