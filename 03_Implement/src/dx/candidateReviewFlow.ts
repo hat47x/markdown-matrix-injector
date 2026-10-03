@@ -22,6 +22,7 @@ import {
   finalizeReviewedImageExtraction,
   finalizeReviewedTableExtraction,
 } from '../cli/extract.js';
+import { extractJsonTree } from '../cli/extractTree.js';
 import type { Candidate, ReviewState } from '../core/candidate.js';
 import type { CandidateLedgerFilter } from '../core/candidateLedgerView.js';
 import {
@@ -459,18 +460,18 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
 
   const action = await vscode.window.showQuickPick(
     [
-      ...(picked.source.kind === 'table' || picked.source.kind === 'image'
+      {
+        label: '取り込む',
+        value: 'extract' as const,
+        description: '既存のextract経路で標準資産と台帳へ記録',
+      },
+      ...(picked.source.kind === 'tree'
         ? [{
-            label: '取り込む',
-            value: 'extract' as const,
-            description: '既存のextract経路で標準資産と台帳へ記録',
-          }]
-        : [{
             label: '確認のみで次へ',
             value: 'next' as const,
-            description:
-              'Treeのextractは未実装。Candidateの内容だけ確認して次へ進む',
-          }]),
+            description: 'Treeを取り込まず、確認だけして次へ進む',
+          }]
+        : []),
       ...(picked.source.kind === 'table'
         ? [{
             label: '修正して取り込む',
@@ -579,11 +580,6 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     await vscode.window.showInformationMessage(
       'MMI: Candidateのレビュー状態を解除しました。',
     );
-    continue;
-  }
-
-  if (picked.source.kind === 'tree') {
-    processedKeys.add(candidateReviewSessionKey(picked.source.candidate));
     continue;
   }
 
@@ -721,6 +717,29 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     }
     extractedMarkdown = finalized.extracted.markdown;
     extractedFile = finalized.extracted.file;
+  } else if (picked.source.kind === 'tree') {
+    const result = extractJsonTree({
+      sourcePath,
+      pointer: picked.source.pointer,
+      outDir,
+      ...(markdownDocument
+        ? { fromDocument: markdownDocument }
+        : {}),
+      sourceLabel,
+      ledgerPath,
+      expectedCandidateFingerprint:
+        picked.source.candidate.fingerprint.digest,
+    });
+    if (result.problems.length > 0 || !result.extracted) {
+      await vscode.window.showErrorMessage(
+        `MMI: Treeの取り込みに失敗しました: ${result.problems
+          .map((problem) => problem.message)
+          .join(' / ')}`,
+      );
+      return;
+    }
+    extractedMarkdown = result.extracted.markdown;
+    extractedFile = result.extracted.file;
   } else if (picked.source.kind === 'image') {
     const result = extractImages({
       sourcePath,
@@ -784,7 +803,11 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
 
   if (active?.document.languageId === 'markdown') {
     const kindLabel =
-      picked.source.kind === 'image' ? '画像参照' : 'Markdown表';
+      picked.source.kind === 'image'
+        ? '画像参照'
+        : picked.source.kind === 'tree'
+          ? 'Markdownツリー'
+          : 'Markdown表';
     const insert = await vscode.window.showQuickPick(
       [
         {
