@@ -558,3 +558,47 @@ test('existing adopted image history takes precedence over an obsolete rejection
     [1, 2, 3, 4],
   );
 });
+
+
+test('when every image is rejected or deferred, bulk import writes no image assets or ledger', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-review-all-skipped-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  const draftPath = path.join(root, 'design.md');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const decisionPath = path.join(root, 'mmi-review-decisions.json');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+
+  const inventory = buildCandidateReviewInventory(sourcePath, './design.xlsx');
+  const images = inventory.items.filter((item) => item.kind === 'image');
+  images.forEach((item, index) => {
+    if (index % 2 === 0) {
+      recordRejectedDecision(
+        decisionPath,
+        sourcePath,
+        item.candidate,
+        'test rejection',
+      );
+    } else {
+      recordDeferredDecision(
+        decisionPath,
+        sourcePath,
+        item.candidate,
+        'test defer',
+      );
+    }
+  });
+
+  const result = writeWorkbookImportDraft({
+    sourcePath,
+    draftPath,
+    ledgerPath,
+    reviewDecisionsPath: decisionPath,
+  });
+
+  assert.equal(result.extractedImages.length, 0);
+  assert.equal(result.reviewSkippedImages.length, 4);
+  assert.equal(fs.existsSync(result.imageOutDir), false);
+  assert.equal(fs.existsSync(ledgerPath), false);
+  assert.equal(fs.existsSync(draftPath), true);
+  assert.match(result.markdown, /既存のレビュー判断により取り込まなかった画像: 4件/u);
+});
