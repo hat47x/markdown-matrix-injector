@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Feature
-- Status: Draft
+- Status: In Progress
 - Priority: Medium
 - Scope: src/core（Source Adapter / Structuralizer）、src/cli（inspect / extract）、test/fixtures、docs
 - Expected verification level: integration
@@ -20,14 +20,22 @@ MMIの認知は、明示構造を推測し直すためではなく、形式だ�
 
 ## Acceptance criteria
 
-- [ ] JSONからobject / arrayの親子関係をTree / Hierarchy Candidate（`observed`）として列挙できる。
-- [ ] 汎用XMLからelementの親子関係を保持し、属性・本文を失わずCandidateへ写せる。XML Spreadsheet 2003の既存表処理と誤混同しない。
+- [x] JSONからobject / arrayの親子関係をTree / Hierarchy Candidate（`observed`）として列挙できる。RFC 6901 JSON Pointerを`structuralPath`として保持する。
+- [x] 汎用UTF-8 XMLからelementの親子関係を保持し、属性・本文・CDATAを失わずCandidateへ写せる。DOCTYPE/custom entityは展開せずfail-closedとし、XML Spreadsheet 2003の既存表処理と誤混同しない。
 - [ ] フラットテキスト用Structuralizerの最小契約を定め、少なくともインデント、見出し番号、接頭辞コードの3方式を個別に有効化できる。
 - [ ] Excel / CSVの親列や階層列を同じTree Candidateへ写す拡張点を定める。実装範囲は最小fixtureでよい。
 - [ ] `observed` / `inferred` と `deterministic` / `provider-dependent` をAPI・JSON出力で直交して表現し、推定にはmethod class、evidence、algorithm/provider version、reason codeを残す。
 - [ ] 決定論的規則であっても複数の構造が成立する場合は自動確定せず、複数候補または`abstained`を返す。deterministicであることを事実性の根拠にしない。
-- [ ] Treeの内部表現とMarkdown上の表現を分離し、nested list / headings / Mermaid等を後から選べる。初期版はnested listでよい。
+- [x] Treeの内部表現とMarkdown上の表現を分離し、nested list / headings / Mermaid等を後から選べる。JSONの初期版はnested list Projectionを別モジュールとして実装した。
 - [ ] 同じ入力・設定からAuthority部分のTree構造が再現でき、外部LLMやGPUを必須にしない。
+
+## Current slice
+
+JSONの明示構造を最初の縦切りとして実装した。object / arrayだけを`tree` Candidateとし、親子関係、node type、直下のscalar値を`observed + deterministic + M0`として保持する。object keyはfingerprint計算時に辞書順へ正規化し、array順序は保持する。位置はRFC 6901 JSON Pointerで表し、セル座標とは別の`structuralPath`として扱う。
+
+CLIでは`mmi inspect <file.json>`でTree Candidateを列挙し、`mmi extract <file.json> --tree <pointer|root>`で選択したsubtreeをnested listのMarkdown assetへ取り込む。ProjectionはSource Adapterから分離し、Markdown記号を含むJSON文字列も表示上の意味が変わらないようエスケープする。採用時は既存の`mmi-ledger.json`へoccurrence、subtree fingerprint、出力digest、変換条件を記録する。
+
+`mmi:extracted-tree` provenanceはdetach前のfreshness確認にも接続した。対象subtree以外の変更は採用を失効させず、対象subtreeの内容が変わった場合は`changed`としてdetachを止める。VS CodeのCandidateレビューUIにもJSON Treeを追加し、表・画像と同じ採用・却下・保留・ledger filter・facetを利用する。採用時は一覧表示時のsubtree fingerprintを再照合し、そのpointerの内容が変わっていれば`MMI_TREE_REVIEW_STALE`で採用を止める。汎用XMLも明示構造を`observed + deterministic + M0`なTree Candidateへ写す。位置は`/catalog[1]/item[2]`のような決定論的element pathとし、属性は名前順に正規化、子要素・本文/CDATAの順序は保持する。DOCTYPEと独自entityは展開せず、UTF-8として不正なbytesや非UTF-8宣言はfail-closedにする。XML Spreadsheet 2003は従来どおり表Source Adapterへ流す。CLIの`inspect` / `extract --tree`、共通ledger、CandidateレビューUI、detach前freshnessへXML Treeも接続し、review後にsubtree fingerprintが変わっていれば採用を拒否する。フラットテキスト、Excel / CSVの階層推定は未実装である。
 
 ## Validation plan
 
@@ -35,6 +43,8 @@ JSON、XML、インデント付きテキスト、番号付きテキスト、曖�
 
 ## Remaining work
 
+- インデント、見出し番号、接頭辞コードによるフラットテキストStructuralizerをM1として追加し、曖昧な入力では複数候補または`abstained`を返す。
+- Excel / CSVの親列・階層列を同じTree契約へ写す最小fixtureを追加する。
 - YAMLはJSON Adapterと契約を共有できるかを確認してから追加する。
 - structured artifactの `hierarchy_relation` はissue-0193の対応表を通してPerception providerとして再利用する。
 - Choice list / ListはTreeと共通のNode表現を使えるか、実装時に判断する。
