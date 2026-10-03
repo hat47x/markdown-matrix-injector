@@ -172,3 +172,43 @@ test('CLI inspect and extract support JSON Pointer selection while scalar paths 
   assert.equal(scalar.code, 1);
   assert.match(scalar.error, /MMI_TREE_CANDIDATE_NOT_FOUND/u);
 });
+
+
+test('review-bound Tree extraction rejects a changed Candidate', () => {
+  const f = workspace();
+  const reviewed = inspectSource(f.source, 0).candidates.find(
+    (candidate) =>
+      candidate.kind === 'tree'
+      && candidate.locator.structuralPath === '/service',
+  );
+  assert.ok(reviewed);
+
+  fs.writeFileSync(
+    f.source,
+    JSON.stringify({
+      service: {
+        name: 'billing-v2',
+        endpoints: [
+          { path: '/pay', method: 'POST' },
+          { path: '/refund', method: 'POST' },
+        ],
+      },
+      enabled: true,
+    }, null, 2),
+  );
+
+  const result = extractJsonTree({
+    sourcePath: f.source,
+    pointer: '/service',
+    outDir: f.outDir,
+    ledgerPath: f.ledgerPath,
+    expectedCandidateFingerprint: reviewed.fingerprint.digest,
+  });
+
+  assert.equal(result.extracted, undefined);
+  assert.deepEqual(
+    result.problems.map((problem) => problem.code),
+    ['MMI_TREE_CANDIDATE_CHANGED'],
+  );
+  assert.equal(fs.existsSync(f.ledgerPath), false);
+});

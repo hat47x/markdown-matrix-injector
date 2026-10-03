@@ -76,3 +76,45 @@ test('review inventory keeps CSV table Candidates available without an image pat
   assert.equal(inventory.items.some((item) => item.kind === 'image'), false);
   assert.equal(inventory.items.some((item) => item.kind === 'table'), true);
 });
+
+
+test('review inventory exposes observed JSON Tree Candidates', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-review-json-tree-'));
+  const source = path.join(root, 'service.json');
+  fs.writeFileSync(
+    source,
+    JSON.stringify({
+      service: {
+        name: 'billing',
+        endpoints: [
+          { path: '/pay', method: 'POST' },
+          { path: '/refund', method: 'POST' },
+        ],
+      },
+      enabled: true,
+    }),
+  );
+
+  const inventory = buildCandidateReviewInventory(source, 'service.json');
+  const trees = inventory.items.filter((item) => item.kind === 'tree');
+
+  assert.deepEqual(inventory.imageDiagnostics, []);
+  assert.equal(trees.length, 5);
+  assert.deepEqual(
+    trees.map((item) => item.pointer),
+    ['', '/service', '/service/endpoints', '/service/endpoints/0', '/service/endpoints/1'],
+  );
+  assert.equal(
+    trees.every(
+      (item) =>
+        item.candidate.kind === 'tree'
+        && item.candidate.status === 'observed'
+        && item.candidate.execution === 'deterministic'
+        && item.candidate.locator.source === 'service.json',
+    ),
+    true,
+  );
+  assert.equal(trees[0].nodeType, 'object');
+  assert.equal(trees[0].childCount, 2);
+  assert.equal(trees[0].leafCount, 1);
+});

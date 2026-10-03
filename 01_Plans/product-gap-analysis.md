@@ -35,7 +35,7 @@ Candidateの共通契約はissue-0193で実装済みで、表・画像・JSON Tr
 | provenance | ◐ | Source Identity v1、納品物一覧（Linked）、import ledger（Extractedのsource/occurrence/fingerprint/output/conversion/review basis）。JSON Treeは`structuralPath`をoccurrence identityに使う | 他Candidate種別と一括変換への拡張、detach監査用の横断report | 2〜4 |
 | materialize | ◐ | `mmi materialize`で小表をinline GFM化、カード相当表を独立Markdown化、本文のローカル画像を`mmi-assets/`へdigest名で複製・rebase。採用済みExtracted表・画像・JSON Treeのfreshnessを事前照合 | XML Tree / Shape等への同契約拡張、実務E2E | 4 |
 | detach check | ◐ | materialize preflightで採用済みExtracted表・画像・JSON Treeのchanged/stale/untrackedをfailし、`mmi detach-check`で残存MMI参照、未実体化marker、旧別紙カード、壊れた/境界外リンクをfailできる | 他の非表Candidateへの同契約拡張、実務E2E | 4 |
-| 執筆支援 | ● | 補完、貼り付け（Windowsの出所取得を含む）、説明からの検索、案内付きの作成、ホバー、表・画像Candidateの後追いレビューUI（facet絞り込み、採用/修正採用/却下/却下解除/永続保留/保留解除） | 多環境の実機確認（issue-0110）、利用者観測（issue-0111） | 継続〜2 |
+| 執筆支援 | ● | 補完、貼り付け（Windowsの出所取得を含む）、説明からの検索、案内付きの作成、ホバー、表・画像・JSON Tree Candidateの後追いレビューUI。source/import-state/facetを維持した連続レビューで、採用/修正採用/却下/却下解除/永続保留/保留解除を繰り返せる | provider-dependent生成の非同期化、多環境の実機確認（issue-0110）、利用者観測（issue-0111） | 継続〜2 |
 | AI/CI利用 | ◐ | CLIから`inspect`/`extract`/`check`/`render`/`materialize`/`detach-check`/`handoff`/提案再検証等を利用でき、Candidate JSON、AI向け指示パック（`skills/mmi`）、基本設計書キット、執筆ベンチマーク v0がある | 配布（npm等）、より安定したagent-facing contract、将来のMCP | 1 |
 | 外部LLM handoff | ◐ | local-only evidence package/promptを生成し、返却MMI記法とCandidate選択案をAuthority側でfail-closed再検証できる | 変換案の再検証、実利用E2E、agent-facing配布 | 1 |
 | 軽量認知 | ◐ | Fly-inspired matcher、worksheet format、Cognitive Contract等の研究資産 | 要件ごとのM0〜M4比較、deterministic/provider-dependent実行分離、Ollama/LM Studio等の既存local runtime再利用、model/profile artifact配布（issue-0204） | 1〜3 |

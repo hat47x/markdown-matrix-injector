@@ -30,7 +30,10 @@ import {
   type LineageCandidate,
 } from '../core/importLedger.js';
 import { isPathWithinBoundary } from '../core/pathResolver.js';
-import { readSourceFileIdentity } from '../core/sourceIdentity.js';
+import {
+  createSourceIdentityFromBytes,
+  readSourceFileIdentity,
+} from '../core/sourceIdentity.js';
 import { sliceRegion } from '../core/tableGeometry.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
 import {
@@ -732,14 +735,16 @@ export interface InspectImage {
 }
 
 export function inspectSource(absolutePath: string, sampleRows: number, fromDocument?: string): InspectResult {
-  const sourceDigest = readSourceFileIdentity(absolutePath).digest;
   const base = fromDocument ? path.dirname(path.resolve(fromDocument)) : process.cwd();
   let relative = path.relative(base, absolutePath).split(path.sep).join('/');
   if (!relative.startsWith('.')) relative = `./${relative}`;
 
   if (/\.json$/iu.test(absolutePath)) {
+    const sourceBytes = fs.readFileSync(absolutePath);
+    const sourceDigest =
+      createSourceIdentityFromBytes(sourceBytes).digest;
     const tree = readJsonTree(
-      fs.readFileSync(absolutePath, 'utf8'),
+      sourceBytes.toString('utf8'),
       relative,
       sourceDigest,
     );
@@ -758,6 +763,7 @@ export function inspectSource(absolutePath: string, sampleRows: number, fromDocu
     };
   }
 
+  const sourceDigest = readSourceFileIdentity(absolutePath).digest;
   const workbook = loadWorkbook({ absolutePath });
   const isPackage = /\.(xlsx|xlsm)$/iu.test(absolutePath);
   const imageRead = isPackage

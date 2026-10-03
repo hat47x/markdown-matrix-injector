@@ -12,7 +12,7 @@ import {
   type Ledger,
   type LedgerState,
 } from '../core/importLedger.js';
-import { readSourceFileIdentity } from '../core/sourceIdentity.js';
+import { createSourceIdentityFromBytes } from '../core/sourceIdentity.js';
 
 export type DetachFreshnessProblemCode =
   | 'MMI_DETACH_LEDGER_MISSING'
@@ -224,10 +224,12 @@ function candidatesFromCurrentSource(
   sourceLabel: string,
 ): Candidate[] {
   if (/\.json$/iu.test(sourcePath)) {
-    const sourceDigest = readSourceFileIdentity(sourcePath).digest;
+    const sourceBytes = fs.readFileSync(sourcePath);
+    const sourceDigest =
+      createSourceIdentityFromBytes(sourceBytes).digest;
     return [
       ...readJsonTree(
-        fs.readFileSync(sourcePath, 'utf8'),
+        sourceBytes.toString('utf8'),
         sourceLabel,
         sourceDigest,
       ).candidates,

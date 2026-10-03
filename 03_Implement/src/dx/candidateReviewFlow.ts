@@ -22,6 +22,7 @@ import {
   finalizeReviewedImageExtraction,
   finalizeReviewedTableExtraction,
 } from '../cli/extract.js';
+import { extractJsonTree } from '../cli/extractTree.js';
 import type { Candidate, ReviewState } from '../core/candidate.js';
 import type { CandidateLedgerFilter } from '../core/candidateLedgerView.js';
 import {
@@ -70,6 +71,8 @@ function facetLabel(facet: CandidateReviewFacetSelection): string {
         return '$(table) 種別: 表';
       case 'image':
         return '$(file-media) 種別: 画像';
+      case 'tree':
+        return '$(symbol-structure) 種別: Tree';
       default:
         return `種別: ${facet.value}`;
     }
@@ -118,7 +121,7 @@ function workspaceRoot(sourcePath: string): string {
 }
 
 function supportedReviewSource(sourcePath: string): boolean {
-  return /\.(xlsx|xlsm|csv|xml)$/iu.test(sourcePath);
+  return /\.(xlsx|xlsm|csv|xml|json)$/iu.test(sourcePath);
 }
 
 async function chooseSource(target?: vscode.Uri): Promise<string | undefined> {
@@ -133,7 +136,7 @@ async function chooseSource(target?: vscode.Uri): Promise<string | undefined> {
     canSelectFolders: false,
     canSelectMany: false,
     filters: {
-      'MMI source': ['xlsx', 'xlsm', 'csv', 'xml'],
+      'MMI source': ['xlsx', 'xlsm', 'csv', 'xml', 'json'],
     },
     title: 'MMI: Candidateを確認するsourceを選択',
   });
@@ -228,6 +231,25 @@ function quickPickItem(
       detail: [
         epistemicDetail(source.candidate),
         `${image.format.toUpperCase()} · ${image.bytes} bytes`,
+        providerEvidence,
+      ].join(' · '),
+      source,
+      rejected,
+      deferred,
+      reviewState,
+      ledgerState,
+    };
+  }
+
+  if (source.kind === 'tree') {
+    return {
+      label:
+        `$(symbol-structure) JSON ${source.pointer || '(root)'}`,
+      description:
+        `${stateLabel(ledgerState)} · 採用: ${reviewStateLabel(reviewState)} · ${source.nodeType}`,
+      detail: [
+        epistemicDetail(source.candidate),
+        `子: ${source.childCount} · scalar: ${source.leafCount}`,
         providerEvidence,
       ].join(' · '),
       source,
@@ -443,6 +465,13 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
         value: 'extract' as const,
         description: '既存のextract経路で標準資産と台帳へ記録',
       },
+      ...(picked.source.kind === 'tree'
+        ? [{
+            label: '確認のみで次へ',
+            value: 'next' as const,
+            description: 'Treeを取り込まず、確認だけして次へ進む',
+          }]
+        : []),
       ...(picked.source.kind === 'table'
         ? [{
             label: '修正して取り込む',
@@ -495,6 +524,11 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     },
   );
   if (!action) continue;
+
+  if (action.value === 'next') {
+    processedKeys.add(candidateReviewSessionKey(picked.source.candidate));
+    continue;
+  }
 
   if (action.value === 'reject' || action.value === 'defer') {
     try {
@@ -683,6 +717,29 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     }
     extractedMarkdown = finalized.extracted.markdown;
     extractedFile = finalized.extracted.file;
+  } else if (picked.source.kind === 'tree') {
+    const result = extractJsonTree({
+      sourcePath,
+      pointer: picked.source.pointer,
+      outDir,
+      ...(markdownDocument
+        ? { fromDocument: markdownDocument }
+        : {}),
+      sourceLabel,
+      ledgerPath,
+      expectedCandidateFingerprint:
+        picked.source.candidate.fingerprint.digest,
+    });
+    if (result.problems.length > 0 || !result.extracted) {
+      await vscode.window.showErrorMessage(
+        `MMI: Treeの取り込みに失敗しました: ${result.problems
+          .map((problem) => problem.message)
+          .join(' / ')}`,
+      );
+      return;
+    }
+    extractedMarkdown = result.extracted.markdown;
+    extractedFile = result.extracted.file;
   } else if (picked.source.kind === 'image') {
     const result = extractImages({
       sourcePath,
@@ -746,7 +803,11 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
 
   if (active?.document.languageId === 'markdown') {
     const kindLabel =
-      picked.source.kind === 'image' ? '画像参照' : 'Markdown表';
+      picked.source.kind === 'image'
+        ? '画像参照'
+        : picked.source.kind === 'tree'
+          ? 'Markdownツリー'
+          : 'Markdown表';
     const insert = await vscode.window.showQuickPick(
       [
         {
