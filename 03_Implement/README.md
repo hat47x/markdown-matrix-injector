@@ -66,15 +66,15 @@ MMIは元データを書き換えません。外部アプリを開いた後に�
 npm run package:cli
 ```
 
-`artifacts/cli-package/`へ`.tgz`とSHA-256 sidecarが生成されます。tarballにはproduction runtime dependencyを同梱するため、利用者側でMMIの`npm ci`やTypeScript buildは不要です。
+`artifacts/cli-package/`へ`.tgz`とSHA-256 sidecarが生成されます。CLI entryから到達するcompiled moduleだけを含め、production dependencyは`package-lock.json`に固定したgraphを同梱します。利用者側でMMIの`npm ci`やTypeScript buildは不要です。
 
-配布前のsmoke確認は、生成したtarballを指定して実行します。
+`package:cli`は生成直後に、空の専用npm cacheを使ったoffline installと`mmi --help` / `--version` / `check` / `render`を自動実行します。既に生成済みのtarballを再確認するときは次を使います。
 
 ```sh
 npm run verify:cli-package -- artifacts/cli-package/markdown-matrix-injector-<version>.tgz
 ```
 
-この検証は一時prefixへ`npm install --offline`し、インストールされた`mmi`で`--help`、`check`、`render`を実行します。Windows・Linuxのmanual-e2e結果はissue-0197に記録します。
+この検証は一時prefixと空の専用npm cacheを使うため、ローカルcacheから不足依存を補いません。インストール済みpackage versionと`mmi --version`も照合します。Windows・Linuxのmanual-e2e結果はissue-0197に記録します。
 
 ## PDFを作るには
 

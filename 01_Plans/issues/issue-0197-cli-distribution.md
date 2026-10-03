@@ -24,13 +24,13 @@ CLI（`inspect`・`check`・`render`・`manifest`）は実装済みだが、現�
 
 ## Implementation checkpoint (2026-10-03)
 
-`03_Implement/scripts/build-cli-package.mjs`を追加した。通常のVS Code拡張manifestをそのままnpmへ公開せず、build済み`dist/src`、プレビューCSS、MMIのLICENSE、第三者noticeだけをCLI専用stageへ投影する。生成manifestは`bin.mmi=./dist/src/cli/mmi.js`、`engines.node>=20`とし、production runtimeは`markdown-it`とSheetJS CEだけに限定する。
+`03_Implement/scripts/build-cli-package.mjs`を追加した。通常のVS Code拡張manifestをそのままnpmへ公開せず、build済みCLI entryからTypeScript ASTで相対`import` / `export` / dynamic `import()` / `require()`を再帰追跡し、到達可能なruntime moduleだけをCLI専用stageへ投影する。欠落moduleやcompiled root外への相対依存はfail-closedとする。プレビューCSS、MMIのLICENSE、第三者noticeは明示的に追加し、生成manifestの`files` allowlistで`dist`、`media`、README、LICENSE、notice以外を通常package内容から除外する。生成manifestは`bin.mmi=./dist/src/cli/mmi.js`、`engines.node>=20`とし、production runtimeは`markdown-it`とSheetJS CEだけに限定する。
 
-stageではproduction依存を導入し、npmの`bundleDependencies: true`で1つのtarballへ含める。これにより利用者がローカルtarballを導入するとき、MMI runtime dependencyの再取得を前提にしない。buildはtarballとSHA-256 sidecarを`artifacts/cli-package/`へ出力する。
+stageではリポジトリの`package-lock.json`と通常manifestを一時的に使い、`npm ci --omit=dev`で検証済みlockfileのproduction graphをそのまま導入する。その後CLI専用manifestへ戻し、`bundleDependencies: true`で1つのtarballへ含める。これにより利用者がローカルtarballを導入するとき、MMI runtime dependencyの再取得を前提にしない。buildはtarballとSHA-256 sidecarを`artifacts/cli-package/`へ出力する。
 
-`scripts/verify-cli-package.mjs`は、新しい一時prefixへtarballを`npm install --offline`し、生成された`mmi` binaryで`--help`、`check`、`render`を実行する。offline installが失敗すればruntime dependencyの同梱不足として検出できる。LinuxとWindowsの同じ検証手順を使えるが、本Issueのmanual-e2eとしての両OS実行はまだ行っていない。
+`scripts/verify-cli-package.mjs`は、新しい一時prefixと空の専用npm cacheを作り、tarballを`npm install --offline`する。既存cacheから不足依存を補えないため、runtime dependencyの同梱漏れを検出できる。導入後は生成された`mmi` binaryで`--help`、`--version`、`check`、`render`を実行し、`--version`がインストール済みpackage.jsonのversionと一致することも確認する。`npm run package:cli`はtarball生成直後にこの検証を自動実行し、検証失敗時は`.tgz`とSHA-256 sidecarを削除するため、未検証artifactを配布対象として残さない。LinuxとWindowsで同じ検証手順を使えるが、本Issueのmanual-e2eとしての両OS実行はまだ行っていない。
 
-`test/cliDistribution.test.mjs`では、CLI packageがVS Code固有の`main`、`publisher`、`contributes`を持ち込まないこと、runtime dependencyが限定されること、compiled CLIや必要なnoticeがstageへ入ること、compiled entryが無い場合にfail-closedになることを固定した。
+`test/cliDistribution.test.mjs`では、CLI packageがVS Code固有の`main`、`publisher`、`contributes`を持ち込まないこと、runtime dependencyとpackage file allowlistが限定されること、CLIから到達するmoduleだけがstageへ入りextension/experimental codeが混入しないこと、コメントや文字列中の疑似importを依存と誤認しないこと、欠落module・root外import・compiled entry欠落でfail-closedになることを回帰として追加した。`cli.test.ts`には`mmi --version` / `-v`とpackage metadataの一致確認を追加した。
 
 ## Validation plan
 
@@ -38,11 +38,12 @@ stageではproduction依存を導入し、npmの`bundleDependencies: true`で1�
 
 ```sh
 npm install -g ./markdown-matrix-injector-<version>.tgz
+mmi --version
 mmi check <basic-design-kit> --root <basic-design-kit>
 mmi render <basic-design-kit>/基本設計書.md --root <basic-design-kit>
 ```
 
-さらに`npm run verify:cli-package -- <tarball>`を各OSで実行し、offline install、binary生成、`check`、`render`が通ることを記録する。
+`npm run package:cli`自体が生成ホストでisolated offline smokeまで実行する。加えて、同じtarballをWindows・Linuxの新規環境へ移し、`npm run verify:cli-package -- <tarball>`または同等のglobal install確認で、offline install、binary生成、version一致、`check`、`render`が通ることを記録する。
 
 ## Remaining work
 
