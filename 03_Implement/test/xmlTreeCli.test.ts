@@ -84,9 +84,9 @@ test('inspect exposes generic XML hierarchy as observed deterministic Tree Candi
   assert.equal(root.status, 'observed');
   assert.equal(root.execution, 'deterministic');
   assert.equal(root.method, 'M0');
-  assert.equal(
+  assert.deepEqual(
     root.claims.find((claim) => claim.aspect === 'attributes')?.value,
-    '@id="billing"',
+    ['@id="billing"'],
   );
 });
 
