@@ -163,7 +163,53 @@ test('mmi import rejects a not-yet-created output below a symlink that leaves --
 });
 
 
-test('mmi import can read a legacy workbook outside --root while keeping every write inside the project', async () => {
+test('mmi import requires explicit source intake for a legacy workbook outside --root', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-project-'));
+  const legacyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-legacy-'));
+  const source = path.join(legacyRoot, 'legacy-design.xlsx');
+  const draft = path.join(root, 'docs', 'legacy-design.md');
+  fs.writeFileSync(source, screenDesignWorkbook().bytes);
+
+  const refused = await quiet([
+    'import',
+    source,
+    '--root', root,
+    '--draft', draft,
+  ]);
+  assert.equal(refused.code, 2);
+  assert.match(refused.err, /use --copy-source/u);
+  assert.equal(fs.existsSync(draft), false);
+
+  const copiedSource = path.join(root, 'sources', 'legacy-design.xlsx');
+  const result = await quiet([
+    'import',
+    source,
+    '--root', root,
+    '--draft', draft,
+    '--copy-source', copiedSource,
+    '--json',
+  ]);
+
+  assert.equal(result.code, 0, result.err);
+  const summary = JSON.parse(result.out);
+  assert.equal(summary.status, 'created');
+  assert.equal(summary.sourceCopied, true);
+  assert.equal(
+    summary.sourceInput,
+    path.relative(process.cwd(), source).split(path.sep).join('/') || path.basename(source),
+  );
+  assert.equal(
+    summary.source,
+    path.relative(process.cwd(), copiedSource).split(path.sep).join('/') || path.basename(copiedSource),
+  );
+  assert.equal(fs.readFileSync(copiedSource).equals(fs.readFileSync(source)), true);
+  assert.equal(fs.existsSync(draft), true);
+  assert.equal(fs.existsSync(path.join(root, 'mmi-ledger.json')), true);
+  assert.equal(fs.existsSync(path.join(root, 'docs', 'assets', 'legacy-design')), true);
+
+  const markdown = fs.readFileSync(draft, 'utf8');
+  const relativeSource = path.relative(path.dirname(draft), copiedSource).split(path.sep).join('/');
+  assert.match(markdown, new RegExp(relativeSource.replace(/[.*+?^{}()|[\]\\]/gu, '\\test('mmi import can read a legacy workbook outside --root while keeping every write inside the project', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-project-'));
   const legacyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-legacy-'));
   const source = path.join(legacyRoot, 'legacy-design.xlsx');
@@ -192,6 +238,8 @@ test('mmi import can read a legacy workbook outside --root while keeping every w
   const markdown = fs.readFileSync(draft, 'utf8');
   const relativeSource = path.relative(path.dirname(draft), source).split(path.sep).join('/');
   assert.match(markdown, new RegExp(relativeSource.replace(/[.*+?^{}()|[\]\\]/gu, '\\$&'), 'u'));
+  assert.equal(fs.readdirSync(legacyRoot).sort().join(','), 'legacy-design.xlsx');
+});'), 'u'));
   assert.equal(fs.readdirSync(legacyRoot).sort().join(','), 'legacy-design.xlsx');
 });
 
@@ -233,4 +281,99 @@ test('mmi import succeeds with created-with-warnings when unsupported images are
   assert.equal(summary.imageProblems[0].code, 'MMI_IMAGE_UNSUPPORTED_FORMAT');
   assert.match(result.err, /warning: MMI_IMAGE_UNSUPPORTED_FORMAT/u);
   assert.match(fs.readFileSync(draft, 'utf8'), /## 画像の注意/u);
+});
+
+
+test('mmi import never overwrites a different --copy-source destination', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-project-'));
+  const legacyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-legacy-'));
+  const source = path.join(legacyRoot, 'legacy.xlsx');
+  const destination = path.join(root, 'sources', 'legacy.xlsx');
+  const draft = path.join(root, 'draft.md');
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
+  fs.writeFileSync(source, screenDesignWorkbook().bytes);
+  fs.writeFileSync(destination, 'different-content');
+
+  const result = await quiet([
+    'import',
+    source,
+    '--root', root,
+    '--draft', draft,
+    '--copy-source', destination,
+  ]);
+
+  assert.equal(result.code, 1);
+  assert.match(result.err, /already exists with different content/u);
+  assert.equal(fs.readFileSync(destination, 'utf8'), 'different-content');
+  assert.equal(fs.existsSync(draft), false);
+  assert.equal(fs.existsSync(path.join(root, 'mmi-ledger.json')), false);
+});
+
+test('mmi import reuses an identical --copy-source destination', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-project-'));
+  const legacyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-legacy-'));
+  const source = path.join(legacyRoot, 'legacy.xlsx');
+  const destination = path.join(root, 'sources', 'legacy.xlsx');
+  const draft = path.join(root, 'draft.md');
+  const bytes = screenDesignWorkbook().bytes;
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
+  fs.writeFileSync(source, bytes);
+  fs.writeFileSync(destination, bytes);
+
+  const result = await quiet([
+    'import',
+    source,
+    '--root', root,
+    '--draft', draft,
+    '--copy-source', destination,
+    '--json',
+  ]);
+
+  assert.equal(result.code, 0, result.err);
+  const summary = JSON.parse(result.out);
+  assert.equal(summary.sourceCopied, true);
+  assert.equal(fs.readFileSync(destination).equals(bytes), true);
+  assert.equal(fs.existsSync(draft), true);
+});
+
+test('mmi import removes a newly copied source when the later import commit fails', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-project-'));
+  const legacyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-legacy-'));
+  const source = path.join(legacyRoot, 'legacy.xlsx');
+  const destination = path.join(root, 'sources', 'legacy.xlsx');
+  const draft = path.join(root, 'draft.md');
+  fs.writeFileSync(source, Buffer.from('not-an-xlsx'));
+
+  const result = await quiet([
+    'import',
+    source,
+    '--root', root,
+    '--draft', draft,
+    '--copy-source', destination,
+  ]);
+
+  assert.equal(result.code, 1);
+  assert.match(result.err, /import failed/u);
+  assert.equal(fs.existsSync(destination), false);
+  assert.equal(fs.existsSync(draft), false);
+  assert.equal(fs.existsSync(path.join(root, 'mmi-ledger.json')), false);
+});
+
+test('mmi import requires --copy-source to preserve the workbook extension', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-project-'));
+  const legacyRoot = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-legacy-'));
+  const source = path.join(legacyRoot, 'legacy.xlsx');
+  fs.writeFileSync(source, screenDesignWorkbook().bytes);
+
+  const result = await quiet([
+    'import',
+    source,
+    '--root', root,
+    '--draft', path.join(root, 'draft.md'),
+    '--copy-source', path.join(root, 'sources', 'legacy.bin'),
+  ]);
+
+  assert.equal(result.code, 1);
+  assert.match(result.err, /must keep the source extension/u);
+  assert.equal(fs.existsSync(path.join(root, 'sources', 'legacy.bin')), false);
 });
