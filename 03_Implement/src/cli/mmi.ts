@@ -306,7 +306,8 @@ export async function main(argv: string[]): Promise<number> {
       const ledgerPath = path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE);
       const imageOutDir = values['out-dir'] ? path.resolve(values['out-dir']) : undefined;
 
-      if (!handoffPathWithinRoot(sourcePath, root)) return usageError('import source must stay within --root workspace');
+      // The workbook is read-only input and may live outside the project.
+      // Only files written by the import are constrained to --root.
       if (!handoffPathWithinRoot(path.dirname(draftPath), root)) return usageError('import draft folder must stay within --root workspace');
       if (!handoffPathWithinRoot(ledgerPath, root)) return usageError('import ledger must stay within --root workspace');
       if (imageOutDir && !handoffPathWithinRoot(imageOutDir, root)) return usageError('import --out-dir must stay within --root workspace');
@@ -331,25 +332,34 @@ export async function main(argv: string[]): Promise<number> {
       }
 
       const summary = {
+        status: result.imageProblems.length > 0 ? 'created-with-warnings' : 'created',
+        source: sourcePath,
         draft: path.relative(process.cwd(), draftPath).split(path.sep).join('/') || path.basename(draftPath),
         ledger: path.relative(process.cwd(), result.ledgerPath).split(path.sep).join('/') || path.basename(result.ledgerPath),
         imageOutDir: path.relative(process.cwd(), result.imageOutDir).split(path.sep).join('/') || path.basename(result.imageOutDir),
         extractedImages: result.extractedImages.length,
         imageProblems: result.imageProblems,
+        reviewSkippedImages: result.reviewSkippedImages,
+        reviewSkippedTables: result.reviewSkippedTables,
       };
       const summaryText = values.json
         ? JSON.stringify(summary, null, 2)
         : [
+            `status: ${summary.status}`,
             `draft: ${summary.draft}`,
             `images: ${summary.extractedImages}`,
             `ledger: ${summary.ledger}`,
             ...(result.imageProblems.length > 0 ? [`image warnings: ${result.imageProblems.length}`] : []),
+            ...(result.reviewSkippedImages.length > 0 ? [`images skipped by review: ${result.reviewSkippedImages.length}`] : []),
+            ...(result.reviewSkippedTables.length > 0 ? [`tables skipped by review: ${result.reviewSkippedTables.length}`] : []),
           ].join('\n');
       process.stdout.write(summaryText.endsWith('\n') ? summaryText : `${summaryText}\n`);
       for (const problem of result.imageProblems) {
-        console.error(`mmi: ${problem.code}${problem.ordinal ? ` (image ${problem.ordinal})` : ''}: ${problem.message}`);
+        console.error(`mmi: warning: ${problem.code}${problem.ordinal ? ` (image ${problem.ordinal})` : ''}: ${problem.message}`);
       }
-      return result.imageProblems.length > 0 ? 1 : 0;
+      // A committed draft with explicit warnings is a successful import.
+      // Warnings remain in the draft/JSON/stderr for people and automation to inspect.
+      return 0;
     }
     case 'select':
       return runSelect(args, { ...values, json: values.json }, { out: emit, err: (text) => console.error(text), cwd: process.cwd() });
