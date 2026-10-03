@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { buildCandidateReviewInventory } from './candidateReviewInventory.js';
+import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
 import type { Candidate } from '../core/candidate.js';
 import {
   assessLedger,
@@ -11,6 +12,10 @@ import {
   type Ledger,
   type LedgerState,
 } from '../core/importLedger.js';
+import {
+  createSourceIdentityFromBytes,
+  readSourceFileIdentity,
+} from '../core/sourceIdentity.js';
 
 export type DetachFreshnessProblemCode =
   | 'MMI_DETACH_LEDGER_MISSING'
@@ -45,9 +50,9 @@ export interface DetachFreshnessOptions {
 
 interface ExtractedProvenance {
   line: number;
-  kind: 'image' | 'table-range';
+  kind: 'image' | 'table-range' | 'tree';
   source: string;
-  sheet: string;
+  sheet?: string;
   place?: string;
   fingerprintDigest: string;
 }
@@ -55,8 +60,8 @@ interface ExtractedProvenance {
 /**
  * Pre-detach freshness check for content that was previously extracted from a
  * source and then adopted into this Markdown document. Closure alone cannot
- * detect a stale copied image/table, so provenance is reconciled with the
- * current Candidate and import ledger before the source is removed.
+ * detect a stale copied image/table/tree, so provenance is reconciled with
+ * the current Candidate and import ledger before the source is removed.
  */
 export function checkExtractedProvenanceFreshness(
   options: DetachFreshnessOptions,
@@ -97,8 +102,7 @@ export function checkExtractedProvenanceFreshness(
     if (!candidates) {
       const sourceLabel = path.relative(options.workspaceRoot, sourcePath).split(path.sep).join('/');
       try {
-        candidates = buildCandidateReviewInventory(sourcePath, sourceLabel)
-          .items.map((item) => item.candidate);
+        candidates = candidatesFromCurrentSource(sourcePath, sourceLabel);
       } catch (error) {
         problems.push(problemFor(record, 'MMI_DETACH_EXTRACTED_CANDIDATE_MISSING',
           `cannot inspect current source Candidate: ${error instanceof Error ? error.message : String(error)}`));
@@ -196,8 +200,46 @@ function extractedProvenance(markdown: string): ExtractedProvenance[] {
         });
       }
     }
+
+    const tree = /<!--\s*mmi:extracted-tree\s+(?<attrs>.*?)\s*-->/u.exec(line);
+    if (tree?.groups?.attrs) {
+      const attrs = attributes(tree.groups.attrs);
+      if (
+        attrs.source
+        && Object.prototype.hasOwnProperty.call(attrs, 'path')
+        && attrs['candidate-sha256']
+      ) {
+        records.push({
+          line: index + 1,
+          kind: 'tree',
+          source: attrs.source,
+          place: `path:${attrs.path}`,
+          fingerprintDigest: normalizedSha256(attrs['candidate-sha256']),
+        });
+      }
+    }
   }
   return records;
+}
+
+function candidatesFromCurrentSource(
+  sourcePath: string,
+  sourceLabel: string,
+): Candidate[] {
+  if (/\.json$/iu.test(sourcePath)) {
+    const sourceBytes = fs.readFileSync(sourcePath);
+    const sourceDigest =
+      createSourceIdentityFromBytes(sourceBytes).digest;
+    return [
+      ...readJsonTree(
+        sourceBytes.toString('utf8'),
+        sourceLabel,
+        sourceDigest,
+      ).candidates,
+    ];
+  }
+  return buildCandidateReviewInventory(sourcePath, sourceLabel)
+    .items.map((item) => item.candidate);
 }
 
 function attributes(text: string): Record<string, string> {
@@ -243,7 +285,7 @@ function candidatesForRecord(
   const sameKindSheet = candidates.filter(
     (candidate) =>
       candidate.kind === record.kind
-      && (candidate.locator.sheet ?? '') === record.sheet,
+      && (candidate.locator.sheet ?? '') === (record.sheet ?? ''),
   );
   if (record.place) {
     return sameKindSheet.filter((candidate) => placeOf(candidate) === record.place);
@@ -283,7 +325,7 @@ function problemFor(
     code,
     message,
     source: record.source,
-    sheet: record.sheet,
+    ...(record.sheet ? { sheet: record.sheet } : {}),
     ...(record.place ? { place: record.place } : {}),
     ...(ledgerState ? { ledgerState } : {}),
   };
