@@ -3,7 +3,10 @@ import path from 'node:path';
 
 import { buildCandidateReviewInventory } from './candidateReviewInventory.js';
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
-import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
+import {
+  decodeXmlUtf8,
+  readXmlTree,
+} from '../adapters/xmlTreeAdapter.js';
 import type { Candidate } from '../core/candidate.js';
 import {
   assessLedger,
@@ -13,7 +16,7 @@ import {
   type Ledger,
   type LedgerState,
 } from '../core/importLedger.js';
-import { readSourceFileIdentity } from '../core/sourceIdentity.js';
+import { createSourceIdentityFromBytes } from '../core/sourceIdentity.js';
 import { isXmlSpreadsheet2003Text } from '../core/workbookLoader.js';
 
 export type DetachFreshnessProblemCode =
@@ -226,19 +229,21 @@ function candidatesFromCurrentSource(
   sourceLabel: string,
 ): Candidate[] {
   if (/\.json$/iu.test(sourcePath)) {
-    const sourceDigest = readSourceFileIdentity(sourcePath).digest;
+    const bytes = fs.readFileSync(sourcePath);
+    const sourceDigest = createSourceIdentityFromBytes(bytes).digest;
     return [
       ...readJsonTree(
-        fs.readFileSync(sourcePath, 'utf8'),
+        bytes.toString('utf8'),
         sourceLabel,
         sourceDigest,
       ).candidates,
     ];
   }
   if (/\.xml$/iu.test(sourcePath)) {
-    const xml = fs.readFileSync(sourcePath, 'utf8');
+    const bytes = fs.readFileSync(sourcePath);
+    const xml = decodeXmlUtf8(bytes);
     if (!isXmlSpreadsheet2003Text(xml)) {
-      const sourceDigest = readSourceFileIdentity(sourcePath).digest;
+      const sourceDigest = createSourceIdentityFromBytes(bytes).digest;
       return [
         ...readXmlTree(
           xml,
