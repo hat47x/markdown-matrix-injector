@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   canonicalXmlSubtree,
+  decodeXmlUtf8,
   readXmlTree,
   resolveXmlElement,
 } from '../src/adapters/xmlTreeAdapter.js';
@@ -152,5 +153,13 @@ test('generic XML parser rejects DTD, malformed structure and non-UTF-8 declarat
       sourceDigest,
     ),
     /duplicate attribute/u,
+  );
+});
+
+
+test('generic XML byte decoding rejects invalid UTF-8 instead of replacing bytes', () => {
+  assert.throws(
+    () => decodeXmlUtf8(Uint8Array.from([0x3c, 0x72, 0x6f, 0x6f, 0x74, 0x3e, 0xff, 0x3c, 0x2f, 0x72, 0x6f, 0x6f, 0x74, 0x3e])),
+    /must be valid UTF-8 bytes/u,
   );
 });
