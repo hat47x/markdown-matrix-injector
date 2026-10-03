@@ -739,6 +739,8 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
         : {}),
       sourceLabel,
       ledgerPath,
+      expectedCandidateFingerprint:
+        picked.source.candidate.fingerprint.digest,
     });
     if (result.problems.length > 0 || !result.extracted) {
       await vscode.window.showErrorMessage(
