@@ -11,7 +11,7 @@
  * actual "which files" policy (and any `vscode.workspace.findFiles` call) in
  * the host layer, where it belongs.
  */
-import { findContentMatches, type ContentMatch } from '../core/contentMatch.js';
+import { ContentMatchIndexLimitError, findContentMatches, type ContentMatch } from '../core/contentMatch.js';
 import { cellRangeToA1 } from '../core/tableGeometry.js';
 import type { CellRange, SheetSource } from '../core/sheetSource.js';
 import { parseTsv } from './pasteDrop.js';
@@ -29,6 +29,19 @@ export interface WorkbookContentMatch {
   readonly range: CellRange;
   /** Where the match sits, so identical copies in different places can be told apart. */
   readonly context?: MatchContext;
+}
+
+export interface ContentMatchSkippedSheet {
+  readonly filepath: string;
+  readonly sheet: string;
+  readonly reason: 'sheet-too-large';
+  readonly cellCount: number;
+  readonly limit: number;
+}
+
+export interface WorkbookContentMatchSearchResult {
+  readonly matches: readonly WorkbookContentMatch[];
+  readonly skippedSheets: readonly ContentMatchSkippedSheet[];
 }
 
 export interface MatchContext {
@@ -99,18 +112,28 @@ export function findWorkbookContentMatches(
   clipboardPlainText: string,
   workbooks: readonly WorkbookSheetsSource[],
 ): WorkbookContentMatch[] {
+  return [...findWorkbookContentMatchesDetailed(clipboardPlainText, workbooks).matches];
+}
+
+export function findWorkbookContentMatchesDetailed(
+  clipboardPlainText: string,
+  workbooks: readonly WorkbookSheetsSource[],
+): WorkbookContentMatchSearchResult {
   const needle = parseTsv(clipboardPlainText);
   if (needle.length === 0) {
-    return [];
+    return { matches: [], skippedSheets: [] };
   }
 
   const matches: WorkbookContentMatch[] = [];
+  const skippedSheets: ContentMatchSkippedSheet[] = [];
   for (const workbook of workbooks) {
     for (const [sheetName, sheet] of Object.entries(workbook.sheets)) {
-      matches.push(...matchesForSheet(workbook.filepath, sheetName, sheet, needle));
+      const result = matchesForSheet(workbook.filepath, sheetName, sheet, needle);
+      matches.push(...result.matches);
+      if (result.skipped) skippedSheets.push(result.skipped);
     }
   }
-  return matches;
+  return { matches, skippedSheets };
 }
 
 function matchesForSheet(
@@ -118,20 +141,34 @@ function matchesForSheet(
   sheetName: string,
   sheet: SheetSource,
   needle: readonly (readonly string[])[],
-): WorkbookContentMatch[] {
+): { matches: WorkbookContentMatch[]; skipped?: ContentMatchSkippedSheet } {
   let sheetMatches: readonly ContentMatch[];
   try {
     sheetMatches = findContentMatches(sheet, needle);
-  } catch {
-    return []; // sheet too large to index (maxIndexedCells) -- skip, don't abort the whole search
+  } catch (error) {
+    if (error instanceof ContentMatchIndexLimitError) {
+      return {
+        matches: [],
+        skipped: {
+          filepath,
+          sheet: sheetName,
+          reason: 'sheet-too-large',
+          cellCount: error.cellCount,
+          limit: error.limit,
+        },
+      };
+    }
+    throw error;
   }
 
-  return sheetMatches.map((match) => ({
-    filepath,
-    sheet: sheetName,
-    range: match.range,
-    context: matchContext(sheet, match.range),
-  }));
+  return {
+    matches: sheetMatches.map((match) => ({
+      filepath,
+      sheet: sheetName,
+      range: match.range,
+      context: matchContext(sheet, match.range),
+    })),
+  };
 }
 
 /**
