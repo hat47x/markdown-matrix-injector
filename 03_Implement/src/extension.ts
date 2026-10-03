@@ -36,7 +36,7 @@ import {
 } from './dx/completionCandidates.js';
 import {
   buildContentMatchMarkdown,
-  findWorkbookContentMatches,
+  findWorkbookContentMatchesDetailed,
   summarizeContentMatchContext,
   type WorkbookContentMatch,
   type WorkbookSheetsSource,
@@ -468,15 +468,25 @@ async function insertEmbedByContentMatch(): Promise<void> {
     return;
   }
 
-  const [source, workbooks] = await Promise.all([
+  const [source, loadResult] = await Promise.all([
     confirmedCopySource(extensionRootPath, editor.document, clipboardText),
     loadWorkspaceWorkbooksForContentMatch(documentUri.fsPath, workspaceRoot),
   ]);
-  const matches = withSource(source.match, findWorkbookContentMatches(clipboardText, workbooks));
+  const searchResult = findWorkbookContentMatchesDetailed(clipboardText, loadResult.workbooks);
+  const matches = withSource(source.match, searchResult.matches);
 
   if (matches.length === 0) {
+    const incomplete = describeIncompleteContentMatchSearch(
+      loadResult.skippedFiles.length,
+      searchResult.skippedSheets.length,
+      loadResult.cancelled,
+    );
     const why = source.reason ? ` (${source.reason})` : '';
-    void vscode.window.showInformationMessage(`MMI: No matching range found in this workspace's workbooks.${why}`);
+    if (incomplete) {
+      void vscode.window.showWarningMessage(`MMI: No matching range was found in the sheets that could be searched. ${incomplete}${why}`);
+    } else {
+      void vscode.window.showInformationMessage(`MMI: No matching range found in this workspace's workbooks.${why}`);
+    }
     return;
   }
 
@@ -494,11 +504,17 @@ async function insertEmbedByContentMatch(): Promise<void> {
   await currentEditor.edit((editBuilder) => editBuilder.replace(selection, buildContentMatchMarkdown(picked)));
 }
 
+interface WorkspaceWorkbookLoadResult {
+  readonly workbooks: readonly WorkbookSheetsSource[];
+  readonly skippedFiles: readonly string[];
+  readonly cancelled: boolean;
+}
+
 async function loadWorkspaceWorkbooksForContentMatch(
   markdownFilePath: string,
   workspaceRoot: string,
   token?: vscode.CancellationToken,
-): Promise<WorkbookSheetsSource[]> {
+): Promise<WorkspaceWorkbookLoadResult> {
   const uris = selectContainedWorkbookFiles(
     markdownFilePath,
     workspaceRoot,
@@ -507,18 +523,35 @@ async function loadWorkspaceWorkbooksForContentMatch(
   );
 
   const workbooks: WorkbookSheetsSource[] = [];
+  const skippedFiles: string[] = [];
+  let cancelled = false;
   for (const uri of uris) {
     if (token?.isCancellationRequested) {
+      cancelled = true;
       break;
     }
+    const filepath = toRelativeSuggestion(markdownFilePath, uri.fsPath);
     try {
       const workbook = loadWorkbook({ absolutePath: uri.fsPath });
-      workbooks.push({ filepath: toRelativeSuggestion(markdownFilePath, uri.fsPath), sheets: workbook.sheets });
+      workbooks.push({ filepath, sheets: workbook.sheets });
     } catch {
-      continue; // unreadable/unsupported file -- skip it, don't abort the whole search
+      skippedFiles.push(filepath);
     }
   }
-  return workbooks;
+  return { workbooks, skippedFiles, cancelled };
+}
+
+function describeIncompleteContentMatchSearch(
+  skippedFileCount: number,
+  skippedSheetCount: number,
+  cancelled: boolean,
+): string {
+  const parts = [
+    skippedFileCount > 0 ? `読めないブック ${skippedFileCount}件` : '',
+    skippedSheetCount > 0 ? `索引上限を超えたシート ${skippedSheetCount}件` : '',
+    cancelled ? '検索が中断されました' : '',
+  ].filter(Boolean);
+  return parts.length > 0 ? `検索は完全ではありません（${parts.join('、')}）。` : '';
 }
 
 /**
@@ -556,15 +589,26 @@ async function getContentMatchPasteEdits(
     return [];
   }
 
-  const [source, workbooks] = await Promise.all([
+  const [source, loadResult] = await Promise.all([
     confirmedCopySource(extensionRootPath, document, plainText),
     loadWorkspaceWorkbooksForContentMatch(document.uri.fsPath, workspaceRoot, token),
   ]);
-  if (token.isCancellationRequested) {
+  if (token.isCancellationRequested || loadResult.cancelled) {
     return [];
   }
 
-  const matches = withSource(source.match, findWorkbookContentMatches(plainText, workbooks));
+  const searchResult = findWorkbookContentMatchesDetailed(plainText, loadResult.workbooks);
+  const matches = withSource(source.match, searchResult.matches);
+  if (matches.length === 0) {
+    const incomplete = describeIncompleteContentMatchSearch(
+      loadResult.skippedFiles.length,
+      searchResult.skippedSheets.length,
+      false,
+    );
+    if (incomplete) {
+      void vscode.window.showWarningMessage(`MMI: Content-match Paste As found no match in the sheets that could be searched. ${incomplete}`);
+    }
+  }
   return matches.map((match) => {
     // Paste As offers one compact line per edit. Reuse the source-derived
     // table/header/neighbor context so identical copies can be distinguished
