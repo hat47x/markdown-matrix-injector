@@ -259,6 +259,13 @@ export function extractJsonTree(
 }
 
 
+function compareXmlAttributeName(
+  left: { name: string },
+  right: { name: string },
+): number {
+  return left.name < right.name ? -1 : left.name > right.name ? 1 : 0;
+}
+
 function renderXmlNestedList(
   element: XmlElementNode,
   depth = 0,
@@ -266,8 +273,7 @@ function renderXmlNestedList(
   const indent = '  '.repeat(depth);
   const lines = [`${indent}- <${escapeMarkdownInline(element.name)}>`];
 
-  for (const attribute of [...element.attributes].sort((a, b) =>
-    a.name.localeCompare(b.name))) {
+  for (const attribute of [...element.attributes].sort(compareXmlAttributeName)) {
     lines.push(
       `${'  '.repeat(depth + 1)}- @${escapeMarkdownInline(attribute.name)}: ${escapeMarkdownInline(JSON.stringify(attribute.value))}`,
     );
