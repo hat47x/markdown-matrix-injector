@@ -32,6 +32,8 @@ Candidateを製品価値へつなぐには、検出精度だけでなく、人�
 
 表・画像Candidateを含む架空の設計書とJSON Tree sourceを使い、通常執筆 → 後から候補レビュー → 連続レビュー → 選択的取り込み → 原本差し替え → 変更確認までをWindows実機で観測する。issue-0111の利用者観測と可能な範囲で共通化する。
 
+観測機能自体は `test/candidateReviewObservation.test.ts` で、facet適用、採用・修正採用・却下・保留・解除の集計、取込件数、JSONL追記、Candidate本文や絶対パスを保存しないことを確認する。実際の中断回数と採用率等は人の操作を伴うため、テスト結果から推定しない。
+
 ## Current slice
 
 - 表・画像・明示JSON Tree Candidateを同じレビュー画面へ出し、`all / unimported / exclude-imported`を既存ledgerで切り替える。source・import-state・facetはレビューセッション開始時に選び、採用・却下・保留等の後も条件を保持して次Candidateへ進む。処理済みCandidateは同一セッションでは再提示せず、Escで終了する。却下済みCandidateは通常キューから除外し、`all`では復元可能な状態で表示する。
@@ -39,11 +41,12 @@ Candidateを製品価値へつなぐには、検出精度だけでなく、人�
 - `observed / inferred`、`deterministic / provider-dependent`、provider別Evidenceを合成せず表示する。
 - レビューを閉じる操作は通常編集へ影響しない。保留は`mmi.review-decisions/v1`へ永続化し、通常レビューキューから外すが、`すべて`表示では解除できる。
 - 却下・保留はimport ledgerと混ぜず、occurrence・content fingerprint・Claim basisへ結び付ける。内容または判断根拠が変われば決定は自動失効し、Candidateが再びレビューへ現れる。
+- 利用者観測に備え、設定 `markdownMatrixInjector.reviewObservation.enabled` を追加した。既定は無効。明示的に有効にした場合だけ、レビューセッションの開始・終了時刻、所要時間、提示後に選択した候補数、ledger/review stateの前後と状態遷移をローカルJSONLへ記録する。Candidate本文、セル値、絶対パスは記録せず、外部送信もしない。Markdown編集中にレビューを開始したかどうかは `editingInterruptionProxy` として記録するが、実際の中断回数とはみなさない。
 
 ## Remaining work
 
 - ~~source / Candidate type / epistemic state / execution characteristicの明示フィルタを追加する。~~ → 実装済み。source picker＋import-state filter＋type/status/execution facetを分離し、Candidate契約上の軸を混同しない。
-- Windows実機で表・画像・JSON Treeを含むreview → extract → changed/stale表示と、連続レビュー時の中断回数をE2E確認する。
+- Windows実機で表・画像・JSON Treeを含むreview → extract → changed/stale表示を確認する。利用者観測では、ローカル観測記録の所要時間・状態遷移と、実際に執筆を中断した回数を照合する。自動記録だけで受入条件を完了扱いにはしない。
 - XML等の明示Tree、推定Tree、Shape等は各Source Adapterの実装後に同じUIへ追加する。
 - provider-dependent Candidateの生成はレビューUIの同期処理から分離し、編集を止めない非同期経路へ接続する。
 - Candidate数が多い場合のページング・検索は連続レビューの実測後に決める。
