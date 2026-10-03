@@ -18,7 +18,8 @@ import (
 const (
 	requestSchema  = "mmi.portable-core-request/v1"
 	responseSchema = "mmi.portable-core-response/v1"
-	defaultMaxScan = 1_000_000
+	defaultMaxScan int64 = 1_000_000
+	maxSafeInteger int64 = 9_007_199_254_740_991
 )
 
 type request struct {
@@ -36,7 +37,7 @@ type requestSource struct {
 }
 
 type requestOptions struct {
-	MaxScanCells *int `json:"maxScanCells,omitempty"`
+	MaxScanCells *int64 `json:"maxScanCells,omitempty"`
 }
 
 type executionPolicy struct {
@@ -158,8 +159,8 @@ func run(input []byte) ([]byte, error) {
 	}
 	maxScan := defaultMaxScan
 	if req.Options != nil && req.Options.MaxScanCells != nil {
-		if *req.Options.MaxScanCells <= 0 {
-			return nil, errors.New("options.maxScanCells must be positive")
+		if *req.Options.MaxScanCells <= 0 || *req.Options.MaxScanCells > maxSafeInteger {
+			return nil, errors.New("options.maxScanCells must be a positive safe integer")
 		}
 		maxScan = *req.Options.MaxScanCells
 	}
@@ -278,7 +279,7 @@ func parseCSV(contents string) ([][]string, error) {
 	return rows, nil
 }
 
-func detectRegions(rows [][]string, maxScan int) []region {
+func detectRegions(rows [][]string, maxScan int64) []region {
 	if len(rows) == 0 {
 		return []region{}
 	}
@@ -291,14 +292,14 @@ func detectRegions(rows [][]string, maxScan int) []region {
 	if width == 0 {
 		return []region{}
 	}
-	maxRows := maxScan / width
+	maxRows := maxScan / int64(width)
 	if maxRows < 1 {
 		maxRows = 1
 	}
 	lastRow := len(rows) - 1
 	truncated := false
-	if maxRows-1 < lastRow {
-		lastRow = maxRows - 1
+	if maxRows <= int64(lastRow) {
+		lastRow = int(maxRows - 1)
 		truncated = true
 	}
 
@@ -506,7 +507,7 @@ func classifyHeader(rows [][]string, top, bottom, left, right int) (string, []st
 	return "uncertain", texts
 }
 
-func toCandidate(source, sourceDigest string, rows [][]string, r region, maxScan int) candidate {
+func toCandidate(source, sourceDigest string, rows [][]string, r region, maxScan int64) candidate {
 	claims := []claim{
 		{
 			Aspect: "location", Value: r.a1, Status: "observed",
