@@ -140,7 +140,7 @@ test('observation records review transitions and new imports without Candidate c
     interruptedMarkdownEditing: true,
     ledgerFilter: 'exclude-imported',
     facetFilter: noFacets,
-    presentedCount: 5,
+    selectedCount: 5,
     initial,
     final,
   });
@@ -185,7 +185,7 @@ test('observation preserves selected facets but does not invent omitted ones', (
     interruptedMarkdownEditing: false,
     ledgerFilter: 'all',
     facetFilter: facets,
-    presentedCount: 1,
+    selectedCount: 1,
     initial: snapshot,
     final: snapshot,
   });
@@ -210,7 +210,7 @@ test('append writes one JSON object per line and creates the parent directory', 
     interruptedMarkdownEditing: false,
     ledgerFilter: 'all',
     facetFilter: noFacets,
-    presentedCount: 1,
+    selectedCount: 1,
     initial: snapshot,
     final: snapshot,
   });
@@ -234,7 +234,7 @@ test('observation rejects invalid timestamps, digests and presented counts', () 
     interruptedMarkdownEditing: false,
     ledgerFilter: 'all' as const,
     facetFilter: noFacets,
-    presentedCount: 0,
+    selectedCount: 0,
     initial: snapshot,
     final: snapshot,
   };
@@ -256,8 +256,8 @@ test('observation rejects invalid timestamps, digests and presented counts', () 
   assert.throws(
     () => createCandidateReviewObservation({
       ...base,
-      presentedCount: -1,
+      selectedCount: -1,
     }),
-    /presentedCount/u,
+    /selectedCount/u,
   );
 });

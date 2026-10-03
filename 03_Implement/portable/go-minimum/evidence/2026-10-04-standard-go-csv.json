@@ -1,0 +1,102 @@
+{
+  "schema": "mmi.portable-core-benchmark/v1",
+  "recordedAt": "2026-10-04",
+  "profile": "standard-go-csv-minimum",
+  "status": "experimental-comparison-only",
+  "environment": {
+    "go": "go1.23.2",
+    "os": "linux",
+    "arch": "amd64",
+    "node": "v22.16.0"
+  },
+  "conformance": {
+    "fixture": "03_Implement/test/fixtures/portable-core-v1/csv-table.case.json",
+    "sharedCsvCase": "passed",
+    "currentNativeGoTestSuite": "passed",
+    "currentStandardGoWasmTestSuite": {
+      "status": "passed",
+      "runner": "node /usr/local/go/misc/wasm/wasm_exec_node.js"
+    },
+    "csvSemantics": [
+      "utf8-bom-and-crlf",
+      "quoted-comma-and-escaped-quote",
+      "quoted-newline",
+      "unquoted-trim-and-quoted-preserve-space",
+      "standalone-cr-ignored-like-typescript-reference",
+      "unterminated-quoted-field-rejected"
+    ],
+    "maxScanCells": {
+      "largestAccepted": 9007199254740991,
+      "rejects": [
+        "9007199254740992",
+        "non-integer",
+        "zero-or-negative"
+      ],
+      "note": "Stored as int64 so native and wasm32 use the same v1 safe-integer semantics."
+    },
+    "nativeAndWasmResponse": {
+      "byteIdentical": true,
+      "sha256": "156a1d7d65682217f9883ae2cbaa9a3b22146040e537b0169ec706730eb8d9e1"
+    }
+  },
+  "artifacts": {
+    "linuxAmd64": {
+      "build": "go build -trimpath -ldflags=-s -w",
+      "bytes": 1953944,
+      "sha256": "f5b41dc9097db4a71d16655123fbdcd2a94dfd91e9ca64bb1341bbf314341f82"
+    },
+    "windowsAmd64CrossBuild": {
+      "bytes": 2084864,
+      "sha256": "a78294a79732db7b9649e31bd2c0273d1e009d885cb053d611a7e6e7306339cd"
+    },
+    "standardGoWasm": {
+      "goos": "js",
+      "goarch": "wasm",
+      "bytes": 3336196,
+      "sha256": "bb78291e56ad86bce27c3def29f55ce8625dee59573dd15ea2bf11c04886f533"
+    }
+  },
+  "processMeasurements": {
+    "linuxNative": {
+      "request": "shared tiny CSV conformance request",
+      "runs": 100,
+      "firstMs": 1.434596,
+      "medianMs": 0.998457,
+      "p95Ms": 1.434596,
+      "minMs": 0.777994,
+      "maxMs": 3.397287,
+      "peakRssKiB": {
+        "runs": 30,
+        "median": 2456,
+        "min": 2392,
+        "max": 2520
+      }
+    },
+    "standardGoWasmOnNode": {
+      "request": "same shared tiny CSV conformance request",
+      "runner": "Go wasm_exec_node.js",
+      "runs": 30,
+      "firstMs": 73.890857,
+      "medianMs": 72.110077,
+      "p95Ms": 77.176887,
+      "minMs": 65.105788,
+      "maxMs": 79.008422,
+      "peakRssKiB": {
+        "runs": 10,
+        "median": 53008,
+        "min": 51536,
+        "max": 55760
+      }
+    }
+  },
+  "unavailable": {
+    "tinyGo": "not installed in the measurement environment"
+  },
+  "interpretation": [
+    "The standard-Go CSV minimum matches the current shared CSV conformance case.",
+    "The current native and standard-Go WASM test suites both pass, including portable safe-integer semantics.",
+    "Standard Go WASM produces byte-identical JSON for the shared request, while a short-lived Node-hosted WASM process is materially heavier than native.",
+    "These measurements do not select Go, TinyGo, native, or WASM for production.",
+    "XLSX and JSON Tree parity are not established by this profile."
+  ]
+}

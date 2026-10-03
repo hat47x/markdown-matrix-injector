@@ -18,7 +18,8 @@ import (
 const (
 	requestSchema  = "mmi.portable-core-request/v1"
 	responseSchema = "mmi.portable-core-response/v1"
-	defaultMaxScan = 1_000_000
+	defaultMaxScan int64 = 1_000_000
+	maxSafeInteger int64 = 9_007_199_254_740_991
 )
 
 type request struct {
@@ -36,7 +37,7 @@ type requestSource struct {
 }
 
 type requestOptions struct {
-	MaxScanCells *int `json:"maxScanCells,omitempty"`
+	MaxScanCells *int64 `json:"maxScanCells,omitempty"`
 }
 
 type executionPolicy struct {
@@ -158,8 +159,8 @@ func run(input []byte) ([]byte, error) {
 	}
 	maxScan := defaultMaxScan
 	if req.Options != nil && req.Options.MaxScanCells != nil {
-		if *req.Options.MaxScanCells <= 0 {
-			return nil, errors.New("options.maxScanCells must be positive")
+		if *req.Options.MaxScanCells <= 0 || *req.Options.MaxScanCells > maxSafeInteger {
+			return nil, errors.New("options.maxScanCells must be a positive safe integer")
 		}
 		maxScan = *req.Options.MaxScanCells
 	}
@@ -213,7 +214,7 @@ func ensureEOF(decoder *json.Decoder) error {
 }
 
 func parseCSV(contents string) ([][]string, error) {
-	text := strings.TrimSpace(strings.TrimPrefix(contents, "﻿"))
+	text := strings.TrimSpace(strings.TrimPrefix(contents, "\uFEFF"))
 	if text == "" {
 		return [][]string{}, nil
 	}
@@ -262,9 +263,10 @@ func parseCSV(contents string) ([][]string, error) {
 		switch ch {
 		case ',':
 			flushField()
-		case '':
-		case '
-':
+		case '\r':
+			// CRLF is completed by the following LF. Standalone CR is
+			// tolerated and ignored to preserve the TypeScript profile.
+		case '\n':
 			flushRow()
 		default:
 			field.WriteRune(ch)
@@ -277,7 +279,7 @@ func parseCSV(contents string) ([][]string, error) {
 	return rows, nil
 }
 
-func detectRegions(rows [][]string, maxScan int) []region {
+func detectRegions(rows [][]string, maxScan int64) []region {
 	if len(rows) == 0 {
 		return []region{}
 	}
@@ -290,14 +292,14 @@ func detectRegions(rows [][]string, maxScan int) []region {
 	if width == 0 {
 		return []region{}
 	}
-	maxRows := maxScan / width
+	maxRows := maxScan / int64(width)
 	if maxRows < 1 {
 		maxRows = 1
 	}
 	lastRow := len(rows) - 1
 	truncated := false
-	if maxRows-1 < lastRow {
-		lastRow = maxRows - 1
+	if maxRows <= int64(lastRow) {
+		lastRow = int(maxRows - 1)
 		truncated = true
 	}
 
@@ -505,7 +507,7 @@ func classifyHeader(rows [][]string, top, bottom, left, right int) (string, []st
 	return "uncertain", texts
 }
 
-func toCandidate(source, sourceDigest string, rows [][]string, r region, maxScan int) candidate {
+func toCandidate(source, sourceDigest string, rows [][]string, r region, maxScan int64) candidate {
 	claims := []claim{
 		{
 			Aspect: "location", Value: r.a1, Status: "observed",
@@ -557,9 +559,9 @@ func toCandidate(source, sourceDigest string, rows [][]string, r region, maxScan
 		for col := r.left; col <= r.right; col++ {
 			values = append(values, cell(rows, row, col))
 		}
-		materialRows = append(materialRows, strings.Join(values, ""))
+		materialRows = append(materialRows, strings.Join(values, "\x1f"))
 	}
-	material := strings.Join(materialRows, "")
+	material := strings.Join(materialRows, "\x1e")
 	fpSum := sha256.Sum256([]byte(material))
 	reference := fmt.Sprintf("![[%s#Sheet1|%s", source, r.a1)
 	if r.headerConfidence == "likely" && r.headers != nil {

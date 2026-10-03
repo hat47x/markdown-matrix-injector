@@ -41,7 +41,15 @@ CLIには`mmi core <request.json|->`を追加した。source bytesはrequest内�
 
 `test/fixtures/portable-core-v1/`へCSV表とJSON Treeのconformance caseを追加した。`test/portableCoreProtocol.test.ts`では、fixtureのsource digest / Candidate種別 / locator / provenance / fingerprint representationを確認し、生成XLSXについてportable経路のCandidate列が既存`tableCandidates()`直呼びと完全一致することを固定した。source名が存在しないpath風文字列でも埋込bytesだけで処理できること、空CSV、provider-dependent拒否、schema expansion拒否も対象とする。
 
-現在の実行コンテナにはNode/TypeScriptはあるが`xlsx` / `tsx`がなく、依存取得もできないため、このセッションでは正本テストを実行していない。テスト追加と静的レビューを実施した段階であり、conformance実行済みとは扱わない。
+TypeScript参照実装の正本suiteは、この実行コンテナに`xlsx` / `tsx`がなく依存取得もできないため、まだ実行していない。一方、標準GoのCSV最小実装はshared `csv-table.case.json`を実行し、source digest、Candidate位置、provenance、fingerprint、referenceまで一致した。Go側の現行test suiteはnativeと標準Go WASMの両方で通過した。
+
+実装過程では、未統合Go sourceにliteral BOMと不正なCR/LF rune表現がありコンパイルできない問題を実行で検出し、portableなescapeへ修正した。また`maxScanCells`をGoの`int`で保持するとnativeとwasm32で受理可能範囲が変わるため、`int64`へ変更し、JavaScript safe integer上限までTypeScript contractと同じ受理規則にした。
+
+2026-10-04の初期実測では、strip済み標準Go native（linux/amd64）が1,953,944 bytes、Windows amd64 cross-buildが2,084,864 bytes、標準Go WASMが3,336,196 bytesだった。shared CSV requestに対するnative / WASMのJSON出力はbyte-for-byteで一致した。Linuxの短命process測定ではnative 100回の中央値が約1.00 ms、peak RSS中央値が約2.4 MiB、Node `wasm_exec_node.js`経由WASM 30回の中央値が約72.11 ms、peak RSS中央値が約51.8 MiBだった。これはbrowser / 長寿命WASM hostの性能を意味しない。TinyGoは現環境に無く未測定である。
+
+機械可読なartifact hash・測定値は`03_Implement/portable/go-minimum/evidence/2026-10-04-standard-go-csv.json`を正とする。
+
+XLSX decoderについては[Portable XLSX Decoder Evaluation v1](../../02_Architecture/portable-xlsx-decoder-evaluation-v1.md)を追加した。候補の軽量さだけで選ばず、used range原点、merge、display text、raw type/value、number/date format、formula saved result、shared/inline string、異常入力のfail-closedをconformance gateとする。2026-10-04時点ではExcelize v2.11.0（BSD-3-Clause、Go 1.25以上、公式系WASM経路あり）を最初の実測候補とし、現行Go 1.23環境に合わせて古い版へ下げることはsecurity fixを失う可能性があるため採用理由にしない。
 
 詳細な境界は[Portable Core Contract v1](../../02_Architecture/portable-core-contract-v1.md)を正とする。
 
@@ -52,8 +60,8 @@ CLIには`mmi core <request.json|->`を追加した。source bytesはrequest内�
 ## Remaining work
 
 - 追加したTypeScript conformance corpusを依存が揃った通常開発環境で実行し、v1 baseline responseを固定する。
-- 標準GoでまずCSV table Candidateを同一contractで実装し、その後XLSX decodeの候補を比較する。
-- TinyGo native / WASMを同じcorpusで測定し、binary size、cold start、peak memory、互換性を比較する。
+- 標準GoのCSV table Candidateはshared contractで初期conformanceを確認済み。次はGo 1.25以上の隔離環境でExcelize v2.11.0を固定し、XLSX decoder gateをTypeScript参照と同じcorpusで評価する。binary/WASM増分、transitive dependency、display semantics、安全性を同時に測る。
+- TinyGo native / WASMを同じcorpusで測定し、標準Go native / WASMの実測値とbinary size、startup、peak memory、互換性を比較する。現環境ではTinyGo未導入のため未測定。
 - CLI `inspect`とVS Code側Candidate列挙を段階的に同じApplication/Core APIへ収束させる。二重実装を残したままGo移行を始めない。
 - `check` / `render` / `extract`のJSON contractは、inspect v1の境界が実測で成立してから追加する。
 - Go移行そのものは本Issueの完了条件にしない。まずportable core boundaryと評価基準を固定する。

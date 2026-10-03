@@ -4,7 +4,7 @@
 
 **製品方針:** [ADR-0019](adr/ADR-0019-ai-era-sier-document-value-and-policy.md)（2026-10-01採択・同日改訂）により、MMIは**人が慣れた道具で書き続けたまま、その内容をAIと機械が扱える形へ緩やかに移し、最終的には元文書やMMIからも安全に切り離せる基盤**である。MMIは、Excel方眼紙をレガシーとみなす見方と既存のスタイルの両方を否定せず、両者の橋になる。Excelで書き続ける人はそのままAIと協業でき、Markdownへ移りたい人は資産を失わずに移れる。図形やレイアウトに意味があるシート・範囲は、そのまま画像として取り込んでよい（D0）。Linked（参照）・Extracted（取り込み）・Detached（切り離し）は情報単位ごとに選ぶ状態で、順に進む段階ではない。人の作業を止めないことを移行の速さより優先する（D13）。表参照・Read-only・決定論的なAuthority Planeは中核の保証として継続し、軽量認知は表・画像・図形・ツリー等の候補（Semantic Candidate）を見つける非権威的な支援とする。
 
-**実装の到達点:** Linkedは表で実装済み。Extractedは表・Excel埋込画像に加え、JSONの明示object / arrayをTree Candidateとして選択的に取り込める。表・画像・JSON Treeは共通Candidate/ledgerを使い、`inspect`で列挙し、`extract`で標準Markdownまたは画像assetへ取り込み、`mmi-ledger.json`でoccurrence/content/review basis・変更・lineage・研究類似Evidenceを追跡する。VS CodeのレビューUIは表・画像・JSON Treeに対応する。表のMarkdownと画像のalt textを人が修正して採用してもCandidateの由来を変えず、`reviewState: modified`と最終出力digestを残す。JSON TreeはRFC 6901 JSON Pointerを位置としてnested listへ投影し、CLIとVS Codeのどちらから採用しても共通ledgerへ記録し、採用後のsubtree変更をdetach前に再確認する。既存ブックの初回取り込みでは、VS CodeとCLI `mmi import`が同じ処理を使い、表はLinked参照のまま、.xlsx/.xlsmの埋込画像はExtracted assetとして1回で下書き化する。Detachedも最小縦切りが入り、`materialize`でMMI参照を標準Markdownへ実体化し、`detach-check`で残存参照・未実体化marker・壊れた/境界外リンクを検査できる。XML・フラットテキストのTree、図形等へのExtracted一般化、実務E2Eは未完。CLIは`schema candidate`・`inspect`・`extract`・`import`・`check`・`render`・`materialize`・`detach-check`・`manifest`・AI handoff/再検証を提供する。`inspect --json`はCandidate配列とともに`mmi.semantic-candidate/v1`を明示し、外部AIや連携基盤がTypeScript実装を読まず契約を取得できる。AI向け指示パック（`skills/mmi`）、基本設計書キット、執筆ベンチマーク v0もある。記法仕様はDraft、配布物は公開準備中の検証版。差分の詳細は[ギャップ分析](product-gap-analysis.md)を参照する。
+**実装の到達点:** Linkedは表で実装済み。Extractedは表・Excel埋込画像に加え、JSONのobject / arrayと汎用XMLのelementを明示Tree Candidateとして選択的に取り込める。表・画像・JSON/XML Treeは共通Candidate/ledgerを使い、`inspect`で列挙し、`extract`で標準Markdownまたは画像assetへ取り込む。VS CodeのレビューUIも同じ採否・保留経路を使う。Treeは構造位置とsubtree fingerprintを分けて記録し、採用後に対象subtreeが変わっていないかdetach前に再確認する。汎用XMLはnamespaceを検証し、DTD依存の解釈と非UTF-8入力をfail closedにする。既存ブックの初回取り込みでは、VS CodeとCLI `mmi import`が同じ処理を使い、表はLinked参照のまま、.xlsx/.xlsmの埋込画像はExtracted assetとして1回で下書き化する。Detachedも最小縦切りが入り、`materialize`でMMI参照を標準Markdownへ実体化し、`detach-check`で残存参照・未実体化marker・壊れた/境界外リンクを検査できる。フラットテキスト等からの推定Tree、図形等へのExtracted一般化、実務E2Eは未完。CLIは`schema candidate`・`inspect`・`extract`・`import`・`check`・`render`・`materialize`・`detach-check`・`manifest`・AI handoff/再検証を提供する。`inspect --json`はCandidate配列とともに`mmi.semantic-candidate/v1`を明示し、外部AIや連携基盤がTypeScript実装を読まず契約を取得できる。AI向け指示パック（`skills/mmi`）、基本設計書キット、執筆ベンチマーク v0もある。記法仕様はDraft、配布物は公開準備中の検証版。差分の詳細は[ギャップ分析](product-gap-analysis.md)を参照する。
 
 ## 優先度と作業
 
@@ -12,26 +12,26 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 
 | 優先度 | 作業 | 状態 | 次の一手 |
 | --- | --- | --- | --- |
-| **1 Coreと入口** | [Candidate・Source Adapter・provenanceの契約](issues/issue-0193-candidate-source-adapter-contract.md) | **Done**（契約 v1。表・画像・JSON Tree Candidateが利用。`mmi schema candidate`で機械可読契約を取得可能） | 次の一般化はXML Tree / Shape等のSource Adapterへ |
+| **1 Coreと入口** | [Candidate・Source Adapter・provenanceの契約](issues/issue-0193-candidate-source-adapter-contract.md) | **Done**（契約 v1。表・画像・JSON/XML Tree Candidateが利用。`mmi schema candidate`で機械可読契約を取得可能） | 次の一般化は推定Tree / Shape等のSource Adapterへ |
 | 1 | CLI（inspect/check/render/manifest）、AI向け指示パック、基本設計書キット、[執筆ベンチマーク](../04_Documentation/benchmarks/ai-writing/README.md) | 実装済み | ベンチマーク v0は実施済み。表を大きくした v1は優先度5 |
 | 1 | [外部LLMへの作業提案と判断材料](issues/issue-0112-ai-proposal-handoff.md) | **In Progress**（local-only handoff、MMI記法・Candidate選択・変換案のfail-closed再検証を実装） | 次: manual-e2eでhandoff → 外部提案 → 3種類の再検証が自動適用なしで完結することを確認 |
 | 1 | [CLIの配布](issues/issue-0197-cli-distribution.md) | **In Progress**（lockfile固定・最小runtime閉包・依存同梱npm tarball、生成時offline smokeを実装） | 次: Windows・Linuxの新規環境で同じtarballだけを入れ、version / `mmi check` / `render`をmanual-e2e確認 |
-| 1 | [portable coreと最小バイナリ](issues/issue-0203-portable-core-minimum-binary.md) | **In Progress**（deterministic inspectのJSON contract、TypeScript参照実装、conformance corpus、`mmi core`入口） | 次: 通常開発環境でcorpusを実行してbaselineを固定し、標準GoのCSV table実装を同じcontractで比較 |
+| 1 | [portable coreと最小バイナリ](issues/issue-0203-portable-core-minimum-binary.md) | **In Progress**（JSON contract、標準Go CSVのnative/WASM conformance・実測、XLSX decoder評価gate） | 次: Go 1.25環境でExcelize v2.11.0のXLSX conformance/サイズを測り、TinyGo native/WASMと同じ基準で比較 |
 | 1〜3（横断） | [認知model/profile資産の配布](issues/issue-0204-cognitive-artifact-distribution.md) | Draft | Coreと大型artifactを分離し、既存local runtime/cacheと外部model置き場を交換可能にする |
 | **2 モダナイズの最小縦切り** | [Excel画像の候補化と取り込み](issues/issue-0194-excel-image-candidates.md) | **Done**（`inspect`の画像一覧、`mmi extract`、実Excel検証、issue-0195による変更検知） | 次: VS Code上の採否UI（issue-0202）、他Candidate種別への展開 |
 | 2 | [取り込み台帳と未取込の表示](issues/issue-0195-import-ledger.md) | **Done**（`mmi.ledger/v1`、未取込/変更/stale、lineage、研究similarity Evidence） | 次: issue-0200のbaseline converter、issue-0202のレビューUIが同じ台帳契約を利用 |
 | 2 | [初回一括変換とCandidate基盤の接続](issues/issue-0200-baseline-bulk-import.md) | **In Progress**（表Linked＋画像Extractedの組み込み一括取り込みをVS Code/CLIへ接続。MarkItDown評価経路も整備） | 実在設計書で組み込み経路を観測し、外部Converterは比較候補としてデスクトップ実測で判断 |
 | 2 | [シート・範囲の画像化](issues/issue-0198-sheet-region-snapshot.md) | Draft | CIで動く描画方式（MMI自身の描画、LibreOffice）の比較。COMは手元の補助 |
-| 2 | [人の作業を止めないCandidateレビューUI](issues/issue-0202-candidate-review-ui.md) | **In Progress**（表・画像・JSON Tree、import state＋type/status/execution facet、採用/修正採用/却下/却下解除/永続保留を同じレビュー経路へ接続。修正採用は表・画像） | Windows実機E2E、利用者観測 |
+| 2 | [人の作業を止めないCandidateレビューUI](issues/issue-0202-candidate-review-ui.md) | **In Progress**（表・画像・JSON/XML Tree、import state＋type/status/execution facet、採用/修正採用/却下/却下解除/永続保留を同じレビュー経路へ接続。修正採用は表・画像） | Windows実機E2E、利用者観測 |
 | 2 | [既存設計書の取り込み候補](issues/issue-0205-import-assistance-prototype.md)（方眼紙の表の参照提案・役割候補・下書き） | **In Progress**（VS Code/CLIへ接続、架空データで評価済み） | 残: 画面操作の目視確認、実在設計書で候補の採用・修正・却下を観測 |
 | 2 | [Excelを開かずに表・列・行を選ぶ入口](issues/issue-0206-table-navigation-and-agent-interface.md)（名前・テーブル・非表示、見出しによる選択） | In Progress（試作） | 残: 目視確認、[ADR-0022](adr/ADR-0022-semantic-selection-in-notation.md)の採否（select/findのCandidate指紋対応は実施済み） |
 | 2（既存） | [Excel範囲貼り付け](issues/issue-0114-excel-range-paste.md) | Open | Paste As宿主dispatchの自動E2Eを追加済み（実行確認待ち）。残: Windows実ExcelのHTML/helper/視覚picker実機証拠。表Candidateの `observed` / `inferred` を保ったまま、採用時にreviewを `accepted` とする経路として扱う |
 | 2（既存） | [CPUでの範囲探索](issues/issue-0115-cpu-range-search.md) | In Progress | 言い換え対応。Candidateの検索として扱う |
 | 2（既存） | [文脈に応じた補完](issues/issue-0110-contextual-input-completion.md)、[参照の作成・編集](issues/issue-0111-reference-authoring-flow.md) | In Progress | 多環境の実機確認、利用者の観測 |
-| **3 Source Adapterの一般化** | [Tree / Hierarchy、JSON/XML、フラットテキスト](issues/issue-0199-tree-structured-source-adapters.md) | **In Progress**（JSONの明示Treeを`inspect`/`extract`/ledger/detach freshnessへ接続） | XMLの明示構造を追加し、その後にフラットテキスト・Excel/CSVの推定階層へ進む |
+| **3 Source Adapterの一般化** | [Tree / Hierarchy、JSON/XML、フラットテキスト](issues/issue-0199-tree-structured-source-adapters.md) | **In Progress**（JSON/XMLの明示Treeを`inspect`/`extract`/レビュー/ledger/detach freshnessへ接続） | フラットテキスト・Excel/CSVの推定階層へ進む |
 | 3 | Shape、Choice list | 未起票 | issue-0193・0199でNode/Candidate表現を固めてから起票 |
 | 3（研究） | structured artifact（SAI）、worksheet format、[review route](issues/issue-0190-review-route-evaluation-pipeline-regression.md) | In Progress | 新しい研究段階は、issue-0193の対応表のどの行を強くするかを示してから始める |
-| **4 Detachability** | [実体化とdetach check](issues/issue-0196-materialize-detach-check.md) | **In Progress**（表・別紙・ローカル画像のmaterialize、採用済み表・画像・JSON Treeのfreshness preflight、artifact closureを実装） | build/unitと実務E2Eを確認し、XML Tree / Shape等がExtracted可能になったら同じprovenance/freshness契約へ拡張 |
+| **4 Detachability** | [実体化とdetach check](issues/issue-0196-materialize-detach-check.md) | **In Progress**（表・別紙・ローカル画像のmaterialize、採用済み表・画像・JSON/XML Treeのfreshness preflight、artifact closureを実装） | build/unitと実務E2Eを確認し、Shape等がExtracted可能になったら同じprovenance/freshness契約へ拡張 |
 | 4 | 参照台帳と影響分析 | 未起票 | issue-0195の台帳と合わせて設計 |
 | **5 組織導入** | 文書キットの追加、CI関門、執筆ベンチマーク v1（大きな表・複数シート・本文と表の矛盾） | 未起票 | 優先度2の縦切りの後 |
 | 5 | [外部の判断記録からの根拠の固定（SEI）](issues/issue-0192-sei-decision-basis-table-binding.md) | Draft | CLIの契約が固まった後 |

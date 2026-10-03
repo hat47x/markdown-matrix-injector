@@ -15,7 +15,7 @@ function parseXml(text: string): XmlElementNode {
     content: XmlTreeContent[];
   };
 
-  const parser = new SaxesParser({ xmlns: true });
+  const parser = new SaxesParser<{ xmlns: true }>({ xmlns: true });
   const stack: Frame[] = [];
   let root: XmlElementNode | undefined;
 

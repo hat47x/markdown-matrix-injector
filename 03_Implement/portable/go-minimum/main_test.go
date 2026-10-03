@@ -97,3 +97,105 @@ func TestRejectsProviderDependentAndUnknownFields(t *testing.T) {
 		}
 	}
 }
+
+
+func TestParseCSVMatchesReferenceSemantics(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected [][]string
+	}{
+		{
+			name:  "utf8-bom-and-crlf",
+			input: "\uFEFFID,Name\r\n1,Alice\r\n",
+			expected: [][]string{
+				{"ID", "Name"},
+				{"1", "Alice"},
+			},
+		},
+		{
+			name:  "quoted-comma-and-escaped-quote",
+			input: "ID,Name\n1,\"Smith, John\"\n2,\"A \"\"quoted\"\" name\"\n",
+			expected: [][]string{
+				{"ID", "Name"},
+				{"1", "Smith, John"},
+				{"2", "A \"quoted\" name"},
+			},
+		},
+		{
+			name:  "quoted-newline",
+			input: "ID,Note\n1,\"line1\nline2\"\n",
+			expected: [][]string{
+				{"ID", "Note"},
+				{"1", "line1\nline2"},
+			},
+		},
+		{
+			name:  "unquoted-trim-and-quoted-preserve-space",
+			input: " A ,\" B \"\n",
+			expected: [][]string{
+				{"A", " B "},
+			},
+		},
+		{
+			name:  "standalone-cr-is-ignored-like-typescript-reference",
+			input: "A,B\r1,2\n",
+			expected: [][]string{
+				{"A", "B1", "2"},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			actual, err := parseCSV(test.input)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !equalRows(actual, test.expected) {
+				t.Fatalf("rows mismatch:\n got: %#v\nwant: %#v", actual, test.expected)
+			}
+		})
+	}
+}
+
+func TestParseCSVRejectsUnterminatedQuotedField(t *testing.T) {
+	if _, err := parseCSV("ID,Name\n1,\"unterminated"); err == nil {
+		t.Fatal("expected unterminated quoted field to be rejected")
+	}
+}
+
+func equalRows(left, right [][]string) bool {
+	if len(left) != len(right) {
+		return false
+	}
+	for row := range left {
+		if len(left[row]) != len(right[row]) {
+			return false
+		}
+		for col := range left[row] {
+			if left[row][col] != right[row][col] {
+				return false
+			}
+		}
+	}
+	return true
+}
+
+
+func TestMaxScanCellsUsesPortableSafeIntegerSemantics(t *testing.T) {
+	accepted := `{"schema":"mmi.portable-core-request/v1","operation":"inspect","source":{"name":"x.csv","label":"./x.csv","bytesBase64":"QQo="},"options":{"maxScanCells":9007199254740991},"executionPolicy":{"allowProviderDependent":false}}`
+	if _, err := run([]byte(accepted)); err != nil {
+		t.Fatalf("largest JavaScript-safe integer must be accepted: %v", err)
+	}
+
+	for _, input := range []string{
+		`{"schema":"mmi.portable-core-request/v1","operation":"inspect","source":{"name":"x.csv","label":"./x.csv","bytesBase64":"QQo="},"options":{"maxScanCells":9007199254740992}}`,
+		`{"schema":"mmi.portable-core-request/v1","operation":"inspect","source":{"name":"x.csv","label":"./x.csv","bytesBase64":"QQo="},"options":{"maxScanCells":1.5}}`,
+		`{"schema":"mmi.portable-core-request/v1","operation":"inspect","source":{"name":"x.csv","label":"./x.csv","bytesBase64":"QQo="},"options":{"maxScanCells":0}}`,
+	} {
+		if _, err := run([]byte(input)); err == nil {
+			t.Fatalf("expected maxScanCells rejection: %s", input)
+		}
+	}
+}

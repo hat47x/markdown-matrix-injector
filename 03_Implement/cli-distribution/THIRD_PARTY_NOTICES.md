@@ -20,3 +20,15 @@ Licensed under the Apache License, Version 2.0.
 ## markdown-it
 
 `markdown-it`はMMI CLIのruntime dependencyとして同梱します。著作権表示とライセンス本文は、同梱する`node_modules/markdown-it`内の配布物を正とします。
+
+
+## saxes
+
+- Version: 6.0.0
+- Source: https://github.com/lddubeau/saxes
+- License: ISC
+- Purpose in MMI: strict, namespace-aware parsing of generic XML Tree sources
+
+The complete license text is retained in the bundled `node_modules/saxes`
+package. `saxes` depends on `xmlchars@2.2.0` (MIT); its license text is
+retained in the bundled `node_modules/xmlchars` package.

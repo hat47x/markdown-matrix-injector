@@ -422,7 +422,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
         facetFilter,
       )
     : undefined;
-  let presentedCount = 0;
+  let selectedCount = 0;
 
   try {
   for (;;) {
@@ -486,7 +486,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
       },
     );
     if (!picked) return;
-    presentedCount += 1;
+    selectedCount += 1;
 
   if (
     picked.source.kind === 'image'
@@ -920,7 +920,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
           interruptedMarkdownEditing: Boolean(sessionMarkdownEditor),
           ledgerFilter: filterChoice.value,
           facetFilter,
-          presentedCount,
+          selectedCount,
           initial: observationInitial,
           final: candidateReviewObservationSnapshot(
             finalView,

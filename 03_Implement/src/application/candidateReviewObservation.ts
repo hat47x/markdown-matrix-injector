@@ -43,7 +43,7 @@ export interface CandidateReviewObservation {
   ui: {
     ledgerFilter: CandidateLedgerFilter;
     facets: CandidateReviewFacetFilter;
-    presentedCount: number;
+    selectedCount: number;
   };
   initial: {
     total: number;
@@ -92,7 +92,7 @@ export function createCandidateReviewObservation(input: {
   interruptedMarkdownEditing: boolean;
   ledgerFilter: CandidateLedgerFilter;
   facetFilter: CandidateReviewFacetFilter;
-  presentedCount: number;
+  selectedCount: number;
   initial: CandidateReviewObservationSnapshot;
   final: CandidateReviewObservationSnapshot;
 }): CandidateReviewObservation {
@@ -107,8 +107,8 @@ export function createCandidateReviewObservation(input: {
   if (!/^sha256:[0-9a-f]{64}$/u.test(input.sourceDigest)) {
     throw new Error('candidate review observation source digest must be sha256');
   }
-  if (!Number.isInteger(input.presentedCount) || input.presentedCount < 0) {
-    throw new Error('candidate review observation presentedCount must be a non-negative integer');
+  if (!Number.isInteger(input.selectedCount) || input.selectedCount < 0) {
+    throw new Error('candidate review observation selectedCount must be a non-negative integer');
   }
 
   const initialByKey = new Map(
@@ -176,7 +176,7 @@ export function createCandidateReviewObservation(input: {
         statuses: [...input.facetFilter.statuses],
         executions: [...input.facetFilter.executions],
       },
-      presentedCount: input.presentedCount,
+      selectedCount: input.selectedCount,
     },
     initial: summarizeSnapshot(input.initial),
     final: summarizeSnapshot(input.final),
