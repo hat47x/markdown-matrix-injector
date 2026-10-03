@@ -10,11 +10,13 @@ import {
   type JsonValue,
 } from '../adapters/jsonTreeAdapter.js';
 import {
+  decodeXmlUtf8,
   readXmlTree,
   resolveXmlElement,
   type XmlElement,
 } from '../adapters/xmlTreeAdapter.js';
 import type { Candidate } from '../core/candidate.js';
+import { createSourceIdentityFromBytes } from '../core/sourceIdentity.js';
 import { entryFor, recordEntries } from '../core/importLedger.js';
 import { isXmlSpreadsheet2003Text } from '../core/workbookLoader.js';
 
@@ -210,7 +212,7 @@ export function extractJsonTree(
   }
 
   const sourceBytes = fs.readFileSync(options.sourcePath);
-  const sourceDigest = sha256(sourceBytes);
+  const sourceDigest = createSourceIdentityFromBytes(sourceBytes).digest;
   const source = sourceLabel(options, options.sourcePath);
 
   let tree;
@@ -282,7 +284,16 @@ export function extractXmlTree(
   }
 
   const sourceBytes = fs.readFileSync(options.sourcePath);
-  const xml = sourceBytes.toString('utf8');
+  let xml: string;
+  try {
+    xml = decodeXmlUtf8(sourceBytes);
+  } catch (error) {
+    result.problems.push({
+      code: 'MMI_TREE_XML_INVALID',
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return result;
+  }
   if (isXmlSpreadsheet2003Text(xml)) {
     result.problems.push({
       code: 'MMI_TREE_XML_SPREADSHEET',
