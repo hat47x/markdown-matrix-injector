@@ -186,7 +186,7 @@
 - **`src/extension.ts`**: `insertEmbedByContentMatch`関数と新規コマンド`markdownMatrixInjector.insertEmbedByContentMatch`（`MMI: Insert Embed by Content Match`）を追加。
   - **探索対象ブックの決定（§5手順1）**: `vscode.workspace.findFiles(WORKBOOK_FILE_GLOB, ...)`で候補を列挙し、編集中Markdownが属するworkspace folderの内側だけを採用する。2026-10-03、文字列`startsWith(workspaceRoot)`による絞り込みを廃止し、記法P4と同じ`isPathWithinBoundary()`とrealpath検査へ統一した。これによりmulti-root workspaceで`work`と`work-old`のようなprefix衝突があっても別rootを検索せず、workspace内のsymlinkが外部ファイルを指す場合も探索対象から除外する。
   - **候補選択UI（§4「自動確定の規則」）**: 結果が1件でも複数件でも、必ず`vscode.window.showQuickPick`を経由する。VS Codeの標準的な明示選択UIを使うことで、独自UIの実装を避けた。Escでキャンセルすれば何も挿入しない（R1）。
-  - ブックを読めない場合やシートが索引上限を超える場合も検索全体は続ける。ただし2026-10-03以降は未検索件数を保持し、0件時に「一致なし」と断定しない。候補が見つかった場合も、明示コマンドでは候補集合が不完全であることを警告し、Paste Asでは各候補へ「検索不完全」を付ける。
+  - ブックを読めない場合やシートが索引上限を超える場合も検索全体は続ける。ただし2026-10-03以降は未検索件数を保持し、0件時に「一致なし」と断定しない。候補が見つかった場合も、明示コマンドでは候補集合が不完全であることを警告し、Paste Asでは各候補へ「検索不完全」を付ける。索引上限以外の予期しない照合エラーは握りつぶさず、明示コマンドでは可視エラー、Paste Asでは可視エラーを出してMMI候補だけを返さない。
 
 **テスト**: `test/contentMatchSearch.test.ts`を新規追加（6件）、`test/tableGeometry.test.ts`へ3件追加（`indexToColumn`/`cellRangeToA1`）、`test/extensionIntegration.test.ts`へ構造テスト。
 
