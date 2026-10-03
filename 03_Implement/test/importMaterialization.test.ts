@@ -514,3 +514,47 @@ test('malformed review decisions fail before bulk-import assets or ledger are wr
   );
   assert.equal(fs.existsSync(decisionPath), true);
 });
+
+
+test('existing adopted image history takes precedence over an obsolete rejection record', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-review-adopted-'));
+  const sourcePath = path.join(root, 'design.xlsx');
+  const firstDraft = path.join(root, 'first.md');
+  const secondDraft = path.join(root, 'second.md');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const decisionPath = path.join(root, 'mmi-review-decisions.json');
+  fs.writeFileSync(sourcePath, screenDesignWorkbook().bytes);
+
+  const first = writeWorkbookImportDraft({
+    sourcePath,
+    draftPath: firstDraft,
+    ledgerPath,
+    reviewDecisionsPath: decisionPath,
+  });
+  assert.equal(first.extractedImages.length, 4);
+
+  const inventory = buildCandidateReviewInventory(sourcePath, './design.xlsx');
+  const image = inventory.items.find(
+    (item) => item.kind === 'image' && item.image.ordinal === 1,
+  );
+  assert.ok(image && image.kind === 'image');
+  recordRejectedDecision(
+    decisionPath,
+    sourcePath,
+    image.candidate,
+    'obsolete rejection after adoption',
+  );
+
+  const second = writeWorkbookImportDraft({
+    sourcePath,
+    draftPath: secondDraft,
+    ledgerPath,
+    reviewDecisionsPath: decisionPath,
+  });
+
+  assert.equal(second.reviewSkippedImages.length, 0);
+  assert.deepEqual(
+    second.extractedImages.map((item) => item.ordinal),
+    [1, 2, 3, 4],
+  );
+});
