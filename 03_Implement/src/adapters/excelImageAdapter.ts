@@ -37,7 +37,9 @@ export type ImageDiagnosticCode =
   | 'MMI_IMAGE_DRAWING_UNREADABLE'
   | 'MMI_IMAGE_MEDIA_MISSING'
   | 'MMI_IMAGE_EXTERNAL_LINK'
-  | 'MMI_IMAGE_UNSUPPORTED_FORMAT';
+  | 'MMI_IMAGE_UNSUPPORTED_FORMAT'
+  | 'MMI_DRAWING_SHAPES_NOT_EXTRACTED'
+  | 'MMI_DRAWING_GRAPHIC_FRAMES_NOT_EXTRACTED';
 
 export interface ImageDiagnostic {
   code: ImageDiagnosticCode;
@@ -84,7 +86,7 @@ export interface ExcelImage {
 export interface ImageReadResult {
   images: ExcelImage[];
   diagnostics: ImageDiagnostic[];
-  /** Drawing objects seen but not extracted here (shapes, connectors, charts): recorded, not interpreted. */
+  /** Drawing objects seen but not extracted here: recorded, not interpreted. `charts` is the legacy graphicFrame count and may also include diagrams. */
   skipped: { shapes: number; charts: number };
 }
 
@@ -237,11 +239,17 @@ export function readExcelImages(bytes: Uint8Array): ImageReadResult {
       continue;
     }
 
+    let skippedShapesOnSheet = 0;
+    let skippedGraphicFramesOnSheet = 0;
     for (const anchorMatch of xml.matchAll(/<((?:\w+:)?)(twoCellAnchor|oneCellAnchor|absoluteAnchor)\b[^>]*>([\s\S]*?)<\/\1\2>/gu)) {
       const kind = anchorMatch[2] as ImageAnchor['kind'];
       const body = anchorMatch[3];
-      result.skipped.shapes += (body.match(/<(?:\w+:)?(?:sp|cxnSp)\b/gu) ?? []).length;
-      result.skipped.charts += (body.match(/<(?:\w+:)?graphicFrame\b/gu) ?? []).length;
+      const shapes = (body.match(/<(?:\w+:)?(?:sp|cxnSp)\b/gu) ?? []).length;
+      const graphicFrames = (body.match(/<(?:\w+:)?graphicFrame\b/gu) ?? []).length;
+      result.skipped.shapes += shapes;
+      result.skipped.charts += graphicFrames;
+      skippedShapesOnSheet += shapes;
+      skippedGraphicFramesOnSheet += graphicFrames;
 
       const fromBlock = /<(?:\w+:)?from>([\s\S]*?)<\/(?:\w+:)?from>/u.exec(body)?.[1];
       const toBlock = /<(?:\w+:)?to>([\s\S]*?)<\/(?:\w+:)?to>/u.exec(body)?.[1];
@@ -310,6 +318,27 @@ export function readExcelImages(bytes: Uint8Array): ImageReadResult {
           extractable,
         });
       }
+    }
+
+    if (skippedShapesOnSheet > 0) {
+      result.diagnostics.push({
+        code: 'MMI_DRAWING_SHAPES_NOT_EXTRACTED',
+        severity: 'warning',
+        sheet: sheet.name,
+        part: drawingRel.target,
+        message:
+          `${skippedShapesOnSheet} shape/connector object(s) are present; MMI does not extract them yet`,
+      });
+    }
+    if (skippedGraphicFramesOnSheet > 0) {
+      result.diagnostics.push({
+        code: 'MMI_DRAWING_GRAPHIC_FRAMES_NOT_EXTRACTED',
+        severity: 'warning',
+        sheet: sheet.name,
+        part: drawingRel.target,
+        message:
+          `${skippedGraphicFramesOnSheet} graphic-frame object(s) are present; these may include charts or diagrams and are not extracted yet`,
+      });
     }
   }
   return result;

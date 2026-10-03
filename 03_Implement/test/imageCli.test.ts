@@ -428,3 +428,43 @@ test('extract records the project ledger and inspect keeps occurrence/content id
     false,
   );
 });
+
+
+test('inspect reports shapes and graphic frames as drawing problems', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-drawing-'));
+  const book = path.join(root, 'drawing.xlsx');
+  const drawing = [
+    '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing">',
+    '<xdr:oneCellAnchor>',
+    '<xdr:from><xdr:col>1</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>1</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>',
+    '<xdr:ext cx="1000" cy="1000"/><xdr:sp/><xdr:clientData/>',
+    '</xdr:oneCellAnchor>',
+    '<xdr:absoluteAnchor>',
+    '<xdr:pos x="0" y="0"/><xdr:ext cx="1000" cy="1000"/>',
+    '<xdr:graphicFrame/><xdr:clientData/>',
+    '</xdr:absoluteAnchor>',
+    '</xdr:wsDr>',
+  ].join('');
+  fs.writeFileSync(
+    book,
+    buildXlsxWithImages(
+      [{ name: '図', cells: [[0, 0, '図']], rawDrawing: drawing }],
+      {},
+    ),
+  );
+
+  const written: string[] = [];
+  const out = process.stdout.write.bind(process.stdout);
+  process.stdout.write = ((chunk: string) => (written.push(String(chunk)), true)) as typeof process.stdout.write;
+  try {
+    const code = await main(['inspect', book]);
+    assert.equal(code, 0);
+  } finally {
+    process.stdout.write = out;
+  }
+
+  const output = written.join('');
+  assert.match(output, /drawing problems:/u);
+  assert.match(output, /MMI_DRAWING_SHAPES_NOT_EXTRACTED \[図\]/u);
+  assert.match(output, /MMI_DRAWING_GRAPHIC_FRAMES_NOT_EXTRACTED \[図\]/u);
+});

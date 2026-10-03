@@ -132,3 +132,55 @@ test('readImageBytes returns the exact media and refuses a changed package', () 
   assert.throws(() => readImageBytes(other, image), /changed since it was listed/u);
   assert.ok(swapped.bytes.length > 0);
 });
+
+
+test('drawing shapes and graphic frames are diagnosed instead of disappearing silently', () => {
+  const drawing = [
+    '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing">',
+    '  <xdr:twoCellAnchor>',
+    '    <xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>',
+    '    <xdr:to><xdr:col>2</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>2</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>',
+    '    <xdr:sp/>',
+    '    <xdr:cxnSp/>',
+    '    <xdr:clientData/>',
+    '  </xdr:twoCellAnchor>',
+    '  <xdr:absoluteAnchor>',
+    '    <xdr:pos x="0" y="0"/>',
+    '    <xdr:ext cx="1000" cy="1000"/>',
+    '    <xdr:graphicFrame/>',
+    '    <xdr:clientData/>',
+    '  </xdr:absoluteAnchor>',
+    '</xdr:wsDr>',
+  ].join('');
+  const bytes = buildXlsxWithImages(
+    [{ name: '構成図', rawDrawing: drawing }],
+    {},
+  );
+
+  const result = readExcelImages(bytes);
+
+  assert.deepEqual(result.images, []);
+  assert.deepEqual(result.skipped, { shapes: 2, charts: 1 });
+  assert.deepEqual(
+    result.diagnostics.map((item) => [
+      item.code,
+      item.severity,
+      item.sheet,
+      item.message,
+    ]),
+    [
+      [
+        'MMI_DRAWING_SHAPES_NOT_EXTRACTED',
+        'warning',
+        '構成図',
+        '2 shape/connector object(s) are present; MMI does not extract them yet',
+      ],
+      [
+        'MMI_DRAWING_GRAPHIC_FRAMES_NOT_EXTRACTED',
+        'warning',
+        '構成図',
+        '1 graphic-frame object(s) are present; these may include charts or diagrams and are not extracted yet',
+      ],
+    ],
+  );
+});

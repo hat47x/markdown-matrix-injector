@@ -141,7 +141,7 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
     lines.push(`- 抽出した画像: ${workbookImport.assets.length}件（元のシート位置と出典を保持）`);
   }
   if (workbookImport.assetProblems.length > 0) {
-    lines.push(`- 画像の注意: ${workbookImport.assetProblems.length}件`);
+    lines.push(`- 画像・図形の注意: ${workbookImport.assetProblems.length}件`);
   }
   if (workbookImport.reviewSkippedTables.length > 0) {
     lines.push(
@@ -190,7 +190,7 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
   }
 
   if (workbookImport.assetProblems.length > 0) {
-    lines.push('## 画像の注意', '', '> 抽出できなかった画像は黙って捨てず、ここに残します。原本を開いて必要性を確認してください。', '');
+    lines.push('## 画像・図形の注意', '', '> 取り込めない画像や、まだ抽出に対応していない図形・グラフ等は黙って捨てず、ここに残します。原本を開いて必要性を確認してください。', '');
     for (const problem of workbookImport.assetProblems) {
       const where = problem.sheet ? ` [${escapeText(problem.sheet)}]` : '';
       const ordinal = problem.ordinal ? ` #${problem.ordinal}` : '';
