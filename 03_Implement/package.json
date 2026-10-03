@@ -325,6 +325,11 @@
           "type": "boolean",
           "default": true,
           "markdownDescription": "%mmi.setting.useClipboardSource%"
+        },
+        "markdownMatrixInjector.reviewObservation.enabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%mmi.setting.reviewObservation%"
         }
       }
     }
