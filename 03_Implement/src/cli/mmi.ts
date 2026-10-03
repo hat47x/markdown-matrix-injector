@@ -17,6 +17,10 @@ import { imageCandidates, readExcelImages, relationToTables, type ImageDiagnosti
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import type { Candidate, ProviderScore } from '../core/candidate.js';
+import {
+  SEMANTIC_CANDIDATE_CONTRACT,
+  semanticCandidateSchemaJson,
+} from '../core/candidateContract.js';
 import { candidateLedgerView, type CandidateLedgerFilter } from '../core/candidateLedgerView.js';
 import {
   readCandidateSimilarityEvidence,
@@ -54,9 +58,14 @@ import { extractImages, extractTable, formatImageDiagnostics } from './extract.j
 import { extractJsonTree } from './extractTree.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './render.js';
 
+export const SEMANTIC_CANDIDATE_SCHEMA_NAME =
+  SEMANTIC_CANDIDATE_CONTRACT;
+
 const USAGE = `Usage: mmi <command> [options]
 
 Commands:
+  schema candidate         Print the public JSON Schema for mmi.semantic-candidate/v1.
+                            Machine-readable Source Adapter / AI / integration contract.
   inspect <source>          List workbook/CSV table regions or explicit JSON tree structure.
                             --json adds Semantic Candidates with status, method, provenance and fingerprint
       --values <n>            also print the first n body rows of each region
@@ -199,6 +208,15 @@ export async function main(argv: string[]): Promise<number> {
   const emit = (text: string) => (values.out ? fs.writeFileSync(values.out, text) : process.stdout.write(text.endsWith('\n') ? text : `${text}\n`));
 
   switch (command) {
+    case 'schema': {
+      if (args.length !== 1 || args[0] !== 'candidate') {
+        return usageError(
+          'schema currently supports exactly: schema candidate',
+        );
+      }
+      emit(JSON.stringify(semanticCandidateSchemaJson(), null, 2));
+      return 0;
+    }
     case 'inspect': {
       if (args.length !== 1) return usageError('inspect takes one source file');
       if (values.unimported && values['exclude-imported']) {
