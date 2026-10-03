@@ -10,6 +10,7 @@ import crypto from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import * as vscode from 'vscode';
+import * as XLSX from 'xlsx';
 import { screenDesignWorkbook } from '../../helpers/buildXlsxWithImages.js';
 
 const LOG = '[mmi:import-e2e]';
@@ -144,6 +145,28 @@ async function checkCatalog(folder: string): Promise<void> {
   expect(/^表として表示: 本体5行 × 2列（見出しあり）/u.test(confirm), `catalog selection confirm step: ${confirm}`);
 }
 
+/** Prose IDs missing from the referenced sheet show in Problems on open/save, as information. */
+async function checkProseIds(folder: string): Promise<void> {
+  const file = path.join(folder, 'prose-ids.md');
+  const sheet = XLSX.utils.aoa_to_sheet([['要件ID', '名称'], ['REQ-001', '登録'], ['REQ-002', '照会'], ['REQ-003', '承認']]);
+  const book = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(book, sheet, '要件');
+  fs.writeFileSync(path.join(folder, '要件.xlsx'), XLSX.write(book, { type: 'buffer', bookType: 'xlsx' }));
+  fs.writeFileSync(file, ['# 要件', '', '![[./要件.xlsx#要件|A1:B4?header=first]]', '', '登録は REQ-001 を満たす。削除済みの REQ-099 は使わない。', ''].join('\n'));
+  const document = await vscode.workspace.openTextDocument(file);
+  await vscode.window.showTextDocument(document);
+  await vscode.commands.executeCommand('workbench.action.files.save');
+  let found: vscode.Diagnostic[] = [];
+  for (let i = 0; i < 20 && found.length === 0; i += 1) {
+    await sleep(150);
+    found = vscode.languages.getDiagnostics(document.uri).filter((d) => d.code === 'MMI_PROSE_ID_NOT_IN_SOURCE');
+  }
+  note('prose-ids', { found: found.map((d) => [document.getText(d.range), d.severity]) });
+  expect(found.length === 1, `expected one prose ID diagnostic, got ${found.length}`);
+  expect(found[0] !== undefined && document.getText(found[0].range) === 'REQ-099', 'the diagnostic marks REQ-099');
+  expect(found[0]?.severity === vscode.DiagnosticSeverity.Information, 'prose ID diagnostics are information');
+}
+
 export async function run(): Promise<void> {
   const folder = process.env.MMI_IMPORT_WORKSPACE!;
   const expected = JSON.parse(process.env.MMI_IMPORT_EXPECTED ?? '{}') as Record<string, { tables: number; cards: number }>;
@@ -175,6 +198,11 @@ export async function run(): Promise<void> {
     await checkCatalog(folder);
   } catch (error) {
     problems.push(`catalog threw: ${error instanceof Error ? error.stack : String(error)}`);
+  }
+  try {
+    await checkProseIds(folder);
+  } catch (error) {
+    problems.push(`prose ids threw: ${error instanceof Error ? error.stack : String(error)}`);
   }
   note('summary', { problems: problems.length });
   if (problems.length > 0) throw new Error(`${LOG} ${problems.length} problem(s):\n- ${problems.join('\n- ')}`);

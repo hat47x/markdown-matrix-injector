@@ -53,6 +53,8 @@ import {
 import { readWorkbookCached } from './dx/sharedWorkbookCache.js';
 import { clearSearchIndexes, FIND_EMBED_COMMAND_ID, scriptedSearch, searchEmbedByDescription } from './dx/searchFlow.js';
 import { selectContainedWorkbookFiles } from './dx/workbookCandidateOrder.js';
+import { findUnknownProseIds, UNKNOWN_PROSE_ID_CODE } from './application/proseIdCheck.js';
+import { referencedSheets, unknownIdMessage } from './application/referencedSheets.js';
 import { applyDiagnosticPolicy, AUTHORING_DEBOUNCE_MS, type DiagnosticPhase, type WhileTyping } from './dx/diagnosticPolicy.js';
 import { IMPORT_WORKBOOK_COMMAND_ID, importFromWorkbook } from './dx/importFlow.js';
 import { REVIEW_CANDIDATES_COMMAND_ID, reviewCandidates } from './dx/candidateReviewFlow.js';
@@ -998,9 +1000,11 @@ async function refreshDiagnosticsForDocument(
   const cursorLine = editor?.selection.active.line;
   if (cursorLine !== undefined) lastCursorLine.set(document.uri.toString(), cursorLine);
   const whileTyping = vscode.workspace.getConfiguration('markdownMatrixInjector').get<WhileTyping>('diagnostics.whileTyping', 'quiet');
+  // Prose IDs missing from the referenced sheets: shown on open/save, never while typing (ADR-0019 D13).
+  const proseItems = phase === 'review' ? proseIdDiagnostics(document, workspaceRoot) : [];
   diagnostics.set(
     document.uri,
-    applyDiagnosticPolicy(items, { phase, cursorLine, whileTyping }).map(({ diagnostic, range }) => {
+    [...applyDiagnosticPolicy(items, { phase, cursorLine, whileTyping }).map(({ diagnostic, range }) => {
       const vsCodeDiagnostic = new vscode.Diagnostic(
         new vscode.Range(range.start.line, range.start.character, range.end.line, range.end.character),
         diagnostic.message,
@@ -1013,7 +1017,23 @@ async function refreshDiagnosticsForDocument(
       vsCodeDiagnostic.source = diagnostic.source;
       vsCodeDiagnostic.code = diagnostic.code;
       return vsCodeDiagnostic;
-    }),
+    }), ...proseItems],
   );
+}
+
+/** Information, not a warning: the prose may be right and the source stale. */
+function proseIdDiagnostics(document: vscode.TextDocument, workspaceRoot: string | undefined): vscode.Diagnostic[] {
+  try {
+    const sources = referencedSheets(document.getText(), document.uri.fsPath, workspaceRoot);
+    return findUnknownProseIds(document.getText(), sources).map((finding) => {
+      const range = new vscode.Range(finding.line - 1, finding.column - 1, finding.line - 1, finding.column - 1 + finding.id.length);
+      const diagnostic = new vscode.Diagnostic(range, unknownIdMessage(finding), vscode.DiagnosticSeverity.Information);
+      diagnostic.source = 'markdown-matrix-injector';
+      diagnostic.code = UNKNOWN_PROSE_ID_CODE;
+      return diagnostic;
+    });
+  } catch {
+    return []; // an advisory check never breaks the reference diagnostics
+  }
 }
 

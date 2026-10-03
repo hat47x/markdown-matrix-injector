@@ -28,9 +28,9 @@ import {
   type LedgerState,
   type LineageCandidate,
 } from '../core/importLedger.js';
-import { isPathWithinBoundary, resolveSourcePath } from '../core/pathResolver.js';
-import { findUnknownProseIds, UNKNOWN_PROSE_ID_CODE, type ProseIdSource } from '../application/proseIdCheck.js';
-import { extractEmbedQueries } from '../parser/embedSyntax.js';
+import { isPathWithinBoundary } from '../core/pathResolver.js';
+import { findUnknownProseIds, UNKNOWN_PROSE_ID_CODE } from '../application/proseIdCheck.js';
+import { referencedSheets, unknownIdMessage } from '../application/referencedSheets.js';
 import { readSourceFileIdentity } from '../core/sourceIdentity.js';
 import { sliceRegion } from '../core/tableGeometry.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
@@ -874,31 +874,11 @@ export async function checkPaths(files: string[], root: string): Promise<CheckPr
         column: finding.column,
         severity: 'warning',
         code: UNKNOWN_PROSE_ID_CODE,
-        message: `本文の「${finding.id}」は、参照している表（${finding.sources.join('、')}）のどのセルにもありません（同じ形式の例: ${finding.example}）。正本の変更で消えた・変わったIDか、書き間違いの可能性があります。`,
+        message: unknownIdMessage(finding),
       });
     }
   }
   return problems;
-}
-
-/** The sheets this document references, resolved like the renderer does; unreadable ones are skipped (already diagnosed). */
-function referencedSheets(text: string, markdownFilePath: string, root: string, cache: WorkbookCache<WorkbookData>): ProseIdSource[] {
-  const seen = new Set<string>();
-  const out: ProseIdSource[] = [];
-  for (const embed of extractEmbedQueries(text)) {
-    try {
-      const absolutePath = resolveSourcePath({ markdownFilePath, sourcePath: embed.filepath, workspaceRoot: root });
-      const workbook = loadWorkbook({ absolutePath, cache });
-      const sheetName = embed.target ?? Object.keys(workbook.sheets)[0];
-      const key = `${absolutePath}#${sheetName}`;
-      if (seen.has(key) || !workbook.sheets[sheetName]) continue;
-      seen.add(key);
-      out.push({ label: `${embed.filepath}#${sheetName}`, sheet: workbook.sheets[sheetName] });
-    } catch {
-      // missing file, outside the boundary, unsupported format: reported by the reference diagnostics
-    }
-  }
-  return out;
 }
 
 function collectMarkdownFiles(target: string): string[] {
