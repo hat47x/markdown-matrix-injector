@@ -16,7 +16,7 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 | 1 | CLI（inspect/check/render/manifest）、AI向け指示パック、基本設計書キット、[執筆ベンチマーク](../04_Documentation/benchmarks/ai-writing/README.md) | 実装済み | ベンチマーク v0は実施済み。表を大きくした v1は優先度5 |
 | 1 | [外部LLMへの作業提案と判断材料](issues/issue-0112-ai-proposal-handoff.md) | **In Progress**（local-only handoff、MMI記法・Candidate選択・変換案のfail-closed再検証を実装） | 次: manual-e2eでhandoff → 外部提案 → 3種類の再検証が自動適用なしで完結することを確認 |
 | 1 | [CLIの配布](issues/issue-0197-cli-distribution.md) | **In Progress**（lockfile固定・最小runtime閉包・依存同梱npm tarball、生成時offline smokeを実装） | 次: Windows・Linuxの新規環境で同じtarballだけを入れ、version / `mmi check` / `render`をmanual-e2e確認 |
-| 1 | [portable coreと最小バイナリ](issues/issue-0203-portable-core-minimum-binary.md) | **In Progress**（deterministic inspectのJSON contract、TypeScript参照実装、conformance corpus、`mmi core`入口） | 次: 通常開発環境でcorpusを実行してbaselineを固定し、標準GoのCSV table実装を同じcontractで比較 |
+| 1 | [portable coreと最小バイナリ](issues/issue-0203-portable-core-minimum-binary.md) | **In Progress**（JSON contract、TypeScript参照実装、標準Go CSV最小実装。native/WASMのshared conformanceと初期size/startup/memoryを実測） | 次: TypeScript baselineを通常開発環境で固定し、XLSX decodeとTinyGo native/WASMを同じcorpusで比較 |
 | 1〜3（横断） | [認知model/profile資産の配布](issues/issue-0204-cognitive-artifact-distribution.md) | Draft | Coreと大型artifactを分離し、既存local runtime/cacheと外部model置き場を交換可能にする |
 | **2 モダナイズの最小縦切り** | [Excel画像の候補化と取り込み](issues/issue-0194-excel-image-candidates.md) | **Done**（`inspect`の画像一覧、`mmi extract`、実Excel検証、issue-0195による変更検知） | 次: VS Code上の採否UI（issue-0202）、他Candidate種別への展開 |
 | 2 | [取り込み台帳と未取込の表示](issues/issue-0195-import-ledger.md) | **Done**（`mmi.ledger/v1`、未取込/変更/stale、lineage、研究similarity Evidence） | 次: issue-0200のbaseline converter、issue-0202のレビューUIが同じ台帳契約を利用 |

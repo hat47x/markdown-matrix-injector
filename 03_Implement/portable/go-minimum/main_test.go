@@ -181,3 +181,21 @@ func equalRows(left, right [][]string) bool {
 	}
 	return true
 }
+
+
+func TestMaxScanCellsUsesPortableSafeIntegerSemantics(t *testing.T) {
+	accepted := `{"schema":"mmi.portable-core-request/v1","operation":"inspect","source":{"name":"x.csv","label":"./x.csv","bytesBase64":"QQo="},"options":{"maxScanCells":9007199254740991},"executionPolicy":{"allowProviderDependent":false}}`
+	if _, err := run([]byte(accepted)); err != nil {
+		t.Fatalf("largest JavaScript-safe integer must be accepted: %v", err)
+	}
+
+	for _, input := range []string{
+		`{"schema":"mmi.portable-core-request/v1","operation":"inspect","source":{"name":"x.csv","label":"./x.csv","bytesBase64":"QQo="},"options":{"maxScanCells":9007199254740992}}`,
+		`{"schema":"mmi.portable-core-request/v1","operation":"inspect","source":{"name":"x.csv","label":"./x.csv","bytesBase64":"QQo="},"options":{"maxScanCells":1.5}}`,
+		`{"schema":"mmi.portable-core-request/v1","operation":"inspect","source":{"name":"x.csv","label":"./x.csv","bytesBase64":"QQo="},"options":{"maxScanCells":0}}`,
+	} {
+		if _, err := run([]byte(input)); err == nil {
+			t.Fatalf("expected maxScanCells rejection: %s", input)
+		}
+	}
+}
