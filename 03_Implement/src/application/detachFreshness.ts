@@ -12,10 +12,7 @@ import {
   type Ledger,
   type LedgerState,
 } from '../core/importLedger.js';
-import {
-  createSourceIdentityFromBytes,
-  readSourceFileIdentity,
-} from '../core/sourceIdentity.js';
+import { createSourceIdentityFromBytes } from '../core/sourceIdentity.js';
 
 export type DetachFreshnessProblemCode =
   | 'MMI_DETACH_LEDGER_MISSING'
