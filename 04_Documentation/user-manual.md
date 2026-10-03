@@ -30,7 +30,7 @@ Excel・CSV・XMLの表を参照しながら、Markdownで設計書や運用手�
 ```
 
 この場合、設計書には `./data/要件.csv` と書きます。Markdownの場所を基準に探し、見つからない場合にワークスペースのルートを探します。
-参照対象はワークスペース内に置いてください。外部URLや境界外のファイルの直接参照は対象外です。
+参照対象はワークスペース内に置いてください。外部URLや境界外のファイルを直接参照することはできません。既存のExcelがワークスペース外にある場合、CLIの`mmi import`では`--copy-source`でワークスペース内の保存先を指定できます。MMIは元ファイルと同じbytesをその保存先へ取り込んだ後、そのコピーをLinked参照の正本として使います。既存の別内容ファイルは上書きしません。
 
 元データの修正はExcelなど、普段使うツールで行います。原本を保存したあとは、プレビューを開き直して表示を確認してください。
 MMIには更新日時に基づく読み込みキャッシュがあります。正本と文書の変更を常時監視・自動通知する機能とは異なります。
@@ -197,7 +197,7 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 | `mmi inspect <正本>` | Excel / CSV等では表の範囲・見出し・行数を表示し、`.xlsx`では画像も一覧に出す。`.json`ではobject / arrayをTree Candidateとして列挙し、RFC 6901 JSON Pointer、node type、直下child数を表示する。`--json`では`candidateContract`に契約名を併記し、Candidateのstatus・method・provenance・fingerprintを確認できる。取り込み台帳がある場合は`imported / changed / stale / duplicate / unimported`を照合し、`--unimported`や`--exclude-imported`で絞り込める |
 | `mmi extract <ブック.xlsx> --image <番号\|all>` | Excelに貼られた画像を`assets/`（`--out-dir`で変更）へ書き出し、Markdownの画像参照と出典を出力する。CLIでは同時に`<root>/mmi-ledger.json`へoccurrence・content fingerprint・出力先・変換条件・review basisを記録する（`--ledger`で変更）。同じ画像が別の場所にもある場合は別occurrenceとして残し、review stateを自動継承しない |
 | `mmi extract <file.json> --tree <JSON Pointer\|root>` | JSONのobject / arrayから1つのTree Candidateを選び、nested listのMarkdown assetへ取り込む。`root`は文書全体、`/service/endpoints`のような値はRFC 6901 JSON Pointer。原本JSONは変更しない。JSON文字列中のMarkdown記号は文字として保持し、取り込み台帳にはpointer、subtree fingerprint、出力digest、Projection方式を記録する |
-| `mmi import <ブック> --draft <下書き.md>` | 既存ブックを1回でモダナイズ用の下書きへ整理する。表は元ブックへ追従する参照のまま残し、.xlsx / .xlsmの埋込画像はcontent-addressedな画像ファイルとして取り込み、occurrenceを同じ取り込み台帳へ記録する。表でない領域や抽出できない画像は確認事項として下書きに残す。下書き・assets・台帳は`--root`内に限定し、既存の下書きは上書きしない |
+| `mmi import <ブック> --draft <下書き.md>` | 既存ブックを1回でモダナイズ用の下書きへ整理する。表は元ブックへ追従する参照のまま残し、.xlsx / .xlsmの埋込画像はcontent-addressedな画像ファイルとして取り込み、occurrenceを同じ取り込み台帳へ記録する。ワークスペース外の原本は`--copy-source <保存先>`でproject内へ同一bytesのsourceとして取り込める。表でない領域や抽出できない画像は確認事項として下書きに残す。下書き作成に成功した場合、画像の注意があっても終了コードは0で、JSONの`status`は`created-with-warnings`になる。下書き・sourceコピー・assets・台帳の書込先は`--root`内に限定し、既存ファイルを異なる内容で上書きしない |
 | `mmi check <文書またはフォルダー>` | 参照の誤りを「問題」パネルと同じ診断コードで表示。誤りがあれば終了コード1 |
 | `mmi render <文書>` | 参照を展開したMarkdownを出力。`--to html`でPDF変換用のHTML |
 | `mmi materialize <文書> -o <出力.md>` | 原本を外すためのMarkdownを生成する。小表は本文へ、別紙相当表は`mmi-materialized/`へ、ローカル画像は`mmi-assets/`へcontent-addressedで実体化する。provenance付きで採用済みのExtracted表・画像・JSON Treeは現在sourceとledgerへfreshness照合し、変更・stale・未追跡なら終了コード1 |
