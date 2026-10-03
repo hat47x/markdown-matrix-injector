@@ -100,6 +100,7 @@ Commands:
       --ledger <file>         import ledger (default: <root>/mmi-ledger.json)
   import <workbook>         Create a modernization draft: tables stay live references, images become assets
       --draft <file.md>       new Markdown draft to create (required; existing files are not overwritten)
+      --copy-source <file>    copy a source outside --root into this workspace file before importing
       --out-dir <dir>         optional image asset folder (default: <draft>/assets/<workbook>/)
       --ledger <file>         import ledger (default: <root>/mmi-ledger.json)
   select <workbook>         Print the reference for a table chosen by name, columns/rows by heading
@@ -183,6 +184,7 @@ export async function main(argv: string[]): Promise<number> {
       tree: { type: 'string' },
       'out-dir': { type: 'string' },
       draft: { type: 'string' },
+      'copy-source': { type: 'string' },
       'attachments-dir': { type: 'string' },
       'assets-dir': { type: 'string' },
       ledger: { type: 'string' },
@@ -362,18 +364,47 @@ export async function main(argv: string[]): Promise<number> {
       if (!values.draft) return usageError('import needs --draft <file.md>');
       if (values.out) return usageError('import does not use -o/--out; use --draft <file.md>');
 
-      const sourcePath = path.resolve(args[0]);
+      const inputSourcePath = path.resolve(args[0]);
       const draftPath = path.resolve(values.draft);
       const ledgerPath = path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE);
       const imageOutDir = values['out-dir'] ? path.resolve(values['out-dir']) : undefined;
+      const requestedSourceCopy = values['copy-source']
+        ? path.resolve(root, values['copy-source'])
+        : undefined;
 
-      if (!handoffPathWithinRoot(sourcePath, root)) return usageError('import source must stay within --root workspace');
       if (!handoffPathWithinRoot(path.dirname(draftPath), root)) return usageError('import draft folder must stay within --root workspace');
       if (!handoffPathWithinRoot(ledgerPath, root)) return usageError('import ledger must stay within --root workspace');
       if (imageOutDir && !handoffPathWithinRoot(imageOutDir, root)) return usageError('import --out-dir must stay within --root workspace');
+      if (requestedSourceCopy && !handoffPathWithinRoot(requestedSourceCopy, root)) {
+        return usageError('import --copy-source must stay within --root workspace');
+      }
       if (fs.existsSync(draftPath)) {
         console.error(`mmi: import draft already exists; refusing to overwrite: ${draftPath}`);
         return 1;
+      }
+
+      const sourceIsInsideRoot = handoffPathWithinRoot(inputSourcePath, root);
+      if (!sourceIsInsideRoot && !requestedSourceCopy) {
+        return usageError(
+          'import source is outside --root workspace; use --copy-source <workspace-file> to bring it into the project',
+        );
+      }
+
+      let sourcePath = inputSourcePath;
+      let sourceCopyCreated = false;
+      let sourceCopied = false;
+      if (requestedSourceCopy) {
+        try {
+          const intake = copyImportSourceIntoWorkspace(inputSourcePath, requestedSourceCopy);
+          sourcePath = intake.sourcePath;
+          sourceCopyCreated = intake.created;
+          sourceCopied = sourcePath !== inputSourcePath;
+        } catch (error) {
+          console.error(
+            `mmi: import source intake failed: ${error instanceof Error ? error.message : String(error)}`,
+          );
+          return 1;
+        }
       }
 
       let result: ReturnType<typeof writeWorkbookImportDraft>;
@@ -385,6 +416,7 @@ export async function main(argv: string[]): Promise<number> {
           ...(imageOutDir ? { imageOutDir } : {}),
         });
       } catch (error) {
+        if (sourceCopyCreated) fs.rmSync(sourcePath, { force: true });
         console.error(
           `mmi: import failed: ${error instanceof Error ? error.message : String(error)}`,
         );
@@ -392,25 +424,34 @@ export async function main(argv: string[]): Promise<number> {
       }
 
       const summary = {
-        draft: path.relative(process.cwd(), draftPath).split(path.sep).join('/') || path.basename(draftPath),
-        ledger: path.relative(process.cwd(), result.ledgerPath).split(path.sep).join('/') || path.basename(result.ledgerPath),
-        imageOutDir: path.relative(process.cwd(), result.imageOutDir).split(path.sep).join('/') || path.basename(result.imageOutDir),
+        status: result.imageProblems.length > 0 ? 'created-with-warnings' : 'created',
+        sourceInput: portableDisplayPath(inputSourcePath),
+        source: portableDisplayPath(sourcePath),
+        sourceCopied,
+        draft: portableDisplayPath(draftPath),
+        ledger: portableDisplayPath(result.ledgerPath),
+        imageOutDir: portableDisplayPath(result.imageOutDir),
         extractedImages: result.extractedImages.length,
         imageProblems: result.imageProblems,
+        reviewSkippedImages: result.reviewSkippedImages,
+        reviewSkippedTables: result.reviewSkippedTables,
       };
       const summaryText = values.json
         ? JSON.stringify(summary, null, 2)
         : [
+            `status: ${summary.status}`,
             `draft: ${summary.draft}`,
             `images: ${summary.extractedImages}`,
             `ledger: ${summary.ledger}`,
             ...(result.imageProblems.length > 0 ? [`image warnings: ${result.imageProblems.length}`] : []),
+            ...(result.reviewSkippedImages.length > 0 ? [`images skipped by review: ${result.reviewSkippedImages.length}`] : []),
+            ...(result.reviewSkippedTables.length > 0 ? [`tables skipped by review: ${result.reviewSkippedTables.length}`] : []),
           ].join('\n');
       process.stdout.write(summaryText.endsWith('\n') ? summaryText : `${summaryText}\n`);
       for (const problem of result.imageProblems) {
-        console.error(`mmi: ${problem.code}${problem.ordinal ? ` (image ${problem.ordinal})` : ''}: ${problem.message}`);
+        console.error(`mmi: warning: ${problem.code}${problem.ordinal ? ` (image ${problem.ordinal})` : ''}: ${problem.message}`);
       }
-      return result.imageProblems.length > 0 ? 1 : 0;
+      return 0;
     }
     case 'select':
       return runSelect(args, { ...values, json: values.json }, { out: emit, err: (text) => console.error(text), cwd: process.cwd() });
@@ -686,6 +727,56 @@ function formatAiHandoffProposalValidation(
     ...validation.checks.map((check) =>
       `  ${check.check}: ${check.status} ${check.code}${check.detail ? ` - ${check.detail}` : ''}`),
   ].join('\n');
+}
+
+function portableDisplayPath(target: string): string {
+  return path.relative(process.cwd(), target).split(path.sep).join('/')
+    || path.basename(target);
+}
+
+function copyImportSourceIntoWorkspace(
+  inputSourcePath: string,
+  destinationPath: string,
+): { sourcePath: string; created: boolean } {
+  const input = path.resolve(inputSourcePath);
+  const destination = path.resolve(destinationPath);
+  if (input === destination) return { sourcePath: input, created: false };
+
+  if (!fs.existsSync(input) || !fs.statSync(input).isFile()) {
+    throw new Error(`source file does not exist: ${input}`);
+  }
+  const inputExtension = path.extname(input).toLowerCase();
+  const destinationExtension = path.extname(destination).toLowerCase();
+  if (!inputExtension || destinationExtension !== inputExtension) {
+    throw new Error(
+      `--copy-source must keep the source extension ${inputExtension || '(none)'}`,
+    );
+  }
+
+  const sourceBytes = fs.readFileSync(input);
+  if (fs.existsSync(destination)) {
+    if (!fs.statSync(destination).isFile()) {
+      throw new Error(`--copy-source destination is not a file: ${destination}`);
+    }
+    const existing = fs.readFileSync(destination);
+    if (!existing.equals(sourceBytes)) {
+      throw new Error(
+        `--copy-source destination already exists with different content: ${destination}`,
+      );
+    }
+    return { sourcePath: destination, created: false };
+  }
+
+  fs.mkdirSync(path.dirname(destination), { recursive: true });
+  fs.writeFileSync(destination, sourceBytes, { flag: 'wx' });
+  const sourceAfterCopy = fs.readFileSync(input);
+  if (!sourceAfterCopy.equals(sourceBytes)) {
+    fs.rmSync(destination, { force: true });
+    throw new Error(
+      'source changed while being copied into the workspace; run the import again',
+    );
+  }
+  return { sourcePath: destination, created: true };
 }
 
 function handoffPathWithinRoot(target: string, root: string): boolean {
