@@ -20,6 +20,8 @@ export interface ExtractTreeOptions {
   fromDocument?: string;
   sourceLabel?: string;
   ledgerPath?: string;
+  /** When reviewing an already displayed Candidate, fail if current content changed. */
+  expectedCandidateFingerprint?: string;
 }
 
 export interface ExtractedTree {
@@ -156,6 +158,17 @@ export function extractJsonTree(
       code: 'MMI_TREE_CANDIDATE_NOT_FOUND',
       message:
         `no Tree Candidate at JSON Pointer ${options.pointer || '(root)'}; run \`mmi inspect\` to list detected Tree Candidates`,
+    });
+    return result;
+  }
+  if (
+    options.expectedCandidateFingerprint
+    && candidate.fingerprint.digest !== options.expectedCandidateFingerprint
+  ) {
+    result.problems.push({
+      code: 'MMI_TREE_REVIEW_STALE',
+      message:
+        'Tree Candidate changed after it was shown for review; reopen Candidate review before adopting it',
     });
     return result;
   }

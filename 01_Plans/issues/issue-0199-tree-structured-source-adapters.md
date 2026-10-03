@@ -35,7 +35,7 @@ JSONの明示構造を最初の縦切りとして実装した。object / array�
 
 CLIでは`mmi inspect <file.json>`でTree Candidateを列挙し、`mmi extract <file.json> --tree <pointer|root>`で選択したsubtreeをnested listのMarkdown assetへ取り込む。ProjectionはSource Adapterから分離し、Markdown記号を含むJSON文字列も表示上の意味が変わらないようエスケープする。採用時は既存の`mmi-ledger.json`へoccurrence、subtree fingerprint、出力digest、変換条件を記録する。
 
-`mmi:extracted-tree` provenanceはdetach前のfreshness確認にも接続した。対象subtree以外の変更は採用を失効させず、対象subtreeの内容が変わった場合は`changed`としてdetachを止める。VS CodeのCandidateレビューUIにもJSON Treeを追加し、表・画像と同じ採用・却下・保留・ledger filter・facetを利用する。XML、フラットテキスト、Excel / CSVの階層推定は未実装である。
+`mmi:extracted-tree` provenanceはdetach前のfreshness確認にも接続した。対象subtree以外の変更は採用を失効させず、対象subtreeの内容が変わった場合は`changed`としてdetachを止める。VS CodeのCandidateレビューUIにもJSON Treeを追加し、表・画像と同じ採用・却下・保留・ledger filter・facetを利用する。採用時は一覧表示時のsubtree fingerprintを再照合し、そのpointerの内容が変わっていれば`MMI_TREE_REVIEW_STALE`で採用を止める。XML、フラットテキスト、Excel / CSVの階層推定は未実装である。
 
 ## Validation plan
 
