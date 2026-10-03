@@ -3,6 +3,7 @@ import path from 'node:path';
 
 import { buildCandidateReviewInventory } from './candidateReviewInventory.js';
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
+import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
 import type { Candidate } from '../core/candidate.js';
 import {
   assessLedger,
@@ -13,6 +14,7 @@ import {
   type LedgerState,
 } from '../core/importLedger.js';
 import { readSourceFileIdentity } from '../core/sourceIdentity.js';
+import { isXmlSpreadsheet2003Text } from '../core/workbookLoader.js';
 
 export type DetachFreshnessProblemCode =
   | 'MMI_DETACH_LEDGER_MISSING'
@@ -232,6 +234,19 @@ function candidatesFromCurrentSource(
         sourceDigest,
       ).candidates,
     ];
+  }
+  if (/\.xml$/iu.test(sourcePath)) {
+    const xml = fs.readFileSync(sourcePath, 'utf8');
+    if (!isXmlSpreadsheet2003Text(xml)) {
+      const sourceDigest = readSourceFileIdentity(sourcePath).digest;
+      return [
+        ...readXmlTree(
+          xml,
+          sourceLabel,
+          sourceDigest,
+        ).candidates,
+      ];
+    }
   }
   return buildCandidateReviewInventory(sourcePath, sourceLabel)
     .items.map((item) => item.candidate);
