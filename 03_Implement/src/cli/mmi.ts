@@ -335,7 +335,6 @@ export async function main(argv: string[]): Promise<number> {
         ledger: path.relative(process.cwd(), result.ledgerPath).split(path.sep).join('/') || path.basename(result.ledgerPath),
         imageOutDir: path.relative(process.cwd(), result.imageOutDir).split(path.sep).join('/') || path.basename(result.imageOutDir),
         extractedImages: result.extractedImages.length,
-        reviewSkippedImages: result.reviewSkippedImages,
         imageProblems: result.imageProblems,
       };
       const summaryText = values.json
@@ -344,9 +343,6 @@ export async function main(argv: string[]): Promise<number> {
             `draft: ${summary.draft}`,
             `images: ${summary.extractedImages}`,
             `ledger: ${summary.ledger}`,
-            ...(result.reviewSkippedImages.length > 0
-              ? [`review-skipped images: ${result.reviewSkippedImages.length}`]
-              : []),
             ...(result.imageProblems.length > 0 ? [`image warnings: ${result.imageProblems.length}`] : []),
           ].join('\n');
       process.stdout.write(summaryText.endsWith('\n') ? summaryText : `${summaryText}\n`);
