@@ -175,6 +175,11 @@ export async function main(argv: string[]): Promise<number> {
       const absoluteSource = path.resolve(args[0]);
       const raw = inspectSource(absoluteSource, Number(values.values) || 0, values.from);
       if (values['import-assist']) {
+        if (/\.json$/iu.test(absoluteSource)) {
+          return usageError(
+            'inspect --import-assist applies to workbook/grid sources, not JSON Tree sources',
+          );
+        }
         raw.importAssistance = inspectImportAssistance(absoluteSource, values.from);
       }
       const ledgerPath = path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE);
