@@ -702,7 +702,7 @@ export interface InspectRegion {
 export interface InspectTree {
   /** Format-native structural path. JSON uses RFC 6901; XML uses element paths. */
   pointer: string;
-  format: 'json' | 'xml';
+  format?: 'json' | 'xml';
   nodeType: 'object' | 'array' | 'element';
   childPointers: readonly string[];
   leafValues: readonly string[];
