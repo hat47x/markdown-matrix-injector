@@ -6,7 +6,10 @@ import path from 'node:path';
 
 import { checkExtractedProvenanceFreshness } from '../src/application/detachFreshness.js';
 import { extractImages } from '../src/cli/extract.js';
-import { extractJsonTree } from '../src/cli/extractTree.js';
+import {
+  extractFlatTextTree,
+  extractJsonTree,
+} from '../src/cli/extractTree.js';
 import { main } from '../src/cli/mmi.js';
 import { pngOf, screenDesignWorkbook } from './helpers/buildXlsxWithImages.js';
 
@@ -33,6 +36,39 @@ function adoptedTreeWorkspace() {
   const extracted = extractJsonTree({
     sourcePath: source,
     pointer: '/service',
+    outDir: path.join(docs, 'assets'),
+    fromDocument: doc,
+    ledgerPath: ledger,
+  });
+  assert.deepEqual(extracted.problems, []);
+  assert.ok(extracted.extracted);
+  fs.writeFileSync(doc, `# Spec\n\n${extracted.extracted.markdown}\n`);
+  return { root, source, doc, ledger };
+}
+
+function adoptedFlatTextTreeWorkspace() {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-detach-flat-tree-'));
+  const data = path.join(root, 'data');
+  const docs = path.join(root, 'docs');
+  fs.mkdirSync(data);
+  fs.mkdirSync(docs);
+  const source = path.join(data, 'outline.txt');
+  const doc = path.join(docs, 'spec.md');
+  const ledger = path.join(root, 'mmi-ledger.json');
+  fs.writeFileSync(
+    source,
+    [
+      '1. Overview',
+      '1.1 Scope',
+      '1.2 Data',
+      '2. Operations',
+      '2.1 Deploy',
+    ].join('\n'),
+  );
+
+  const extracted = extractFlatTextTree({
+    sourcePath: source,
+    pointer: 'text:heading-number:line:1',
     outDir: path.join(docs, 'assets'),
     fromDocument: doc,
     ledgerPath: ledger,
@@ -220,4 +256,71 @@ test('detach freshness rejects an adopted JSON Tree Candidate when its subtree c
   assert.equal(result.problems[0].code, 'MMI_DETACH_EXTRACTED_STALE');
   assert.equal(result.problems[0].ledgerState, 'changed');
   assert.equal(result.problems[0].place, 'path:/service');
+});
+
+
+test('detach freshness tracks an adopted flat-text Tree Candidate across unrelated sibling changes', () => {
+  const { root, source, doc, ledger } = adoptedFlatTextTreeWorkspace();
+
+  const freshResult = checkExtractedProvenanceFreshness({
+    markdownFilePath: doc,
+    workspaceRoot: root,
+    ledgerPath: ledger,
+  });
+  assert.deepEqual(
+    freshResult,
+    { checked: 1, errors: 0, problems: [] },
+  );
+
+  fs.writeFileSync(
+    source,
+    [
+      '1. Overview',
+      '1.1 Scope',
+      '1.2 Data',
+      '2. Operations changed',
+      '2.1 Deploy',
+    ].join('\n'),
+  );
+
+  const unrelated = checkExtractedProvenanceFreshness({
+    markdownFilePath: doc,
+    workspaceRoot: root,
+    ledgerPath: ledger,
+  });
+  assert.deepEqual(
+    unrelated,
+    { checked: 1, errors: 0, problems: [] },
+  );
+});
+
+test('detach freshness rejects an adopted flat-text Tree Candidate when its inferred subtree changes', () => {
+  const { root, source, doc, ledger } = adoptedFlatTextTreeWorkspace();
+  fs.writeFileSync(
+    source,
+    [
+      '1. Overview',
+      '1.1 Scope changed',
+      '1.2 Data',
+      '2. Operations',
+      '2.1 Deploy',
+    ].join('\n'),
+  );
+
+  const result = checkExtractedProvenanceFreshness({
+    markdownFilePath: doc,
+    workspaceRoot: root,
+    ledgerPath: ledger,
+  });
+
+  assert.equal(result.errors, 1);
+  assert.equal(
+    result.problems[0].code,
+    'MMI_DETACH_EXTRACTED_STALE',
+  );
+  assert.equal(result.problems[0].ledgerState, 'changed');
+  assert.equal(
+    result.problems[0].place,
+    'path:text:heading-number:line:1',
+  );
 });
