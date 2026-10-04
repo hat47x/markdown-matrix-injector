@@ -6,6 +6,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
 import { tableCandidates } from '../src/adapters/tableRegionAdapter.js';
+import { readXmlTree } from '../src/adapters/xmlTreeAdapter.js';
 import {
   PORTABLE_CORE_REQUEST_SCHEMA,
   PORTABLE_CORE_RESPONSE_SCHEMA,
@@ -13,6 +14,7 @@ import {
 } from '../src/application/portableCoreProtocol.js';
 import { main } from '../src/cli/mmi.js';
 import { loadWorkbookFromBytes } from '../src/core/workbookLoader.js';
+import { decodeGenericXmlUtf8 } from '../src/core/xmlFormat.js';
 import { buildXlsxWithImages } from './helpers/buildXlsxWithImages.js';
 
 interface ConformanceCandidateExpectation {
@@ -99,6 +101,56 @@ test('portable Core CSV conformance case', () => {
 
 test('portable Core JSON Tree conformance case', () => {
   assertConformanceCase(readCase('json-tree.case.json'));
+});
+
+test('portable Core generic XML Tree conformance case', () => {
+  assertConformanceCase(readCase('xml-tree.case.json'));
+});
+
+test('portable Core generic XML Candidates are identical to the existing adapter path', () => {
+  const fixture = readCase('xml-tree.case.json');
+  const request = fixture.request as {
+    source: {
+      name: string;
+      label: string;
+      bytesBase64: string;
+    };
+  };
+  const bytes = Buffer.from(request.source.bytesBase64, 'base64');
+  const response = runPortableCoreRequest(fixture.request);
+  const direct = readXmlTree(
+    decodeGenericXmlUtf8(bytes),
+    request.source.label,
+    response.source.digest,
+  );
+
+  assert.deepEqual(response.candidates, direct.candidates);
+  assert.equal(response.source.format, 'xml');
+});
+
+test('portable Core XML Spreadsheet 2003 remains on the table adapter route', () => {
+  const testDir = path.dirname(fileURLToPath(import.meta.url));
+  const sourcePath = path.resolve(
+    testDir,
+    '../../04_Documentation/samples/practical/data/migration.xml',
+  );
+  const bytes = fs.readFileSync(sourcePath);
+  const response = runPortableCoreRequest({
+    schema: PORTABLE_CORE_REQUEST_SCHEMA,
+    operation: 'inspect',
+    source: {
+      name: 'migration.xml',
+      label: './migration.xml',
+      bytesBase64: bytes.toString('base64'),
+    },
+  });
+
+  assert.equal(response.source.format, 'xml-spreadsheet');
+  assert.ok(response.candidates.length > 0);
+  assert.equal(
+    response.candidates.some((candidate) => candidate.kind === 'tree'),
+    false,
+  );
 });
 
 test('portable Core XLSX table Candidates are identical to the existing adapter path', () => {
@@ -188,6 +240,37 @@ test('portable Core v1 rejects provider-dependent execution and schema expansion
       command: 'write-source',
     }),
     /unsupported field/u,
+  );
+});
+
+test('portable Core generic XML rejects invalid UTF-8 and DTD-dependent input', () => {
+  assert.throws(
+    () => runPortableCoreRequest({
+      schema: PORTABLE_CORE_REQUEST_SCHEMA,
+      operation: 'inspect',
+      source: {
+        name: 'invalid.xml',
+        label: './invalid.xml',
+        bytesBase64: Buffer.from([0x3c, 0x61, 0x3e, 0xff, 0x3c, 0x2f, 0x61, 0x3e]).toString('base64'),
+      },
+    }),
+    /valid UTF-8/u,
+  );
+
+  assert.throws(
+    () => runPortableCoreRequest({
+      schema: PORTABLE_CORE_REQUEST_SCHEMA,
+      operation: 'inspect',
+      source: {
+        name: 'doctype.xml',
+        label: './doctype.xml',
+        bytesBase64: Buffer.from(
+          '<!DOCTYPE service [<!ENTITY x "value">]><service>&x;</service>',
+          'utf8',
+        ).toString('base64'),
+      },
+    }),
+    /DTD\/declaration syntax is not supported/u,
   );
 });
 

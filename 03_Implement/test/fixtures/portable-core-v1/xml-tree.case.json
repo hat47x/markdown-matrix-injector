@@ -1,0 +1,28 @@
+{
+  "schema": "mmi.portable-core-conformance/v1",
+  "request": {
+    "schema": "mmi.portable-core-request/v1",
+    "operation": "inspect",
+    "source": {
+      "name": "service.xml",
+      "label": "./service.xml",
+      "bytesBase64": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz4KPHNlcnZpY2UgaWQ9ImJpbGxpbmciPjxuYW1lPkJpbGxpbmc8L25hbWU+PGVuZHBvaW50IG1ldGhvZD0iUE9TVCI+L3BheTwvZW5kcG9pbnQ+PC9zZXJ2aWNlPgo="
+    },
+    "executionPolicy": {
+      "allowProviderDependent": false
+    }
+  },
+  "expected": {
+    "source": {
+      "format": "xml",
+      "digest": "sha256:2456549efec9a24a84c6a7c88e03bde8bab970383374517cb5477e771469c687",
+      "byteLength": 131
+    },
+    "candidateCount": 3,
+    "candidates": [
+      {"kind":"tree","structuralPath":"/service[1]","execution":"deterministic","method":"M0","provenanceAlgorithm":"mmi.xml-tree-adapter","fingerprintRepresentation":"xml-subtree-canonical-v1"},
+      {"kind":"tree","structuralPath":"/service[1]/name[1]","execution":"deterministic","method":"M0","provenanceAlgorithm":"mmi.xml-tree-adapter","fingerprintRepresentation":"xml-subtree-canonical-v1"},
+      {"kind":"tree","structuralPath":"/service[1]/endpoint[1]","execution":"deterministic","method":"M0","provenanceAlgorithm":"mmi.xml-tree-adapter","fingerprintRepresentation":"xml-subtree-canonical-v1"}
+    ]
+  }
+}

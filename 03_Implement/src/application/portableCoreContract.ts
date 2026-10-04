@@ -10,6 +10,7 @@ export type PortableCoreSourceFormat =
   | 'xlsx'
   | 'xlsm'
   | 'xml-spreadsheet'
+  | 'xml'
   | 'json';
 
 export interface PortableCoreInspectRequestV1 {

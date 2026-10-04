@@ -3,7 +3,12 @@ import path from 'node:path';
 
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
+import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
 import { loadWorkbookFromBytes } from '../core/workbookLoader.js';
+import {
+  decodeGenericXmlUtf8,
+  isXmlSpreadsheet2003,
+} from '../core/xmlFormat.js';
 
 import {
   PORTABLE_CORE_REQUEST_SCHEMA,
@@ -105,7 +110,7 @@ function inspectPortableSource(
   request: PortableCoreInspectRequestV1,
 ): PortableCoreInspectResponseV1 {
   const bytes = decodeCanonicalBase64(request.source.bytesBase64);
-  const format = sourceFormat(request.source.name);
+  const format = sourceFormat(request.source.name, bytes);
   const digest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
   const maxScanCells = request.options?.maxScanCells;
 
@@ -113,6 +118,9 @@ function inspectPortableSource(
   if (format === 'json') {
     const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
     candidates = [...readJsonTree(text, request.source.label, digest).candidates];
+  } else if (format === 'xml') {
+    const text = decodeGenericXmlUtf8(bytes);
+    candidates = [...readXmlTree(text, request.source.label, digest).candidates];
   } else {
     const workbook = loadWorkbookFromBytes(
       request.source.name,
@@ -145,13 +153,21 @@ function inspectPortableSource(
   };
 }
 
-function sourceFormat(name: string): PortableCoreSourceFormat {
+function sourceFormat(
+  name: string,
+  bytes: Uint8Array,
+): PortableCoreSourceFormat {
   const extension = path.extname(name).toLowerCase();
   if (extension === '.csv') return 'csv';
   if (extension === '.xlsx') return 'xlsx';
   if (extension === '.xlsm') return 'xlsm';
   if (extension === '.json') return 'json';
-  if (extension === '.xml') return 'xml-spreadsheet';
+  if (extension === '.xml') {
+    const text = decodeGenericXmlUtf8(bytes);
+    return isXmlSpreadsheet2003(text)
+      ? 'xml-spreadsheet'
+      : 'xml';
+  }
   throw new Error(`unsupported portable core source format: ${extension || '(none)'}`);
 }
 
