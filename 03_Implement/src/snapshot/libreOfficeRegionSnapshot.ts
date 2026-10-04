@@ -164,6 +164,10 @@ export async function renderLibreOfficeRegionSnapshot(
         env: stableRenderEnvironment(process.env),
       },
     );
+    let listenerError: Error | undefined;
+    listener.once('error', (error) => {
+      listenerError = error;
+    });
 
     await runPyUnoExport({
       pythonExecutable: runtime.pythonExecutable,
@@ -173,6 +177,13 @@ export async function renderLibreOfficeRegionSnapshot(
       pdfFile,
       pipeName,
     });
+    if (listenerError) {
+      throw new RegionSnapshotError(
+        'MMI_SNAPSHOT_LIBREOFFICE_UNAVAILABLE',
+        `LibreOffice listener failed: ${listenerError.message}`,
+        { cause: listenerError },
+      );
+    }
 
     await runCommand(
       runtime.pdftoppmExecutable,
@@ -473,7 +484,13 @@ async function stopListener(child: ChildProcess): Promise<void> {
     once(child, 'exit').then(() => undefined),
     new Promise<void>((resolve) => setTimeout(resolve, 750)),
   ]);
-  if (child.exitCode === null) child.kill('SIGKILL');
+  if (child.exitCode === null) {
+    child.kill('SIGKILL');
+    await Promise.race([
+      once(child, 'exit').then(() => undefined),
+      new Promise<void>((resolve) => setTimeout(resolve, 750)),
+    ]);
+  }
 }
 
 function writeContentAddressed(file: string, bytes: Buffer): 'written' | 'unchanged' {
@@ -510,7 +527,9 @@ function existingOrCreateManifest(options: {
       && existing.source.digest === options.sourceDigest
       && existing.selection.sheet === options.sheet
       && existing.selection.range === options.range
+      && existing.artifact.file === path.basename(options.pngFile)
       && existing.artifact.digest === options.pngDigest
+      && existing.artifact.bytes === options.pngBytes
       && existing.renderer.id === options.runtime.id
       && existing.renderer.implementationVersion === options.runtime.implementationVersion
       && existing.renderer.libreOfficeVersion === options.runtime.libreOfficeVersion
