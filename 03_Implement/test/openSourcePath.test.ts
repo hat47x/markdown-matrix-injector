@@ -15,6 +15,9 @@ test('external open accepts only existing table files inside workspace roots', a
   const source = path.join(root, '設計.csv');
   await fs.writeFile(source, 'ID,Name\n1,Sample');
   assert.equal(await validateOpenSourcePath(source, [root]), await fs.realpath(source));
+  const macroEnabled = path.join(root, '設計.xlsm');
+  await fs.writeFile(macroEnabled, 'placeholder');
+  assert.equal(await validateOpenSourcePath(macroEnabled, [root]), await fs.realpath(macroEnabled));
   await assert.rejects(validateOpenSourcePath(source, []));
   await assert.rejects(validateOpenSourcePath('./設計.csv', [root]));
   await assert.rejects(validateOpenSourcePath('https://example.com/a.csv', [root]));
