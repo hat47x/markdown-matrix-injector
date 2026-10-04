@@ -41,7 +41,7 @@ CLIには`mmi core <request.json|->`を追加した。source bytesはrequest内�
 
 `test/fixtures/portable-core-v1/`へCSV表、JSON Tree、汎用XML Treeのconformance caseを追加した。`test/portableCoreProtocol.test.ts`では、fixtureのsource digest / Candidate種別 / locator / provenance / fingerprint representationを確認する。生成XLSXはportable経路と既存`tableCandidates()`直呼び、汎用XMLはportable経路と`readXmlTree()`直呼びのCandidate列が完全一致することを固定した。XML Spreadsheet 2003がTreeへ流れず、従来の表経路に残ることも確認対象にした。source名が存在しないpath風文字列でも埋込bytesだけで処理できること、空CSV、provider-dependent拒否、schema expansion拒否も対象とする。
 
-TypeScript参照実装の正本suiteは、この実行コンテナに`xlsx` / `tsx`がなく依存取得もできないため、まだ実行していない。一方、標準GoのCSV最小実装はshared `csv-table.case.json`を実行し、source digest、Candidate位置、provenance、fingerprint、referenceまで一致した。Go側の現行test suiteはnativeと標準Go WASMの両方で通過した。
+TypeScript参照実装の正本suiteは、この実行コンテナに`xlsx` / `tsx`がなく依存取得もできないため、まだ実行していない。標準GoではCSV最小実装についてshared `csv-table.case.json`を実行し、source digest、Candidate位置、provenance、fingerprint、referenceまで一致した。このCSV段階のGo test suiteはnativeと標準Go WASMの両方で通過している。その後、同じGo最小実装へJSON Treeを追加し、通常fixtureに加えてUTF-16 key順・JSON Pointer escape・subtree fingerprintを固定するshared conformance fixtureまで実装したが、追加後のGo suiteはこのセッションではまだ実行していない。
 
 実装過程では、未統合Go sourceにliteral BOMと不正なCR/LF rune表現がありコンパイルできない問題を実行で検出し、portableなescapeへ修正した。また`maxScanCells`をGoの`int`で保持するとnativeとwasm32で受理可能範囲が変わるため、`int64`へ変更し、JavaScript safe integer上限までTypeScript contractと同じ受理規則にした。
 
@@ -60,7 +60,7 @@ XLSX decoderについては[Portable XLSX Decoder Evaluation v1](../../02_Archit
 ## Remaining work
 
 - 追加したTypeScript conformance corpusを依存が揃った通常開発環境で実行し、v1 baseline responseを固定する。
-- 標準GoのCSV table Candidateはshared contractで初期conformanceを確認済み。次はGo 1.25以上の隔離環境でExcelize v2.11.0を固定し、XLSX decoder gateをTypeScript参照と同じcorpusで評価する。binary/WASM増分、transitive dependency、display semantics、安全性を同時に測る。
+- 標準GoのCSV table Candidateはshared contractで初期conformanceを確認済み。JSON Treeもshared fixtureへ実装済みなので、まず通常のGo開発環境でnative/WASMの全suiteを再実行し、追加したUnicode・pointer・fingerprint境界を実測で確認する。その後、Go 1.25以上の隔離環境でExcelize v2.11.0を固定し、XLSX decoder gateをTypeScript参照と同じcorpusで評価する。binary/WASM増分、transitive dependency、display semantics、安全性を同時に測る。
 - TinyGo native / WASMを同じcorpusで測定し、標準Go native / WASMの実測値とbinary size、startup、peak memory、互換性を比較する。現環境ではTinyGo未導入のため未測定。
 - CLI `inspect`とVS Code側Candidate列挙を段階的に同じApplication/Core APIへ収束させる。二重実装を残したままGo移行を始めない。
 - `check` / `render` / `extract`のJSON contractは、inspect v1の境界が実測で成立してから追加する。

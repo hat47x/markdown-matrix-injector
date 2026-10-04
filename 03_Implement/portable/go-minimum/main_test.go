@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 	"testing"
 )
@@ -23,8 +24,10 @@ type conformanceCase struct {
 			Kind                      string `json:"kind"`
 			Sheet                     string `json:"sheet"`
 			Range                     string  `json:"range"`
-			StructuralPath            *string `json:"structuralPath"`
-			Execution                 string  `json:"execution"`
+			StructuralPath            *string         `json:"structuralPath"`
+			Status                    string          `json:"status"`
+			Claims                    json.RawMessage `json:"claims"`
+			Execution                 string          `json:"execution"`
 			Method                    string `json:"method"`
 			ProvenanceAlgorithm       string `json:"provenanceAlgorithm"`
 			ProvenanceVersion         string `json:"provenanceVersion"`
@@ -106,6 +109,36 @@ func runConformanceCase(
 					"candidate %d structural path mismatch: %+v",
 					index,
 					actual.Locator.StructuralPath,
+				)
+			}
+		}
+		if expected.Status != "" && actual.Status != expected.Status {
+			t.Fatalf(
+				"candidate %d status: got %s want %s",
+				index,
+				actual.Status,
+				expected.Status,
+			)
+		}
+		if len(expected.Claims) > 0 {
+			actualRaw, err := json.Marshal(actual.Claims)
+			if err != nil {
+				t.Fatal(err)
+			}
+			var actualClaims any
+			var expectedClaims any
+			if err := json.Unmarshal(actualRaw, &actualClaims); err != nil {
+				t.Fatal(err)
+			}
+			if err := json.Unmarshal(expected.Claims, &expectedClaims); err != nil {
+				t.Fatal(err)
+			}
+			if !reflect.DeepEqual(actualClaims, expectedClaims) {
+				t.Fatalf(
+					"candidate %d claims mismatch:\n got: %#v\nwant: %#v",
+					index,
+					actualClaims,
+					expectedClaims,
 				)
 			}
 		}

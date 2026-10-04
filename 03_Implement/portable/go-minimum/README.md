@@ -23,7 +23,9 @@ go build -trimpath -ldflags="-s -w" -o mmi-portable-go-minimum .
 
 ## 2026-10-04 実測
 
-`go1.23.2 linux/amd64`でshared CSV conformance caseを実行し、source digest、Candidate位置・provenance・fingerprint・referenceまで一致した。実装上は同じportable request/response契約へJSON Treeも追加し、object keyのUTF-16順、JSON Pointer、Claim、provenance、subtree fingerprintをTypeScript参照実装と同じshared fixtureで固定する。ASCIIだけで偶然一致しないよう、`/`・`~`を含むkeyとUnicode keyの順序を別fixtureでも固定する。CSV parserにはTypeScript参照実装と同じBOM、CRLF、quoted comma、escaped quote、quoted newline、trim、unterminated quoteの回帰を追加した。さらに`maxScanCells`を`int64`で保持し、native / wasm32のどちらでもJavaScript safe integer上限（9,007,199,254,740,991）まで同じ受理規則になるようにした。修正版のGo test suiteはnativeと標準Go WASMの両方で全件通過した。
+`go1.23.2 linux/amd64`でshared CSV conformance caseを実行し、source digest、Candidate位置・provenance・fingerprint・referenceまで一致した。CSV parserにはTypeScript参照実装と同じBOM、CRLF、quoted comma、escaped quote、quoted newline、trim、unterminated quoteの回帰を追加し、`maxScanCells`はnative / wasm32で受理範囲が変わらないよう`int64`で保持する。このCSV段階のGo test suiteはnativeと標準Go WASMの両方で全件通過した。
+
+その後、同じportable request/response契約へJSON Treeも実装した。object keyのJavaScript互換UTF-16順、JSON Pointerの`~0` / `~1`、Claim、provenance、subtree fingerprint、負のゼロ、非finite数値、孤立surrogate、U+2028/U+2029をTypeScript参照実装と揃え、ASCIIだけで偶然一致しないUnicode fixtureも追加した。JSON Tree追加後のGo suiteはこのセッションでは実行していないため、上記のnative / WASM通過実績と区別して扱う。
 
 stripした標準Go native binaryは1,953,944 bytes、Windows amd64 cross-buildは2,084,864 bytes、標準Go WASMは3,336,196 bytesだった。同じCSV requestに対しnativeとWASMのJSON出力はbyte-for-byteで一致した。
 

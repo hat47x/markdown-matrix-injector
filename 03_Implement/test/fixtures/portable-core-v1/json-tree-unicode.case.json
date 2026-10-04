@@ -28,7 +28,38 @@
         "provenanceAlgorithm": "mmi.json-tree-adapter",
         "provenanceVersion": "2",
         "fingerprintRepresentation": "json-subtree-canonical-v1",
-        "fingerprintDigest": "sha256:0d4b30cd5617ed16c0e780ae1e87f100e9614ca7342980ceb964ddde30f8b0f3"
+        "fingerprintDigest": "sha256:0d4b30cd5617ed16c0e780ae1e87f100e9614ca7342980ceb964ddde30f8b0f3",
+        "status": "observed",
+        "claims": [
+          {
+            "aspect": "structural-path",
+            "value": "",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "json-pointer"
+          },
+          {
+            "aspect": "node-type",
+            "value": "object",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "json-container-type"
+          },
+          {
+            "aspect": "children",
+            "value": [
+              "/a~1b",
+              "/😀",
+              "/�"
+            ],
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "json-parent-child"
+          }
+        ]
       },
       {
         "kind": "tree",
@@ -38,7 +69,36 @@
         "provenanceAlgorithm": "mmi.json-tree-adapter",
         "provenanceVersion": "2",
         "fingerprintRepresentation": "json-subtree-canonical-v1",
-        "fingerprintDigest": "sha256:80b45ac078df296625c06749e869501e0279740e38d59c5b0d3a15318b25518b"
+        "fingerprintDigest": "sha256:80b45ac078df296625c06749e869501e0279740e38d59c5b0d3a15318b25518b",
+        "status": "observed",
+        "claims": [
+          {
+            "aspect": "structural-path",
+            "value": "/a~1b",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "json-pointer"
+          },
+          {
+            "aspect": "node-type",
+            "value": "object",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "json-container-type"
+          },
+          {
+            "aspect": "children",
+            "value": [
+              "/a~1b/~0node"
+            ],
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "json-parent-child"
+          }
+        ]
       },
       {
         "kind": "tree",
@@ -48,7 +108,46 @@
         "provenanceAlgorithm": "mmi.json-tree-adapter",
         "provenanceVersion": "2",
         "fingerprintRepresentation": "json-subtree-canonical-v1",
-        "fingerprintDigest": "sha256:d428e15b36ff064e22b6f8db60bd7a59bcfc07a04ccd0f15d9a96dc060c72e3c"
+        "fingerprintDigest": "sha256:d428e15b36ff064e22b6f8db60bd7a59bcfc07a04ccd0f15d9a96dc060c72e3c",
+        "status": "observed",
+        "claims": [
+          {
+            "aspect": "structural-path",
+            "value": "/a~1b/~0node",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "json-pointer"
+          },
+          {
+            "aspect": "node-type",
+            "value": "object",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "json-container-type"
+          },
+          {
+            "aspect": "children",
+            "value": [
+              "/a~1b/~0node/value"
+            ],
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "json-parent-child"
+          },
+          {
+            "aspect": "leaf-values",
+            "value": [
+              "/a~1b/~0node/value=3"
+            ],
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "json-scalar-child"
+          }
+        ]
       },
       {
         "kind": "tree",
@@ -58,7 +157,46 @@
         "provenanceAlgorithm": "mmi.json-tree-adapter",
         "provenanceVersion": "2",
         "fingerprintRepresentation": "json-subtree-canonical-v1",
-        "fingerprintDigest": "sha256:49c987621f206f09e5fbe23b516b55a36f838cb14867961f1d84a554d3a35b6b"
+        "fingerprintDigest": "sha256:49c987621f206f09e5fbe23b516b55a36f838cb14867961f1d84a554d3a35b6b",
+        "status": "observed",
+        "claims": [
+          {
+            "aspect": "structural-path",
+            "value": "/😀",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "json-pointer"
+          },
+          {
+            "aspect": "node-type",
+            "value": "object",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "json-container-type"
+          },
+          {
+            "aspect": "children",
+            "value": [
+              "/😀/value"
+            ],
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "json-parent-child"
+          },
+          {
+            "aspect": "leaf-values",
+            "value": [
+              "/😀/value=2"
+            ],
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "json-scalar-child"
+          }
+        ]
       },
       {
         "kind": "tree",
@@ -68,7 +206,46 @@
         "provenanceAlgorithm": "mmi.json-tree-adapter",
         "provenanceVersion": "2",
         "fingerprintRepresentation": "json-subtree-canonical-v1",
-        "fingerprintDigest": "sha256:48208f9428d64634bd8e28ff345bf0eab60d53c18fa2fbdb0b9bc1e84df2b5f6"
+        "fingerprintDigest": "sha256:48208f9428d64634bd8e28ff345bf0eab60d53c18fa2fbdb0b9bc1e84df2b5f6",
+        "status": "observed",
+        "claims": [
+          {
+            "aspect": "structural-path",
+            "value": "/�",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "json-pointer"
+          },
+          {
+            "aspect": "node-type",
+            "value": "object",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "json-container-type"
+          },
+          {
+            "aspect": "children",
+            "value": [
+              "/�/value"
+            ],
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "json-parent-child"
+          },
+          {
+            "aspect": "leaf-values",
+            "value": [
+              "/�/value=1"
+            ],
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "json-scalar-child"
+          }
+        ]
       }
     ]
   }
