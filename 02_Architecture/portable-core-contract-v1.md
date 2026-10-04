@@ -4,7 +4,7 @@
 
 MMIのCoreを、VS Code、Node.jsのファイルシステム、将来のGo/TinyGo/WASMと切り離して比較できる境界を定める。
 
-v1の最小縦切りは`inspect`だけを対象とする。対象Source Adapterは、CSV / XLSX / XLSM / XML Spreadsheet 2003の表CandidateとJSON Tree Candidateである。画像、Shape、provider-dependent認知、`check` / `render` / `extract`は後続の契約拡張とする。
+v1の最小縦切りは`inspect`だけを対象とする。対象Source Adapterは、CSV / XLSX / XLSM / XML Spreadsheet 2003の表Candidateと、JSON / 汎用XMLの明示Tree Candidateである。画像、Shape、provider-dependent認知、`check` / `render` / `extract`は後続の契約拡張とする。
 
 この文書は「Goへ移行する」と決めるものではない。同じ入出力契約とconformance corpusを満たす実装を比較するための基準である。
 
@@ -76,7 +76,7 @@ response schema:
 }
 ```
 
-Candidateの内部構造はCandidate contract v1をそのまま使う。provider scoreを統合したtop-level confidence等は追加しない。
+Candidateの内部構造はCandidate contract v1をそのまま使う。provider scoreを統合したtop-level confidence等は追加しない。`.xml`はbytesの内容で分岐し、XML Spreadsheet 2003は`format: "xml-spreadsheet"`、その他の汎用XMLは`format: "xml"`とする。汎用XMLは通常のTree Adapterと同じくUTF-8・DTD拒否・namespace検証の境界を使う。
 
 ## Strictness
 
@@ -109,9 +109,10 @@ TypeScriptの参照実装は現時点で`node:crypto`、SheetJS等を利用す�
 
 - CSV table Candidate
 - JSON Tree Candidate
+- 汎用XML Tree Candidate
 - test内で生成するXLSX table Candidate
 
-TypeScript参照実装では、生成XLSXのCandidate列が既存`tableCandidates()`直呼びと完全一致することを確認する。これによりportable境界を追加したこと自体でCandidate意味論が分岐しないようにする。
+TypeScript参照実装では、生成XLSXのCandidate列が既存`tableCandidates()`直呼びと完全一致することに加え、汎用XMLでもportable経路と`readXmlTree()`直呼びのCandidate列が一致することを確認する。XML Spreadsheet 2003は従来どおり表経路に残す。これによりportable境界を追加したこと自体でCandidate意味論が分岐しないようにする。
 
 将来の標準Go / TinyGo / WASM実装は、同じcorpusを入力し、Candidate、locator、provenance、fingerprintを比較する。binary sizeやstartupが小さくてもconformanceが崩れる実装は採用しない。
 

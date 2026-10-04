@@ -33,7 +33,7 @@ MMIの認知は、明示構造を推測し直すためではなく、形式だ�
 
 JSONと汎用XMLの明示構造を、同じ`tree` Candidate契約へ接続した。JSONはobject / array、XMLはelementを`observed + deterministic + M0`として扱う。位置はJSONではRFC 6901 JSON Pointer、XMLではqualified nameと同名兄弟の出現順から作るelement pathを`structuralPath`へ保持する。XMLの属性、本文、親子関係もClaimへ残す。
 
-CLIの`inspect`、`extract --tree`、VS CodeのCandidateレビュー、`mmi-ledger.json`、detach前のfreshness確認はJSON/XMLで同じ経路を使う。レビュー後の採用ではsubtree fingerprintを現在のsourceと再照合し、対象subtreeが変わっていれば採用しない。対象外のbranchだけが変わった場合は、同じsubtreeの採用を妨げない。
+CLIの`inspect`、`extract --tree`、VS CodeのCandidateレビュー、`mmi-ledger.json`、detach前のfreshness確認はJSON/XMLで同じ経路を使う。Portable Coreの`inspect`もJSON/XML Treeへ接続し、通常Adapter直呼びと同じCandidate列を返すconformanceを固定する。レビュー後の採用ではsubtree fingerprintを現在のsourceと再照合し、対象subtreeが変わっていれば採用しない。対象外のbranchだけが変わった場合は、同じsubtreeの採用を妨げない。
 
 XML Spreadsheet 2003は既存のworkbook/table経路を維持する。その他のXMLだけをTree Adapterへ流す。構文解析にはnamespaceを有効にした`saxes`を使い、未束縛のprefixやnamespace展開後に重複する属性などのwell-formedness違反を拒否する。XML Treeのnested list Projectionではelement名、属性、本文を保持する。DTDに依存する解釈は行わない。汎用XMLはUTF-8をfatal decodeし、XML宣言が別encodingを指定する場合もfail closedとする。日本語を含むUnicodeのelement名・属性名も扱う。
 

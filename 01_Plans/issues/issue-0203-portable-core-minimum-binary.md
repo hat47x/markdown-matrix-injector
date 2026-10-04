@@ -35,11 +35,11 @@ GoをCoreの有力候補とするが、標準Go固定にはしない。TinyGo等
 
 契約型は`src/application/portableCoreContract.ts`へ分離し、Node APIをimportしない。現行TypeScriptの参照実装は`portableCoreProtocol.ts`であり、NodeのSHA-256と既存SheetJS / Source Adapterを使う。この実装がportable runtimeであるとは扱わず、portableなのはJSON contractとhost/Core責務の分離である。
 
-v1は`inspect`かつdeterministic-onlyに限定する。CSV / XLSX / XLSM / XML Spreadsheet 2003の表CandidateとJSON Tree Candidateを対象とし、`allowProviderDependent: true`、未知field、非canonical base64、未対応formatをfail-closedで拒否する。画像・Shape・provider-dependent認知、`check` / `render` / `extract`は後続へ残す。
+v1は`inspect`かつdeterministic-onlyに限定する。CSV / XLSX / XLSM / XML Spreadsheet 2003の表CandidateとJSON / 汎用XML Tree Candidateを対象とし、`allowProviderDependent: true`、未知field、非canonical base64、未対応formatをfail-closedで拒否する。`.xml`はbytesで形式を判定し、Spreadsheet XMLと汎用XMLを同じ拡張子のまま別経路へ分ける。画像・Shape・provider-dependent認知、`check` / `render` / `extract`は後続へ残す。
 
 CLIには`mmi core <request.json|->`を追加した。source bytesはrequest内にあるため、この経路はsource pathを探索・読込しない。process-levelのJSON境界として、将来の標準Go / TinyGo / WASM実装と同じrequestを比較できる。
 
-`test/fixtures/portable-core-v1/`へCSV表とJSON Treeのconformance caseを追加した。`test/portableCoreProtocol.test.ts`では、fixtureのsource digest / Candidate種別 / locator / provenance / fingerprint representationを確認し、生成XLSXについてportable経路のCandidate列が既存`tableCandidates()`直呼びと完全一致することを固定した。source名が存在しないpath風文字列でも埋込bytesだけで処理できること、空CSV、provider-dependent拒否、schema expansion拒否も対象とする。
+`test/fixtures/portable-core-v1/`へCSV表、JSON Tree、汎用XML Treeのconformance caseを追加した。`test/portableCoreProtocol.test.ts`では、fixtureのsource digest / Candidate種別 / locator / provenance / fingerprint representationを確認する。生成XLSXはportable経路と既存`tableCandidates()`直呼び、汎用XMLはportable経路と`readXmlTree()`直呼びのCandidate列が完全一致することを固定した。XML Spreadsheet 2003がTreeへ流れず、従来の表経路に残ることも確認対象にした。source名が存在しないpath風文字列でも埋込bytesだけで処理できること、空CSV、provider-dependent拒否、schema expansion拒否も対象とする。
 
 TypeScript参照実装の正本suiteは、この実行コンテナに`xlsx` / `tsx`がなく依存取得もできないため、まだ実行していない。一方、標準GoのCSV最小実装はshared `csv-table.case.json`を実行し、source digest、Candidate位置、provenance、fingerprint、referenceまで一致した。Go側の現行test suiteはnativeと標準Go WASMの両方で通過した。
 
