@@ -2,8 +2,9 @@
 name: mmi
 description: >
   Excel・CSV・TSV・XML Spreadsheet 2003の表を、Markdownの設計書へ写さずにMMI参照（![[...]]）で載せる。
-  設計書・仕様書・試験書などで表を扱うとき、正本のExcel/CSVを参照して章を書くとき、
-  mmi inspect / check / render を使うとき、`![[...]]`を含むMarkdownを編集するときに使う。
+  JSON・汎用XML・フラットテキストのTree Candidateをinspect・review・extractするときにも使う。
+  設計書・仕様書・試験書などで正本を参照して章を書くとき、mmi inspect / check / renderを使うとき、
+  `![[...]]`を含むMarkdownを編集するときに使う。
 ---
 
 # MMI: 表は写さず、正本を参照する
@@ -20,7 +21,9 @@ MMIの参照は、Excel・CSVなどの正本から必要な表だけをMarkdown�
 - 画像の中身を推測で文章にしない。 Excelの画像は`mmi inspect`が番号・位置・近くの表を示す。取り込む必要があるときだけ`mmi extract <ブック> --image <番号>`で`assets/`へ書き出し、出力された画像参照と`<!-- mmi:extracted ... -->`の出典コメントをそのまま文書へ置く。画像に何が写っているかは、見ていない限り書かない。EMFなど取り出せない画像は、その旨を利用者へ報告する。
 - 正本の値を必要以上にAIへ渡さない。`inspect`は既定で構造だけを返す。値が必要なときだけ`--values`を使い、利用者の組織の規則に従う。
 - Candidateを機械可読に扱うときは、最初に`mmi schema candidate`で`mmi.semantic-candidate/v1`を取得する。`inspect --json`の`candidateContract`が同じ契約名であることを確認し、独自の状態語彙を足さない。
-- JSONのobject / arrayは明示Tree Candidateとして扱える。`mmi inspect <file.json> --json`でJSON Pointerを確認し、取り込む場合だけ`mmi extract <file.json> --tree <pointer|root>`を使う。JSONの明示構造を推測し直さない。
+- JSONのobject / arrayと汎用XMLのelementは明示Tree Candidateとして扱う。原本にある親子関係を`observed + deterministic + M0`として保持し、推測し直さない。
+- `.txt`・`.text`・`.log`の階層候補は`inferred + deterministic + M1`である。既定のインデント、見出し番号、接頭辞コードは別々のhypothesisとして扱い、構造が食い違っても統合しない。deterministicであることを事実性の根拠にしない。
+- Treeを取り込む前に`mmi inspect <source> --json`で`structuralPath`を確認する。フラットテキストで方式を限定する場合は`--tree-method indent|heading-number|prefix-code`を使う。取り込む場合だけ`mmi extract <source> --tree <structuralPath|root>`を使う。
 
 ## 作業の順序
 

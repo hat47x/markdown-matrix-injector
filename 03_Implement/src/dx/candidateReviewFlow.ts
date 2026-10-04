@@ -28,7 +28,11 @@ import {
   finalizeReviewedImageExtraction,
   finalizeReviewedTableExtraction,
 } from '../cli/extract.js';
-import { extractJsonTree, extractXmlTree } from '../cli/extractTree.js';
+import {
+  extractFlatTextTree,
+  extractJsonTree,
+  extractXmlTree,
+} from '../cli/extractTree.js';
 import type { Candidate, ReviewState } from '../core/candidate.js';
 import type { CandidateLedgerFilter } from '../core/candidateLedgerView.js';
 import {
@@ -143,7 +147,7 @@ function reviewObservationFile(sourcePath: string): string | undefined {
 }
 
 function supportedReviewSource(sourcePath: string): boolean {
-  return /\.(xlsx|xlsm|csv|xml|json)$/iu.test(sourcePath);
+  return /\.(xlsx|xlsm|csv|xml|json|txt|text|log)$/iu.test(sourcePath);
 }
 
 async function chooseSource(target?: vscode.Uri): Promise<string | undefined> {
@@ -158,7 +162,16 @@ async function chooseSource(target?: vscode.Uri): Promise<string | undefined> {
     canSelectFolders: false,
     canSelectMany: false,
     filters: {
-      'MMI source': ['xlsx', 'xlsm', 'csv', 'xml', 'json'],
+      'MMI source': [
+        'xlsx',
+        'xlsm',
+        'csv',
+        'xml',
+        'json',
+        'txt',
+        'text',
+        'log',
+      ],
     },
     title: 'MMI: Candidateを確認するsourceを選択',
   });
@@ -244,7 +257,7 @@ function quickPickItem(
     return {
       label: `$(list-tree) ${pointer}`,
       description:
-        `${stateLabel(ledgerState)} · 採用: ${reviewStateLabel(reviewState)} · ${source.format.toUpperCase()} Tree`,
+        `${stateLabel(ledgerState)} · 採用: ${reviewStateLabel(reviewState)} · ${source.format.toUpperCase()} Tree${source.method ? ` · ${source.method}` : ''}`,
       detail: [
         epistemicDetail(source.candidate),
         `${source.nodeType} · ${source.childCount} children · ${source.leafCount} scalar children`,
@@ -778,7 +791,9 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     const extractTree =
       picked.source.format === 'xml'
         ? extractXmlTree
-        : extractJsonTree;
+        : picked.source.format === 'text'
+          ? extractFlatTextTree
+          : extractJsonTree;
     const result = extractTree({
       sourcePath,
       pointer: picked.source.pointer,
