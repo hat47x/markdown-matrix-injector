@@ -139,6 +139,7 @@ Commands:
       --range <A1:B9>         physical cell range to render (required)
       --dpi <72..600>         raster resolution (default: 150)
       --out-dir <dir>         snapshot assets folder (default: <root>/assets/snapshots)
+      --from <doc.md>         write the Markdown image reference relative to this document
       --ledger <file>         import ledger (default: <root>/mmi-ledger.json)
   import <workbook>         Create a modernization draft: tables stay live references, images become assets
       --draft <file.md>       new Markdown draft to create (required; existing files are not overwritten)
@@ -488,6 +489,7 @@ export async function main(argv: string[]): Promise<number> {
           range: values.range,
           outDir,
           ledgerPath,
+          ...(values.from ? { fromDocument: path.resolve(values.from) } : {}),
           ...(values.dpi ? { dpi: Number(values.dpi) } : {}),
         });
       } catch (error) {
@@ -504,17 +506,22 @@ export async function main(argv: string[]): Promise<number> {
         png: portableDisplayPath(result.pngFile),
         digest: result.manifest.artifact.digest,
         bytes: result.manifest.artifact.bytes,
+        widthPx: result.manifest.artifact.widthPx,
+        heightPx: result.manifest.artifact.heightPx,
         manifest: portableDisplayPath(result.manifestFile),
         renderer: result.manifest.renderer,
+        markdown: result.markdown,
       };
       emit(values.json
         ? JSON.stringify(summary, null, 2)
         : [
             `snapshot: ${summary.png}`,
             `source: ${summary.source.label}#${summary.sheet}|${summary.range}`,
-            `digest: ${summary.digest}`,
+            `digest: ${summary.digest} (${summary.widthPx}x${summary.heightPx}px)`,
             `renderer: ${summary.renderer.libreOfficeVersion}; ${summary.renderer.pdftoppmVersion}`,
             `manifest: ${summary.manifest}`,
+            '',
+            summary.markdown,
           ].join('\n'));
       return 0;
     }
