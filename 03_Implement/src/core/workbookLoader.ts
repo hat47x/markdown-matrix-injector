@@ -4,7 +4,7 @@ import XLSX from 'xlsx';
 import { WorkbookCache, type FileSnapshot } from '../cache/workbookCache.js';
 import { sheetSourceFromMatrix, type CellRange, type SheetSource, type SourceCell, type SourceCellType } from './sheetSource.js';
 import { parseRangeToCellRange } from './tableGeometry.js';
-import { isXmlSpreadsheet2003 } from './xmlFormat.js';
+import { isXmlSpreadsheet2003Bytes } from './xmlFormat.js';
 
 export type { CellRange, SheetSource, SourceCell, SourceCellType } from './sheetSource.js';
 
@@ -60,8 +60,7 @@ export function loadWorkbookFromBytes(absolutePath: string, bytes: Buffer): Work
   }
 
   if (extension === '.xml') {
-    const xml = bytes.toString('utf8');
-    if (!isXmlSpreadsheet2003(xml)) {
+    if (!isXmlSpreadsheet2003Bytes(bytes)) {
       throw new Error('Unsupported XML format: only XML Spreadsheet 2003 is allowed.');
     }
   }

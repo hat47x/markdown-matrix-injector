@@ -17,7 +17,7 @@ import {
 import { loadWorkbook } from '../core/workbookLoader.js';
 import {
   decodeGenericXmlUtf8,
-  isXmlSpreadsheet2003,
+  isXmlSpreadsheet2003Bytes,
 } from '../core/xmlFormat.js';
 
 export type CandidateReviewInventoryItem =
@@ -77,8 +77,7 @@ export function buildCandidateReviewInventory(
 
   if (/\.xml$/iu.test(sourcePath)) {
     const sourceBytes = fs.readFileSync(sourcePath);
-    const classificationText = sourceBytes.toString('utf8');
-    if (!isXmlSpreadsheet2003(classificationText)) {
+    if (!isXmlSpreadsheet2003Bytes(sourceBytes)) {
       const xml = decodeGenericXmlUtf8(sourceBytes);
       const sourceDigest =
         createSourceIdentityFromBytes(sourceBytes).digest;

@@ -8,6 +8,26 @@ export function isXmlSpreadsheet2003(text: string): boolean {
     text.includes(signature));
 }
 
+/**
+ * Classifies XML Spreadsheet 2003 from source bytes without imposing the
+ * stricter UTF-8-only rule used by generic XML Tree sources.
+ *
+ * The signatures are ASCII, so a replacement-tolerant UTF-8 decode is enough
+ * for ASCII-compatible encodings. UTF-16 BOMs are handled explicitly.
+ */
+export function isXmlSpreadsheet2003Bytes(
+  bytes: Uint8Array,
+): boolean {
+  let text: string;
+  if (bytes[0] === 0xff && bytes[1] === 0xfe) {
+    text = new TextDecoder('utf-16le').decode(bytes);
+  } else if (bytes[0] === 0xfe && bytes[1] === 0xff) {
+    text = new TextDecoder('utf-16be').decode(bytes);
+  } else {
+    text = new TextDecoder('utf-8').decode(bytes);
+  }
+  return isXmlSpreadsheet2003(text);
+}
 
 export function decodeGenericXmlUtf8(bytes: Uint8Array): string {
   try {

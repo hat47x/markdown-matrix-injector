@@ -17,7 +17,7 @@ import {
 import { entryFor, recordEntries } from '../core/importLedger.js';
 import {
   decodeGenericXmlUtf8,
-  isXmlSpreadsheet2003,
+  isXmlSpreadsheet2003Bytes,
 } from '../core/xmlFormat.js';
 
 export interface ExtractTreeOptions {
@@ -308,8 +308,7 @@ export function extractXmlTree(
   }
 
   const sourceBytes = fs.readFileSync(options.sourcePath);
-  const classificationText = sourceBytes.toString('utf8');
-  if (isXmlSpreadsheet2003(classificationText)) {
+  if (isXmlSpreadsheet2003Bytes(sourceBytes)) {
     result.problems.push({
       code: 'MMI_TREE_XML_SPREADSHEET_TABLE_SOURCE',
       message:

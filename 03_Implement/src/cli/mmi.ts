@@ -50,7 +50,7 @@ import { sliceRegion } from '../core/tableGeometry.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
 import {
   decodeGenericXmlUtf8,
-  isXmlSpreadsheet2003,
+  isXmlSpreadsheet2003Bytes,
 } from '../core/xmlFormat.js';
 import {
   createAiHandoffPackage,
@@ -865,8 +865,7 @@ export function inspectSource(absolutePath: string, sampleRows: number, fromDocu
 
   if (/\.xml$/iu.test(absolutePath)) {
     const sourceBytes = fs.readFileSync(absolutePath);
-    const classificationText = sourceBytes.toString('utf8');
-    if (!isXmlSpreadsheet2003(classificationText)) {
+    if (!isXmlSpreadsheet2003Bytes(sourceBytes)) {
       const xml = decodeGenericXmlUtf8(sourceBytes);
       const sourceDigest =
         createSourceIdentityFromBytes(sourceBytes).digest;

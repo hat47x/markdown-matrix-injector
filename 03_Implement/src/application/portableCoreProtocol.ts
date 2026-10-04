@@ -4,10 +4,11 @@ import path from 'node:path';
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
+import type { Candidate } from '../core/candidate.js';
 import { loadWorkbookFromBytes } from '../core/workbookLoader.js';
 import {
   decodeGenericXmlUtf8,
-  isXmlSpreadsheet2003,
+  isXmlSpreadsheet2003Bytes,
 } from '../core/xmlFormat.js';
 
 import {
@@ -163,8 +164,7 @@ function sourceFormat(
   if (extension === '.xlsm') return 'xlsm';
   if (extension === '.json') return 'json';
   if (extension === '.xml') {
-    const text = decodeGenericXmlUtf8(bytes);
-    return isXmlSpreadsheet2003(text)
+    return isXmlSpreadsheet2003Bytes(bytes)
       ? 'xml-spreadsheet'
       : 'xml';
   }
