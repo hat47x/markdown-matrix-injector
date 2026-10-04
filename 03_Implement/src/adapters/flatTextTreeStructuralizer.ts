@@ -193,13 +193,15 @@ function inferIndent(
   }));
   if (!normalized.some((item) => item.columns > 0)) return {};
 
+  const columnsByLine = new Map(
+    normalized.map((item) => [item.line.line, item.columns]),
+  );
   const parsed: ParsedNode[] = [];
   for (const item of normalized) {
     let parent: ParsedNode | undefined;
     for (let index = parsed.length - 1; index >= 0; index -= 1) {
       const candidate = parsed[index];
-      const parentColumns = normalized.find(
-        (known) => known.line.line === candidate.line)?.columns;
+      const parentColumns = columnsByLine.get(candidate.line);
       if (parentColumns !== undefined && parentColumns < item.columns) {
         parent = candidate;
         break;
