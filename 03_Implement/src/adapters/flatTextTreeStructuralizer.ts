@@ -193,20 +193,17 @@ function inferIndent(
   }));
   if (!normalized.some((item) => item.columns > 0)) return {};
 
-  const columnsByLine = new Map(
-    normalized.map((item) => [item.line.line, item.columns]),
-  );
   const parsed: ParsedNode[] = [];
+  const stack: Array<{ node: ParsedNode; columns: number }> = [];
   for (const item of normalized) {
-    let parent: ParsedNode | undefined;
-    for (let index = parsed.length - 1; index >= 0; index -= 1) {
-      const candidate = parsed[index];
-      const parentColumns = columnsByLine.get(candidate.line);
-      if (parentColumns !== undefined && parentColumns < item.columns) {
-        parent = candidate;
-        break;
-      }
+    while (
+      stack.length > 0
+      && stack[stack.length - 1].columns >= item.columns
+    ) {
+      stack.pop();
     }
+
+    const parent = stack.at(-1)?.node;
     if (item.columns > 0 && !parent) {
       return {
         abstain: {
@@ -218,7 +215,8 @@ function inferIndent(
         },
       };
     }
-    parsed.push({
+
+    const node: ParsedNode = {
       line: item.line.line,
       text: item.line.raw,
       label: item.line.text,
@@ -228,7 +226,9 @@ function inferIndent(
         code: 'leading-indentation',
         detail: `line ${item.line.line}: ${item.columns} normalized indentation columns`,
       }],
-    });
+    };
+    parsed.push(node);
+    stack.push({ node, columns: item.columns });
   }
 
   return hasHierarchy(parsed) ? { nodes: parsed } : {};
