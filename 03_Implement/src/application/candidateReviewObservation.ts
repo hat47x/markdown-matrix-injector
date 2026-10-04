@@ -117,6 +117,15 @@ export function createCandidateReviewObservation(input: {
   const finalByKey = new Map(
     input.final.items.map((item) => [item.key, item] as const),
   );
+  const finalCohortItems = input.initial.items.flatMap((before) => {
+    const after = finalByKey.get(before.key);
+    return after ? [after] : [];
+  });
+  const finalCohort: CandidateReviewObservationSnapshot = {
+    total: finalCohortItems.length,
+    items: finalCohortItems,
+  };
+
   const transitions = {
     reviewStateChanged: 0,
     toAccepted: 0,
@@ -179,7 +188,7 @@ export function createCandidateReviewObservation(input: {
       selectedCount: input.selectedCount,
     },
     initial: summarizeSnapshot(input.initial),
-    final: summarizeSnapshot(input.final),
+    final: summarizeSnapshot(finalCohort),
     transitions,
   };
 }
