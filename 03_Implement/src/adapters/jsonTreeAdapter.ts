@@ -180,19 +180,43 @@ function collectNodes(
   }
 }
 
-function assertFiniteJsonNumbers(value: JsonValue): void {
+function assertUnicodeScalarString(value: string): void {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) {
+        throw new Error('JSON Tree strings must not contain unpaired UTF-16 surrogates');
+      }
+      index += 1;
+      continue;
+    }
+    if (code >= 0xdc00 && code <= 0xdfff) {
+      throw new Error('JSON Tree strings must not contain unpaired UTF-16 surrogates');
+    }
+  }
+}
+
+function assertPortableJsonValue(value: JsonValue): void {
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) {
       throw new Error('JSON Tree numbers must be finite');
     }
     return;
   }
+  if (typeof value === 'string') {
+    assertUnicodeScalarString(value);
+    return;
+  }
   if (Array.isArray(value)) {
-    value.forEach(assertFiniteJsonNumbers);
+    value.forEach(assertPortableJsonValue);
     return;
   }
   if (value !== null && typeof value === 'object') {
-    Object.values(value).forEach(assertFiniteJsonNumbers);
+    for (const [key, child] of Object.entries(value)) {
+      assertUnicodeScalarString(key);
+      assertPortableJsonValue(child);
+    }
   }
 }
 
@@ -202,7 +226,7 @@ export function readJsonTree(
   sourceDigest: string,
 ): JsonTreeDocument {
   const value = JSON.parse(text) as JsonValue;
-  assertFiniteJsonNumbers(value);
+  assertPortableJsonValue(value);
   const nodes: JsonTreeNode[] = [];
   collectNodes(value, '', source, sourceDigest, nodes);
   return {

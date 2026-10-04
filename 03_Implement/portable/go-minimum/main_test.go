@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -285,5 +286,40 @@ func TestCanonicalJSONMatchesJavaScriptNumberSemantics(t *testing.T) {
 
 	if _, err := canonicalJSON(math.Inf(1)); err == nil {
 		t.Fatal("non-finite JSON Tree number must be rejected")
+	}
+}
+
+
+func TestCanonicalJSONMatchesJavaScriptUnicodeSemantics(t *testing.T) {
+	rendered, err := canonicalJSON("  <>&")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rendered != ""  <>&"" {
+		t.Fatalf("string canonical form: got %q", rendered)
+	}
+}
+
+func TestJSONTreeRejectsUnpairedSurrogateEscapes(t *testing.T) {
+	for _, source := range []string{
+		`{"value":"\ud800"}`,
+		`{"value":"\udc00"}`,
+		`{"\ud800":"value"}`,
+	} {
+		if _, err := jsonTreeCandidates(
+			[]byte(source),
+			"./fixture.json",
+			"sha256:"+strings.Repeat("a", 64),
+		); err == nil {
+			t.Fatalf("expected unpaired surrogate rejection: %s", source)
+		}
+	}
+
+	if _, err := jsonTreeCandidates(
+		[]byte(`{"value":"\ud83d\ude00"}`),
+		"./fixture.json",
+		"sha256:"+strings.Repeat("a", 64),
+	); err != nil {
+		t.Fatalf("valid surrogate pair must be accepted: %v", err)
 	}
 }

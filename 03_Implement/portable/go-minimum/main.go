@@ -241,6 +241,9 @@ func jsonTreeCandidates(
 	source string,
 	sourceDigest string,
 ) ([]candidate, error) {
+	if err := validateJSONSurrogateEscapes(input); err != nil {
+		return nil, err
+	}
 	var value any
 	if err := json.Unmarshal(input, &value); err != nil {
 		return nil, fmt.Errorf("invalid JSON source: %w", err)
@@ -256,6 +259,89 @@ func jsonTreeCandidates(
 		return nil, err
 	}
 	return out, nil
+}
+
+func validateJSONSurrogateEscapes(input []byte) error {
+	inString := false
+	for index := 0; index < len(input); {
+		current := input[index]
+		if !inString {
+			if current == '"' {
+				inString = true
+			}
+			index++
+			continue
+		}
+		if current == '"' {
+			inString = false
+			index++
+			continue
+		}
+		if current != '\\' {
+			index++
+			continue
+		}
+		if index+1 >= len(input) {
+			return nil
+		}
+		if input[index+1] != 'u' {
+			index += 2
+			continue
+		}
+		if index+6 > len(input) {
+			return nil
+		}
+		code, ok := jsonHexCodeUnit(input[index+2 : index+6])
+		if !ok {
+			index += 2
+			continue
+		}
+		if code >= 0xd800 && code <= 0xdbff {
+			if index+12 > len(input) ||
+				input[index+6] != '\\' ||
+				input[index+7] != 'u' {
+				return errors.New(
+					"JSON Tree strings must not contain unpaired UTF-16 surrogates",
+				)
+			}
+			next, ok := jsonHexCodeUnit(input[index+8 : index+12])
+			if !ok || next < 0xdc00 || next > 0xdfff {
+				return errors.New(
+					"JSON Tree strings must not contain unpaired UTF-16 surrogates",
+				)
+			}
+			index += 12
+			continue
+		}
+		if code >= 0xdc00 && code <= 0xdfff {
+			return errors.New(
+				"JSON Tree strings must not contain unpaired UTF-16 surrogates",
+			)
+		}
+		index += 6
+	}
+	return nil
+}
+
+func jsonHexCodeUnit(input []byte) (uint16, bool) {
+	if len(input) != 4 {
+		return 0, false
+	}
+	var value uint16
+	for _, char := range input {
+		value <<= 4
+		switch {
+		case char >= '0' && char <= '9':
+			value += uint16(char - '0')
+		case char >= 'a' && char <= 'f':
+			value += uint16(char-'a') + 10
+		case char >= 'A' && char <= 'F':
+			value += uint16(char-'A') + 10
+		default:
+			return 0, false
+		}
+	}
+	return value, true
 }
 
 func collectJSONTreeCandidates(
@@ -486,7 +572,10 @@ func marshalJSONNoHTML(value any) (string, error) {
 	if err := encoder.Encode(value); err != nil {
 		return "", err
 	}
-	return strings.TrimSuffix(buffer.String(), "\n"), nil
+	rendered := strings.TrimSuffix(buffer.String(), "\n")
+	rendered = strings.ReplaceAll(rendered, "\\u2028", " ")
+	rendered = strings.ReplaceAll(rendered, "\\u2029", " ")
+	return rendered, nil
 }
 
 func utf16Less(left, right string) bool {

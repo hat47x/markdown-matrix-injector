@@ -121,3 +121,31 @@ test('JSON Tree normalizes negative zero like JSON.stringify and rejects non-fin
     /numbers must be finite/u,
   );
 });
+
+
+test('JSON Tree rejects unpaired UTF-16 surrogate escapes before fingerprinting', () => {
+  assert.throws(
+    () => readJsonTree(
+      '{"value":"\\ud800"}',
+      './data/value.json',
+      sourceDigest,
+    ),
+    /unpaired UTF-16 surrogates/u,
+  );
+  assert.throws(
+    () => readJsonTree(
+      '{"\\udc00":"value"}',
+      './data/value.json',
+      sourceDigest,
+    ),
+    /unpaired UTF-16 surrogates/u,
+  );
+
+  assert.doesNotThrow(
+    () => readJsonTree(
+      '{"value":"\\ud83d\\ude00"}',
+      './data/value.json',
+      sourceDigest,
+    ),
+  );
+});
