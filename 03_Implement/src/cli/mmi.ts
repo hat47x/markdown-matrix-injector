@@ -289,6 +289,14 @@ export async function main(argv: string[]): Promise<number> {
         return usageError('inspect accepts only one of --unimported or --exclude-imported');
       }
       const absoluteSource = path.resolve(args[0]);
+      if (
+        values['tree-method']
+        && !/\.(txt|text|log)$/iu.test(absoluteSource)
+      ) {
+        return usageError(
+          '--tree-method applies only to .txt, .text or .log sources',
+        );
+      }
       let flatTextMethods: readonly FlatTextTreeMethod[] | undefined;
       try {
         flatTextMethods = values['tree-method']
