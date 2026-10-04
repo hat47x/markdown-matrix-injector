@@ -94,3 +94,30 @@ test('Tree fingerprints ignore JSON object key order but preserve array order', 
     canonicalJsonValue([2, 1]),
   );
 });
+
+
+test('JSON Tree normalizes negative zero like JSON.stringify and rejects non-finite parsed numbers', () => {
+  const negativeZero = readJsonTree(
+    '{"value":-0}',
+    './data/value.json',
+    sourceDigest,
+  );
+  const zero = readJsonTree(
+    '{"value":0}',
+    './data/value.json',
+    sourceDigest,
+  );
+  assert.equal(
+    negativeZero.candidates[0].fingerprint.digest,
+    zero.candidates[0].fingerprint.digest,
+  );
+
+  assert.throws(
+    () => readJsonTree(
+      '{"value":1e400}',
+      './data/value.json',
+      sourceDigest,
+    ),
+    /numbers must be finite/u,
+  );
+});

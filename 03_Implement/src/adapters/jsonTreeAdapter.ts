@@ -39,6 +39,9 @@ function isContainer(value: JsonValue): value is JsonValue[] | { [key: string]: 
 }
 
 function canonicalJson(value: JsonValue): string {
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    throw new Error('JSON Tree numbers must be finite');
+  }
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
   if (Array.isArray(value)) {
     return `[${value.map((item) => canonicalJson(item)).join(',')}]`;
@@ -177,12 +180,29 @@ function collectNodes(
   }
 }
 
+function assertFiniteJsonNumbers(value: JsonValue): void {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) {
+      throw new Error('JSON Tree numbers must be finite');
+    }
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach(assertFiniteJsonNumbers);
+    return;
+  }
+  if (value !== null && typeof value === 'object') {
+    Object.values(value).forEach(assertFiniteJsonNumbers);
+  }
+}
+
 export function readJsonTree(
   text: string,
   source: string,
   sourceDigest: string,
 ): JsonTreeDocument {
   const value = JSON.parse(text) as JsonValue;
+  assertFiniteJsonNumbers(value);
   const nodes: JsonTreeNode[] = [];
   collectNodes(value, '', source, sourceDigest, nodes);
   return {

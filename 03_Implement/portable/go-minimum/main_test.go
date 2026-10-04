@@ -2,6 +2,7 @@ package main
 
 import (
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
 	"testing"
@@ -268,5 +269,21 @@ func TestJSONTreeRejectsInvalidUTF8AndInvalidJSON(t *testing.T) {
 		if _, err := run([]byte(input)); err == nil {
 			t.Fatalf("expected JSON rejection: %s", input)
 		}
+	}
+}
+
+
+func TestCanonicalJSONMatchesJavaScriptNumberSemantics(t *testing.T) {
+	negativeZero := math.Copysign(0, -1)
+	rendered, err := canonicalJSON(negativeZero)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rendered != "0" {
+		t.Fatalf("negative zero canonical form: got %q want %q", rendered, "0")
+	}
+
+	if _, err := canonicalJSON(math.Inf(1)); err == nil {
+		t.Fatal("non-finite JSON Tree number must be rejected")
 	}
 }

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
@@ -426,7 +427,15 @@ func jsonChildPointer(parent, token string) string {
 
 func canonicalJSON(value any) (string, error) {
 	switch current := value.(type) {
-	case nil, bool, float64, string:
+	case nil, bool, string:
+		return marshalJSONNoHTML(current)
+	case float64:
+		if math.IsNaN(current) || math.IsInf(current, 0) {
+			return "", errors.New("JSON Tree numbers must be finite")
+		}
+		if current == 0 {
+			return "0", nil
+		}
 		return marshalJSONNoHTML(current)
 	case []any:
 		parts := make([]string, 0, len(current))
