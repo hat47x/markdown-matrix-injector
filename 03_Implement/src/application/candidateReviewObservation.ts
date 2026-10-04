@@ -8,7 +8,7 @@ import { matchesCandidateReviewFacets, type CandidateReviewFacetFilter } from '.
 import { candidateReviewSessionKey } from './candidateReviewSession.js';
 
 export const CANDIDATE_REVIEW_OBSERVATION_SCHEMA =
-  'mmi.candidate-review-observation/v1' as const;
+  'mmi.candidate-review-observation/v2' as const;
 
 export const DEFAULT_CANDIDATE_REVIEW_OBSERVATION_FILE =
   '.mmi/candidate-review-observations.jsonl';
@@ -27,6 +27,70 @@ export interface CandidateReviewObservationSnapshotItem {
 export interface CandidateReviewObservationSnapshot {
   total: number;
   items: CandidateReviewObservationSnapshotItem[];
+}
+
+export interface CandidateReviewTextAdjustment {
+  originalCharacters: number;
+  reviewedCharacters: number;
+  changedSpanCharacters: number;
+}
+
+export interface CandidateReviewAdjustmentAggregate {
+  modifiedItems: number;
+  originalCharacters: number;
+  reviewedCharacters: number;
+  changedSpanCharacters: number;
+}
+
+export interface CandidateReviewAdjustmentSummary {
+  table: CandidateReviewAdjustmentAggregate;
+  imageAlt: CandidateReviewAdjustmentAggregate;
+}
+
+export function emptyCandidateReviewAdjustmentSummary():
+CandidateReviewAdjustmentSummary {
+  const empty = (): CandidateReviewAdjustmentAggregate => ({
+    modifiedItems: 0,
+    originalCharacters: 0,
+    reviewedCharacters: 0,
+    changedSpanCharacters: 0,
+  });
+  return {
+    table: empty(),
+    imageAlt: empty(),
+  };
+}
+
+export function addCandidateReviewAdjustment(
+  summary: CandidateReviewAdjustmentSummary,
+  kind: keyof CandidateReviewAdjustmentSummary,
+  adjustment: CandidateReviewTextAdjustment,
+): CandidateReviewAdjustmentSummary {
+  for (const value of [
+    adjustment.originalCharacters,
+    adjustment.reviewedCharacters,
+    adjustment.changedSpanCharacters,
+  ]) {
+    if (!Number.isInteger(value) || value < 0) {
+      throw new Error(
+        'candidate review adjustment counts must be non-negative integers',
+      );
+    }
+  }
+  const current = summary[kind];
+  return {
+    table: { ...summary.table },
+    imageAlt: { ...summary.imageAlt },
+    [kind]: {
+      modifiedItems: current.modifiedItems + 1,
+      originalCharacters:
+        current.originalCharacters + adjustment.originalCharacters,
+      reviewedCharacters:
+        current.reviewedCharacters + adjustment.reviewedCharacters,
+      changedSpanCharacters:
+        current.changedSpanCharacters + adjustment.changedSpanCharacters,
+    },
+  };
 }
 
 export interface CandidateReviewObservation {
@@ -64,6 +128,8 @@ export interface CandidateReviewObservation {
     toUnreviewed: number;
     newlyImported: number;
   };
+  /** Content-free aggregate of human correction burden for modified adoptions. */
+  adjustments: CandidateReviewAdjustmentSummary;
 }
 
 export function candidateReviewObservationSnapshot(
@@ -95,6 +161,7 @@ export function createCandidateReviewObservation(input: {
   selectedCount: number;
   initial: CandidateReviewObservationSnapshot;
   final: CandidateReviewObservationSnapshot;
+  adjustments?: CandidateReviewAdjustmentSummary;
 }): CandidateReviewObservation {
   const started = Date.parse(input.startedAtUtc);
   const ended = Date.parse(input.endedAtUtc);
@@ -109,6 +176,23 @@ export function createCandidateReviewObservation(input: {
   }
   if (!Number.isInteger(input.selectedCount) || input.selectedCount < 0) {
     throw new Error('candidate review observation selectedCount must be a non-negative integer');
+  }
+
+  const adjustments =
+    input.adjustments ?? emptyCandidateReviewAdjustmentSummary();
+  for (const group of [adjustments.table, adjustments.imageAlt]) {
+    for (const value of [
+      group.modifiedItems,
+      group.originalCharacters,
+      group.reviewedCharacters,
+      group.changedSpanCharacters,
+    ]) {
+      if (!Number.isInteger(value) || value < 0) {
+        throw new Error(
+          'candidate review adjustment totals must be non-negative integers',
+        );
+      }
+    }
   }
 
   const initialByKey = new Map(
@@ -190,6 +274,10 @@ export function createCandidateReviewObservation(input: {
     initial: summarizeSnapshot(input.initial),
     final: summarizeSnapshot(finalCohort),
     transitions,
+    adjustments: {
+      table: { ...adjustments.table },
+      imageAlt: { ...adjustments.imageAlt },
+    },
   };
 }
 
