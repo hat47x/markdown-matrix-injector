@@ -366,3 +366,24 @@ test('flat-text extraction fails closed when the selected method now abstains', 
   );
   assert.equal(fs.existsSync(path.join(f.root, 'assets')), false);
 });
+
+
+test('inspect rejects --tree-method on non-flat sources instead of ignoring it', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-flat-tree-'));
+  const source = path.join(root, 'data.json');
+  fs.writeFileSync(source, JSON.stringify({ root: { child: true } }));
+
+  const result = await captureMain([
+    'inspect',
+    source,
+    '--root',
+    root,
+    '--tree-method',
+    'indent',
+  ]);
+  assert.equal(result.code, 2);
+  assert.match(
+    result.error,
+    /--tree-method applies only to \.txt, \.text or \.log sources/u,
+  );
+});
