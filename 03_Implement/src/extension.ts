@@ -36,6 +36,7 @@ import {
 } from './dx/completionCandidates.js';
 import {
   buildContentMatchMarkdown,
+  contentMatchStillExact,
   findWorkbookContentMatchesDetailed,
   summarizeContentMatchContext,
   type WorkbookContentMatch,
@@ -487,6 +488,7 @@ async function insertEmbedByContentMatch(): Promise<void> {
     loadResult.skippedFiles.length,
     searchResult.skippedSheets.length,
     searchResult.truncatedSheets.length,
+    0,
     loadResult.fileSelectionTruncated,
     loadResult.fileSelectionLimit,
     loadResult.cancelled,
@@ -519,8 +521,15 @@ async function insertEmbedByContentMatch(): Promise<void> {
   await currentEditor.edit((editBuilder) => editBuilder.replace(selection, buildContentMatchMarkdown(picked)));
 }
 
+interface LoadedWorkbookSnapshot {
+  readonly absolutePath: string;
+  readonly mtimeMs: number;
+  readonly size: number;
+}
+
 interface WorkspaceWorkbookLoadResult {
   readonly workbooks: readonly WorkbookSheetsSource[];
+  readonly snapshots: ReadonlyMap<string, LoadedWorkbookSnapshot>;
   readonly skippedFiles: readonly string[];
   readonly fileSelectionTruncated: boolean;
   readonly fileSelectionLimit: number;
@@ -541,6 +550,7 @@ async function loadWorkspaceWorkbooksForContentMatch(
   const uris = selection.files;
 
   const workbooks: WorkbookSheetsSource[] = [];
+  const snapshots = new Map<string, LoadedWorkbookSnapshot>();
   const skippedFiles: string[] = [];
   let cancelled = false;
   for (const uri of uris) {
@@ -550,14 +560,22 @@ async function loadWorkspaceWorkbooksForContentMatch(
     }
     const filepath = toRelativeSuggestion(markdownFilePath, uri.fsPath);
     try {
+      const before = await fs.stat(uri.fsPath);
       const workbook = loadWorkbook({ absolutePath: uri.fsPath });
+      const after = await fs.stat(uri.fsPath);
+      if (before.mtimeMs !== after.mtimeMs || before.size !== after.size) {
+        skippedFiles.push(filepath);
+        continue;
+      }
       workbooks.push({ filepath, sheets: workbook.sheets });
+      snapshots.set(filepath, { absolutePath: uri.fsPath, mtimeMs: after.mtimeMs, size: after.size });
     } catch {
       skippedFiles.push(filepath);
     }
   }
   return {
     workbooks,
+    snapshots,
     skippedFiles,
     fileSelectionTruncated: selection.truncated,
     fileSelectionLimit: selection.limit,
@@ -569,6 +587,7 @@ function describeIncompleteContentMatchSearch(
   skippedFileCount: number,
   skippedSheetCount: number,
   truncatedSheetCount: number,
+  changedSourceCount: number,
   fileSelectionTruncated: boolean,
   fileSelectionLimit: number,
   cancelled: boolean,
@@ -577,6 +596,7 @@ function describeIncompleteContentMatchSearch(
     skippedFileCount > 0 ? `読めないブック ${skippedFileCount}件` : '',
     skippedSheetCount > 0 ? `索引上限を超えたシート ${skippedSheetCount}件` : '',
     truncatedSheetCount > 0 ? `候補上限に達したシート ${truncatedSheetCount}件` : '',
+    changedSourceCount > 0 ? `検索中に変更されたブック ${changedSourceCount}件` : '',
     fileSelectionTruncated ? `探索対象ブックが上限${fileSelectionLimit}件を超過` : '',
     cancelled ? '検索が中断されました' : '',
   ].filter(Boolean);
