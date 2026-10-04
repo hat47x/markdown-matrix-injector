@@ -51,6 +51,35 @@ export interface WorkbookContentMatchSearchResult {
   readonly truncatedSheets: readonly ContentMatchTruncatedSheet[];
 }
 
+/**
+ * Rechecks one previously found range against the current workbook model.
+ * This is intentionally a direct rectangle comparison rather than a new
+ * workspace search: after the user has picked a candidate, only that exact
+ * source range needs to remain equal to the clipboard values.
+ */
+export function contentMatchStillExact(
+  clipboardPlainText: string,
+  sheet: SheetSource,
+  range: CellRange,
+): boolean {
+  const needle = parseTsv(clipboardPlainText);
+  const rowCount = needle.length;
+  const columnCount = needle.reduce((max, row) => Math.max(max, row.length), 0);
+  if (rowCount === 0 || columnCount === 0) return false;
+  if (range.endRow - range.startRow + 1 !== rowCount || range.endCol - range.startCol + 1 !== columnCount) {
+    return false;
+  }
+
+  for (let rowOffset = 0; rowOffset < rowCount; rowOffset += 1) {
+    for (let colOffset = 0; colOffset < columnCount; colOffset += 1) {
+      const expected = needle[rowOffset]?.[colOffset] ?? '';
+      const actual = sheet.cellAt(range.startRow + rowOffset, range.startCol + colOffset)?.text ?? '';
+      if (actual !== expected) return false;
+    }
+  }
+  return true;
+}
+
 export interface MatchContext {
   /** Title of the detected table that contains the match. */
   readonly title?: string;
