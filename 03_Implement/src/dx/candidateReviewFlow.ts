@@ -410,15 +410,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
   const observationStartedAtUtc = new Date().toISOString();
   const observationInitial = observationFile
     ? candidateReviewObservationSnapshot(
-        candidateReviewView(
-          inventory.items.map((item) => item.candidate),
-          ledger,
-          reviewDecisions,
-          ledgerPath,
-          reviewDecisionsPath,
-          sourcePath,
-          'all',
-        ),
+        initialView,
         facetFilter,
       )
     : undefined;
