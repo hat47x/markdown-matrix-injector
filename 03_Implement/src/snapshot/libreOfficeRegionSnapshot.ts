@@ -45,6 +45,7 @@ export type SnapshotDiagnosticCode =
   | 'MMI_SNAPSHOT_RANGE_INVALID'
   | 'MMI_SNAPSHOT_LIBREOFFICE_UNAVAILABLE'
   | 'MMI_SNAPSHOT_PDFTOPPM_UNAVAILABLE'
+  | 'MMI_SNAPSHOT_PDFINFO_UNAVAILABLE'
   | 'MMI_SNAPSHOT_PYUNO_UNAVAILABLE'
   | 'MMI_SNAPSHOT_RENDER_FAILED'
   | 'MMI_SNAPSHOT_SOURCE_CHANGED'
@@ -64,6 +65,7 @@ export class RegionSnapshotError extends Error {
 export interface RegionSnapshotRuntime {
   libreOfficeExecutable?: string;
   pdftoppmExecutable?: string;
+  pdfinfoExecutable?: string;
   pythonExecutable?: string;
   fcListExecutable?: string;
 }
@@ -75,6 +77,8 @@ export interface RegionSnapshotOptions extends RegionSnapshotRuntime {
   range: string;
   outDir: string;
   ledgerPath?: string;
+  /** Write the Markdown image reference relative to this document. */
+  fromDocument?: string;
   dpi?: number;
 }
 
@@ -104,6 +108,8 @@ export interface RegionSnapshotManifest {
     file: string;
     digest: string;
     bytes: number;
+    widthPx: number;
+    heightPx: number;
   };
   renderedAtUtc: string;
 }
@@ -114,6 +120,8 @@ export interface RegionSnapshotResult {
   pngFile: string;
   manifestFile: string;
   status: 'written' | 'unchanged';
+  reference: string;
+  markdown: string;
   ledger?: Ledger;
 }
 
@@ -185,6 +193,21 @@ export async function renderLibreOfficeRegionSnapshot(
       );
     }
 
+    const pdfInfo = await runCommand(
+      runtime.pdfinfoExecutable,
+      [pdfFile],
+      'MMI_SNAPSHOT_RENDER_FAILED',
+      'pdfinfo failed',
+      15_000,
+    );
+    const pageCount = parsePdfPageCount(pdfInfo.stdout);
+    if (pageCount !== 1) {
+      throw new RegionSnapshotError(
+        'MMI_SNAPSHOT_RENDER_FAILED',
+        `snapshot range rendered as ${pageCount} PDF pages; refusing to keep only the first page`,
+      );
+    }
+
     await runCommand(
       runtime.pdftoppmExecutable,
       ['-png', '-singlefile', '-r', String(dpi), pdfFile, pngBase],
@@ -209,6 +232,7 @@ export async function renderLibreOfficeRegionSnapshot(
     }
 
     const pngBytes = fs.readFileSync(tempPng);
+    const pngSize = readPngSize(pngBytes);
     const pngDigest = sha256(pngBytes);
     const fingerprintRepresentation = [
       'region-snapshot-png-v1',
@@ -285,7 +309,29 @@ export async function renderLibreOfficeRegionSnapshot(
       pngFile,
       pngDigest,
       pngBytes: pngBytes.byteLength,
+      pngWidth: pngSize.width,
+      pngHeight: pngSize.height,
     });
+
+    const documentDirectory = options.fromDocument
+      ? path.dirname(path.resolve(options.fromDocument))
+      : process.cwd();
+    const relativePng = path.relative(documentDirectory, pngFile).split(path.sep).join('/');
+    const reference = /\s/u.test(relativePng)
+      ? relativePng.replace(/ /gu, '%20')
+      : relativePng;
+    const altText = `${options.sheet} ${normalizedRange}`;
+    const markdown = [
+      `![${altText}](${reference})`,
+      snapshotProvenanceComment({
+        source: sourceLabel,
+        sourceDigest: sourceDigestBefore,
+        sheet: options.sheet,
+        range: normalizedRange,
+        artifactDigest: pngDigest,
+        renderer: runtime.id,
+      }),
+    ].join('\n');
 
     const ledger = options.ledgerPath
       ? recordEntries(options.ledgerPath, [
@@ -317,6 +363,8 @@ export async function renderLibreOfficeRegionSnapshot(
       pngFile,
       manifestFile,
       status,
+      reference,
+      markdown,
       ...(ledger ? { ledger } : {}),
     };
   } finally {
@@ -331,10 +379,12 @@ export async function probeSnapshotRuntime(
 ): Promise<RegionSnapshotRendererIdentity & {
   libreOfficeExecutable: string;
   pdftoppmExecutable: string;
+  pdfinfoExecutable: string;
   pythonExecutable: string;
 }> {
   const libreOfficeExecutable = runtime.libreOfficeExecutable ?? 'libreoffice';
   const pdftoppmExecutable = runtime.pdftoppmExecutable ?? 'pdftoppm';
+  const pdfinfoExecutable = runtime.pdfinfoExecutable ?? 'pdfinfo';
   const pythonExecutable = runtime.pythonExecutable
     ?? (fs.existsSync('/usr/bin/python3') ? '/usr/bin/python3' : 'python3');
   const fcListExecutable = runtime.fcListExecutable ?? 'fc-list';
@@ -351,6 +401,13 @@ export async function probeSnapshotRuntime(
     ['-v'],
     'MMI_SNAPSHOT_PDFTOPPM_UNAVAILABLE',
     'pdftoppm is unavailable',
+    15_000,
+  );
+  await runCommand(
+    pdfinfoExecutable,
+    ['-v'],
+    'MMI_SNAPSHOT_PDFINFO_UNAVAILABLE',
+    'pdfinfo is unavailable',
     15_000,
   );
   await runCommand(
@@ -383,6 +440,7 @@ export async function probeSnapshotRuntime(
     dpi,
     libreOfficeExecutable,
     pdftoppmExecutable,
+    pdfinfoExecutable,
     pythonExecutable,
   };
 }
@@ -518,6 +576,8 @@ function existingOrCreateManifest(options: {
   pngFile: string;
   pngDigest: string;
   pngBytes: number;
+  pngWidth: number;
+  pngHeight: number;
 }): RegionSnapshotManifest {
   if (fs.existsSync(options.manifestFile)) {
     const existing = JSON.parse(fs.readFileSync(options.manifestFile, 'utf8')) as RegionSnapshotManifest;
@@ -530,6 +590,8 @@ function existingOrCreateManifest(options: {
       && existing.artifact.file === path.basename(options.pngFile)
       && existing.artifact.digest === options.pngDigest
       && existing.artifact.bytes === options.pngBytes
+      && existing.artifact.widthPx === options.pngWidth
+      && existing.artifact.heightPx === options.pngHeight
       && existing.renderer.id === options.runtime.id
       && existing.renderer.implementationVersion === options.runtime.implementationVersion
       && existing.renderer.libreOfficeVersion === options.runtime.libreOfficeVersion
@@ -568,6 +630,8 @@ function existingOrCreateManifest(options: {
       file: path.basename(options.pngFile),
       digest: options.pngDigest,
       bytes: options.pngBytes,
+      widthPx: options.pngWidth,
+      heightPx: options.pngHeight,
     },
     renderedAtUtc: new Date().toISOString(),
   };
@@ -600,6 +664,55 @@ function firstNonEmptyLine(...values: string[]): string {
     if (line) return line;
   }
   return 'unknown';
+}
+
+function parsePdfPageCount(text: string): number {
+  const match = /^Pages:\s+(\d+)\s*$/mu.exec(text);
+  const pages = match ? Number(match[1]) : Number.NaN;
+  if (!Number.isInteger(pages) || pages < 1) {
+    throw new RegionSnapshotError(
+      'MMI_SNAPSHOT_RENDER_FAILED',
+      'pdfinfo did not report a valid page count',
+    );
+  }
+  return pages;
+}
+
+function readPngSize(bytes: Buffer): { width: number; height: number } {
+  if (
+    bytes.byteLength < 24
+    || !bytes.subarray(0, 8).equals(Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]))
+  ) {
+    throw new RegionSnapshotError(
+      'MMI_SNAPSHOT_RENDER_FAILED',
+      'snapshot rasterizer output is not a PNG',
+    );
+  }
+  const width = bytes.readUInt32BE(16);
+  const height = bytes.readUInt32BE(20);
+  if (width < 1 || height < 1) {
+    throw new RegionSnapshotError(
+      'MMI_SNAPSHOT_RENDER_FAILED',
+      'snapshot PNG has invalid dimensions',
+    );
+  }
+  return { width, height };
+}
+
+function snapshotProvenanceComment(options: {
+  source: string;
+  sourceDigest: string;
+  sheet: string;
+  range: string;
+  artifactDigest: string;
+  renderer: string;
+}): string {
+  const clean = (value: string): string =>
+    value
+      .replace(/--/gu, '- -')
+      .replace(/"/gu, "'")
+      .replace(/[\r\n]+/gu, ' ');
+  return `<!-- mmi:region-snapshot source="${clean(options.source)}" sheet="${clean(options.sheet)}" range="${clean(options.range)}" source-sha256="${options.sourceDigest.slice(7)}" artifact-sha256="${options.artifactDigest.slice(7)}" renderer="${clean(options.renderer)}" -->`;
 }
 
 function sha256(bytes: Buffer): string {
