@@ -489,7 +489,6 @@ async function insertEmbedByContentMatch(): Promise<void> {
     loadResult.skippedFiles.length,
     searchResult.skippedSheets.length,
     searchResult.truncatedSheets.length,
-    0,
     loadResult.fileSelectionTruncated,
     loadResult.fileSelectionLimit,
     loadResult.cancelled,
@@ -563,13 +562,7 @@ async function loadWorkspaceWorkbooksForContentMatch(
     }
     const filepath = toRelativeSuggestion(markdownFilePath, uri.fsPath);
     try {
-      const before = await fs.stat(uri.fsPath);
       const workbook = loadWorkbook({ absolutePath: uri.fsPath });
-      const after = await fs.stat(uri.fsPath);
-      if (before.mtimeMs !== after.mtimeMs || before.size !== after.size) {
-        skippedFiles.push(filepath);
-        continue;
-      }
       workbooks.push({ filepath, sheets: workbook.sheets });
     } catch {
       skippedFiles.push(filepath);
@@ -588,7 +581,6 @@ function describeIncompleteContentMatchSearch(
   skippedFileCount: number,
   skippedSheetCount: number,
   truncatedSheetCount: number,
-  changedSourceCount: number,
   fileSelectionTruncated: boolean,
   fileSelectionLimit: number,
   cancelled: boolean,
@@ -597,7 +589,6 @@ function describeIncompleteContentMatchSearch(
     skippedFileCount > 0 ? `読めないブック ${skippedFileCount}件` : '',
     skippedSheetCount > 0 ? `索引上限を超えたシート ${skippedSheetCount}件` : '',
     truncatedSheetCount > 0 ? `候補上限に達したシート ${truncatedSheetCount}件` : '',
-    changedSourceCount > 0 ? `検索中に変更されたブック ${changedSourceCount}件` : '',
     fileSelectionTruncated ? `探索対象ブックが上限${fileSelectionLimit}件を超過` : '',
     cancelled ? '検索が中断されました' : '',
   ].filter(Boolean);
