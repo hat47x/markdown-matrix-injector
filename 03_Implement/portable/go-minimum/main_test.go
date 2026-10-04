@@ -158,6 +158,31 @@ func TestJSONTreeConformanceCase(t *testing.T) {
 	}
 }
 
+func TestJSONTreeUnicodeAndPointerConformanceCase(t *testing.T) {
+	actualResponse := runConformanceCase(
+		t,
+		"json-tree-unicode.case.json",
+	)
+	wantPaths := []string{
+		"",
+		"/a~1b",
+		"/a~1b/~0node",
+		"/😀",
+		"/�",
+	}
+	for index, want := range wantPaths {
+		actual := actualResponse.Candidates[index].Locator.StructuralPath
+		if actual == nil || *actual != want {
+			t.Fatalf(
+				"candidate %d structural path: got %v want %q",
+				index,
+				actual,
+				want,
+			)
+		}
+	}
+}
+
 func TestRejectsProviderDependentAndUnknownFields(t *testing.T) {
 	for _, input := range []string{
 		`{"schema":"mmi.portable-core-request/v1","operation":"inspect","source":{"name":"x.csv","label":"./x.csv","bytesBase64":""},"executionPolicy":{"allowProviderDependent":true}}`,

@@ -117,6 +117,10 @@ test('portable Core JSON Tree conformance case', () => {
   assertConformanceCase(readCase('json-tree.case.json'));
 });
 
+test('portable Core JSON Tree preserves JavaScript UTF-16 key order and JSON Pointer escaping', () => {
+  assertConformanceCase(readCase('json-tree-unicode.case.json'));
+});
+
 test('portable Core generic XML Tree conformance case', () => {
   assertConformanceCase(readCase('xml-tree.case.json'));
 });
