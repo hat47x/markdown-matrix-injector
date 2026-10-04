@@ -166,6 +166,49 @@ test('observation records review transitions and new imports without Candidate c
   assert.equal(serialized.includes('/workspace/'), false);
 });
 
+test('observation final summary stays on the initial review cohort', () => {
+  const initial = candidateReviewObservationSnapshot(
+    [
+      viewItem('1', 'unimported', 'unreviewed'),
+      viewItem('2', 'duplicate', 'unreviewed'),
+    ],
+    noFacets,
+  );
+  const final = candidateReviewObservationSnapshot(
+    [
+      viewItem('1', 'imported', 'accepted'),
+      viewItem('2', 'unimported', 'rejected'),
+      // This Candidate was outside the initial review queue and must not
+      // change the observation denominator merely because final state is read
+      // from the all-Candidate projection.
+      viewItem('3', 'imported', 'accepted'),
+    ],
+    noFacets,
+  );
+
+  const observation = createCandidateReviewObservation({
+    sourceLabel: 'design.xlsx',
+    sourceDigest,
+    startedAtUtc: '2026-10-04T01:00:00Z',
+    endedAtUtc: '2026-10-04T01:00:10Z',
+    interruptedMarkdownEditing: false,
+    ledgerFilter: 'unimported',
+    facetFilter: noFacets,
+    selectedCount: 2,
+    initial,
+    final,
+  });
+
+  assert.equal(observation.initial.total, 2);
+  assert.equal(observation.final.total, 2);
+  assert.equal(observation.final.reviewStates.accepted, 1);
+  assert.equal(observation.final.reviewStates.rejected, 1);
+  assert.equal(observation.final.ledgerStates.imported, 1);
+  assert.equal(observation.transitions.toAccepted, 1);
+  assert.equal(observation.transitions.toRejected, 1);
+  assert.equal(observation.transitions.newlyImported, 1);
+});
+
 test('observation preserves selected facets but does not invent omitted ones', () => {
   const facets: CandidateReviewFacetFilter = {
     kinds: ['table-range'],
