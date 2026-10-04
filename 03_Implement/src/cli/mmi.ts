@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseArgs } from 'node:util';
+import { parseArgs, TextDecoder } from 'node:util';
 import XLSX from 'xlsx';
 import { WorkbookCache } from '../cache/workbookCache.js';
 import { checkDetachedDocument } from '../application/detachCheck.js';
@@ -15,6 +15,11 @@ import { checkExtractedProvenanceFreshness } from '../application/detachFreshnes
 import { materializeDocument } from '../application/materialize.js';
 import { runPortableCoreRequest } from '../application/portableCoreProtocol.js';
 import { imageCandidates, readExcelImages, relationToTables, type ImageDiagnostic, type TableRect } from '../adapters/excelImageAdapter.js';
+import {
+  DEFAULT_FLAT_TEXT_TREE_METHODS,
+  readFlatTextTree,
+  type FlatTextTreeMethod,
+} from '../adapters/flatTextTreeStructuralizer.js';
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
 import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
@@ -68,7 +73,11 @@ import { buildDeliveryManifestCsv } from '../manifest/collectDeliveryManifest.js
 import { detectTableRegions, regionReference } from '../importAssist/tableRegions.js';
 import { runFind, runSelect } from './navigateCommands.js';
 import { extractImages, extractTable, formatImageDiagnostics } from './extract.js';
-import { extractJsonTree, extractXmlTree } from './extractTree.js';
+import {
+  extractFlatTextTree,
+  extractJsonTree,
+  extractXmlTree,
+} from './extractTree.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './render.js';
 
 export const SEMANTIC_CANDIDATE_SCHEMA_NAME =
@@ -84,7 +93,7 @@ Commands:
   core <request.json|->     Execute one mmi.portable-core-request/v1 and emit JSON.
                             Use - to read the request from stdin; source bytes are embedded in the request.
                             This boundary performs no source-file discovery or VS Code access.
-  inspect <source>          List workbook/CSV table regions or explicit JSON/XML tree structure.
+  inspect <source>          List workbook/CSV regions or JSON/XML/flat-text Tree structure.
                             --json adds Semantic Candidates with status, method, provenance and fingerprint
       --values <n>            also print the first n body rows of each region
       --from <doc.md>         write suggested references relative to this document
@@ -92,15 +101,20 @@ Commands:
       --ledger <file>         import ledger (default: <root>/mmi-ledger.json when ledger filtering is used)
       --similarity-evidence <file>
                               optional research similarity sidecar; display only, never import identity
+      --tree-method <list>    flat-text only: comma-separated indent,heading-number,prefix-code
+                              (default: all three methods, kept as separate hypotheses)
       --unimported            show only occurrences never imported (duplicates remain separate)
       --exclude-imported      hide exact imported occurrences; keep changed/stale/duplicate/unimported
                             For .xlsx/.xlsm it also lists embedded pictures (sheet, anchor, format, size,
                             digest, nearest table) and names any that cannot be read.
-                            For .json it lists object/array nodes by RFC 6901 JSON Pointer.\n                            Generic .xml lists explicit element nodes; XML Spreadsheet 2003 remains a table source.
+                            For .json it lists object/array nodes by RFC 6901 JSON Pointer.
+                            Generic .xml lists explicit element nodes; XML Spreadsheet 2003 remains a table source.
+                            .txt/.text/.log use deterministic M1 hierarchy hypotheses; conflicting methods are not merged.
   extract <source>          Extract one reviewed Candidate as a standard asset without modifying the source
       --image <n|all>         workbook picture number shown by inspect, or all
       --table <range>         exact detected table Candidate range (requires --sheet)
-      --tree <path|root>      exact JSON/XML Tree Candidate structural path shown by inspect; root means document root
+      --tree <path|root>      exact JSON/XML/flat-text Tree Candidate structural path shown by inspect;
+                              root means the JSON/XML document root
       --sheet <name>          sheet for --table
                             Exactly one of --image, --table or --tree is required
       --out-dir <dir>         assets folder (default: assets); files are content-addressed
@@ -190,6 +204,7 @@ export async function main(argv: string[]): Promise<number> {
       from: { type: 'string' },
       image: { type: 'string' },
       tree: { type: 'string' },
+      'tree-method': { type: 'string' },
       'out-dir': { type: 'string' },
       draft: { type: 'string' },
       'copy-source': { type: 'string' },
@@ -273,7 +288,22 @@ export async function main(argv: string[]): Promise<number> {
         return usageError('inspect accepts only one of --unimported or --exclude-imported');
       }
       const absoluteSource = path.resolve(args[0]);
-      const raw = inspectSource(absoluteSource, Number(values.values) || 0, values.from);
+      let flatTextMethods: readonly FlatTextTreeMethod[] | undefined;
+      try {
+        flatTextMethods = values['tree-method']
+          ? parseFlatTextTreeMethods(values['tree-method'])
+          : undefined;
+      } catch (error) {
+        return usageError(
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+      const raw = inspectSource(
+        absoluteSource,
+        Number(values.values) || 0,
+        values.from,
+        flatTextMethods,
+      );
       if (values['import-assist']) {
         if (raw.trees !== undefined) {
           return usageError(
@@ -330,13 +360,21 @@ export async function main(argv: string[]): Promise<number> {
               fromDocument: values.from,
               ledgerPath,
             })
-          : extractJsonTree({
-              sourcePath,
-              pointer,
-              outDir,
-              fromDocument: values.from,
-              ledgerPath,
-            });
+          : /\.(txt|text|log)$/iu.test(sourcePath)
+            ? extractFlatTextTree({
+                sourcePath,
+                pointer,
+                outDir,
+                fromDocument: values.from,
+                ledgerPath,
+              })
+            : extractJsonTree({
+                sourcePath,
+                pointer,
+                outDir,
+                fromDocument: values.from,
+                ledgerPath,
+              });
         if (values.json) emit(JSON.stringify(result, null, 2));
         else if (result.extracted) emit(result.extracted.markdown);
         for (const problem of result.problems) {
@@ -745,6 +783,33 @@ function formatAiHandoffProposalValidation(
   ].join('\n');
 }
 
+function parseFlatTextTreeMethods(
+  value: string,
+): readonly FlatTextTreeMethod[] {
+  const methods = value
+    .split(',')
+    .map((item) => item.trim())
+    .filter(Boolean);
+  if (methods.length === 0) {
+    throw new Error('--tree-method needs at least one method');
+  }
+  const allowed = new Set<FlatTextTreeMethod>(
+    DEFAULT_FLAT_TEXT_TREE_METHODS,
+  );
+  const unique: FlatTextTreeMethod[] = [];
+  for (const method of methods) {
+    if (!allowed.has(method as FlatTextTreeMethod)) {
+      throw new Error(
+        `--tree-method supports: ${DEFAULT_FLAT_TEXT_TREE_METHODS.join(',')}`,
+      );
+    }
+    if (!unique.includes(method as FlatTextTreeMethod)) {
+      unique.push(method as FlatTextTreeMethod);
+    }
+  }
+  return unique;
+}
+
 function portableDisplayPath(target: string): string {
   return path.relative(process.cwd(), target).split(path.sep).join('/')
     || path.basename(target);
@@ -769,10 +834,19 @@ export interface InspectRegion {
 export interface InspectTree {
   /** Format-native structural path. JSON uses RFC 6901; XML uses element paths. */
   pointer: string;
-  format?: 'json' | 'xml';
-  nodeType: 'object' | 'array' | 'element';
+  format?: 'json' | 'xml' | 'text';
+  nodeType: 'object' | 'array' | 'element' | 'text-node';
   childPointers: readonly string[];
   leafValues: readonly string[];
+  method?: FlatTextTreeMethod;
+  status?: 'inferred' | 'abstained';
+}
+
+export interface InspectTreeHypothesis {
+  method: FlatTextTreeMethod;
+  status: 'inferred' | 'abstained';
+  reasonCode: string;
+  nodeCount: number;
 }
 
 export interface InspectResult {
@@ -780,8 +854,12 @@ export interface InspectResult {
   /** Public machine-readable contract used by every item in candidates. */
   candidateContract: typeof SEMANTIC_CANDIDATE_CONTRACT;
   sheets: { name: string; usedRange?: string; regions: InspectRegion[] }[];
-  /** Explicit JSON/XML hierarchy nodes; absent for non-Tree sources. */
+  /** Explicit or inferred hierarchy nodes; absent for non-Tree sources. */
   trees?: InspectTree[];
+  /** Flat-text rule hypotheses stay separate instead of being auto-merged. */
+  treeHypotheses?: InspectTreeHypothesis[];
+  /** True when successful flat-text methods imply different edge sets. */
+  treeAmbiguous?: boolean;
   /** The same structure as Semantic Candidates (issue-0193). */
   candidates: Candidate[];
   /** Embedded pictures of an .xlsx/.xlsm (empty for other sources). */
@@ -832,7 +910,12 @@ export interface InspectImage {
   nearbyTable?: { range: string; relation: string; gap: number };
 }
 
-export function inspectSource(absolutePath: string, sampleRows: number, fromDocument?: string): InspectResult {
+export function inspectSource(
+  absolutePath: string,
+  sampleRows: number,
+  fromDocument?: string,
+  flatTextMethods: readonly FlatTextTreeMethod[] = DEFAULT_FLAT_TEXT_TREE_METHODS,
+): InspectResult {
   const base = fromDocument ? path.dirname(path.resolve(fromDocument)) : process.cwd();
   let relative = path.relative(base, absolutePath).split(path.sep).join('/');
   if (!relative.startsWith('.')) relative = `./${relative}`;
@@ -890,6 +973,51 @@ export function inspectSource(absolutePath: string, sampleRows: number, fromDocu
         sheets: [],
       };
     }
+  }
+
+  if (/\.(txt|text|log)$/iu.test(absolutePath)) {
+    const sourceBytes = fs.readFileSync(absolutePath);
+    const sourceDigest =
+      createSourceIdentityFromBytes(sourceBytes).digest;
+    let sourceText: string;
+    try {
+      sourceText = new TextDecoder('utf-8', { fatal: true }).decode(sourceBytes);
+    } catch {
+      throw new Error('flat-text Tree sources must be valid UTF-8');
+    }
+    const tree = readFlatTextTree(
+      sourceText,
+      relative,
+      sourceDigest,
+      { methods: flatTextMethods },
+    );
+    return {
+      source: relative,
+      candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
+      candidates: [...tree.candidates],
+      trees: tree.hypotheses.flatMap((hypothesis) =>
+        hypothesis.nodes.map((node) => ({
+          pointer: node.structuralPath,
+          format: 'text' as const,
+          nodeType: 'text-node' as const,
+          childPointers: node.childLines.map(
+            (line) => `text:${hypothesis.method}:line:${line}`,
+          ),
+          leafValues: [node.label],
+          method: hypothesis.method,
+          status: hypothesis.status,
+        }))),
+      treeHypotheses: tree.hypotheses.map((hypothesis) => ({
+        method: hypothesis.method,
+        status: hypothesis.status,
+        reasonCode: hypothesis.reasonCode,
+        nodeCount: hypothesis.nodes.length,
+      })),
+      treeAmbiguous: tree.ambiguous,
+      images: [],
+      imageDiagnostics: [],
+      sheets: [],
+    };
   }
 
   const sourceDigest = readSourceFileIdentity(absolutePath).digest;
@@ -1045,12 +1173,25 @@ function formatInspect(result: InspectResult): string {
       lines.push(`  ${item.sheet}!${item.range}  role: ${item.role}${proposal}${cautions}`);
     }
   }
+  if (result.treeHypotheses?.length) {
+    lines.push(
+      '',
+      `tree hypotheses:${result.treeAmbiguous
+        ? ' conflicting structures; review required'
+        : ''}`,
+    );
+    for (const hypothesis of result.treeHypotheses) {
+      lines.push(
+        `  ${hypothesis.method}: ${hypothesis.status} (${hypothesis.reasonCode}, ${hypothesis.nodeCount} nodes)`,
+      );
+    }
+  }
   if (result.trees?.length) {
     lines.push('', 'tree nodes:');
     for (const tree of result.trees) {
       const pointer = tree.pointer || '(root)';
       lines.push(
-        `  ${pointer}  ${tree.nodeType}  ${tree.childPointers.length} children${ledgerSuffix('tree', '', `path:${tree.pointer}`)}`,
+        `  ${pointer}  ${tree.nodeType}${tree.method ? `  method: ${tree.method}` : ''}  ${tree.childPointers.length} children${ledgerSuffix('tree', '', `path:${tree.pointer}`)}`,
       );
     }
   }
