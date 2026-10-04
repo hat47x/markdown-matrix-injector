@@ -1,9 +1,9 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { TextDecoder } from 'node:util';
 
 import {
+  decodeFlatTextUtf8,
   readFlatTextTree,
   type FlatTextTreeMethod,
   type FlatTextTreeNode,
@@ -328,11 +328,11 @@ export function extractFlatTextTree(
   const sourceBytes = fs.readFileSync(options.sourcePath);
   let sourceText: string;
   try {
-    sourceText = new TextDecoder('utf-8', { fatal: true }).decode(sourceBytes);
-  } catch {
+    sourceText = decodeFlatTextUtf8(sourceBytes);
+  } catch (error) {
     result.problems.push({
       code: 'MMI_TREE_TEXT_INVALID_UTF8',
-      message: 'flat-text Tree sources must be valid UTF-8',
+      message: error instanceof Error ? error.message : String(error),
     });
     return result;
   }
