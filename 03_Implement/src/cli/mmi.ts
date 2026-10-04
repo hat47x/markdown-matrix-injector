@@ -24,6 +24,10 @@ import {
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
 import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
+import {
+  readTabularHierarchy,
+  type TabularHierarchyConfig,
+} from '../adapters/tabularHierarchyAdapter.js';
 import type { Candidate, ProviderScore } from '../core/candidate.js';
 import {
   SEMANTIC_CANDIDATE_CONTRACT,
@@ -104,6 +108,10 @@ Commands:
                               optional research similarity sidecar; display only, never import identity
       --tree-method <list>    flat-text only: comma-separated indent,heading-number,prefix-code
                               (default: all three methods, kept as separate hypotheses)
+      --tree-parent-columns <list>
+                              workbook/CSV only: exact header names ID,Parent[,Label]
+      --tree-level-columns <list>
+                              workbook/CSV only: exact header names Level,Label
       --unimported            show only occurrences never imported (duplicates remain separate)
       --exclude-imported      hide exact imported occurrences; keep changed/stale/duplicate/unimported
                             For .xlsx/.xlsm it also lists embedded pictures (sheet, anchor, format, size,
@@ -206,6 +214,8 @@ export async function main(argv: string[]): Promise<number> {
       image: { type: 'string' },
       tree: { type: 'string' },
       'tree-method': { type: 'string' },
+      'tree-parent-columns': { type: 'string' },
+      'tree-level-columns': { type: 'string' },
       'out-dir': { type: 'string' },
       draft: { type: 'string' },
       'copy-source': { type: 'string' },
@@ -297,11 +307,24 @@ export async function main(argv: string[]): Promise<number> {
           '--tree-method applies only to .txt, .text or .log sources',
         );
       }
+      if (
+        (values['tree-parent-columns'] || values['tree-level-columns'])
+        && !/\.(xlsx|xlsm|xls|csv)$/iu.test(absoluteSource)
+      ) {
+        return usageError(
+          '--tree-parent-columns/--tree-level-columns apply only to workbook or CSV sources',
+        );
+      }
       let flatTextMethods: readonly FlatTextTreeMethod[] | undefined;
+      let tabularHierarchy: TabularHierarchyConfig | undefined;
       try {
         flatTextMethods = values['tree-method']
           ? parseFlatTextTreeMethods(values['tree-method'])
           : undefined;
+        tabularHierarchy = parseTabularHierarchyConfig(
+          values['tree-parent-columns'],
+          values['tree-level-columns'],
+        );
       } catch (error) {
         return usageError(
           error instanceof Error ? error.message : String(error),
@@ -312,6 +335,7 @@ export async function main(argv: string[]): Promise<number> {
         Number(values.values) || 0,
         values.from,
         flatTextMethods,
+        tabularHierarchy,
       );
       if (values['import-assist']) {
         if (raw.trees !== undefined) {
@@ -792,6 +816,49 @@ function formatAiHandoffProposalValidation(
   ].join('\n');
 }
 
+function parseTabularHierarchyConfig(
+  parentColumns: string | undefined,
+  levelColumns: string | undefined,
+): TabularHierarchyConfig | undefined {
+  if (parentColumns && levelColumns) {
+    throw new Error(
+      '--tree-parent-columns and --tree-level-columns are mutually exclusive',
+    );
+  }
+  if (parentColumns) {
+    const columns = parentColumns
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+    if (columns.length < 2 || columns.length > 3) {
+      throw new Error(
+        '--tree-parent-columns needs ID,Parent or ID,Parent,Label',
+      );
+    }
+    return {
+      mode: 'parent-id',
+      idHeader: columns[0],
+      parentHeader: columns[1],
+      ...(columns[2] ? { labelHeader: columns[2] } : {}),
+    };
+  }
+  if (levelColumns) {
+    const columns = levelColumns
+      .split(',')
+      .map((item) => item.trim())
+      .filter(Boolean);
+    if (columns.length !== 2) {
+      throw new Error('--tree-level-columns needs Level,Label');
+    }
+    return {
+      mode: 'level',
+      levelHeader: columns[0],
+      labelHeader: columns[1],
+    };
+  }
+  return undefined;
+}
+
 function parseFlatTextTreeMethods(
   value: string,
 ): readonly FlatTextTreeMethod[] {
@@ -847,15 +914,17 @@ export interface InspectTree {
   nodeType: 'object' | 'array' | 'element' | 'text-node';
   childPointers: readonly string[];
   leafValues: readonly string[];
-  method?: FlatTextTreeMethod;
+  sheet?: string;
+  method?: FlatTextTreeMethod | TabularHierarchyConfig['mode'];
   status?: 'inferred' | 'abstained';
 }
 
 export interface InspectTreeHypothesis {
-  method: FlatTextTreeMethod;
+  method: FlatTextTreeMethod | TabularHierarchyConfig['mode'];
   status: 'inferred' | 'abstained';
   reasonCode: string;
   nodeCount: number;
+  sheet?: string;
 }
 
 export interface InspectResult {
@@ -924,6 +993,7 @@ export function inspectSource(
   sampleRows: number,
   fromDocument?: string,
   flatTextMethods: readonly FlatTextTreeMethod[] = DEFAULT_FLAT_TEXT_TREE_METHODS,
+  tabularHierarchy?: TabularHierarchyConfig,
 ): InspectResult {
   const base = fromDocument ? path.dirname(path.resolve(fromDocument)) : process.cwd();
   let relative = path.relative(base, absolutePath).split(path.sep).join('/');
@@ -1036,6 +1106,19 @@ export function inspectSource(
           : [],
       };
   const detected = Object.entries(workbook.sheets).map(([name, sheet]) => ({ name, sheet, regions: detectTableRegions(name, sheet, { maxValueSample: 0 }) }));
+  const tabularHierarchies = tabularHierarchy
+    ? Object.entries(workbook.sheets).map(([sheetName, sheet]) => ({
+        sheetName,
+        result: readTabularHierarchy({
+          source: relative,
+          sourceDigest,
+          sheetName,
+          sheet,
+          config: tabularHierarchy,
+        }),
+      }))
+    : [];
+
   const tablesBySheet: Record<string, TableRect[]> = Object.fromEntries(
     detected.map(({ name, regions }) => [name, regions.map((r) => ({ a1: r.a1, startRow: r.range.startRow, startCol: r.range.startCol, endRow: r.range.endRow, endCol: r.range.endCol }))]),
   );
@@ -1045,7 +1128,34 @@ export function inspectSource(
     candidates: [
       ...Object.entries(workbook.sheets).flatMap(([sheetName, sheet]) => tableCandidates({ source: relative, sourceDigest, sheetName, sheet })),
       ...imageCandidates({ source: relative, sourceDigest, images: imageRead.images, tablesBySheet }),
+      ...tabularHierarchies.flatMap(({ result }) => result.candidates),
     ],
+    ...(tabularHierarchy
+      ? {
+          trees: tabularHierarchies.flatMap(({ sheetName, result }) =>
+            result.nodes.map((node) => ({
+              pointer: node.structuralPath,
+              format: 'table' as const,
+              nodeType: 'row' as const,
+              sheet: sheetName,
+              childPointers: node.childKeys.map(
+                (key) =>
+                  `table-hierarchy:${tabularHierarchy.mode}:id:${encodeURIComponent(key)}`,
+              ),
+              leafValues: [node.label],
+              method: tabularHierarchy.mode,
+              status: result.status,
+            }))),
+          treeHypotheses: tabularHierarchies.map(({ sheetName, result }) => ({
+            method: tabularHierarchy.mode,
+            status: result.status,
+            reasonCode: result.reasonCode,
+            nodeCount: result.nodes.length,
+            sheet: sheetName,
+          })),
+          treeAmbiguous: false,
+        }
+      : {}),
     images: imageRead.images.map((image) => {
       const near = relationToTables(image, tablesBySheet[image.sheet] ?? []);
       return {
@@ -1121,7 +1231,9 @@ function applyLedgerView(
     ...(result.trees
       ? {
           trees: result.trees.filter((tree) =>
-            allowed.has(`tree\u0000\u0000path:${tree.pointer}`)),
+            allowed.has(
+              `tree\u0000${tree.sheet ?? ''}\u0000path:${tree.pointer}`,
+            )),
         }
       : {}),
     sheets: result.sheets.map((sheet) => ({
@@ -1195,7 +1307,7 @@ function formatInspect(result: InspectResult): string {
     for (const tree of result.trees) {
       const pointer = tree.pointer || '(root)';
       lines.push(
-        `  ${pointer}  ${tree.nodeType}${tree.method ? `  method: ${tree.method}` : ''}  ${tree.childPointers.length} children${ledgerSuffix('tree', '', `path:${tree.pointer}`)}`,
+        `  ${pointer}${tree.sheet ? `  sheet: ${tree.sheet}` : ''}  ${tree.nodeType}${tree.method ? `  method: ${tree.method}` : ''}  ${tree.childPointers.length} children${ledgerSuffix('tree', tree.sheet ?? '', `path:${tree.pointer}`)}`,
       );
     }
   }
