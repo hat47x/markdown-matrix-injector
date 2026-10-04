@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { prioritizeWorkbookFiles, selectContainedWorkbookFiles } from '../src/dx/workbookCandidateOrder.js';
+import { prioritizeWorkbookFiles, selectContainedWorkbookFiles, selectContainedWorkbookFilesDetailed } from '../src/dx/workbookCandidateOrder.js';
 
 const candidate = (fsPath: string) => ({ fsPath, marker: fsPath });
 
@@ -108,7 +108,7 @@ test('selectContainedWorkbookFiles rejects a symlink that resolves outside the w
   assert.deepEqual(selected.map((item) => item.fsPath), [inside]);
 });
 
-test('selectContainedWorkbookFiles applies the file limit after containment checks', () => {
+test('selectContainedWorkbookFilesDetailed applies the file limit after containment and reports truncation', () => {
   const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-workbook-limit-'));
   const root = path.join(temp, 'work');
   const sibling = path.join(temp, 'work-old');
@@ -122,13 +122,38 @@ test('selectContainedWorkbookFiles applies the file limit after containment chec
   fs.writeFileSync(insideB, '');
   fs.writeFileSync(outside, '');
 
-  const selected = selectContainedWorkbookFiles(
+  const result = selectContainedWorkbookFilesDetailed(
     path.join(root, 'spec.md'),
     root,
     [candidate(outside), candidate(insideB), candidate(insideA)],
     1,
   );
 
-  assert.equal(selected.length, 1);
-  assert.equal(selected[0].fsPath, insideA);
+  assert.deepEqual(result.files.map((item) => item.fsPath), [insideA]);
+  assert.equal(result.truncated, true);
+  assert.equal(result.limit, 1);
+});
+
+test('selectContainedWorkbookFilesDetailed does not call an exactly-full file set truncated', () => {
+  const temp = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-workbook-exact-limit-'));
+  const root = path.join(temp, 'work');
+  const sibling = path.join(temp, 'work-old');
+  fs.mkdirSync(root, { recursive: true });
+  fs.mkdirSync(sibling, { recursive: true });
+
+  const inside = path.join(root, 'inside.xlsx');
+  const outside = path.join(sibling, 'outside.xlsx');
+  fs.writeFileSync(inside, '');
+  fs.writeFileSync(outside, '');
+
+  const result = selectContainedWorkbookFilesDetailed(
+    path.join(root, 'spec.md'),
+    root,
+    [candidate(outside), candidate(inside)],
+    1,
+  );
+
+  assert.deepEqual(result.files.map((item) => item.fsPath), [inside]);
+  assert.equal(result.truncated, false);
+  assert.equal(result.limit, 1);
 });

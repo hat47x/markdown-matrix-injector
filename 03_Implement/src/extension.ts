@@ -52,7 +52,7 @@ import {
 } from './dx/authoringFlow.js';
 import { readWorkbookCached } from './dx/sharedWorkbookCache.js';
 import { clearSearchIndexes, FIND_EMBED_COMMAND_ID, scriptedSearch, searchEmbedByDescription } from './dx/searchFlow.js';
-import { selectContainedWorkbookFiles } from './dx/workbookCandidateOrder.js';
+import { selectContainedWorkbookFilesDetailed } from './dx/workbookCandidateOrder.js';
 import { findUnknownProseIds, UNKNOWN_PROSE_ID_CODE } from './application/proseIdCheck.js';
 import { referencedSheets, unknownIdMessage } from './application/referencedSheets.js';
 import { applyDiagnosticPolicy, AUTHORING_DEBOUNCE_MS, type DiagnosticPhase, type WhileTyping } from './dx/diagnosticPolicy.js';
@@ -487,6 +487,8 @@ async function insertEmbedByContentMatch(): Promise<void> {
     loadResult.skippedFiles.length,
     searchResult.skippedSheets.length,
     searchResult.truncatedSheets.length,
+    loadResult.fileSelectionTruncated,
+    loadResult.fileSelectionLimit,
     loadResult.cancelled,
   );
 
@@ -520,6 +522,8 @@ async function insertEmbedByContentMatch(): Promise<void> {
 interface WorkspaceWorkbookLoadResult {
   readonly workbooks: readonly WorkbookSheetsSource[];
   readonly skippedFiles: readonly string[];
+  readonly fileSelectionTruncated: boolean;
+  readonly fileSelectionLimit: number;
   readonly cancelled: boolean;
 }
 
@@ -528,12 +532,13 @@ async function loadWorkspaceWorkbooksForContentMatch(
   workspaceRoot: string,
   token?: vscode.CancellationToken,
 ): Promise<WorkspaceWorkbookLoadResult> {
-  const uris = selectContainedWorkbookFiles(
+  const selection = selectContainedWorkbookFilesDetailed(
     markdownFilePath,
     workspaceRoot,
     await vscode.workspace.findFiles(WORKBOOK_FILE_GLOB, '**/{node_modules,dist}/**'),
     MAX_CONTENT_MATCH_WORKSPACE_FILES,
   );
+  const uris = selection.files;
 
   const workbooks: WorkbookSheetsSource[] = [];
   const skippedFiles: string[] = [];
@@ -551,19 +556,28 @@ async function loadWorkspaceWorkbooksForContentMatch(
       skippedFiles.push(filepath);
     }
   }
-  return { workbooks, skippedFiles, cancelled };
+  return {
+    workbooks,
+    skippedFiles,
+    fileSelectionTruncated: selection.truncated,
+    fileSelectionLimit: selection.limit,
+    cancelled,
+  };
 }
 
 function describeIncompleteContentMatchSearch(
   skippedFileCount: number,
   skippedSheetCount: number,
   truncatedSheetCount: number,
+  fileSelectionTruncated: boolean,
+  fileSelectionLimit: number,
   cancelled: boolean,
 ): string {
   const parts = [
     skippedFileCount > 0 ? `読めないブック ${skippedFileCount}件` : '',
     skippedSheetCount > 0 ? `索引上限を超えたシート ${skippedSheetCount}件` : '',
     truncatedSheetCount > 0 ? `候補上限に達したシート ${truncatedSheetCount}件` : '',
+    fileSelectionTruncated ? `探索対象ブックが上限${fileSelectionLimit}件を超過` : '',
     cancelled ? '検索が中断されました' : '',
   ].filter(Boolean);
   return parts.length > 0 ? `検索は完全ではありません（${parts.join('、')}）。` : '';
@@ -625,6 +639,8 @@ async function getContentMatchPasteEdits(
     loadResult.skippedFiles.length,
     searchResult.skippedSheets.length,
     searchResult.truncatedSheets.length,
+    loadResult.fileSelectionTruncated,
+    loadResult.fileSelectionLimit,
     false,
   );
   if (matches.length === 0 && incomplete) {
