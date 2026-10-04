@@ -1,7 +1,13 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
+import { TextDecoder } from 'node:util';
 
+import {
+  readFlatTextTree,
+  type FlatTextTreeMethod,
+  type FlatTextTreeNode,
+} from '../adapters/flatTextTreeStructuralizer.js';
 import {
   canonicalJsonValue,
   decodeJsonPointer,
@@ -22,7 +28,7 @@ import {
 
 export interface ExtractTreeOptions {
   sourcePath: string;
-  /** RFC 6901 JSON Pointer. The document root is the empty string. */
+  /** Format-native structural path. JSON root is empty; flat text uses text:<method>:line:<n>. */
   pointer: string;
   outDir: string;
   fromDocument?: string;
@@ -118,7 +124,10 @@ function provenanceComment(
   pointer: string,
   sourceDigest: string,
   candidateFingerprint: string,
-  projection: 'json-nested-list-v1' | 'xml-nested-list-v1',
+  projection:
+    | 'json-nested-list-v1'
+    | 'xml-nested-list-v1'
+    | 'flat-text-nested-list-v1',
 ): string {
   return `<!-- mmi:extracted-tree source="${provenanceValue(source)}" path="${provenanceValue(pointer)}" source-sha256="${sourceDigest.slice(7)}" candidate-sha256="${candidateFingerprint.slice(7)}" projection="${projection}" -->`;
 }
@@ -252,6 +261,208 @@ export function extractJsonTree(
         'mmi extract --tree',
         {
           mode: 'json-nested-list-v1',
+          pointer: options.pointer,
+        },
+      ),
+    ]);
+  }
+
+  return result;
+}
+
+
+function parseFlatTextTreePath(
+  pointer: string,
+): { method: FlatTextTreeMethod; line: number } | undefined {
+  const match = pointer.match(
+    /^text:(indent|heading-number|prefix-code):line:([1-9][0-9]*)$/u,
+  );
+  if (!match) return undefined;
+  return {
+    method: match[1] as FlatTextTreeMethod,
+    line: Number(match[2]),
+  };
+}
+
+function renderFlatTextNestedList(
+  nodes: readonly FlatTextTreeNode[],
+  rootLine: number,
+  depth = 0,
+): string[] {
+  const byLine = new Map(nodes.map((node) => [node.line, node]));
+  const node = byLine.get(rootLine);
+  if (!node) return [];
+  const lines = [
+    `${'  '.repeat(depth)}- ${escapeMarkdownInline(node.label)}`,
+  ];
+  for (const childLine of node.childLines) {
+    lines.push(
+      ...renderFlatTextNestedList(nodes, childLine, depth + 1),
+    );
+  }
+  return lines;
+}
+
+export function extractFlatTextTree(
+  options: ExtractTreeOptions,
+): ExtractTreeResult {
+  const result: ExtractTreeResult = { problems: [] };
+  if (!/\.(txt|text|log)$/iu.test(options.sourcePath)) {
+    result.problems.push({
+      code: 'MMI_TREE_SOURCE_UNSUPPORTED',
+      message: 'flat-text Tree extraction requires a .txt, .text or .log source',
+    });
+    return result;
+  }
+
+  const parsedPath = parseFlatTextTreePath(options.pointer);
+  if (!parsedPath) {
+    result.problems.push({
+      code: 'MMI_TREE_CANDIDATE_NOT_FOUND',
+      message:
+        'flat-text Tree extraction needs an exact path shown by inspect, such as text:indent:line:2',
+    });
+    return result;
+  }
+
+  const sourceBytes = fs.readFileSync(options.sourcePath);
+  let sourceText: string;
+  try {
+    sourceText = new TextDecoder('utf-8', { fatal: true }).decode(sourceBytes);
+  } catch {
+    result.problems.push({
+      code: 'MMI_TREE_TEXT_INVALID_UTF8',
+      message: 'flat-text Tree sources must be valid UTF-8',
+    });
+    return result;
+  }
+
+  const sourceDigest = sha256(sourceBytes);
+  const documentDirectory = path.dirname(
+    path.resolve(
+      options.fromDocument ?? path.join(process.cwd(), 'x.md'),
+    ),
+  );
+  const source = options.sourceLabel
+    ?? (
+      path.relative(documentDirectory, options.sourcePath)
+        .split(path.sep)
+        .join('/')
+      || path.basename(options.sourcePath)
+    );
+
+  let tree;
+  try {
+    tree = readFlatTextTree(
+      sourceText,
+      source,
+      sourceDigest,
+      { methods: [parsedPath.method] },
+    );
+  } catch (error) {
+    result.problems.push({
+      code: 'MMI_TREE_TEXT_INVALID',
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return result;
+  }
+
+  const hypothesis = tree.hypotheses.find(
+    (item) => item.method === parsedPath.method,
+  );
+  const node = hypothesis?.nodes.find(
+    (item) => item.structuralPath === options.pointer,
+  );
+  if (!hypothesis || hypothesis.status !== 'inferred' || !node) {
+    result.problems.push({
+      code: 'MMI_TREE_CANDIDATE_NOT_FOUND',
+      message:
+        `no inferred flat-text Tree Candidate at ${options.pointer}; rerun \`mmi inspect\` and review the current hierarchy hypothesis`,
+    });
+    return result;
+  }
+
+  const candidate = node.candidate;
+  if (
+    options.expectedCandidateFingerprint
+    && candidate.fingerprint.digest
+      !== options.expectedCandidateFingerprint
+  ) {
+    result.problems.push({
+      code: 'MMI_TREE_CANDIDATE_CHANGED',
+      message:
+        `Tree Candidate at ${options.pointer} changed after review; review the current Candidate before extraction`,
+    });
+    return result;
+  }
+
+  const nested = renderFlatTextNestedList(
+    hypothesis.nodes,
+    node.line,
+  ).join('\n');
+  const assetText =
+    nested
+    + '\n\n'
+    + provenanceComment(
+      source,
+      options.pointer,
+      sourceDigest,
+      candidate.fingerprint.digest,
+      'flat-text-nested-list-v1',
+    )
+    + '\n';
+  const data = Buffer.from(assetText, 'utf8');
+  const digest = sha256(data);
+
+  fs.mkdirSync(options.outDir, { recursive: true });
+  const outDirectory = fs.realpathSync(options.outDir);
+  const sourceReal = fs.realpathSync(options.sourcePath);
+  const file = path.join(
+    outDirectory,
+    `tree-${digest.slice(7, 19)}.md`,
+  );
+  if (file === sourceReal) {
+    result.problems.push({
+      code: 'MMI_EXTRACT_TARGET_IS_SOURCE',
+      message: 'refusing to write over the source document',
+    });
+    return result;
+  }
+
+  let status: ExtractedTree['status'] = 'written';
+  if (fs.existsSync(file)) {
+    if (sha256(fs.readFileSync(file)) !== digest) {
+      result.problems.push({
+        code: 'MMI_EXTRACT_NAME_COLLISION',
+        message: `${file} exists with different content; it was not overwritten`,
+      });
+      return result;
+    }
+    status = 'unchanged';
+  } else {
+    fs.writeFileSync(file, data);
+  }
+
+  result.extracted = {
+    pointer: options.pointer,
+    digest,
+    candidateFingerprint: candidate.fingerprint.digest,
+    file,
+    status,
+    markdown: assetText.trimEnd(),
+  };
+
+  if (options.ledgerPath) {
+    recordEntries(options.ledgerPath, [
+      entryFor(
+        options.ledgerPath,
+        options.sourcePath,
+        candidate,
+        file,
+        'mmi extract --tree',
+        {
+          mode: 'flat-text-nested-list-v1',
+          method: parsedPath.method,
           pointer: options.pointer,
         },
       ),
