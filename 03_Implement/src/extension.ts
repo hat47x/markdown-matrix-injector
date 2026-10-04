@@ -532,15 +532,8 @@ async function insertEmbedByContentMatch(): Promise<void> {
   await currentEditor.edit((editBuilder) => editBuilder.replace(selection, buildContentMatchMarkdown(picked)));
 }
 
-interface LoadedWorkbookSnapshot {
-  readonly absolutePath: string;
-  readonly mtimeMs: number;
-  readonly size: number;
-}
-
 interface WorkspaceWorkbookLoadResult {
   readonly workbooks: readonly WorkbookSheetsSource[];
-  readonly snapshots: ReadonlyMap<string, LoadedWorkbookSnapshot>;
   readonly skippedFiles: readonly string[];
   readonly fileSelectionTruncated: boolean;
   readonly fileSelectionLimit: number;
@@ -561,7 +554,6 @@ async function loadWorkspaceWorkbooksForContentMatch(
   const uris = selection.files;
 
   const workbooks: WorkbookSheetsSource[] = [];
-  const snapshots = new Map<string, LoadedWorkbookSnapshot>();
   const skippedFiles: string[] = [];
   let cancelled = false;
   for (const uri of uris) {
@@ -579,14 +571,12 @@ async function loadWorkspaceWorkbooksForContentMatch(
         continue;
       }
       workbooks.push({ filepath, sheets: workbook.sheets });
-      snapshots.set(filepath, { absolutePath: uri.fsPath, mtimeMs: after.mtimeMs, size: after.size });
     } catch {
       skippedFiles.push(filepath);
     }
   }
   return {
     workbooks,
-    snapshots,
     skippedFiles,
     fileSelectionTruncated: selection.truncated,
     fileSelectionLimit: selection.limit,
