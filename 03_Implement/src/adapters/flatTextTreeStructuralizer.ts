@@ -1,3 +1,5 @@
+import { TextDecoder } from 'node:util';
+
 import {
   candidateProblem,
   fingerprintOf,
@@ -78,6 +80,14 @@ export const DEFAULT_FLAT_TEXT_TREE_METHODS: readonly FlatTextTreeMethod[] = [
 
 const METHOD_ORDER = DEFAULT_FLAT_TEXT_TREE_METHODS;
 
+export function decodeFlatTextUtf8(bytes: Uint8Array): string {
+  try {
+    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+  } catch {
+    throw new Error('flat-text Tree sources must be valid UTF-8');
+  }
+}
+
 export function readFlatTextTree(
   text: string,
   source: string,
@@ -139,7 +149,7 @@ export function readFlatTextTree(
 function sourceLines(text: string): SourceLine[] {
   return text
     .replace(/^\uFEFF/u, '')
-    .split(/\r?\n/u)
+    .split(/\r\n?|\n/u)
     .map((raw, index) => {
       const leading = raw.match(/^[\t ]*/u)?.[0] ?? '';
       return {
