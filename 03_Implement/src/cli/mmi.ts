@@ -7,7 +7,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { parseArgs, TextDecoder } from 'node:util';
+import { parseArgs } from 'node:util';
 import XLSX from 'xlsx';
 import { WorkbookCache } from '../cache/workbookCache.js';
 import { checkDetachedDocument } from '../application/detachCheck.js';
@@ -17,6 +17,7 @@ import { runPortableCoreRequest } from '../application/portableCoreProtocol.js';
 import { imageCandidates, readExcelImages, relationToTables, type ImageDiagnostic, type TableRect } from '../adapters/excelImageAdapter.js';
 import {
   DEFAULT_FLAT_TEXT_TREE_METHODS,
+  decodeFlatTextUtf8,
   readFlatTextTree,
   type FlatTextTreeMethod,
 } from '../adapters/flatTextTreeStructuralizer.js';
@@ -979,12 +980,7 @@ export function inspectSource(
     const sourceBytes = fs.readFileSync(absolutePath);
     const sourceDigest =
       createSourceIdentityFromBytes(sourceBytes).digest;
-    let sourceText: string;
-    try {
-      sourceText = new TextDecoder('utf-8', { fatal: true }).decode(sourceBytes);
-    } catch {
-      throw new Error('flat-text Tree sources must be valid UTF-8');
-    }
+    const sourceText = decodeFlatTextUtf8(sourceBytes);
     const tree = readFlatTextTree(
       sourceText,
       relative,
