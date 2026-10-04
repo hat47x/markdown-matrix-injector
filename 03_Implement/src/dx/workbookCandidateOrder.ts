@@ -7,6 +7,13 @@ export interface WorkbookFileCandidate {
   readonly fsPath: string;
 }
 
+export interface ContainedWorkbookSelection<T extends WorkbookFileCandidate> {
+  readonly files: readonly T[];
+  /** True only after observing at least one additional contained file beyond limit. */
+  readonly truncated: boolean;
+  readonly limit: number;
+}
+
 /**
  * Orders workspace workbook files for bounded content matching.
  *
@@ -47,6 +54,15 @@ export function selectContainedWorkbookFiles<T extends WorkbookFileCandidate>(
   candidates: readonly T[],
   limit: number,
 ): T[] {
+  return [...selectContainedWorkbookFilesDetailed(markdownFilePath, workspaceRoot, candidates, limit).files];
+}
+
+export function selectContainedWorkbookFilesDetailed<T extends WorkbookFileCandidate>(
+  markdownFilePath: string,
+  workspaceRoot: string,
+  candidates: readonly T[],
+  limit: number,
+): ContainedWorkbookSelection<T> {
   if (!Number.isInteger(limit) || limit < 0) {
     throw new Error('limit must be a non-negative integer.');
   }
@@ -55,7 +71,7 @@ export function selectContainedWorkbookFiles<T extends WorkbookFileCandidate>(
   try {
     boundary = fs.realpathSync(path.resolve(workspaceRoot));
   } catch {
-    return [];
+    return { files: [], truncated: false, limit };
   }
 
   const lexicallyContained = candidates.filter((candidate) =>
@@ -64,17 +80,23 @@ export function selectContainedWorkbookFiles<T extends WorkbookFileCandidate>(
 
   const selected: T[] = [];
   for (const candidate of prioritizeWorkbookFiles(markdownFilePath, lexicallyContained)) {
-    if (selected.length >= limit) break;
     try {
       const realCandidate = fs.realpathSync(path.resolve(candidate.fsPath));
-      if (isPathWithinBoundary(realCandidate, boundary)) {
-        selected.push(candidate);
+      if (!isPathWithinBoundary(realCandidate, boundary)) {
+        continue;
       }
+      if (selected.length < limit) {
+        selected.push(candidate);
+        continue;
+      }
+      // One additional contained file is enough to prove that the bounded
+      // search set is incomplete. Do not traverse the rest merely to count it.
+      return { files: selected, truncated: true, limit };
     } catch {
       // Missing/unreadable path: do not spend search budget on it.
     }
   }
-  return selected;
+  return { files: selected, truncated: false, limit };
 }
 
 function pathDistance(fromDirectory: string, candidatePath: string): { up: number; down: number; total: number } {
