@@ -22,6 +22,8 @@ interface ConformanceCandidateExpectation {
   sheet?: string;
   range?: string;
   structuralPath?: string;
+  status?: string;
+  claims?: unknown[];
   execution: string;
   method: string;
   provenanceAlgorithm: string;
@@ -70,6 +72,12 @@ function assertConformanceCase(fixture: ConformanceCase): void {
     const candidate = response.candidates[index];
     assert.ok(candidate, `candidate ${index} is missing`);
     assert.equal(candidate.kind, expected.kind);
+    if (expected.status !== undefined) {
+      assert.equal(candidate.status, expected.status);
+    }
+    if (expected.claims !== undefined) {
+      assert.deepEqual(candidate.claims, expected.claims);
+    }
     assert.equal(candidate.execution, expected.execution);
     assert.equal(candidate.method, expected.method);
     assert.equal(
