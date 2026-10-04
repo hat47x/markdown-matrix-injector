@@ -22,10 +22,10 @@ MMIの認知は、明示構造を推測し直すためではなく、形式だ�
 
 - [x] JSONからobject / arrayの親子関係をTree / Hierarchy Candidate（`observed`）として列挙できる。RFC 6901 JSON Pointerを`structuralPath`として保持する。
 - [x] 汎用XMLからelementの親子関係を保持し、属性・本文を失わずCandidateへ写せる。XML Spreadsheet 2003は従来どおり表として扱い、汎用XMLのTree経路と分離する。
-- [ ] フラットテキスト用Structuralizerの最小契約を定め、少なくともインデント、見出し番号、接頭辞コードの3方式を個別に有効化できる。
+- [x] フラットテキスト用Structuralizerの最小契約を定め、インデント、見出し番号、接頭辞コードの3方式を個別に有効化できる。
 - [ ] Excel / CSVの親列や階層列を同じTree Candidateへ写す拡張点を定める。実装範囲は最小fixtureでよい。
-- [ ] `observed` / `inferred` と `deterministic` / `provider-dependent` をAPI・JSON出力で直交して表現し、推定にはmethod class、evidence、algorithm/provider version、reason codeを残す。
-- [ ] 決定論的規則であっても複数の構造が成立する場合は自動確定せず、複数候補または`abstained`を返す。deterministicであることを事実性の根拠にしない。
+- [x] `observed` / `inferred` と `deterministic` / `provider-dependent` をAPI・JSON出力で直交して表現し、推定にはmethod class、evidence、algorithm/provider version、reason codeを残す。フラットテキストの階層推定は`inferred + deterministic + M1`として記録する。
+- [x] 決定論的規則であっても複数の構造が成立する場合は自動確定せず、複数候補または`abstained`を返す。deterministicであることを事実性の根拠にしない。
 - [x] Treeの内部表現とMarkdown上の表現を分離し、nested list / headings / Mermaid等を後から選べる。JSONの初期版はnested list Projectionを別モジュールとして実装した。
 - [x] JSONと汎用XMLの明示Treeは、同じ入力・設定からAuthority部分の構造を決定論的に再現でき、外部LLMやGPUを必要としない。推定Treeにも同じ原則を適用する。
 
@@ -37,15 +37,22 @@ CLIの`inspect`、`extract --tree`、VS CodeのCandidateレビュー、`mmi-ledg
 
 XML Spreadsheet 2003は既存のworkbook/table経路を維持する。その他のXMLだけをTree Adapterへ流す。構文解析にはnamespaceを有効にした`saxes`を使い、未束縛のprefixやnamespace展開後に重複する属性などのwell-formedness違反を拒否する。XML Treeのnested list Projectionではelement名、属性、本文を保持する。DTDに依存する解釈は行わない。汎用XMLはUTF-8をfatal decodeし、XML宣言が別encodingを指定する場合もfail closedとする。日本語を含むUnicodeのelement名・属性名も扱う。
 
-残るTree一般化は、インデント・見出し番号・接頭辞コード等から構造を推定するフラットテキストと、Excel / CSVの親列・階層列である。これらは明示構造ではないためM1以降として扱い、曖昧な場合に自動確定しない。
+フラットテキストの最小Structuralizerも同じ`tree` Candidate契約へ接続した。`.txt`・`.text`・`.log`をUTF-8として厳密に読み、インデント、見出し番号、接頭辞コードを独立したM1方式として評価する。原文の行と行番号、見出し番号や接頭辞コードはM0の`observed` Claimとして保持し、親子関係、深さ、構造位置はM1の`inferred` Claimとして分ける。各Candidateには方式名、evidence、reason code、algorithm versionを残す。
+
+複数方式が異なる親子関係を返しても統合しない。`inspect`は方式ごとのhypothesisを並べ、edgeが一致しなければ`treeAmbiguous: true`としてレビューを求める。方式内部で親が欠ける、番号や接頭辞コードが重複する等、一意に決められない場合は、その方式を`abstained`とする。`--tree-method`で方式を個別に有効化でき、非テキストsourceへ指定した場合はエラーにする。
+
+フラットテキストTreeもCLIの`inspect` / `extract --tree`、VS CodeのCandidateレビュー、`mmi-ledger.json`、detach前のfreshness確認へ接続した。Extractedでは、レビューした`text:<method>:line:<n>`を同じ方式で再構築し、subtree fingerprintが一致した場合だけnested Markdownへ投影する。対象subtreeが変われば採用しない。別のrootだけが変わり、対象subtreeの内容と構造が同じ場合は採用を妨げない。
+
+残るTree一般化はExcel / CSVの親列・階層列である。これも明示構造ではない場合はM1以降として扱い、曖昧な入力を自動確定しない。
 
 ## Validation plan
 
-JSONとXMLの明示構造はfixtureで親子関係、属性・本文、fingerprint、review guard、ledger、detach freshnessを確認する。XMLではnamespace未束縛、展開後の重複属性、不正な文字参照、非UTF-8 bytes・encoding宣言もfail-closedの回帰対象とする。配布CLIのoffline smokeでもXML Treeの`inspect` / `extract`を実行する。XML Spreadsheet 2003はTreeではなく既存の表経路へ残ることを確認する。今後追加する推定構造ではmethodとevidenceを必須とし、曖昧なfixtureを誤確定しないことを確認する。
+JSONとXMLの明示構造はfixtureで親子関係、属性・本文、fingerprint、review guard、ledger、detach freshnessを確認する。XMLではnamespace未束縛、展開後の重複属性、不正な文字参照、非UTF-8 bytes・encoding宣言もfail-closedの回帰対象とする。配布CLIのoffline smokeでもXML Treeの`inspect` / `extract`を実行する。XML Spreadsheet 2003はTreeではなく既存の表経路へ残ることを確認する。
+
+フラットテキストでは、3方式の独立有効化、M0観測とM1推定の分離、方式間の構造不一致、親欠落・重複markerによる`abstained`、非UTF-8入力、review時fingerprint guard、ledger、detach freshnessを回帰対象にした。回帰テストは追加済みだが、この作業環境ではリポジトリ全体の依存をmaterializeできないため、正本suiteを実行済みとは扱わない。
 
 ## Remaining work
 
-- インデント、見出し番号、接頭辞コードによるフラットテキストStructuralizerをM1として追加し、曖昧な入力では複数候補または`abstained`を返す。
 - Excel / CSVの親列・階層列を同じTree契約へ写す最小fixtureを追加する。
 - YAMLはJSON Adapterと契約を共有できるかを確認してから追加する。
 - structured artifactの `hierarchy_relation` はissue-0193の対応表を通してPerception providerとして再利用する。
