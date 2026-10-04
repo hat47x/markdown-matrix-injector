@@ -457,6 +457,7 @@ async function insertEmbedByContentMatch(): Promise<void> {
     return;
   }
   const documentUri = editor.document.uri;
+  const documentVersion = editor.document.version;
   const selection = editor.selection;
 
   const clipboardText = await vscode.env.clipboard.readText();
@@ -512,9 +513,19 @@ async function insertEmbedByContentMatch(): Promise<void> {
     return; // cancelled (Esc) -- never insert without an explicit pick (R1)
   }
 
+  if (!(await contentMatchSourceStillExact(documentUri.fsPath, clipboardText, picked))) {
+    void vscode.window.showWarningMessage('MMI: The selected workbook range changed before insertion. Search again before inserting the reference.');
+    return;
+  }
+
   const currentEditor = vscode.window.activeTextEditor;
-  if (!currentEditor || currentEditor.document.uri.toString() !== documentUri.toString()) {
-    void vscode.window.showInformationMessage('MMI: The active editor changed before a match could be inserted.');
+  if (
+    !currentEditor ||
+    currentEditor.document.uri.toString() !== documentUri.toString() ||
+    currentEditor.document.version !== documentVersion ||
+    !currentEditor.selection.isEqual(selection)
+  ) {
+    void vscode.window.showInformationMessage('MMI: The document or selection changed before the match could be inserted. Run the content match again.');
     return;
   }
 
@@ -618,6 +629,59 @@ function looksLikeTabularClipboard(plainText: string): boolean {
   return needle.length >= 2 || columnCount >= 2;
 }
 
+interface ContentMatchPasteValidation {
+  readonly documentUri: string;
+  readonly documentVersion: number;
+  readonly markdownFilePath: string;
+  readonly clipboardText: string;
+  readonly match: WorkbookContentMatch;
+}
+
+interface ValidatedDocumentPasteEdit extends vscode.DocumentPasteEdit {
+  contentMatchValidation?: ContentMatchPasteValidation;
+}
+
+async function contentMatchSourceStillExact(
+  markdownFilePath: string,
+  clipboardText: string,
+  match: WorkbookContentMatch,
+): Promise<boolean> {
+  try {
+    const unresolved = resolveWorkbookPath(match.filepath, markdownFilePath);
+    const roots = (vscode.workspace.workspaceFolders ?? [])
+      .filter((folder) => folder.uri.scheme === 'file')
+      .map((folder) => folder.uri.fsPath);
+    const absolutePath = await validateOpenSourcePath(unresolved, roots);
+    const sheet = loadWorkbook({ absolutePath }).sheets[match.sheet];
+    return sheet ? contentMatchStillExact(clipboardText, sheet, match.range) : false;
+  } catch {
+    return false;
+  }
+}
+
+async function resolveValidatedPasteEdit(
+  edit: ValidatedDocumentPasteEdit,
+  token: vscode.CancellationToken,
+): Promise<ValidatedDocumentPasteEdit> {
+  const validation = edit.contentMatchValidation;
+  if (!validation || token.isCancellationRequested) {
+    return edit;
+  }
+
+  const document = vscode.workspace.textDocuments.find((candidate) => candidate.uri.toString() === validation.documentUri);
+  if (!document || document.version !== validation.documentVersion) {
+    edit.insertText = '';
+    void vscode.window.showWarningMessage('MMI: The document changed while Paste As was open. Run Paste As again.');
+    return edit;
+  }
+
+  if (!(await contentMatchSourceStillExact(validation.markdownFilePath, validation.clipboardText, validation.match))) {
+    edit.insertText = '';
+    void vscode.window.showWarningMessage('MMI: The selected workbook range changed while Paste As was open. Run Paste As again.');
+  }
+  return edit;
+}
+
 /**
  * Content-match candidates for the paste-provider's `PasteAs` trigger only
  * (`editor.action.pasteAs` / Ctrl+.) -- see `registerNativePasteProvider` for
@@ -628,6 +692,7 @@ async function getContentMatchPasteEdits(
   dataTransfer: vscode.DataTransfer,
   token: vscode.CancellationToken,
 ): Promise<vscode.DocumentPasteEdit[]> {
+  const documentVersion = document.version;
   const plainText = await dataTransfer.get('text/plain')?.asString();
   if (!plainText || !looksLikeTabularClipboard(plainText)) {
     return [];
@@ -666,6 +731,9 @@ async function getContentMatchPasteEdits(
   if (matches.length === 0 && incomplete) {
     void vscode.window.showWarningMessage(`MMI: Content-match Paste As found no match in the sheets that could be searched. ${incomplete}`);
   }
+  if (token.isCancellationRequested || document.version !== documentVersion) {
+    return [];
+  }
   return matches.map((match) => {
     // Paste As offers one compact line per edit. Reuse the source-derived
     // table/header/neighbor context so identical copies can be distinguished
@@ -675,7 +743,19 @@ async function getContentMatchPasteEdits(
     const how = isConfirmedSource(match) ? '（コピー元を確認済み）' : '（内容から推定）';
     const completeness = incomplete ? '（検索不完全）' : '';
     const title = `MMI: ${match.filepath}#${match.sheet} (${cellRangeToA1(match.range)})${where}${how}${completeness}`;
-    return new vscode.DocumentPasteEdit(buildContentMatchMarkdown(match), title, CONTENT_MATCH_PASTE_EDIT_KIND);
+    const edit = new vscode.DocumentPasteEdit(
+      buildContentMatchMarkdown(match),
+      title,
+      CONTENT_MATCH_PASTE_EDIT_KIND,
+    ) as ValidatedDocumentPasteEdit;
+    edit.contentMatchValidation = {
+      documentUri: document.uri.toString(),
+      documentVersion,
+      markdownFilePath: document.uri.fsPath,
+      clipboardText: plainText,
+      match,
+    };
+    return edit;
   });
 }
 
@@ -916,6 +996,9 @@ function registerNativePasteProvider(context: vscode.ExtensionContext, nativePas
           }
 
           return edits;
+        },
+        async resolveDocumentPasteEdit(pasteEdit, token) {
+          return resolveValidatedPasteEdit(pasteEdit as ValidatedDocumentPasteEdit, token);
         },
       },
       createNativePasteProviderOptions(),
