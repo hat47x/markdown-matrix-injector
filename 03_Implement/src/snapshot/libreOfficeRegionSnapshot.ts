@@ -537,7 +537,14 @@ function existingOrCreateManifest(options: {
       sheet: options.sheet,
       range: options.range,
     },
-    renderer: options.runtime,
+    renderer: {
+      id: options.runtime.id,
+      implementationVersion: options.runtime.implementationVersion,
+      libreOfficeVersion: options.runtime.libreOfficeVersion,
+      pdftoppmVersion: options.runtime.pdftoppmVersion,
+      fontSetDigest: options.runtime.fontSetDigest,
+      dpi: options.runtime.dpi,
+    },
     artifact: {
       file: path.basename(options.pngFile),
       digest: options.pngDigest,
