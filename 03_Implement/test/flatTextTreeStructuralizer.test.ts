@@ -233,3 +233,26 @@ test('subtree fingerprints depend on inferred structure/content, not source line
     moved.hypotheses[0].nodes[0].candidate.locator.structuralPath,
   );
 });
+
+
+test('ambiguity includes node-set differences even when parent-child edges coincide', () => {
+  const document = read([
+    '1. Root',
+    '  1.1 Child',
+    'Additional unnumbered root',
+  ].join('\n'), ['indent', 'heading-number']);
+
+  assert.equal(document.hypotheses.length, 2);
+  assert.deepEqual(
+    document.hypotheses.map((item) => [
+      item.method,
+      item.nodes.map((node) => node.line),
+      item.edgeSignature,
+    ]),
+    [
+      ['indent', [1, 2, 3], '1<-root,2<-1,3<-root'],
+      ['heading-number', [1, 2], '1<-root,2<-1'],
+    ],
+  );
+  assert.equal(document.ambiguous, true);
+});

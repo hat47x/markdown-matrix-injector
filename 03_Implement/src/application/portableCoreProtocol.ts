@@ -5,6 +5,7 @@ import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
 import type { Candidate } from '../core/candidate.js';
+import { decodeJsonUtf8 } from '../core/jsonFormat.js';
 import { loadWorkbookFromBytes } from '../core/workbookLoader.js';
 import {
   decodeGenericXmlUtf8,
@@ -117,7 +118,7 @@ function inspectPortableSource(
 
   let candidates: Candidate[];
   if (format === 'json') {
-    const text = new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    const text = decodeJsonUtf8(bytes);
     candidates = [...readJsonTree(text, request.source.label, digest).candidates];
   } else if (format === 'xml') {
     const text = decodeGenericXmlUtf8(bytes);

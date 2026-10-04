@@ -238,3 +238,38 @@ test('review-bound Tree extraction tolerates unrelated source changes when the r
   assert.deepEqual(result.problems, []);
   assert.ok(result.extracted);
 });
+
+
+test('normal CLI and extract fail closed on malformed JSON UTF-8 bytes', () => {
+  const f = workspace();
+  fs.writeFileSync(
+    f.source,
+    Buffer.from([
+      0x7b, 0x22, 0x76, 0x61, 0x6c, 0x75, 0x65, 0x22,
+      0x3a, 0x22, 0xff, 0x22, 0x7d,
+    ]),
+  );
+
+  assert.throws(
+    () => inspectSource(f.source, 0),
+    /JSON source must be valid UTF-8/u,
+  );
+
+  const extracted = extractJsonTree({
+    sourcePath: f.source,
+    pointer: '',
+    outDir: f.outDir,
+    ledgerPath: f.ledgerPath,
+  });
+  assert.equal(extracted.extracted, undefined);
+  assert.deepEqual(
+    extracted.problems.map((problem) => problem.code),
+    ['MMI_TREE_JSON_INVALID'],
+  );
+  assert.match(
+    extracted.problems[0]?.message ?? '',
+    /JSON source must be valid UTF-8/u,
+  );
+  assert.equal(fs.existsSync(f.outDir), false);
+  assert.equal(fs.existsSync(f.ledgerPath), false);
+});

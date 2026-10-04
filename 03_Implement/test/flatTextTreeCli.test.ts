@@ -387,3 +387,36 @@ test('inspect rejects --tree-method on non-flat sources instead of ignoring it',
     /--tree-method applies only to \.txt, \.text or \.log sources/u,
   );
 });
+
+
+test('inspect reports ambiguity when methods share edges but disagree on root membership', async () => {
+  const f = workspace([
+    '1. Root',
+    '  1.1 Child',
+    'Additional unnumbered root',
+  ].join('\n'));
+
+  const result = await captureMain([
+    'inspect',
+    f.source,
+    '--root',
+    f.root,
+    '--tree-method',
+    'indent,heading-number',
+    '--json',
+  ]);
+  assert.equal(result.code, 0);
+
+  const payload = JSON.parse(result.output);
+  assert.equal(payload.treeAmbiguous, true);
+  assert.deepEqual(
+    payload.treeHypotheses.map((item: any) => [
+      item.method,
+      item.nodeCount,
+    ]),
+    [
+      ['indent', 3],
+      ['heading-number', 2],
+    ],
+  );
+});

@@ -29,6 +29,7 @@ import {
   type TabularHierarchyConfig,
 } from '../adapters/tabularHierarchyAdapter.js';
 import type { Candidate, ProviderScore } from '../core/candidate.js';
+import { decodeJsonUtf8 } from '../core/jsonFormat.js';
 import {
   SEMANTIC_CANDIDATE_CONTRACT,
   semanticCandidateSchemaJson,
@@ -1074,7 +1075,7 @@ export function inspectSource(
     const sourceDigest =
       createSourceIdentityFromBytes(sourceBytes).digest;
     const tree = readJsonTree(
-      sourceBytes.toString('utf8'),
+      decodeJsonUtf8(sourceBytes),
       relative,
       sourceDigest,
     );
