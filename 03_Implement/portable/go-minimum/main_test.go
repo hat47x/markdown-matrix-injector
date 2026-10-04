@@ -2,8 +2,10 @@ package main
 
 import (
 	"encoding/json"
+	"math"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 )
 
@@ -25,6 +27,7 @@ type conformanceCase struct {
 			Execution                 string  `json:"execution"`
 			Method                    string `json:"method"`
 			ProvenanceAlgorithm       string `json:"provenanceAlgorithm"`
+			ProvenanceVersion         string `json:"provenanceVersion"`
 			FingerprintRepresentation string `json:"fingerprintRepresentation"`
 			FingerprintDigest         string `json:"fingerprintDigest"`
 		} `json:"candidates"`
@@ -106,6 +109,15 @@ func runConformanceCase(
 				)
 			}
 		}
+		if expected.ProvenanceVersion != "" &&
+			actual.Provenance.Run.ImplementationVersion != expected.ProvenanceVersion {
+			t.Fatalf(
+				"candidate %d provenance version: got %s want %s",
+				index,
+				actual.Provenance.Run.ImplementationVersion,
+				expected.ProvenanceVersion,
+			)
+		}
 		if expected.FingerprintDigest != "" &&
 			actual.Fingerprint.Digest != expected.FingerprintDigest {
 			t.Fatalf(
@@ -143,6 +155,31 @@ func TestJSONTreeConformanceCase(t *testing.T) {
 	)
 	if actualResponse.Source.Format != "json" {
 		t.Fatalf("unexpected JSON source format: %s", actualResponse.Source.Format)
+	}
+}
+
+func TestJSONTreeUnicodeAndPointerConformanceCase(t *testing.T) {
+	actualResponse := runConformanceCase(
+		t,
+		"json-tree-unicode.case.json",
+	)
+	wantPaths := []string{
+		"",
+		"/a~1b",
+		"/a~1b/~0node",
+		"/😀",
+		"/�",
+	}
+	for index, want := range wantPaths {
+		actual := actualResponse.Candidates[index].Locator.StructuralPath
+		if actual == nil || *actual != want {
+			t.Fatalf(
+				"candidate %d structural path: got %v want %q",
+				index,
+				actual,
+				want,
+			)
+		}
 	}
 }
 
@@ -268,5 +305,56 @@ func TestJSONTreeRejectsInvalidUTF8AndInvalidJSON(t *testing.T) {
 		if _, err := run([]byte(input)); err == nil {
 			t.Fatalf("expected JSON rejection: %s", input)
 		}
+	}
+}
+
+
+func TestCanonicalJSONMatchesJavaScriptNumberSemantics(t *testing.T) {
+	negativeZero := math.Copysign(0, -1)
+	rendered, err := canonicalJSON(negativeZero)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rendered != "0" {
+		t.Fatalf("negative zero canonical form: got %q want %q", rendered, "0")
+	}
+
+	if _, err := canonicalJSON(math.Inf(1)); err == nil {
+		t.Fatal("non-finite JSON Tree number must be rejected")
+	}
+}
+
+
+func TestCanonicalJSONMatchesJavaScriptUnicodeSemantics(t *testing.T) {
+	rendered, err := canonicalJSON("  <>&")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if rendered != ""  <>&"" {
+		t.Fatalf("string canonical form: got %q", rendered)
+	}
+}
+
+func TestJSONTreeRejectsUnpairedSurrogateEscapes(t *testing.T) {
+	for _, source := range []string{
+		`{"value":"\ud800"}`,
+		`{"value":"\udc00"}`,
+		`{"\ud800":"value"}`,
+	} {
+		if _, err := jsonTreeCandidates(
+			[]byte(source),
+			"./fixture.json",
+			"sha256:"+strings.Repeat("a", 64),
+		); err == nil {
+			t.Fatalf("expected unpaired surrogate rejection: %s", source)
+		}
+	}
+
+	if _, err := jsonTreeCandidates(
+		[]byte(`{"value":"\ud83d\ude00"}`),
+		"./fixture.json",
+		"sha256:"+strings.Repeat("a", 64),
+	); err != nil {
+		t.Fatalf("valid surrogate pair must be accepted: %v", err)
 	}
 }

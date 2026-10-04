@@ -94,3 +94,58 @@ test('Tree fingerprints ignore JSON object key order but preserve array order', 
     canonicalJsonValue([2, 1]),
   );
 });
+
+
+test('JSON Tree normalizes negative zero like JSON.stringify and rejects non-finite parsed numbers', () => {
+  const negativeZero = readJsonTree(
+    '{"value":-0}',
+    './data/value.json',
+    sourceDigest,
+  );
+  const zero = readJsonTree(
+    '{"value":0}',
+    './data/value.json',
+    sourceDigest,
+  );
+  assert.equal(
+    negativeZero.candidates[0].fingerprint.digest,
+    zero.candidates[0].fingerprint.digest,
+  );
+
+  assert.throws(
+    () => readJsonTree(
+      '{"value":1e400}',
+      './data/value.json',
+      sourceDigest,
+    ),
+    /numbers must be finite/u,
+  );
+});
+
+
+test('JSON Tree rejects unpaired UTF-16 surrogate escapes before fingerprinting', () => {
+  assert.throws(
+    () => readJsonTree(
+      '{"value":"\\ud800"}',
+      './data/value.json',
+      sourceDigest,
+    ),
+    /unpaired UTF-16 surrogates/u,
+  );
+  assert.throws(
+    () => readJsonTree(
+      '{"\\udc00":"value"}',
+      './data/value.json',
+      sourceDigest,
+    ),
+    /unpaired UTF-16 surrogates/u,
+  );
+
+  assert.doesNotThrow(
+    () => readJsonTree(
+      '{"value":"\\ud83d\\ude00"}',
+      './data/value.json',
+      sourceDigest,
+    ),
+  );
+});

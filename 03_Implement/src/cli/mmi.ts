@@ -71,6 +71,10 @@ import { inspectImportAssistance, type InspectImportAssistanceCandidate } from '
 import { writeWorkbookImportDraft } from '../importAssist/importMaterialization.js';
 import { intakeSourceFile, pathWithinBoundaryForWrite } from '../importAssist/sourceIntake.js';
 import { buildDeliveryManifestCsv } from '../manifest/collectDeliveryManifest.js';
+import {
+  RegionSnapshotError,
+  renderLibreOfficeRegionSnapshot,
+} from '../snapshot/libreOfficeRegionSnapshot.js';
 import { detectTableRegions, regionReference } from '../importAssist/tableRegions.js';
 import { runFind, runSelect } from './navigateCommands.js';
 import { extractImages, extractTable, formatImageDiagnostics } from './extract.js';
@@ -120,6 +124,12 @@ Commands:
                             Exactly one of --image, --table or --tree is required
       --out-dir <dir>         assets folder (default: assets); files are content-addressed
       --from <doc.md>         provenance/source labels are relative to this document
+      --ledger <file>         import ledger (default: <root>/mmi-ledger.json)
+  snapshot <workbook>       Render one sheet range as a deterministic PNG via LibreOffice
+      --sheet <name>          worksheet to render (required)
+      --range <A1:B9>         physical cell range to render (required)
+      --dpi <72..600>         raster resolution (default: 150)
+      --out-dir <dir>         snapshot assets folder (default: <root>/assets/snapshots)
       --ledger <file>         import ledger (default: <root>/mmi-ledger.json)
   import <workbook>         Create a modernization draft: tables stay live references, images become assets
       --draft <file.md>       new Markdown draft to create (required; existing files are not overwritten)
@@ -206,6 +216,8 @@ export async function main(argv: string[]): Promise<number> {
       image: { type: 'string' },
       tree: { type: 'string' },
       'tree-method': { type: 'string' },
+      range: { type: 'string' },
+      dpi: { type: 'string' },
       'out-dir': { type: 'string' },
       draft: { type: 'string' },
       'copy-source': { type: 'string' },
@@ -421,6 +433,65 @@ export async function main(argv: string[]): Promise<number> {
       else if (result.extracted.length > 0) emit(result.extracted.map((item) => item.markdown).join('\n\n'));
       for (const problem of result.problems) console.error(`mmi: ${problem.code}${problem.ordinal ? ` (image ${problem.ordinal})` : ''}: ${problem.message}`);
       return result.problems.length > 0 ? 1 : 0;
+    }
+    case 'snapshot': {
+      if (args.length !== 1) return usageError('snapshot takes one workbook');
+      if (!values.sheet) return usageError('snapshot needs --sheet <name>');
+      if (!values.range) return usageError('snapshot needs --range <A1:B9>');
+
+      const sourcePath = path.resolve(args[0]);
+      const outDir = values['out-dir']
+        ? path.resolve(values['out-dir'])
+        : path.join(root, 'assets', 'snapshots');
+      const ledgerPath = path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE);
+      if (!handoffPathWithinRoot(sourcePath, root)) {
+        return usageError('snapshot source must stay within --root workspace');
+      }
+      if (!handoffPathWithinRoot(outDir, root)) {
+        return usageError('snapshot --out-dir must stay within --root workspace');
+      }
+      if (!handoffPathWithinRoot(ledgerPath, root)) {
+        return usageError('snapshot ledger must stay within --root workspace');
+      }
+
+      let result;
+      try {
+        result = await renderLibreOfficeRegionSnapshot({
+          sourcePath,
+          sourceLabel: portableDisplayPath(sourcePath),
+          sheet: values.sheet,
+          range: values.range,
+          outDir,
+          ledgerPath,
+          ...(values.dpi ? { dpi: Number(values.dpi) } : {}),
+        });
+      } catch (error) {
+        if (!(error instanceof RegionSnapshotError)) throw error;
+        console.error(`mmi: ${error.code}: ${error.message}`);
+        return 1;
+      }
+
+      const summary = {
+        status: result.status,
+        source: result.manifest.source,
+        sheet: result.manifest.selection.sheet,
+        range: result.manifest.selection.range,
+        png: portableDisplayPath(result.pngFile),
+        digest: result.manifest.artifact.digest,
+        bytes: result.manifest.artifact.bytes,
+        manifest: portableDisplayPath(result.manifestFile),
+        renderer: result.manifest.renderer,
+      };
+      emit(values.json
+        ? JSON.stringify(summary, null, 2)
+        : [
+            `snapshot: ${summary.png}`,
+            `source: ${summary.source.label}#${summary.sheet}|${summary.range}`,
+            `digest: ${summary.digest}`,
+            `renderer: ${summary.renderer.libreOfficeVersion}; ${summary.renderer.pdftoppmVersion}`,
+            `manifest: ${summary.manifest}`,
+          ].join('\n'));
+      return 0;
     }
     case 'import': {
       if (args.length !== 1) return usageError('import takes one workbook');

@@ -4,7 +4,7 @@ import {
   type Candidate,
 } from '../core/candidate.js';
 
-export const JSON_TREE_ADAPTER_VERSION = '1';
+export const JSON_TREE_ADAPTER_VERSION = '2';
 
 export type JsonValue =
   | null
@@ -39,6 +39,9 @@ function isContainer(value: JsonValue): value is JsonValue[] | { [key: string]: 
 }
 
 function canonicalJson(value: JsonValue): string {
+  if (typeof value === 'number' && !Number.isFinite(value)) {
+    throw new Error('JSON Tree numbers must be finite');
+  }
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
   if (Array.isArray(value)) {
     return `[${value.map((item) => canonicalJson(item)).join(',')}]`;
@@ -177,12 +180,53 @@ function collectNodes(
   }
 }
 
+function assertUnicodeScalarString(value: string): void {
+  for (let index = 0; index < value.length; index += 1) {
+    const code = value.charCodeAt(index);
+    if (code >= 0xd800 && code <= 0xdbff) {
+      const next = value.charCodeAt(index + 1);
+      if (!(next >= 0xdc00 && next <= 0xdfff)) {
+        throw new Error('JSON Tree strings must not contain unpaired UTF-16 surrogates');
+      }
+      index += 1;
+      continue;
+    }
+    if (code >= 0xdc00 && code <= 0xdfff) {
+      throw new Error('JSON Tree strings must not contain unpaired UTF-16 surrogates');
+    }
+  }
+}
+
+function assertPortableJsonValue(value: JsonValue): void {
+  if (typeof value === 'number') {
+    if (!Number.isFinite(value)) {
+      throw new Error('JSON Tree numbers must be finite');
+    }
+    return;
+  }
+  if (typeof value === 'string') {
+    assertUnicodeScalarString(value);
+    return;
+  }
+  if (Array.isArray(value)) {
+    value.forEach(assertPortableJsonValue);
+    return;
+  }
+  if (value !== null && typeof value === 'object') {
+    for (const [key, child] of Object.entries(value)) {
+      assertUnicodeScalarString(key);
+      assertPortableJsonValue(child);
+    }
+  }
+}
+
 export function readJsonTree(
   text: string,
   source: string,
   sourceDigest: string,
 ): JsonTreeDocument {
   const value = JSON.parse(text) as JsonValue;
+  assertPortableJsonValue(value);
   const nodes: JsonTreeNode[] = [];
   collectNodes(value, '', source, sourceDigest, nodes);
   return {

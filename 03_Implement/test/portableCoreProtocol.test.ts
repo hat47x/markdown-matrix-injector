@@ -25,6 +25,7 @@ interface ConformanceCandidateExpectation {
   execution: string;
   method: string;
   provenanceAlgorithm: string;
+  provenanceVersion?: string;
   fingerprintRepresentation: string;
   fingerprintDigest?: string;
 }
@@ -75,6 +76,12 @@ function assertConformanceCase(fixture: ConformanceCase): void {
       candidate.provenance.algorithm,
       expected.provenanceAlgorithm,
     );
+    if (expected.provenanceVersion !== undefined) {
+      assert.equal(
+        candidate.provenance.run.implementationVersion,
+        expected.provenanceVersion,
+      );
+    }
     assert.equal(
       candidate.fingerprint.representation,
       expected.fingerprintRepresentation,
@@ -108,6 +115,10 @@ test('portable Core CSV conformance case', () => {
 
 test('portable Core JSON Tree conformance case', () => {
   assertConformanceCase(readCase('json-tree.case.json'));
+});
+
+test('portable Core JSON Tree preserves JavaScript UTF-16 key order and JSON Pointer escaping', () => {
+  assertConformanceCase(readCase('json-tree-unicode.case.json'));
 });
 
 test('portable Core generic XML Tree conformance case', () => {
