@@ -537,7 +537,7 @@ test('standalone content-match command exists and never auto-inserts', async () 
   // then applies the existing bounded search budget.
   assert.match(
     source,
-    /selectContainedWorkbookFiles\(\s*markdownFilePath,\s*workspaceRoot,\s*await vscode\.workspace\.findFiles\(WORKBOOK_FILE_GLOB, '\*\*\/\{node_modules,dist\}\/\*\*'\),\s*MAX_CONTENT_MATCH_WORKSPACE_FILES,\s*\)/s,
+    /selectContainedWorkbookFilesDetailed\(\s*markdownFilePath,\s*workspaceRoot,\s*await vscode\.workspace\.findFiles\(WORKBOOK_FILE_GLOB, '\*\*\/\{node_modules,dist\}\/\*\*'\),\s*MAX_CONTENT_MATCH_WORKSPACE_FILES,\s*\)/s,
   );
 
   // Every result -- one match or many -- is routed through showQuickPick and
@@ -618,6 +618,7 @@ test('content-match search integrates into paste via the PasteAs trigger only, n
   assert.match(source, /Content-match Paste As found no match in the sheets that could be searched/);
   assert.match(source, /MMI: Content-match Paste As failed:/);
   assert.match(source, /候補上限に達したシート/);
+  assert.match(source, /探索対象ブックが上限/);
   assert.match(source, /const completeness = incomplete \? '（検索不完全）' : '';/);
 });
 
