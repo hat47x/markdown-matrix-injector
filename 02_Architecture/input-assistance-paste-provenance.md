@@ -216,7 +216,7 @@ flowchart TD
 | シート名 | HTMLの`title`や`data-sheet`を採用 | **修正済み（2026-09-14）。** `extractSheetNameFromHtml`を削除した。`suggestEmbedFromClipboardHtml`はシート名を一切推測しない |
 | 内容照合ロジック本体 | 存在しなかった | **実装済み（2026-09-14〜15）。** `src/core/contentMatch.ts`の`findContentMatches`が§5手順2〜4を単一`SheetSource`に対して行い、`src/dx/contentMatchSearch.ts`の`findWorkbookContentMatches`が複数ワークブックへ集約する（手順1） |
 | VS Code統合 | 存在しなかった | **実装済み。** (1) 明示コマンド`markdownMatrixInjector.insertEmbedByContentMatch`（2026-09-15）、結果は必ず`showQuickPick`を経由。**実VS Code e2eで動作確認済み（2026-09-17）**——この過程で`registerTextEditorCommand`の非同期未サポートという実装バグを発見・修正した。(2) `editor.action.pasteAs`（Ctrl+.）への統合（2026-09-16）、`context.triggerKind === PasteAs`の場合のみVS Code標準ドロップダウンへ候補を追加。**通常のCtrl+V（`Automatic`）には統合していない**——複数`DocumentPasteEdit`は`Automatic`だと最初の1件を自動適用してしまうため（R1違反リスク）。**こちらはe2e未確認**（実クリップボードへの`text/html`設定手段が無い）。理由は下記「2026-09-16の変更のまとめ」「2026-09-17の変更のまとめ」 |
-| `extension.ts`の貼り付け | document・cancellation引数を使っていない | 自動貼り付けプロバイダ（`provideDocumentPasteEdits`）自体は未変更のまま。文書相対パスの解決・処理中止・文書versionと原本mtimeの再検証は**依然として未着手** |
+| `extension.ts`の貼り付け | 文書・原本の状態が候補生成後に変わり得る | **修正済み（2026-10-05）。** 明示コマンドは文書version・選択範囲を保持し、候補選択後に原本範囲を再読込して値を再照合する。Paste Asは`resolveDocumentPasteEdit`で適用直前に文書versionと原本範囲を再検証する。原本mtimeだけではなく、参照する範囲の表示値そのものを確認する |
 | 既存テスト | 人工HTMLに`data-sheet`とパスを付けて成功を確認 | 実Excelの採取結果を固定資料として使う。`test/pasteDrop.test.ts`へ実キャプチャの`<head>`構造を再現したケースを追加。すべてのsheet/range関連アサーションをfilepath-onlyの新契約へ更新（`test/extensionIntegration.test.ts`も含む） |
 
 **2026-09-14の変更のまとめ:** `suggestEmbedFromClipboardHtml`は`filepath`のみを返すようになった（`sheet`/`range`は返さない）。これにより`![[file.xlsx]]`（ファイルのみ、シート・範囲は利用者が補完する）が最大限主張できる誠実な提案になった。`extractHtmlTableShape`（形状）と`parseTsv`（表示値行列、`text/plain`から）を独立した関数としてエクスポートし、実機データで検証・実装した。実キャプチャで両者が同じ形状（8行×4列）で一致することをクロス検証済み。続けて、両者を使って単一`SheetSource`内を検索する内容照合アルゴリズム本体`findContentMatches`（§5手順2〜4）を実装した。この時点では3つともVS Codeの貼り付けパスからどこからも呼ばれていなかった。
@@ -232,6 +232,8 @@ flowchart TD
 
 `extension.ts`は`text/html`・`text/plain`・`files`を貼り付けのMIMEとして宣言している。`text/plain`追加はPaste Asの内容照合を実OSクリップボードのTSVだけで宿主E2Eできるようにするためで、pure `text/plain` の通常Pasteでは直接MMI editを返さないためAutomaticの挿入意味は変えない。宣言している最低VS Codeは`^1.100.0`である。
 
+
+**2026-10-05の変更のまとめ（適用直前の再検証）:** 内容照合の結果は、候補生成後もそのまま信頼しない。明示コマンドではQuickPickの選択後に選択したワークブックを再読込し、同じシート・範囲がクリップボードの表示値と完全一致することを確認してから挿入する。同時にMarkdown文書のversionと選択範囲も検索開始時から変わっていないことを確認する。Paste Asでは`DocumentPasteEditProvider.resolveDocumentPasteEdit`を実装し、利用者が候補を選んでVS Codeが適用する直前に同じ検証を行う。検証に失敗した場合は`insertText`を空にして挿入を止め、再実行を案内する。
 **2026-09-17の変更のまとめ（実VS Code e2e確認、xvfb不要と判明）:** この開発環境（WSL2）には元からWSLgによる実表示（`DISPLAY`/`WAYLAND_DISPLAY`）があり、`xvfb`のインストールなしに`test/e2e/runTest.ts`を直接実行してExtension Host e2eが動くことが分かった。実VS Code（1.138.0）でテストを走らせたところ、本物のバグを2件発見・修正した。
 
 1. e2eテスト自体の期待値が2026-09-14の変更に追従していなかった。 `test/e2e/suite/extensionHost.test.ts`の`PASTE_FALLBACK_EXPECTED_INSERT`等が旧`#Summary|A1:B2`形式のままだった。e2eがこの環境で一度も成功実行できていなかったため検出されず、修正した。

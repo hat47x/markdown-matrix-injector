@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { buildContentMatchMarkdown, findWorkbookContentMatches, findWorkbookContentMatchesDetailed, summarizeContentMatchContext, type WorkbookSheetsSource } from '../src/dx/contentMatchSearch.js';
+import { buildContentMatchMarkdown, contentMatchStillExact, findWorkbookContentMatches, findWorkbookContentMatchesDetailed, summarizeContentMatchContext, type WorkbookSheetsSource } from '../src/dx/contentMatchSearch.js';
 import { loadWorkbook } from '../src/core/workbookLoader.js';
 import { sheetSourceFromMatrix, type SheetSource } from '../src/core/sheetSource.js';
 import type { WorkbookContentMatch } from '../src/dx/contentMatchSearch.js';
@@ -112,6 +112,22 @@ test('findWorkbookContentMatches treats leading and trailing spaces as source da
       range: { startRow: 1, startCol: 0, endRow: 1, endCol: 1 },
     },
   ]);
+});
+
+test('contentMatchStillExact rechecks the selected physical range without a new workspace search', () => {
+  const sheet = sheetSourceFromMatrix([
+    ['ID', 'State'],
+    ['A-001', 'Open'],
+    ['A-002', 'Closed'],
+  ]);
+  const range = { startRow: 1, startCol: 0, endRow: 1, endCol: 1 };
+
+  assert.equal(contentMatchStillExact('A-001\tOpen\r\n', sheet, range), true);
+  assert.equal(contentMatchStillExact('A-001\tClosed\r\n', sheet, range), false);
+  assert.equal(
+    contentMatchStillExact('A-001\tOpen\r\nA-002\tClosed\r\n', sheet, range),
+    false,
+  );
 });
 
 test('findWorkbookContentMatches returns nothing when no workbook contains the values', () => {

@@ -547,13 +547,14 @@ test('standalone content-match command exists and never auto-inserts', async () 
   assert.match(source, /MMI: Content-match search failed:/);
   assert.match(source, /const picked = await pickContentMatch\(matches\);\s*if \(!picked\) \{/s);
   assert.match(source, /await vscode\.window\.showQuickPick\(items, \{ placeHolder \}\);/);
-  // Re-resolves the active editor immediately before the final edit rather
-  // than trusting the reference captured before the async gaps above (the
-  // same class of staleness that made `registerTextEditorCommand` unsafe
-  // here in the first place).
+  // Revalidates the chosen source range and the destination document/selection
+  // immediately before insertion instead of trusting state captured before
+  // the async search and QuickPick gaps.
+  assert.match(source, /const documentVersion = editor\.document\.version;/);
+  assert.match(source, /contentMatchSourceStillExact\(documentUri\.fsPath, clipboardText, picked\)/);
   assert.match(
     source,
-    /const currentEditor = vscode\.window\.activeTextEditor;\s*if \(!currentEditor \|\| currentEditor\.document\.uri\.toString\(\) !== documentUri\.toString\(\)\) \{/s,
+    /currentEditor\.document\.version !== documentVersion[\s\S]*!currentEditor\.selection\.isEqual\(selection\)/,
   );
   assert.match(
     source,
@@ -620,6 +621,13 @@ test('content-match search integrates into paste via the PasteAs trigger only, n
   assert.match(source, /候補上限に達したシート/);
   assert.match(source, /探索対象ブックが上限/);
   assert.match(source, /const completeness = incomplete \? '（検索不完全）' : '';/);
+  // Paste As gets a second validation hook after the user has chosen an edit,
+  // immediately before VS Code applies it.
+  assert.match(source, /async resolveDocumentPasteEdit\(pasteEdit, token\)/);
+  assert.match(source, /return resolveValidatedPasteEdit\(pasteEdit as ValidatedDocumentPasteEdit, token\);/);
+  assert.match(source, /document\.version !== validation\.documentVersion/);
+  assert.match(source, /contentMatchSourceStillExact\(validation\.markdownFilePath, validation\.clipboardText, validation\.match\)/);
+  assert.match(source, /edit\.insertText = '';/);
 });
 
 test('e2e lane keeps paste/drop observation ahead of autocomplete to isolate known completion instability', async () => {

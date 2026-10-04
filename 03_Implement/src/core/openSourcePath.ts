@@ -3,7 +3,7 @@ import path from 'node:path';
 import { isPathWithinBoundary } from './pathResolver.js';
 
 export async function validateOpenSourcePath(source: unknown, roots: string[]): Promise<string> {
-  if (typeof source !== 'string' || !path.isAbsolute(source) || !/\.(xlsx?|csv|tsv|xml)$/i.test(source)) {
+  if (typeof source !== 'string' || !path.isAbsolute(source) || !/\.(xls|xlsx|xlsm|csv|tsv|xml)$/i.test(source)) {
     throw new Error('ワークスペース内の表データを指定してください。');
   }
   const realSource = await fs.realpath(source);
