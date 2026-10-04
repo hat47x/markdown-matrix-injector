@@ -25,6 +25,7 @@ interface ConformanceCandidateExpectation {
   execution: string;
   method: string;
   provenanceAlgorithm: string;
+  provenanceVersion?: string;
   fingerprintRepresentation: string;
   fingerprintDigest?: string;
 }
@@ -75,6 +76,12 @@ function assertConformanceCase(fixture: ConformanceCase): void {
       candidate.provenance.algorithm,
       expected.provenanceAlgorithm,
     );
+    if (expected.provenanceVersion !== undefined) {
+      assert.equal(
+        candidate.provenance.run.implementationVersion,
+        expected.provenanceVersion,
+      );
+    }
     assert.equal(
       candidate.fingerprint.representation,
       expected.fingerprintRepresentation,

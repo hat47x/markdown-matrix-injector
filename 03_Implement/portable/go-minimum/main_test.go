@@ -27,6 +27,7 @@ type conformanceCase struct {
 			Execution                 string  `json:"execution"`
 			Method                    string `json:"method"`
 			ProvenanceAlgorithm       string `json:"provenanceAlgorithm"`
+			ProvenanceVersion         string `json:"provenanceVersion"`
 			FingerprintRepresentation string `json:"fingerprintRepresentation"`
 			FingerprintDigest         string `json:"fingerprintDigest"`
 		} `json:"candidates"`
@@ -107,6 +108,15 @@ func runConformanceCase(
 					actual.Locator.StructuralPath,
 				)
 			}
+		}
+		if expected.ProvenanceVersion != "" &&
+			actual.Provenance.Run.ImplementationVersion != expected.ProvenanceVersion {
+			t.Fatalf(
+				"candidate %d provenance version: got %s want %s",
+				index,
+				actual.Provenance.Run.ImplementationVersion,
+				expected.ProvenanceVersion,
+			)
 		}
 		if expected.FingerprintDigest != "" &&
 			actual.Fingerprint.Digest != expected.FingerprintDigest {

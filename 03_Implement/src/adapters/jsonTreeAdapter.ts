@@ -4,7 +4,7 @@ import {
   type Candidate,
 } from '../core/candidate.js';
 
-export const JSON_TREE_ADAPTER_VERSION = '1';
+export const JSON_TREE_ADAPTER_VERSION = '2';
 
 export type JsonValue =
   | null

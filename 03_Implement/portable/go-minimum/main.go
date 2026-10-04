@@ -426,7 +426,7 @@ func collectJSONTreeCandidates(
 					"format":         "json",
 					"objectKeyOrder": "lexicographic",
 				},
-				ImplementationVersion: "1",
+				ImplementationVersion: "2",
 			},
 		},
 		Fingerprint: fingerprint{
