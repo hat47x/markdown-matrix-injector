@@ -5,9 +5,11 @@ import os from 'node:os';
 import path from 'node:path';
 
 import {
+  addCandidateReviewAdjustment,
   appendCandidateReviewObservation,
   candidateReviewObservationSnapshot,
   createCandidateReviewObservation,
+  emptyCandidateReviewAdjustmentSummary,
 } from '../src/application/candidateReviewObservation.js';
 import type { CandidateReviewFacetFilter } from '../src/application/candidateReviewFilter.js';
 import type { Candidate } from '../src/core/candidate.js';
@@ -238,6 +240,98 @@ test('observation preserves selected facets but does not invent omitted ones', (
   assert.equal(observation.transitions.reviewStateChanged, 0);
 });
 
+test('observation aggregates correction burden without storing reviewed text', () => {
+  let adjustments = emptyCandidateReviewAdjustmentSummary();
+  adjustments = addCandidateReviewAdjustment(
+    adjustments,
+    'table',
+    {
+      originalCharacters: 120,
+      reviewedCharacters: 126,
+      changedSpanCharacters: 18,
+    },
+  );
+  adjustments = addCandidateReviewAdjustment(
+    adjustments,
+    'table',
+    {
+      originalCharacters: 80,
+      reviewedCharacters: 78,
+      changedSpanCharacters: 7,
+    },
+  );
+  adjustments = addCandidateReviewAdjustment(
+    adjustments,
+    'imageAlt',
+    {
+      originalCharacters: 8,
+      reviewedCharacters: 11,
+      changedSpanCharacters: 5,
+    },
+  );
+  const snapshot = candidateReviewObservationSnapshot(
+    [viewItem('1', 'unimported', 'unreviewed')],
+    noFacets,
+  );
+
+  const observation = createCandidateReviewObservation({
+    sourceLabel: 'design.xlsx',
+    sourceDigest,
+    startedAtUtc: '2026-10-04T01:00:00Z',
+    endedAtUtc: '2026-10-04T01:00:10Z',
+    interruptedMarkdownEditing: false,
+    ledgerFilter: 'unimported',
+    facetFilter: noFacets,
+    selectedCount: 1,
+    initial: snapshot,
+    final: snapshot,
+    adjustments,
+  });
+
+  assert.equal(observation.schema, 'mmi.candidate-review-observation/v2');
+  assert.deepEqual(observation.adjustments, {
+    table: {
+      modifiedItems: 2,
+      originalCharacters: 200,
+      reviewedCharacters: 204,
+      changedSpanCharacters: 25,
+    },
+    imageAlt: {
+      modifiedItems: 1,
+      originalCharacters: 8,
+      reviewedCharacters: 11,
+      changedSpanCharacters: 5,
+    },
+  });
+  const serialized = JSON.stringify(observation);
+  assert.equal(serialized.includes('reviewed text'), false);
+  assert.equal(serialized.includes('Candidate key'), false);
+});
+
+test('observation defaults correction burden to zero for legacy call sites', () => {
+  const snapshot = candidateReviewObservationSnapshot(
+    [viewItem('1', 'unimported', 'unreviewed')],
+    noFacets,
+  );
+  const observation = createCandidateReviewObservation({
+    sourceLabel: 'design.xlsx',
+    sourceDigest,
+    startedAtUtc: '2026-10-04T01:00:00Z',
+    endedAtUtc: '2026-10-04T01:00:01Z',
+    interruptedMarkdownEditing: false,
+    ledgerFilter: 'all',
+    facetFilter: noFacets,
+    selectedCount: 0,
+    initial: snapshot,
+    final: snapshot,
+  });
+
+  assert.deepEqual(
+    observation.adjustments,
+    emptyCandidateReviewAdjustmentSummary(),
+  );
+});
+
 test('append writes one JSON object per line and creates the parent directory', () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-review-observation-'));
   const file = path.join(root, '.mmi', 'candidate-review-observations.jsonl');
@@ -302,5 +396,20 @@ test('observation rejects invalid timestamps, digests and presented counts', () 
       selectedCount: -1,
     }),
     /selectedCount/u,
+  );
+  assert.throws(
+    () => createCandidateReviewObservation({
+      ...base,
+      adjustments: {
+        ...emptyCandidateReviewAdjustmentSummary(),
+        table: {
+          modifiedItems: 1,
+          originalCharacters: 5,
+          reviewedCharacters: 5,
+          changedSpanCharacters: -1,
+        },
+      },
+    }),
+    /adjustment totals/u,
   );
 });

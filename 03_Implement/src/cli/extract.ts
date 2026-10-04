@@ -63,6 +63,17 @@ export interface ExtractProblem {
   message: string;
 }
 
+export interface ReviewTextAdjustment {
+  originalCharacters: number;
+  reviewedCharacters: number;
+  /**
+   * Characters inside the minimal changed span after removing the common
+   * prefix and suffix from both texts. This is a linear privacy-safe proxy,
+   * not Levenshtein distance.
+   */
+  changedSpanCharacters: number;
+}
+
 export interface ExtractResult {
   extracted: ExtractedImage[];
   problems: ExtractProblem[];
@@ -84,6 +95,7 @@ export interface FinalizeReviewedImageOptions {
 
 export interface FinalizedReviewedImage extends ExtractedImage {
   reviewState: 'accepted' | 'modified';
+  reviewAdjustment: ReviewTextAdjustment;
 }
 
 export interface FinalizeReviewedImageResult {
@@ -129,6 +141,7 @@ export interface FinalizeReviewedTableOptions {
 
 export interface FinalizedReviewedTable extends ExtractedTable {
   reviewState: 'accepted' | 'modified';
+  reviewAdjustment: ReviewTextAdjustment;
 }
 
 export interface FinalizeReviewedTableResult {
@@ -152,6 +165,40 @@ function normalizeImageAltText(value: string): string {
     .replace(/[\r\n]+/gu, ' ')
     .replace(/[[\]]/gu, '')
     .trim();
+}
+
+export function reviewTextAdjustment(
+  original: string,
+  reviewed: string,
+): ReviewTextAdjustment {
+  const before = Array.from(original);
+  const after = Array.from(reviewed);
+  let prefix = 0;
+  while (
+    prefix < before.length
+    && prefix < after.length
+    && before[prefix] === after[prefix]
+  ) {
+    prefix += 1;
+  }
+
+  let suffix = 0;
+  while (
+    suffix < before.length - prefix
+    && suffix < after.length - prefix
+    && before[before.length - 1 - suffix]
+      === after[after.length - 1 - suffix]
+  ) {
+    suffix += 1;
+  }
+
+  return {
+    originalCharacters: before.length,
+    reviewedCharacters: after.length,
+    changedSpanCharacters:
+      before.length - prefix - suffix
+      + after.length - prefix - suffix,
+  };
 }
 
 function altText(image: ExcelImage): string {
@@ -419,6 +466,10 @@ export function finalizeReviewedImageExtraction(
     reviewedAltText === options.extracted.altText
       ? 'accepted'
       : 'modified';
+  const reviewAdjustment = reviewTextAdjustment(
+    options.extracted.altText,
+    reviewedAltText,
+  );
   const markdown =
     `![${reviewedAltText}](${options.extracted.reference})\n`
     + provenanceComment(source, currentImage);
@@ -448,6 +499,7 @@ export function finalizeReviewedImageExtraction(
     altText: reviewedAltText,
     markdown,
     reviewState,
+    reviewAdjustment,
   };
   return result;
 }
@@ -695,6 +747,7 @@ export function finalizeReviewedTableExtraction(
     .trimEnd();
   const reviewState: FinalizedReviewedTable['reviewState'] =
     body === originalBody ? 'accepted' : 'modified';
+  const reviewAdjustment = reviewTextAdjustment(originalBody, body);
 
   fs.mkdirSync(options.outDir, { recursive: true });
   const outDirectory = fs.realpathSync(options.outDir);
@@ -774,6 +827,7 @@ export function finalizeReviewedTableExtraction(
     status,
     markdown: assetText.trimEnd(),
     reviewState,
+    reviewAdjustment,
   };
   return result;
 }

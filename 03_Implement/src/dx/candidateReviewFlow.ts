@@ -11,10 +11,12 @@ import {
   type CandidateReviewFacetSelection,
 } from '../application/candidateReviewFilter.js';
 import {
+  addCandidateReviewAdjustment,
   appendCandidateReviewObservation,
   candidateReviewObservationSnapshot,
   createCandidateReviewObservation,
   DEFAULT_CANDIDATE_REVIEW_OBSERVATION_FILE,
+  emptyCandidateReviewAdjustmentSummary,
 } from '../application/candidateReviewObservation.js';
 import {
   candidateReviewSessionKey,
@@ -428,6 +430,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
       )
     : undefined;
   let selectedCount = 0;
+  let reviewAdjustments = emptyCandidateReviewAdjustmentSummary();
 
   try {
   for (;;) {
@@ -697,6 +700,13 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
       );
       return;
     }
+    if (finalized.extracted.reviewState === 'modified') {
+      reviewAdjustments = addCandidateReviewAdjustment(
+        reviewAdjustments,
+        'imageAlt',
+        finalized.extracted.reviewAdjustment,
+      );
+    }
     extractedMarkdown = finalized.extracted.markdown;
     extractedFile = finalized.extracted.file;
   } else if (
@@ -760,6 +770,13 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
           .join(' / ')}`,
       );
       return;
+    }
+    if (finalized.extracted.reviewState === 'modified') {
+      reviewAdjustments = addCandidateReviewAdjustment(
+        reviewAdjustments,
+        'table',
+        finalized.extracted.reviewAdjustment,
+      );
     }
     extractedMarkdown = finalized.extracted.markdown;
     extractedFile = finalized.extracted.file;
@@ -933,6 +950,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
             finalView,
             facetFilter,
           ),
+          adjustments: reviewAdjustments,
         });
         appendCandidateReviewObservation(
           observationFile,

@@ -9,6 +9,7 @@ import {
   discardUnrecordedTableExtraction,
   extractTable,
   finalizeReviewedTableExtraction,
+  reviewTextAdjustment,
 } from '../src/cli/extract.js';
 import { main } from '../src/cli/mmi.js';
 import { readLedger } from '../src/core/importLedger.js';
@@ -34,6 +35,19 @@ function workspace() {
 
 const digest = (file: string) =>
   `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`;
+
+test('reviewTextAdjustment counts Unicode code points and only the changed span', () => {
+  assert.deepEqual(reviewTextAdjustment('A😀B', 'A猫B'), {
+    originalCharacters: 3,
+    reviewedCharacters: 3,
+    changedSpanCharacters: 2,
+  });
+  assert.deepEqual(reviewTextAdjustment('同じ', '同じ'), {
+    originalCharacters: 2,
+    reviewedCharacters: 2,
+    changedSpanCharacters: 0,
+  });
+});
 
 test('extractTable writes a standard GFM asset, records provenance, and never changes the source', () => {
   const f = workspace();
@@ -115,6 +129,12 @@ test('reviewed table output can be modified without changing Candidate origin', 
   assert.deepEqual(finalized.problems, []);
   assert.ok(finalized.extracted);
   assert.equal(finalized.extracted.reviewState, 'modified');
+  assert.ok(finalized.extracted.reviewAdjustment.originalCharacters > 0);
+  assert.ok(
+    finalized.extracted.reviewAdjustment.reviewedCharacters
+      > finalized.extracted.reviewAdjustment.originalCharacters,
+  );
+  assert.ok(finalized.extracted.reviewAdjustment.changedSpanCharacters > 0);
   assert.notEqual(finalized.extracted.file, originalFile);
   assert.equal(fs.existsSync(originalFile), false);
   assert.equal(
@@ -166,6 +186,11 @@ test('unchanged reviewed table remains accepted and an abandoned draft is remova
   });
   assert.ok(finalized.extracted);
   assert.equal(finalized.extracted.reviewState, 'accepted');
+  assert.equal(finalized.extracted.reviewAdjustment.changedSpanCharacters, 0);
+  assert.equal(
+    finalized.extracted.reviewAdjustment.originalCharacters,
+    finalized.extracted.reviewAdjustment.reviewedCharacters,
+  );
   assert.equal(
     readLedger(f.ledgerPath).entries[0].reviewState,
     'accepted',
