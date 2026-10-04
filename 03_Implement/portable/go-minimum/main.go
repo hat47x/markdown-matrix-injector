@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
 	"encoding/hex"
@@ -8,10 +9,12 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"math"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"unicode/utf16"
 	"unicode/utf8"
 )
 
@@ -81,10 +84,11 @@ type candidate struct {
 }
 
 type locator struct {
-	Source       string `json:"source"`
-	SourceDigest string `json:"sourceDigest"`
-	Sheet        string `json:"sheet,omitempty"`
-	Range        string `json:"range,omitempty"`
+	Source         string  `json:"source"`
+	SourceDigest   string  `json:"sourceDigest"`
+	Sheet          string  `json:"sheet,omitempty"`
+	Range          string  `json:"range,omitempty"`
+	StructuralPath *string `json:"structuralPath,omitempty"`
 }
 
 type claim struct {
@@ -169,23 +173,50 @@ func run(input []byte) ([]byte, error) {
 	if err != nil || base64.StdEncoding.EncodeToString(bytes) != req.Source.BytesBase64 {
 		return nil, errors.New("source.bytesBase64 must be canonical base64")
 	}
-	if strings.ToLower(filepath.Ext(req.Source.Name)) != ".csv" {
-		return nil, errors.New("go-minimum currently supports CSV only")
+	extension := strings.ToLower(filepath.Ext(req.Source.Name))
+	if extension != ".csv" && extension != ".json" {
+		return nil, errors.New("go-minimum currently supports CSV and JSON only")
 	}
 	if !utf8.Valid(bytes) {
-		return nil, errors.New("go-minimum CSV profile currently supports UTF-8 only")
+		return nil, errors.New("go-minimum CSV/JSON profile currently supports UTF-8 only")
 	}
 
 	sum := sha256.Sum256(bytes)
 	sourceDigest := "sha256:" + hex.EncodeToString(sum[:])
-	rows, err := parseCSV(string(bytes))
-	if err != nil {
-		return nil, err
-	}
-	regions := detectRegions(rows, maxScan)
-	candidates := make([]candidate, 0, len(regions))
-	for _, r := range regions {
-		candidates = append(candidates, toCandidate(req.Source.Label, sourceDigest, rows, r, maxScan))
+
+	var format string
+	var candidates []candidate
+	switch extension {
+	case ".csv":
+		format = "csv"
+		rows, err := parseCSV(string(bytes))
+		if err != nil {
+			return nil, err
+		}
+		regions := detectRegions(rows, maxScan)
+		candidates = make([]candidate, 0, len(regions))
+		for _, r := range regions {
+			candidates = append(
+				candidates,
+				toCandidate(
+					req.Source.Label,
+					sourceDigest,
+					rows,
+					r,
+					maxScan,
+				),
+			)
+		}
+	case ".json":
+		format = "json"
+		candidates, err = jsonTreeCandidates(
+			bytes,
+			req.Source.Label,
+			sourceDigest,
+		)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	out := response{
@@ -195,7 +226,7 @@ func run(input []byte) ([]byte, error) {
 		Source: sourceResult{
 			Name:       req.Source.Name,
 			Label:      req.Source.Label,
-			Format:     "csv",
+			Format:     format,
 			Digest:     sourceDigest,
 			ByteLength: len(bytes),
 		},
@@ -203,6 +234,364 @@ func run(input []byte) ([]byte, error) {
 		Diagnostics: []diagnostic{},
 	}
 	return json.MarshalIndent(out, "", "  ")
+}
+
+func jsonTreeCandidates(
+	input []byte,
+	source string,
+	sourceDigest string,
+) ([]candidate, error) {
+	if err := validateJSONSurrogateEscapes(input); err != nil {
+		return nil, err
+	}
+	var value any
+	if err := json.Unmarshal(input, &value); err != nil {
+		return nil, fmt.Errorf("invalid JSON source: %w", err)
+	}
+	out := []candidate{}
+	if err := collectJSONTreeCandidates(
+		value,
+		"",
+		source,
+		sourceDigest,
+		&out,
+	); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func validateJSONSurrogateEscapes(input []byte) error {
+	inString := false
+	for index := 0; index < len(input); {
+		current := input[index]
+		if !inString {
+			if current == '"' {
+				inString = true
+			}
+			index++
+			continue
+		}
+		if current == '"' {
+			inString = false
+			index++
+			continue
+		}
+		if current != '\\' {
+			index++
+			continue
+		}
+		if index+1 >= len(input) {
+			return nil
+		}
+		if input[index+1] != 'u' {
+			index += 2
+			continue
+		}
+		if index+6 > len(input) {
+			return nil
+		}
+		code, ok := jsonHexCodeUnit(input[index+2 : index+6])
+		if !ok {
+			index += 2
+			continue
+		}
+		if code >= 0xd800 && code <= 0xdbff {
+			if index+12 > len(input) ||
+				input[index+6] != '\\' ||
+				input[index+7] != 'u' {
+				return errors.New(
+					"JSON Tree strings must not contain unpaired UTF-16 surrogates",
+				)
+			}
+			next, ok := jsonHexCodeUnit(input[index+8 : index+12])
+			if !ok || next < 0xdc00 || next > 0xdfff {
+				return errors.New(
+					"JSON Tree strings must not contain unpaired UTF-16 surrogates",
+				)
+			}
+			index += 12
+			continue
+		}
+		if code >= 0xdc00 && code <= 0xdfff {
+			return errors.New(
+				"JSON Tree strings must not contain unpaired UTF-16 surrogates",
+			)
+		}
+		index += 6
+	}
+	return nil
+}
+
+func jsonHexCodeUnit(input []byte) (uint16, bool) {
+	if len(input) != 4 {
+		return 0, false
+	}
+	var value uint16
+	for _, char := range input {
+		value <<= 4
+		switch {
+		case char >= '0' && char <= '9':
+			value += uint16(char - '0')
+		case char >= 'a' && char <= 'f':
+			value += uint16(char-'a') + 10
+		case char >= 'A' && char <= 'F':
+			value += uint16(char-'A') + 10
+		default:
+			return 0, false
+		}
+	}
+	return value, true
+}
+
+func collectJSONTreeCandidates(
+	value any,
+	pointer string,
+	source string,
+	sourceDigest string,
+	out *[]candidate,
+) error {
+	if !isJSONContainer(value) {
+		return nil
+	}
+
+	entries := jsonEntries(value)
+	childPointers := make([]string, 0, len(entries))
+	leafValues := []string{}
+	for _, entry := range entries {
+		child := jsonChildPointer(pointer, entry.key)
+		childPointers = append(childPointers, child)
+		if !isJSONContainer(entry.value) {
+			canonical, err := canonicalJSON(entry.value)
+			if err != nil {
+				return err
+			}
+			leafValues = append(
+				leafValues,
+				child+"="+canonical,
+			)
+		}
+	}
+
+	nodeType := "object"
+	if _, ok := value.([]any); ok {
+		nodeType = "array"
+	}
+	claims := []claim{
+		{
+			Aspect: "structural-path", Value: pointer,
+			Status: "observed", Execution: "deterministic",
+			Method: "M0", ReasonCode: "json-pointer",
+		},
+		{
+			Aspect: "node-type", Value: nodeType,
+			Status: "observed", Execution: "deterministic",
+			Method: "M0", ReasonCode: "json-container-type",
+		},
+		{
+			Aspect: "children", Value: childPointers,
+			Status: "observed", Execution: "deterministic",
+			Method: "M0", ReasonCode: "json-parent-child",
+		},
+	}
+	if len(leafValues) > 0 {
+		claims = append(claims, claim{
+			Aspect: "leaf-values", Value: leafValues,
+			Status: "observed", Execution: "deterministic",
+			Method: "M0", ReasonCode: "json-scalar-child",
+		})
+	}
+
+	canonical, err := canonicalJSON(value)
+	if err != nil {
+		return err
+	}
+	sum := sha256.Sum256([]byte(canonical))
+	pathValue := pointer
+	*out = append(*out, candidate{
+		Kind: "tree",
+		Locator: locator{
+			Source:         source,
+			SourceDigest:   sourceDigest,
+			StructuralPath: &pathValue,
+		},
+		Status: "observed", Execution: "deterministic", Method: "M0",
+		Claims: claims,
+		Provenance: provenance{
+			Algorithm: "mmi.json-tree-adapter",
+			Run: deterministicRun{
+				Execution:   "deterministic",
+				InputDigest: sourceDigest,
+				Config: map[string]any{
+					"format":         "json",
+					"objectKeyOrder": "lexicographic",
+				},
+				ImplementationVersion: "2",
+			},
+		},
+		Fingerprint: fingerprint{
+			Algorithm:      "sha256",
+			Representation: "json-subtree-canonical-v1",
+			Digest: "sha256:" + hex.EncodeToString(sum[:]),
+		},
+		Scores: []any{},
+	})
+
+	for _, entry := range entries {
+		if isJSONContainer(entry.value) {
+			if err := collectJSONTreeCandidates(
+				entry.value,
+				jsonChildPointer(pointer, entry.key),
+				source,
+				sourceDigest,
+				out,
+			); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+type jsonEntry struct {
+	key   string
+	value any
+}
+
+func jsonEntries(value any) []jsonEntry {
+	switch current := value.(type) {
+	case []any:
+		entries := make([]jsonEntry, 0, len(current))
+		for index, child := range current {
+			entries = append(entries, jsonEntry{
+				key:   fmt.Sprint(index),
+				value: child,
+			})
+		}
+		return entries
+	case map[string]any:
+		keys := make([]string, 0, len(current))
+		for key := range current {
+			keys = append(keys, key)
+		}
+		sort.Slice(keys, func(left, right int) bool {
+			return utf16Less(keys[left], keys[right])
+		})
+		entries := make([]jsonEntry, 0, len(keys))
+		for _, key := range keys {
+			entries = append(entries, jsonEntry{
+				key:   key,
+				value: current[key],
+			})
+		}
+		return entries
+	default:
+		return nil
+	}
+}
+
+func isJSONContainer(value any) bool {
+	switch value.(type) {
+	case []any, map[string]any:
+		return true
+	default:
+		return false
+	}
+}
+
+func jsonPointerToken(value string) string {
+	return strings.ReplaceAll(
+		strings.ReplaceAll(value, "~", "~0"),
+		"/",
+		"~1",
+	)
+}
+
+func jsonChildPointer(parent, token string) string {
+	return parent + "/" + jsonPointerToken(token)
+}
+
+func canonicalJSON(value any) (string, error) {
+	switch current := value.(type) {
+	case nil, bool, string:
+		return marshalJSONNoHTML(current)
+	case float64:
+		if math.IsNaN(current) || math.IsInf(current, 0) {
+			return "", errors.New("JSON Tree numbers must be finite")
+		}
+		if current == 0 {
+			return "0", nil
+		}
+		return marshalJSONNoHTML(current)
+	case []any:
+		parts := make([]string, 0, len(current))
+		for _, child := range current {
+			rendered, err := canonicalJSON(child)
+			if err != nil {
+				return "", err
+			}
+			parts = append(parts, rendered)
+		}
+		return "[" + strings.Join(parts, ",") + "]", nil
+	case map[string]any:
+		keys := make([]string, 0, len(current))
+		for key := range current {
+			keys = append(keys, key)
+		}
+		sort.Slice(keys, func(left, right int) bool {
+			return utf16Less(keys[left], keys[right])
+		})
+		parts := make([]string, 0, len(keys))
+		for _, key := range keys {
+			renderedKey, err := marshalJSONNoHTML(key)
+			if err != nil {
+				return "", err
+			}
+			renderedValue, err := canonicalJSON(current[key])
+			if err != nil {
+				return "", err
+			}
+			parts = append(
+				parts,
+				renderedKey+":"+renderedValue,
+			)
+		}
+		return "{" + strings.Join(parts, ",") + "}", nil
+	default:
+		return "", fmt.Errorf(
+			"unsupported JSON value type: %T",
+			value,
+		)
+	}
+}
+
+func marshalJSONNoHTML(value any) (string, error) {
+	var buffer bytes.Buffer
+	encoder := json.NewEncoder(&buffer)
+	encoder.SetEscapeHTML(false)
+	if err := encoder.Encode(value); err != nil {
+		return "", err
+	}
+	rendered := strings.TrimSuffix(buffer.String(), "\n")
+	rendered = strings.ReplaceAll(rendered, "\\u2028", " ")
+	rendered = strings.ReplaceAll(rendered, "\\u2029", " ")
+	return rendered, nil
+}
+
+func utf16Less(left, right string) bool {
+	leftUnits := utf16.Encode([]rune(left))
+	rightUnits := utf16.Encode([]rune(right))
+	limit := len(leftUnits)
+	if len(rightUnits) < limit {
+		limit = len(rightUnits)
+	}
+	for index := 0; index < limit; index++ {
+		if leftUnits[index] == rightUnits[index] {
+			continue
+		}
+		return leftUnits[index] < rightUnits[index]
+	}
+	return len(leftUnits) < len(rightUnits)
 }
 
 func ensureEOF(decoder *json.Decoder) error {
