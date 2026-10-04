@@ -577,7 +577,7 @@ function describeIncompleteContentMatchSearch(
     skippedFileCount > 0 ? `読めないブック ${skippedFileCount}件` : '',
     skippedSheetCount > 0 ? `索引上限を超えたシート ${skippedSheetCount}件` : '',
     truncatedSheetCount > 0 ? `候補上限に達したシート ${truncatedSheetCount}件` : '',
-    fileSelectionTruncated ? `探索対象ブックが上限 ${fileSelectionLimit}件を超過` : '',
+    fileSelectionTruncated ? `探索対象ブックが上限${fileSelectionLimit}件を超過` : '',
     cancelled ? '検索が中断されました' : '',
   ].filter(Boolean);
   return parts.length > 0 ? `検索は完全ではありません（${parts.join('、')}）。` : '';
