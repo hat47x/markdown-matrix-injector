@@ -119,6 +119,15 @@ test('human-reviewed image alt text is recorded without changing image bytes or 
   assert.ok(finalized.extracted);
   assert.equal(finalized.extracted.reviewState, 'modified');
   assert.equal(
+    finalized.extracted.reviewAdjustment.originalCharacters,
+    Array.from(draft.extracted[0].altText).length,
+  );
+  assert.equal(
+    finalized.extracted.reviewAdjustment.reviewedCharacters,
+    Array.from('ログイン画面（レビュー修正）').length,
+  );
+  assert.ok(finalized.extracted.reviewAdjustment.changedSpanCharacters > 0);
+  assert.equal(
     finalized.extracted.altText,
     'ログイン画面（レビュー修正）',
   );
@@ -173,6 +182,11 @@ test('unchanged image alt text remains accepted and stale review context fails c
   });
   assert.ok(accepted.extracted);
   assert.equal(accepted.extracted.reviewState, 'accepted');
+  assert.deepEqual(accepted.extracted.reviewAdjustment, {
+    originalCharacters: Array.from(draft.extracted[0].altText).length,
+    reviewedCharacters: Array.from(draft.extracted[0].altText).length,
+    changedSpanCharacters: 0,
+  });
   assert.equal(readLedger(ledgerPath).entries[0].reviewState, 'accepted');
 
   const staleDraft = extractImages({
