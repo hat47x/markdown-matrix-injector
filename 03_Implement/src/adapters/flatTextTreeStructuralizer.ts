@@ -43,7 +43,7 @@ export interface FlatTextTreeHypothesis {
 export interface FlatTextTreeDocument {
   hypotheses: readonly FlatTextTreeHypothesis[];
   candidates: readonly Candidate[];
-  /** True when two successful deterministic rules imply different parent-child edges. */
+  /** True when two successful deterministic rules imply different node/edge structures. */
   ambiguous: boolean;
 }
 
@@ -602,9 +602,12 @@ function abstainedHypothesis(
 }
 
 function edgeSignature(nodes: readonly ParsedNode[]): string {
+  // Node membership is part of a hierarchy, not only parent-child edges.
+  // For example, an indentation rule may retain an unnumbered root that a
+  // heading-number rule ignores while both still share the same 1>2 edge.
+  // Treat that as an ambiguous structural result rather than a false match.
   return nodes
-    .filter((node) => node.parentLine !== undefined)
-    .map((node) => `${node.parentLine}>${node.line}`)
-    .sort()
+    .map((node) =>
+      `${node.line}<-${node.parentLine === undefined ? 'root' : node.parentLine}`)
     .join(',');
 }
