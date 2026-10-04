@@ -21,6 +21,7 @@ import {
   type XmlElementNode,
 } from '../adapters/xmlTreeAdapter.js';
 import { entryFor, recordEntries } from '../core/importLedger.js';
+import { decodeJsonUtf8 } from '../core/jsonFormat.js';
 import {
   decodeGenericXmlUtf8,
   isXmlSpreadsheet2003Bytes,
@@ -161,7 +162,11 @@ export function extractJsonTree(
 
   let tree;
   try {
-    tree = readJsonTree(sourceBytes.toString('utf8'), source, sourceDigest);
+    tree = readJsonTree(
+      decodeJsonUtf8(sourceBytes),
+      source,
+      sourceDigest,
+    );
   } catch (error) {
     result.problems.push({
       code: 'MMI_TREE_JSON_INVALID',

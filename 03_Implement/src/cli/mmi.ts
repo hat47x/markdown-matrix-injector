@@ -25,6 +25,7 @@ import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
 import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import type { Candidate, ProviderScore } from '../core/candidate.js';
+import { decodeJsonUtf8 } from '../core/jsonFormat.js';
 import {
   SEMANTIC_CANDIDATE_CONTRACT,
   semanticCandidateSchemaJson,
@@ -934,7 +935,7 @@ export function inspectSource(
     const sourceDigest =
       createSourceIdentityFromBytes(sourceBytes).digest;
     const tree = readJsonTree(
-      sourceBytes.toString('utf8'),
+      decodeJsonUtf8(sourceBytes),
       relative,
       sourceDigest,
     );
