@@ -20,17 +20,30 @@ type conformanceCase struct {
 		Candidates []struct {
 			Kind                      string `json:"kind"`
 			Sheet                     string `json:"sheet"`
-			Range                     string `json:"range"`
-			Execution                 string `json:"execution"`
+			Range                     string  `json:"range"`
+			StructuralPath            *string `json:"structuralPath"`
+			Execution                 string  `json:"execution"`
 			Method                    string `json:"method"`
 			ProvenanceAlgorithm       string `json:"provenanceAlgorithm"`
 			FingerprintRepresentation string `json:"fingerprintRepresentation"`
+			FingerprintDigest         string `json:"fingerprintDigest"`
 		} `json:"candidates"`
 	} `json:"expected"`
 }
 
-func TestCSVConformanceCase(t *testing.T) {
-	file := filepath.Join("..", "..", "test", "fixtures", "portable-core-v1", "csv-table.case.json")
+func runConformanceCase(
+	t *testing.T,
+	filename string,
+) response {
+	t.Helper()
+	file := filepath.Join(
+		"..",
+		"..",
+		"test",
+		"fixtures",
+		"portable-core-v1",
+		filename,
+	)
 	raw, err := os.ReadFile(file)
 	if err != nil {
 		t.Fatal(err)
@@ -47,24 +60,33 @@ func TestCSVConformanceCase(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	var response response
-	if err := json.Unmarshal(output, &response); err != nil {
+	var actualResponse response
+	if err := json.Unmarshal(output, &actualResponse); err != nil {
 		t.Fatal(err)
 	}
 
-	if response.Schema != responseSchema || response.Operation != "inspect" || response.Execution != "deterministic" {
-		t.Fatalf("unexpected response envelope: %+v", response)
+	if actualResponse.Schema != responseSchema ||
+		actualResponse.Operation != "inspect" ||
+		actualResponse.Execution != "deterministic" {
+		t.Fatalf(
+			"unexpected response envelope: %+v",
+			actualResponse,
+		)
 	}
-	if response.Source.Format != fixture.Expected.Source.Format ||
-		response.Source.Digest != fixture.Expected.Source.Digest ||
-		response.Source.ByteLength != fixture.Expected.Source.ByteLength {
-		t.Fatalf("source mismatch: %+v", response.Source)
+	if actualResponse.Source.Format != fixture.Expected.Source.Format ||
+		actualResponse.Source.Digest != fixture.Expected.Source.Digest ||
+		actualResponse.Source.ByteLength != fixture.Expected.Source.ByteLength {
+		t.Fatalf("source mismatch: %+v", actualResponse.Source)
 	}
-	if len(response.Candidates) != fixture.Expected.CandidateCount {
-		t.Fatalf("candidate count: got %d want %d", len(response.Candidates), fixture.Expected.CandidateCount)
+	if len(actualResponse.Candidates) != fixture.Expected.CandidateCount {
+		t.Fatalf(
+			"candidate count: got %d want %d",
+			len(actualResponse.Candidates),
+			fixture.Expected.CandidateCount,
+		)
 	}
 	for index, expected := range fixture.Expected.Candidates {
-		actual := response.Candidates[index]
+		actual := actualResponse.Candidates[index]
 		if actual.Kind != expected.Kind ||
 			actual.Locator.Sheet != expected.Sheet ||
 			actual.Locator.Range != expected.Range ||
@@ -74,16 +96,53 @@ func TestCSVConformanceCase(t *testing.T) {
 			actual.Fingerprint.Representation != expected.FingerprintRepresentation {
 			t.Fatalf("candidate %d mismatch: %+v", index, actual)
 		}
-		if actual.Locator.SourceDigest != response.Source.Digest ||
-			actual.Provenance.Run.InputDigest != response.Source.Digest {
+		if expected.StructuralPath != nil {
+			if actual.Locator.StructuralPath == nil ||
+				*actual.Locator.StructuralPath != *expected.StructuralPath {
+				t.Fatalf(
+					"candidate %d structural path mismatch: %+v",
+					index,
+					actual.Locator.StructuralPath,
+				)
+			}
+		}
+		if expected.FingerprintDigest != "" &&
+			actual.Fingerprint.Digest != expected.FingerprintDigest {
+			t.Fatalf(
+				"candidate %d fingerprint: got %s want %s",
+				index,
+				actual.Fingerprint.Digest,
+				expected.FingerprintDigest,
+			)
+		}
+		if actual.Locator.SourceDigest != actualResponse.Source.Digest ||
+			actual.Provenance.Run.InputDigest != actualResponse.Source.Digest {
 			t.Fatalf("candidate %d digest binding mismatch", index)
 		}
 	}
-	if got := response.Candidates[0].Fingerprint.Digest; got != "sha256:1843ff7d0f2bb62e5453688434fc7c5eaad0968fb21d7c6e8bcdd47e79cedfb6" {
+	return actualResponse
+}
+
+func TestCSVConformanceCase(t *testing.T) {
+	actualResponse := runConformanceCase(
+		t,
+		"csv-table.case.json",
+	)
+	if got := actualResponse.Candidates[0].Fingerprint.Digest; got != "sha256:1843ff7d0f2bb62e5453688434fc7c5eaad0968fb21d7c6e8bcdd47e79cedfb6" {
 		t.Fatalf("fingerprint mismatch: %s", got)
 	}
-	if got := response.Candidates[0].Reference; got != "![[./fixture.csv#Sheet1|A1:B3?header=first]]" {
+	if got := actualResponse.Candidates[0].Reference; got != "![[./fixture.csv#Sheet1|A1:B3?header=first]]" {
 		t.Fatalf("reference mismatch: %s", got)
+	}
+}
+
+func TestJSONTreeConformanceCase(t *testing.T) {
+	actualResponse := runConformanceCase(
+		t,
+		"json-tree.case.json",
+	)
+	if actualResponse.Source.Format != "json" {
+		t.Fatalf("unexpected JSON source format: %s", actualResponse.Source.Format)
 	}
 }
 
@@ -196,6 +255,18 @@ func TestMaxScanCellsUsesPortableSafeIntegerSemantics(t *testing.T) {
 	} {
 		if _, err := run([]byte(input)); err == nil {
 			t.Fatalf("expected maxScanCells rejection: %s", input)
+		}
+	}
+}
+
+
+func TestJSONTreeRejectsInvalidUTF8AndInvalidJSON(t *testing.T) {
+	for _, input := range []string{
+		`{"schema":"mmi.portable-core-request/v1","operation":"inspect","source":{"name":"x.json","label":"./x.json","bytesBase64":"eyJhIjr/LX0="}}`,
+		`{"schema":"mmi.portable-core-request/v1","operation":"inspect","source":{"name":"x.json","label":"./x.json","bytesBase64":"ew=="}}`,
+	} {
+		if _, err := run([]byte(input)); err == nil {
+			t.Fatalf("expected JSON rejection: %s", input)
 		}
 	}
 }

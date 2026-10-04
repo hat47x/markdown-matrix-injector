@@ -26,6 +26,7 @@ interface ConformanceCandidateExpectation {
   method: string;
   provenanceAlgorithm: string;
   fingerprintRepresentation: string;
+  fingerprintDigest?: string;
 }
 
 interface ConformanceCase {
@@ -78,6 +79,12 @@ function assertConformanceCase(fixture: ConformanceCase): void {
       candidate.fingerprint.representation,
       expected.fingerprintRepresentation,
     );
+    if (expected.fingerprintDigest !== undefined) {
+      assert.equal(
+        candidate.fingerprint.digest,
+        expected.fingerprintDigest,
+      );
+    }
     if (expected.sheet !== undefined) {
       assert.equal(candidate.locator.sheet, expected.sheet);
     }
