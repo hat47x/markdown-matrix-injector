@@ -1,6 +1,12 @@
 import fs from 'node:fs';
 
 import {
+  DEFAULT_FLAT_TEXT_TREE_METHODS,
+  decodeFlatTextUtf8,
+  readFlatTextTree,
+  type FlatTextTreeMethod,
+} from '../adapters/flatTextTreeStructuralizer.js';
+import {
   imageCandidates,
   readExcelImages,
   type ExcelImage,
@@ -37,10 +43,11 @@ export type CandidateReviewInventoryItem =
       kind: 'tree';
       candidate: Candidate;
       pointer: string;
-      format: 'json' | 'xml';
-      nodeType: 'object' | 'array' | 'element';
+      format: 'json' | 'xml' | 'text';
+      nodeType: 'object' | 'array' | 'element' | 'text-node';
       childCount: number;
       leafCount: number;
+      method?: FlatTextTreeMethod;
     };
 
 export interface CandidateReviewInventory {
@@ -96,6 +103,34 @@ export function buildCandidateReviewInventory(
         imageDiagnostics: [],
       };
     }
+  }
+
+  if (/\.(txt|text|log)$/iu.test(sourcePath)) {
+    const sourceBytes = fs.readFileSync(sourcePath);
+    const sourceDigest =
+      createSourceIdentityFromBytes(sourceBytes).digest;
+    const tree = readFlatTextTree(
+      decodeFlatTextUtf8(sourceBytes),
+      sourceLabel,
+      sourceDigest,
+      { methods: DEFAULT_FLAT_TEXT_TREE_METHODS },
+    );
+    return {
+      items: tree.hypotheses.flatMap((hypothesis) =>
+        hypothesis.status === 'inferred'
+          ? hypothesis.nodes.map((node) => ({
+              kind: 'tree' as const,
+              candidate: node.candidate,
+              pointer: node.structuralPath,
+              format: 'text' as const,
+              nodeType: 'text-node' as const,
+              childCount: node.childLines.length,
+              leafCount: 1,
+              method: hypothesis.method,
+            }))
+          : []),
+      imageDiagnostics: [],
+    };
   }
 
   const sourceDigest = readSourceFileIdentity(sourcePath).digest;
