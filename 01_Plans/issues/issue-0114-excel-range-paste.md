@@ -158,7 +158,7 @@ TypeScript実装だけでなく、portable Go最小実装のCSVパーサーも�
 - 引用が発生する場合、内部の引用符は`""`で二重化される（`"a<TAB>b say ""hi"""`）。
 - セル内改行は裸のLF、行区切りはCRLF。
 
-実キャプチャ（C5:F12）で`parseTsv`が`extractHtmlTableShape`（`text/html`由来、8行×4列）と一致する8行×4列の値行列を返すことをクロス検証した。既存の`test/csvEncoding.test.ts`とは無関係（CSVパーサー自体は変更していない）。
+実キャプチャ（C5:F12）で`parseTsv`が`extractHtmlTableShape`（`text/html`由来、8行×4列）と一致する8行×4列の値行列を返すことをクロス検証した。この2026-09-14時点ではCSVパーサーを変更しておらず、既存の`test/csvEncoding.test.ts`とは無関係だった。
 
 `test/pasteDrop.test.ts`では、基本分割、実キャプチャ再現、タブ引用、改行引用、引用符エスケープ、裸引用符、境界空セル、空白保持を回帰として扱う。過去の`trim`前提は2026-10-02に撤去した。
 
