@@ -108,6 +108,8 @@ export interface SheetSpec {
   anchors?: AnchorSpec[];
   /** Replaces the generated drawing XML (to make a broken one). */
   rawDrawing?: string;
+  /** Raw worksheet children appended after sheetData (tests only). */
+  extraWorksheetXml?: string;
 }
 
 const esc = (value: string): string => value.replace(/&/gu, '&amp;').replace(/</gu, '&lt;').replace(/>/gu, '&gt;').replace(/"/gu, '&quot;');
@@ -151,7 +153,7 @@ export function buildXlsxWithImages(sheets: SheetSpec[], media: Record<string, B
       .sort((a, b) => a[0] - b[0])
       .map(([row, cells]) => `<row r="${row + 1}">${cells.sort((a, b) => a[0] - b[0]).map(([col, value]) => `<c r="${colName(col)}${row + 1}" t="inlineStr"><is><t>${esc(value)}</t></is></c>`).join('')}</row>`);
     const hasDrawing = sheet.anchors !== undefined || sheet.rawDrawing !== undefined;
-    entries[`xl/worksheets/sheet${n}.xml`] = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetData>${rows.join('')}</sheetData>${hasDrawing ? '<drawing r:id="rId1"/>' : ''}</worksheet>`;
+    entries[`xl/worksheets/sheet${n}.xml`] = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheetData>${rows.join('')}</sheetData>${sheet.extraWorksheetXml ?? ''}${hasDrawing ? '<drawing r:id="rId1"/>' : ''}</worksheet>`;
     if (hasDrawing) {
       const drawingRels: string[] = [];
       entries[`xl/drawings/drawing${n}.xml`] = sheet.rawDrawing ?? drawingXml(sheet, drawingRels);
