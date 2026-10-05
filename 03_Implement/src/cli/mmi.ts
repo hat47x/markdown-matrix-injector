@@ -1638,7 +1638,7 @@ function formatInspect(result: InspectResult): string {
       ].filter(Boolean).join(', ');
       if (hint.range) {
         lines.push(
-          `  snapshot hint #${hint.ordinal}  ${hint.range}  ${objects}  -> mmi snapshot ${JSON.stringify(result.source)} --hint ${hint.ordinal}`,
+          `  snapshot hint #${hint.ordinal}  ${hint.range}  ${objects}  (snapshot --hint ${hint.ordinal} ready)`,
         );
       } else {
         lines.push(
