@@ -49,6 +49,8 @@ TypeScript参照実装の正本suiteは、この実行コンテナに`xlsx` / `t
 
 機械可読なartifact hash・測定値は`03_Implement/portable/go-minimum/evidence/2026-10-04-standard-go-csv.json`を正とする。
 
+2026-10-05、CSVの先頭空レコードを保持するsource-coordinate契約をTypeScriptと標準Goへ追加した。このため2026-10-04のevidenceは測定当時の履歴として保持するが、現行Go suiteの通過証拠とはみなさない。次回のnative/WASM再実行では、先頭空レコードと末尾改行の新しい回帰を含めてconformanceを取り直す。
+
 XLSX decoderについては[Portable XLSX Decoder Evaluation v1](../../02_Architecture/portable-xlsx-decoder-evaluation-v1.md)を追加した。候補の軽量さだけで選ばず、used range原点、merge、display text、raw type/value、number/date format、formula saved result、shared/inline string、異常入力のfail-closedをconformance gateとする。2026-10-04時点ではExcelize v2.11.0（BSD-3-Clause、Go 1.25以上、公式系WASM経路あり）を最初の実測候補とし、現行Go 1.23環境に合わせて古い版へ下げることはsecurity fixを失う可能性があるため採用理由にしない。
 
 詳細な境界は[Portable Core Contract v1](../../02_Architecture/portable-core-contract-v1.md)を正とする。
