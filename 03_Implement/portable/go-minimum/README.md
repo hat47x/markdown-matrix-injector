@@ -34,3 +34,5 @@ stripした標準Go native binaryは1,953,944 bytes、Windows amd64 cross-build�
 TinyGoはこの環境に無いため未測定。標準Go native/WASMの結果だけでtoolchainを選定しない。
 
 機械可読な詳細は [evidence/2026-10-04-standard-go-csv.json](evidence/2026-10-04-standard-go-csv.json) を参照する。
+
+2026-10-05にCSVの座標契約を修正し、先頭空レコードを物理行として保持するようTypeScript参照実装と標準Go実装を揃えた。上記の2026-10-04 evidenceはこの変更前の履歴であり、現行Go suiteの通過証拠には使わない。再計測時は、先頭空レコード、通常の末尾改行、末尾の空レコードを含む追加回帰も通過条件に含める。
