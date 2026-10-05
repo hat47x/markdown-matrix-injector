@@ -15,6 +15,10 @@ import {
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
 import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
+import {
+  readTabularHierarchy,
+  type TabularHierarchyConfig,
+} from '../adapters/tabularHierarchyAdapter.js';
 import type { Candidate } from '../core/candidate.js';
 import { decodeJsonUtf8 } from '../core/jsonFormat.js';
 import {
@@ -44,11 +48,13 @@ export type CandidateReviewInventoryItem =
       kind: 'tree';
       candidate: Candidate;
       pointer: string;
-      format: 'json' | 'xml' | 'text';
-      nodeType: 'object' | 'array' | 'element' | 'text-node';
+      format: 'json' | 'xml' | 'text' | 'table';
+      nodeType: 'object' | 'array' | 'element' | 'text-node' | 'row';
       childCount: number;
       leafCount: number;
-      method?: FlatTextTreeMethod;
+      method?: FlatTextTreeMethod | TabularHierarchyConfig['mode'];
+      sheet?: string;
+      tabularHierarchy?: TabularHierarchyConfig;
     };
 
 export interface CandidateReviewInventory {
@@ -56,9 +62,18 @@ export interface CandidateReviewInventory {
   imageDiagnostics: ImageDiagnostic[];
 }
 
+export interface CandidateReviewInventoryOptions {
+  tabularHierarchy?: {
+    sheet: string;
+    config: TabularHierarchyConfig;
+    only?: boolean;
+  };
+}
+
 export function buildCandidateReviewInventory(
   sourcePath: string,
   sourceLabel: string,
+  options: CandidateReviewInventoryOptions = {},
 ): CandidateReviewInventory {
   if (/\.json$/iu.test(sourcePath)) {
     const sourceBytes = fs.readFileSync(sourcePath);
@@ -137,6 +152,47 @@ export function buildCandidateReviewInventory(
   const sourceDigest = readSourceFileIdentity(sourcePath).digest;
   const workbook = loadWorkbook({ absolutePath: sourcePath });
 
+  const hierarchyItems: CandidateReviewInventoryItem[] = [];
+  if (options.tabularHierarchy) {
+    const configuredSheet =
+      workbook.sheets[options.tabularHierarchy.sheet];
+    if (!configuredSheet) {
+      throw new Error(
+        `sheet ${JSON.stringify(options.tabularHierarchy.sheet)} was not found`,
+      );
+    }
+    const hierarchy = readTabularHierarchy({
+      source: sourceLabel,
+      sourceDigest,
+      sheetName: options.tabularHierarchy.sheet,
+      sheet: configuredSheet,
+      config: options.tabularHierarchy.config,
+    });
+    if (hierarchy.status !== 'inferred') {
+      throw new Error(
+        `tabular hierarchy could not be established: ${hierarchy.reasonCode}`,
+      );
+    }
+    hierarchyItems.push(
+      ...hierarchy.nodes.map((node) => ({
+        kind: 'tree' as const,
+        candidate: node.candidate,
+        pointer: node.structuralPath,
+        format: 'table' as const,
+        nodeType: 'row' as const,
+        childCount: node.childKeys.length,
+        leafCount: 1,
+        method: options.tabularHierarchy!.config.mode,
+        sheet: options.tabularHierarchy!.sheet,
+        tabularHierarchy: options.tabularHierarchy!.config,
+      })),
+    );
+  }
+
+  if (options.tabularHierarchy?.only) {
+    return { items: hierarchyItems, imageDiagnostics: [] };
+  }
+
   const tableItems: CandidateReviewInventoryItem[] = Object.entries(
     workbook.sheets,
   ).flatMap(([sheetName, sheet]) =>
@@ -160,7 +216,10 @@ export function buildCandidateReviewInventory(
   );
 
   if (!/\.(xlsx|xlsm)$/iu.test(sourcePath)) {
-    return { items: tableItems, imageDiagnostics: [] };
+    return {
+      items: [...hierarchyItems, ...tableItems],
+      imageDiagnostics: [],
+    };
   }
 
   const read = readExcelImages(fs.readFileSync(sourcePath));
@@ -177,7 +236,7 @@ export function buildCandidateReviewInventory(
     }));
 
   return {
-    items: [...tableItems, ...imageItems],
+    items: [...hierarchyItems, ...tableItems, ...imageItems],
     imageDiagnostics: read.diagnostics,
   };
 }
