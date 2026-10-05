@@ -2,10 +2,13 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
+  CHOICE_LIST_MAX_REFERENCED_CELLS,
+  directChoiceRangeReference,
   inlineChoiceValues,
   readExcelChoiceLists,
 } from '../src/adapters/excelChoiceListAdapter.js';
 import { candidateProblem } from '../src/core/candidate.js';
+import { loadWorkbookFromBytes } from '../src/core/workbookLoader.js';
 import { buildXlsxWithImages } from './helpers/buildXlsxWithImages.js';
 
 const digest = 'sha256:' + 'c'.repeat(64);
@@ -179,4 +182,175 @@ test('malformed list validation is surfaced rather than silently invented', () =
     )?.status,
     'abstained',
   );
+});
+
+
+test('direct same-workbook ranges expose saved display values as observed choices', () => {
+  const bytes = buildXlsxWithImages(
+    [
+      {
+        name: 'Form',
+        cells: [[0, 0, 'Status']],
+        extraWorksheetXml: [
+          '<dataValidations count="1">',
+          '<dataValidation type="list" sqref="A2:A20">',
+          '<formula1>Lists!$A$1:$A$3</formula1>',
+          '</dataValidation>',
+          '</dataValidations>',
+        ].join(''),
+      },
+      {
+        name: 'Lists',
+        cells: [
+          [0, 0, 'Open'],
+          [1, 0, 'Closed'],
+          [2, 0, 'Pending'],
+        ],
+      },
+    ],
+    {},
+  );
+  const workbook = loadWorkbookFromBytes('form.xlsx', bytes);
+  const result = readExcelChoiceLists(
+    bytes,
+    './form.xlsx',
+    digest,
+    workbook,
+  );
+
+  assert.deepEqual(result.diagnostics, []);
+  assert.equal(result.lists.length, 1);
+  assert.equal(result.lists[0].sourceKind, 'range');
+  assert.deepEqual(result.lists[0].choices, [
+    'Open',
+    'Closed',
+    'Pending',
+  ]);
+  assert.deepEqual(result.lists[0].resolvedSource, {
+    sheet: 'Lists',
+    range: 'A1:A3',
+  });
+  assert.equal(
+    result.lists[0].candidate.claims.find(
+      (claim) => claim.aspect === 'choices',
+    )?.reasonCode,
+    'data-validation-range-values',
+  );
+  assert.equal(
+    result.lists[0].candidate.claims.find(
+      (claim) => claim.aspect === 'choice-source-location',
+    )?.value,
+    'Lists!A1:A3',
+  );
+  assert.equal(
+    result.lists[0].candidate.provenance.run.execution,
+    'deterministic',
+  );
+  if (result.lists[0].candidate.provenance.run.execution === 'deterministic') {
+    assert.equal(
+      result.lists[0].candidate.provenance.run.config.rangeResolverVersion,
+      '1',
+    );
+  }
+});
+
+test('quoted and same-sheet A1 references are parsed without formula evaluation', () => {
+  assert.deepEqual(
+    directChoiceRangeReference("'List Data'!$B$2:$B$4", 'Form'),
+    { sheet: 'List Data', range: 'B2:B4' },
+  );
+  assert.deepEqual(
+    directChoiceRangeReference("'O''Brien'!$A$1", 'Form'),
+    { sheet: "O'Brien", range: 'A1' },
+  );
+  assert.deepEqual(
+    directChoiceRangeReference('=$D$2:$D$5', 'Form'),
+    { sheet: 'Form', range: 'D2:D5' },
+  );
+});
+
+test('unsafe or non-direct formulas stay unresolved instead of being evaluated', () => {
+  for (const formula of [
+    '[other.xlsx]Lists!$A$1:$A$3',
+    'INDIRECT("Lists!A1:A3")',
+    'MyNamedRange',
+    'Lists!$A:$A',
+  ]) {
+    assert.equal(
+      directChoiceRangeReference(formula, 'Form'),
+      undefined,
+      formula,
+    );
+  }
+
+  const tooLarge = 'Lists!$A$1:$A$' +
+    String(CHOICE_LIST_MAX_REFERENCED_CELLS + 1);
+  const twoDimensional = 'Lists!$A$1:$B$2';
+  const bytes = buildXlsxWithImages(
+    [
+      {
+        name: 'Form',
+        cells: [[0, 0, 'Status']],
+        extraWorksheetXml: [
+          '<dataValidations count="2">',
+          '<dataValidation type="list" sqref="A2">',
+          `<formula1>${tooLarge}</formula1>`,
+          '</dataValidation>',
+          '<dataValidation type="list" sqref="B2">',
+          `<formula1>${twoDimensional}</formula1>`,
+          '</dataValidation>',
+          '</dataValidations>',
+        ].join(''),
+      },
+      {
+        name: 'Lists',
+        cells: [[0, 0, 'Open']],
+      },
+    ],
+    {},
+  );
+  const workbook = loadWorkbookFromBytes('form.xlsx', bytes);
+  const result = readExcelChoiceLists(
+    bytes,
+    './form.xlsx',
+    digest,
+    workbook,
+  );
+
+  assert.deepEqual(
+    result.lists.map((item) => [item.sourceKind, item.choices]),
+    [
+      ['formula', undefined],
+      ['formula', undefined],
+    ],
+  );
+  assert.ok(
+    result.lists.every((item) =>
+      item.candidate.claims.find(
+        (claim) => claim.aspect === 'choices',
+      )?.status === 'abstained'),
+  );
+});
+
+test('existing inline list provenance stays on adapter v1', () => {
+  const bytes = workbook([
+    '<dataValidations count="1">',
+    '<dataValidation type="list" sqref="A2">',
+    '<formula1>&quot;Open,Closed&quot;</formula1>',
+    '</dataValidation>',
+    '</dataValidations>',
+  ].join(''));
+  const result = readExcelChoiceLists(
+    bytes,
+    './form.xlsx',
+    digest,
+    loadWorkbookFromBytes('form.xlsx', bytes),
+  );
+  const run = result.lists[0].candidate.provenance.run;
+  assert.equal(run.execution, 'deterministic');
+  if (run.execution === 'deterministic') {
+    assert.equal(run.implementationVersion, '1');
+    assert.equal(run.config.sourceKind, 'inline');
+    assert.equal('rangeResolverVersion' in run.config, false);
+  }
 });
