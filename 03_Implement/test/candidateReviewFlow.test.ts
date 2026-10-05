@@ -7,7 +7,7 @@ import { buildCandidateReviewInventory } from '../src/application/candidateRevie
 import { imageCandidates, type ExcelImage } from '../src/adapters/excelImageAdapter.js';
 import { candidateLedgerView } from '../src/core/candidateLedgerView.js';
 import { emptyLedger, entryFor } from '../src/core/importLedger.js';
-import { screenDesignWorkbook } from './helpers/buildXlsxWithImages.js';
+import { buildXlsxWithImages, screenDesignWorkbook } from './helpers/buildXlsxWithImages.js';
 
 const sourcePath = path.resolve('/workspace/design.xlsx');
 const ledgerPath = path.resolve('/workspace/mmi-ledger.json');
@@ -75,4 +75,54 @@ test('review inventory keeps CSV table Candidates available without an image pat
   assert.deepEqual(inventory.imageDiagnostics, []);
   assert.equal(inventory.items.some((item) => item.kind === 'image'), false);
   assert.equal(inventory.items.some((item) => item.kind === 'table'), true);
+});
+
+
+test('review inventory includes explicit Excel choice-list Candidates without inventing formula values', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-review-choice-list-'));
+  const source = path.join(root, 'form.xlsx');
+  fs.writeFileSync(
+    source,
+    buildXlsxWithImages(
+      [{
+        name: 'Form',
+        cells: [
+          [0, 0, '状態'],
+          [0, 1, '担当'],
+        ],
+        extraWorksheetXml: [
+          '<dataValidations count="2">',
+          '<dataValidation type="list" allowBlank="1" sqref="A2">',
+          '<formula1>&quot;未着手,対応中,完了&quot;</formula1>',
+          '</dataValidation>',
+          '<dataValidation type="list" sqref="B2:B9">',
+          '<formula1>Lists!$A$1:$A$3</formula1>',
+          '</dataValidation>',
+          '</dataValidations>',
+        ].join(''),
+      }],
+      {},
+    ),
+  );
+
+  const inventory = buildCandidateReviewInventory(source, 'form.xlsx');
+  const choices = inventory.items.filter(
+    (item) => item.kind === 'choice-list',
+  );
+
+  assert.equal(choices.length, 2);
+  assert.deepEqual(inventory.choiceListDiagnostics, []);
+  assert.equal(choices[0].kind, 'choice-list');
+  if (choices[0].kind !== 'choice-list' || choices[1].kind !== 'choice-list') {
+    assert.fail('expected choice-list inventory items');
+  }
+  assert.equal(choices[0].choiceList.range, 'A2');
+  assert.deepEqual(choices[0].choiceList.choices, ['未着手', '対応中', '完了']);
+  assert.equal(choices[0].choiceList.allowBlank, true);
+  assert.equal(choices[1].choiceList.range, 'B2:B9');
+  assert.equal(choices[1].choiceList.sourceKind, 'formula');
+  assert.equal(choices[1].choiceList.formula1, 'Lists!$A$1:$A$3');
+  assert.equal(choices[1].choiceList.choices, undefined);
+  assert.ok(choices.every((item) => item.candidate.kind === 'choice-list'));
+  assert.ok(choices.every((item) => item.candidate.status === 'observed'));
 });
