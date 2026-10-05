@@ -3,8 +3,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import XLSX from 'xlsx';
 
 import { buildCandidateReviewInventory } from '../src/application/candidateReviewInventory.js';
+import { extractTabularHierarchyTree } from '../src/cli/extractTree.js';
+import { readLedger } from '../src/core/importLedger.js';
 
 function fixture(contents: string): string {
   const root = fs.mkdtempSync(
@@ -165,4 +168,122 @@ test('hierarchy review reports subtree leaf counts instead of a constant placeho
   assert.equal(root.leafCount, 2);
   assert.equal(branch.childCount, 1);
   assert.equal(branch.leafCount, 1);
+});
+
+
+test('reviewed tabular Tree metadata round-trips through extract and the shared ledger', () => {
+  const source = fixture([
+    'ID,Parent,Name',
+    'A,,Account',
+    'A-1,A,Create',
+    'A-2,A,Close',
+    'B,,Operations',
+  ].join('\n'));
+  const root = path.dirname(source);
+  const assets = path.join(root, 'assets');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const doc = path.join(root, 'spec.md');
+
+  const inventory = buildCandidateReviewInventory(
+    source,
+    'hierarchy.csv',
+    {
+      tabularHierarchy: {
+        sheet: 'Sheet1',
+        config: {
+          mode: 'parent-id',
+          idHeader: 'ID',
+          parentHeader: 'Parent',
+          labelHeader: 'Name',
+        },
+      },
+      hierarchyOnly: true,
+    },
+  );
+  const account = inventory.items.find(
+    (item) =>
+      item.kind === 'tree'
+      && item.format === 'tabular'
+      && item.pointer === 'table-hierarchy:parent-id:id:A',
+  );
+  assert.ok(account && account.kind === 'tree' && account.format === 'tabular');
+  assert.ok(account.sheet);
+  assert.ok(account.tabularHierarchy);
+
+  const extracted = extractTabularHierarchyTree({
+    sourcePath: source,
+    pointer: account.pointer,
+    outDir: assets,
+    fromDocument: doc,
+    sourceLabel: 'hierarchy.csv',
+    ledgerPath,
+    expectedCandidateFingerprint: account.candidate.fingerprint.digest,
+    sheet: account.sheet,
+    config: account.tabularHierarchy,
+  });
+
+  assert.deepEqual(extracted.problems, []);
+  assert.ok(extracted.extracted);
+  assert.match(extracted.extracted.markdown, /- Account\n  - Create\n  - Close/u);
+  assert.match(
+    extracted.extracted.markdown,
+    /projection="tabular-hierarchy-nested-list-v1"/u,
+  );
+
+  const ledger = readLedger(ledgerPath);
+  assert.equal(ledger.entries.length, 1);
+  assert.equal(ledger.entries[0].kind, 'tree');
+  assert.equal(ledger.entries[0].sheet, 'Sheet1');
+  assert.equal(
+    ledger.entries[0].place,
+    'path:table-hierarchy:parent-id:id:A',
+  );
+});
+
+test('legacy XLS hierarchy sources use the same explicit review contract', () => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'mmi-hierarchy-review-xls-'),
+  );
+  const source = path.join(root, 'hierarchy.xls');
+  const workbook = XLSX.utils.book_new();
+  const sheet = XLSX.utils.aoa_to_sheet([
+    ['ID', 'Parent', 'Name'],
+    ['A', '', 'Account'],
+    ['A-1', 'A', 'Create'],
+    ['B', '', 'Operations'],
+  ]);
+  XLSX.utils.book_append_sheet(workbook, sheet, 'Hierarchy');
+  fs.writeFileSync(
+    source,
+    XLSX.write(workbook, { type: 'buffer', bookType: 'biff8' }),
+  );
+
+  const inventory = buildCandidateReviewInventory(
+    source,
+    'hierarchy.xls',
+    {
+      tabularHierarchy: {
+        sheet: 'Hierarchy',
+        config: {
+          mode: 'parent-id',
+          idHeader: 'ID',
+          parentHeader: 'Parent',
+          labelHeader: 'Name',
+        },
+      },
+      hierarchyOnly: true,
+    },
+  );
+
+  assert.deepEqual(inventory.imageDiagnostics, []);
+  assert.deepEqual(
+    inventory.items
+      .filter((item) => item.kind === 'tree')
+      .map((item) => item.kind === 'tree' ? item.pointer : ''),
+    [
+      'table-hierarchy:parent-id:id:A',
+      'table-hierarchy:parent-id:id:A-1',
+      'table-hierarchy:parent-id:id:B',
+    ],
+  );
 });

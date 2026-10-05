@@ -227,6 +227,11 @@
           "command": "markdownMatrixInjector.importFromWorkbook",
           "when": "resourceExtname =~ /^\\.(xlsx|xlsm|xls|xml)$/i",
           "group": "mmi@1"
+        },
+        {
+          "command": "markdownMatrixInjector.reviewHierarchyCandidates",
+          "when": "resourceExtname =~ /^\\.(xlsx|xlsm|xls|csv|xml)$/i",
+          "group": "mmi@2"
         }
       ],
       "editor/context": [

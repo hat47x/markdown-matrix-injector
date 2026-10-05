@@ -297,6 +297,26 @@ test('summarizeContentMatchContext gives Paste As a bounded one-line duplicate d
 });
 
 
+test('content-match preserves leading blank CSV rows in the returned physical range', () => {
+  const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-content-match-csv-origin-'));
+  const filePath = path.join(tempDir, 'source.csv');
+  fs.writeFileSync(filePath, '\n\nName,Role\nAlice,Admin\n');
+
+  const matches = findWorkbookContentMatches(
+    'Name\tRole\r\nAlice\tAdmin\r\n',
+    [{ filepath: './source.csv', sheets: loadWorkbook({ absolutePath: filePath }).sheets }],
+  );
+
+  assert.deepEqual(matches.map(located), [
+    {
+      filepath: './source.csv',
+      sheet: 'Sheet1',
+      range: { startRow: 2, startCol: 0, endRow: 3, endCol: 1 },
+    },
+  ]);
+  assert.equal(buildContentMatchMarkdown(matches[0]), '![[./source.csv#Sheet1|A3:B4]]');
+});
+
 test('content-match reloads changed source bytes before accepting a pasted fragment', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-content-match-change-'));
   const filePath = path.join(tempDir, 'source.csv');
