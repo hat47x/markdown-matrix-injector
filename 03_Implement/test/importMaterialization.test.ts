@@ -982,3 +982,68 @@ test('malformed Excel choice-list metadata remains visible as a draft warning', 
   assert.match(result.markdown, /MMI_CHOICE_LIST_FORMULA_MISSING/u);
   assert.match(result.markdown, /選択肢の参照元を読み取れません/u);
 });
+
+
+test('bulk import resolves direct range-backed Excel choices and preserves their source location', () => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'mmi-import-choice-range-'),
+  );
+  const sourcePath = path.join(root, 'form.xlsx');
+  const draftPath = path.join(root, 'form.md');
+  fs.writeFileSync(
+    sourcePath,
+    buildXlsxWithImages(
+      [
+        {
+          name: '申請',
+          cells: [[0, 0, '担当']],
+          extraWorksheetXml: [
+            '<dataValidations count="1">',
+            '<dataValidation type="list" sqref="A2:A20">',
+            '<formula1>担当者!$A$2:$A$4</formula1>',
+            '</dataValidation>',
+            '</dataValidations>',
+          ].join(''),
+        },
+        {
+          name: '担当者',
+          cells: [
+            [0, 0, '氏名'],
+            [1, 0, '佐藤'],
+            [2, 0, '鈴木'],
+            [3, 0, '田中'],
+          ],
+        },
+      ],
+      {},
+    ),
+  );
+
+  const result = writeWorkbookImportDraft({
+    sourcePath,
+    draftPath,
+  });
+
+  assert.equal(result.choiceLists.length, 1);
+  assert.deepEqual(result.choiceLists[0], {
+    ordinal: 1,
+    sheet: '申請',
+    range: 'A2:A20',
+    sourceKind: 'range',
+    formula1: '担当者!$A$2:$A$4',
+    choices: ['佐藤', '鈴木', '田中'],
+    resolvedSource: {
+      sheet: '担当者',
+      range: 'A2:A4',
+    },
+    allowBlank: false,
+  });
+  assert.match(
+    result.markdown,
+    /A2:A20: 佐藤、鈴木、田中（参照元: 担当者!A2:A4）・空欄不可/u,
+  );
+  assert.doesNotMatch(
+    result.markdown,
+    /選択肢の値は未解決/u,
+  );
+});
