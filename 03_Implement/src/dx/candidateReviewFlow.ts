@@ -252,7 +252,7 @@ async function chooseRequiredHeader(
   choices: readonly HeaderChoice[],
   title: string,
   placeHolder: string,
-  excluded: ReadonlySet<string> = new Set(),
+  excluded: ReadonlySet<string> = new Set<string>(),
 ): Promise<string | undefined> {
   const picked = await vscode.window.showQuickPick(
     choices.filter((item) => !excluded.has(item.value)),
