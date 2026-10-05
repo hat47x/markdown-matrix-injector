@@ -30,6 +30,33 @@ export interface JsonTreeDocument {
   candidates: readonly Candidate[];
 }
 
+export interface StructuredTreeSemantics {
+  algorithm: string;
+  implementationVersion: string;
+  format: string;
+  fingerprintRepresentation: string;
+  structuralPathReasonCode: string;
+  nodeTypeReasonCode: string;
+  childrenReasonCode: string;
+  scalarChildReasonCode: string;
+  provenanceConfig: Readonly<Record<string, string | number | boolean>>;
+}
+
+const JSON_TREE_SEMANTICS: StructuredTreeSemantics = {
+  algorithm: 'mmi.json-tree-adapter',
+  implementationVersion: JSON_TREE_ADAPTER_VERSION,
+  format: 'json',
+  fingerprintRepresentation: 'json-subtree-canonical-v1',
+  structuralPathReasonCode: 'json-pointer',
+  nodeTypeReasonCode: 'json-container-type',
+  childrenReasonCode: 'json-parent-child',
+  scalarChildReasonCode: 'json-scalar-child',
+  provenanceConfig: {
+    format: 'json',
+    objectKeyOrder: 'lexicographic',
+  },
+};
+
 function isObject(value: JsonValue): value is { [key: string]: JsonValue } {
   return value !== null && typeof value === 'object' && !Array.isArray(value);
 }
@@ -77,6 +104,7 @@ function collectNodes(
   source: string,
   sourceDigest: string,
   out: JsonTreeNode[],
+  semantics: StructuredTreeSemantics,
 ): void {
   if (!isContainer(value)) return;
 
@@ -94,7 +122,7 @@ function collectNodes(
       status: 'observed',
       execution: 'deterministic',
       method: 'M0',
-      reasonCode: 'json-pointer',
+      reasonCode: semantics.structuralPathReasonCode,
     },
     {
       aspect: 'node-type',
@@ -102,7 +130,7 @@ function collectNodes(
       status: 'observed',
       execution: 'deterministic',
       method: 'M0',
-      reasonCode: 'json-container-type',
+      reasonCode: semantics.nodeTypeReasonCode,
     },
     {
       aspect: 'children',
@@ -110,7 +138,7 @@ function collectNodes(
       status: 'observed',
       execution: 'deterministic',
       method: 'M0',
-      reasonCode: 'json-parent-child',
+      reasonCode: semantics.childrenReasonCode,
     },
     ...(leafValues.length > 0
       ? [{
@@ -119,7 +147,7 @@ function collectNodes(
           status: 'observed' as const,
           execution: 'deterministic' as const,
           method: 'M0' as const,
-          reasonCode: 'json-scalar-child',
+          reasonCode: semantics.scalarChildReasonCode,
         }]
       : []),
   ];
@@ -136,19 +164,16 @@ function collectNodes(
     method: 'M0',
     claims,
     provenance: {
-      algorithm: 'mmi.json-tree-adapter',
+      algorithm: semantics.algorithm,
       run: {
         execution: 'deterministic',
         inputDigest: sourceDigest,
-        config: {
-          format: 'json',
-          objectKeyOrder: 'lexicographic',
-        },
-        implementationVersion: JSON_TREE_ADAPTER_VERSION,
+        config: semantics.provenanceConfig,
+        implementationVersion: semantics.implementationVersion,
       },
     },
     fingerprint: fingerprintOf(
-      'json-subtree-canonical-v1',
+      semantics.fingerprintRepresentation,
       canonicalJson(value),
     ),
     scores: [],
@@ -175,6 +200,7 @@ function collectNodes(
         source,
         sourceDigest,
         out,
+        semantics,
       );
     }
   }
@@ -197,7 +223,7 @@ function assertUnicodeScalarString(value: string): void {
   }
 }
 
-function assertPortableJsonValue(value: JsonValue): void {
+export function assertPortableJsonValue(value: JsonValue): void {
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) {
       throw new Error('JSON Tree numbers must be finite');
@@ -220,20 +246,34 @@ function assertPortableJsonValue(value: JsonValue): void {
   }
 }
 
+export function readStructuredValueTree(
+  value: JsonValue,
+  source: string,
+  sourceDigest: string,
+  semantics: StructuredTreeSemantics,
+): JsonTreeDocument {
+  assertPortableJsonValue(value);
+  const nodes: JsonTreeNode[] = [];
+  collectNodes(value, '', source, sourceDigest, nodes, semantics);
+  return {
+    value,
+    nodes,
+    candidates: nodes.map((node) => node.candidate),
+  };
+}
+
 export function readJsonTree(
   text: string,
   source: string,
   sourceDigest: string,
 ): JsonTreeDocument {
   const value = JSON.parse(text) as JsonValue;
-  assertPortableJsonValue(value);
-  const nodes: JsonTreeNode[] = [];
-  collectNodes(value, '', source, sourceDigest, nodes);
-  return {
+  return readStructuredValueTree(
     value,
-    nodes,
-    candidates: nodes.map((node) => node.candidate),
-  };
+    source,
+    sourceDigest,
+    JSON_TREE_SEMANTICS,
+  );
 }
 
 export function decodeJsonPointer(pointer: string): string[] {
