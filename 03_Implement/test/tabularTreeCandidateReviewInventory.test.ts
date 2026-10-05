@@ -7,6 +7,8 @@ import path from 'node:path';
 import {
   buildCandidateReviewInventory,
 } from '../src/application/candidateReviewInventory.js';
+import { extractTabularHierarchyTree } from '../src/cli/extractTree.js';
+import { readLedger } from '../src/core/importLedger.js';
 
 function workspace() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-review-tabular-tree-'));
@@ -166,5 +168,60 @@ test('an invalid explicit hierarchy mapping fails instead of silently changing m
       },
     ),
     /tabular hierarchy could not be established.*header-missing/u,
+  );
+});
+
+
+test('tabular Tree review metadata feeds the existing extraction and ledger path unchanged', () => {
+  const { root, source } = workspace();
+  const assets = path.join(root, 'assets');
+  const ledger = path.join(root, 'mmi-ledger.json');
+  const doc = path.join(root, 'spec.md');
+
+  const inventory = buildCandidateReviewInventory(
+    source,
+    'hierarchy.csv',
+    {
+      tabularHierarchies: [{
+        sheet: 'Sheet1',
+        config: parentConfig,
+      }],
+    },
+  );
+  const account = inventory.items.find(
+    (item) =>
+      item.kind === 'tree'
+      && item.format === 'tabular'
+      && item.pointer === 'table-hierarchy:parent-id:id:A',
+  );
+  assert.ok(account && account.kind === 'tree' && account.format === 'tabular');
+
+  const result = extractTabularHierarchyTree({
+    sourcePath: source,
+    pointer: account.pointer,
+    outDir: assets,
+    fromDocument: doc,
+    sourceLabel: 'hierarchy.csv',
+    ledgerPath: ledger,
+    expectedCandidateFingerprint: account.candidate.fingerprint.digest,
+    sheet: account.sheet,
+    config: account.tabularConfig,
+  });
+
+  assert.deepEqual(result.problems, []);
+  assert.ok(result.extracted);
+  assert.match(result.extracted.markdown, /- Account\n  - Create\n  - Close/u);
+  assert.match(
+    result.extracted.markdown,
+    /projection="tabular-hierarchy-nested-list-v1"/u,
+  );
+
+  const recorded = readLedger(ledger);
+  assert.equal(recorded.entries.length, 1);
+  assert.equal(recorded.entries[0].kind, 'tree');
+  assert.equal(recorded.entries[0].sheet, 'Sheet1');
+  assert.equal(
+    recorded.entries[0].place,
+    'path:table-hierarchy:parent-id:id:A',
   );
 });
