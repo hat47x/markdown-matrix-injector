@@ -15,6 +15,10 @@ import {
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
 import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
+import {
+  readTabularHierarchy,
+  type TabularHierarchyConfig,
+} from '../adapters/tabularHierarchyAdapter.js';
 import type { Candidate } from '../core/candidate.js';
 import { decodeJsonUtf8 } from '../core/jsonFormat.js';
 import {
@@ -49,6 +53,17 @@ export type CandidateReviewInventoryItem =
       childCount: number;
       leafCount: number;
       method?: FlatTextTreeMethod;
+    }
+  | {
+      kind: 'tree';
+      candidate: Candidate;
+      pointer: string;
+      format: 'tabular';
+      nodeType: 'table-node';
+      childCount: number;
+      leafCount: number;
+      sheet: string;
+      tabularConfig: TabularHierarchyConfig;
     };
 
 export interface CandidateReviewInventory {
@@ -56,9 +71,22 @@ export interface CandidateReviewInventory {
   imageDiagnostics: ImageDiagnostic[];
 }
 
+export interface CandidateReviewInventoryOptions {
+  /**
+   * Explicit user-supplied hierarchy mappings. No column-name inference is
+   * performed here: tabular Tree Candidates exist only for mappings the user
+   * asked MMI to interpret.
+   */
+  tabularHierarchies?: readonly {
+    sheet: string;
+    config: TabularHierarchyConfig;
+  }[];
+}
+
 export function buildCandidateReviewInventory(
   sourcePath: string,
   sourceLabel: string,
+  options: CandidateReviewInventoryOptions = {},
 ): CandidateReviewInventory {
   if (/\.json$/iu.test(sourcePath)) {
     const sourceBytes = fs.readFileSync(sourcePath);
@@ -159,8 +187,45 @@ export function buildCandidateReviewInventory(
     }),
   );
 
+  const tabularTreeItems: CandidateReviewInventoryItem[] = (
+    options.tabularHierarchies ?? []
+  ).flatMap(({ sheet: sheetName, config }) => {
+    const sheet = workbook.sheets[sheetName];
+    if (!sheet) {
+      throw new Error(
+        `tabular hierarchy sheet ${JSON.stringify(sheetName)} was not found`,
+      );
+    }
+    const hierarchy = readTabularHierarchy({
+      source: sourceLabel,
+      sourceDigest,
+      sheetName,
+      sheet,
+      config,
+    });
+    if (hierarchy.status !== 'inferred') {
+      throw new Error(
+        `tabular hierarchy could not be established on ${sheetName}: ${hierarchy.reasonCode}`,
+      );
+    }
+    return hierarchy.nodes.map((node) => ({
+      kind: 'tree' as const,
+      candidate: node.candidate,
+      pointer: node.structuralPath,
+      format: 'tabular' as const,
+      nodeType: 'table-node' as const,
+      childCount: node.childKeys.length,
+      leafCount: node.childKeys.length === 0 ? 1 : 0,
+      sheet: sheetName,
+      tabularConfig: config,
+    }));
+  });
+
   if (!/\.(xlsx|xlsm)$/iu.test(sourcePath)) {
-    return { items: tableItems, imageDiagnostics: [] };
+    return {
+      items: [...tableItems, ...tabularTreeItems],
+      imageDiagnostics: [],
+    };
   }
 
   const read = readExcelImages(fs.readFileSync(sourcePath));
@@ -177,7 +242,7 @@ export function buildCandidateReviewInventory(
     }));
 
   return {
-    items: [...tableItems, ...imageItems],
+    items: [...tableItems, ...tabularTreeItems, ...imageItems],
     imageDiagnostics: read.diagnostics,
   };
 }
