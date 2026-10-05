@@ -47,6 +47,8 @@ Excel / CSVの親列・階層列も同じTree Candidate契約へ接続した。�
 
 CLIでは`inspect --tree-parent-columns` / `--tree-level-columns`で列挙したCandidateを、同じ設定の`extract --tree`でnested Markdownへ採用できる。採用時にはreview時fingerprintを再照合でき、標準`mmi.ledger/v1`へ記録する。抽出provenanceにはsheetと階層列設定を可逆に保存し、detach前には同じStructuralizerを再実行するため、対象subtreeの変更はstaleとして止め、別rootだけの変更は採用済みsubtreeを不要にstale化しない。
 
+VS Codeでは「表の列を指定して階層Candidateを確認」から、対象シートと親ID方式またはLevel方式、対応する列を明示して同じTree Candidateをレビューできる。通常のCandidateレビューに追加質問は入れず、階層を確認したいときだけ専用入口を使う。採用・却下・保留、fingerprint再照合、ledger、freshnessは既存レビュー経路を再利用し、別の権限体系や台帳は作らない。
+
 ## Validation plan
 
 JSONとXMLの明示構造はfixtureで親子関係、属性・本文、fingerprint、review guard、ledger、detach freshnessを確認する。XMLではnamespace未束縛、展開後の重複属性、不正な文字参照、非UTF-8 bytes・encoding宣言もfail-closedの回帰対象とする。配布CLIのoffline smokeでもXML Treeの`inspect` / `extract`を実行する。XML Spreadsheet 2003はTreeではなく既存の表経路へ残ることを確認する。
@@ -55,7 +57,6 @@ JSONとXMLの明示構造はfixtureで親子関係、属性・本文、fingerpri
 
 ## Remaining work
 
-- VS CodeのCandidateレビューで、Excel / CSVの親列・階層列設定を明示して同じTree Candidateをレビュー・採用できる経路を追加する。Structuralizer・extract・ledger・freshnessはCLI経路の実装を再利用し、別の権限体系を作らない。
 - YAMLはJSON Adapterと契約を共有できるかを確認してから追加する。
 - structured artifactの `hierarchy_relation` はissue-0193の対応表を通してPerception providerとして再利用する。
 - Choice list / ListはTreeと共通のNode表現を使えるか、実装時に判断する。
