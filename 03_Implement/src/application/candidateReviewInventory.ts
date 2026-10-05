@@ -9,6 +9,8 @@ import {
 import {
   imageCandidates,
   readExcelImages,
+  shapeCandidates,
+  type ExcelDrawingShape,
   type ExcelImage,
   type ImageDiagnostic,
 } from '../adapters/excelImageAdapter.js';
@@ -55,6 +57,11 @@ export type CandidateReviewInventoryItem =
       kind: 'choice-list';
       candidate: Candidate;
       choiceList: ExcelChoiceList;
+    }
+  | {
+      kind: 'shape';
+      candidate: Candidate;
+      shape: ExcelDrawingShape;
     }
   | {
       kind: 'tree';
@@ -320,6 +327,17 @@ export function buildCandidateReviewInventory(
       candidate,
       image: read.images[index],
     }));
+  const shapeCandidateList = shapeCandidates({
+    source: sourceLabel,
+    sourceDigest,
+    shapes: read.shapes,
+  });
+  const shapeItems: CandidateReviewInventoryItem[] =
+    shapeCandidateList.map((candidate, index) => ({
+      kind: 'shape' as const,
+      candidate,
+      shape: read.shapes[index],
+    }));
   const choiceItems: CandidateReviewInventoryItem[] =
     choiceRead.lists.map((choiceList) => ({
       kind: 'choice-list' as const,
@@ -331,6 +349,7 @@ export function buildCandidateReviewInventory(
     items: [
       ...tableItems,
       ...imageItems,
+      ...shapeItems,
       ...choiceItems,
       ...hierarchyItems,
     ],

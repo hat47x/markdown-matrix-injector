@@ -98,6 +98,8 @@ function facetLabel(facet: CandidateReviewFacetSelection): string {
         return '$(list-tree) 種別: ツリー';
       case 'choice-list':
         return '$(list-selection) 種別: 選択肢';
+      case 'shape':
+        return '$(symbol-structure) 種別: 図形';
       default:
         return `種別: ${facet.value}`;
     }
@@ -573,6 +575,34 @@ function quickPickItem(
     };
   }
 
+  if (source.kind === 'shape') {
+    const shape = source.shape;
+    const text = shape.textRuns.length > 0
+      ? shape.textRuns.join(' / ')
+      : '図形内テキストなし';
+    return {
+      label:
+        `$(symbol-structure) ${shape.name
+          ?? (shape.objectKind === 'connector'
+            ? `コネクタ ${shape.ordinal}`
+            : `図形 ${shape.ordinal}`)}`,
+      description:
+        `${stateLabel(ledgerState)} · 採用: ${reviewStateLabel(reviewState)} · ${shape.sheet}${shape.range ? ` ${shape.range}` : ''}`,
+      detail: [
+        epistemicDetail(source.candidate),
+        shape.objectKind === 'connector' ? 'connector' : 'AutoShape',
+        shape.presetGeometry ?? 'geometry未指定',
+        text,
+        providerEvidence,
+      ].join(' · '),
+      source,
+      rejected,
+      deferred,
+      reviewState,
+      ledgerState,
+    };
+  }
+
   if (source.kind === 'choice-list') {
     const choice = source.choiceList;
     const values = choice.choices
@@ -871,12 +901,13 @@ export async function reviewCandidates(
 
   const action = await vscode.window.showQuickPick(
     [
-      ...(picked.source.kind === 'choice-list'
+      ...(picked.source.kind === 'choice-list' || picked.source.kind === 'shape'
         ? [{
             label: '確認のみで次へ',
             value: 'next' as const,
-            description:
-              'Excelの入力規則を変換せず、観測内容だけ確認して次へ進む',
+            description: picked.source.kind === 'choice-list'
+              ? 'Excelの入力規則を変換せず、観測内容だけ確認して次へ進む'
+              : '図形を変換せず、原本から読めた内容だけ確認して次へ進む',
           }]
         : [{
             label: '取り込む',
@@ -1001,9 +1032,14 @@ export async function reviewCandidates(
     continue;
   }
 
-  if (picked.source.kind === 'choice-list') {
+  if (
+    picked.source.kind === 'choice-list'
+    || picked.source.kind === 'shape'
+  ) {
     await vscode.window.showErrorMessage(
-      'MMI: 選択肢CandidateはまだExtracted資産へ変換しません。確認・却下・保留のみ利用できます。',
+      picked.source.kind === 'choice-list'
+        ? 'MMI: 選択肢CandidateはまだExtracted資産へ変換しません。確認・却下・保留のみ利用できます。'
+        : 'MMI: 図形CandidateはまだExtracted資産へ変換しません。確認・却下・保留のみ利用できます。',
     );
     processedKeys.add(candidateReviewSessionKey(picked.source.candidate));
     continue;
