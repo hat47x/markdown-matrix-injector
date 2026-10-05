@@ -134,8 +134,7 @@ Commands:
                               tabular Tree: exact header names ID,Parent[,Label]
       --tree-level-columns <list>
                               tabular Tree: exact header names Level,Label
-      --sheet <name>          required when extracting a tabular Tree
-      --sheet <name>          sheet for --table
+      --sheet <name>          sheet for --table or tabular --tree
                             Exactly one of --image, --table or --tree is required
       --out-dir <dir>         assets folder (default: assets); files are content-addressed
       --from <doc.md>         provenance/source labels are relative to this document
