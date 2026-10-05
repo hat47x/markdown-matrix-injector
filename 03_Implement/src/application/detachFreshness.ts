@@ -310,6 +310,19 @@ function tabularHierarchyFromProvenance(
   const sheet = decodeProvenanceComponent(attrs['sheet-uri']);
   if (!sheet) return undefined;
 
+  let headerRow: number | undefined;
+  const headerRowText = attrs['header-row'];
+  if (headerRowText !== undefined) {
+    if (!/^[1-9][0-9]*$/u.test(headerRowText)) {
+      return undefined;
+    }
+    const parsed = Number(headerRowText);
+    if (!Number.isSafeInteger(parsed)) {
+      return undefined;
+    }
+    headerRow = parsed - 1;
+  }
+
   if (attrs['hierarchy-mode'] === 'parent-id') {
     const idHeader =
       decodeProvenanceComponent(attrs['id-header-uri']);
@@ -322,6 +335,7 @@ function tabularHierarchyFromProvenance(
       sheet,
       config: {
         mode: 'parent-id',
+        ...(headerRow === undefined ? {} : { headerRow }),
         idHeader,
         parentHeader,
         ...(labelHeader ? { labelHeader } : {}),
@@ -339,6 +353,7 @@ function tabularHierarchyFromProvenance(
       sheet,
       config: {
         mode: 'level',
+        ...(headerRow === undefined ? {} : { headerRow }),
         levelHeader,
         labelHeader,
       },
