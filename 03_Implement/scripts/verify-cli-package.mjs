@@ -80,6 +80,17 @@ export function verifyCliPackage(tarballPath) {
       '</svc:service>',
     ].join(''),
   );
+  fs.writeFileSync(
+    path.join(workspace, 'service.yaml'),
+    [
+      'service:',
+      '  name: billing',
+      '  endpoints:',
+      '    - path: /pay',
+      '      method: POST',
+      '',
+    ].join('\n'),
+  );
 
   const help = run(bin, ['--help'], workspace);
   const version = run(bin, ['--version'], workspace);
@@ -138,6 +149,26 @@ export function verifyCliPackage(tarballPath) {
       '/svc:service[1]/svc:endpoint[1]',
       '--out-dir',
       'xml-tree-assets',
+      '--root',
+      '.',
+      '--json',
+    ],
+    workspace,
+  );
+  const yamlTreeInspect = run(
+    bin,
+    ['inspect', 'service.yaml', '--root', '.', '--json'],
+    workspace,
+  );
+  const yamlTreeExtract = run(
+    bin,
+    [
+      'extract',
+      'service.yaml',
+      '--tree',
+      '/service',
+      '--out-dir',
+      'yaml-tree-assets',
       '--root',
       '.',
       '--json',
@@ -272,6 +303,39 @@ export function verifyCliPackage(tarballPath) {
     );
   }
 
+  let inspectedYamlTree;
+  let extractedYamlTree;
+  try {
+    inspectedYamlTree = JSON.parse(yamlTreeInspect.stdout);
+    extractedYamlTree = JSON.parse(yamlTreeExtract.stdout);
+  } catch {
+    throw new Error(
+      `mmi YAML Tree smoke returned invalid JSON:\n${yamlTreeInspect.stderr || yamlTreeInspect.stdout}\n${yamlTreeExtract.stderr || yamlTreeExtract.stdout}`,
+    );
+  }
+  if (
+    yamlTreeInspect.status !== 0
+    || !inspectedYamlTree.candidates?.some(
+      (candidate) =>
+        candidate.kind === 'tree'
+        && candidate.locator?.structuralPath === '/service',
+    )
+  ) {
+    throw new Error(
+      `mmi inspect YAML Tree failed:\n${yamlTreeInspect.stderr || yamlTreeInspect.stdout}`,
+    );
+  }
+  if (
+    yamlTreeExtract.status !== 0
+    || extractedYamlTree.extracted?.pointer !== '/service'
+    || !extractedYamlTree.extracted?.file
+    || !fs.existsSync(extractedYamlTree.extracted.file)
+  ) {
+    throw new Error(
+      `mmi extract YAML Tree failed:\n${yamlTreeExtract.stderr || yamlTreeExtract.stdout}`,
+    );
+  }
+
   const ledger = JSON.parse(
     fs.readFileSync(path.join(workspace, 'mmi-ledger.json'), 'utf8'),
   );
@@ -310,6 +374,8 @@ export function verifyCliPackage(tarballPath) {
         jsonTreeLedger: 'passed',
         xmlTreeInspect: 'passed',
         xmlTreeExtract: 'passed',
+        yamlTreeInspect: 'passed',
+        yamlTreeExtract: 'passed',
       },
     };
   } finally {

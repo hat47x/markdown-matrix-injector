@@ -229,9 +229,14 @@
           "group": "mmi@1"
         },
         {
+          "command": "markdownMatrixInjector.reviewCandidates",
+          "when": "resourceExtname =~ /^\\.(xlsx|xlsm|xls|csv|xml|json|ya?ml|txt|text|log)$/i",
+          "group": "mmi@2"
+        },
+        {
           "command": "markdownMatrixInjector.reviewHierarchyCandidates",
           "when": "resourceExtname =~ /^\\.(xlsx|xlsm|xls|csv|xml)$/i",
-          "group": "mmi@2"
+          "group": "mmi@3"
         }
       ],
       "editor/context": [
