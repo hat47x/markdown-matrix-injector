@@ -66,7 +66,7 @@ node --import tsx ./test/e2e/runImport.ts
 
 issue-0200の共通materializerから本Issueの解析・下書き生成を再利用し、既存のVS Code取り込みコマンドとCLI `mmi import`を同じ製品経路へ揃えた。本Issueは引き続き、表・key-value・prose・form・diagram等の候補の質と人の判断支援を担当する。画像assetの抽出、取り込み台帳、一括materializeの書き込み境界はissue-0200が担当する。
 
-これにより、取り込み支援のroleを権威的事実へ昇格させずに、表は追従参照、埋込画像は通常asset、その他はレビュー候補として1つの下書きにまとめられる。残る受入条件は、画面操作の目視確認と実在設計書での採用・修正・却下の観測である。
+これにより、取り込み支援のroleを権威的事実へ昇格させずに、表は追従参照、埋込画像は通常asset、その他はレビュー候補として1つの下書きにまとめられる。Excelの入力規則で明示されたlistも`choice-list` Candidateとして同じレビューへ加えた。inlineの値は観測値として表示し、formula参照は値を推測しない。現段階では確認・却下・保留だけを行い、自動変換はしない。残る受入条件は、画面操作の目視確認と実在設計書での採用・修正・却下の観測である。
 
 ## Product integration checkpoint（2026-10-02）
 
