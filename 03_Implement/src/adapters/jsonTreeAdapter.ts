@@ -181,7 +181,9 @@ function collectNodes(
 
   const problem = candidateProblem(candidate);
   if (problem) {
-    throw new Error(`invalid JSON Tree Candidate at ${pointer || '(root)'}: ${problem}`);
+    throw new Error(
+      `invalid ${semantics.format} Tree Candidate at ${pointer || '(root)'}: ${problem}`,
+    );
   }
 
   out.push({
@@ -223,7 +225,10 @@ function assertUnicodeScalarString(value: string): void {
   }
 }
 
-export function assertPortableJsonValue(value: JsonValue): void {
+export function assertPortableJsonValue(
+  value: unknown,
+): asserts value is JsonValue {
+  if (value === null || typeof value === 'boolean') return;
   if (typeof value === 'number') {
     if (!Number.isFinite(value)) {
       throw new Error('JSON Tree numbers must be finite');
@@ -238,12 +243,22 @@ export function assertPortableJsonValue(value: JsonValue): void {
     value.forEach(assertPortableJsonValue);
     return;
   }
-  if (value !== null && typeof value === 'object') {
-    for (const [key, child] of Object.entries(value)) {
+  if (typeof value === 'object') {
+    const prototype = Object.getPrototypeOf(value);
+    if (prototype !== Object.prototype && prototype !== null) {
+      throw new Error('Structured Tree values must use plain mapping objects');
+    }
+    for (const [key, child] of Object.entries(
+      value as Record<string, unknown>,
+    )) {
       assertUnicodeScalarString(key);
       assertPortableJsonValue(child);
     }
+    return;
   }
+  throw new Error(
+    `Structured Tree values must be JSON-compatible; got ${typeof value}`,
+  );
 }
 
 export function readStructuredValueTree(
