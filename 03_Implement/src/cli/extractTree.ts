@@ -524,10 +524,14 @@ function tabularHierarchyProvenance(
 ): Record<string, string> {
   const encoded = (value: string): string =>
     encodeURIComponent(value);
+  const headerRow = options.config.headerRow === undefined
+    ? {}
+    : { 'header-row': String(options.config.headerRow + 1) };
   return options.config.mode === 'parent-id'
     ? {
         'sheet-uri': encoded(options.sheet),
         'hierarchy-mode': options.config.mode,
+        ...headerRow,
         'id-header-uri': encoded(options.config.idHeader),
         'parent-header-uri': encoded(options.config.parentHeader),
         ...(options.config.labelHeader
@@ -537,6 +541,7 @@ function tabularHierarchyProvenance(
     : {
         'sheet-uri': encoded(options.sheet),
         'hierarchy-mode': options.config.mode,
+        ...headerRow,
         'level-header-uri': encoded(options.config.levelHeader),
         'label-header-uri': encoded(options.config.labelHeader),
       };
@@ -551,6 +556,9 @@ function tabularHierarchyConversion(
         hierarchyMode: options.config.mode,
         sheet: options.sheet,
         pointer: options.pointer,
+        ...(options.config.headerRow === undefined
+          ? {}
+          : { headerRow: options.config.headerRow }),
         idHeader: options.config.idHeader,
         parentHeader: options.config.parentHeader,
         ...(options.config.labelHeader
@@ -562,6 +570,9 @@ function tabularHierarchyConversion(
         hierarchyMode: options.config.mode,
         sheet: options.sheet,
         pointer: options.pointer,
+        ...(options.config.headerRow === undefined
+          ? {}
+          : { headerRow: options.config.headerRow }),
         levelHeader: options.config.levelHeader,
         labelHeader: options.config.labelHeader,
       };
