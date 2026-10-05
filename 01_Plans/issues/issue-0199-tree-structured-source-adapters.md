@@ -23,7 +23,7 @@ MMIの認知は、明示構造を推測し直すためではなく、形式だ�
 - [x] JSONからobject / arrayの親子関係をTree / Hierarchy Candidate（`observed`）として列挙できる。RFC 6901 JSON Pointerを`structuralPath`として保持する。
 - [x] 汎用XMLからelementの親子関係を保持し、属性・本文を失わずCandidateへ写せる。XML Spreadsheet 2003は従来どおり表として扱い、汎用XMLのTree経路と分離する。
 - [x] フラットテキスト用Structuralizerの最小契約を定め、インデント、見出し番号、接頭辞コードの3方式を個別に有効化できる。
-- [ ] Excel / CSVの親列や階層列を同じTree Candidateへ写す拡張点を定める。実装範囲は最小fixtureでよい。
+- [x] Excel / CSVの親列や階層列を同じTree Candidateへ写し、inspect→extract→ledger→detach freshnessまで同じ採用ライフサイクルへ接続する。
 - [x] `observed` / `inferred` と `deterministic` / `provider-dependent` をAPI・JSON出力で直交して表現し、推定にはmethod class、evidence、algorithm/provider version、reason codeを残す。フラットテキストの階層推定は`inferred + deterministic + M1`として記録する。
 - [x] 決定論的規則であっても複数の構造が成立する場合は自動確定せず、複数候補または`abstained`を返す。deterministicであることを事実性の根拠にしない。
 - [x] Treeの内部表現とMarkdown上の表現を分離し、nested list / headings / Mermaid等を後から選べる。JSONの初期版はnested list Projectionを別モジュールとして実装した。
@@ -43,7 +43,9 @@ XML Spreadsheet 2003は既存のworkbook/table経路を維持する。その他�
 
 フラットテキストTreeもCLIの`inspect` / `extract --tree`、VS CodeのCandidateレビュー、`mmi-ledger.json`、detach前のfreshness確認へ接続した。Extractedでは、レビューした`text:<method>:line:<n>`を同じ方式で再構築し、subtree fingerprintが一致した場合だけnested Markdownへ投影する。対象subtreeが変われば採用しない。別のrootだけが変わり、対象subtreeの内容と構造が同じ場合は採用を妨げない。
 
-残るTree一般化はExcel / CSVの親列・階層列である。これも明示構造ではない場合はM1以降として扱い、曖昧な入力を自動確定しない。
+Excel / CSVの親列・階層列も同じTree Candidate契約へ接続した。親ID列またはlevel列は利用者が明示指定し、固定規則による親子関係を`inferred + deterministic + M1`として保持する。曖昧なheader、欠損parent、cycle、level jump等は推測で補わず`abstained`とする。
+
+CLIでは`inspect --tree-parent-columns` / `--tree-level-columns`で列挙したCandidateを、同じ設定の`extract --tree`でnested Markdownへ採用できる。採用時にはreview時fingerprintを再照合でき、標準`mmi.ledger/v1`へ記録する。抽出provenanceにはsheetと階層列設定を可逆に保存し、detach前には同じStructuralizerを再実行するため、対象subtreeの変更はstaleとして止め、別rootだけの変更は採用済みsubtreeを不要にstale化しない。
 
 ## Validation plan
 
@@ -53,7 +55,7 @@ JSONとXMLの明示構造はfixtureで親子関係、属性・本文、fingerpri
 
 ## Remaining work
 
-- Excel / CSVの親列・階層列を同じTree契約へ写す最小fixtureを追加する。
+- VS CodeのCandidateレビューで、Excel / CSVの親列・階層列設定を明示して同じTree Candidateをレビュー・採用できる経路を追加する。Structuralizer・extract・ledger・freshnessはCLI経路の実装を再利用し、別の権限体系を作らない。
 - YAMLはJSON Adapterと契約を共有できるかを確認してから追加する。
 - structured artifactの `hierarchy_relation` はissue-0193の対応表を通してPerception providerとして再利用する。
 - Choice list / ListはTreeと共通のNode表現を使えるか、実装時に判断する。
