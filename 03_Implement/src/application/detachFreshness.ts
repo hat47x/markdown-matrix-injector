@@ -2,6 +2,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { buildCandidateReviewInventory } from './candidateReviewInventory.js';
+import {
+  readTabularHierarchy,
+  type TabularHierarchyConfig,
+} from '../adapters/tabularHierarchyAdapter.js';
+import {
+  readSourceFileIdentity,
+} from '../core/sourceIdentity.js';
+import { loadWorkbook } from '../core/workbookLoader.js';
 import { fingerprintOf, type Candidate } from '../core/candidate.js';
 import {
   assessLedger,
@@ -50,6 +58,8 @@ interface ExtractedProvenance {
   sheet?: string;
   place?: string;
   fingerprintDigest: string;
+  projection?: string;
+  tabularHierarchy?: TabularHierarchyConfig;
 }
 
 /**
@@ -93,17 +103,36 @@ export function checkExtractedProvenanceFreshness(
       continue;
     }
 
-    let candidates = inventoryCache.get(sourcePath);
-    if (!candidates) {
-      const sourceLabel = path.relative(options.workspaceRoot, sourcePath).split(path.sep).join('/');
-      try {
-        candidates = candidatesFromCurrentSource(sourcePath, sourceLabel);
-      } catch (error) {
-        problems.push(problemFor(record, 'MMI_DETACH_EXTRACTED_CANDIDATE_MISSING',
-          `cannot inspect current source Candidate: ${error instanceof Error ? error.message : String(error)}`));
-        continue;
+    const sourceLabel = path.relative(
+      options.workspaceRoot,
+      sourcePath,
+    ).split(path.sep).join('/');
+    let candidates: Candidate[];
+    try {
+      if (
+        record.kind === 'tree'
+        && record.tabularHierarchy
+        && record.sheet
+      ) {
+        candidates = tabularHierarchyCandidatesFromCurrentSource(
+          sourcePath,
+          sourceLabel,
+          record.sheet,
+          record.tabularHierarchy,
+        );
+      } else {
+        const cached = inventoryCache.get(sourcePath);
+        if (cached) {
+          candidates = cached;
+        } else {
+          candidates = candidatesFromCurrentSource(sourcePath, sourceLabel);
+          inventoryCache.set(sourcePath, candidates);
+        }
       }
-      inventoryCache.set(sourcePath, candidates);
+    } catch (error) {
+      problems.push(problemFor(record, 'MMI_DETACH_EXTRACTED_CANDIDATE_MISSING',
+        `cannot inspect current source Candidate: ${error instanceof Error ? error.message : String(error)}`));
+      continue;
     }
 
     const current = candidatesForRecord(candidates, record);
@@ -205,12 +234,16 @@ function extractedProvenance(markdown: string): ExtractedProvenance[] {
         && Object.prototype.hasOwnProperty.call(attrs, 'path')
         && attrs['candidate-sha256']
       ) {
+        const tabularHierarchy = tabularHierarchyFromProvenance(attrs);
         records.push({
           line: index + 1,
           kind: 'tree',
           source: attrs.source,
+          ...(attrs.sheet ? { sheet: attrs.sheet } : {}),
           place: `path:${attrs.path}`,
           fingerprintDigest: normalizedSha256(attrs['candidate-sha256']),
+          ...(attrs.projection ? { projection: attrs.projection } : {}),
+          ...(tabularHierarchy ? { tabularHierarchy } : {}),
         });
       }
     }
@@ -224,6 +257,59 @@ function candidatesFromCurrentSource(
 ): Candidate[] {
   return buildCandidateReviewInventory(sourcePath, sourceLabel)
     .items.map((item) => item.candidate);
+}
+
+function tabularHierarchyCandidatesFromCurrentSource(
+  sourcePath: string,
+  sourceLabel: string,
+  sheetName: string,
+  config: TabularHierarchyConfig,
+): Candidate[] {
+  const workbook = loadWorkbook({ absolutePath: sourcePath });
+  const sheet = workbook.sheets[sheetName];
+  if (!sheet) return [];
+  const sourceDigest = readSourceFileIdentity(sourcePath).digest;
+  return readTabularHierarchy({
+    source: sourceLabel,
+    sourceDigest,
+    sheetName,
+    sheet,
+    config,
+  }).candidates.slice();
+}
+
+function tabularHierarchyFromProvenance(
+  attrs: Record<string, string>,
+): TabularHierarchyConfig | undefined {
+  if (attrs.projection !== 'tabular-hierarchy-nested-list-v1') {
+    return undefined;
+  }
+  if (
+    attrs['hierarchy-mode'] === 'parent-id'
+    && attrs['id-header']
+    && attrs['parent-header']
+  ) {
+    return {
+      mode: 'parent-id',
+      idHeader: attrs['id-header'],
+      parentHeader: attrs['parent-header'],
+      ...(attrs['label-header']
+        ? { labelHeader: attrs['label-header'] }
+        : {}),
+    };
+  }
+  if (
+    attrs['hierarchy-mode'] === 'level'
+    && attrs['level-header']
+    && attrs['label-header']
+  ) {
+    return {
+      mode: 'level',
+      levelHeader: attrs['level-header'],
+      labelHeader: attrs['label-header'],
+    };
+  }
+  return undefined;
 }
 
 function attributes(text: string): Record<string, string> {
