@@ -426,7 +426,7 @@ func collectJSONTreeCandidates(
 					"format":         "json",
 					"objectKeyOrder": "lexicographic",
 				},
-				ImplementationVersion: "2",
+				ImplementationVersion: "3",
 			},
 		},
 		Fingerprint: fingerprint{
@@ -517,7 +517,13 @@ func canonicalJSON(value any) (string, error) {
 		return marshalJSONNoHTML(current)
 	case float64:
 		if math.IsNaN(current) || math.IsInf(current, 0) {
-			return "", errors.New("JSON Tree numbers must be finite")
+			return "", errors.New("Structured Tree numbers must be finite")
+		}
+		if math.Trunc(current) == current &&
+			math.Abs(current) > float64(maxSafeInteger) {
+			return "", errors.New(
+				"Structured Tree integers must be within the JavaScript safe-integer range",
+			)
 		}
 		if current == 0 {
 			return "0", nil

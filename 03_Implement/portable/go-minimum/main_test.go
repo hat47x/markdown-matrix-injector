@@ -410,6 +410,12 @@ func TestCanonicalJSONMatchesJavaScriptNumberSemantics(t *testing.T) {
 	if _, err := canonicalJSON(math.Inf(1)); err == nil {
 		t.Fatal("non-finite JSON Tree number must be rejected")
 	}
+	if _, err := canonicalJSON(float64(maxSafeInteger)); err != nil {
+		t.Fatalf("largest safe integer must be accepted: %v", err)
+	}
+	if _, err := canonicalJSON(float64(maxSafeInteger) + 1); err == nil {
+		t.Fatal("unsafe integer must be rejected")
+	}
 }
 
 
