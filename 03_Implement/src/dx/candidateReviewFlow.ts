@@ -218,14 +218,21 @@ interface HeaderChoice extends vscode.QuickPickItem {
   header: string;
 }
 
+interface HeaderRowChoice extends vscode.QuickPickItem {
+  row: number;
+}
+
+const MAX_HIERARCHY_HEADER_ROW_CHOICES = 50;
+
 function uniqueHeaderChoices(
   sheet: ReturnType<typeof loadWorkbook>['sheets'][string],
+  row: number,
 ): HeaderChoice[] {
   const range = sheet.usedRange;
   if (!range) return [];
   const values: Array<{ header: string; column: number }> = [];
   for (let column = range.startCol; column <= range.endCol; column += 1) {
-    const header = sheet.cellAt(range.startRow, column)?.text.trim() ?? '';
+    const header = sheet.cellAt(row, column)?.text.trim() ?? '';
     if (header) values.push({ header, column });
   }
   const counts = new Map<string, number>();
@@ -239,6 +246,34 @@ function uniqueHeaderChoices(
       description: `列 ${columnName(item.column)}`,
       header: item.header,
     }));
+}
+
+function hierarchyHeaderRowChoices(
+  sheet: ReturnType<typeof loadWorkbook>['sheets'][string],
+): HeaderRowChoice[] {
+  const range = sheet.usedRange;
+  if (!range) return [];
+  const endRow = Math.min(
+    range.endRow,
+    range.startRow + MAX_HIERARCHY_HEADER_ROW_CHOICES - 1,
+  );
+  const rows: HeaderRowChoice[] = [];
+  for (let row = range.startRow; row <= endRow; row += 1) {
+    const headers = uniqueHeaderChoices(sheet, row);
+    if (headers.length < 2) continue;
+    rows.push({
+      label: `行 ${row + 1}`,
+      description: headers
+        .slice(0, 5)
+        .map((item) => item.header)
+        .join(' · '),
+      detail: headers.length > 5
+        ? `一意な見出し ${headers.length}列（先頭5列を表示）`
+        : `一意な見出し ${headers.length}列`,
+      row,
+    });
+  }
+  return rows;
 }
 
 function columnName(index: number): string {
@@ -290,13 +325,23 @@ async function chooseHierarchyConfig(
       ))?.sheet;
   if (!sheet) return undefined;
 
-  const headers = uniqueHeaderChoices(workbook.sheets[sheet]);
-  if (headers.length < 2) {
+  const sheetSource = workbook.sheets[sheet];
+  const headerRows = hierarchyHeaderRowChoices(sheetSource);
+  if (headerRows.length === 0) {
     await vscode.window.showInformationMessage(
-      'MMI: 一意に指定できる見出しが2列以上ありません。重複見出しは階層列として推測しません。',
+      `MMI: 先頭${MAX_HIERARCHY_HEADER_ROW_CHOICES}使用行に、一意に指定できる見出しが2列以上ある行がありません。重複見出しは階層列として推測しません。`,
     );
     return undefined;
   }
+  const headerRow = headerRows.length === 1
+    ? headerRows[0].row
+    : (await vscode.window.showQuickPick(headerRows, {
+        placeHolder: '見出し行を選択',
+        title: 'MMI: 階層Candidate',
+      }))?.row;
+  if (headerRow === undefined) return undefined;
+
+  const headers = uniqueHeaderChoices(sheetSource, headerRow);
 
   const mode = await vscode.window.showQuickPick(
     [
@@ -362,6 +407,7 @@ async function chooseHierarchyConfig(
       sheet,
       config: {
         mode: 'parent-id',
+        headerRow,
         idHeader: id.header,
         parentHeader: parent.header,
         ...(label.header ? { labelHeader: label.header } : {}),
@@ -387,6 +433,7 @@ async function chooseHierarchyConfig(
     sheet,
     config: {
       mode: 'level',
+      headerRow,
       levelHeader: level.header,
       labelHeader: label.header,
     },
