@@ -14,6 +14,10 @@ import { checkDetachedDocument } from '../application/detachCheck.js';
 import { checkExtractedProvenanceFreshness } from '../application/detachFreshness.js';
 import { materializeDocument } from '../application/materialize.js';
 import { runPortableCoreRequest } from '../application/portableCoreProtocol.js';
+import {
+  readExcelChoiceLists,
+  type ChoiceListDiagnostic,
+} from '../adapters/excelChoiceListAdapter.js';
 import { imageCandidates, readExcelImages, relationToTables, type ImageDiagnostic, type TableRect } from '../adapters/excelImageAdapter.js';
 import {
   DEFAULT_FLAT_TEXT_TREE_METHODS,
@@ -120,7 +124,7 @@ Commands:
                               workbook/CSV only: exact header names Level,Label
       --unimported            show only occurrences never imported (duplicates remain separate)
       --exclude-imported      hide exact imported occurrences; keep changed/stale/duplicate/unimported
-                            For .xlsx/.xlsm it also lists embedded pictures (sheet, anchor, format, size,
+                            For .xlsx/.xlsm it also lists embedded pictures and explicit Data Validation choice lists,
                             digest, nearest table) and names any that cannot be read.
                             For .json it lists object/array nodes by RFC 6901 JSON Pointer.
                             Generic .xml lists explicit element nodes; XML Spreadsheet 2003 remains a table source.
@@ -1058,6 +1062,16 @@ export interface InspectTreeHypothesis {
   sheet?: string;
 }
 
+export interface InspectChoiceList {
+  ordinal: number;
+  sheet: string;
+  range: string;
+  sourceKind: 'inline' | 'formula' | 'missing';
+  formula1?: string;
+  choices?: readonly string[];
+  allowBlank: boolean;
+}
+
 export interface InspectResult {
   source: string;
   /** Public machine-readable contract used by every item in candidates. */
@@ -1073,6 +1087,10 @@ export interface InspectResult {
   candidates: Candidate[];
   /** Embedded pictures of an .xlsx/.xlsm (empty for other sources). */
   images: InspectImage[];
+  /** Explicit list Data Validation occurrences from .xlsx/.xlsm. */
+  choiceLists: InspectChoiceList[];
+  /** Choice-list validations that could not be interpreted safely. */
+  choiceListDiagnostics: ChoiceListDiagnostic[];
   /** Pictures or drawings that could not be read, by name. */
   imageDiagnostics: ImageDiagnostic[];
   /**
@@ -1151,6 +1169,8 @@ export function inspectSource(
         leafValues: node.leafValues,
       })),
       images: [],
+      choiceLists: [],
+      choiceListDiagnostics: [],
       imageDiagnostics: [],
       sheets: [],
     };
@@ -1220,6 +1240,8 @@ export function inspectSource(
       })),
       treeAmbiguous: tree.ambiguous,
       images: [],
+      choiceLists: [],
+      choiceListDiagnostics: [],
       imageDiagnostics: [],
       sheets: [],
     };
@@ -1228,14 +1250,20 @@ export function inspectSource(
   const sourceDigest = readSourceFileIdentity(absolutePath).digest;
   const workbook = loadWorkbook({ absolutePath });
   const isPackage = /\.(xlsx|xlsm)$/iu.test(absolutePath);
-  const imageRead = isPackage
-    ? readExcelImages(fs.readFileSync(absolutePath))
+  const packageBytes = isPackage
+    ? fs.readFileSync(absolutePath)
+    : undefined;
+  const imageRead = packageBytes
+    ? readExcelImages(packageBytes)
     : {
         images: [],
         diagnostics: /\.xls$/iu.test(absolutePath)
           ? [{ code: 'MMI_IMAGE_PACKAGE_UNSUPPORTED' as const, severity: 'warning' as const, message: 'binary .xls: embedded pictures are not read' }]
           : [],
       };
+  const choiceRead = packageBytes
+    ? readExcelChoiceLists(packageBytes, relative, sourceDigest)
+    : { lists: [], diagnostics: [] };
   const detected = Object.entries(workbook.sheets).map(([name, sheet]) => ({ name, sheet, regions: detectTableRegions(name, sheet, { maxValueSample: 0 }) }));
   const tabularHierarchies = tabularHierarchy
     ? Object.entries(workbook.sheets).map(([sheetName, sheet]) => ({
@@ -1259,6 +1287,7 @@ export function inspectSource(
     candidates: [
       ...Object.entries(workbook.sheets).flatMap(([sheetName, sheet]) => tableCandidates({ source: relative, sourceDigest, sheetName, sheet })),
       ...imageCandidates({ source: relative, sourceDigest, images: imageRead.images, tablesBySheet }),
+      ...choiceRead.lists.map((item) => item.candidate),
       ...tabularHierarchies.flatMap(({ result }) => result.candidates),
     ],
     ...(tabularHierarchy
@@ -1287,6 +1316,16 @@ export function inspectSource(
           treeAmbiguous: false,
         }
       : {}),
+    choiceLists: choiceRead.lists.map((item) => ({
+      ordinal: item.ordinal,
+      sheet: item.sheet,
+      range: item.range,
+      sourceKind: item.sourceKind,
+      ...(item.formula1 ? { formula1: item.formula1 } : {}),
+      ...(item.choices ? { choices: item.choices } : {}),
+      allowBlank: item.allowBlank,
+    })),
+    choiceListDiagnostics: choiceRead.diagnostics,
     images: imageRead.images.map((image) => {
       const near = relationToTables(image, tablesBySheet[image.sheet] ?? []);
       return {
@@ -1359,6 +1398,10 @@ function applyLedgerView(
       const place = image.range ?? `name:${image.name ?? ''}`;
       return allowed.has(`image\u0000${image.sheet}\u0000${place}`);
     }),
+    choiceLists: result.choiceLists.filter((item) =>
+      allowed.has(
+        `choice-list\u0000${item.sheet}\u0000${item.range}`,
+      )),
     ...(result.trees
       ? {
           trees: result.trees.filter((tree) =>
@@ -1452,11 +1495,35 @@ function formatInspect(result: InspectResult): string {
       lines.push(`    ${region.reference}`);
       for (const row of region.sample ?? []) lines.push(`    | ${row.join(' | ')} |`);
     }
+    for (
+      const choice of result.choiceLists.filter(
+        (item) => item.sheet === sheet.name,
+      )
+    ) {
+      const summary = choice.choices
+        ? `${choice.choices.length} choices: ${choice.choices.join(', ')}`
+        : choice.formula1
+          ? `source: ${choice.formula1} (values unresolved)`
+          : 'source missing';
+      lines.push(
+        `  choice-list #${choice.ordinal}  ${choice.range}  ${summary}${choice.allowBlank ? '  allow blank' : ''}${ledgerSuffix('choice-list', sheet.name, choice.range)}`,
+      );
+    }
     for (const image of result.images.filter((item) => item.sheet === sheet.name)) {
       const near = image.nearbyTable ? `  near table ${image.nearbyTable.range} (${image.nearbyTable.relation}, gap ${image.nearbyTable.gap})` : '';
       const place = image.range ?? `name:${image.name ?? ''}`;
       lines.push(`  image #${image.ordinal}  ${image.range ?? '(no cell anchor)'}  ${image.format}  ${image.bytes} bytes  ${image.digest.slice(0, 19)}…${image.name ? `  "${image.name}"` : ''}${near}${image.extractable ? '' : '  (not extractable)'}${ledgerSuffix('image', sheet.name, place)}`);
     }
+  }
+  if (result.choiceListDiagnostics.length > 0) {
+    lines.push(
+      '',
+      'choice-list problems:',
+      ...result.choiceListDiagnostics.map(
+        (item) =>
+          `  ${item.code}${item.sheet ? ` ${item.sheet}` : ''}: ${item.message}`,
+      ),
+    );
   }
   if (result.imageDiagnostics.length > 0) lines.push('', 'drawing problems:', ...formatImageDiagnostics(result.imageDiagnostics).map((line) => `  ${line}`));
   return lines.join('\n');
