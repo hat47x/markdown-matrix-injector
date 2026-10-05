@@ -186,25 +186,34 @@ test('loadWorkbook still parses plain (unquoted) CSV exactly as before', () => {
   ]);
 });
 
-// ── CSV: the whole-file trim() shifts the A1 origin past leading blank lines
-// -- a known, separate gap from the used-range/blank-row fix this module made
-// for XLSX (parseCsv's own doc comment, input-assistance-source-model.md §7,
-// issue-0114 "未対応で残る点"). Deliberately NOT fixed here: whether CSV should
-// get the same origin-preserving contract as XLSX is an open product decision
-// (a leading blank line in a hand-edited CSV may be noise, not real row 1 the
-// way an Excel used-range is authoritative). This test only pins the CURRENT
-// behavior so a future change to parseCsv is a visible, deliberate decision
-// rather than an accidental regression. ────────────────────────────────────
+// ── CSV: physical record positions are source coordinates. A leading blank
+// record still occupies a row; the parser must not compact the file before A1
+// addressing is applied. A single final line terminator is structural, while
+// repeated final terminators preserve the blank records between them. ──────
 
-test('loadWorkbook\'s CSV origin silently shifts past leading blank lines (documented, intentionally unfixed gap)', () => {
+test('loadWorkbook preserves leading blank CSV rows so the header keeps its physical row number', () => {
   const rows = loadCsv('\n\nName,Role\nAlice,Admin\n');
 
-  // Two real leading blank lines precede the header in the source file, but
-  // parseCsv's whole-file trim() strips them before parsing: the header ends
-  // up addressed as A1 instead of the physically-correct A3.
   assert.deepEqual(rows, [
+    [''],
+    [''],
     ['Name', 'Role'],
     ['Alice', 'Admin'],
+  ]);
+});
+
+test('loadWorkbook does not invent a blank CSV row for a single trailing line terminator', () => {
+  assert.deepEqual(loadCsv('Name,Role\nAlice,Admin\n'), [
+    ['Name', 'Role'],
+    ['Alice', 'Admin'],
+  ]);
+});
+
+test('loadWorkbook preserves an explicit trailing blank CSV record', () => {
+  assert.deepEqual(loadCsv('Name,Role\nAlice,Admin\n\n'), [
+    ['Name', 'Role'],
+    ['Alice', 'Admin'],
+    [''],
   ]);
 });
 

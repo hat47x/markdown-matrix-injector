@@ -39,7 +39,7 @@ v1は`inspect`かつdeterministic-onlyに限定する。CSV / XLSX / XLSM / XML 
 
 CLIには`mmi core <request.json|->`を追加した。source bytesはrequest内にあるため、この経路はsource pathを探索・読込しない。process-levelのJSON境界として、将来の標準Go / TinyGo / WASM実装と同じrequestを比較できる。
 
-`test/fixtures/portable-core-v1/`へCSV表、JSON Tree、汎用XML Treeのconformance caseを追加した。`test/portableCoreProtocol.test.ts`では、fixtureのsource digest / Candidate種別 / locator / provenance / fingerprint representationを確認する。生成XLSXはportable経路と既存`tableCandidates()`直呼び、汎用XMLはportable経路と`readXmlTree()`直呼びのCandidate列が完全一致することを固定した。XML Spreadsheet 2003がTreeへ流れず、従来の表経路に残ることも確認対象にした。source名が存在しないpath風文字列でも埋込bytesだけで処理できること、空CSV、provider-dependent拒否、schema expansion拒否も対象とする。
+`test/fixtures/portable-core-v1/`へ通常のCSV表、先頭空レコードを含むCSV表、JSON Tree、汎用XML Treeのconformance caseを追加した。先頭空レコードのCSVは、TypeScript参照実装と標準Goの双方に`A3:B5`を要求し、source coordinateの一致を共有fixtureで固定する。`test/portableCoreProtocol.test.ts`では、fixtureのsource digest / Candidate種別 / locator / provenance / fingerprint representationを確認する。生成XLSXはportable経路と既存`tableCandidates()`直呼び、汎用XMLはportable経路と`readXmlTree()`直呼びのCandidate列が完全一致することを固定した。XML Spreadsheet 2003がTreeへ流れず、従来の表経路に残ることも確認対象にした。source名が存在しないpath風文字列でも埋込bytesだけで処理できること、空CSV、provider-dependent拒否、schema expansion拒否も対象とする。
 
 TypeScript参照実装の正本suiteは、この実行コンテナに`xlsx` / `tsx`がなく依存取得もできないため、まだ実行していない。標準GoではCSV最小実装についてshared `csv-table.case.json`を実行し、source digest、Candidate位置、provenance、fingerprint、referenceまで一致した。このCSV段階のGo test suiteはnativeと標準Go WASMの両方で通過している。その後、同じGo最小実装へJSON Treeを追加し、通常fixtureに加えてUTF-16 key順・JSON Pointer escape・subtree fingerprintを固定するshared conformance fixtureまで実装したが、追加後のGo suiteはこのセッションではまだ実行していない。
 
@@ -48,6 +48,8 @@ TypeScript参照実装の正本suiteは、この実行コンテナに`xlsx` / `t
 2026-10-04の初期実測では、strip済み標準Go native（linux/amd64）が1,953,944 bytes、Windows amd64 cross-buildが2,084,864 bytes、標準Go WASMが3,336,196 bytesだった。shared CSV requestに対するnative / WASMのJSON出力はbyte-for-byteで一致した。Linuxの短命process測定ではnative 100回の中央値が約1.00 ms、peak RSS中央値が約2.4 MiB、Node `wasm_exec_node.js`経由WASM 30回の中央値が約72.11 ms、peak RSS中央値が約51.8 MiBだった。これはbrowser / 長寿命WASM hostの性能を意味しない。TinyGoは現環境に無く未測定である。
 
 機械可読なartifact hash・測定値は`03_Implement/portable/go-minimum/evidence/2026-10-04-standard-go-csv.json`を正とする。
+
+2026-10-05、CSVの先頭空レコードを保持するsource-coordinate契約をTypeScriptと標準Goへ追加した。このため2026-10-04のevidenceは測定当時の履歴として保持するが、現行Go suiteの通過証拠とはみなさない。次回のnative/WASM再実行では、先頭空レコードと末尾改行の新しい回帰を含めてconformanceを取り直す。
 
 XLSX decoderについては[Portable XLSX Decoder Evaluation v1](../../02_Architecture/portable-xlsx-decoder-evaluation-v1.md)を追加した。候補の軽量さだけで選ばず、used range原点、merge、display text、raw type/value、number/date format、formula saved result、shared/inline string、異常入力のfail-closedをconformance gateとする。2026-10-04時点ではExcelize v2.11.0（BSD-3-Clause、Go 1.25以上、公式系WASM経路あり）を最初の実測候補とし、現行Go 1.23環境に合わせて古い版へ下げることはsecurity fixを失う可能性があるため採用理由にしない。
 

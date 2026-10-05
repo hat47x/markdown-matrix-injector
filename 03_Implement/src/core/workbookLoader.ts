@@ -168,21 +168,18 @@ function decodeCsv(bytes: Uint8Array): string {
  * `split(',')`, which silently corrupts any real-world CSV cell containing a
  * comma (e.g. `"Smith, John"`) into extra misaligned columns.
  *
- * Behavior preserved from the previous implementation: the whole file is
- * trimmed once (stripping leading/trailing blank lines), CRLF and LF line
- * endings are both accepted, and unquoted cells are trimmed. Quoted cells are
- * NOT trimmed -- their content (including intentional leading/trailing
- * whitespace) is preserved verbatim per RFC4180, since only the delimiters
- * are structural, not the quoted payload.
+ * Physical CSV record positions are preserved. Leading blank records are real
+ * rows for A1 addressing and must not be removed: if two blank records precede
+ * the header, that header is on row 3. A single final line terminator only
+ * terminates the preceding record and does not create another row; repeated
+ * final line terminators still preserve the intervening blank records.
  *
- * The whole-file `trim()` still shifts the A1 origin by however many leading
- * blank lines a file has (e.g. 2 leading blank lines -> row 3 becomes row 1).
- * That is a known, separate gap from the used-range/blank-row bug this module
- * fixes for XLSX/XML; changing it is out of scope here (see
- * `input-assistance-source-model.md` §7).
+ * CRLF and LF line endings are accepted. Unquoted cell payload is trimmed,
+ * preserving the existing CSV value contract; quoted payload is preserved
+ * verbatim per RFC4180.
  */
 export function parseCsv(contents: string): SheetMatrix {
-  const text = contents.replace(/^﻿/, '').trim();
+  const text = contents.replace(/^﻿/, '');
   if (text.length === 0) {
     return [];
   }
@@ -244,7 +241,12 @@ export function parseCsv(contents: string): SheetMatrix {
     field += ch;
   }
 
-  flushRow(); // final row -- `text` was trimmed, so it never ends on a bare newline
+  // A final LF terminates the record already flushed in the loop. Flushing
+  // again would invent an extra blank row. If there is no final LF, the last
+  // record still needs to be emitted.
+  if (!text.endsWith('\n')) {
+    flushRow();
+  }
 
   return rows;
 }

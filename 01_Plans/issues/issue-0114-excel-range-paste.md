@@ -50,7 +50,7 @@
 コード・テストの実体は次のとおり。以下の変更マップと1対1対応する。
 
 - 新規 [`src/core/sheetSource.ts`](../../03_Implement/src/core/sheetSource.ts): `CellRange`/`SourceCell`/`SheetSource`と、CSV用の`sheetSourceFromMatrix`。
-- `src/core/workbookLoader.ts`: `WorkbookData.sheets`を`Record<string, SheetSource>`へ変更。XLSX/XMLは`sheet_to_json`をやめ、`!data[row][col]`から直接`SourceCell`を組み立てる（`.w`をそのまま表示文字列に採用。`sheet_to_json({raw:false})`と1件ずつ突き合わせ、書式・日付・エラー値・真偽値すべてで出力が一致することを確認済み。相違点はエラーセルの扱いのみで、これは意図した修正）。`dateNF`の効果範囲をコード上のコメントで正確に記述し直した（書式なし日付には効くが自身の書式を持つセルには効かない）。CSVの`trim()`起因の座標ずれは既知の別問題として明記し、変更していない。
+- `src/core/workbookLoader.ts`: `WorkbookData.sheets`を`Record<string, SheetSource>`へ変更。XLSX/XMLは`sheet_to_json`をやめ、`!data[row][col]`から直接`SourceCell`を組み立てる（`.w`をそのまま表示文字列に採用。`sheet_to_json({raw:false})`と1件ずつ突き合わせ、書式・日付・エラー値・真偽値すべてで出力が一致することを確認済み。相違点はエラーセルの扱いのみで、これは意図した修正）。`dateNF`の効果範囲もコードコメントと一致させた。CSVのファイル全体`trim()`による座標ずれは2026-10-05に修正し、先頭空レコードを物理行として保持する。
 - `src/core/tableGeometry.ts`: `sliceRange(rows,range)`を削除し、`parseRangeToCellRange`・`rangeDimensions`・`measureRegion`（寸法のみ、セル無接触）・`sliceRegion`（矩形実体化）を追加。
 - `src/core/smartFallback.ts`: `getWorkbookSelectionMetrics`を`measureRegion`呼び出しへ置換。寸法算出でセルに一切触れないことをテストで保証（`cellAt`が呼ばれたら例外を投げるテスト用`SheetSource`で検証）。
 - `src/core/renderTable.ts`: `sliceRegion(sheet, query.range)`へ置換。
@@ -63,7 +63,7 @@
 **未対応で残る点**（正直な区分）:
 - `mode=table`で強制された場合のサイズ上限は**実装済み（2026-09-14、下記「`mode=table`強制時のサイズ上限」節）**。構造化された診断コードは**2026-10-02に `MMI_TABLE_TOO_LARGE` として実装済み**。明示 `range` + `mode=table` はセルを読まずにProblemsへ事前表示し、レンダリング時も同じコードをpreview HTMLの `data-code` に保持する。**同日、表の実体化・変換・HTML化が期限を自ら確認して中断できる協調型time-budget基盤も追加した**（`MMI_TABLE_TIME_BUDGET_EXCEEDED`）。ただし本番の既定時間値はまだ設定せず、SheetJSの同期parseや単一の遅い`cellAt`を外からpreemptする厳密な壁時計タイムアウトは未実装のまま。
 - 読込み・モデル構築の**分離計測ハーネスは2026-10-02に追加済み**。`loadWorkbookFromBytes()` を本番ローダーから切り出し、`npm run bench:workbook-load` で `initialReadMs` / warm read / bytes→decode・parse・`SheetSource`構築 / WorkbookCacheなしend-to-endを別々に記録する。既定入力は同梱 practical data、任意ファイル/ディレクトリと反復回数も指定可能。**ただしOSページキャッシュは制御しないため `initialReadMs` を「cold cache」とは呼ばない。Windows実機でOS-cold条件を含む数値取得は未実施**。参考値として、2026-09-16の内容照合バッチでは実サンプル30ファイル平均の`loadWorkbook`がJITウォームアップ後おおむね1ms未満〜数msだった。
-- CSVの`trim()`起因の座標ずれは、コードコメントで明記したのみで実装は変更していない（別問題として意図的に対象外）。
+- CSVのファイル全体`trim()`による座標ずれは2026-10-05に修正した。通常の末尾改行は追加行に数えず、先頭・途中・明示された末尾空レコードを保持する。
 - ユーザーへの表示挙動変更の確認（空行保持・エラーセル表示）は、走査結果（該当0件）を提示したのみで、実際の確認は未取得。
 
 ### `mode=table`強制時のサイズ上限（2026-09-14）
@@ -76,16 +76,15 @@
 
 **テスト**: `test/smartFallback.test.ts`へ3件追加（`mode=table`が上限超過で例外を投げる、上限境界（10万セルちょうど）ではtableのまま、`shouldRenderAsCardAfterLoad`が`cellAt`を一切呼ばずに例外を伝播することを`cellAt`が例外を投げる`SheetSource`で確認）。`test/markdownMatrixPlugin.test.ts`へ1件追加（宣言範囲のみで10万セルを超えさせ、実際に`mmi-error`が描画されることをプラグイン経由で確認）。`npm test`は343件全成功。
 
-### CSVの座標ずれ（trim）の影響範囲調査（2026-09-15）
+### CSVの原点保持（2026-09-15調査、2026-10-05修正）
 
-`workbookLoader.ts`の`parseCsv`は、ファイル全体へ`.trim()`を適用してから解析する（コード自身のdocコメントが既に明記済みの既知のギャップ。[ソースモデル設計](../../02_Architecture/input-assistance-source-model.md)§7）。先頭に空行がn行あると、A1原点の前提がn行ずれる（`\n\nName,Role\n...`のようなファイルで、`Name,Role`が本来のA3ではなくA1として扱われる）。
+`workbookLoader.ts`の`parseCsv`は、従来ファイル全体へ`.trim()`を適用していた。このため、先頭に空行がn行あるCSVでは、そのn行が消えてA1座標が前へずれていた。たとえば`\n\nName,Role\n...`では、物理的にはA3にある`Name`をA1として扱っていた。
 
-この修正自体は行っていない。 修正するかどうかは、CSVにもXLSXと同じ「原点保持」契約を広げるべきかという製品判断であり（手編集CSVの先頭空行はただの整形ノイズかもしれず、Excelの`usedRange`のように権威ある値とは限らない）、本セッションの一存で決めない。ここで行ったのは、issue-0114が求めていた前段の調査——「既存の空行処理・自動範囲・見出し解釈に依存するテストを先に洗い出す」——のみ。
+2026-09-15の調査では、先頭空行の削除に依存する既存テストがないことを確認した。当時はCSVにも原点保持を適用するかを判断保留とした。2026-10-05に方針を確定し、CSVでもファイルに存在するレコード位置をA1座標の基準として保持するよう修正した。MMIがCSVへA1範囲を生成・解釈する以上、先頭空行だけを整形上のノイズとして除去すると、参照座標と原本の行位置が一致しないためである。
 
-- 調査結果: 先頭空行のtrim挙動に依存する既存テストは0件。 `test/csvEncoding.test.ts`・`test/workbookCache.test.ts`・`test/markdownMatrixPlugin.test.ts`・`test/conformance/cases.json`のCSVフィクスチャを全数確認したが、先頭が空行のものは存在しなかった。つまり、将来この挙動を変更しても既存テストは1件も壊れない——ただし、これは「安全」の証明ではなく「今のところ誰も検証していない」という意味であることに注意。
-- 現状挙動をピン留めするテストを1件追加した。 `test/workbookCache.test.ts`に、先頭2行が空行のCSVを解析すると原点がずれること（`Name,Role`がA1として扱われる）を検証するテストを追加した。これにより、将来`parseCsv`を変更した際、それが事故ではなく明示的な判断になる。
+`parseCsv`はファイル全体の`trim()`を廃止した。先頭と途中の空レコードは行として保持する。一方、通常の末尾改行は直前レコードの終端であり、新しい空レコードとはみなさない。末尾に改行が連続する場合は、その間に存在する空レコードを保持する。セル値については既存契約を維持し、非引用セルだけ前後空白を除去する。
 
-**テスト**: `test/workbookCache.test.ts`へ1件追加（現状のtrim挙動のピン留め、コメントで既知の未修正ギャップと明記）。`npm test`は344件全成功。
+TypeScript実装だけでなく、portable Go最小実装のCSVパーサーも同じ契約へ揃えた。内容照合では、先頭2行が空のCSVから`Name,Role / Alice,Admin`を検索した場合に`A3:B4`を返す回帰を追加した。記法conformance corpusにも、先頭空行を含むCSVを`A3:B4`として参照するケースを追加した。
 
 ### Cの完了内容（2026-09-11、VS Code 1.137.0・ローカル・Windows実機）
 
@@ -159,7 +158,7 @@
 - 引用が発生する場合、内部の引用符は`""`で二重化される（`"a<TAB>b say ""hi"""`）。
 - セル内改行は裸のLF、行区切りはCRLF。
 
-実キャプチャ（C5:F12）で`parseTsv`が`extractHtmlTableShape`（`text/html`由来、8行×4列）と一致する8行×4列の値行列を返すことをクロス検証した。既存の`test/csvEncoding.test.ts`とは無関係（CSVパーサー自体は変更していない）。
+実キャプチャ（C5:F12）で`parseTsv`が`extractHtmlTableShape`（`text/html`由来、8行×4列）と一致する8行×4列の値行列を返すことをクロス検証した。この2026-09-14時点ではCSVパーサーを変更しておらず、既存の`test/csvEncoding.test.ts`とは無関係だった。
 
 `test/pasteDrop.test.ts`では、基本分割、実キャプチャ再現、タブ引用、改行引用、引用符エスケープ、裸引用符、境界空セル、空白保持を回帰として扱う。過去の`trim`前提は2026-10-02に撤去した。
 
@@ -346,7 +345,7 @@ powershell -ExecutionPolicy Bypass -File .\03_Implement\scripts\clipboard-probe\
 - [x] 空行保持とエラーセル表示による行数・セル数の変化を、同梱サンプル・フィクスチャ25件・conformanceコーパス20件で前後比較（該当0件、実装後の実描画でも再確認）。**ユーザー確認は未取得**（走査結果の提示のみ）。
 - [x] `test/csvEncoding.test.ts`のCP932回帰を維持する（コミット`0154944`）。全件成功を確認。UTF-8固定の処理へは戻していない。
 - [x] `dateNF`の効果範囲を`workbookLoader`のコメントと一致させる（書式を持たない日付セルには効き、自身の書式を持つセルには効かない）。コード上のコメントを訂正済み。表示基準そのものの変更はしていない（R5、本Issueの必須条件にしない方針どおり）。`SourceCell{text,value,formula}`により表示用の値と型付き値を区別する形にした。
-- [x] CSVの全体`trim()`による座標ずれの影響範囲を整理する（2026-09-15）。依存テストの洗い出し完了: 既存テストで先頭空行のtrim挙動に依存するものは0件（`test/csvEncoding.test.ts`・`test/workbookCache.test.ts`・`test/conformance/cases.json`・`test/markdownMatrixPlugin.test.ts`のCSVフィクスチャを全数確認、先頭が空行のものは無かった）。つまり修正しても既存テストは1件も壊れない——ただし修正するかどうか自体は別判断のまま（下記「CSVの座標ずれ（trim）の影響範囲調査」節）。現在の（意図的に修正していない）挙動を`test/workbookCache.test.ts`に1件のピン留めテストとして追加し、将来の変更が事故ではなく明示判断になるようにした。
+- [x] CSVの全体`trim()`による座標ずれを整理し、2026-10-05に修正した。2026-09-15の影響調査では既存テストに依存がないことを確認していた。修正後は先頭空レコードを保持し、`test/workbookCache.test.ts`、内容照合回帰、conformance corpus、portable Goで同じ物理行契約を固定した。
 
 段2: 貼り付け
 
@@ -377,7 +376,7 @@ powershell -ExecutionPolicy Bypass -File .\03_Implement\scripts\clipboard-probe\
 - **2026-10-05、挿入直前の鮮度検証を追加した。** 明示コマンドは検索開始時の文書versionと選択範囲を保持し、QuickPickで候補を選んだ後に、選択した原本範囲を現在の保存内容から再読込して再照合する。原本範囲、編集中のMarkdown、または選択範囲が変わっていれば挿入しない。Paste AsはVS Codeの`resolveDocumentPasteEdit`を使い、利用者が候補を選んだ後、適用直前に同じ文書versionと原本範囲を再検証する。原本のmtimeだけを見る方式は採らず、実際の表示値が同じかを確認する。これにより、原本の別領域だけが変わった場合は不要に拒否せず、参照対象そのものが変わった場合だけ中止できる。
 - `mode=table`強制時のサイズ上限は実装済み（2026-09-14）。構造化診断 `MMI_TABLE_TOO_LARGE` も2026-10-02に実装済み。時間制御は協調型budget基盤まで実装済み。残るのは、計測に基づく本番既定値の決定と、SheetJS同期parse等の非協調処理をpreemptできるworker/process境界によるstrict wall-clock timeout。
 - 読込み・モデル構築の分離計測ハーネスは実装済み。残: Windows実機での数値取得、とくにOSページキャッシュを制御したcold-read証拠。
-- CSVの`trim()`起因の座標ずれの依存テスト洗い出しは完了（2026-09-15、下記節）。**修正するかどうかの判断自体は未着手のまま**（既存テストへの影響は無いことが分かっただけで、CSVにXLSXと同じ原点保持契約を広げるべきかは別途の製品判断）。
+- CSVのファイル全体`trim()`による座標ずれは2026-10-05に修正した。先頭・途中の空レコードを物理行として保持し、通常の末尾改行だけは追加行に数えない。TypeScript本体、portable Go、内容照合回帰、conformance corpusを同じ契約へ揃えた。
 - 空行保持・エラーセル表示の既存文書への影響（走査では該当0件）について、ユーザーへの確認取得。
 - 最低対応版でのDataTransfer観測の再現（今回は現行版1.137.0のみ）。2026-09-24、宣言していた`^1.96.0`では拡張機能自体が起動しない（ESM配布のためVS Code 1.99以前は`ERR_REQUIRE_ESM`）ことを実測し、`engines.vscode`を`^1.100.0`へ改めた。 1.100.0では実サンプルの全参照・補完・複数ルートの確認がすべて通る（`npm run test:e2e:practical`、`VSCODE_VERSION=1.100.0`）。
 - 実キー入力（Ctrl+V）とコマンド経由貼り付けの経路一致の実測（意図的に未検証。理由は「Cの完了内容」参照）。

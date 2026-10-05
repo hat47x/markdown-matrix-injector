@@ -121,6 +121,10 @@ test('portable Core CSV conformance case', () => {
   assertConformanceCase(readCase('csv-table.case.json'));
 });
 
+test('portable Core CSV preserves leading blank row coordinates', () => {
+  assertConformanceCase(readCase('csv-leading-blank-rows.case.json'));
+});
+
 test('portable Core JSON Tree conformance case', () => {
   assertConformanceCase(readCase('json-tree.case.json'));
 });

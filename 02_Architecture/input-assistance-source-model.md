@@ -171,11 +171,13 @@ SheetJSはこの4項目を再計算なしに提供する。実測した例。
 
 案Cではエラー値が`""`になり照合が外れる。案Dは外れない。貼り付けの照合が成立するかどうかは、このソースモデルの選択に直接依存する。 詳細は[クリップボード出所と照合](input-assistance-paste-provenance.md)。
 
-## 7. CSVの同じ問題
+## 7. CSVの原点保持
 
-[workbookLoader.ts](../03_Implement/src/core/workbookLoader.ts)の`parseCsv`はファイル全体に`trim()`を適用する。先頭の空行がn行あれば、A1原点の前提がn行ずれる（架空入力で確認）。Excelと同じ座標契約をCSVへ広げるかは別判断とし、issue-0114では影響範囲の整理までを行う。既存の空行処理・自動範囲・見出し解釈に依存するテストを先に洗い出す。
+CSVもA1座標で参照する以上、ファイルに存在するレコード位置を保持する。先頭空行だけを除去すると、その後ろにあるセルの行番号が原本と一致しない。2026-09-15の調査では、この旧挙動に依存する既存テストがないことを確認した。2026-10-05に原点保持をCSVへ適用する方針を確定した。
 
-調査完了（2026-09-15）。 既存テスト（`test/csvEncoding.test.ts`・`test/workbookCache.test.ts`・`test/markdownMatrixPlugin.test.ts`・`test/conformance/cases.json`）のCSVフィクスチャを全数確認したところ、先頭空行のtrim挙動に依存するものは0件だった。修正しても既存テストは壊れないが、修正するかどうかの判断自体は別途行う。現状挙動は`test/workbookCache.test.ts`にピン留めテストとして固定済み（詳細は[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)「CSVの座標ずれ（trim）の影響範囲調査」節）。
+[workbookLoader.ts](../03_Implement/src/core/workbookLoader.ts)の`parseCsv`はファイル全体の`trim()`を行わない。先頭と途中の空レコードは物理行として保持する。通常の末尾改行は直前レコードの終端として扱い、それだけで空行を追加しない。末尾に改行が連続する場合は、その間の空レコードを保持する。
+
+この契約はTypeScript本体とportable Go最小実装で共通とする。内容照合では、先頭2行が空のCSVにある`Name,Role`をA3として検出する。conformance corpusでも`A3:B4`の参照を固定し、レンダリングと内容照合が同じ物理行を使うことを検証対象にした。
 
 ## 8. 再現手順
 
@@ -195,4 +197,4 @@ ELECTRON_RUN_AS_NODE=1 "<VS Codeのインストール先>/Code.exe" 03_Implement
 
 `measureRegion`がセルへ一切触れずに寸法を返すことは、`cellAt`が呼ばれたら例外を投げるテスト用`SheetSource`で保証した（`test/tableGeometry.test.ts`）。詳細な変更内容とテスト一覧は[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)の「Bの完了内容」節を参照。
 
-未対応で残る点: `mode=table`の**strict wall-clock時間上限と本番既定budget値**（協調型budget基盤は2026-10-02、サイズ上限は2026-09-14に実装済み。[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)参照）、Windows実機でOSページキャッシュを制御したcold-read性能値、CSVの`trim()`起因の座標ずれの**改修判断そのもの**（影響範囲調査は2026-09-15完了、上記参照）。読込みとモデル構築を分ける計測経路自体は2026-10-02に`loadWorkbookFromBytes()`と`bench:workbook-load`で用意済み。
+未対応で残る点: `mode=table`の**strict wall-clock時間上限と本番既定budget値**（協調型budget基盤は2026-10-02、サイズ上限は2026-09-14に実装済み。[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)参照）、Windows実機でOSページキャッシュを制御したcold-read性能値、CSVの原点保持は2026-10-05に修正済み。読込みとモデル構築を分ける計測経路自体は2026-10-02に`loadWorkbookFromBytes()`と`bench:workbook-load`で用意済み。
