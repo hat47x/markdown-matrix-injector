@@ -647,7 +647,10 @@ export async function main(argv: string[]): Promise<number> {
       }
 
       const summary = {
-        status: result.imageProblems.length > 0 ? 'created-with-warnings' : 'created',
+        status: (
+          result.imageProblems.length > 0
+          || result.choiceListProblems.length > 0
+        ) ? 'created-with-warnings' : 'created',
         sourceInput: portableDisplayPath(inputSourcePath),
         source: portableDisplayPath(sourcePath),
         sourceCopied,
@@ -658,6 +661,9 @@ export async function main(argv: string[]): Promise<number> {
         imageProblems: result.imageProblems,
         reviewSkippedImages: result.reviewSkippedImages,
         reviewSkippedTables: result.reviewSkippedTables,
+        choiceLists: result.choiceLists,
+        choiceListProblems: result.choiceListProblems,
+        reviewSkippedChoiceLists: result.reviewSkippedChoiceLists,
       };
       const summaryText = values.json
         ? JSON.stringify(summary, null, 2)
@@ -669,10 +675,18 @@ export async function main(argv: string[]): Promise<number> {
             ...(result.imageProblems.length > 0 ? [`image/drawing warnings: ${result.imageProblems.length}`] : []),
             ...(result.reviewSkippedImages.length > 0 ? [`images skipped by review: ${result.reviewSkippedImages.length}`] : []),
             ...(result.reviewSkippedTables.length > 0 ? [`tables skipped by review: ${result.reviewSkippedTables.length}`] : []),
+            ...(result.choiceLists.length > 0 ? [`choice lists: ${result.choiceLists.length}`] : []),
+            ...(result.choiceListProblems.length > 0 ? [`choice-list warnings: ${result.choiceListProblems.length}`] : []),
+            ...(result.reviewSkippedChoiceLists.length > 0 ? [`choice lists skipped by review: ${result.reviewSkippedChoiceLists.length}`] : []),
           ].join('\n');
       process.stdout.write(summaryText.endsWith('\n') ? summaryText : `${summaryText}\n`);
       for (const problem of result.imageProblems) {
         console.error(`mmi: warning: ${problem.code}${problem.ordinal ? ` (image ${problem.ordinal})` : ''}: ${problem.message}`);
+      }
+      for (const problem of result.choiceListProblems) {
+        console.error(
+          `mmi: warning: ${problem.code}${problem.sheet ? ` (${problem.sheet})` : ''}: ${problem.message}`,
+        );
       }
       return 0;
     }
