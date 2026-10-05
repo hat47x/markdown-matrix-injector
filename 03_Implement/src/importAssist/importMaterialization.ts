@@ -395,6 +395,7 @@ export function materializeWorkbookImport(
       sourceBytes,
       referencePath,
       sourceDigest,
+      workbook,
     );
     choiceListProblems = choiceRead.diagnostics.map((diagnostic) => ({
       code: diagnostic.code,
@@ -566,6 +567,9 @@ function importDraftChoiceList(choice: ExcelChoiceList): ImportDraftChoiceList {
     sourceKind: choice.sourceKind,
     ...(choice.formula1 ? { formula1: choice.formula1 } : {}),
     ...(choice.choices ? { choices: [...choice.choices] } : {}),
+    ...(choice.resolvedSource
+      ? { resolvedSource: { ...choice.resolvedSource } }
+      : {}),
     allowBlank: choice.allowBlank,
   };
 }

@@ -307,6 +307,7 @@ export function buildCandidateReviewInventory(
     packageBytes,
     sourceLabel,
     sourceDigest,
+    workbook,
   );
   const imageCandidateList = imageCandidates({
     source: sourceLabel,

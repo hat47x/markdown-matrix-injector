@@ -1092,9 +1092,13 @@ export interface InspectChoiceList {
   ordinal: number;
   sheet: string;
   range: string;
-  sourceKind: 'inline' | 'formula' | 'missing';
+  sourceKind: 'inline' | 'range' | 'formula' | 'missing';
   formula1?: string;
   choices?: readonly string[];
+  resolvedSource?: {
+    sheet: string;
+    range: string;
+  };
   allowBlank: boolean;
 }
 
@@ -1316,7 +1320,12 @@ export function inspectSource(
           : [],
       };
   const choiceRead = packageBytes
-    ? readExcelChoiceLists(packageBytes, relative, sourceDigest)
+    ? readExcelChoiceLists(
+        packageBytes,
+        relative,
+        sourceDigest,
+        workbook,
+      )
     : { lists: [], diagnostics: [] };
   const detected = Object.entries(workbook.sheets).map(([name, sheet]) => ({ name, sheet, regions: detectTableRegions(name, sheet, { maxValueSample: 0 }) }));
   const tabularHierarchies = tabularHierarchy
@@ -1377,6 +1386,9 @@ export function inspectSource(
       sourceKind: item.sourceKind,
       ...(item.formula1 ? { formula1: item.formula1 } : {}),
       ...(item.choices ? { choices: item.choices } : {}),
+      ...(item.resolvedSource
+        ? { resolvedSource: item.resolvedSource }
+        : {}),
       allowBlank: item.allowBlank,
     })),
     choiceListDiagnostics: choiceRead.diagnostics,
@@ -1559,8 +1571,11 @@ function formatInspect(result: InspectResult): string {
         : choice.formula1
           ? `source: ${choice.formula1} (values unresolved)`
           : 'source missing';
+      const resolved = choice.resolvedSource
+        ? `  from ${choice.resolvedSource.sheet}!${choice.resolvedSource.range}`
+        : '';
       lines.push(
-        `  choice-list #${choice.ordinal}  ${choice.range}  ${summary}${choice.allowBlank ? '  allow blank' : ''}${ledgerSuffix('choice-list', sheet.name, choice.range)}`,
+        `  choice-list #${choice.ordinal}  ${choice.range}  ${summary}${resolved}${choice.allowBlank ? '  allow blank' : ''}${ledgerSuffix('choice-list', sheet.name, choice.range)}`,
       );
     }
     for (const image of result.images.filter((item) => item.sheet === sheet.name)) {

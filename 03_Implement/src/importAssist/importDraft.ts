@@ -48,9 +48,13 @@ export interface ImportDraftChoiceList {
   ordinal: number;
   sheet: string;
   range: string;
-  sourceKind: 'inline' | 'formula' | 'missing';
+  sourceKind: 'inline' | 'range' | 'formula' | 'missing';
   formula1?: string;
   choices?: readonly string[];
+  resolvedSource?: {
+    sheet: string;
+    range: string;
+  };
   allowBlank: boolean;
 }
 
@@ -321,7 +325,10 @@ function renderChoiceList(choice: ImportDraftChoiceList): string {
     const more = choice.choices.length > shown.length
       ? `、ほか${choice.choices.length - shown.length}件`
       : '';
-    return `- ${escapeText(choice.range)}: ${shown.join('、')}${more}${blank}`;
+    const source = choice.resolvedSource
+      ? `（参照元: ${escapeText(choice.resolvedSource.sheet)}!${escapeText(choice.resolvedSource.range)}）`
+      : '';
+    return `- ${escapeText(choice.range)}: ${shown.join('、')}${more}${source}${blank}`;
   }
   if (choice.formula1) {
     return `- ${escapeText(choice.range)}: 参照式 \`${escapeText(choice.formula1)}\`（選択肢の値は未解決）${blank}`;
