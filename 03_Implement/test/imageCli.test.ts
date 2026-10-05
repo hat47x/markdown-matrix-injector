@@ -550,7 +550,7 @@ test('inspect exposes actionable two-cell drawing snapshot hints', async () => {
   }
   const textOutput = textChunks.join('');
   assert.match(textOutput, /snapshot hint #1\s+A1:C4\s+2 shape\/connector/u);
-  assert.match(textOutput, /mmi snapshot .* --hint 1/u);
+  assert.match(textOutput, /snapshot --hint 1 ready/u);
   assert.match(textOutput, /snapshot hint #2\s+F7\s+1 graphic-frame\s+\(range needs review/u);
 });
 
