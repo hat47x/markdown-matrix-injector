@@ -48,9 +48,13 @@ export interface ImportDraftChoiceList {
   ordinal: number;
   sheet: string;
   range: string;
-  sourceKind: 'inline' | 'formula' | 'missing';
+  sourceKind: 'inline' | 'range' | 'formula' | 'missing';
   formula1?: string;
   choices?: readonly string[];
+  resolvedSource?: {
+    sheet: string;
+    range: string;
+  };
   allowBlank: boolean;
 }
 
