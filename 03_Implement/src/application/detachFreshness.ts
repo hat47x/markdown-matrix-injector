@@ -234,16 +234,23 @@ function extractedProvenance(markdown: string): ExtractedProvenance[] {
         && Object.prototype.hasOwnProperty.call(attrs, 'path')
         && attrs['candidate-sha256']
       ) {
-        const tabularHierarchy = tabularHierarchyFromProvenance(attrs);
+        const tabularProvenance =
+          tabularHierarchyFromProvenance(attrs);
         records.push({
           line: index + 1,
           kind: 'tree',
           source: attrs.source,
-          ...(attrs.sheet ? { sheet: attrs.sheet } : {}),
+          ...(tabularProvenance?.sheet
+            ? { sheet: tabularProvenance.sheet }
+            : attrs.sheet
+              ? { sheet: attrs.sheet }
+              : {}),
           place: `path:${attrs.path}`,
           fingerprintDigest: normalizedSha256(attrs['candidate-sha256']),
           ...(attrs.projection ? { projection: attrs.projection } : {}),
-          ...(tabularHierarchy ? { tabularHierarchy } : {}),
+          ...(tabularProvenance
+            ? { tabularHierarchy: tabularProvenance.config }
+            : {}),
         });
       }
     }
@@ -278,35 +285,63 @@ function tabularHierarchyCandidatesFromCurrentSource(
   }).candidates.slice();
 }
 
+type TabularHierarchyProvenance = {
+  sheet: string;
+  config: TabularHierarchyConfig;
+};
+
+function decodeProvenanceComponent(
+  value: string | undefined,
+): string | undefined {
+  if (value === undefined) return undefined;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return undefined;
+  }
+}
+
 function tabularHierarchyFromProvenance(
   attrs: Record<string, string>,
-): TabularHierarchyConfig | undefined {
+): TabularHierarchyProvenance | undefined {
   if (attrs.projection !== 'tabular-hierarchy-nested-list-v1') {
     return undefined;
   }
-  if (
-    attrs['hierarchy-mode'] === 'parent-id'
-    && attrs['id-header']
-    && attrs['parent-header']
-  ) {
+  const sheet = decodeProvenanceComponent(attrs['sheet-uri']);
+  if (!sheet) return undefined;
+
+  if (attrs['hierarchy-mode'] === 'parent-id') {
+    const idHeader =
+      decodeProvenanceComponent(attrs['id-header-uri']);
+    const parentHeader =
+      decodeProvenanceComponent(attrs['parent-header-uri']);
+    const labelHeader =
+      decodeProvenanceComponent(attrs['label-header-uri']);
+    if (!idHeader || !parentHeader) return undefined;
     return {
-      mode: 'parent-id',
-      idHeader: attrs['id-header'],
-      parentHeader: attrs['parent-header'],
-      ...(attrs['label-header']
-        ? { labelHeader: attrs['label-header'] }
-        : {}),
+      sheet,
+      config: {
+        mode: 'parent-id',
+        idHeader,
+        parentHeader,
+        ...(labelHeader ? { labelHeader } : {}),
+      },
     };
   }
-  if (
-    attrs['hierarchy-mode'] === 'level'
-    && attrs['level-header']
-    && attrs['label-header']
-  ) {
+
+  if (attrs['hierarchy-mode'] === 'level') {
+    const levelHeader =
+      decodeProvenanceComponent(attrs['level-header-uri']);
+    const labelHeader =
+      decodeProvenanceComponent(attrs['label-header-uri']);
+    if (!levelHeader || !labelHeader) return undefined;
     return {
-      mode: 'level',
-      levelHeader: attrs['level-header'],
-      labelHeader: attrs['label-header'],
+      sheet,
+      config: {
+        mode: 'level',
+        levelHeader,
+        labelHeader,
+      },
     };
   }
   return undefined;
