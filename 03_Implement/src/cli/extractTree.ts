@@ -20,6 +20,7 @@ import {
   resolveXmlTreePath,
   type XmlElementNode,
 } from '../adapters/xmlTreeAdapter.js';
+import { readYamlTree } from '../adapters/yamlTreeAdapter.js';
 import {
   readTabularHierarchy,
   type TabularHierarchyConfig,
@@ -32,6 +33,7 @@ import {
   decodeGenericXmlUtf8,
   isXmlSpreadsheet2003Bytes,
 } from '../core/xmlFormat.js';
+import { decodeYamlUtf8 } from '../core/yamlFormat.js';
 
 export interface ExtractTreeOptions {
   sourcePath: string;
@@ -139,6 +141,7 @@ function provenanceComment(
   candidateFingerprint: string,
   projection:
     | 'json-nested-list-v1'
+    | 'yaml-nested-list-v1'
     | 'xml-nested-list-v1'
     | 'flat-text-nested-list-v1'
     | 'tabular-hierarchy-nested-list-v1',
@@ -284,6 +287,149 @@ export function extractJsonTree(
         'mmi extract --tree',
         {
           mode: 'json-nested-list-v1',
+          pointer: options.pointer,
+        },
+      ),
+    ]);
+  }
+
+  return result;
+}
+
+
+export function extractYamlTree(
+  options: ExtractTreeOptions,
+): ExtractTreeResult {
+  const result: ExtractTreeResult = { problems: [] };
+  if (!/\.ya?ml$/iu.test(options.sourcePath)) {
+    result.problems.push({
+      code: 'MMI_TREE_SOURCE_UNSUPPORTED',
+      message: 'YAML Tree extraction requires a .yaml or .yml source',
+    });
+    return result;
+  }
+
+  const sourceBytes = fs.readFileSync(options.sourcePath);
+  const sourceDigest = sha256(sourceBytes);
+  const documentDirectory = path.dirname(
+    path.resolve(
+      options.fromDocument ?? path.join(process.cwd(), 'x.md'),
+    ),
+  );
+  const source = options.sourceLabel
+    ?? (
+      path.relative(documentDirectory, options.sourcePath)
+        .split(path.sep)
+        .join('/')
+      || path.basename(options.sourcePath)
+    );
+
+  let tree;
+  try {
+    tree = readYamlTree(
+      decodeYamlUtf8(sourceBytes),
+      source,
+      sourceDigest,
+    );
+  } catch (error) {
+    result.problems.push({
+      code: 'MMI_TREE_YAML_INVALID',
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return result;
+  }
+
+  const candidate = tree.candidates.find(
+    (item) => item.locator.structuralPath === options.pointer,
+  );
+  const subtree = resolveJsonPointer(tree.value, options.pointer);
+  if (!candidate || subtree === undefined) {
+    result.problems.push({
+      code: 'MMI_TREE_CANDIDATE_NOT_FOUND',
+      message:
+        `no Tree Candidate at YAML Pointer ${options.pointer || '(root)'}; run \`mmi inspect\` to list detected Tree Candidates`,
+    });
+    return result;
+  }
+  if (
+    options.expectedCandidateFingerprint
+    && candidate.fingerprint.digest
+      !== options.expectedCandidateFingerprint
+  ) {
+    result.problems.push({
+      code: 'MMI_TREE_CANDIDATE_CHANGED',
+      message:
+        `Tree Candidate at YAML Pointer ${options.pointer || '(root)'} changed after review; review the current Candidate before extraction`,
+    });
+    return result;
+  }
+
+  const nested = renderNestedList(
+    subtree,
+    rootLabel(options.pointer),
+  ).join('\n');
+  const assetText =
+    nested
+    + '\n\n'
+    + provenanceComment(
+      source,
+      options.pointer,
+      sourceDigest,
+      candidate.fingerprint.digest,
+      'yaml-nested-list-v1',
+    )
+    + '\n';
+  const data = Buffer.from(assetText, 'utf8');
+  const digest = sha256(data);
+
+  fs.mkdirSync(options.outDir, { recursive: true });
+  const outDirectory = fs.realpathSync(options.outDir);
+  const sourceReal = fs.realpathSync(options.sourcePath);
+  const file = path.join(
+    outDirectory,
+    `tree-${digest.slice(7, 19)}.md`,
+  );
+  if (file === sourceReal) {
+    result.problems.push({
+      code: 'MMI_EXTRACT_TARGET_IS_SOURCE',
+      message: 'refusing to write over the source document',
+    });
+    return result;
+  }
+
+  let status: ExtractedTree['status'] = 'written';
+  if (fs.existsSync(file)) {
+    if (sha256(fs.readFileSync(file)) !== digest) {
+      result.problems.push({
+        code: 'MMI_EXTRACT_NAME_COLLISION',
+        message: `${file} exists with different content; it was not overwritten`,
+      });
+      return result;
+    }
+    status = 'unchanged';
+  } else {
+    fs.writeFileSync(file, data);
+  }
+
+  result.extracted = {
+    pointer: options.pointer,
+    digest,
+    candidateFingerprint: candidate.fingerprint.digest,
+    file,
+    status,
+    markdown: assetText.trimEnd(),
+  };
+
+  if (options.ledgerPath) {
+    recordEntries(options.ledgerPath, [
+      entryFor(
+        options.ledgerPath,
+        options.sourcePath,
+        candidate,
+        file,
+        'mmi extract --tree',
+        {
+          mode: 'yaml-nested-list-v1',
           pointer: options.pointer,
         },
       ),
