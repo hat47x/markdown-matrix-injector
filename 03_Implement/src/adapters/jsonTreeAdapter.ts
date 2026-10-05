@@ -4,7 +4,7 @@ import {
   type Candidate,
 } from '../core/candidate.js';
 
-export const JSON_TREE_ADAPTER_VERSION = '2';
+export const JSON_TREE_ADAPTER_VERSION = '3';
 
 export type JsonValue =
   | null
@@ -65,9 +65,20 @@ function isContainer(value: JsonValue): value is JsonValue[] | { [key: string]: 
   return Array.isArray(value) || isObject(value);
 }
 
+function assertPortableJsonNumber(value: number): void {
+  if (!Number.isFinite(value)) {
+    throw new Error('Structured Tree numbers must be finite');
+  }
+  if (Number.isInteger(value) && !Number.isSafeInteger(value)) {
+    throw new Error(
+      'Structured Tree integers must be within the JavaScript safe-integer range',
+    );
+  }
+}
+
 function canonicalJson(value: JsonValue): string {
-  if (typeof value === 'number' && !Number.isFinite(value)) {
-    throw new Error('JSON Tree numbers must be finite');
+  if (typeof value === 'number') {
+    assertPortableJsonNumber(value);
   }
   if (value === null || typeof value !== 'object') return JSON.stringify(value);
   if (Array.isArray(value)) {
@@ -230,9 +241,7 @@ export function assertPortableJsonValue(
 ): asserts value is JsonValue {
   if (value === null || typeof value === 'boolean') return;
   if (typeof value === 'number') {
-    if (!Number.isFinite(value)) {
-      throw new Error('JSON Tree numbers must be finite');
-    }
+    assertPortableJsonNumber(value);
     return;
   }
   if (typeof value === 'string') {

@@ -7,32 +7,31 @@ import {
 } from 'yaml';
 
 import {
-  candidateProblem,
-  fingerprintOf,
-  type Candidate,
-} from '../core/candidate.js';
-import {
-  canonicalJsonValue,
+  readStructuredValueTree,
+  type JsonTreeDocument,
   type JsonValue,
+  type StructuredTreeSemantics,
 } from './jsonTreeAdapter.js';
 
-export const YAML_TREE_ADAPTER_VERSION = '1';
+export const YAML_TREE_ADAPTER_VERSION = '2';
 
-export interface YamlTreeNode {
-  /** RFC 6901 JSON Pointer over the accepted JSON-compatible YAML data model. */
-  pointer: string;
-  nodeType: 'object' | 'array';
-  childPointers: readonly string[];
-  /** Immediate scalar children as `<pointer>=<canonical JSON value>`. */
-  leafValues: readonly string[];
-  candidate: Candidate;
-}
+export type YamlTreeDocument = JsonTreeDocument;
 
-export interface YamlTreeDocument {
-  value: JsonValue;
-  nodes: readonly YamlTreeNode[];
-  candidates: readonly Candidate[];
-}
+const YAML_TREE_SEMANTICS: StructuredTreeSemantics = {
+  algorithm: 'mmi.yaml-tree-adapter',
+  implementationVersion: YAML_TREE_ADAPTER_VERSION,
+  format: 'yaml',
+  fingerprintRepresentation: 'yaml-json-compatible-subtree-v1',
+  structuralPathReasonCode: 'yaml-json-pointer',
+  nodeTypeReasonCode: 'yaml-json-compatible-container-type',
+  childrenReasonCode: 'yaml-parent-child',
+  scalarChildReasonCode: 'yaml-scalar-child',
+  provenanceConfig: {
+    format: 'yaml',
+    profile: 'json-compatible-explicit-tree-v1',
+    objectKeyOrder: 'lexicographic',
+  },
+};
 
 function pointerToken(value: string): string {
   return value.replace(/~/gu, '~0').replace(/\//gu, '~1');
@@ -54,6 +53,11 @@ function scalarValue(value: unknown, where: string): JsonValue {
     if (!Number.isFinite(value)) {
       throw new Error(
         `YAML Tree numbers must be finite at ${where || '(root)'}`,
+      );
+    }
+    if (Number.isInteger(value) && !Number.isSafeInteger(value)) {
+      throw new Error(
+        `YAML Tree integers must be within the JavaScript safe-integer range at ${where || '(root)'}`,
       );
     }
     return Object.is(value, -0) ? 0 : value;
@@ -137,142 +141,6 @@ function yamlNodeToJson(
   );
 }
 
-function isObject(
-  value: JsonValue,
-): value is { [key: string]: JsonValue } {
-  return value !== null
-    && typeof value === 'object'
-    && !Array.isArray(value);
-}
-
-function isContainer(
-  value: JsonValue,
-): value is JsonValue[] | { [key: string]: JsonValue } {
-  return Array.isArray(value) || isObject(value);
-}
-
-function entriesOf(
-  value: JsonValue[] | { [key: string]: JsonValue },
-): [string, JsonValue][] {
-  if (Array.isArray(value)) {
-    return value.map((item, index) => [String(index), item]);
-  }
-  return Object.keys(value)
-    .sort()
-    .map((key) => [key, value[key]]);
-}
-
-function collectNodes(
-  value: JsonValue,
-  pointer: string,
-  source: string,
-  sourceDigest: string,
-  out: YamlTreeNode[],
-): void {
-  if (!isContainer(value)) return;
-  const entries = entriesOf(value);
-  const childPointers = entries.map(([key]) =>
-    childPointer(pointer, key));
-  const leafValues = entries
-    .filter(([, child]) => !isContainer(child))
-    .map(([key, child]) =>
-      `${childPointer(pointer, key)}=${canonicalJsonValue(child)}`);
-
-  const claims: Candidate['claims'] = [
-    {
-      aspect: 'structural-path',
-      value: pointer,
-      status: 'observed',
-      execution: 'deterministic',
-      method: 'M0',
-      reasonCode: 'yaml-json-pointer',
-    },
-    {
-      aspect: 'node-type',
-      value: Array.isArray(value) ? 'array' : 'object',
-      status: 'observed',
-      execution: 'deterministic',
-      method: 'M0',
-      reasonCode: 'yaml-json-compatible-container-type',
-    },
-    {
-      aspect: 'children',
-      value: childPointers,
-      status: 'observed',
-      execution: 'deterministic',
-      method: 'M0',
-      reasonCode: 'yaml-parent-child',
-    },
-    ...(leafValues.length > 0
-      ? [{
-          aspect: 'leaf-values',
-          value: leafValues,
-          status: 'observed' as const,
-          execution: 'deterministic' as const,
-          method: 'M0' as const,
-          reasonCode: 'yaml-scalar-child',
-        }]
-      : []),
-  ];
-
-  const candidate: Candidate = {
-    kind: 'tree',
-    locator: {
-      source,
-      sourceDigest,
-      structuralPath: pointer,
-    },
-    status: 'observed',
-    execution: 'deterministic',
-    method: 'M0',
-    claims,
-    provenance: {
-      algorithm: 'mmi.yaml-tree-adapter',
-      run: {
-        execution: 'deterministic',
-        inputDigest: sourceDigest,
-        config: {
-          format: 'yaml',
-          profile: 'json-compatible-explicit-tree-v1',
-          objectKeyOrder: 'lexicographic',
-        },
-        implementationVersion: YAML_TREE_ADAPTER_VERSION,
-      },
-    },
-    fingerprint: fingerprintOf(
-      'yaml-json-compatible-subtree-v1',
-      canonicalJsonValue(value),
-    ),
-    scores: [],
-  };
-  const problem = candidateProblem(candidate);
-  if (problem) {
-    throw new Error(
-      `invalid YAML Tree Candidate at ${pointer || '(root)'}: ${problem}`,
-    );
-  }
-
-  out.push({
-    pointer,
-    nodeType: Array.isArray(value) ? 'array' : 'object',
-    childPointers,
-    leafValues,
-    candidate,
-  });
-
-  for (const [key, child] of entries) {
-    if (isContainer(child)) {
-      collectNodes(
-        child,
-        childPointer(pointer, key),
-        source,
-        sourceDigest,
-        out,
-      );
-    }
-  }
-}
-
 export function readYamlTree(
   text: string,
   source: string,
@@ -310,11 +178,10 @@ export function readYamlTree(
   }
 
   const value = yamlNodeToJson(document.contents, '');
-  const nodes: YamlTreeNode[] = [];
-  collectNodes(value, '', source, sourceDigest, nodes);
-  return {
+  return readStructuredValueTree(
     value,
-    nodes,
-    candidates: nodes.map((node) => node.candidate),
-  };
+    source,
+    sourceDigest,
+    YAML_TREE_SEMANTICS,
+  );
 }
