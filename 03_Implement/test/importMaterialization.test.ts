@@ -810,3 +810,175 @@ test('workbook shapes and graphic frames stay visible as drawing warnings', () =
   assert.match(result.markdown, /MMI_DRAWING_GRAPHIC_FRAMES_NOT_EXTRACTED/u);
   assert.match(result.markdown, /\[構成図\]/u);
 });
+
+
+test('bulk import preserves explicit Excel choice-list semantics without converting them', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-choice-list-'));
+  const sourcePath = path.join(root, 'form.xlsx');
+  const draftPath = path.join(root, 'form.md');
+  fs.writeFileSync(
+    sourcePath,
+    buildXlsxWithImages(
+      [{
+        name: '申請',
+        cells: [
+          [0, 0, '状態'],
+          [0, 1, '担当'],
+        ],
+        extraWorksheetXml: [
+          '<dataValidations count="2">',
+          '<dataValidation type="list" allowBlank="1" sqref="A2:A20">',
+          '<formula1>&quot;未着手,対応中,完了&quot;</formula1>',
+          '</dataValidation>',
+          '<dataValidation type="list" sqref="B2:B20">',
+          '<formula1>担当者!$A$2:$A$10</formula1>',
+          '</dataValidation>',
+          '</dataValidations>',
+        ].join(''),
+      }],
+      {},
+    ),
+  );
+
+  const result = writeWorkbookImportDraft({ sourcePath, draftPath });
+
+  assert.equal(result.choiceLists.length, 2);
+  assert.deepEqual(result.choiceListProblems, []);
+  assert.deepEqual(
+    result.choiceLists.map((choice) => ({
+      range: choice.range,
+      sourceKind: choice.sourceKind,
+      choices: choice.choices,
+      formula1: choice.formula1,
+      allowBlank: choice.allowBlank,
+    })),
+    [
+      {
+        range: 'A2:A20',
+        sourceKind: 'inline',
+        choices: ['未着手', '対応中', '完了'],
+        formula1: '"未着手,対応中,完了"',
+        allowBlank: true,
+      },
+      {
+        range: 'B2:B20',
+        sourceKind: 'formula',
+        choices: undefined,
+        formula1: '担当者!$A$2:$A$10',
+        allowBlank: false,
+      },
+    ],
+  );
+  assert.match(result.markdown, /### Excelの選択肢/u);
+  assert.match(result.markdown, /A2:A20: 未着手、対応中、完了・空欄可/u);
+  assert.match(
+    result.markdown,
+    /B2:B20: 参照式 .*担当者.*A.*2.*A.*10.*選択肢の値は未解決/u,
+  );
+  assert.equal(
+    readLedger(path.join(root, 'mmi-ledger.json')).entries
+      .some((entry) => entry.kind === 'choice-list'),
+    false,
+    'choice-list evidence is not falsely marked as Extracted',
+  );
+});
+
+test('bulk import respects rejected choice-list decisions and reopens changed list evidence', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-choice-review-'));
+  const sourcePath = path.join(root, 'form.xlsx');
+  const firstDraft = path.join(root, 'first.md');
+  const secondDraft = path.join(root, 'second.md');
+  const decisionPath = path.join(root, 'mmi-review-decisions.json');
+
+  const workbook = (values: string) => buildXlsxWithImages(
+    [{
+      name: '申請',
+      cells: [[0, 0, '状態']],
+      extraWorksheetXml: [
+        '<dataValidations count="1">',
+        '<dataValidation type="list" sqref="A2:A20">',
+        `<formula1>&quot;${values}&quot;</formula1>`,
+        '</dataValidation>',
+        '</dataValidations>',
+      ].join(''),
+    }],
+    {},
+  );
+
+  fs.writeFileSync(sourcePath, workbook('未着手,対応中,完了'));
+  const inventory = buildCandidateReviewInventory(sourcePath, './form.xlsx');
+  const choice = inventory.items.find(
+    (item) => item.kind === 'choice-list',
+  );
+  assert.ok(choice && choice.kind === 'choice-list');
+  recordRejectedDecision(
+    decisionPath,
+    sourcePath,
+    choice.candidate,
+    'do not carry this legacy validation',
+  );
+
+  const first = writeWorkbookImportDraft({
+    sourcePath,
+    draftPath: firstDraft,
+    reviewDecisionsPath: decisionPath,
+  });
+  assert.deepEqual(first.choiceLists, []);
+  assert.deepEqual(
+    first.reviewSkippedChoiceLists.map((item) => [
+      item.sheet,
+      item.range,
+      item.decision,
+    ]),
+    [['申請', 'A2:A20', 'rejected']],
+  );
+  assert.match(first.markdown, /却下 \[申請\] 選択肢 A2:A20/u);
+  assert.doesNotMatch(first.markdown, /### Excelの選択肢/u);
+
+  // The exact list changed, so the old decision basis must not suppress it.
+  fs.writeFileSync(sourcePath, workbook('未着手,対応中,完了,差戻し'));
+  const second = writeWorkbookImportDraft({
+    sourcePath,
+    draftPath: secondDraft,
+    reviewDecisionsPath: decisionPath,
+  });
+  assert.equal(second.reviewSkippedChoiceLists.length, 0);
+  assert.equal(second.choiceLists.length, 1);
+  assert.deepEqual(
+    second.choiceLists[0].choices,
+    ['未着手', '対応中', '完了', '差戻し'],
+  );
+  assert.match(second.markdown, /差戻し/u);
+});
+
+test('malformed Excel choice-list metadata remains visible as a draft warning', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-choice-warning-'));
+  const sourcePath = path.join(root, 'form.xlsx');
+  const draftPath = path.join(root, 'form.md');
+  fs.writeFileSync(
+    sourcePath,
+    buildXlsxWithImages(
+      [{
+        name: '申請',
+        cells: [[0, 0, '状態']],
+        extraWorksheetXml:
+          '<dataValidations count="1"><dataValidation type="list" sqref="A2:A20"/></dataValidations>',
+      }],
+      {},
+    ),
+  );
+
+  const result = writeWorkbookImportDraft({ sourcePath, draftPath });
+
+  assert.equal(result.choiceLists.length, 1);
+  assert.equal(result.choiceLists[0].sourceKind, 'missing');
+  assert.equal(
+    result.choiceListProblems.some(
+      (problem) => problem.code === 'MMI_CHOICE_LIST_FORMULA_MISSING',
+    ),
+    true,
+  );
+  assert.match(result.markdown, /## 選択肢の注意/u);
+  assert.match(result.markdown, /MMI_CHOICE_LIST_FORMULA_MISSING/u);
+  assert.match(result.markdown, /選択肢の参照元を読み取れません/u);
+});
