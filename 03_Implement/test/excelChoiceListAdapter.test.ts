@@ -332,6 +332,53 @@ test('unsafe or non-direct formulas stay unresolved instead of being evaluated',
   );
 });
 
+test('out-of-worksheet direct ranges remain unresolved instead of inventing blank choices', () => {
+  const bytes = buildXlsxWithImages(
+    [
+      {
+        name: 'Form',
+        cells: [[0, 0, 'Status']],
+        extraWorksheetXml: [
+          '<dataValidations count="2">',
+          '<dataValidation type="list" sqref="A2">',
+          '<formula1>Lists!$XFE$1</formula1>',
+          '</dataValidation>',
+          '<dataValidation type="list" sqref="B2">',
+          '<formula1>Lists!$A$1048577</formula1>',
+          '</dataValidation>',
+          '</dataValidations>',
+        ].join(''),
+      },
+      {
+        name: 'Lists',
+        cells: [[0, 0, 'Open']],
+      },
+    ],
+    {},
+  );
+  const workbook = loadWorkbookFromBytes('form.xlsx', bytes);
+  const result = readExcelChoiceLists(
+    bytes,
+    './form.xlsx',
+    digest,
+    workbook,
+  );
+
+  assert.deepEqual(
+    result.lists.map((item) => [item.sourceKind, item.choices]),
+    [
+      ['formula', undefined],
+      ['formula', undefined],
+    ],
+  );
+  assert.ok(
+    result.lists.every((item) =>
+      item.candidate.claims.find(
+        (claim) => claim.aspect === 'choices',
+      )?.status === 'abstained'),
+  );
+});
+
 test('existing inline list provenance stays on adapter v1', () => {
   const bytes = workbook([
     '<dataValidations count="1">',

@@ -15,6 +15,8 @@ export const CHOICE_LIST_ADAPTER_ALGORITHM =
 export const CHOICE_LIST_ADAPTER_VERSION = '1';
 export const CHOICE_LIST_RANGE_RESOLVER_VERSION = '1';
 export const CHOICE_LIST_MAX_REFERENCED_CELLS = 10_000;
+const EXCEL_MAX_ROWS = 1_048_576;
+const EXCEL_MAX_COLUMNS = 16_384;
 
 const SPREADSHEET_NS =
   'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
@@ -409,8 +411,14 @@ function sourceKindOf(
   }
 
   const dimensions = rangeDimensions(parsedRange);
+  const outsideWorksheet =
+    parsedRange.startRow < 0
+    || parsedRange.startCol < 0
+    || parsedRange.endRow >= EXCEL_MAX_ROWS
+    || parsedRange.endCol >= EXCEL_MAX_COLUMNS;
   if (
-    dimensions.cellCount < 1
+    outsideWorksheet
+    || dimensions.cellCount < 1
     || dimensions.cellCount > CHOICE_LIST_MAX_REFERENCED_CELLS
     || (dimensions.rowCount > 1 && dimensions.columnCount > 1)
   ) {
