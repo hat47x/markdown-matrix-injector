@@ -104,10 +104,29 @@ export interface ExcelDrawingShape {
   structuralPath: string;
 }
 
+export type DrawingSnapshotHintReason =
+  | 'drawing-two-cell-anchor'
+  | 'drawing-one-cell-anchor-needs-range'
+  | 'drawing-absolute-anchor-needs-range';
+
+export interface DrawingSnapshotHint {
+  /** 1-based, in workbook/drawing-anchor order. */
+  ordinal: number;
+  sheet: string;
+  anchor: ImageAnchor;
+  /** Safe automatic range. Only two-cell anchors have an observed end cell. */
+  range?: string;
+  shapeCount: number;
+  graphicFrameCount: number;
+  reasonCode: DrawingSnapshotHintReason;
+}
+
 export interface ImageReadResult {
   images: ExcelImage[];
   /** AutoShape / connector source objects. Reviewable, but not extracted assets yet. */
   shapes: ExcelDrawingShape[];
+  /** Drawing regions that can be handed to region snapshot without inventing semantics. */
+  snapshotHints: DrawingSnapshotHint[];
   diagnostics: ImageDiagnostic[];
   /** Drawing objects not extracted as Markdown assets. `charts` may also include diagrams. */
   skipped: { shapes: number; charts: number };
@@ -217,6 +236,7 @@ export function readExcelImages(bytes: Uint8Array): ImageReadResult {
   const result: ImageReadResult = {
     images: [],
     shapes: [],
+    snapshotHints: [],
     diagnostics: [],
     skipped: { shapes: 0, charts: 0 },
   };
@@ -326,6 +346,26 @@ export function readExcelImages(bytes: Uint8Array): ImageReadResult {
         });
       }
 
+      if (shapes > 0 || graphicFrames > 0) {
+        const snapshotRange = kind === 'twoCellAnchor' && from && to
+          ? (to.col !== from.col || to.row !== from.row
+              ? `${cellName(from)}:${cellName(to)}`
+              : cellName(from))
+          : undefined;
+        result.snapshotHints.push({
+          ordinal: result.snapshotHints.length + 1,
+          sheet: sheet.name,
+          anchor,
+          ...(snapshotRange ? { range: snapshotRange } : {}),
+          shapeCount: shapes,
+          graphicFrameCount: graphicFrames,
+          reasonCode: snapshotRange
+            ? 'drawing-two-cell-anchor'
+            : kind === 'oneCellAnchor'
+              ? 'drawing-one-cell-anchor-needs-range'
+              : 'drawing-absolute-anchor-needs-range',
+        });
+      }
       for (const picMatch of body.matchAll(/<(?:\w+:)?pic\b[\s\S]*?<\/(?:\w+:)?pic>/gu)) {
         const pic = picMatch[0];
         const props = /<(?:\w+:)?cNvPr\b[^>]*>/u.exec(pic);

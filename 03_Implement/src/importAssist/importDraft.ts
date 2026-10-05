@@ -26,6 +26,16 @@ export interface ImportDraftProblem {
   ordinal?: number;
 }
 
+export interface ImportDraftSnapshotHint {
+  ordinal: number;
+  sheet: string;
+  range?: string;
+  fromCell?: string;
+  shapeCount: number;
+  graphicFrameCount: number;
+  reasonCode: string;
+}
+
 export interface ImportDraftReviewSkip {
   ordinal: number;
   sheet: string;
@@ -75,6 +85,7 @@ export interface ImportDraftChoiceListReviewSkip {
 export interface WorkbookImportOptions extends Omit<ImportAnalysisOptions, 'referencePath' | 'workbook'> {
   assets?: readonly ImportDraftAsset[];
   assetProblems?: readonly ImportDraftProblem[];
+  snapshotHints?: readonly ImportDraftSnapshotHint[];
   reviewSkippedAssets?: readonly ImportDraftReviewSkip[];
   reviewSkippedTables?: readonly ImportDraftTableReviewSkip[];
   choiceLists?: readonly ImportDraftChoiceList[];
@@ -91,6 +102,7 @@ export interface WorkbookImport {
   structure?: WorkbookStructure;
   assets: ImportDraftAsset[];
   assetProblems: ImportDraftProblem[];
+  snapshotHints: ImportDraftSnapshotHint[];
   reviewSkippedAssets: ImportDraftReviewSkip[];
   reviewSkippedTables: ImportDraftTableReviewSkip[];
   choiceLists: ImportDraftChoiceList[];
@@ -107,6 +119,7 @@ export function analyzeWorkbookForImport(
   const {
     assets = [],
     assetProblems = [],
+    snapshotHints = [],
     reviewSkippedAssets = [],
     reviewSkippedTables = [],
     choiceLists = [],
@@ -126,6 +139,7 @@ export function analyzeWorkbookForImport(
     ...(analysisOptions.structure ? { structure: analysisOptions.structure } : {}),
     assets: [...assets],
     assetProblems: [...assetProblems],
+    snapshotHints: [...snapshotHints],
     reviewSkippedAssets: [...reviewSkippedAssets],
     reviewSkippedTables: [...reviewSkippedTables],
     choiceLists: [...choiceLists],
@@ -179,6 +193,12 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
   lines.push(`- 表の候補: ${tables.length}件（注意あり: ${withCautions.length}件）`);
   if (workbookImport.assets.length > 0) {
     lines.push(`- 抽出した画像: ${workbookImport.assets.length}件（元のシート位置と出典を保持）`);
+  }
+  if (workbookImport.snapshotHints.length > 0) {
+    const ready = workbookImport.snapshotHints.filter((item) => item.range).length;
+    lines.push(
+      `- 図形のsnapshot候補: ${workbookImport.snapshotHints.length}件（範囲確定: ${ready}件、要確認: ${workbookImport.snapshotHints.length - ready}件）`,
+    );
   }
   if (workbookImport.assetProblems.length > 0) {
     lines.push(`- 画像・図形の注意: ${workbookImport.assetProblems.length}件`);
@@ -243,6 +263,31 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
       lines.push(
         `- ${decision} [${escapeText(item.sheet)}] 選択肢 ${escapeText(item.range)}: ${escapeText(item.message)}`,
       );
+    }
+    lines.push('');
+  }
+
+  if (workbookImport.snapshotHints.length > 0) {
+    lines.push(
+      '## 図形のsnapshot候補',
+      '',
+      '> OOXML drawingのanchorから作った作業候補です。図形やgraphic frameの意味は判定していません。範囲が確定している候補だけ、その範囲を `mmi snapshot` で画像化できます。',
+      '',
+    );
+    for (const hint of workbookImport.snapshotHints) {
+      const objects = [
+        hint.shapeCount > 0 ? `${hint.shapeCount}個の図形・コネクタ` : '',
+        hint.graphicFrameCount > 0 ? `${hint.graphicFrameCount}個のgraphic frame` : '',
+      ].filter(Boolean).join('、');
+      if (hint.range) {
+        lines.push(
+          `- #${hint.ordinal} [${escapeText(hint.sheet)}] ${escapeText(hint.range)}: ${objects}。inspectのsnapshot hint #${hint.ordinal}として実行できます。`,
+        );
+      } else {
+        lines.push(
+          `- #${hint.ordinal} [${escapeText(hint.sheet)}] ${hint.fromCell ? `${escapeText(hint.fromCell)}付近` : '絶対位置'}: ${objects}。終端セルを安全に確定できないため、snapshot範囲を原本で確認してください。`,
+        );
+      }
     }
     lines.push('');
   }

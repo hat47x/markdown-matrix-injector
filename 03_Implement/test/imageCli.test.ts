@@ -482,3 +482,144 @@ test('inspect reports shapes and graphic frames as drawing problems', async () =
   assert.match(output, /MMI_DRAWING_SHAPES_NOT_EXTRACTED \[図\]/u);
   assert.match(output, /MMI_DRAWING_GRAPHIC_FRAMES_NOT_EXTRACTED \[図\]/u);
 });
+
+
+test('inspect exposes actionable two-cell drawing snapshot hints', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-drawing-hint-'));
+  const book = path.join(root, 'drawing.xlsx');
+  const drawing = [
+    '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing">',
+    '<xdr:twoCellAnchor>',
+    '<xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>',
+    '<xdr:to><xdr:col>3</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>4</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>',
+    '<xdr:sp/><xdr:cxnSp/><xdr:clientData/>',
+    '</xdr:twoCellAnchor>',
+    '<xdr:oneCellAnchor>',
+    '<xdr:from><xdr:col>5</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>6</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>',
+    '<xdr:ext cx="1000" cy="1000"/><xdr:graphicFrame/><xdr:clientData/>',
+    '</xdr:oneCellAnchor>',
+    '</xdr:wsDr>',
+  ].join('');
+  fs.writeFileSync(
+    book,
+    buildXlsxWithImages(
+      [{ name: '構成図', cells: [[0, 0, '構成図']], rawDrawing: drawing }],
+      {},
+    ),
+  );
+
+  const jsonChunks: string[] = [];
+  const out = process.stdout.write.bind(process.stdout);
+  process.stdout.write = ((chunk: string) => (jsonChunks.push(String(chunk)), true)) as typeof process.stdout.write;
+  try {
+    assert.equal(await main(['inspect', book, '--json']), 0);
+  } finally {
+    process.stdout.write = out;
+  }
+  const inspected = JSON.parse(jsonChunks.join(''));
+  assert.deepEqual(inspected.snapshotHints, [
+    {
+      ordinal: 1,
+      sheet: '構成図',
+      range: 'A1:C4',
+      fromCell: 'A1',
+      anchorKind: 'twoCellAnchor',
+      shapeCount: 2,
+      graphicFrameCount: 0,
+      reasonCode: 'drawing-two-cell-anchor',
+      ready: true,
+    },
+    {
+      ordinal: 2,
+      sheet: '構成図',
+      fromCell: 'F7',
+      anchorKind: 'oneCellAnchor',
+      shapeCount: 0,
+      graphicFrameCount: 1,
+      reasonCode: 'drawing-one-cell-anchor-needs-range',
+      ready: false,
+    },
+  ]);
+
+  const textChunks: string[] = [];
+  process.stdout.write = ((chunk: string) => (textChunks.push(String(chunk)), true)) as typeof process.stdout.write;
+  try {
+    assert.equal(await main(['inspect', book]), 0);
+  } finally {
+    process.stdout.write = out;
+  }
+  const textOutput = textChunks.join('');
+  assert.match(textOutput, /snapshot hint #1\s+A1:C4\s+2 shape\/connector/u);
+  assert.match(textOutput, /snapshot --hint 1 ready/u);
+  assert.match(textOutput, /snapshot hint #2\s+F7\s+1 graphic-frame\s+\(range needs review/u);
+});
+
+test('snapshot --hint refuses anchors without a safe end cell before renderer startup', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-drawing-hint-'));
+  const book = path.join(root, 'drawing.xlsx');
+  const drawing = [
+    '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing">',
+    '<xdr:oneCellAnchor>',
+    '<xdr:from><xdr:col>1</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>2</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>',
+    '<xdr:ext cx="1000" cy="1000"/><xdr:sp/><xdr:clientData/>',
+    '</xdr:oneCellAnchor>',
+    '</xdr:wsDr>',
+  ].join('');
+  fs.writeFileSync(
+    book,
+    buildXlsxWithImages([{ name: '図', rawDrawing: drawing }], {}),
+  );
+
+  const errors: string[] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => errors.push(args.map(String).join(' '));
+  try {
+    assert.equal(
+      await main(['snapshot', book, '--root', root, '--hint', '1']),
+      2,
+    );
+  } finally {
+    console.error = original;
+  }
+  assert.match(errors.join('\n'), /has no safe end cell/u);
+  assert.match(errors.join('\n'), /starts at B3/u);
+});
+
+test('snapshot --hint resolves a ready hint before renderer input validation', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-drawing-hint-'));
+  const book = path.join(root, 'drawing.xlsx');
+  const drawing = [
+    '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing">',
+    '<xdr:twoCellAnchor>',
+    '<xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>',
+    '<xdr:to><xdr:col>2</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>2</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>',
+    '<xdr:sp/><xdr:clientData/>',
+    '</xdr:twoCellAnchor>',
+    '</xdr:wsDr>',
+  ].join('');
+  fs.writeFileSync(
+    book,
+    buildXlsxWithImages([{ name: '図', rawDrawing: drawing }], {}),
+  );
+
+  const errors: string[] = [];
+  const original = console.error;
+  console.error = (...args: unknown[]) => errors.push(args.map(String).join(' '));
+  try {
+    assert.equal(
+      await main([
+        'snapshot',
+        book,
+        '--root', root,
+        '--hint', '1',
+        '--dpi', '1',
+      ]),
+      1,
+    );
+  } finally {
+    console.error = original;
+  }
+  assert.match(errors.join('\n'), /MMI_SNAPSHOT_RANGE_INVALID/u);
+  assert.match(errors.join('\n'), /dpi must be an integer from 72 to 600/u);
+  assert.doesNotMatch(errors.join('\n'), /hint #1/u);
+});

@@ -148,8 +148,10 @@ Commands:
       --from <doc.md>         provenance/source labels are relative to this document
       --ledger <file>         import ledger (default: <root>/mmi-ledger.json)
   snapshot <workbook>       Render one sheet range as a deterministic PNG via LibreOffice
-      --sheet <name>          worksheet to render (required)
-      --range <A1:B9>         physical cell range to render (required)
+      --sheet <name>          worksheet to render with --range
+      --range <A1:B9>         physical cell range to render with --sheet
+      --hint <n>              use a ready drawing snapshot hint shown by inspect
+                            Use either --hint or the --sheet + --range pair
       --dpi <72..600>         raster resolution (default: 150)
       --out-dir <dir>         snapshot assets folder (default: <root>/assets/snapshots)
       --from <doc.md>         write the Markdown image reference relative to this document
@@ -240,6 +242,7 @@ export async function main(argv: string[]): Promise<number> {
       tree: { type: 'string' },
       'tree-method': { type: 'string' },
       range: { type: 'string' },
+      hint: { type: 'string' },
       dpi: { type: 'string' },
       'tree-parent-columns': { type: 'string' },
       'tree-level-columns': { type: 'string' },
@@ -531,8 +534,12 @@ export async function main(argv: string[]): Promise<number> {
     }
     case 'snapshot': {
       if (args.length !== 1) return usageError('snapshot takes one workbook');
-      if (!values.sheet) return usageError('snapshot needs --sheet <name>');
-      if (!values.range) return usageError('snapshot needs --range <A1:B9>');
+      if (values.hint && (values.sheet || values.range)) {
+        return usageError('snapshot uses either --hint or --sheet + --range, not both');
+      }
+      if (!values.hint && (!values.sheet || !values.range)) {
+        return usageError('snapshot needs --hint <n> or --sheet <name> + --range <A1:B9>');
+      }
 
       const sourcePath = path.resolve(args[0]);
       const outDir = values['out-dir']
@@ -549,13 +556,38 @@ export async function main(argv: string[]): Promise<number> {
         return usageError('snapshot ledger must stay within --root workspace');
       }
 
+      let sheet = values.sheet;
+      let range = values.range;
+      let hintOrdinal: number | undefined;
+      if (values.hint) {
+        hintOrdinal = Number(values.hint);
+        if (!Number.isInteger(hintOrdinal) || hintOrdinal < 1) {
+          return usageError('snapshot --hint must be a positive integer');
+        }
+        const hint = readExcelImages(fs.readFileSync(sourcePath)).snapshotHints
+          .find((item) => item.ordinal === hintOrdinal);
+        if (!hint) {
+          return usageError(`snapshot hint #${hintOrdinal} was not found; run mmi inspect <workbook> first`);
+        }
+        if (!hint.range) {
+          const start = hint.anchor.from
+            ? XLSX.utils.encode_cell({ c: hint.anchor.from.col, r: hint.anchor.from.row })
+            : undefined;
+          return usageError(
+            `snapshot hint #${hintOrdinal} (${hint.anchor.kind}${start ? `, starts at ${start}` : ''}) has no safe end cell; choose --sheet ${JSON.stringify(hint.sheet)} --range <A1:B9> manually`,
+          );
+        }
+        sheet = hint.sheet;
+        range = hint.range;
+      }
+
       let result;
       try {
         result = await renderLibreOfficeRegionSnapshot({
           sourcePath,
           sourceLabel: portableDisplayPath(sourcePath),
-          sheet: values.sheet,
-          range: values.range,
+          sheet: sheet!,
+          range: range!,
           outDir,
           ledgerPath,
           ...(values.from ? { fromDocument: path.resolve(values.from) } : {}),
@@ -580,6 +612,7 @@ export async function main(argv: string[]): Promise<number> {
         manifest: portableDisplayPath(result.manifestFile),
         renderer: result.manifest.renderer,
         markdown: result.markdown,
+        ...(hintOrdinal ? { hint: hintOrdinal } : {}),
       };
       emit(values.json
         ? JSON.stringify(summary, null, 2)
@@ -1124,6 +1157,11 @@ export interface InspectResult {
   /** Pictures or drawings that could not be read, by name. */
   imageDiagnostics: ImageDiagnostic[];
   /**
+   * Drawing-anchor regions that can be handed to `mmi snapshot`.
+   * These are action hints, not claims that the drawing's meaning is known.
+   */
+  snapshotHints?: InspectSnapshotHint[];
+  /**
    * Optional non-authoritative import assistance. Kept separate from
    * Semantic Candidates so inferred roles never become observed facts.
    */
@@ -1151,6 +1189,18 @@ export interface InspectLedgerView {
   filter: CandidateLedgerFilter;
   candidates: InspectLedgerCandidate[];
   similarityEvidenceFile?: string;
+}
+
+export interface InspectSnapshotHint {
+  ordinal: number;
+  sheet: string;
+  range?: string;
+  fromCell?: string;
+  anchorKind: string;
+  shapeCount: number;
+  graphicFrameCount: number;
+  reasonCode: string;
+  ready: boolean;
 }
 
 export interface InspectImage {
@@ -1408,6 +1458,19 @@ export function inspectSource(
         ...(near ? { nearbyTable: { range: near.table.a1, relation: near.relation, gap: near.gap } } : {}),
       };
     }),
+    snapshotHints: imageRead.snapshotHints.map((hint) => ({
+      ordinal: hint.ordinal,
+      sheet: hint.sheet,
+      ...(hint.range ? { range: hint.range } : {}),
+      ...(hint.anchor.from
+        ? { fromCell: XLSX.utils.encode_cell({ c: hint.anchor.from.col, r: hint.anchor.from.row }) }
+        : {}),
+      anchorKind: hint.anchor.kind,
+      shapeCount: hint.shapeCount,
+      graphicFrameCount: hint.graphicFrameCount,
+      reasonCode: hint.reasonCode,
+      ready: Boolean(hint.range),
+    })),
     imageDiagnostics: imageRead.diagnostics,
     sheets: Object.entries(workbook.sheets).map(([name, sheet]) => ({
       name,
@@ -1582,6 +1645,21 @@ function formatInspect(result: InspectResult): string {
       const near = image.nearbyTable ? `  near table ${image.nearbyTable.range} (${image.nearbyTable.relation}, gap ${image.nearbyTable.gap})` : '';
       const place = image.range ?? `name:${image.name ?? ''}`;
       lines.push(`  image #${image.ordinal}  ${image.range ?? '(no cell anchor)'}  ${image.format}  ${image.bytes} bytes  ${image.digest.slice(0, 19)}…${image.name ? `  "${image.name}"` : ''}${near}${image.extractable ? '' : '  (not extractable)'}${ledgerSuffix('image', sheet.name, place)}`);
+    }
+    for (const hint of (result.snapshotHints ?? []).filter((item) => item.sheet === sheet.name)) {
+      const objects = [
+        hint.shapeCount > 0 ? `${hint.shapeCount} shape/connector` : '',
+        hint.graphicFrameCount > 0 ? `${hint.graphicFrameCount} graphic-frame` : '',
+      ].filter(Boolean).join(', ');
+      if (hint.range) {
+        lines.push(
+          `  snapshot hint #${hint.ordinal}  ${hint.range}  ${objects}  (snapshot --hint ${hint.ordinal} ready)`,
+        );
+      } else {
+        lines.push(
+          `  snapshot hint #${hint.ordinal}  ${hint.fromCell ?? '(absolute anchor)'}  ${objects}  (range needs review: ${hint.reasonCode})`,
+        );
+      }
     }
   }
   if (result.choiceListDiagnostics.length > 0) {

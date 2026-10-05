@@ -46,6 +46,7 @@ import {
   type ImportDraftChoiceList,
   type ImportDraftChoiceListProblem,
   type ImportDraftProblem,
+  type ImportDraftSnapshotHint,
 } from './importDraft.js';
 import {
   readWorkbookStructureFromBytes,
@@ -110,6 +111,7 @@ export interface WorkbookImportMaterialization {
   reviewDecisionsSnapshot?: string;
   extractedImages: ExtractedImage[];
   imageProblems: ExtractProblem[];
+  snapshotHints: ImportDraftSnapshotHint[];
   reviewSkippedImages: ImportSkippedImage[];
   reviewSkippedTables: ImportSkippedTable[];
   choiceLists: ImportDraftChoiceList[];
@@ -431,6 +433,7 @@ export function materializeWorkbookImport(
 
   let extractedImages: ExtractedImage[] = [];
   let imageProblems: ExtractProblem[] = [];
+  let snapshotHints: ImportDraftSnapshotHint[] = [];
   let reviewSkippedImages: ImportSkippedImage[] = [];
 
   if (/\.(xlsx|xlsm)$/iu.test(sourcePath)) {
@@ -440,6 +443,17 @@ export function materializeWorkbookImport(
       sourceDigest,
       images: imageRead.images,
     });
+    snapshotHints = imageRead.snapshotHints.map((hint) => ({
+      ordinal: hint.ordinal,
+      sheet: hint.sheet,
+      ...(hint.range ? { range: hint.range } : {}),
+      ...(hint.anchor.from
+        ? { fromCell: cellNameFromPoint(hint.anchor.from.col, hint.anchor.from.row) }
+        : {}),
+      shapeCount: hint.shapeCount,
+      graphicFrameCount: hint.graphicFrameCount,
+      reasonCode: hint.reasonCode,
+    }));
 
     const fatalProblems: ExtractProblem[] = imageRead.diagnostics
       .filter((diagnostic) => diagnostic.severity === 'error')
@@ -531,6 +545,7 @@ export function materializeWorkbookImport(
     ...reviewFilteredBase,
     assets,
     assetProblems: problems,
+    snapshotHints,
     reviewSkippedAssets: reviewSkippedImages,
     reviewSkippedTables,
     choiceLists,
@@ -547,6 +562,7 @@ export function materializeWorkbookImport(
     ...(reviewDecisionsSnapshot ? { reviewDecisionsSnapshot } : {}),
     extractedImages,
     imageProblems,
+    snapshotHints,
     reviewSkippedImages,
     reviewSkippedTables,
     choiceLists,
@@ -558,6 +574,14 @@ export function materializeWorkbookImport(
 
 
 
+
+function cellNameFromPoint(col: number, row: number): string {
+  let label = '';
+  for (let value = col + 1; value > 0; value = Math.floor((value - 1) / 26)) {
+    label = String.fromCharCode(65 + ((value - 1) % 26)) + label;
+  }
+  return `${label}${row + 1}`;
+}
 
 function importDraftChoiceList(choice: ExcelChoiceList): ImportDraftChoiceList {
   return {
