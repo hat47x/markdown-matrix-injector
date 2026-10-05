@@ -90,6 +90,45 @@ test('hierarchy-only review inventory exposes configured parent-ID Tree Candidat
   );
 });
 
+test('hierarchy review preserves an explicit header row selected below title rows', () => {
+  const source = fixture([
+    'Hierarchy export,,',
+    'ID,Parent,Name',
+    'A,,Account',
+    'A-1,A,Create',
+  ].join('\n'));
+
+  const inventory = buildCandidateReviewInventory(
+    source,
+    'hierarchy.csv',
+    {
+      tabularHierarchy: {
+        sheet: 'Sheet1',
+        config: {
+          mode: 'parent-id',
+          headerRow: 1,
+          idHeader: 'ID',
+          parentHeader: 'Parent',
+          labelHeader: 'Name',
+        },
+      },
+      hierarchyOnly: true,
+    },
+  );
+
+  const account = inventory.items.find(
+    (item) =>
+      item.kind === 'tree'
+      && item.pointer === 'table-hierarchy:parent-id:id:A',
+  );
+  assert.ok(account && account.kind === 'tree');
+  assert.equal(account.tabularHierarchy?.headerRow, 1);
+  assert.equal(
+    account.candidate.provenance.run.config.headerRow,
+    1,
+  );
+});
+
 test('hierarchy review surfaces abstention when configured columns cannot form a hierarchy', () => {
   const source = fixture([
     'ID,Parent',
