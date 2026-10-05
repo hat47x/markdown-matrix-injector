@@ -181,6 +181,20 @@ func TestCSVConformanceCase(t *testing.T) {
 	}
 }
 
+func TestCSVLeadingBlankRowsConformanceCase(t *testing.T) {
+	actualResponse := runConformanceCase(
+		t,
+		"csv-leading-blank-rows.case.json",
+	)
+	if got := actualResponse.Candidates[0].Locator.Range; got != "A3:B5" {
+		t.Fatalf("range mismatch: %s", got)
+	}
+	if got := actualResponse.Candidates[0].Reference; got != "![[./fixture.csv#Sheet1|A3:B5?header=first]]" {
+		t.Fatalf("reference mismatch: %s", got)
+	}
+}
+
+
 func TestJSONTreeConformanceCase(t *testing.T) {
 	actualResponse := runConformanceCase(
 		t,
@@ -273,6 +287,33 @@ func TestParseCSVMatchesReferenceSemantics(t *testing.T) {
 				{"A", "B1", "2"},
 			},
 		},
+		{
+			name:  "leading-blank-records-preserve-physical-row-origin",
+			input: "\n\nName,Role\nAlice,Admin\n",
+			expected: [][]string{
+				{""},
+				{""},
+				{"Name", "Role"},
+				{"Alice", "Admin"},
+			},
+		},
+		{
+			name:  "single-trailing-line-terminator-does-not-add-a-record",
+			input: "Name,Role\nAlice,Admin\n",
+			expected: [][]string{
+				{"Name", "Role"},
+				{"Alice", "Admin"},
+			},
+		},
+		{
+			name:  "repeated-trailing-line-terminator-preserves-blank-record",
+			input: "Name,Role\nAlice,Admin\n\n",
+			expected: [][]string{
+				{"Name", "Role"},
+				{"Alice", "Admin"},
+				{""},
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -285,6 +326,20 @@ func TestParseCSVMatchesReferenceSemantics(t *testing.T) {
 				t.Fatalf("rows mismatch:\n got: %#v\nwant: %#v", actual, test.expected)
 			}
 		})
+	}
+}
+
+func TestCSVRegionCoordinatesIncludeLeadingBlankRecords(t *testing.T) {
+	rows, err := parseCSV("\n\nName,Role\nAlice,Admin\nBob,User\n")
+	if err != nil {
+		t.Fatal(err)
+	}
+	regions := detectRegions(rows, 1_000)
+	if len(regions) != 1 {
+		t.Fatalf("regions: got %d want 1: %#v", len(regions), regions)
+	}
+	if got := regions[0].a1; got != "A3:B5" {
+		t.Fatalf("region A1 range: got %s want A3:B5", got)
 	}
 }
 

@@ -41,7 +41,7 @@
     "eval:cpu-search:test4:first": "node --import tsx scripts/cpu-search-eval/test4-first-run.ts",
     "eval:import-assist": "node --import tsx scripts/import-assist-eval/evaluate.ts",
     "bench:workbook-load": "node --import tsx scripts/workbook-load-benchmark.ts",
-        "test:phase9-sync": "python3 ../01_Plans/tools/check_phase9_template_sync.py",
+    "test:phase9-sync": "python3 ../01_Plans/tools/check_phase9_template_sync.py",
     "test:phase9-guide-sync": "python3 ../01_Plans/tools/generate_phase9_pattern_guide.py --check",
     "test:e2e": "npm run build && bash ./scripts/run-vscode-e2e.sh",
     "test:e2e:practical": "npm run build && node --import tsx ./test/e2e/runPractical.ts",
@@ -62,6 +62,7 @@
   },
   "dependencies": {
     "markdown-it": "^14.1.0",
+    "saxes": "6.0.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   },
   "devDependencies": {
@@ -93,7 +94,7 @@
     "onCommand:markdownMatrixInjector.clearSearchIndex",
     "onCommand:markdownMatrixInjector.importFromWorkbook",
     "onCommand:markdownMatrixInjector.reviewCandidates",
-    "onCommand:markdownMatrixInjector.reviewTabularTreeCandidates",
+    "onCommand:markdownMatrixInjector.reviewHierarchyCandidates",
     "onView:markdownMatrixInjector.tableCatalog",
     "onLanguage:markdown"
   ],
@@ -159,8 +160,8 @@
         "category": "MMI"
       },
       {
-        "command": "markdownMatrixInjector.reviewTabularTreeCandidates",
-        "title": "%mmi.command.reviewTabularTreeCandidates%",
+        "command": "markdownMatrixInjector.reviewHierarchyCandidates",
+        "title": "%mmi.command.reviewHierarchyCandidates%",
         "category": "MMI"
       },
       {
@@ -225,6 +226,11 @@
           "command": "markdownMatrixInjector.importFromWorkbook",
           "when": "resourceExtname =~ /^\\.(xlsx|xlsm|xls|xml)$/i",
           "group": "mmi@1"
+        },
+        {
+          "command": "markdownMatrixInjector.reviewHierarchyCandidates",
+          "when": "resourceExtname =~ /^\\.(xlsx|xlsm|xls|csv|xml)$/i",
+          "group": "mmi@2"
         }
       ],
       "editor/context": [
@@ -322,7 +328,10 @@
       "properties": {
         "markdownMatrixInjector.diagnostics.whileTyping": {
           "type": "string",
-          "enum": ["quiet", "full"],
+          "enum": [
+            "quiet",
+            "full"
+          ],
           "default": "quiet",
           "markdownDescription": "%mmi.setting.diagnosticsWhileTyping%"
         },

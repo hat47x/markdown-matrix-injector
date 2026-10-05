@@ -60,9 +60,9 @@ import { applyDiagnosticPolicy, AUTHORING_DEBOUNCE_MS, type DiagnosticPhase, typ
 import { IMPORT_WORKBOOK_COMMAND_ID, importFromWorkbook } from './dx/importFlow.js';
 import {
   REVIEW_CANDIDATES_COMMAND_ID,
-  REVIEW_TABULAR_TREE_CANDIDATES_COMMAND_ID,
+  REVIEW_HIERARCHY_CANDIDATES_COMMAND_ID,
   reviewCandidates,
-  reviewTabularTreeCandidates,
+  reviewHierarchyCandidates,
 } from './dx/candidateReviewFlow.js';
 import {
   CATALOG_INSERT_TABLE_COMMAND_ID,
@@ -214,9 +214,9 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
       reviewCandidates(target instanceof vscode.Uri ? target : undefined),
     ),
     vscode.commands.registerCommand(
-      REVIEW_TABULAR_TREE_CANDIDATES_COMMAND_ID,
+      REVIEW_HIERARCHY_CANDIDATES_COMMAND_ID,
       (target?: vscode.Uri) =>
-        reviewTabularTreeCandidates(
+        reviewHierarchyCandidates(
           target instanceof vscode.Uri ? target : undefined,
         ),
     ),

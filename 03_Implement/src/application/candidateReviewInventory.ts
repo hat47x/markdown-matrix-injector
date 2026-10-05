@@ -48,39 +48,35 @@ export type CandidateReviewInventoryItem =
       kind: 'tree';
       candidate: Candidate;
       pointer: string;
-      format: 'json' | 'xml' | 'text';
-      nodeType: 'object' | 'array' | 'element' | 'text-node';
+      format: 'json' | 'xml' | 'text' | 'tabular';
+      nodeType:
+        | 'object'
+        | 'array'
+        | 'element'
+        | 'text-node'
+        | 'table-node';
       childCount: number;
       leafCount: number;
-      method?: FlatTextTreeMethod;
-    }
-  | {
-      kind: 'tree';
-      candidate: Candidate;
-      pointer: string;
-      format: 'tabular';
-      nodeType: 'table-node';
-      childCount: number;
-      leafCount: number;
-      sheet: string;
-      tabularConfig: TabularHierarchyConfig;
+      method?: FlatTextTreeMethod | TabularHierarchyConfig['mode'];
+      sheet?: string;
+      tabularHierarchy?: TabularHierarchyConfig;
     };
 
 export interface CandidateReviewInventory {
   items: CandidateReviewInventoryItem[];
   imageDiagnostics: ImageDiagnostic[];
+  tabularHierarchyAbstention?: {
+    reasonCode: string;
+    evidence: string[];
+  };
 }
 
 export interface CandidateReviewInventoryOptions {
-  /**
-   * Explicit user-supplied hierarchy mappings. No column-name inference is
-   * performed here: tabular Tree Candidates exist only for mappings the user
-   * asked MMI to interpret.
-   */
-  tabularHierarchies?: readonly {
+  tabularHierarchy?: {
     sheet: string;
     config: TabularHierarchyConfig;
-  }[];
+  };
+  hierarchyOnly?: boolean;
 }
 
 export function buildCandidateReviewInventory(
@@ -165,6 +161,78 @@ export function buildCandidateReviewInventory(
   const sourceDigest = readSourceFileIdentity(sourcePath).digest;
   const workbook = loadWorkbook({ absolutePath: sourcePath });
 
+  const hierarchyItems: CandidateReviewInventoryItem[] = [];
+  let tabularHierarchyAbstention:
+    | CandidateReviewInventory['tabularHierarchyAbstention']
+    | undefined;
+  if (options.tabularHierarchy) {
+    const sheet = workbook.sheets[options.tabularHierarchy.sheet];
+    if (!sheet) {
+      throw new Error(
+        `Hierarchy review sheet not found: ${options.tabularHierarchy.sheet}`,
+      );
+    }
+    const hierarchy = readTabularHierarchy({
+      source: sourceLabel,
+      sourceDigest,
+      sheetName: options.tabularHierarchy.sheet,
+      sheet,
+      config: options.tabularHierarchy.config,
+    });
+    if (hierarchy.status !== 'inferred') {
+      tabularHierarchyAbstention = {
+        reasonCode: hierarchy.reasonCode,
+        evidence: hierarchy.candidates[0]?.claims
+          .flatMap((claim) => claim.evidence ?? [])
+          .map((evidence) =>
+            evidence.detail
+              ? `${evidence.code}: ${evidence.detail}`
+              : evidence.code)
+          ?? [],
+      };
+    } else {
+      const byKey = new Map(
+        hierarchy.nodes.map((node) => [node.key, node]),
+      );
+      const leafCountOf = (key: string): number => {
+        const node = byKey.get(key);
+        if (!node) {
+          throw new Error(`Hierarchy node not found: ${key}`);
+        }
+        return node.childKeys.length === 0
+          ? 1
+          : node.childKeys.reduce(
+              (count, childKey) => count + leafCountOf(childKey),
+              0,
+            );
+      };
+      hierarchyItems.push(
+        ...hierarchy.nodes.map((node) => ({
+          kind: 'tree' as const,
+          candidate: node.candidate,
+          pointer: node.structuralPath,
+          format: 'tabular' as const,
+          nodeType: 'table-node' as const,
+          childCount: node.childKeys.length,
+          leafCount: leafCountOf(node.key),
+          method: options.tabularHierarchy!.config.mode,
+          sheet: options.tabularHierarchy!.sheet,
+          tabularHierarchy: options.tabularHierarchy!.config,
+        })),
+      );
+    }
+  }
+
+  if (options.hierarchyOnly) {
+    return {
+      items: hierarchyItems,
+      imageDiagnostics: [],
+      ...(tabularHierarchyAbstention
+        ? { tabularHierarchyAbstention }
+        : {}),
+    };
+  }
+
   const tableItems: CandidateReviewInventoryItem[] = Object.entries(
     workbook.sheets,
   ).flatMap(([sheetName, sheet]) =>
@@ -187,44 +255,13 @@ export function buildCandidateReviewInventory(
     }),
   );
 
-  const tabularTreeItems: CandidateReviewInventoryItem[] = (
-    options.tabularHierarchies ?? []
-  ).flatMap(({ sheet: sheetName, config }) => {
-    const sheet = workbook.sheets[sheetName];
-    if (!sheet) {
-      throw new Error(
-        `tabular hierarchy sheet ${JSON.stringify(sheetName)} was not found`,
-      );
-    }
-    const hierarchy = readTabularHierarchy({
-      source: sourceLabel,
-      sourceDigest,
-      sheetName,
-      sheet,
-      config,
-    });
-    if (hierarchy.status !== 'inferred') {
-      throw new Error(
-        `tabular hierarchy could not be established on ${sheetName}: ${hierarchy.reasonCode}`,
-      );
-    }
-    return hierarchy.nodes.map((node) => ({
-      kind: 'tree' as const,
-      candidate: node.candidate,
-      pointer: node.structuralPath,
-      format: 'tabular' as const,
-      nodeType: 'table-node' as const,
-      childCount: node.childKeys.length,
-      leafCount: node.childKeys.length === 0 ? 1 : 0,
-      sheet: sheetName,
-      tabularConfig: config,
-    }));
-  });
-
   if (!/\.(xlsx|xlsm)$/iu.test(sourcePath)) {
     return {
-      items: [...tableItems, ...tabularTreeItems],
+      items: [...tableItems, ...hierarchyItems],
       imageDiagnostics: [],
+      ...(tabularHierarchyAbstention
+        ? { tabularHierarchyAbstention }
+        : {}),
     };
   }
 
@@ -242,7 +279,10 @@ export function buildCandidateReviewInventory(
     }));
 
   return {
-    items: [...tableItems, ...tabularTreeItems, ...imageItems],
+    items: [...tableItems, ...imageItems, ...hierarchyItems],
     imageDiagnostics: read.diagnostics,
+    ...(tabularHierarchyAbstention
+      ? { tabularHierarchyAbstention }
+      : {}),
   };
 }

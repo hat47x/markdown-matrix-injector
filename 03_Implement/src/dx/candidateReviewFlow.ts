@@ -37,7 +37,9 @@ import {
   extractTabularHierarchyTree,
   extractXmlTree,
 } from '../cli/extractTree.js';
-import type { TabularHierarchyConfig } from '../adapters/tabularHierarchyAdapter.js';
+import type {
+  TabularHierarchyConfig,
+} from '../adapters/tabularHierarchyAdapter.js';
 import type { Candidate, ReviewState } from '../core/candidate.js';
 import { loadWorkbook } from '../core/workbookLoader.js';
 import type { CandidateLedgerFilter } from '../core/candidateLedgerView.js';
@@ -53,8 +55,8 @@ import { placeOf, readLedger } from '../core/importLedger.js';
 
 export const REVIEW_CANDIDATES_COMMAND_ID =
   'markdownMatrixInjector.reviewCandidates';
-export const REVIEW_TABULAR_TREE_CANDIDATES_COMMAND_ID =
-  'markdownMatrixInjector.reviewTabularTreeCandidates';
+export const REVIEW_HIERARCHY_CANDIDATES_COMMAND_ID =
+  'markdownMatrixInjector.reviewHierarchyCandidates';
 
 const FILTERS: readonly {
   value: CandidateLedgerFilter;
@@ -155,7 +157,7 @@ function reviewObservationFile(sourcePath: string): string | undefined {
 }
 
 function supportedReviewSource(sourcePath: string): boolean {
-  return /\.(xlsx|xlsm|csv|xml|json|txt|text|log)$/iu.test(sourcePath);
+  return /\.(xlsx|xlsm|xls|csv|xml|json|txt|text|log)$/iu.test(sourcePath);
 }
 
 async function chooseSource(target?: vscode.Uri): Promise<string | undefined> {
@@ -173,6 +175,7 @@ async function chooseSource(target?: vscode.Uri): Promise<string | undefined> {
       'MMI source': [
         'xlsx',
         'xlsm',
+        'xls',
         'csv',
         'xml',
         'json',
@@ -186,16 +189,16 @@ async function chooseSource(target?: vscode.Uri): Promise<string | undefined> {
   return picked?.[0]?.fsPath;
 }
 
-function supportedTabularTreeSource(sourcePath: string): boolean {
-  return /\.(xlsx|xlsm|xls|csv)$/iu.test(sourcePath);
+function supportedHierarchyReviewSource(sourcePath: string): boolean {
+  return /\.(xlsx|xlsm|xls|csv|xml)$/iu.test(sourcePath);
 }
 
-async function chooseTabularTreeSource(
+async function chooseHierarchySource(
   target?: vscode.Uri,
 ): Promise<string | undefined> {
   if (
     target?.scheme === 'file'
-    && supportedTabularTreeSource(target.fsPath)
+    && supportedHierarchyReviewSource(target.fsPath)
   ) {
     return target.fsPath;
   }
@@ -204,26 +207,15 @@ async function chooseTabularTreeSource(
     canSelectFolders: false,
     canSelectMany: false,
     filters: {
-      '表形式データ': ['xlsx', 'xlsm', 'xls', 'csv'],
+      'MMI hierarchy source': ['xlsx', 'xlsm', 'xls', 'csv', 'xml'],
     },
-    title: 'MMI: Treeとして確認する表形式sourceを選択',
+    title: 'MMI: 階層Candidateを確認するsourceを選択',
   });
   return picked?.[0]?.fsPath;
 }
 
 interface HeaderChoice extends vscode.QuickPickItem {
-  value: string;
-}
-
-function excelColumnName(index: number): string {
-  let value = index + 1;
-  let result = '';
-  while (value > 0) {
-    value -= 1;
-    result = String.fromCharCode(65 + (value % 26)) + result;
-    value = Math.floor(value / 26);
-  }
-  return result;
+  header: string;
 }
 
 function uniqueHeaderChoices(
@@ -231,40 +223,42 @@ function uniqueHeaderChoices(
 ): HeaderChoice[] {
   const range = sheet.usedRange;
   if (!range) return [];
-  const values = new Map<string, number[]>();
-  for (let col = range.startCol; col <= range.endCol; col += 1) {
-    const value = sheet.cellAt(range.startRow, col)?.text.trim() ?? '';
-    if (!value) continue;
-    const columns = values.get(value) ?? [];
-    columns.push(col);
-    values.set(value, columns);
+  const values: Array<{ header: string; column: number }> = [];
+  for (let column = range.startCol; column <= range.endCol; column += 1) {
+    const header = sheet.cellAt(range.startRow, column)?.text.trim() ?? '';
+    if (header) values.push({ header, column });
   }
-  return [...values.entries()]
-    .filter(([, columns]) => columns.length === 1)
-    .map(([value, [col]]) => ({
-      label: value,
-      description: `列 ${excelColumnName(col)}`,
-      value,
+  const counts = new Map<string, number>();
+  for (const item of values) {
+    counts.set(item.header, (counts.get(item.header) ?? 0) + 1);
+  }
+  return values
+    .filter((item) => counts.get(item.header) === 1)
+    .map((item) => ({
+      label: item.header,
+      description: `列 ${columnName(item.column)}`,
+      header: item.header,
     }));
 }
 
-async function chooseRequiredHeader(
-  choices: readonly HeaderChoice[],
-  title: string,
-  placeHolder: string,
-  excluded: ReadonlySet<string> = new Set<string>(),
-): Promise<string | undefined> {
-  const picked = await vscode.window.showQuickPick(
-    choices.filter((item) => !excluded.has(item.value)),
-    { title, placeHolder },
-  );
-  return picked?.value;
+function columnName(index: number): string {
+  let value = index + 1;
+  let name = '';
+  while (value > 0) {
+    const remainder = (value - 1) % 26;
+    name = String.fromCharCode(65 + remainder) + name;
+    value = Math.floor((value - 1) / 26);
+  }
+  return name;
 }
 
-async function chooseTabularHierarchyConfig(
+async function chooseHierarchyConfig(
   sourcePath: string,
 ): Promise<
-  | { sheet: string; config: TabularHierarchyConfig }
+  | {
+      sheet: string;
+      config: TabularHierarchyConfig;
+    }
   | undefined
 > {
   let workbook: ReturnType<typeof loadWorkbook>;
@@ -272,29 +266,34 @@ async function chooseTabularHierarchyConfig(
     workbook = loadWorkbook({ absolutePath: sourcePath });
   } catch (error) {
     await vscode.window.showErrorMessage(
-      `MMI: 表形式sourceを読み取れません: ${error instanceof Error
-        ? error.message
-        : String(error)}`,
+      `MMI: このsourceは表形式の階層レビューに使えません: ${error instanceof Error ? error.message : String(error)}`,
     );
     return undefined;
   }
 
-  const sheetChoice = await vscode.window.showQuickPick(
-    Object.entries(workbook.sheets)
-      .filter(([, sheet]) => Boolean(sheet.usedRange))
-      .map(([sheet]) => ({ label: sheet, value: sheet })),
-    {
-      title: 'MMI: Treeとして読むシート',
-      placeHolder: '親子関係または階層レベルを明示したシートを選択',
-    },
-  );
-  if (!sheetChoice) return undefined;
+  const sheetNames = Object.keys(workbook.sheets);
+  if (sheetNames.length === 0) {
+    await vscode.window.showInformationMessage(
+      'MMI: 階層Candidateを作れるシートがありません。',
+    );
+    return undefined;
+  }
 
-  const sheet = workbook.sheets[sheetChoice.value];
-  const headers = uniqueHeaderChoices(sheet);
+  const sheet = sheetNames.length === 1
+    ? sheetNames[0]
+    : (await vscode.window.showQuickPick(
+        sheetNames.map((name) => ({ label: name, sheet: name })),
+        {
+          placeHolder: '階層として確認するシートを選択',
+          title: 'MMI: 階層Candidate',
+        },
+      ))?.sheet;
+  if (!sheet) return undefined;
+
+  const headers = uniqueHeaderChoices(workbook.sheets[sheet]);
   if (headers.length < 2) {
-    await vscode.window.showWarningMessage(
-      'MMI: 先頭行に一意な見出しが2列以上ありません。表形式Treeの列を明示できません。',
+    await vscode.window.showInformationMessage(
+      'MMI: 一意に指定できる見出しが2列以上ありません。重複見出しは階層列として推測しません。',
     );
     return undefined;
   }
@@ -302,114 +301,96 @@ async function chooseTabularHierarchyConfig(
   const mode = await vscode.window.showQuickPick(
     [
       {
-        label: '親ID列で表す',
-        description: '例: ID / Parent / Name',
-        value: 'parent-id' as const,
+        label: '親ID列で階層を指定',
+        description: 'ID列と親ID列を明示して親子関係を作る',
+        mode: 'parent-id' as const,
       },
       {
-        label: '階層レベル列で表す',
-        description: '例: Level / Label',
-        value: 'level' as const,
+        label: 'Level列で階層を指定',
+        description: 'Level列と表示名列を明示して親子関係を作る',
+        mode: 'level' as const,
       },
     ],
     {
-      title: 'MMI: Treeの表現方法',
-      placeHolder: '原本に明示されている列の意味を選択',
+      placeHolder: '階層の表現方法を選択',
+      title: 'MMI: 階層Candidate',
     },
   );
   if (!mode) return undefined;
 
-  if (mode.value === 'parent-id') {
-    const idHeader = await chooseRequiredHeader(
-      headers,
-      'MMI: ノードID列',
-      '各ノードを一意に識別する列',
+  if (mode.mode === 'parent-id') {
+    const id = await vscode.window.showQuickPick(headers, {
+      placeHolder: 'ID列を選択',
+      title: 'MMI: 階層Candidate',
+    });
+    if (!id) return undefined;
+    const parent = await vscode.window.showQuickPick(
+      headers.filter((item) => item.header !== id.header),
+      {
+        placeHolder: '親ID列を選択',
+        title: 'MMI: 階層Candidate',
+      },
     );
-    if (!idHeader) return undefined;
-    const parentHeader = await chooseRequiredHeader(
-      headers,
-      'MMI: 親ID列',
-      '親ノードのIDを持つ列',
-      new Set([idHeader]),
-    );
-    if (!parentHeader) return undefined;
+    if (!parent) return undefined;
+
     const label = await vscode.window.showQuickPick(
       [
         {
-          label: 'ID列を表示名にも使う',
-          description: idHeader,
-          value: undefined as string | undefined,
+          label: '(ID列を表示名として使う)',
+          description: '表示名列を別に指定しない',
+          header: undefined as string | undefined,
         },
         ...headers
-          .filter((item) =>
-            item.value !== idHeader
-            && item.value !== parentHeader)
+          .filter(
+            (item) =>
+              item.header !== id.header
+              && item.header !== parent.header,
+          )
           .map((item) => ({
-            label: item.label,
-            description: `${item.description ?? ''} · 表示名`,
-            value: item.value as string | undefined,
+            ...item,
+            header: item.header as string | undefined,
           })),
       ],
       {
-        title: 'MMI: 表示名の列',
-        placeHolder: 'Treeに表示する名前を選択',
+        placeHolder: '表示名列を選択（省略可）',
+        title: 'MMI: 階層Candidate',
       },
     );
     if (!label) return undefined;
+
     return {
-      sheet: sheetChoice.value,
+      sheet,
       config: {
         mode: 'parent-id',
-        idHeader,
-        parentHeader,
-        ...(label.value ? { labelHeader: label.value } : {}),
+        idHeader: id.header,
+        parentHeader: parent.header,
+        ...(label.header ? { labelHeader: label.header } : {}),
       },
     };
   }
 
-  const levelHeader = await chooseRequiredHeader(
-    headers,
-    'MMI: 階層レベル列',
-    '0/1/2 または 1/2/3 のように深さを表す列',
+  const level = await vscode.window.showQuickPick(headers, {
+    placeHolder: 'Level列を選択',
+    title: 'MMI: 階層Candidate',
+  });
+  if (!level) return undefined;
+  const label = await vscode.window.showQuickPick(
+    headers.filter((item) => item.header !== level.header),
+    {
+      placeHolder: '表示名列を選択',
+      title: 'MMI: 階層Candidate',
+    },
   );
-  if (!levelHeader) return undefined;
-  const labelHeader = await chooseRequiredHeader(
-    headers,
-    'MMI: 表示名の列',
-    'Treeに表示する名前の列',
-    new Set([levelHeader]),
-  );
-  if (!labelHeader) return undefined;
+  if (!label) return undefined;
+
   return {
-    sheet: sheetChoice.value,
+    sheet,
     config: {
       mode: 'level',
-      levelHeader,
-      labelHeader,
+      levelHeader: level.header,
+      labelHeader: label.header,
     },
   };
-}
-
-interface ReviewCandidatesOptions {
-  sourcePath?: string;
-  inventoryOptions?: CandidateReviewInventoryOptions;
-  onlyKind?: Candidate['kind'];
-}
-
-export async function reviewTabularTreeCandidates(
-  target?: vscode.Uri,
-): Promise<void> {
-  const sourcePath = await chooseTabularTreeSource(target);
-  if (!sourcePath) return;
-  const hierarchy = await chooseTabularHierarchyConfig(sourcePath);
-  if (!hierarchy) return;
-  await reviewCandidates(undefined, {
-    sourcePath,
-    inventoryOptions: {
-      tabularHierarchies: [hierarchy],
-    },
-    onlyKind: 'tree',
-  });
 }
 
 function stateLabel(state: string): string {
@@ -491,7 +472,7 @@ function quickPickItem(
     return {
       label: `$(list-tree) ${pointer}`,
       description:
-        `${stateLabel(ledgerState)} · 採用: ${reviewStateLabel(reviewState)} · ${source.format.toUpperCase()} Tree${source.format === 'tabular' ? ` · ${source.sheet}` : ''}${source.method ? ` · ${source.method}` : ''}`,
+        `${stateLabel(ledgerState)} · 採用: ${reviewStateLabel(reviewState)} · ${source.format.toUpperCase()} Tree${source.method ? ` · ${source.method}` : ''}`,
       detail: [
         epistemicDetail(source.candidate),
         `${source.nodeType} · ${source.childCount} children · ${source.leafCount} scalar children`,
@@ -546,11 +527,33 @@ function quickPickItem(
   };
 }
 
+interface ReviewCandidatesOptions {
+  inventory?: CandidateReviewInventoryOptions;
+}
+
+export async function reviewHierarchyCandidates(
+  target?: vscode.Uri,
+): Promise<void> {
+  const sourcePath = await chooseHierarchySource(target);
+  if (!sourcePath) return;
+  const hierarchy = await chooseHierarchyConfig(sourcePath);
+  if (!hierarchy) return;
+  await reviewCandidates(
+    vscode.Uri.file(sourcePath),
+    {
+      inventory: {
+        tabularHierarchy: hierarchy,
+        hierarchyOnly: true,
+      },
+    },
+  );
+}
+
 export async function reviewCandidates(
   target?: vscode.Uri,
   options: ReviewCandidatesOptions = {},
 ): Promise<void> {
-  const sourcePath = options.sourcePath ?? await chooseSource(target);
+  const sourcePath = await chooseSource(target);
   if (!sourcePath) return;
 
   const root = workspaceRoot(sourcePath);
@@ -568,16 +571,8 @@ export async function reviewCandidates(
     inventory = buildCandidateReviewInventory(
       sourcePath,
       sourceLabel,
-      options.inventoryOptions,
+      options.inventory,
     );
-    if (options.onlyKind) {
-      inventory = {
-        ...inventory,
-        items: inventory.items.filter(
-          (item) => item.candidate.kind === options.onlyKind,
-        ),
-      };
-    }
   } catch (error) {
     await vscode.window.showErrorMessage(
       `MMI: Candidateを読み取れません: ${error instanceof Error
@@ -585,6 +580,21 @@ export async function reviewCandidates(
         : String(error)}`,
     );
     return;
+  }
+
+  if (inventory.tabularHierarchyAbstention) {
+    const detail = inventory.tabularHierarchyAbstention.evidence.length > 0
+      ? `: ${inventory.tabularHierarchyAbstention.evidence.join(' / ')}`
+      : '';
+    await vscode.window.showWarningMessage(
+      `MMI: 指定した階層列からTree Candidateを確定できません（${inventory.tabularHierarchyAbstention.reasonCode}）${detail}`,
+    );
+    if (
+      options.inventory?.hierarchyOnly
+      && inventory.items.length === 0
+    ) {
+      return;
+    }
   }
 
   const imageErrors = inventory.imageDiagnostics.filter(
@@ -1067,8 +1077,8 @@ export async function reviewCandidates(
     const result = picked.source.format === 'tabular'
       ? extractTabularHierarchyTree({
           ...commonTreeOptions,
-          sheet: picked.source.sheet,
-          config: picked.source.tabularConfig,
+          sheet: picked.source.sheet!,
+          config: picked.source.tabularHierarchy!,
         })
       : picked.source.format === 'xml'
         ? extractXmlTree(commonTreeOptions)

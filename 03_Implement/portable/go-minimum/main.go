@@ -603,7 +603,7 @@ func ensureEOF(decoder *json.Decoder) error {
 }
 
 func parseCSV(contents string) ([][]string, error) {
-	text := strings.TrimSpace(strings.TrimPrefix(contents, "\uFEFF"))
+	text := strings.TrimPrefix(contents, "\uFEFF")
 	if text == "" {
 		return [][]string{}, nil
 	}
@@ -664,7 +664,12 @@ func parseCSV(contents string) ([][]string, error) {
 	if inQuotes {
 		return nil, errors.New("unterminated quoted CSV field")
 	}
-	flushRow()
+	// A final LF terminates the record already flushed in the loop. Do not
+	// invent another blank row. Repeated LFs still preserve the blank records
+	// between them, matching the TypeScript source-coordinate contract.
+	if !strings.HasSuffix(text, "\n") {
+		flushRow()
+	}
 	return rows, nil
 }
 

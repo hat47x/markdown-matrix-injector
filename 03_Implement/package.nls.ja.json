@@ -28,6 +28,6 @@
   "mmi.setting.diagnosticsWhileTyping": "入力中、カーソルのある行の参照の診断を控える（`quiet`、既定）か、すぐに表示する（`full`）。開いたとき・保存したとき・別の行へ移ったときは常にすべて表示します。`mmi check`とCIは常に網羅的です。",
   "mmi.setting.useClipboardSource": "Windowsのローカル環境のみ: Excelのコピーを **Paste As** や「コピーした範囲と同じ内容の表を探して参照を挿入」で貼るとき、Windows標準のPowerShellでクリップボードからコピー元（ブック・シート・セル範囲）を読み、保存済みの原本が同じ値を示すことを確かめてから「コピー元を確認済み」として先頭に示します。読んだ内容は保存せず、選ぶまで挿入しません。",
   "mmi.setting.reviewObservation": "Candidateレビューの利用状況をローカルに記録します。有効にすると、開始・終了時刻、所要時間、選択して確認した候補数、採用・修正採用・却下・保留などの状態変化をワークスペースの.mmi/candidate-review-observations.jsonlへ追記します。Candidateの本文やセル値は記録せず、外部にも送信しません。",
-  "mmi.command.reviewCandidates": "取り込み候補を確認（表・画像・JSONツリー・取込状態・出典）",
-  "mmi.command.reviewTabularTreeCandidates": "表形式ツリーを確認（親ID列または階層レベル列を選択）"
+  "mmi.command.reviewCandidates": "取り込み候補を確認（表・画像・ツリー・取込状態・出典）",
+  "mmi.command.reviewHierarchyCandidates": "表の列を指定して階層Candidateを確認"
 }
