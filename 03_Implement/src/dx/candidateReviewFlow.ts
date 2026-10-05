@@ -4,6 +4,7 @@ import * as vscode from 'vscode';
 import {
   buildCandidateReviewInventory,
   type CandidateReviewInventoryItem,
+  type CandidateReviewInventoryOptions,
 } from '../application/candidateReviewInventory.js';
 import {
   availableCandidateReviewFacets,
@@ -33,9 +34,14 @@ import {
 import {
   extractFlatTextTree,
   extractJsonTree,
+  extractTabularHierarchyTree,
   extractXmlTree,
 } from '../cli/extractTree.js';
+import type {
+  TabularHierarchyConfig,
+} from '../adapters/tabularHierarchyAdapter.js';
 import type { Candidate, ReviewState } from '../core/candidate.js';
+import { loadWorkbook } from '../core/workbookLoader.js';
 import type { CandidateLedgerFilter } from '../core/candidateLedgerView.js';
 import {
   clearReviewDecisionForCandidate,
@@ -49,6 +55,8 @@ import { placeOf, readLedger } from '../core/importLedger.js';
 
 export const REVIEW_CANDIDATES_COMMAND_ID =
   'markdownMatrixInjector.reviewCandidates';
+export const REVIEW_HIERARCHY_CANDIDATES_COMMAND_ID =
+  'markdownMatrixInjector.reviewHierarchyCandidates';
 
 const FILTERS: readonly {
   value: CandidateLedgerFilter;
@@ -178,6 +186,210 @@ async function chooseSource(target?: vscode.Uri): Promise<string | undefined> {
     title: 'MMI: Candidateを確認するsourceを選択',
   });
   return picked?.[0]?.fsPath;
+}
+
+function supportedHierarchyReviewSource(sourcePath: string): boolean {
+  return /\.(xlsx|xlsm|csv|xml)$/iu.test(sourcePath);
+}
+
+async function chooseHierarchySource(
+  target?: vscode.Uri,
+): Promise<string | undefined> {
+  if (
+    target?.scheme === 'file'
+    && supportedHierarchyReviewSource(target.fsPath)
+  ) {
+    return target.fsPath;
+  }
+  const picked = await vscode.window.showOpenDialog({
+    canSelectFiles: true,
+    canSelectFolders: false,
+    canSelectMany: false,
+    filters: {
+      'MMI hierarchy source': ['xlsx', 'xlsm', 'csv', 'xml'],
+    },
+    title: 'MMI: 階層Candidateを確認するsourceを選択',
+  });
+  return picked?.[0]?.fsPath;
+}
+
+interface HeaderChoice extends vscode.QuickPickItem {
+  header: string;
+}
+
+function uniqueHeaderChoices(
+  sheet: ReturnType<typeof loadWorkbook>['sheets'][string],
+): HeaderChoice[] {
+  const range = sheet.usedRange;
+  if (!range) return [];
+  const values: Array<{ header: string; column: number }> = [];
+  for (let column = range.startCol; column <= range.endCol; column += 1) {
+    const header = sheet.cellAt(range.startRow, column)?.text.trim() ?? '';
+    if (header) values.push({ header, column });
+  }
+  const counts = new Map<string, number>();
+  for (const item of values) {
+    counts.set(item.header, (counts.get(item.header) ?? 0) + 1);
+  }
+  return values
+    .filter((item) => counts.get(item.header) === 1)
+    .map((item) => ({
+      label: item.header,
+      description: `列 ${columnName(item.column)}`,
+      header: item.header,
+    }));
+}
+
+function columnName(index: number): string {
+  let value = index + 1;
+  let name = '';
+  while (value > 0) {
+    const remainder = (value - 1) % 26;
+    name = String.fromCharCode(65 + remainder) + name;
+    value = Math.floor((value - 1) / 26);
+  }
+  return name;
+}
+
+async function chooseHierarchyConfig(
+  sourcePath: string,
+): Promise<
+  | {
+      sheet: string;
+      config: TabularHierarchyConfig;
+    }
+  | undefined
+> {
+  let workbook: ReturnType<typeof loadWorkbook>;
+  try {
+    workbook = loadWorkbook({ absolutePath: sourcePath });
+  } catch (error) {
+    await vscode.window.showErrorMessage(
+      `MMI: このsourceは表形式の階層レビューに使えません: ${error instanceof Error ? error.message : String(error)}`,
+    );
+    return undefined;
+  }
+
+  const sheetNames = Object.keys(workbook.sheets);
+  if (sheetNames.length === 0) {
+    await vscode.window.showInformationMessage(
+      'MMI: 階層Candidateを作れるシートがありません。',
+    );
+    return undefined;
+  }
+
+  const sheet = sheetNames.length === 1
+    ? sheetNames[0]
+    : (await vscode.window.showQuickPick(
+        sheetNames.map((name) => ({ label: name, sheet: name })),
+        {
+          placeHolder: '階層として確認するシートを選択',
+          title: 'MMI: 階層Candidate',
+        },
+      ))?.sheet;
+  if (!sheet) return undefined;
+
+  const headers = uniqueHeaderChoices(workbook.sheets[sheet]);
+  if (headers.length < 2) {
+    await vscode.window.showInformationMessage(
+      'MMI: 一意に指定できる見出しが2列以上ありません。重複見出しは階層列として推測しません。',
+    );
+    return undefined;
+  }
+
+  const mode = await vscode.window.showQuickPick(
+    [
+      {
+        label: '親ID列で階層を指定',
+        description: 'ID列と親ID列を明示して親子関係を作る',
+        mode: 'parent-id' as const,
+      },
+      {
+        label: 'Level列で階層を指定',
+        description: 'Level列と表示名列を明示して親子関係を作る',
+        mode: 'level' as const,
+      },
+    ],
+    {
+      placeHolder: '階層の表現方法を選択',
+      title: 'MMI: 階層Candidate',
+    },
+  );
+  if (!mode) return undefined;
+
+  if (mode.mode === 'parent-id') {
+    const id = await vscode.window.showQuickPick(headers, {
+      placeHolder: 'ID列を選択',
+      title: 'MMI: 階層Candidate',
+    });
+    if (!id) return undefined;
+    const parent = await vscode.window.showQuickPick(
+      headers.filter((item) => item.header !== id.header),
+      {
+        placeHolder: '親ID列を選択',
+        title: 'MMI: 階層Candidate',
+      },
+    );
+    if (!parent) return undefined;
+
+    const label = await vscode.window.showQuickPick(
+      [
+        {
+          label: '(ID列を表示名として使う)',
+          description: '表示名列を別に指定しない',
+          header: undefined as string | undefined,
+        },
+        ...headers
+          .filter(
+            (item) =>
+              item.header !== id.header
+              && item.header !== parent.header,
+          )
+          .map((item) => ({
+            ...item,
+            header: item.header as string | undefined,
+          })),
+      ],
+      {
+        placeHolder: '表示名列を選択（省略可）',
+        title: 'MMI: 階層Candidate',
+      },
+    );
+    if (!label) return undefined;
+
+    return {
+      sheet,
+      config: {
+        mode: 'parent-id',
+        idHeader: id.header,
+        parentHeader: parent.header,
+        ...(label.header ? { labelHeader: label.header } : {}),
+      },
+    };
+  }
+
+  const level = await vscode.window.showQuickPick(headers, {
+    placeHolder: 'Level列を選択',
+    title: 'MMI: 階層Candidate',
+  });
+  if (!level) return undefined;
+  const label = await vscode.window.showQuickPick(
+    headers.filter((item) => item.header !== level.header),
+    {
+      placeHolder: '表示名列を選択',
+      title: 'MMI: 階層Candidate',
+    },
+  );
+  if (!label) return undefined;
+
+  return {
+    sheet,
+    config: {
+      mode: 'level',
+      levelHeader: level.header,
+      labelHeader: label.header,
+    },
+  };
 }
 
 function stateLabel(state: string): string {
@@ -314,7 +526,32 @@ function quickPickItem(
   };
 }
 
-export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
+interface ReviewCandidatesOptions {
+  inventory?: CandidateReviewInventoryOptions;
+}
+
+export async function reviewHierarchyCandidates(
+  target?: vscode.Uri,
+): Promise<void> {
+  const sourcePath = await chooseHierarchySource(target);
+  if (!sourcePath) return;
+  const hierarchy = await chooseHierarchyConfig(sourcePath);
+  if (!hierarchy) return;
+  await reviewCandidates(
+    vscode.Uri.file(sourcePath),
+    {
+      inventory: {
+        tabularHierarchy: hierarchy,
+        hierarchyOnly: true,
+      },
+    },
+  );
+}
+
+export async function reviewCandidates(
+  target?: vscode.Uri,
+  options: ReviewCandidatesOptions = {},
+): Promise<void> {
   const sourcePath = await chooseSource(target);
   if (!sourcePath) return;
 
@@ -330,7 +567,11 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
 
   let inventory;
   try {
-    inventory = buildCandidateReviewInventory(sourcePath, sourceLabel);
+    inventory = buildCandidateReviewInventory(
+      sourcePath,
+      sourceLabel,
+      options.inventory,
+    );
   } catch (error) {
     await vscode.window.showErrorMessage(
       `MMI: Candidateを読み取れません: ${error instanceof Error
@@ -805,13 +1046,7 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
     extractedMarkdown = result.extracted[0].markdown;
     extractedFile = result.extracted[0].file;
   } else if (picked.source.kind === 'tree') {
-    const extractTree =
-      picked.source.format === 'xml'
-        ? extractXmlTree
-        : picked.source.format === 'text'
-          ? extractFlatTextTree
-          : extractJsonTree;
-    const result = extractTree({
+    const commonTreeOptions = {
       sourcePath,
       pointer: picked.source.pointer,
       outDir,
@@ -822,7 +1057,18 @@ export async function reviewCandidates(target?: vscode.Uri): Promise<void> {
       ledgerPath,
       expectedCandidateFingerprint:
         picked.source.candidate.fingerprint.digest,
-    });
+    };
+    const result = picked.source.format === 'tabular'
+      ? extractTabularHierarchyTree({
+          ...commonTreeOptions,
+          sheet: picked.source.sheet!,
+          config: picked.source.tabularHierarchy!,
+        })
+      : picked.source.format === 'xml'
+        ? extractXmlTree(commonTreeOptions)
+        : picked.source.format === 'text'
+          ? extractFlatTextTree(commonTreeOptions)
+          : extractJsonTree(commonTreeOptions);
     if (result.problems.length > 0 || !result.extracted) {
       await vscode.window.showErrorMessage(
         `MMI: 取り込みに失敗しました: ${result.problems

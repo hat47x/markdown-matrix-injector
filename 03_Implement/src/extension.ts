@@ -58,7 +58,12 @@ import { findUnknownProseIds, UNKNOWN_PROSE_ID_CODE } from './application/proseI
 import { referencedSheets, unknownIdMessage } from './application/referencedSheets.js';
 import { applyDiagnosticPolicy, AUTHORING_DEBOUNCE_MS, type DiagnosticPhase, type WhileTyping } from './dx/diagnosticPolicy.js';
 import { IMPORT_WORKBOOK_COMMAND_ID, importFromWorkbook } from './dx/importFlow.js';
-import { REVIEW_CANDIDATES_COMMAND_ID, reviewCandidates } from './dx/candidateReviewFlow.js';
+import {
+  REVIEW_CANDIDATES_COMMAND_ID,
+  REVIEW_HIERARCHY_CANDIDATES_COMMAND_ID,
+  reviewCandidates,
+  reviewHierarchyCandidates,
+} from './dx/candidateReviewFlow.js';
 import {
   CATALOG_INSERT_TABLE_COMMAND_ID,
   CATALOG_REFRESH_COMMAND_ID,
@@ -207,6 +212,13 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
     ),
     vscode.commands.registerCommand(REVIEW_CANDIDATES_COMMAND_ID, (target?: vscode.Uri) =>
       reviewCandidates(target instanceof vscode.Uri ? target : undefined),
+    ),
+    vscode.commands.registerCommand(
+      REVIEW_HIERARCHY_CANDIDATES_COMMAND_ID,
+      (target?: vscode.Uri) =>
+        reviewHierarchyCandidates(
+          target instanceof vscode.Uri ? target : undefined,
+        ),
     ),
     ...registerTableCatalog(),
     vscode.commands.registerCommand(CLEAR_SEARCH_INDEX_COMMAND_ID, () => {

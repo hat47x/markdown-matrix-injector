@@ -15,6 +15,10 @@ import {
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
 import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
+import {
+  readTabularHierarchy,
+  type TabularHierarchyConfig,
+} from '../adapters/tabularHierarchyAdapter.js';
 import type { Candidate } from '../core/candidate.js';
 import { decodeJsonUtf8 } from '../core/jsonFormat.js';
 import {
@@ -44,11 +48,18 @@ export type CandidateReviewInventoryItem =
       kind: 'tree';
       candidate: Candidate;
       pointer: string;
-      format: 'json' | 'xml' | 'text';
-      nodeType: 'object' | 'array' | 'element' | 'text-node';
+      format: 'json' | 'xml' | 'text' | 'tabular';
+      nodeType:
+        | 'object'
+        | 'array'
+        | 'element'
+        | 'text-node'
+        | 'table-node';
       childCount: number;
       leafCount: number;
-      method?: FlatTextTreeMethod;
+      method?: FlatTextTreeMethod | TabularHierarchyConfig['mode'];
+      sheet?: string;
+      tabularHierarchy?: TabularHierarchyConfig;
     };
 
 export interface CandidateReviewInventory {
@@ -56,9 +67,18 @@ export interface CandidateReviewInventory {
   imageDiagnostics: ImageDiagnostic[];
 }
 
+export interface CandidateReviewInventoryOptions {
+  tabularHierarchy?: {
+    sheet: string;
+    config: TabularHierarchyConfig;
+  };
+  hierarchyOnly?: boolean;
+}
+
 export function buildCandidateReviewInventory(
   sourcePath: string,
   sourceLabel: string,
+  options: CandidateReviewInventoryOptions = {},
 ): CandidateReviewInventory {
   if (/\.json$/iu.test(sourcePath)) {
     const sourceBytes = fs.readFileSync(sourcePath);
@@ -137,6 +157,53 @@ export function buildCandidateReviewInventory(
   const sourceDigest = readSourceFileIdentity(sourcePath).digest;
   const workbook = loadWorkbook({ absolutePath: sourcePath });
 
+  const hierarchyItems: CandidateReviewInventoryItem[] = [];
+  if (options.tabularHierarchy) {
+    const sheet = workbook.sheets[options.tabularHierarchy.sheet];
+    if (!sheet) {
+      throw new Error(
+        `Hierarchy review sheet not found: ${options.tabularHierarchy.sheet}`,
+      );
+    }
+    const hierarchy = readTabularHierarchy({
+      source: sourceLabel,
+      sourceDigest,
+      sheetName: options.tabularHierarchy.sheet,
+      sheet,
+      config: options.tabularHierarchy.config,
+    });
+    if (hierarchy.status !== 'inferred') {
+      const detail = hierarchy.candidates[0]?.claims
+        .flatMap((claim) => claim.evidence ?? [])
+        .map((evidence) => evidence.detail)
+        .find((value): value is string => Boolean(value));
+      throw new Error(
+        `Configured hierarchy could not be determined (${hierarchy.reasonCode})${detail ? `: ${detail}` : ''}`,
+      );
+    }
+    hierarchyItems.push(
+      ...hierarchy.nodes.map((node) => ({
+        kind: 'tree' as const,
+        candidate: node.candidate,
+        pointer: node.structuralPath,
+        format: 'tabular' as const,
+        nodeType: 'table-node' as const,
+        childCount: node.childKeys.length,
+        leafCount: 1,
+        method: options.tabularHierarchy!.config.mode,
+        sheet: options.tabularHierarchy!.sheet,
+        tabularHierarchy: options.tabularHierarchy!.config,
+      })),
+    );
+  }
+
+  if (options.hierarchyOnly) {
+    return {
+      items: hierarchyItems,
+      imageDiagnostics: [],
+    };
+  }
+
   const tableItems: CandidateReviewInventoryItem[] = Object.entries(
     workbook.sheets,
   ).flatMap(([sheetName, sheet]) =>
@@ -160,7 +227,10 @@ export function buildCandidateReviewInventory(
   );
 
   if (!/\.(xlsx|xlsm)$/iu.test(sourcePath)) {
-    return { items: tableItems, imageDiagnostics: [] };
+    return {
+      items: [...tableItems, ...hierarchyItems],
+      imageDiagnostics: [],
+    };
   }
 
   const read = readExcelImages(fs.readFileSync(sourcePath));
@@ -177,7 +247,7 @@ export function buildCandidateReviewInventory(
     }));
 
   return {
-    items: [...tableItems, ...imageItems],
+    items: [...tableItems, ...imageItems, ...hierarchyItems],
     imageDiagnostics: read.diagnostics,
   };
 }
