@@ -55,6 +55,8 @@ JSONとXMLの明示構造はfixtureで親子関係、属性・本文、fingerpri
 
 フラットテキストでは、3方式の独立有効化、M0観測とM1推定の分離、方式間の構造不一致、親欠落・重複markerによる`abstained`、非UTF-8入力、review時fingerprint guard、ledger、detach freshnessを回帰対象にした。回帰テストは追加済みだが、この作業環境ではリポジトリ全体の依存をmaterializeできないため、正本suiteを実行済みとは扱わない。
 
+表形式Treeでは、VS Codeレビューinventoryが保持するsheet・列設定・structuralPath・fingerprintを、そのまま既存のextract→`mmi.ledger/v1`へ渡せることを縦通しで固定する。`.xls`も`.xlsx` / `.xlsm` / CSVと同じ明示列レビュー経路から扱い、ファイル選択段階だけでlegacy Excelを除外しない。
+
 ## Remaining work
 
 - YAMLはJSON Adapterと契約を共有できるかを確認してから追加する。

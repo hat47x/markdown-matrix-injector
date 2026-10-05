@@ -157,7 +157,7 @@ function reviewObservationFile(sourcePath: string): string | undefined {
 }
 
 function supportedReviewSource(sourcePath: string): boolean {
-  return /\.(xlsx|xlsm|csv|xml|json|txt|text|log)$/iu.test(sourcePath);
+  return /\.(xlsx|xlsm|xls|csv|xml|json|txt|text|log)$/iu.test(sourcePath);
 }
 
 async function chooseSource(target?: vscode.Uri): Promise<string | undefined> {
@@ -175,6 +175,7 @@ async function chooseSource(target?: vscode.Uri): Promise<string | undefined> {
       'MMI source': [
         'xlsx',
         'xlsm',
+        'xls',
         'csv',
         'xml',
         'json',
@@ -189,7 +190,7 @@ async function chooseSource(target?: vscode.Uri): Promise<string | undefined> {
 }
 
 function supportedHierarchyReviewSource(sourcePath: string): boolean {
-  return /\.(xlsx|xlsm|csv|xml)$/iu.test(sourcePath);
+  return /\.(xlsx|xlsm|xls|csv|xml)$/iu.test(sourcePath);
 }
 
 async function chooseHierarchySource(
@@ -206,7 +207,7 @@ async function chooseHierarchySource(
     canSelectFolders: false,
     canSelectMany: false,
     filters: {
-      'MMI hierarchy source': ['xlsx', 'xlsm', 'csv', 'xml'],
+      'MMI hierarchy source': ['xlsx', 'xlsm', 'xls', 'csv', 'xml'],
     },
     title: 'MMI: 階層Candidateを確認するsourceを選択',
   });
