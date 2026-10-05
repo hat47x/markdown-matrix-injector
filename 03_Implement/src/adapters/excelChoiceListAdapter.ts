@@ -12,7 +12,8 @@ import { readZip, ZipError, type ZipEntry } from '../core/zipReader.js';
 
 export const CHOICE_LIST_ADAPTER_ALGORITHM =
   'mmi.excel-data-validation-list';
-export const CHOICE_LIST_ADAPTER_VERSION = '2';
+export const CHOICE_LIST_ADAPTER_VERSION = '1';
+export const CHOICE_LIST_RANGE_RESOLVER_VERSION = '1';
 export const CHOICE_LIST_MAX_REFERENCED_CELLS = 10_000;
 
 const SPREADSHEET_NS =
@@ -569,6 +570,12 @@ function candidateFor(
         config: {
           format: 'xlsx-data-validation',
           sourceKind: parsed.sourceKind,
+          ...(parsed.sourceKind === 'range'
+            ? {
+                rangeResolverVersion:
+                  CHOICE_LIST_RANGE_RESOLVER_VERSION,
+              }
+            : {}),
         },
         implementationVersion: CHOICE_LIST_ADAPTER_VERSION,
       },
