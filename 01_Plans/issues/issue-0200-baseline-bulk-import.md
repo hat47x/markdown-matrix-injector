@@ -49,6 +49,7 @@ issue-0195で確定した`mmi.ledger/v1`を再利用する。一括変換専用�
 - 表をExtractedにしたい場合は、現在のCandidateレビューから明示的に表extractへ進める。一括取り込みの既定では表をLinkedに保つ。
 - 既存の`mmi.review-decisions/v1`も一括取り込みの入力として扱う。exactな却下・保留decisionが残る未採用画像は自動採用せず、下書きの「既存のレビュー判断」に残す。画像内容またはClaim basisが変わればdecisionは失効し、再び候補になる。同じCandidateに採用履歴とdecisionの両方がある場合は`reviewedAt`を比較し、後の判断を優先する。古い却下の後に明示採用した場合は採用が勝ち、採用後に改めて却下・保留した場合は自動取り込みを止める。decisionファイルもsourceと同様にcommit中のsnapshot変化を検知し、変わった場合はrollbackして再実行を求める。
 - 表Candidateにも同じreview decisionを適用する。ただしimport-assistanceの表候補とSemantic Candidateが同一sheet・同一A1 rangeへexactに対応する場合だけ通常のLinked候補から外す。rangeがずれる・対応が曖昧な場合は過去の判断を流用せず、候補として残す。
+- Excel Data ValidationのlistもM0の`choice-list` Candidateとして一括取り込みへ接続する。inline選択肢は下書きに値を示す。formula参照は参照式だけを残し、参照先の値を推測しない。Candidateレビューでは確認・却下・保留を行えるが、現段階ではExtracted資産へ自動変換せず、ledgerの取込済みにもしない。exactな却下・保留は一括下書きでも尊重し、入力規則の内容やreview basisが変われば再び候補に戻す。
 
 この経路を初回取り込みの主経路とし、以下のMarkItDown評価は、この経路で不足する情報や外部Converterの得失を比較するために残す。
 
@@ -122,7 +123,7 @@ node --import tsx scripts/baseline-converter-eval/assess-markitdown-handoff.ts \
 
 ## Validation plan
 
-まずMMI組み込み経路について、コード生成fixtureで表Linked・画像Extracted・重複asset・台帳・再実行・画像なし・画像のみ・unsupported画像・workspace境界・外部source intakeを確認する。VS Code宿主E2Eでは、workspace内ブックに加え、workspace外の旧Excelをproject内へ同一bytesで取り込んでからpreviewまで通す。
+まずMMI組み込み経路について、コード生成fixtureで表Linked・画像Extracted・Excelの選択肢・重複asset・台帳・再実行・画像なし・画像のみ・unsupported画像・workspace境界・外部source intakeを確認する。選択肢はinline値、formula参照、欠落formula、却下後の再提示を分けて検証する。VS Code宿主E2Eでは、workspace内ブックに加え、workspace外の旧Excelをproject内へ同一bytesで取り込んでからpreviewまで通す。
 
 ```sh
 cd 03_Implement

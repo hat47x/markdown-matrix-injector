@@ -12,9 +12,14 @@ import {
   type ExcelImage,
   type ImageDiagnostic,
 } from '../adapters/excelImageAdapter.js';
+import {
+  readExcelChoiceLists,
+  type ChoiceListDiagnostic,
+  type ExcelChoiceList,
+} from '../adapters/excelChoiceListAdapter.js';
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
-import { decodeYamlUtf8, readYamlTree } from '../adapters/yamlTreeAdapter.js';
 import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
+import { readYamlTree } from '../adapters/yamlTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import {
   readTabularHierarchy,
@@ -31,6 +36,7 @@ import {
   decodeGenericXmlUtf8,
   isXmlSpreadsheet2003Bytes,
 } from '../core/xmlFormat.js';
+import { decodeYamlUtf8 } from '../core/yamlFormat.js';
 
 export type CandidateReviewInventoryItem =
   | {
@@ -44,6 +50,11 @@ export type CandidateReviewInventoryItem =
       kind: 'image';
       candidate: Candidate;
       image: ExcelImage;
+    }
+  | {
+      kind: 'choice-list';
+      candidate: Candidate;
+      choiceList: ExcelChoiceList;
     }
   | {
       kind: 'tree';
@@ -66,6 +77,7 @@ export type CandidateReviewInventoryItem =
 export interface CandidateReviewInventory {
   items: CandidateReviewInventoryItem[];
   imageDiagnostics: ImageDiagnostic[];
+  choiceListDiagnostics?: ChoiceListDiagnostic[];
   tabularHierarchyAbstention?: {
     reasonCode: string;
     evidence: string[];
@@ -78,14 +90,6 @@ export interface CandidateReviewInventoryOptions {
     config: TabularHierarchyConfig;
   };
   hierarchyOnly?: boolean;
-}
-
-export interface CandidateReviewInventoryOptions {
-  tabularHierarchy?: {
-    sheet: string;
-    config: TabularHierarchyConfig;
-    only?: boolean;
-  };
 }
 
 export function buildCandidateReviewInventory(
@@ -116,7 +120,7 @@ export function buildCandidateReviewInventory(
     };
   }
 
-  if (/\.(yaml|yml)$/iu.test(sourcePath)) {
+  if (/\.ya?ml$/iu.test(sourcePath)) {
     const sourceBytes = fs.readFileSync(sourcePath);
     const sourceDigest =
       createSourceIdentityFromBytes(sourceBytes).digest;
@@ -297,7 +301,13 @@ export function buildCandidateReviewInventory(
     };
   }
 
-  const read = readExcelImages(fs.readFileSync(sourcePath));
+  const packageBytes = fs.readFileSync(sourcePath);
+  const read = readExcelImages(packageBytes);
+  const choiceRead = readExcelChoiceLists(
+    packageBytes,
+    sourceLabel,
+    sourceDigest,
+  );
   const imageCandidateList = imageCandidates({
     source: sourceLabel,
     sourceDigest,
@@ -309,10 +319,22 @@ export function buildCandidateReviewInventory(
       candidate,
       image: read.images[index],
     }));
+  const choiceItems: CandidateReviewInventoryItem[] =
+    choiceRead.lists.map((choiceList) => ({
+      kind: 'choice-list' as const,
+      candidate: choiceList.candidate,
+      choiceList,
+    }));
 
   return {
-    items: [...tableItems, ...imageItems, ...hierarchyItems],
+    items: [
+      ...tableItems,
+      ...imageItems,
+      ...choiceItems,
+      ...hierarchyItems,
+    ],
     imageDiagnostics: read.diagnostics,
+    choiceListDiagnostics: choiceRead.diagnostics,
     ...(tabularHierarchyAbstention
       ? { tabularHierarchyAbstention }
       : {}),

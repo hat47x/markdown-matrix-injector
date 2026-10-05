@@ -44,11 +44,38 @@ export interface ImportDraftTableReviewSkip {
   message: string;
 }
 
+export interface ImportDraftChoiceList {
+  ordinal: number;
+  sheet: string;
+  range: string;
+  sourceKind: 'inline' | 'formula' | 'missing';
+  formula1?: string;
+  choices?: readonly string[];
+  allowBlank: boolean;
+}
+
+export interface ImportDraftChoiceListProblem {
+  code: string;
+  message: string;
+  sheet?: string;
+}
+
+export interface ImportDraftChoiceListReviewSkip {
+  sheet: string;
+  range: string;
+  decision: 'rejected' | 'deferred';
+  code: 'MMI_IMPORT_REVIEW_REJECTED' | 'MMI_IMPORT_REVIEW_DEFERRED';
+  message: string;
+}
+
 export interface WorkbookImportOptions extends Omit<ImportAnalysisOptions, 'referencePath' | 'workbook'> {
   assets?: readonly ImportDraftAsset[];
   assetProblems?: readonly ImportDraftProblem[];
   reviewSkippedAssets?: readonly ImportDraftReviewSkip[];
   reviewSkippedTables?: readonly ImportDraftTableReviewSkip[];
+  choiceLists?: readonly ImportDraftChoiceList[];
+  choiceListProblems?: readonly ImportDraftChoiceListProblem[];
+  reviewSkippedChoiceLists?: readonly ImportDraftChoiceListReviewSkip[];
 }
 
 export interface WorkbookImport {
@@ -62,6 +89,9 @@ export interface WorkbookImport {
   assetProblems: ImportDraftProblem[];
   reviewSkippedAssets: ImportDraftReviewSkip[];
   reviewSkippedTables: ImportDraftTableReviewSkip[];
+  choiceLists: ImportDraftChoiceList[];
+  choiceListProblems: ImportDraftChoiceListProblem[];
+  reviewSkippedChoiceLists: ImportDraftChoiceListReviewSkip[];
 }
 
 export function analyzeWorkbookForImport(
@@ -75,6 +105,9 @@ export function analyzeWorkbookForImport(
     assetProblems = [],
     reviewSkippedAssets = [],
     reviewSkippedTables = [],
+    choiceLists = [],
+    choiceListProblems = [],
+    reviewSkippedChoiceLists = [],
     ...analysisOptions
   } = options;
   const sheets = Object.entries(workbook.sheets).map(([sheet, source]) => ({
@@ -91,6 +124,9 @@ export function analyzeWorkbookForImport(
     assetProblems: [...assetProblems],
     reviewSkippedAssets: [...reviewSkippedAssets],
     reviewSkippedTables: [...reviewSkippedTables],
+    choiceLists: [...choiceLists],
+    choiceListProblems: [...choiceListProblems],
+    reviewSkippedChoiceLists: [...reviewSkippedChoiceLists],
   };
 }
 
@@ -143,6 +179,12 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
   if (workbookImport.assetProblems.length > 0) {
     lines.push(`- 画像・図形の注意: ${workbookImport.assetProblems.length}件`);
   }
+  if (workbookImport.choiceLists.length > 0) {
+    lines.push(`- Excelの選択肢: ${workbookImport.choiceLists.length}件`);
+  }
+  if (workbookImport.choiceListProblems.length > 0) {
+    lines.push(`- 選択肢の注意: ${workbookImport.choiceListProblems.length}件`);
+  }
   if (workbookImport.reviewSkippedTables.length > 0) {
     lines.push(
       `- 既存のレビュー判断により通常候補から外した表: ${workbookImport.reviewSkippedTables.length}件`,
@@ -151,6 +193,11 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
   if (workbookImport.reviewSkippedAssets.length > 0) {
     lines.push(
       `- 既存のレビュー判断により取り込まなかった画像: ${workbookImport.reviewSkippedAssets.length}件`,
+    );
+  }
+  if (workbookImport.reviewSkippedChoiceLists.length > 0) {
+    lines.push(
+      `- 既存のレビュー判断により通常表示から外した選択肢: ${workbookImport.reviewSkippedChoiceLists.length}件`,
     );
   }
   const counts = countBy(others.map((candidate) => ROLE_JA[candidate.role]));
@@ -163,6 +210,7 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
   if (
     workbookImport.reviewSkippedTables.length > 0
     || workbookImport.reviewSkippedAssets.length > 0
+    || workbookImport.reviewSkippedChoiceLists.length > 0
   ) {
     lines.push(
       '## 既存のレビュー判断',
@@ -186,6 +234,12 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
         `- ${decision} [${escapeText(item.sheet)}] ${name}: ${escapeText(item.message)}`,
       );
     }
+    for (const item of workbookImport.reviewSkippedChoiceLists) {
+      const decision = item.decision === 'rejected' ? '却下' : '保留';
+      lines.push(
+        `- ${decision} [${escapeText(item.sheet)}] 選択肢 ${escapeText(item.range)}: ${escapeText(item.message)}`,
+      );
+    }
     lines.push('');
   }
 
@@ -195,6 +249,20 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
       const where = problem.sheet ? ` [${escapeText(problem.sheet)}]` : '';
       const ordinal = problem.ordinal ? ` #${problem.ordinal}` : '';
       lines.push(`- ${escapeText(problem.code)}${ordinal}${where}: ${escapeText(problem.message)}`);
+    }
+    lines.push('');
+  }
+
+  if (workbookImport.choiceListProblems.length > 0) {
+    lines.push(
+      '## 選択肢の注意',
+      '',
+      '> Excelの入力規則を安全に読み切れなかった箇所です。値を推測せず、原本の入力規則を確認してください。',
+      '',
+    );
+    for (const problem of workbookImport.choiceListProblems) {
+      const where = problem.sheet ? ` [${escapeText(problem.sheet)}]` : '';
+      lines.push(`- ${escapeText(problem.code)}${where}: ${escapeText(problem.message)}`);
     }
     lines.push('');
   }
@@ -215,11 +283,26 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
     const hiddenNote = visibility === 'veryHidden' ? '（Excelの画面からは表示できないシート）' : visibility === 'hidden' ? '（非表示のシート）' : '';
     lines.push('---', '', `## ${escapeText(sheet.sheet)}${hiddenNote}`, '');
     const assets = workbookImport.assets.filter((asset) => asset.sheet === sheet.sheet);
-    if (sheet.candidates.length === 0 && assets.length === 0) {
+    const choiceLists = workbookImport.choiceLists.filter(
+      (choice) => choice.sheet === sheet.sheet,
+    );
+    if (sheet.candidates.length === 0 && assets.length === 0 && choiceLists.length === 0) {
       lines.push('> 内容がありません。', '');
       continue;
     }
     for (const candidate of sheet.candidates) lines.push(...renderCandidate(candidate));
+
+    if (choiceLists.length > 0) {
+      lines.push('### Excelの選択肢', '');
+      lines.push(
+        '> セルの入力規則として原本に明示された選択肢です。MMIはここでは別形式へ変換せず、移行時に失わないための観測情報として示します。',
+        '',
+      );
+      for (const choice of choiceLists) {
+        lines.push(renderChoiceList(choice));
+      }
+      lines.push('');
+    }
 
     if (assets.length > 0) {
       lines.push('### 抽出した画像', '');
@@ -228,6 +311,22 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
     }
   }
   return `${lines.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd()}\n`;
+}
+
+
+function renderChoiceList(choice: ImportDraftChoiceList): string {
+  const blank = choice.allowBlank ? '・空欄可' : '・空欄不可';
+  if (choice.choices) {
+    const shown = choice.choices.slice(0, 20).map(escapeText);
+    const more = choice.choices.length > shown.length
+      ? `、ほか${choice.choices.length - shown.length}件`
+      : '';
+    return `- ${escapeText(choice.range)}: ${shown.join('、')}${more}${blank}`;
+  }
+  if (choice.formula1) {
+    return `- ${escapeText(choice.range)}: 参照式 \`${escapeText(choice.formula1)}\`（選択肢の値は未解決）${blank}`;
+  }
+  return `- ${escapeText(choice.range)}: 選択肢の参照元を読み取れません${blank}`;
 }
 
 function renderLayout(layout: LayoutSummary): string[] {

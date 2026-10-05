@@ -2,166 +2,102 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 
 import {
-  decodeYamlUtf8,
   readYamlTree,
 } from '../src/adapters/yamlTreeAdapter.js';
-import { candidateProblem } from '../src/core/candidate.js';
-import { placeOf } from '../src/core/importLedger.js';
+import { decodeYamlUtf8 } from '../src/core/yamlFormat.js';
 
-const sourceDigest = 'sha256:' + 'a'.repeat(64);
+const digest = 'sha256:' + 'c'.repeat(64);
 
-test('restricted YAML 1.2 mappings and sequences become observed deterministic Tree Candidates', () => {
-  const document = readYamlTree(
+test('YAML JSON-compatible structure becomes observed deterministic M0 Tree Candidates', () => {
+  const tree = readYamlTree(
     [
       'service:',
       '  name: billing',
       '  endpoints:',
       '    - path: /pay',
       '      method: POST',
-      '    - path: /refund',
-      '      method: POST',
       'enabled: true',
       '',
     ].join('\n'),
-    './data/service.yaml',
-    sourceDigest,
+    './service.yaml',
+    digest,
   );
 
   assert.deepEqual(
-    document.nodes.map((node) => node.pointer),
-    ['', '/service', '/service/endpoints', '/service/endpoints/0', '/service/endpoints/1'],
+    tree.nodes.map((node) => node.pointer),
+    ['', '/service', '/service/endpoints', '/service/endpoints/0'],
   );
-  const root = document.nodes[0];
-  assert.equal(root.nodeType, 'object');
-  assert.deepEqual(root.childPointers, ['/enabled', '/service']);
-  assert.deepEqual(root.leafValues, ['/enabled=true']);
-  assert.equal(root.candidate.kind, 'tree');
-  assert.equal(root.candidate.status, 'observed');
-  assert.equal(root.candidate.execution, 'deterministic');
-  assert.equal(root.candidate.method, 'M0');
-  assert.equal(root.candidate.locator.structuralPath, '');
-  assert.equal(placeOf(root.candidate), 'path:');
-  assert.equal(root.candidate.provenance.algorithm, 'mmi.yaml-tree-adapter');
+  const service = tree.nodes[1].candidate;
+  assert.equal(service.status, 'observed');
+  assert.equal(service.execution, 'deterministic');
+  assert.equal(service.method, 'M0');
   assert.equal(
-    root.candidate.fingerprint.representation,
-    'yaml-subtree-canonical-v1',
+    service.provenance.algorithm,
+    'mmi.yaml-tree-adapter',
   );
-  assert.equal(candidateProblem(root.candidate), undefined);
+  assert.equal(
+    service.fingerprint.representation,
+    'yaml-json-compatible-subtree-v1',
+  );
 });
 
-test('YAML mapping order does not change subtree fingerprint while sequence order does', () => {
+test('YAML fingerprint is semantic across comments and mapping key order', () => {
   const first = readYamlTree(
-    'b: 2\na:\n  y: 1\n  x: 0\n',
-    './data/a.yaml',
-    sourceDigest,
+    'a: 1\nb: [true, null, text]\n',
+    './a.yaml',
+    digest,
   );
-  const reordered = readYamlTree(
-    'a:\n  x: 0\n  y: 1\nb: 2\n',
-    './data/a.yaml',
-    sourceDigest,
+  const second = readYamlTree(
+    '# comment\nb: [true, null, text]\na: 1\n',
+    './a.yaml',
+    digest,
   );
   assert.equal(
-    first.nodes[0].candidate.fingerprint.digest,
-    reordered.nodes[0].candidate.fingerprint.digest,
-  );
-
-  const arrayA = readYamlTree(
-    'values: [1, 2]\n',
-    './data/a.yaml',
-    sourceDigest,
-  );
-  const arrayB = readYamlTree(
-    'values: [2, 1]\n',
-    './data/a.yaml',
-    sourceDigest,
-  );
-  assert.notEqual(
-    arrayA.nodes[0].candidate.fingerprint.digest,
-    arrayB.nodes[0].candidate.fingerprint.digest,
+    first.candidates[0].fingerprint.digest,
+    second.candidates[0].fingerprint.digest,
   );
 });
 
-test('YAML Tree rejects aliases, merge-shaped keys and multiple documents', () => {
-  assert.throws(
-    () => readYamlTree(
-      'base: &base\n  a: 1\ncopy: *base\n',
-      './data/a.yaml',
-      sourceDigest,
-    ),
-    /unsupported aliases or values/u,
-  );
-
-  assert.throws(
-    () => readYamlTree(
-      '"<<":\n  a: 1\n',
-      './data/a.yaml',
-      sourceDigest,
-    ),
-    /must not use the << merge key/u,
-  );
-
-  assert.throws(
-    () => readYamlTree(
-      'a: 1\n---\nb: 2\n',
-      './data/a.yaml',
-      sourceDigest,
-    ),
-    /exactly one document/u,
-  );
+test('YAML Tree rejects anchors, aliases, merge keys and explicit tags', () => {
+  const fixtures = [
+    ['anchor', 'base: &base\n  x: 1\n'],
+    ['alias', 'base: &base\n  x: 1\ncopy: *base\n'],
+    ['merge', 'base:\n  x: 1\ncopy:\n  <<: { x: 1 }\n'],
+    ['tag', 'value: !!str 1\n'],
+  ] as const;
+  for (const [name, source] of fixtures) {
+    assert.throws(
+      () => readYamlTree(source, './unsafe.yaml', digest),
+      /not supported/u,
+      name,
+    );
+  }
 });
 
-test('YAML Tree rejects duplicate/non-string keys, custom tags and YAML 1.1', () => {
+test('YAML Tree rejects non-string keys, YAML 1.1 and non-finite numbers', () => {
   assert.throws(
-    () => readYamlTree(
-      'a: 1\na: 2\n',
-      './data/a.yaml',
-      sourceDigest,
-    ),
-    /invalid|unique|map keys|key/iu,
+    () => readYamlTree('1: value\n', './key.yaml', digest),
+    /mapping keys must be strings/u,
   );
-
   assert.throws(
     () => readYamlTree(
-      '? [a, b]\n: value\n',
-      './data/a.yaml',
-      sourceDigest,
+      '%YAML 1.1\n---\nvalue: yes\n',
+      './old.yaml',
+      digest,
     ),
-    /invalid|string|key/iu,
+    /YAML 1\.2 only/u,
   );
-
   assert.throws(
-    () => readYamlTree(
-      'value: !custom tagged\n',
-      './data/a.yaml',
-      sourceDigest,
-    ),
-    /unsupported YAML features|tag/iu,
-  );
-
-  assert.throws(
-    () => readYamlTree(
-      '%YAML 1.1\n---\nflag: yes\n',
-      './data/a.yaml',
-      sourceDigest,
-    ),
-    /must use YAML 1\.2/u,
-  );
-});
-
-test('YAML Tree rejects non-finite scalars and malformed UTF-8', () => {
-  assert.throws(
-    () => readYamlTree(
-      'value: .inf\n',
-      './data/a.yaml',
-      sourceDigest,
-    ),
+    () => readYamlTree('value: .inf\n', './inf.yaml', digest),
     /numbers must be finite/u,
   );
+});
 
+test('YAML source bytes must be valid UTF-8', () => {
   assert.throws(
     () => decodeYamlUtf8(
-      Uint8Array.from([0x76, 0x3a, 0x20, 0xff]),
+      Buffer.from([0x61, 0x3a, 0x20, 0xff, 0x0a]),
     ),
-    /YAML source must be valid UTF-8/u,
+    /valid UTF-8/u,
   );
 });

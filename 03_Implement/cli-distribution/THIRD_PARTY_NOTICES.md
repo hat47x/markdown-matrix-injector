@@ -33,11 +33,14 @@ The complete license text is retained in the bundled `node_modules/saxes`
 package. `saxes` depends on `xmlchars@2.2.0` (MIT); its license text is
 retained in the bundled `node_modules/xmlchars` package.
 
-## YAML
+## yaml
 
 - Version: 2.9.1
-- Source: https://www.npmjs.com/package/yaml
+- Source: https://github.com/eemeli/yaml
 - License: ISC
-- MMIによるYAML sourceの変更: なし
+- Purpose in MMI: AST-preserving parsing of the restricted YAML Tree source profile
 
-YAML parser packageの著作権表示とISCライセンス本文は、同梱する`node_modules/yaml`内の配布物を正とします。
+MMI rejects anchors, aliases, merge keys, explicit tags, non-string mapping keys,
+YAML 1.1 documents and non-finite scalar numbers before treating YAML structure
+as an observed Tree. The complete license text is retained in the bundled
+`node_modules/yaml` package.

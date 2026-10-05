@@ -1,4 +1,4 @@
-# Issue: JSON・XML・フラットテキストからTree / Hierarchy Candidateを取り出す
+# Issue: JSON・YAML・XML・フラットテキストからTree / Hierarchy Candidateを取り出す
 
 ## Meta
 - Type: Feature
@@ -31,7 +31,7 @@ MMIの認知は、明示構造を推測し直すためではなく、形式だ�
 
 ## Current slice
 
-JSONと汎用XMLの明示構造を、同じ`tree` Candidate契約へ接続した。JSONはobject / array、XMLはelementを`observed + deterministic + M0`として扱う。位置はJSONではRFC 6901 JSON Pointer、XMLではqualified nameと同名兄弟の出現順から作るelement pathを`structuralPath`へ保持する。XMLの属性、本文、親子関係もClaimへ残す。
+JSONと汎用XMLに加え、安全subsetのYAML明示構造を同じ`tree` Candidate契約へ接続した。JSONとYAMLはobject / array、XMLはelementを`observed + deterministic + M0`として扱う。JSONとYAMLの位置にはRFC 6901 JSON Pointer、XMLにはqualified nameと同名兄弟の出現順から作るelement pathを`structuralPath`へ保持する。YAMLはYAML 1.2のJSON互換データモデルに限定し、anchor / alias / merge key / explicit tag / 非string key / 非finite numberをfail-closedで拒否する。これらYAML固有機能を解決してから「明示構造」と見なすことはしない。XMLの属性、本文、親子関係もClaimへ残す。
 
 CLIの`inspect`、`extract --tree`、VS CodeのCandidateレビュー、`mmi-ledger.json`、detach前のfreshness確認はJSON/XMLで同じ経路を使う。Portable Coreの`inspect`もJSON/XML Treeへ接続し、通常Adapter直呼びと同じCandidate列を返すconformanceを固定する。レビュー後の採用ではsubtree fingerprintを現在のsourceと再照合し、対象subtreeが変わっていれば採用しない。対象外のbranchだけが変わった場合は、同じsubtreeの採用を妨げない。
 
@@ -51,7 +51,7 @@ VS Codeでは「表の列を指定して階層Candidateを確認」から、対�
 
 ## Validation plan
 
-JSONとXMLの明示構造はfixtureで親子関係、属性・本文、fingerprint、review guard、ledger、detach freshnessを確認する。XMLではnamespace未束縛、展開後の重複属性、不正な文字参照、非UTF-8 bytes・encoding宣言もfail-closedの回帰対象とする。配布CLIのoffline smokeでもXML Treeの`inspect` / `extract`を実行する。XML Spreadsheet 2003はTreeではなく既存の表経路へ残ることを確認する。
+JSON・YAML・XMLの明示構造はfixtureで親子関係、fingerprint、review guard、ledger、detach freshnessを確認する。YAMLではanchor / alias / merge key / explicit tag / 非string key / YAML 1.1 / 非finite number / 非UTF-8 bytesをfail-closedの回帰対象とする。XMLではnamespace未束縛、展開後の重複属性、不正な文字参照、非UTF-8 bytes・encoding宣言もfail-closedの回帰対象とする。配布CLIのoffline smokeでもJSON / YAML / XML Treeの`inspect` / `extract`を実行する。XML Spreadsheet 2003はTreeではなく既存の表経路へ残ることを確認する。
 
 フラットテキストでは、3方式の独立有効化、M0観測とM1推定の分離、方式間の構造不一致、親欠落・重複markerによる`abstained`、非UTF-8入力、review時fingerprint guard、ledger、detach freshnessを回帰対象にした。回帰テストは追加済みだが、この作業環境ではリポジトリ全体の依存をmaterializeできないため、正本suiteを実行済みとは扱わない。
 
@@ -59,6 +59,5 @@ JSONとXMLの明示構造はfixtureで親子関係、属性・本文、fingerpri
 
 ## Remaining work
 
-- YAMLはJSON Adapterと契約を共有できるかを確認してから追加する。
 - structured artifactの `hierarchy_relation` はissue-0193の対応表を通してPerception providerとして再利用する。
 - Choice list / ListはTreeと共通のNode表現を使えるか、実装時に判断する。

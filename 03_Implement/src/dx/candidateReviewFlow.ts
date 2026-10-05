@@ -35,8 +35,8 @@ import {
   extractFlatTextTree,
   extractJsonTree,
   extractTabularHierarchyTree,
-  extractYamlTree,
   extractXmlTree,
+  extractYamlTree,
 } from '../cli/extractTree.js';
 import type {
   TabularHierarchyConfig,
@@ -96,6 +96,8 @@ function facetLabel(facet: CandidateReviewFacetSelection): string {
         return '$(file-media) 種別: 画像';
       case 'tree':
         return '$(list-tree) 種別: ツリー';
+      case 'choice-list':
+        return '$(list-selection) 種別: 選択肢';
       default:
         return `種別: ${facet.value}`;
     }
@@ -160,7 +162,7 @@ function reviewObservationFile(sourcePath: string): string | undefined {
 }
 
 function supportedReviewSource(sourcePath: string): boolean {
-  return /\.(xlsx|xlsm|xls|csv|xml|json|yaml|yml|txt|text|log)$/iu.test(sourcePath);
+  return /\.(xlsx|xlsm|xls|csv|xml|json|ya?ml|txt|text|log)$/iu.test(sourcePath);
 }
 
 async function chooseSource(target?: vscode.Uri): Promise<string | undefined> {
@@ -232,14 +234,21 @@ interface HeaderChoice extends vscode.QuickPickItem {
   header: string;
 }
 
+interface HeaderRowChoice extends vscode.QuickPickItem {
+  row: number;
+}
+
+const MAX_HIERARCHY_HEADER_ROW_CHOICES = 50;
+
 function uniqueHeaderChoices(
   sheet: ReturnType<typeof loadWorkbook>['sheets'][string],
+  row: number,
 ): HeaderChoice[] {
   const range = sheet.usedRange;
   if (!range) return [];
   const values: Array<{ header: string; column: number }> = [];
   for (let column = range.startCol; column <= range.endCol; column += 1) {
-    const header = sheet.cellAt(range.startRow, column)?.text.trim() ?? '';
+    const header = sheet.cellAt(row, column)?.text.trim() ?? '';
     if (header) values.push({ header, column });
   }
   const counts = new Map<string, number>();
@@ -253,6 +262,34 @@ function uniqueHeaderChoices(
       description: `列 ${columnName(item.column)}`,
       header: item.header,
     }));
+}
+
+function hierarchyHeaderRowChoices(
+  sheet: ReturnType<typeof loadWorkbook>['sheets'][string],
+): HeaderRowChoice[] {
+  const range = sheet.usedRange;
+  if (!range) return [];
+  const endRow = Math.min(
+    range.endRow,
+    range.startRow + MAX_HIERARCHY_HEADER_ROW_CHOICES - 1,
+  );
+  const rows: HeaderRowChoice[] = [];
+  for (let row = range.startRow; row <= endRow; row += 1) {
+    const headers = uniqueHeaderChoices(sheet, row);
+    if (headers.length < 2) continue;
+    rows.push({
+      label: `行 ${row + 1}`,
+      description: headers
+        .slice(0, 5)
+        .map((item) => item.header)
+        .join(' · '),
+      detail: headers.length > 5
+        ? `一意な見出し ${headers.length}列（先頭5列を表示）`
+        : `一意な見出し ${headers.length}列`,
+      row,
+    });
+  }
+  return rows;
 }
 
 function columnName(index: number): string {
@@ -304,13 +341,23 @@ async function chooseHierarchyConfig(
       ))?.sheet;
   if (!sheet) return undefined;
 
-  const headers = uniqueHeaderChoices(workbook.sheets[sheet]);
-  if (headers.length < 2) {
+  const sheetSource = workbook.sheets[sheet];
+  const headerRows = hierarchyHeaderRowChoices(sheetSource);
+  if (headerRows.length === 0) {
     await vscode.window.showInformationMessage(
-      'MMI: 一意に指定できる見出しが2列以上ありません。重複見出しは階層列として推測しません。',
+      `MMI: 先頭${MAX_HIERARCHY_HEADER_ROW_CHOICES}使用行に、一意に指定できる見出しが2列以上ある行がありません。重複見出しは階層列として推測しません。`,
     );
     return undefined;
   }
+  const headerRow = headerRows.length === 1
+    ? headerRows[0].row
+    : (await vscode.window.showQuickPick(headerRows, {
+        placeHolder: '見出し行を選択',
+        title: 'MMI: 階層Candidate',
+      }))?.row;
+  if (headerRow === undefined) return undefined;
+
+  const headers = uniqueHeaderChoices(sheetSource, headerRow);
 
   const mode = await vscode.window.showQuickPick(
     [
@@ -376,6 +423,7 @@ async function chooseHierarchyConfig(
       sheet,
       config: {
         mode: 'parent-id',
+        headerRow,
         idHeader: id.header,
         parentHeader: parent.header,
         ...(label.header ? { labelHeader: label.header } : {}),
@@ -401,6 +449,7 @@ async function chooseHierarchyConfig(
     sheet,
     config: {
       mode: 'level',
+      headerRow,
       levelHeader: level.header,
       labelHeader: label.header,
     },
@@ -524,6 +573,31 @@ function quickPickItem(
     };
   }
 
+  if (source.kind === 'choice-list') {
+    const choice = source.choiceList;
+    const values = choice.choices
+      ? `${choice.choices.length}件: ${choice.choices.slice(0, 6).join(', ')}${choice.choices.length > 6 ? ', …' : ''}`
+      : choice.formula1
+        ? `参照式: ${choice.formula1}（値は未解決）`
+        : '参照元を読み取れません';
+    return {
+      label: `$(list-selection) 選択肢 ${choice.range}`,
+      description:
+        `${stateLabel(ledgerState)} · 採用: ${reviewStateLabel(reviewState)} · ${choice.sheet} ${choice.range}`,
+      detail: [
+        epistemicDetail(source.candidate),
+        values,
+        choice.allowBlank ? '空欄可' : '空欄不可',
+        providerEvidence,
+      ].join(' · '),
+      source,
+      rejected,
+      deferred,
+      reviewState,
+      ledgerState,
+    };
+  }
+
   return {
     label:
       `$(table) ${source.title ?? `${source.sheet} ${source.range}`}`,
@@ -553,15 +627,9 @@ async function reviewConfiguredHierarchy(
   if (!sourcePath) return;
   const hierarchy = await chooseHierarchyConfig(sourcePath);
   if (!hierarchy) return;
-  await reviewCandidates(
-    vscode.Uri.file(sourcePath),
-    {
-      inventory: {
-        tabularHierarchy: hierarchy,
-        hierarchyOnly: true,
-      },
-    },
-  );
+  await reviewCandidates(vscode.Uri.file(sourcePath), {
+    inventory: { tabularHierarchy: hierarchy, hierarchyOnly: true },
+  });
 }
 
 export async function reviewHierarchyCandidates(
@@ -632,6 +700,16 @@ export async function reviewCandidates(
       `MMI: 画像Candidateの一部を読み取れません: ${imageErrors
         .map((item) => item.message)
         .join(' / ')}。利用できる他のCandidateは引き続き確認できます。`,
+    );
+  }
+
+  const choiceListProblems = inventory.choiceListDiagnostics ?? [];
+  if (choiceListProblems.length > 0) {
+    await vscode.window.showWarningMessage(
+      `MMI: 選択肢Candidateに確認事項があります: ${choiceListProblems
+        .map((item) =>
+          `${item.sheet ? `${item.sheet}: ` : ''}${item.message}`)
+        .join(' / ')}。読み取れたCandidateは引き続き確認できます。`,
     );
   }
 
@@ -793,11 +871,18 @@ export async function reviewCandidates(
 
   const action = await vscode.window.showQuickPick(
     [
-      {
-        label: '取り込む',
-        value: 'extract' as const,
-        description: '既存のextract経路で標準資産と台帳へ記録',
-      },
+      ...(picked.source.kind === 'choice-list'
+        ? [{
+            label: '確認のみで次へ',
+            value: 'next' as const,
+            description:
+              'Excelの入力規則を変換せず、観測内容だけ確認して次へ進む',
+          }]
+        : [{
+            label: '取り込む',
+            value: 'extract' as const,
+            description: '既存のextract経路で標準資産と台帳へ記録',
+          }]),
       ...(picked.source.kind === 'tree'
         ? [{
             label: '確認のみで次へ',
@@ -913,6 +998,14 @@ export async function reviewCandidates(
     await vscode.window.showInformationMessage(
       'MMI: Candidateのレビュー状態を解除しました。',
     );
+    continue;
+  }
+
+  if (picked.source.kind === 'choice-list') {
+    await vscode.window.showErrorMessage(
+      'MMI: 選択肢CandidateはまだExtracted資産へ変換しません。確認・却下・保留のみ利用できます。',
+    );
+    processedKeys.add(candidateReviewSessionKey(picked.source.candidate));
     continue;
   }
 

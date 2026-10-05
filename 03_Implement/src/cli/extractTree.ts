@@ -16,14 +16,11 @@ import {
   type JsonValue,
 } from '../adapters/jsonTreeAdapter.js';
 import {
-  decodeYamlUtf8,
-  readYamlTree,
-} from '../adapters/yamlTreeAdapter.js';
-import {
   readXmlTree,
   resolveXmlTreePath,
   type XmlElementNode,
 } from '../adapters/xmlTreeAdapter.js';
+import { readYamlTree } from '../adapters/yamlTreeAdapter.js';
 import {
   readTabularHierarchy,
   type TabularHierarchyConfig,
@@ -36,6 +33,7 @@ import {
   decodeGenericXmlUtf8,
   isXmlSpreadsheet2003Bytes,
 } from '../core/xmlFormat.js';
+import { decodeYamlUtf8 } from '../core/yamlFormat.js';
 
 export interface ExtractTreeOptions {
   sourcePath: string;
@@ -156,64 +154,14 @@ function provenanceComment(
   return `<!-- mmi:extracted-tree source="${provenanceValue(source)}" path="${provenanceValue(pointer)}" source-sha256="${sourceDigest.slice(7)}" candidate-sha256="${candidateFingerprint.slice(7)}" projection="${projection}"${extraAttributes} -->`;
 }
 
-interface JsonCompatibleTreeAdapter {
-  sourcePattern: RegExp;
-  sourceDescription: string;
-  invalidCode: string;
-  pointerLabel: string;
-  projection: 'json-nested-list-v1' | 'yaml-nested-list-v1';
-  mode: 'json-nested-list-v1' | 'yaml-nested-list-v1';
-  read: (
-    bytes: Buffer,
-    source: string,
-    sourceDigest: string,
-  ) => ReturnType<typeof readJsonTree>;
-}
-
-const JSON_TREE_EXTRACTION: JsonCompatibleTreeAdapter = {
-  sourcePattern: /\.json$/iu,
-  sourceDescription: 'JSON',
-  invalidCode: 'MMI_TREE_JSON_INVALID',
-  pointerLabel: 'JSON Pointer',
-  projection: 'json-nested-list-v1',
-  mode: 'json-nested-list-v1',
-  read: (bytes, source, sourceDigest) =>
-    readJsonTree(decodeJsonUtf8(bytes), source, sourceDigest),
-};
-
-const YAML_TREE_EXTRACTION: JsonCompatibleTreeAdapter = {
-  sourcePattern: /\.(yaml|yml)$/iu,
-  sourceDescription: 'YAML',
-  invalidCode: 'MMI_TREE_YAML_INVALID',
-  pointerLabel: 'YAML normalized JSON Pointer',
-  projection: 'yaml-nested-list-v1',
-  mode: 'yaml-nested-list-v1',
-  read: (bytes, source, sourceDigest) =>
-    readYamlTree(decodeYamlUtf8(bytes), source, sourceDigest),
-};
-
 export function extractJsonTree(
   options: ExtractTreeOptions,
 ): ExtractTreeResult {
-  return extractJsonCompatibleTree(options, JSON_TREE_EXTRACTION);
-}
-
-export function extractYamlTree(
-  options: ExtractTreeOptions,
-): ExtractTreeResult {
-  return extractJsonCompatibleTree(options, YAML_TREE_EXTRACTION);
-}
-
-function extractJsonCompatibleTree(
-  options: ExtractTreeOptions,
-  adapter: JsonCompatibleTreeAdapter,
-): ExtractTreeResult {
   const result: ExtractTreeResult = { problems: [] };
-  if (!adapter.sourcePattern.test(options.sourcePath)) {
+  if (!/\.json$/iu.test(options.sourcePath)) {
     result.problems.push({
       code: 'MMI_TREE_SOURCE_UNSUPPORTED',
-      message:
-        `${adapter.sourceDescription} Tree extraction requires a matching source file`,
+      message: 'tree extraction currently supports JSON sources only',
     });
     return result;
   }
@@ -233,12 +181,16 @@ function extractJsonCompatibleTree(
       || path.basename(options.sourcePath)
     );
 
-  let tree: ReturnType<JsonCompatibleTreeAdapter['read']>;
+  let tree;
   try {
-    tree = adapter.read(sourceBytes, source, sourceDigest);
+    tree = readJsonTree(
+      decodeJsonUtf8(sourceBytes),
+      source,
+      sourceDigest,
+    );
   } catch (error) {
     result.problems.push({
-      code: adapter.invalidCode,
+      code: 'MMI_TREE_JSON_INVALID',
       message: error instanceof Error ? error.message : String(error),
     });
     return result;
@@ -252,7 +204,7 @@ function extractJsonCompatibleTree(
     result.problems.push({
       code: 'MMI_TREE_CANDIDATE_NOT_FOUND',
       message:
-        `no Tree Candidate at ${adapter.pointerLabel} ${options.pointer || '(root)'}; run \`mmi inspect\` to list detected Tree Candidates`,
+        `no Tree Candidate at JSON Pointer ${options.pointer || '(root)'}; run \`mmi inspect\` to list detected Tree Candidates`,
     });
     return result;
   }
@@ -264,7 +216,7 @@ function extractJsonCompatibleTree(
     result.problems.push({
       code: 'MMI_TREE_CANDIDATE_CHANGED',
       message:
-        `Tree Candidate at ${adapter.pointerLabel} ${options.pointer || '(root)'} changed after review; review the current Candidate before extraction`,
+        `Tree Candidate at JSON Pointer ${options.pointer || '(root)'} changed after review; review the current Candidate before extraction`,
     });
     return result;
   }
@@ -281,7 +233,7 @@ function extractJsonCompatibleTree(
       options.pointer,
       sourceDigest,
       candidate.fingerprint.digest,
-      adapter.projection,
+      'json-nested-list-v1',
     )
     + '\n';
   const data = Buffer.from(assetText, 'utf8');
@@ -334,7 +286,7 @@ function extractJsonCompatibleTree(
         file,
         'mmi extract --tree',
         {
-          mode: adapter.mode,
+          mode: 'json-nested-list-v1',
           pointer: options.pointer,
         },
       ),
@@ -343,6 +295,150 @@ function extractJsonCompatibleTree(
 
   return result;
 }
+
+
+export function extractYamlTree(
+  options: ExtractTreeOptions,
+): ExtractTreeResult {
+  const result: ExtractTreeResult = { problems: [] };
+  if (!/\.ya?ml$/iu.test(options.sourcePath)) {
+    result.problems.push({
+      code: 'MMI_TREE_SOURCE_UNSUPPORTED',
+      message: 'YAML Tree extraction requires a .yaml or .yml source',
+    });
+    return result;
+  }
+
+  const sourceBytes = fs.readFileSync(options.sourcePath);
+  const sourceDigest = sha256(sourceBytes);
+  const documentDirectory = path.dirname(
+    path.resolve(
+      options.fromDocument ?? path.join(process.cwd(), 'x.md'),
+    ),
+  );
+  const source = options.sourceLabel
+    ?? (
+      path.relative(documentDirectory, options.sourcePath)
+        .split(path.sep)
+        .join('/')
+      || path.basename(options.sourcePath)
+    );
+
+  let tree;
+  try {
+    tree = readYamlTree(
+      decodeYamlUtf8(sourceBytes),
+      source,
+      sourceDigest,
+    );
+  } catch (error) {
+    result.problems.push({
+      code: 'MMI_TREE_YAML_INVALID',
+      message: error instanceof Error ? error.message : String(error),
+    });
+    return result;
+  }
+
+  const candidate = tree.candidates.find(
+    (item) => item.locator.structuralPath === options.pointer,
+  );
+  const subtree = resolveJsonPointer(tree.value, options.pointer);
+  if (!candidate || subtree === undefined) {
+    result.problems.push({
+      code: 'MMI_TREE_CANDIDATE_NOT_FOUND',
+      message:
+        `no Tree Candidate at YAML Pointer ${options.pointer || '(root)'}; run \`mmi inspect\` to list detected Tree Candidates`,
+    });
+    return result;
+  }
+  if (
+    options.expectedCandidateFingerprint
+    && candidate.fingerprint.digest
+      !== options.expectedCandidateFingerprint
+  ) {
+    result.problems.push({
+      code: 'MMI_TREE_CANDIDATE_CHANGED',
+      message:
+        `Tree Candidate at YAML Pointer ${options.pointer || '(root)'} changed after review; review the current Candidate before extraction`,
+    });
+    return result;
+  }
+
+  const nested = renderNestedList(
+    subtree,
+    rootLabel(options.pointer),
+  ).join('\n');
+  const assetText =
+    nested
+    + '\n\n'
+    + provenanceComment(
+      source,
+      options.pointer,
+      sourceDigest,
+      candidate.fingerprint.digest,
+      'yaml-nested-list-v1',
+    )
+    + '\n';
+  const data = Buffer.from(assetText, 'utf8');
+  const digest = sha256(data);
+
+  fs.mkdirSync(options.outDir, { recursive: true });
+  const outDirectory = fs.realpathSync(options.outDir);
+  const sourceReal = fs.realpathSync(options.sourcePath);
+  const file = path.join(
+    outDirectory,
+    `tree-${digest.slice(7, 19)}.md`,
+  );
+  if (file === sourceReal) {
+    result.problems.push({
+      code: 'MMI_EXTRACT_TARGET_IS_SOURCE',
+      message: 'refusing to write over the source document',
+    });
+    return result;
+  }
+
+  let status: ExtractedTree['status'] = 'written';
+  if (fs.existsSync(file)) {
+    if (sha256(fs.readFileSync(file)) !== digest) {
+      result.problems.push({
+        code: 'MMI_EXTRACT_NAME_COLLISION',
+        message: `${file} exists with different content; it was not overwritten`,
+      });
+      return result;
+    }
+    status = 'unchanged';
+  } else {
+    fs.writeFileSync(file, data);
+  }
+
+  result.extracted = {
+    pointer: options.pointer,
+    digest,
+    candidateFingerprint: candidate.fingerprint.digest,
+    file,
+    status,
+    markdown: assetText.trimEnd(),
+  };
+
+  if (options.ledgerPath) {
+    recordEntries(options.ledgerPath, [
+      entryFor(
+        options.ledgerPath,
+        options.sourcePath,
+        candidate,
+        file,
+        'mmi extract --tree',
+        {
+          mode: 'yaml-nested-list-v1',
+          pointer: options.pointer,
+        },
+      ),
+    ]);
+  }
+
+  return result;
+}
+
 
 function parseFlatTextTreePath(
   pointer: string,
@@ -574,10 +670,14 @@ function tabularHierarchyProvenance(
 ): Record<string, string> {
   const encoded = (value: string): string =>
     encodeURIComponent(value);
+  const headerRow = options.config.headerRow === undefined
+    ? {}
+    : { 'header-row': String(options.config.headerRow + 1) };
   return options.config.mode === 'parent-id'
     ? {
         'sheet-uri': encoded(options.sheet),
         'hierarchy-mode': options.config.mode,
+        ...headerRow,
         'id-header-uri': encoded(options.config.idHeader),
         'parent-header-uri': encoded(options.config.parentHeader),
         ...(options.config.labelHeader
@@ -587,6 +687,7 @@ function tabularHierarchyProvenance(
     : {
         'sheet-uri': encoded(options.sheet),
         'hierarchy-mode': options.config.mode,
+        ...headerRow,
         'level-header-uri': encoded(options.config.levelHeader),
         'label-header-uri': encoded(options.config.labelHeader),
       };
@@ -601,6 +702,9 @@ function tabularHierarchyConversion(
         hierarchyMode: options.config.mode,
         sheet: options.sheet,
         pointer: options.pointer,
+        ...(options.config.headerRow === undefined
+          ? {}
+          : { headerRow: options.config.headerRow }),
         idHeader: options.config.idHeader,
         parentHeader: options.config.parentHeader,
         ...(options.config.labelHeader
@@ -612,6 +716,9 @@ function tabularHierarchyConversion(
         hierarchyMode: options.config.mode,
         sheet: options.sheet,
         pointer: options.pointer,
+        ...(options.config.headerRow === undefined
+          ? {}
+          : { headerRow: options.config.headerRow }),
         levelHeader: options.config.levelHeader,
         labelHeader: options.config.labelHeader,
       };

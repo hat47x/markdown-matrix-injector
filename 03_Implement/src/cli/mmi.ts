@@ -26,8 +26,8 @@ import {
   type FlatTextTreeMethod,
 } from '../adapters/flatTextTreeStructuralizer.js';
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
-import { decodeYamlUtf8, readYamlTree } from '../adapters/yamlTreeAdapter.js';
 import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
+import { readYamlTree } from '../adapters/yamlTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import {
   readTabularHierarchy,
@@ -68,6 +68,7 @@ import {
   decodeGenericXmlUtf8,
   isXmlSpreadsheet2003Bytes,
 } from '../core/xmlFormat.js';
+import { decodeYamlUtf8 } from '../core/yamlFormat.js';
 import {
   createAiHandoffPackage,
   parseAiHandoffPackage,
@@ -92,8 +93,8 @@ import {
   extractFlatTextTree,
   extractJsonTree,
   extractTabularHierarchyTree,
-  extractYamlTree,
   extractXmlTree,
+  extractYamlTree,
 } from './extractTree.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './render.js';
 
@@ -128,8 +129,8 @@ Commands:
       --exclude-imported      hide exact imported occurrences; keep changed/stale/duplicate/unimported
                             For .xlsx/.xlsm it also lists embedded pictures and explicit Data Validation choice lists,
                             digest, nearest table) and names any that cannot be read.
-                            For .json it lists object/array nodes by RFC 6901 JSON Pointer.
-                            .yaml/.yml use a restricted YAML 1.2 JSON-compatible subset and the same pointer model.
+                            For .json and safe-subset .yaml/.yml it lists object/array nodes by RFC 6901 JSON Pointer.
+                            YAML anchors/aliases/merge keys/explicit tags/non-string keys are rejected.
                             Generic .xml lists explicit element nodes; XML Spreadsheet 2003 remains a table source.
                             .txt/.text/.log use deterministic M1 hierarchy hypotheses; conflicting methods are not merged.
   extract <source>          Extract one reviewed Candidate as a standard asset without modifying the source
@@ -459,37 +460,37 @@ export async function main(argv: string[]): Promise<number> {
               sheet: values.sheet!,
               config: tabularHierarchy,
             })
-          : /\.xml$/iu.test(sourcePath)
-            ? extractXmlTree({
+          : /\.ya?ml$/iu.test(sourcePath)
+            ? extractYamlTree({
                 sourcePath,
                 pointer,
                 outDir,
                 fromDocument: values.from,
                 ledgerPath,
               })
-            : /\.(yaml|yml)$/iu.test(sourcePath)
-              ? extractYamlTree({
+            : /\.xml$/iu.test(sourcePath)
+              ? extractXmlTree({
+                sourcePath,
+                pointer,
+                outDir,
+                fromDocument: values.from,
+                ledgerPath,
+              })
+              : /\.(txt|text|log)$/iu.test(sourcePath)
+                ? extractFlatTextTree({
                   sourcePath,
                   pointer,
                   outDir,
                   fromDocument: values.from,
                   ledgerPath,
                 })
-              : /\.(txt|text|log)$/iu.test(sourcePath)
-                ? extractFlatTextTree({
-                    sourcePath,
-                    pointer,
-                    outDir,
-                    fromDocument: values.from,
-                    ledgerPath,
-                  })
                 : extractJsonTree({
                     sourcePath,
-                    pointer,
-                    outDir,
-                    fromDocument: values.from,
-                    ledgerPath,
-                  });
+                  pointer,
+                  outDir,
+                  fromDocument: values.from,
+                  ledgerPath,
+                });
         if (values.json) emit(JSON.stringify(result, null, 2));
         else if (result.extracted) emit(result.extracted.markdown);
         for (const problem of result.problems) {
@@ -658,7 +659,10 @@ export async function main(argv: string[]): Promise<number> {
       }
 
       const summary = {
-        status: result.imageProblems.length > 0 ? 'created-with-warnings' : 'created',
+        status: (
+          result.imageProblems.length > 0
+          || result.choiceListProblems.length > 0
+        ) ? 'created-with-warnings' : 'created',
         sourceInput: portableDisplayPath(inputSourcePath),
         source: portableDisplayPath(sourcePath),
         sourceCopied,
@@ -669,6 +673,9 @@ export async function main(argv: string[]): Promise<number> {
         imageProblems: result.imageProblems,
         reviewSkippedImages: result.reviewSkippedImages,
         reviewSkippedTables: result.reviewSkippedTables,
+        choiceLists: result.choiceLists,
+        choiceListProblems: result.choiceListProblems,
+        reviewSkippedChoiceLists: result.reviewSkippedChoiceLists,
       };
       const summaryText = values.json
         ? JSON.stringify(summary, null, 2)
@@ -680,10 +687,18 @@ export async function main(argv: string[]): Promise<number> {
             ...(result.imageProblems.length > 0 ? [`image/drawing warnings: ${result.imageProblems.length}`] : []),
             ...(result.reviewSkippedImages.length > 0 ? [`images skipped by review: ${result.reviewSkippedImages.length}`] : []),
             ...(result.reviewSkippedTables.length > 0 ? [`tables skipped by review: ${result.reviewSkippedTables.length}`] : []),
+            ...(result.choiceLists.length > 0 ? [`choice lists: ${result.choiceLists.length}`] : []),
+            ...(result.choiceListProblems.length > 0 ? [`choice-list warnings: ${result.choiceListProblems.length}`] : []),
+            ...(result.reviewSkippedChoiceLists.length > 0 ? [`choice lists skipped by review: ${result.reviewSkippedChoiceLists.length}`] : []),
           ].join('\n');
       process.stdout.write(summaryText.endsWith('\n') ? summaryText : `${summaryText}\n`);
       for (const problem of result.imageProblems) {
         console.error(`mmi: warning: ${problem.code}${problem.ordinal ? ` (image ${problem.ordinal})` : ''}: ${problem.message}`);
+      }
+      for (const problem of result.choiceListProblems) {
+        console.error(
+          `mmi: warning: ${problem.code}${problem.sheet ? ` (${problem.sheet})` : ''}: ${problem.message}`,
+        );
       }
       return 0;
     }
@@ -1054,7 +1069,7 @@ export interface InspectRegion {
 }
 
 export interface InspectTree {
-  /** JSON/YAML use RFC 6901-style pointers; XML uses element paths. */
+  /** Format-native structural path. JSON/YAML use RFC 6901; XML uses element paths. */
   pointer: string;
   format?: 'json' | 'yaml' | 'xml' | 'text' | 'table';
   nodeType: 'object' | 'array' | 'element' | 'text-node' | 'row';
@@ -1187,7 +1202,7 @@ export function inspectSource(
     };
   }
 
-  if (/\.(yaml|yml)$/iu.test(absolutePath)) {
+  if (/\.ya?ml$/iu.test(absolutePath)) {
     const sourceBytes = fs.readFileSync(absolutePath);
     const sourceDigest =
       createSourceIdentityFromBytes(sourceBytes).digest;
@@ -1208,6 +1223,8 @@ export function inspectSource(
         leafValues: node.leafValues,
       })),
       images: [],
+      choiceLists: [],
+      choiceListDiagnostics: [],
       imageDiagnostics: [],
       sheets: [],
     };

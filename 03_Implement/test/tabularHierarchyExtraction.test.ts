@@ -199,6 +199,83 @@ test('tabular Tree extraction fails closed when the reviewed fingerprint changed
 });
 
 
+test('tabular Tree extraction preserves an explicit header row through freshness checks', () => {
+  const ws = workspace();
+  fs.writeFileSync(
+    ws.source,
+    [
+      'Hierarchy export,,',
+      'Generated for review,,',
+      'ID,Parent,Name',
+      'A,,Account',
+      'A-1,A,Create',
+      'B,,Operations',
+    ].join('\n'),
+    'utf8',
+  );
+
+  const titledConfig = {
+    mode: 'parent-id' as const,
+    headerRow: 2,
+    idHeader: 'ID',
+    parentHeader: 'Parent',
+    labelHeader: 'Name',
+  };
+  const result = extractTabularHierarchyTree({
+    sourcePath: ws.source,
+    pointer: 'table-hierarchy:parent-id:id:A',
+    outDir: ws.assets,
+    fromDocument: ws.doc,
+    ledgerPath: ws.ledger,
+    sheet: 'Sheet1',
+    config: titledConfig,
+  });
+
+  assert.deepEqual(result.problems, []);
+  assert.ok(result.extracted);
+  assert.match(result.extracted.markdown, /header-row="3"/u);
+  assert.match(result.extracted.markdown, /- Account\n  - Create/u);
+
+  const ledger = readLedger(ws.ledger);
+  assert.equal(ledger.entries.length, 1);
+  assert.equal(ledger.entries[0].conversion.headerRow, 2);
+
+  fs.writeFileSync(
+    ws.doc,
+    `# Spec\n\n${result.extracted.markdown}\n`,
+    'utf8',
+  );
+  assert.deepEqual(
+    checkExtractedProvenanceFreshness({
+      markdownFilePath: ws.doc,
+      workspaceRoot: ws.root,
+      ledgerPath: ws.ledger,
+    }),
+    { checked: 1, errors: 0, problems: [] },
+  );
+
+  fs.writeFileSync(
+    ws.source,
+    [
+      'Hierarchy export updated,,',
+      'Generated for review,,',
+      'ID,Parent,Name',
+      'A,,Account',
+      'A-1,A,Create',
+      'B,,Operations',
+    ].join('\n'),
+    'utf8',
+  );
+  assert.deepEqual(
+    checkExtractedProvenanceFreshness({
+      markdownFilePath: ws.doc,
+      workspaceRoot: ws.root,
+      ledgerPath: ws.ledger,
+    }),
+    { checked: 1, errors: 0, problems: [] },
+  );
+});
+
 test('tabular Tree provenance round-trips quoted and Unicode header names', () => {
   const ws = workspace();
   fs.writeFileSync(

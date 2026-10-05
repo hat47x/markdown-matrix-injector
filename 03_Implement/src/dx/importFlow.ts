@@ -107,7 +107,7 @@ export async function importFromWorkbook(
     materialized = await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
-        title: 'MMI: 表と画像を取り込み候補へ整理しています',
+        title: 'MMI: 表・画像・選択肢を取り込み候補へ整理しています',
       },
       async () => writeWorkbookImportDraft({
         sourcePath: effectiveWorkbook.fsPath,
@@ -130,9 +130,20 @@ export async function importFromWorkbook(
     return undefined;
   }
 
-  if (materialized.imageProblems.length > 0) {
+  if (
+    materialized.imageProblems.length > 0
+    || materialized.choiceListProblems.length > 0
+  ) {
+    const parts = [
+      ...(materialized.imageProblems.length > 0
+        ? [`画像・図形 ${materialized.imageProblems.length}件`]
+        : []),
+      ...(materialized.choiceListProblems.length > 0
+        ? [`選択肢 ${materialized.choiceListProblems.length}件`]
+        : []),
+    ];
     void vscode.window.showWarningMessage(
-      `MMI: 下書きを作成しました。画像・図形に関する注意が ${materialized.imageProblems.length} 件あります。下書きの「画像・図形の注意」を確認してください。`,
+      `MMI: 下書きを作成しました。確認事項があります（${parts.join('、')}）。下書きの注意欄を確認してください。`,
     );
   }
 
