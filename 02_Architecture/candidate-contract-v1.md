@@ -1,8 +1,8 @@
 # Semantic Candidate 契約 v1
 
-- 状態: 実装済み（型・不変条件・表・画像・JSON/XML TreeのSource Adapter、`mmi inspect --json`、`mmi extract`）。2026-10-03のIssue #417で認識論上の状態と採用状態を分離した。TreeはJSONと汎用XMLの明示構造まで実装し、フラットテキストやExcel / CSVからの推定階層、図形、メモ、リスト、見出しのAdapterは未実装。
+- 状態: 実装済み（型・不変条件・表・画像・Choice list・JSON/YAML/XML Tree、フラットテキストとExcel / CSVの推定Tree、`mmi inspect --json`、`mmi extract`、Candidateレビュー）。2026-10-03のIssue #417で認識論上の状態と採用状態を分離した。図形、メモ、見出し等のAdapterは未実装。
 - 関連: [ADR-0019](../01_Plans/adr/ADR-0019-ai-era-sier-document-value-and-policy.md) D4・D6・D8、[ADR-0018](../01_Plans/adr/ADR-0018-cognitive-assistance-plane.md) D1〜D5、[ADR-0020](../01_Plans/adr/ADR-0020-requirement-oriented-cognition-method-selection.md)、[issue-0193](../01_Plans/issues/issue-0193-candidate-source-adapter-contract.md)
-- 実装: `src/core/candidate.ts`（型とruntime不変条件）、`src/core/candidateContract.ts`（公開JSON Schema）、`src/adapters/tableRegionAdapter.ts`、`src/adapters/excelImageAdapter.ts`、`src/adapters/jsonTreeAdapter.ts`、`src/adapters/xmlTreeAdapter.ts`
+- 実装: `src/core/candidate.ts`（型とruntime不変条件）、`src/core/candidateContract.ts`（公開JSON Schema）、`src/adapters/tableRegionAdapter.ts`、`src/adapters/excelImageAdapter.ts`、`src/adapters/excelChoiceListAdapter.ts`、`src/adapters/jsonTreeAdapter.ts`、`src/adapters/yamlTreeAdapter.ts`、`src/adapters/xmlTreeAdapter.ts`、`src/adapters/flatTextTreeStructuralizer.ts`、`src/adapters/tabularHierarchyAdapter.ts`
 
 Candidateは、Source Adapterが見つけた「情報の単位」を、取り込み・参照・レビュー・台帳が共通に扱うための型である。入力形式とMarkdown出力を直接結ばず、Source Adapter → Observed Structure → Candidate → 確認／参照／取り込み、の順に流す（ADR-0019 D4）。
 
@@ -102,13 +102,27 @@ XML Spreadsheet 2003は従来のworkbook/table経路に残し、それ以外のX
 
 `extractXmlTree()`は選択したelement subtreeを`xml-nested-list-v1`として投影する。JSON Treeと同じledger、Candidateレビュー、review-time fingerprint guard、detach freshnessを使い、XML専用の採用状態は作らない。
 
+## 3e. YAML Treeと共通Structured Tree境界（issue-0199）
+
+YAMLはYAML 1.2のうち、JSON互換のmapping / sequence / scalarだけを明示Treeとして扱う。anchor、alias、merge key、explicit tag、非string keyは意味を展開してから取り込まず、fail closedとする。JSONとYAMLの数値はfiniteを必須とし、整数はJavaScript safe integer範囲に限定する。原本値を倍精度浮動小数点で正確に保持できない整数を丸めてCandidate化しない。
+
+JSONとYAMLのmapping / sequenceは`readStructuredValueTree()`へ合流し、親子関係、Claim、canonical fingerprintの組み立てを共有する。形式固有のprovenanceとreason codeは分ける。YAMLの構造位置はJSONと同じRFC 6901 Pointerを用いる。採用後はJSON/XML Treeと同じreview、ledger、fingerprint再照合、detach freshnessを使う。
+
+## 3f. Excel Choice listのSource Adapter
+
+Excel Data Validationのlistは`choice-list` Candidateとして扱い、`tree`へ変換しない。Choice listは特定のセル範囲へ付与された有限の選択領域であり、Treeの親子edgeやsubtreeを持たないためである。共通化するのはCandidateの状態、locator、fingerprint、provenance、review decisionである。
+
+inline listは原本に記録された値を`observed + deterministic + M0`として保持する。同一ブック内の単純なA1範囲参照も、同じworkbook snapshotの保存済み表示値を直接読み、`sourceKind=range`としてM0で保持する。対象は単一行または単一列、最大10,000セル、Excelの物理範囲内に限る。外部ブック、名前定義、`INDIRECT`や`OFFSET`等の式、2次元範囲、上限外の範囲は評価せず、`choices` Claimを`abstained`のまま残す。
+
+Choice listは`inspect`、通常のCandidateレビュー、一括取り込みに同じCandidateとして現れる。レビューUIでは確認、却下、保留を扱うが、現時点ではChoice list自体を別のExtracted資産へ変換しない。参照先の値またはreview basisが変われば、既存のfingerprint / Claim basis照合により旧判断をそのまま継承しない。
+
 ### fingerprint（暫定）
 
 表のfingerprintは、範囲の**表示セル値の列**（セルを`U+001F`、行を`U+001E`で連結）のsha256とし、`representation`は`table-display-cells-v1`とする。**位置を含めない**ので、表が別の行へ動いても同じfingerprintになり、セルを1つ変えると変わる。位置は`locator`が別に持つ。ADR-0019 D8のとおり方式は種別ごとに異なってよい。台帳での使い方（移動・再取り込みの判定）は[issue-0195](../01_Plans/issues/issue-0195-import-ledger.md)で確定し、必要なら`representation`を上げる。
 
 ## 4. CLI
 
-`mmi inspect <source> --json`は表・画像に加えてJSON/XMLのTree Candidateも返す。JSON出力には`candidateContract: "mmi.semantic-candidate/v1"`を併記し、外部AIや他ツールがCandidate配列の契約を推測しなくてよいようにする。契約本体は`mmi schema candidate`で取得する。JSONではRFC 6901 JSON Pointer、XMLではelement pathを構造位置として扱う。
+`mmi inspect <source> --json`は表・画像・Choice listと、JSON/YAML/XMLの明示Tree Candidateを返す。フラットテキストはM1の階層仮説を返し、Excel / CSVは利用者が親列またはLevel列を明示した場合にM1のTree Candidateを返す。JSON出力には`candidateContract: "mmi.semantic-candidate/v1"`を併記し、外部AIや他ツールがCandidate配列の契約を推測しなくてよいようにする。契約本体は`mmi schema candidate`で取得する。JSON/YAMLではRFC 6901 JSON Pointer、XMLではelement pathを構造位置として扱う。
 
 - 実務サンプルの全20ブック（CSV・TSV・XLSX・XML 2003）と基本設計書キットのマスター（5シート）で、`candidates`の件数が`regions`の件数と一致し、各Candidateが不変条件と`reference`の一致を満たすことを確認した。
 - 認知側の処理が`check`の診断と`render`の論理表を変えないことを、同一入力での実行前後の比較と、権威経路（`render`・診断・表の描画）が`adapters/`・`search/`・`experimental/`・`core/candidate`を読み込まないことの静的検査で確かめる（`test/candidate.test.ts`）。
@@ -154,11 +168,11 @@ XML Spreadsheet 2003は従来のworkbook/table経路に残し、それ以外のX
 [ギャップ分析](../01_Plans/product-gap-analysis.md)の旧§5は、次を研究済みの成果として並べていたが、実コードでは生成されていない。
 
 - `region.hierarchy_relation`、`region.repeated_block`、`ambiguous_or_non_table`は、`structuredArtifactNeutralObservation.ts`に**ラベル名として宣言があるだけ**で、`src`にも`test`にも出力する生成コードが無い。中立アダプタは`labels: {}`を返し、ラベルを持つのは合成fixtureの正解側だけである。
-- この研究ラベル自体を生成する製品コードは現在も無い。一方、Tree / Hierarchyは研究ラベルを経由せず、JSON/XMLの明示構造を読む製品Adapterから実装した。Note、Choice list、Sectionと、フラットテキストやExcel / CSVから推定するTreeは未実装である。
+- この研究ラベル自体を生成する製品コードは現在も無い。一方、Tree / Hierarchyは研究ラベルを経由せず、JSON/YAML/XMLの明示構造と、フラットテキスト・Excel / CSVの決定論的な推定から製品Adapterを実装した。Excel Data Validationのlistも独立した`choice-list` Candidateとして実装済みである。Note、Section、Shape等は未実装である。
 
 ## 7. 次に強くする行
 
 1. **Table / Range**（製品の領域検出＋出所照合＋再照合）。`observed` / `inferred` の由来を保ったまま、別軸の `accepted` reviewへつなぐ経路が動いている。fingerprintを台帳で使う形に固める（issue-0195）。
 2. **`cognitiveContract.ts`の器**。provenanceとscoreの名前空間が契約に近い。足りないのは状態・method class・fingerprint・locatorで、状態語彙の変換（§5）を先に確定する。
-3. **Tree / Hierarchy・Section**。TreeはJSONと汎用XMLの明示構造まで実装した。次はフラットテキストやExcel / CSVの推定階層へ進む（issue-0199）。Sectionは未着手。
+3. **Tree / Hierarchy・Section**。TreeはJSON/YAML/XMLの明示構造と、フラットテキスト・Excel / CSVの決定論的な推定階層まで実装した。Choice listはTreeへ統合せず、独立Candidateとして同じreview lifecycleへ接続した。次は既存研究の`hierarchy_relation`等をAuthorityへ昇格させないPerception providerとして接続できるかを検証する。Sectionは未着手。
 4. SAI2の結果は合成18グループのみで、製品の特徴に使う前に実データでの検証が要る。

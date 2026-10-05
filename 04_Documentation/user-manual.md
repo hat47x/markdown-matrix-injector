@@ -144,7 +144,7 @@ Markdownを開いた状態で右クリックすると「MMI: 参照を作成・�
 
 表と画像は性質に合わせて扱いを分けます。表は値をコピーせず、元ブックへ追従するMMI参照として置きます。.xlsx / .xlsmに埋め込まれた画像は通常の画像ファイルとして`assets/<ブック名>/`へ取り込み、元のシートごとにMarkdown画像参照を置きます。画像のoccurrenceはプロジェクトの`mmi-ledger.json`に記録します。同じ画像bytesが複数箇所にある場合、画像ファイルは共用しますが、各occurrenceは別に記録します。
 
-Excelの入力規則にlistが設定されている場合は、選択肢も下書きに残します。セルに直接書かれた選択肢は値を表示します。別範囲や数式を参照する入力規則は参照式だけを示し、選択肢の値を推測しません。この段階では別形式へ変換せず、レビュー対象として扱います。同じCandidateを却下または保留した判断が残っている場合、一括取り込みでも通常候補から外します。
+Excelの入力規則にlistが設定されている場合は、選択肢も下書きに残します。セルに直接書かれた選択肢は値を表示します。同一ブック内の単純なA1範囲参照も、数式を評価せず、同じブックの保存済み表示値を読み取って選択肢を表示します。対象は単一行または単一列、最大10,000セルで、Excelの物理範囲内に限ります。外部ブック、名前定義、`INDIRECT`や`OFFSET`等の式、2次元範囲、上限外の範囲は値を推測せず、参照式だけを示します。この段階ではChoice listを別形式へ変換せず、レビュー対象として扱います。同じCandidateを却下または保留した判断が残っている場合、一括取り込みでも通常候補から外します。
 
 - 下書きには、シートごとの見出し、表の参照、取り込んだ画像、表ではない領域（項目と値の組、文章、押印欄、図）の番地と扱いの目安が並びます。残す参照を選び、画像は必要な位置へ移動できます。不要な画像参照は下書きから削除できます。
 - Markdownで扱えない画像や読み取れない画像は黙って捨てず、「画像・図形の注意」に理由を残します。AutoShapeやコネクタ、graphic frameの存在も原本から検出し、現在のMMIで取り込めない場合は同じ節に件数を示します。graphic frameにはグラフや図が含まれる場合があるため、種類は断定しません。
@@ -152,7 +152,7 @@ Excelの入力規則にlistが設定されている場合は、選択肢も下�
 - 見出しが2段の表、縦に結合したセル、表の途中の空行や区切り行、見出しの列に揃っていないセルがあると、下書きに**注意**が出ます。揃っていないセルの値は表示されないため、番地を示します。
 - 「同じ書式」のシートと、近い書式との違い（「表『2. 画面項目』に列『初期値』があります」など）も示します。同じ書式のシートは同じ判断で取り込めます。
 - 候補は推定です。表の範囲や見出しが違う場合は、参照を直すか削除してください。画像の抽出と台帳への記録は、表の役割推定を確定扱いにするものではありません。
-- Candidateを後から確認する場合は、コマンド「MMI: 取り込み候補を確認」から表・画像・JSON/YAML/XML/フラットテキストTreeを同じレビュー画面で扱えます。対応sourceはエクスプローラーの右クリックからも同じレビューを開始できます。Excel / CSVの親ID列やLevel列から階層を確認したい場合は「MMI: 表の列を指定して階層Candidateを確認」を使い、対象シートと列を明示します。通常レビューに階層推定の質問は追加されません。source、取込状態、type/status/executionの絞り込みはセッション中保持され、採用・却下・保留などの後は次のCandidateへ進みます。Escで終了するまで1件ごとに条件を選び直す必要はありません。表Candidateでは抽出Markdownを修正採用でき、画像Candidateでは画像bytesを変えずalt textを修正採用できます。Treeはレビューした構造位置のsubtreeをnested Markdownへ取り込みます。いずれも原本は変更しません。初回一括取り込みの既定では、表はLinkedのまま残します。
+- Candidateを後から確認する場合は、コマンド「MMI: 取り込み候補を確認」から表・画像・Choice list・JSON/YAML/XML/フラットテキストTreeを同じレビュー画面で扱えます。対応sourceはエクスプローラーの右クリックからも同じレビューを開始できます。Choice listは観測内容の確認、却下、保留を扱い、現時点では別のExtracted資産へ変換しません。Excel / CSVの親ID列やLevel列から階層を確認したい場合は「MMI: 表の列を指定して階層Candidateを確認」を使い、対象シートと列を明示します。通常レビューに階層推定の質問は追加されません。source、取込状態、type/status/executionの絞り込みはセッション中保持され、採用・却下・保留などの後は次のCandidateへ進みます。Escで終了するまで1件ごとに条件を選び直す必要はありません。表Candidateでは抽出Markdownを修正採用でき、画像Candidateでは画像bytesを変えずalt textを修正採用できます。Treeはレビューした構造位置のsubtreeをnested Markdownへ取り込みます。いずれも原本は変更しません。初回一括取り込みの既定では、表はLinkedのまま残します。
 
 Candidateレビューの利用者観測を行う場合は、設定 `MMI › Review Observation: Enabled` を有効にします。レビューを閉じるたびに、開始・終了時刻、所要時間、選択して確認した候補数、採用・修正採用・却下・保留などの状態変化をローカルのJSONLへ記録します。Markdownを編集中にレビューを開始したかどうかも補助値として残しますが、この値だけで「執筆を中断した」とは判断しません。Candidateの本文やセル値は記録せず、外部にも送信しません。
 
@@ -199,10 +199,10 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 | コマンド | 内容 |
 | --- | --- |
 | `mmi schema candidate` | Semantic Candidateの公開JSON Schemaを出力する。契約名は`mmi.semantic-candidate/v1`。外部AI、CI、連携ツールがCandidateのkind、status、execution、method、Claim、provenance、fingerprint等を機械的に解釈するために使う。review stateはCandidate本体に含めない |
-| `mmi inspect <正本>` | Excel / CSV等では表の範囲・見出し・行数を表示し、`.xlsx`では画像も一覧に出す。`.json`と安全subsetの`.yaml` / `.yml`ではobject / arrayをTree Candidateとして列挙し、RFC 6901 JSON Pointer、node type、直下child数を表示する。YAMLのanchor / alias / merge key / explicit tag / 非string key等は明示構造として解決せずエラーにする。`--json`では`candidateContract`に契約名を併記し、Candidateのstatus・method・provenance・fingerprintを確認できる。取り込み台帳がある場合は`imported / changed / stale / duplicate / unimported`を照合し、`--unimported`や`--exclude-imported`で絞り込める |
+| `mmi inspect <正本>` | Excel / CSV等では表の範囲・見出し・行数を表示し、`.xlsx`では画像とlist入力規則も一覧に出す。直接記述されたlistと、安全に解決できる同一ブックA1範囲参照は選択肢も表示する。`.json`と安全subsetの`.yaml` / `.yml`ではobject / arrayをTree Candidateとして列挙し、RFC 6901 JSON Pointer、node type、直下child数を表示する。YAMLのanchor / alias / merge key / explicit tag / 非string key等は明示構造として解決せずエラーにする。`--json`では`candidateContract`に契約名を併記し、Candidateのstatus・method・provenance・fingerprintを確認できる。取り込み台帳がある場合は`imported / changed / stale / duplicate / unimported`を照合し、`--unimported`や`--exclude-imported`で絞り込める |
 | `mmi extract <ブック.xlsx> --image <番号\|all>` | Excelに貼られた画像を`assets/`（`--out-dir`で変更）へ書き出し、Markdownの画像参照と出典を出力する。CLIでは同時に`<root>/mmi-ledger.json`へoccurrence・content fingerprint・出力先・変換条件・review basisを記録する（`--ledger`で変更）。同じ画像が別の場所にもある場合は別occurrenceとして残し、review stateを自動継承しない |
 | `mmi extract <file.json\|file.yaml> --tree <Pointer\|root>` | JSONまたは安全subset YAMLのobject / arrayから1つのTree Candidateを選び、nested listのMarkdown assetへ取り込む。`root`は文書全体、`/service/endpoints`のような値はRFC 6901 JSON Pointer。原本は変更しない。取り込み台帳にはpointer、subtree fingerprint、出力digest、Projection方式を記録する |
-| `mmi import <ブック> --draft <下書き.md>` | 既存ブックを1回でモダナイズ用の下書きへ整理する。表は元ブックへ追従する参照のまま残し、.xlsx / .xlsmの埋込画像はcontent-addressedな画像ファイルとして取り込む。Excelのlist入力規則は観測情報として下書きに残し、inline値は表示するが、参照式の値は推測しない。ワークスペース外の原本は`--copy-source <保存先>`でproject内へ同一bytesのsourceとして取り込める。表でない領域や、取り込めない画像・図形、読み切れない選択肢は確認事項として残す。注意があっても下書き作成に成功すれば終了コードは0で、JSONの`status`は`created-with-warnings`になる。下書き・sourceコピー・assets・台帳の書込先は`--root`内に限定し、既存ファイルを異なる内容で上書きしない |
+| `mmi import <ブック> --draft <下書き.md>` | 既存ブックを1回でモダナイズ用の下書きへ整理する。表は元ブックへ追従する参照のまま残し、.xlsx / .xlsmの埋込画像はcontent-addressedな画像ファイルとして取り込む。Excelのlist入力規則は観測情報として下書きに残す。inline値と、安全に解決できる同一ブックA1範囲参照は選択肢を表示する。それ以外の参照式は評価せず、式を確認事項として残す。ワークスペース外の原本は`--copy-source <保存先>`でproject内へ同一bytesのsourceとして取り込める。表でない領域や、取り込めない画像・図形、読み切れない選択肢は確認事項として残す。注意があっても下書き作成に成功すれば終了コードは0で、JSONの`status`は`created-with-warnings`になる。下書き・sourceコピー・assets・台帳の書込先は`--root`内に限定し、既存ファイルを異なる内容で上書きしない |
 | `mmi check <文書またはフォルダー>` | 参照の誤りを「問題」パネルと同じ診断コードで表示。誤りがあれば終了コード1 |
 | `mmi render <文書>` | 参照を展開したMarkdownを出力。`--to html`でPDF変換用のHTML |
 | `mmi materialize <文書> -o <出力.md>` | 原本を外すためのMarkdownを生成する。小表は本文へ、別紙相当表は`mmi-materialized/`へ、ローカル画像は`mmi-assets/`へcontent-addressedで実体化する。provenance付きで採用済みのExtracted表・画像・Treeは現在sourceとledgerへfreshness照合し、変更・stale・未追跡なら終了コード1 |
@@ -234,7 +234,7 @@ mmi inspect docs/outline.txt --tree-method heading-number --json
 mmi extract docs/outline.txt --tree text:heading-number:line:1 --out-dir assets
 ```
 
-VS Codeの「取り込み候補を確認」でも、表・画像・JSON/XML Treeと同じ画面でフラットテキストTreeを採用・却下・保留できます。Excel / CSVの階層は「表の列を指定して階層Candidateを確認」からシートと列を明示し、同じレビュー画面で扱います。親ID方式ではID列と親ID列、必要なら表示名列を選びます。Level方式ではLevel列と表示名列を選びます。どちらも親子関係は`inferred + deterministic + M1`のままで、採用しても原本に明示された事実へ昇格しません。レビューしたsubtreeを取り込むときは、現在のsourceから同じ方式でCandidateを作り直し、fingerprintが一致した場合だけnested Markdownへ書き出します。対象subtreeが変わっていれば採用しません。対象外のrootだけが変わり、選んだsubtreeの内容と構造が同じ場合は採用を妨げません。取り込み後のdetach freshnessも同じCandidateとledgerで確認します。フラットテキストはUTF-8だけを対象とし、解釈できないbytesはエラーにします。
+VS Codeの「取り込み候補を確認」でも、表・画像・Choice list・JSON/YAML/XML Treeと同じ画面でフラットテキストTreeを採用・却下・保留できます。Excel / CSVの階層は「表の列を指定して階層Candidateを確認」からシートと列を明示し、同じレビュー画面で扱います。親ID方式ではID列と親ID列、必要なら表示名列を選びます。Level方式ではLevel列と表示名列を選びます。どちらも親子関係は`inferred + deterministic + M1`のままで、採用しても原本に明示された事実へ昇格しません。レビューしたsubtreeを取り込むときは、現在のsourceから同じ方式でCandidateを作り直し、fingerprintが一致した場合だけnested Markdownへ書き出します。対象subtreeが変わっていれば採用しません。対象外のrootだけが変わり、選んだsubtreeの内容と構造が同じ場合は採用を妨げません。取り込み後のdetach freshnessも同じCandidateとledgerで確認します。フラットテキストはUTF-8だけを対象とし、解釈できないbytesはエラーにします。
 
 **画像について。** Excelに画面ダンプなどを貼って設計を整理する書き方は、そのまま続けられます。`extract`は画像を取り出して参照できる形にするだけで、Excel側の画像は変わりません。Excelで画像を差し替えたり動かしたりしても、次に`inspect`を実行すれば現在の位置と内容が分かります。取り出せるのはPNG・JPEG・GIF・BMP・SVGです。EMF・WMF・TIFF、外部ファイルへのリンク、壊れた図形は、取り出さずに理由を表示します。`.xls`（旧形式）の画像は読めません。
 
