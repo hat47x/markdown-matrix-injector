@@ -22,6 +22,7 @@ import {
   type FlatTextTreeMethod,
 } from '../adapters/flatTextTreeStructuralizer.js';
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
+import { decodeYamlUtf8, readYamlTree } from '../adapters/yamlTreeAdapter.js';
 import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import {
@@ -87,6 +88,7 @@ import {
   extractFlatTextTree,
   extractJsonTree,
   extractTabularHierarchyTree,
+  extractYamlTree,
   extractXmlTree,
 } from './extractTree.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './render.js';
@@ -104,7 +106,7 @@ Commands:
   core <request.json|->     Execute one mmi.portable-core-request/v1 and emit JSON.
                             Use - to read the request from stdin; source bytes are embedded in the request.
                             This boundary performs no source-file discovery or VS Code access.
-  inspect <source>          List workbook/CSV regions or JSON/XML/flat-text Tree structure.
+  inspect <source>          List workbook/CSV regions or JSON/YAML/XML/flat-text Tree structure.
                             --json adds Semantic Candidates with status, method, provenance and fingerprint
       --values <n>            also print the first n body rows of each region
       --from <doc.md>         write suggested references relative to this document
@@ -123,13 +125,14 @@ Commands:
                             For .xlsx/.xlsm it also lists embedded pictures (sheet, anchor, format, size,
                             digest, nearest table) and names any that cannot be read.
                             For .json it lists object/array nodes by RFC 6901 JSON Pointer.
+                            .yaml/.yml use a restricted YAML 1.2 JSON-compatible subset and the same pointer model.
                             Generic .xml lists explicit element nodes; XML Spreadsheet 2003 remains a table source.
                             .txt/.text/.log use deterministic M1 hierarchy hypotheses; conflicting methods are not merged.
   extract <source>          Extract one reviewed Candidate as a standard asset without modifying the source
       --image <n|all>         workbook picture number shown by inspect, or all
       --table <range>         exact detected table Candidate range (requires --sheet)
-      --tree <path|root>      exact JSON/XML/flat-text/tabular Tree Candidate structural path shown by inspect;
-                              root means the JSON/XML document root
+      --tree <path|root>      exact JSON/YAML/XML/flat-text/tabular Tree Candidate structural path shown by inspect;
+                              root means the JSON/YAML/XML document root
       --tree-parent-columns <list>
                               tabular Tree: exact header names ID,Parent[,Label]
       --tree-level-columns <list>
@@ -460,21 +463,29 @@ export async function main(argv: string[]): Promise<number> {
                 fromDocument: values.from,
                 ledgerPath,
               })
-            : /\.(txt|text|log)$/iu.test(sourcePath)
-              ? extractFlatTextTree({
+            : /\.(yaml|yml)$/iu.test(sourcePath)
+              ? extractYamlTree({
                   sourcePath,
                   pointer,
                   outDir,
                   fromDocument: values.from,
                   ledgerPath,
                 })
-              : extractJsonTree({
-                  sourcePath,
-                  pointer,
-                  outDir,
-                  fromDocument: values.from,
-                  ledgerPath,
-                });
+              : /\.(txt|text|log)$/iu.test(sourcePath)
+                ? extractFlatTextTree({
+                    sourcePath,
+                    pointer,
+                    outDir,
+                    fromDocument: values.from,
+                    ledgerPath,
+                  })
+                : extractJsonTree({
+                    sourcePath,
+                    pointer,
+                    outDir,
+                    fromDocument: values.from,
+                    ledgerPath,
+                  });
         if (values.json) emit(JSON.stringify(result, null, 2));
         else if (result.extracted) emit(result.extracted.markdown);
         for (const problem of result.problems) {
@@ -1039,9 +1050,9 @@ export interface InspectRegion {
 }
 
 export interface InspectTree {
-  /** Format-native structural path. JSON uses RFC 6901; XML uses element paths. */
+  /** JSON/YAML use RFC 6901-style pointers; XML uses element paths. */
   pointer: string;
-  format?: 'json' | 'xml' | 'text' | 'table';
+  format?: 'json' | 'yaml' | 'xml' | 'text' | 'table';
   nodeType: 'object' | 'array' | 'element' | 'text-node' | 'row';
   childPointers: readonly string[];
   leafValues: readonly string[];
@@ -1146,6 +1157,32 @@ export function inspectSource(
       trees: tree.nodes.map((node) => ({
         pointer: node.pointer,
         format: 'json' as const,
+        nodeType: node.nodeType,
+        childPointers: node.childPointers,
+        leafValues: node.leafValues,
+      })),
+      images: [],
+      imageDiagnostics: [],
+      sheets: [],
+    };
+  }
+
+  if (/\.(yaml|yml)$/iu.test(absolutePath)) {
+    const sourceBytes = fs.readFileSync(absolutePath);
+    const sourceDigest =
+      createSourceIdentityFromBytes(sourceBytes).digest;
+    const tree = readYamlTree(
+      decodeYamlUtf8(sourceBytes),
+      relative,
+      sourceDigest,
+    );
+    return {
+      source: relative,
+      candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
+      candidates: [...tree.candidates],
+      trees: tree.nodes.map((node) => ({
+        pointer: node.pointer,
+        format: 'yaml' as const,
         nodeType: node.nodeType,
         childPointers: node.childPointers,
         leafValues: node.leafValues,
