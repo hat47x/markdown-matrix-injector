@@ -91,6 +91,8 @@ v1 requestはfail-closedで解釈する。
 
 空のbytes自体は有効である。空CSVはCandidate 0件として扱える。
 
+CSVのレコード位置はsource coordinateとして保持する。先頭空レコードを除去して行番号を詰めてはならない。通常の末尾改行は直前レコードの終端であり、それだけでは新しい空レコードを作らない。この座標契約はTypeScript参照実装と標準Go実装で一致させる。
+
 ## 参照実装
 
 TypeScript側では次を参照実装とする。
