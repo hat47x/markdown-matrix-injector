@@ -522,21 +522,23 @@ function renderTabularHierarchyNestedList(
 function tabularHierarchyProvenance(
   options: ExtractTabularHierarchyTreeOptions,
 ): Record<string, string> {
+  const encoded = (value: string): string =>
+    encodeURIComponent(value);
   return options.config.mode === 'parent-id'
     ? {
-        sheet: options.sheet,
+        'sheet-uri': encoded(options.sheet),
         'hierarchy-mode': options.config.mode,
-        'id-header': options.config.idHeader,
-        'parent-header': options.config.parentHeader,
+        'id-header-uri': encoded(options.config.idHeader),
+        'parent-header-uri': encoded(options.config.parentHeader),
         ...(options.config.labelHeader
-          ? { 'label-header': options.config.labelHeader }
+          ? { 'label-header-uri': encoded(options.config.labelHeader) }
           : {}),
       }
     : {
-        sheet: options.sheet,
+        'sheet-uri': encoded(options.sheet),
         'hierarchy-mode': options.config.mode,
-        'level-header': options.config.levelHeader,
-        'label-header': options.config.labelHeader,
+        'level-header-uri': encoded(options.config.levelHeader),
+        'label-header-uri': encoded(options.config.labelHeader),
       };
 }
 
