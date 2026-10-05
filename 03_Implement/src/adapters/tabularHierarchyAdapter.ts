@@ -286,7 +286,7 @@ function resolveHeaders(
       evidence: [{
         code: 'configured-header-row-out-of-range',
         detail:
-          `configured header row ${String(headerRow + 1)} is outside used rows ${headerRow + 1}-${range.endRow + 1}`,
+          `configured header row ${String(headerRow + 1)} is outside used rows ${range.startRow + 1}-${range.endRow + 1}`,
       }],
     };
   }
