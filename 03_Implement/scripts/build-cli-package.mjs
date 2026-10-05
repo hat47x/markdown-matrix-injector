@@ -13,7 +13,7 @@ export const DEFAULT_PROJECT_ROOT = path.resolve(SCRIPT_DIR, '..');
 export const CLI_PACKAGE_STAGE_DIRECTORY = 'artifacts/cli-package-stage';
 export const CLI_PACKAGE_OUTPUT_DIRECTORY = 'artifacts/cli-package';
 
-const REQUIRED_RUNTIME_DEPENDENCIES = ['markdown-it', 'saxes', 'xlsx'];
+const REQUIRED_RUNTIME_DEPENDENCIES = ['markdown-it', 'saxes', 'xlsx', 'yaml'];
 
 export function createCliPackageManifest(sourcePackage) {
   const dependencies = {};
