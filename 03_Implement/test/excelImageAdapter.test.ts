@@ -34,7 +34,12 @@ test('lists every picture with sheet, anchor, name, format, size and digest -- s
 
 test('a workbook without pictures yields nothing and no diagnostics', () => {
   const none = buildXlsxWithImages([{ name: 'S', cells: [[0, 0, 'x']] }], {});
-  assert.deepEqual(readExcelImages(none), { images: [], diagnostics: [], skipped: { shapes: 0, charts: 0 } });
+  assert.deepEqual(readExcelImages(none), {
+    images: [],
+    diagnostics: [],
+    snapshotHints: [],
+    skipped: { shapes: 0, charts: 0 },
+  });
 });
 
 test('candidates: package facts are observed/M0, the table relation is inferred/M1 geometry; digest is the fingerprint', () => {
@@ -161,6 +166,35 @@ test('drawing shapes and graphic frames are diagnosed instead of disappearing si
 
   assert.deepEqual(result.images, []);
   assert.deepEqual(result.skipped, { shapes: 2, charts: 1 });
+  assert.deepEqual(
+    result.snapshotHints,
+    [
+      {
+        ordinal: 1,
+        sheet: '構成図',
+        anchor: {
+          kind: 'twoCellAnchor',
+          from: { col: 0, row: 0 },
+          to: { col: 1, row: 1 },
+        },
+        range: 'A1:B2',
+        shapeCount: 2,
+        graphicFrameCount: 0,
+        reasonCode: 'drawing-two-cell-anchor',
+      },
+      {
+        ordinal: 2,
+        sheet: '構成図',
+        anchor: {
+          kind: 'absoluteAnchor',
+          extentEmu: { cx: 1000, cy: 1000 },
+        },
+        shapeCount: 0,
+        graphicFrameCount: 1,
+        reasonCode: 'drawing-absolute-anchor-needs-range',
+      },
+    ],
+  );
   assert.deepEqual(
     result.diagnostics.map((item) => [
       item.code,
