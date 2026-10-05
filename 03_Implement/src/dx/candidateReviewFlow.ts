@@ -35,6 +35,7 @@ import {
   extractFlatTextTree,
   extractJsonTree,
   extractTabularHierarchyTree,
+  extractYamlTree,
   extractXmlTree,
 } from '../cli/extractTree.js';
 import type {
@@ -157,7 +158,7 @@ function reviewObservationFile(sourcePath: string): string | undefined {
 }
 
 function supportedReviewSource(sourcePath: string): boolean {
-  return /\.(xlsx|xlsm|csv|xml|json|txt|text|log)$/iu.test(sourcePath);
+  return /\.(xlsx|xlsm|csv|xml|json|yaml|yml|txt|text|log)$/iu.test(sourcePath);
 }
 
 async function chooseSource(target?: vscode.Uri): Promise<string | undefined> {
@@ -178,6 +179,8 @@ async function chooseSource(target?: vscode.Uri): Promise<string | undefined> {
         'csv',
         'xml',
         'json',
+        'yaml',
+        'yml',
         'txt',
         'text',
         'log',
@@ -1081,9 +1084,11 @@ export async function reviewCandidates(
         })
       : picked.source.format === 'xml'
         ? extractXmlTree(commonTreeOptions)
-        : picked.source.format === 'text'
-          ? extractFlatTextTree(commonTreeOptions)
-          : extractJsonTree(commonTreeOptions);
+        : picked.source.format === 'yaml'
+          ? extractYamlTree(commonTreeOptions)
+          : picked.source.format === 'text'
+            ? extractFlatTextTree(commonTreeOptions)
+            : extractJsonTree(commonTreeOptions);
     if (result.problems.length > 0 || !result.extracted) {
       await vscode.window.showErrorMessage(
         `MMI: 取り込みに失敗しました: ${result.problems
