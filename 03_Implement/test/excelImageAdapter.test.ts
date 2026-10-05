@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 
-import { imageCandidates, readExcelImages, readImageBytes, relationToTables, type TableRect } from '../src/adapters/excelImageAdapter.js';
+import { imageCandidates, readExcelImages, readImageBytes, relationToTables, shapeCandidates, type TableRect } from '../src/adapters/excelImageAdapter.js';
 import { candidateProblem } from '../src/core/candidate.js';
 import { readZip, ZipError } from '../src/core/zipReader.js';
 import { buildXlsxWithImages, emfOf, pngOf, screenDesignWorkbook, zipOf } from './helpers/buildXlsxWithImages.js';
@@ -34,7 +34,7 @@ test('lists every picture with sheet, anchor, name, format, size and digest -- s
 
 test('a workbook without pictures yields nothing and no diagnostics', () => {
   const none = buildXlsxWithImages([{ name: 'S', cells: [[0, 0, 'x']] }], {});
-  assert.deepEqual(readExcelImages(none), { images: [], diagnostics: [], skipped: { shapes: 0, charts: 0 } });
+  assert.deepEqual(readExcelImages(none), { images: [], shapes: [], diagnostics: [], skipped: { shapes: 0, charts: 0 } });
 });
 
 test('candidates: package facts are observed/M0, the table relation is inferred/M1 geometry; digest is the fingerprint', () => {
@@ -160,6 +160,17 @@ test('drawing shapes and graphic frames are diagnosed instead of disappearing si
   const result = readExcelImages(bytes);
 
   assert.deepEqual(result.images, []);
+  assert.deepEqual(
+    result.shapes.map((shape) => ({
+      objectKind: shape.objectKind,
+      sheet: shape.sheet,
+      range: shape.range,
+    })),
+    [
+      { objectKind: 'shape', sheet: '構成図', range: 'A1:B2' },
+      { objectKind: 'connector', sheet: '構成図', range: 'A1:B2' },
+    ],
+  );
   assert.deepEqual(result.skipped, { shapes: 2, charts: 1 });
   assert.deepEqual(
     result.diagnostics.map((item) => [
@@ -173,7 +184,7 @@ test('drawing shapes and graphic frames are diagnosed instead of disappearing si
         'MMI_DRAWING_SHAPES_NOT_EXTRACTED',
         'warning',
         '構成図',
-        '2 shape/connector object(s) are present; MMI does not extract them yet',
+        '2 shape/connector object(s) are present; MMI exposes them as Candidates but does not extract them yet',
       ],
       [
         'MMI_DRAWING_GRAPHIC_FRAMES_NOT_EXTRACTED',
@@ -182,5 +193,111 @@ test('drawing shapes and graphic frames are diagnosed instead of disappearing si
         '1 graphic-frame object(s) are present; these may include charts or diagrams and are not extracted yet',
       ],
     ],
+  );
+});
+
+
+test('DrawingML shape properties become observed M0 shape Candidates', () => {
+  const drawing = [
+    '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">',
+    '<xdr:twoCellAnchor>',
+    '<xdr:from><xdr:col>1</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>2</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>',
+    '<xdr:to><xdr:col>4</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>5</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>',
+    '<xdr:sp>',
+    '<xdr:nvSpPr><xdr:cNvPr id="7" name="受付" descr="開始点"/></xdr:nvSpPr>',
+    '<xdr:spPr><a:prstGeom prst="roundRect"/></xdr:spPr>',
+    '<xdr:txBody><a:p><a:r><a:t>申請</a:t></a:r><a:r><a:t>受付</a:t></a:r></a:p></xdr:txBody>',
+    '</xdr:sp>',
+    '<xdr:clientData/>',
+    '</xdr:twoCellAnchor>',
+    '</xdr:wsDr>',
+  ].join('');
+  const bytes = buildXlsxWithImages(
+    [{ name: '業務フロー', rawDrawing: drawing }],
+    {},
+  );
+  const read = readExcelImages(bytes);
+  assert.equal(read.shapes.length, 1);
+  assert.deepEqual(read.shapes[0], {
+    ordinal: 1,
+    sheet: '業務フロー',
+    drawingPart: 'xl/drawings/drawing1.xml',
+    objectKind: 'shape',
+    objectId: '7',
+    name: '受付',
+    description: '開始点',
+    textRuns: ['申請', '受付'],
+    presetGeometry: 'roundRect',
+    anchor: {
+      kind: 'twoCellAnchor',
+      from: { col: 1, row: 2 },
+      to: { col: 3, row: 4 },
+    },
+    range: 'B3:D5',
+    structuralPath: 'drawing:xl/drawings/drawing1.xml#shape:7',
+  });
+
+  const candidate = shapeCandidates({
+    source: './flow.xlsx',
+    sourceDigest: 'sha256:' + 'a'.repeat(64),
+    shapes: read.shapes,
+  })[0];
+  assert.equal(candidate.kind, 'shape');
+  assert.equal(candidate.status, 'observed');
+  assert.equal(candidate.execution, 'deterministic');
+  assert.equal(candidate.method, 'M0');
+  assert.equal(candidate.locator.range, undefined);
+  assert.equal(
+    candidate.locator.structuralPath,
+    'drawing:xl/drawings/drawing1.xml#shape:7',
+  );
+  assert.equal(
+    candidate.claims.find((claim) => claim.aspect === 'location')?.value,
+    'B3:D5',
+  );
+  assert.deepEqual(
+    candidate.claims.find((claim) => claim.aspect === 'text-runs')?.value,
+    ['申請', '受付'],
+  );
+  assert.equal(candidateProblem(candidate), undefined);
+});
+
+test('shape content fingerprint is independent from its cell anchor', () => {
+  const makeDrawing = (startCol: number): string => [
+    '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">',
+    '<xdr:twoCellAnchor>',
+    `<xdr:from><xdr:col>${startCol}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>`,
+    `<xdr:to><xdr:col>${startCol + 2}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>2</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>`,
+    '<xdr:sp><xdr:nvSpPr><xdr:cNvPr id="3" name="処理"/></xdr:nvSpPr><xdr:spPr><a:prstGeom prst="rect"/></xdr:spPr><xdr:txBody><a:p><a:r><a:t>処理</a:t></a:r></a:p></xdr:txBody></xdr:sp>',
+    '<xdr:clientData/>',
+    '</xdr:twoCellAnchor>',
+    '</xdr:wsDr>',
+  ].join('');
+  const first = readExcelImages(buildXlsxWithImages(
+    [{ name: 'Flow', rawDrawing: makeDrawing(0) }],
+    {},
+  ));
+  const moved = readExcelImages(buildXlsxWithImages(
+    [{ name: 'Flow', rawDrawing: makeDrawing(4) }],
+    {},
+  ));
+  const inputDigest = 'sha256:' + 'b'.repeat(64);
+  const firstCandidate = shapeCandidates({
+    source: './flow.xlsx',
+    sourceDigest: inputDigest,
+    shapes: first.shapes,
+  })[0];
+  const movedCandidate = shapeCandidates({
+    source: './flow.xlsx',
+    sourceDigest: inputDigest,
+    shapes: moved.shapes,
+  })[0];
+  assert.notEqual(
+    first.shapes[0].range,
+    moved.shapes[0].range,
+  );
+  assert.equal(
+    firstCandidate.fingerprint.digest,
+    movedCandidate.fingerprint.digest,
   );
 });
