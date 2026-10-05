@@ -803,8 +803,31 @@ test('workbook shapes and graphic frames stay visible as drawing warnings', () =
   const codes = result.imageProblems.map((problem) => problem.code);
 
   assert.equal(result.extractedImages.length, 0);
+  assert.deepEqual(result.snapshotHints, [
+    {
+      ordinal: 1,
+      sheet: '構成図',
+      range: 'A1:B2',
+      fromCell: 'A1',
+      shapeCount: 2,
+      graphicFrameCount: 0,
+      reasonCode: 'drawing-two-cell-anchor',
+    },
+    {
+      ordinal: 2,
+      sheet: '構成図',
+      shapeCount: 0,
+      graphicFrameCount: 1,
+      reasonCode: 'drawing-absolute-anchor-needs-range',
+    },
+  ]);
   assert.ok(codes.includes('MMI_DRAWING_SHAPES_NOT_EXTRACTED'));
   assert.ok(codes.includes('MMI_DRAWING_GRAPHIC_FRAMES_NOT_EXTRACTED'));
+  assert.match(result.markdown, /## 図形のsnapshot候補/u);
+  assert.match(result.markdown, /#1 \[構成図\] A1:B2: 2個の図形・コネクタ/u);
+  assert.match(result.markdown, /snapshot hint #1として実行できます/u);
+  assert.match(result.markdown, /#2 \[構成図\] 絶対位置: 1個のgraphic frame/u);
+  assert.match(result.markdown, /snapshot範囲を原本で確認/u);
   assert.match(result.markdown, /## 画像・図形の注意/u);
   assert.match(result.markdown, /MMI_DRAWING_SHAPES_NOT_EXTRACTED/u);
   assert.match(result.markdown, /MMI_DRAWING_GRAPHIC_FRAMES_NOT_EXTRACTED/u);
