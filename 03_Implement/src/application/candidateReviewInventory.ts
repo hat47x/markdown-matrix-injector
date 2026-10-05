@@ -65,6 +65,10 @@ export type CandidateReviewInventoryItem =
 export interface CandidateReviewInventory {
   items: CandidateReviewInventoryItem[];
   imageDiagnostics: ImageDiagnostic[];
+  tabularHierarchyAbstention?: {
+    reasonCode: string;
+    evidence: string[];
+  };
 }
 
 export interface CandidateReviewInventoryOptions {
@@ -158,6 +162,9 @@ export function buildCandidateReviewInventory(
   const workbook = loadWorkbook({ absolutePath: sourcePath });
 
   const hierarchyItems: CandidateReviewInventoryItem[] = [];
+  let tabularHierarchyAbstention:
+    | CandidateReviewInventory['tabularHierarchyAbstention']
+    | undefined;
   if (options.tabularHierarchy) {
     const sheet = workbook.sheets[options.tabularHierarchy.sheet];
     if (!sheet) {
@@ -173,34 +180,56 @@ export function buildCandidateReviewInventory(
       config: options.tabularHierarchy.config,
     });
     if (hierarchy.status !== 'inferred') {
-      const detail = hierarchy.candidates[0]?.claims
-        .flatMap((claim) => claim.evidence ?? [])
-        .map((evidence) => evidence.detail)
-        .find((value): value is string => Boolean(value));
-      throw new Error(
-        `Configured hierarchy could not be determined (${hierarchy.reasonCode})${detail ? `: ${detail}` : ''}`,
+      tabularHierarchyAbstention = {
+        reasonCode: hierarchy.reasonCode,
+        evidence: hierarchy.candidates[0]?.claims
+          .flatMap((claim) => claim.evidence ?? [])
+          .map((evidence) =>
+            evidence.detail
+              ? `${evidence.code}: ${evidence.detail}`
+              : evidence.code)
+          ?? [],
+      };
+    } else {
+      const byKey = new Map(
+        hierarchy.nodes.map((node) => [node.key, node]),
+      );
+      const leafCountOf = (key: string): number => {
+        const node = byKey.get(key);
+        if (!node) {
+          throw new Error(`Hierarchy node not found: ${key}`);
+        }
+        return node.childKeys.length === 0
+          ? 1
+          : node.childKeys.reduce(
+              (count, childKey) => count + leafCountOf(childKey),
+              0,
+            );
+      };
+      hierarchyItems.push(
+        ...hierarchy.nodes.map((node) => ({
+          kind: 'tree' as const,
+          candidate: node.candidate,
+          pointer: node.structuralPath,
+          format: 'tabular' as const,
+          nodeType: 'table-node' as const,
+          childCount: node.childKeys.length,
+          leafCount: leafCountOf(node.key),
+          method: options.tabularHierarchy!.config.mode,
+          sheet: options.tabularHierarchy!.sheet,
+          tabularHierarchy: options.tabularHierarchy!.config,
+        })),
       );
     }
-    hierarchyItems.push(
-      ...hierarchy.nodes.map((node) => ({
-        kind: 'tree' as const,
-        candidate: node.candidate,
-        pointer: node.structuralPath,
-        format: 'tabular' as const,
-        nodeType: 'table-node' as const,
-        childCount: node.childKeys.length,
-        leafCount: 1,
-        method: options.tabularHierarchy!.config.mode,
-        sheet: options.tabularHierarchy!.sheet,
-        tabularHierarchy: options.tabularHierarchy!.config,
-      })),
-    );
   }
 
   if (options.hierarchyOnly) {
     return {
       items: hierarchyItems,
       imageDiagnostics: [],
+      ...(tabularHierarchyAbstention
+        ? { tabularHierarchyAbstention }
+        : {}),
     };
   }
 
@@ -230,6 +259,9 @@ export function buildCandidateReviewInventory(
     return {
       items: [...tableItems, ...hierarchyItems],
       imageDiagnostics: [],
+      ...(tabularHierarchyAbstention
+        ? { tabularHierarchyAbstention }
+        : {}),
     };
   }
 
@@ -249,5 +281,8 @@ export function buildCandidateReviewInventory(
   return {
     items: [...tableItems, ...imageItems, ...hierarchyItems],
     imageDiagnostics: read.diagnostics,
+    ...(tabularHierarchyAbstention
+      ? { tabularHierarchyAbstention }
+      : {}),
   };
 }
