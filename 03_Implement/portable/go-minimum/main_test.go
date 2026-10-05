@@ -181,6 +181,20 @@ func TestCSVConformanceCase(t *testing.T) {
 	}
 }
 
+func TestCSVLeadingBlankRowsConformanceCase(t *testing.T) {
+	actualResponse := runConformanceCase(
+		t,
+		"csv-leading-blank-rows.case.json",
+	)
+	if got := actualResponse.Candidates[0].Locator.Range; got != "A3:B5" {
+		t.Fatalf("range mismatch: %s", got)
+	}
+	if got := actualResponse.Candidates[0].Reference; got != "![[./fixture.csv#Sheet1|A3:B5?header=first]]" {
+		t.Fatalf("reference mismatch: %s", got)
+	}
+}
+
+
 func TestJSONTreeConformanceCase(t *testing.T) {
 	actualResponse := runConformanceCase(
 		t,
