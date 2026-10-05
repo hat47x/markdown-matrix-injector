@@ -6,11 +6,14 @@ import {
   type Candidate,
   type Claim,
 } from '../core/candidate.js';
+import { parseRangeToCellRange, rangeDimensions } from '../core/tableGeometry.js';
+import type { WorkbookData } from '../core/workbookLoader.js';
 import { readZip, ZipError, type ZipEntry } from '../core/zipReader.js';
 
 export const CHOICE_LIST_ADAPTER_ALGORITHM =
   'mmi.excel-data-validation-list';
-export const CHOICE_LIST_ADAPTER_VERSION = '1';
+export const CHOICE_LIST_ADAPTER_VERSION = '2';
+export const CHOICE_LIST_MAX_REFERENCED_CELLS = 10_000;
 
 const SPREADSHEET_NS =
   'http://schemas.openxmlformats.org/spreadsheetml/2006/main';
@@ -23,8 +26,14 @@ const XM_NS =
 
 export type ChoiceListSourceKind =
   | 'inline'
+  | 'range'
   | 'formula'
   | 'missing';
+
+export interface ChoiceListResolvedSource {
+  sheet: string;
+  range: string;
+}
 
 export interface ExcelChoiceList {
   ordinal: number;
@@ -33,6 +42,7 @@ export interface ExcelChoiceList {
   formula1?: string;
   sourceKind: ChoiceListSourceKind;
   choices?: readonly string[];
+  resolvedSource?: ChoiceListResolvedSource;
   allowBlank: boolean;
   candidate: Candidate;
 }
@@ -311,17 +321,132 @@ export function inlineChoiceValues(
   return body.split(',');
 }
 
-function sourceKindOf(
-  formula1: string,
-): {
+interface ChoiceSourceResolution {
   sourceKind: ChoiceListSourceKind;
   choices?: string[];
-} {
+  resolvedSource?: ChoiceListResolvedSource;
+}
+
+export function directChoiceRangeReference(
+  formula1: string,
+  currentSheet: string,
+): ChoiceListResolvedSource | undefined {
+  let formula = formula1.trim();
+  if (formula.startsWith('=')) formula = formula.slice(1).trim();
+  if (
+    !formula
+    || formula.startsWith('"')
+    || formula.includes('[')
+    || formula.includes(']')
+  ) {
+    return undefined;
+  }
+
+  const separator = formula.lastIndexOf('!');
+  let sheet = currentSheet;
+  let rangeToken = formula;
+  if (separator >= 0) {
+    const sheetToken = formula.slice(0, separator).trim();
+    rangeToken = formula.slice(separator + 1).trim();
+    if (!sheetToken) return undefined;
+    if (sheetToken.startsWith("'")) {
+      if (!sheetToken.endsWith("'") || sheetToken.length < 2) {
+        return undefined;
+      }
+      sheet = sheetToken.slice(1, -1).replace(/''/gu, "'");
+    } else {
+      if (/['"]/u.test(sheetToken)) return undefined;
+      sheet = sheetToken;
+    }
+  }
+
+  const range = rangeToken.replace(/\$/gu, '');
+  if (
+    !/^[A-Z]+[1-9]\d*(?::[A-Z]+[1-9]\d*)?$/iu.test(range)
+  ) {
+    return undefined;
+  }
+  return { sheet, range: range.toUpperCase() };
+}
+
+function resolveWorkbookSheet(
+  workbook: WorkbookData,
+  requestedName: string,
+): { name: string; sheet: WorkbookData['sheets'][string] } | undefined {
+  const exact = workbook.sheets[requestedName];
+  if (exact) return { name: requestedName, sheet: exact };
+
+  const matches = Object.keys(workbook.sheets).filter(
+    (name) => name.toLocaleLowerCase() === requestedName.toLocaleLowerCase(),
+  );
+  if (matches.length !== 1) return undefined;
+  const name = matches[0];
+  return { name, sheet: workbook.sheets[name] };
+}
+
+function sourceKindOf(
+  formula1: string,
+  currentSheet: string,
+  workbook?: WorkbookData,
+): ChoiceSourceResolution {
   if (!formula1) return { sourceKind: 'missing' };
-  const choices = inlineChoiceValues(formula1);
-  return choices
-    ? { sourceKind: 'inline', choices }
-    : { sourceKind: 'formula' };
+
+  const inline = inlineChoiceValues(formula1);
+  if (inline) return { sourceKind: 'inline', choices: inline };
+
+  const reference = directChoiceRangeReference(formula1, currentSheet);
+  if (!reference || !workbook) return { sourceKind: 'formula' };
+
+  const resolved = resolveWorkbookSheet(workbook, reference.sheet);
+  if (!resolved) return { sourceKind: 'formula' };
+
+  let parsedRange;
+  try {
+    parsedRange = parseRangeToCellRange(reference.range);
+  } catch {
+    return { sourceKind: 'formula' };
+  }
+
+  const dimensions = rangeDimensions(parsedRange);
+  if (
+    dimensions.cellCount < 1
+    || dimensions.cellCount > CHOICE_LIST_MAX_REFERENCED_CELLS
+    || (dimensions.rowCount > 1 && dimensions.columnCount > 1)
+  ) {
+    return { sourceKind: 'formula' };
+  }
+
+  const choices: string[] = [];
+  if (dimensions.rowCount === 1) {
+    for (
+      let col = parsedRange.startCol;
+      col <= parsedRange.endCol;
+      col += 1
+    ) {
+      choices.push(
+        resolved.sheet.cellAt(parsedRange.startRow, col)?.text ?? '',
+      );
+    }
+  } else {
+    for (
+      let row = parsedRange.startRow;
+      row <= parsedRange.endRow;
+      row += 1
+    ) {
+      choices.push(
+        resolved.sheet.cellAt(row, parsedRange.startCol)?.text ?? '',
+      );
+    }
+  }
+
+  return {
+    sourceKind: 'range',
+    choices,
+    resolvedSource: {
+      sheet: resolved.name,
+      range: reference.range,
+    },
+  };
 }
 
 function candidateFor(
@@ -330,8 +455,8 @@ function candidateFor(
   sheet: string,
   range: string,
   validation: RawListValidation,
+  parsed: ChoiceSourceResolution,
 ): Candidate {
-  const parsed = sourceKindOf(validation.formula1);
   const claims: Claim[] = [
     {
       aspect: 'location',
@@ -373,6 +498,16 @@ function candidateFor(
           method: 'M0' as const,
           reasonCode: 'data-validation-formula1-missing',
         }]),
+    ...(parsed.resolvedSource
+      ? [{
+          aspect: 'choice-source-location',
+          value: `${parsed.resolvedSource.sheet}!${parsed.resolvedSource.range}`,
+          status: 'observed' as const,
+          execution: 'deterministic' as const,
+          method: 'M0' as const,
+          reasonCode: 'data-validation-direct-range-reference',
+        }]
+      : []),
     ...(parsed.choices
       ? [{
           aspect: 'choices',
@@ -380,7 +515,9 @@ function candidateFor(
           status: 'observed' as const,
           execution: 'deterministic' as const,
           method: 'M0' as const,
-          reasonCode: 'data-validation-inline-list',
+          reasonCode: parsed.sourceKind === 'range'
+            ? 'data-validation-range-values'
+            : 'data-validation-inline-list',
         }]
       : [{
           aspect: 'choices',
@@ -402,7 +539,14 @@ function candidateFor(
   ];
 
   const fingerprintMaterial = parsed.choices
-    ? ['inline', ...parsed.choices]
+    ? parsed.resolvedSource
+      ? [
+          'range',
+          parsed.resolvedSource.sheet,
+          parsed.resolvedSource.range,
+          ...parsed.choices,
+        ]
+      : ['inline', ...parsed.choices]
     : [parsed.sourceKind, validation.formula1];
 
   const candidate: Candidate = {
@@ -449,6 +593,7 @@ export function readExcelChoiceLists(
   bytes: Uint8Array,
   source: string,
   sourceDigest: string,
+  workbook?: WorkbookData,
 ): ChoiceListReadResult {
   const result: ChoiceListReadResult = {
     lists: [],
@@ -550,13 +695,18 @@ export function readExcelChoiceLists(
       }
 
       for (const range of ranges) {
-        const parsed = sourceKindOf(validation.formula1);
+        const parsed = sourceKindOf(
+          validation.formula1,
+          sheet.name,
+          workbook,
+        );
         const candidate = candidateFor(
           source,
           sourceDigest,
           sheet.name,
           range,
           validation,
+          parsed,
         );
         result.lists.push({
           ordinal: result.lists.length + 1,
@@ -567,6 +717,9 @@ export function readExcelChoiceLists(
             : {}),
           sourceKind: parsed.sourceKind,
           ...(parsed.choices ? { choices: parsed.choices } : {}),
+          ...(parsed.resolvedSource
+            ? { resolvedSource: parsed.resolvedSource }
+            : {}),
           allowBlank: validation.allowBlank,
           candidate,
         });
