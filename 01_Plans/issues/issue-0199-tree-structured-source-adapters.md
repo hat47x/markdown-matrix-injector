@@ -31,7 +31,7 @@ MMIの認知は、明示構造を推測し直すためではなく、形式だ�
 
 ## Current slice
 
-JSONと汎用XMLに加え、安全subsetのYAML明示構造を同じ`tree` Candidate契約へ接続した。JSONとYAMLはobject / array、XMLはelementを`observed + deterministic + M0`として扱う。JSONとYAMLの位置にはRFC 6901 JSON Pointer、XMLにはqualified nameと同名兄弟の出現順から作るelement pathを`structuralPath`へ保持する。YAMLはYAML 1.2のJSON互換データモデルに限定し、anchor / alias / merge key / explicit tag / 非string key / 非finite numberをfail-closedで拒否する。これらYAML固有機能を解決してから「明示構造」と見なすことはしない。XMLの属性、本文、親子関係もClaimへ残す。
+JSONと汎用XMLに加え、安全subsetのYAML明示構造を同じ`tree` Candidate契約へ接続した。JSONとYAMLはobject / array、XMLはelementを`observed + deterministic + M0`として扱う。JSONとYAMLの位置にはRFC 6901 JSON Pointer、XMLにはqualified nameと同名兄弟の出現順から作るelement pathを`structuralPath`へ保持する。YAMLはYAML 1.2のJSON互換データモデルに限定し、anchor / alias / merge key / explicit tag / 非string key / 非finite numberをfail-closedで拒否する。JSON/YAMLの整数は、原本値を倍精度浮動小数点で損失なく保持できるJavaScript safe integer範囲に限定し、それを超える整数は丸めてCandidate化しない。これらYAML固有機能や表現不能な数値を変換してから「明示構造」と見なすことはしない。XMLの属性、本文、親子関係もClaimへ残す。
 
 CLIの`inspect`、`extract --tree`、VS CodeのCandidateレビュー、`mmi-ledger.json`、detach前のfreshness確認はJSON/XMLで同じ経路を使う。Portable Coreの`inspect`もJSON/XML Treeへ接続し、通常Adapter直呼びと同じCandidate列を返すconformanceを固定する。レビュー後の採用ではsubtree fingerprintを現在のsourceと再照合し、対象subtreeが変わっていれば採用しない。対象外のbranchだけが変わった場合は、同じsubtreeの採用を妨げない。
 
