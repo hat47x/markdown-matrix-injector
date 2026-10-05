@@ -149,3 +149,22 @@ test('JSON Tree rejects unpaired UTF-16 surrogate escapes before fingerprinting'
     ),
   );
 });
+
+
+test('JSON Tree rejects integers outside the portable safe-integer range', () => {
+  assert.throws(
+    () => readJsonTree(
+      '{"value":9007199254740992}',
+      './data/value.json',
+      sourceDigest,
+    ),
+    /safe-integer range/u,
+  );
+  assert.doesNotThrow(
+    () => readJsonTree(
+      '{"value":9007199254740991}',
+      './data/value.json',
+      sourceDigest,
+    ),
+  );
+});

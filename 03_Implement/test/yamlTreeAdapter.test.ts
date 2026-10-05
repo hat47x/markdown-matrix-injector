@@ -74,7 +74,7 @@ test('YAML Tree rejects anchors, aliases, merge keys and explicit tags', () => {
   }
 });
 
-test('YAML Tree rejects non-string keys, YAML 1.1 and non-finite numbers', () => {
+test('YAML Tree rejects non-string keys, YAML 1.1, non-finite and unsafe integers', () => {
   assert.throws(
     () => readYamlTree('1: value\n', './key.yaml', digest),
     /mapping keys must be strings/u,
@@ -90,6 +90,21 @@ test('YAML Tree rejects non-string keys, YAML 1.1 and non-finite numbers', () =>
   assert.throws(
     () => readYamlTree('value: .inf\n', './inf.yaml', digest),
     /numbers must be finite/u,
+  );
+  assert.throws(
+    () => readYamlTree(
+      'value: 9007199254740992\n',
+      './unsafe-integer.yaml',
+      digest,
+    ),
+    /safe-integer range/u,
+  );
+  assert.doesNotThrow(
+    () => readYamlTree(
+      'value: 9007199254740991\n',
+      './safe-integer.yaml',
+      digest,
+    ),
   );
 });
 
