@@ -110,6 +110,7 @@ TypeScriptの参照実装は現時点で`node:crypto`、SheetJS等を利用す�
 初期corpus:
 
 - CSV table Candidate
+- 先頭空レコードを含むCSV table Candidate（source coordinate保持）
 - JSON Tree Candidate
 - 汎用XML Tree Candidate
 - test内で生成するXLSX table Candidate
