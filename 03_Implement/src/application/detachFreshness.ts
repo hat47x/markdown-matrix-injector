@@ -2,6 +2,14 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { buildCandidateReviewInventory } from './candidateReviewInventory.js';
+import {
+  readTabularHierarchy,
+  type TabularHierarchyConfig,
+} from '../adapters/tabularHierarchyAdapter.js';
+import {
+  readSourceFileIdentity,
+} from '../core/sourceIdentity.js';
+import { loadWorkbook } from '../core/workbookLoader.js';
 import { fingerprintOf, type Candidate } from '../core/candidate.js';
 import {
   assessLedger,
@@ -50,6 +58,8 @@ interface ExtractedProvenance {
   sheet?: string;
   place?: string;
   fingerprintDigest: string;
+  projection?: string;
+  tabularHierarchy?: TabularHierarchyConfig;
 }
 
 /**
@@ -93,17 +103,36 @@ export function checkExtractedProvenanceFreshness(
       continue;
     }
 
-    let candidates = inventoryCache.get(sourcePath);
-    if (!candidates) {
-      const sourceLabel = path.relative(options.workspaceRoot, sourcePath).split(path.sep).join('/');
-      try {
-        candidates = candidatesFromCurrentSource(sourcePath, sourceLabel);
-      } catch (error) {
-        problems.push(problemFor(record, 'MMI_DETACH_EXTRACTED_CANDIDATE_MISSING',
-          `cannot inspect current source Candidate: ${error instanceof Error ? error.message : String(error)}`));
-        continue;
+    const sourceLabel = path.relative(
+      options.workspaceRoot,
+      sourcePath,
+    ).split(path.sep).join('/');
+    let candidates: Candidate[];
+    try {
+      if (
+        record.kind === 'tree'
+        && record.tabularHierarchy
+        && record.sheet
+      ) {
+        candidates = tabularHierarchyCandidatesFromCurrentSource(
+          sourcePath,
+          sourceLabel,
+          record.sheet,
+          record.tabularHierarchy,
+        );
+      } else {
+        const cached = inventoryCache.get(sourcePath);
+        if (cached) {
+          candidates = cached;
+        } else {
+          candidates = candidatesFromCurrentSource(sourcePath, sourceLabel);
+          inventoryCache.set(sourcePath, candidates);
+        }
       }
-      inventoryCache.set(sourcePath, candidates);
+    } catch (error) {
+      problems.push(problemFor(record, 'MMI_DETACH_EXTRACTED_CANDIDATE_MISSING',
+        `cannot inspect current source Candidate: ${error instanceof Error ? error.message : String(error)}`));
+      continue;
     }
 
     const current = candidatesForRecord(candidates, record);
@@ -205,12 +234,23 @@ function extractedProvenance(markdown: string): ExtractedProvenance[] {
         && Object.prototype.hasOwnProperty.call(attrs, 'path')
         && attrs['candidate-sha256']
       ) {
+        const tabularProvenance =
+          tabularHierarchyFromProvenance(attrs);
         records.push({
           line: index + 1,
           kind: 'tree',
           source: attrs.source,
+          ...(tabularProvenance?.sheet
+            ? { sheet: tabularProvenance.sheet }
+            : attrs.sheet
+              ? { sheet: attrs.sheet }
+              : {}),
           place: `path:${attrs.path}`,
           fingerprintDigest: normalizedSha256(attrs['candidate-sha256']),
+          ...(attrs.projection ? { projection: attrs.projection } : {}),
+          ...(tabularProvenance
+            ? { tabularHierarchy: tabularProvenance.config }
+            : {}),
         });
       }
     }
@@ -224,6 +264,87 @@ function candidatesFromCurrentSource(
 ): Candidate[] {
   return buildCandidateReviewInventory(sourcePath, sourceLabel)
     .items.map((item) => item.candidate);
+}
+
+function tabularHierarchyCandidatesFromCurrentSource(
+  sourcePath: string,
+  sourceLabel: string,
+  sheetName: string,
+  config: TabularHierarchyConfig,
+): Candidate[] {
+  const workbook = loadWorkbook({ absolutePath: sourcePath });
+  const sheet = workbook.sheets[sheetName];
+  if (!sheet) return [];
+  const sourceDigest = readSourceFileIdentity(sourcePath).digest;
+  return readTabularHierarchy({
+    source: sourceLabel,
+    sourceDigest,
+    sheetName,
+    sheet,
+    config,
+  }).candidates.slice();
+}
+
+type TabularHierarchyProvenance = {
+  sheet: string;
+  config: TabularHierarchyConfig;
+};
+
+function decodeProvenanceComponent(
+  value: string | undefined,
+): string | undefined {
+  if (value === undefined) return undefined;
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return undefined;
+  }
+}
+
+function tabularHierarchyFromProvenance(
+  attrs: Record<string, string>,
+): TabularHierarchyProvenance | undefined {
+  if (attrs.projection !== 'tabular-hierarchy-nested-list-v1') {
+    return undefined;
+  }
+  const sheet = decodeProvenanceComponent(attrs['sheet-uri']);
+  if (!sheet) return undefined;
+
+  if (attrs['hierarchy-mode'] === 'parent-id') {
+    const idHeader =
+      decodeProvenanceComponent(attrs['id-header-uri']);
+    const parentHeader =
+      decodeProvenanceComponent(attrs['parent-header-uri']);
+    const labelHeader =
+      decodeProvenanceComponent(attrs['label-header-uri']);
+    if (!idHeader || !parentHeader) return undefined;
+    return {
+      sheet,
+      config: {
+        mode: 'parent-id',
+        idHeader,
+        parentHeader,
+        ...(labelHeader ? { labelHeader } : {}),
+      },
+    };
+  }
+
+  if (attrs['hierarchy-mode'] === 'level') {
+    const levelHeader =
+      decodeProvenanceComponent(attrs['level-header-uri']);
+    const labelHeader =
+      decodeProvenanceComponent(attrs['label-header-uri']);
+    if (!levelHeader || !labelHeader) return undefined;
+    return {
+      sheet,
+      config: {
+        mode: 'level',
+        levelHeader,
+        labelHeader,
+      },
+    };
+  }
+  return undefined;
 }
 
 function attributes(text: string): Record<string, string> {
