@@ -13,6 +13,7 @@ import {
   type ImageDiagnostic,
 } from '../adapters/excelImageAdapter.js';
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
+import { decodeYamlUtf8, readYamlTree } from '../adapters/yamlTreeAdapter.js';
 import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import {
@@ -48,7 +49,7 @@ export type CandidateReviewInventoryItem =
       kind: 'tree';
       candidate: Candidate;
       pointer: string;
-      format: 'json' | 'xml' | 'text' | 'tabular';
+      format: 'json' | 'yaml' | 'xml' | 'text' | 'tabular';
       nodeType:
         | 'object'
         | 'array'
@@ -99,6 +100,29 @@ export function buildCandidateReviewInventory(
         candidate: node.candidate,
         pointer: node.pointer,
         format: 'json' as const,
+        nodeType: node.nodeType,
+        childCount: node.childPointers.length,
+        leafCount: node.leafValues.length,
+      })),
+      imageDiagnostics: [],
+    };
+  }
+
+  if (/\.(yaml|yml)$/iu.test(sourcePath)) {
+    const sourceBytes = fs.readFileSync(sourcePath);
+    const sourceDigest =
+      createSourceIdentityFromBytes(sourceBytes).digest;
+    const tree = readYamlTree(
+      decodeYamlUtf8(sourceBytes),
+      sourceLabel,
+      sourceDigest,
+    );
+    return {
+      items: tree.nodes.map((node) => ({
+        kind: 'tree' as const,
+        candidate: node.candidate,
+        pointer: node.pointer,
+        format: 'yaml' as const,
         nodeType: node.nodeType,
         childCount: node.childPointers.length,
         leafCount: node.leafValues.length,
