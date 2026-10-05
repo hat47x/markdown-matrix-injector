@@ -32,3 +32,12 @@ Licensed under the Apache License, Version 2.0.
 The complete license text is retained in the bundled `node_modules/saxes`
 package. `saxes` depends on `xmlchars@2.2.0` (MIT); its license text is
 retained in the bundled `node_modules/xmlchars` package.
+
+## YAML
+
+- Version: 2.9.1
+- Source: https://www.npmjs.com/package/yaml
+- License: ISC
+- MMIによるYAML sourceの変更: なし
+
+YAML parser packageの著作権表示とISCライセンス本文は、同梱する`node_modules/yaml`内の配布物を正とします。
