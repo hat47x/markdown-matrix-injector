@@ -83,9 +83,31 @@ export interface ExcelImage {
   extractable: boolean;
 }
 
+export type DrawingSnapshotHintReason =
+  | 'drawing-two-cell-anchor'
+  | 'drawing-one-cell-anchor-needs-range'
+  | 'drawing-absolute-anchor-needs-range';
+
+export interface DrawingSnapshotHint {
+  /** 1-based, in workbook/drawing-anchor order. */
+  ordinal: number;
+  sheet: string;
+  anchor: ImageAnchor;
+  /**
+   * Safe automatic snapshot range. Only two-cell anchors have a known cell
+   * rectangle. One-cell/absolute anchors remain visible but need user range.
+   */
+  range?: string;
+  shapeCount: number;
+  graphicFrameCount: number;
+  reasonCode: DrawingSnapshotHintReason;
+}
+
 export interface ImageReadResult {
   images: ExcelImage[];
   diagnostics: ImageDiagnostic[];
+  /** Anchored drawing regions that can be handed to region snapshot. */
+  snapshotHints: DrawingSnapshotHint[];
   /** Drawing objects seen but not extracted here: recorded, not interpreted. `charts` is the legacy graphicFrame count and may also include diagrams. */
   skipped: { shapes: number; charts: number };
 }
@@ -191,7 +213,12 @@ function columnLabel(index: number): string {
 const cellName = (point: CellPoint): string => `${columnLabel(point.col)}${point.row + 1}`;
 
 export function readExcelImages(bytes: Uint8Array): ImageReadResult {
-  const result: ImageReadResult = { images: [], diagnostics: [], skipped: { shapes: 0, charts: 0 } };
+  const result: ImageReadResult = {
+    images: [],
+    diagnostics: [],
+    snapshotHints: [],
+    skipped: { shapes: 0, charts: 0 },
+  };
   let zip: Map<string, ZipEntry>;
   try {
     zip = readZip(bytes);
@@ -263,6 +290,27 @@ export function readExcelImages(bytes: Uint8Array): ImageReadResult {
       }
       const anchor: ImageAnchor = { kind, ...(from ? { from } : {}), ...(to ? { to } : {}), ...(ext ? { extentEmu: { cx: Number(ext[1]), cy: Number(ext[2]) } } : {}) };
       const range = from ? (to && (to.col !== from.col || to.row !== from.row) ? `${cellName(from)}:${cellName(to)}` : cellName(from)) : undefined;
+
+      if (shapes > 0 || graphicFrames > 0) {
+        const snapshotRange = kind === 'twoCellAnchor' && from && to
+          ? (to.col !== from.col || to.row !== from.row
+              ? `${cellName(from)}:${cellName(to)}`
+              : cellName(from))
+          : undefined;
+        result.snapshotHints.push({
+          ordinal: result.snapshotHints.length + 1,
+          sheet: sheet.name,
+          anchor,
+          ...(snapshotRange ? { range: snapshotRange } : {}),
+          shapeCount: shapes,
+          graphicFrameCount: graphicFrames,
+          reasonCode: snapshotRange
+            ? 'drawing-two-cell-anchor'
+            : kind === 'oneCellAnchor'
+              ? 'drawing-one-cell-anchor-needs-range'
+              : 'drawing-absolute-anchor-needs-range',
+        });
+      }
 
       for (const picMatch of body.matchAll(/<(?:\w+:)?pic\b[\s\S]*?<\/(?:\w+:)?pic>/gu)) {
         const pic = picMatch[0];
