@@ -66,7 +66,10 @@ test('tabular Tree extraction records reviewed provenance and survives unrelated
     result.extracted.markdown,
     /projection="tabular-hierarchy-nested-list-v1"/u,
   );
-  assert.match(result.extracted.markdown, /sheet="Sheet1"/u);
+  assert.match(
+    result.extracted.markdown,
+    /sheet-uri="Sheet1"/u,
+  );
   assert.match(
     result.extracted.markdown,
     /hierarchy-mode="parent-id"/u,
@@ -192,5 +195,56 @@ test('tabular Tree extraction fails closed when the reviewed fingerprint changed
   assert.equal(
     changed.problems[0].code,
     'MMI_TREE_CANDIDATE_CHANGED',
+  );
+});
+
+
+test('tabular Tree provenance round-trips quoted and Unicode header names', () => {
+  const ws = workspace();
+  fs.writeFileSync(
+    ws.source,
+    [
+      '"識別""子","親 列","表示名"',
+      'A,,アカウント',
+      'A-1,A,作成',
+    ].join('\n'),
+    'utf8',
+  );
+
+  const specialConfig = {
+    mode: 'parent-id' as const,
+    idHeader: '識別"子',
+    parentHeader: '親 列',
+    labelHeader: '表示名',
+  };
+  const result = extractTabularHierarchyTree({
+    sourcePath: ws.source,
+    pointer: 'table-hierarchy:parent-id:id:A',
+    outDir: ws.assets,
+    fromDocument: ws.doc,
+    ledgerPath: ws.ledger,
+    sheet: 'Sheet1',
+    config: specialConfig,
+  });
+
+  assert.deepEqual(result.problems, []);
+  assert.ok(result.extracted);
+  assert.match(
+    result.extracted.markdown,
+    /id-header-uri="%E8%AD%98%E5%88%A5%22%E5%AD%90"/u,
+  );
+  fs.writeFileSync(
+    ws.doc,
+    `# Spec\n\n${result.extracted.markdown}\n`,
+    'utf8',
+  );
+
+  assert.deepEqual(
+    checkExtractedProvenanceFreshness({
+      markdownFilePath: ws.doc,
+      workspaceRoot: ws.root,
+      ledgerPath: ws.ledger,
+    }),
+    { checked: 1, errors: 0, problems: [] },
   );
 });
