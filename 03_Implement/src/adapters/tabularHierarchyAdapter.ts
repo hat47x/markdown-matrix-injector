@@ -11,12 +11,14 @@ export const TABULAR_HIERARCHY_ADAPTER_VERSION = '1';
 export type TabularHierarchyConfig =
   | {
       mode: 'parent-id';
+      headerRow?: number;
       idHeader: string;
       parentHeader: string;
       labelHeader?: string;
     }
   | {
       mode: 'level';
+      headerRow?: number;
       levelHeader: string;
       labelHeader: string;
     };
@@ -272,6 +274,23 @@ function resolveHeaders(
   | ResolvedHeaders
   | { reasonCode: string; columns: Record<string, number>; evidence: Evidence[] } {
   const range = input.sheet.usedRange!;
+  const headerRow = input.config.headerRow ?? range.startRow;
+  if (
+    !Number.isInteger(headerRow)
+    || headerRow < range.startRow
+    || headerRow > range.endRow
+  ) {
+    return {
+      reasonCode: 'tabular-hierarchy-header-row-invalid',
+      columns: {},
+      evidence: [{
+        code: 'configured-header-row-out-of-range',
+        detail:
+          `configured header row ${String(headerRow + 1)} is outside used rows ${headerRow + 1}-${range.endRow + 1}`,
+      }],
+    };
+  }
+
   const wanted = input.config.mode === 'parent-id'
     ? [
         ['id', input.config.idHeader],
@@ -289,7 +308,7 @@ function resolveHeaders(
   for (const [role, header] of wanted) {
     const matches: number[] = [];
     for (let col = range.startCol; col <= range.endCol; col += 1) {
-      if (input.sheet.cellAt(range.startRow, col)?.text.trim() === header.trim()) {
+      if (input.sheet.cellAt(headerRow, col)?.text.trim() === header.trim()) {
         matches.push(col);
       }
     }
@@ -299,7 +318,7 @@ function resolveHeaders(
         columns,
         evidence: [{
           code: 'configured-header-missing',
-          detail: `${role} header ${JSON.stringify(header)} was not found on row ${range.startRow + 1}`,
+          detail: `${role} header ${JSON.stringify(header)} was not found on row ${headerRow + 1}`,
         }],
       };
     }
@@ -316,7 +335,7 @@ function resolveHeaders(
     columns[role] = matches[0];
   }
 
-  return { headerRow: range.startRow, columns };
+  return { headerRow, columns };
 }
 
 function readParentRows(
