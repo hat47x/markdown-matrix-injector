@@ -86,6 +86,7 @@ import { extractImages, extractTable, formatImageDiagnostics } from './extract.j
 import {
   extractFlatTextTree,
   extractJsonTree,
+  extractTabularHierarchyTree,
   extractXmlTree,
 } from './extractTree.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './render.js';
@@ -127,8 +128,13 @@ Commands:
   extract <source>          Extract one reviewed Candidate as a standard asset without modifying the source
       --image <n|all>         workbook picture number shown by inspect, or all
       --table <range>         exact detected table Candidate range (requires --sheet)
-      --tree <path|root>      exact JSON/XML/flat-text Tree Candidate structural path shown by inspect;
+      --tree <path|root>      exact JSON/XML/flat-text/tabular Tree Candidate structural path shown by inspect;
                               root means the JSON/XML document root
+      --tree-parent-columns <list>
+                              tabular Tree: exact header names ID,Parent[,Label]
+      --tree-level-columns <list>
+                              tabular Tree: exact header names Level,Label
+      --sheet <name>          required when extracting a tabular Tree
       --sheet <name>          sheet for --table
                             Exactly one of --image, --table or --tree is required
       --out-dir <dir>         assets folder (default: assets); files are content-addressed
@@ -399,29 +405,68 @@ export async function main(argv: string[]): Promise<number> {
 
       if (values.tree !== undefined) {
         const pointer = values.tree === 'root' ? '' : values.tree;
-        const result = /\.xml$/iu.test(sourcePath)
-          ? extractXmlTree({
+        let tabularHierarchy: TabularHierarchyConfig | undefined;
+        try {
+          tabularHierarchy = parseTabularHierarchyConfig(
+            values['tree-parent-columns'],
+            values['tree-level-columns'],
+          );
+        } catch (error) {
+          return usageError(
+            error instanceof Error ? error.message : String(error),
+          );
+        }
+
+        const tabularSource = /\.(xlsx|xlsm|xls|csv)$/iu.test(sourcePath);
+        if (tabularSource && !tabularHierarchy) {
+          return usageError(
+            'extract --tree on workbook/CSV needs --tree-parent-columns or --tree-level-columns',
+          );
+        }
+        if (tabularHierarchy && !tabularSource) {
+          return usageError(
+            '--tree-parent-columns/--tree-level-columns apply only to workbook or CSV sources',
+          );
+        }
+        if (tabularHierarchy && !values.sheet) {
+          return usageError(
+            'extract --tree with tabular hierarchy columns needs --sheet <name>',
+          );
+        }
+
+        const result = tabularHierarchy
+          ? extractTabularHierarchyTree({
               sourcePath,
               pointer,
               outDir,
               fromDocument: values.from,
               ledgerPath,
+              sheet: values.sheet!,
+              config: tabularHierarchy,
             })
-          : /\.(txt|text|log)$/iu.test(sourcePath)
-            ? extractFlatTextTree({
+          : /\.xml$/iu.test(sourcePath)
+            ? extractXmlTree({
                 sourcePath,
                 pointer,
                 outDir,
                 fromDocument: values.from,
                 ledgerPath,
               })
-            : extractJsonTree({
-                sourcePath,
-                pointer,
-                outDir,
-                fromDocument: values.from,
-                ledgerPath,
-              });
+            : /\.(txt|text|log)$/iu.test(sourcePath)
+              ? extractFlatTextTree({
+                  sourcePath,
+                  pointer,
+                  outDir,
+                  fromDocument: values.from,
+                  ledgerPath,
+                })
+              : extractJsonTree({
+                  sourcePath,
+                  pointer,
+                  outDir,
+                  fromDocument: values.from,
+                  ledgerPath,
+                });
         if (values.json) emit(JSON.stringify(result, null, 2));
         else if (result.extracted) emit(result.extracted.markdown);
         for (const problem of result.problems) {
@@ -988,8 +1033,8 @@ export interface InspectRegion {
 export interface InspectTree {
   /** Format-native structural path. JSON uses RFC 6901; XML uses element paths. */
   pointer: string;
-  format?: 'json' | 'xml' | 'text';
-  nodeType: 'object' | 'array' | 'element' | 'text-node';
+  format?: 'json' | 'xml' | 'text' | 'table';
+  nodeType: 'object' | 'array' | 'element' | 'text-node' | 'row';
   childPointers: readonly string[];
   leafValues: readonly string[];
   sheet?: string;
