@@ -39,7 +39,7 @@ v1は`inspect`かつdeterministic-onlyに限定する。CSV / XLSX / XLSM / XML 
 
 CLIには`mmi core <request.json|->`を追加した。source bytesはrequest内にあるため、この経路はsource pathを探索・読込しない。process-levelのJSON境界として、将来の標準Go / TinyGo / WASM実装と同じrequestを比較できる。
 
-`test/fixtures/portable-core-v1/`へCSV表、JSON Tree、汎用XML Treeのconformance caseを追加した。`test/portableCoreProtocol.test.ts`では、fixtureのsource digest / Candidate種別 / locator / provenance / fingerprint representationを確認する。生成XLSXはportable経路と既存`tableCandidates()`直呼び、汎用XMLはportable経路と`readXmlTree()`直呼びのCandidate列が完全一致することを固定した。XML Spreadsheet 2003がTreeへ流れず、従来の表経路に残ることも確認対象にした。source名が存在しないpath風文字列でも埋込bytesだけで処理できること、空CSV、provider-dependent拒否、schema expansion拒否も対象とする。
+`test/fixtures/portable-core-v1/`へ通常のCSV表、先頭空レコードを含むCSV表、JSON Tree、汎用XML Treeのconformance caseを追加した。先頭空レコードのCSVは、TypeScript参照実装と標準Goの双方に`A3:B5`を要求し、source coordinateの一致を共有fixtureで固定する。`test/portableCoreProtocol.test.ts`では、fixtureのsource digest / Candidate種別 / locator / provenance / fingerprint representationを確認する。生成XLSXはportable経路と既存`tableCandidates()`直呼び、汎用XMLはportable経路と`readXmlTree()`直呼びのCandidate列が完全一致することを固定した。XML Spreadsheet 2003がTreeへ流れず、従来の表経路に残ることも確認対象にした。source名が存在しないpath風文字列でも埋込bytesだけで処理できること、空CSV、provider-dependent拒否、schema expansion拒否も対象とする。
 
 TypeScript参照実装の正本suiteは、この実行コンテナに`xlsx` / `tsx`がなく依存取得もできないため、まだ実行していない。標準GoではCSV最小実装についてshared `csv-table.case.json`を実行し、source digest、Candidate位置、provenance、fingerprint、referenceまで一致した。このCSV段階のGo test suiteはnativeと標準Go WASMの両方で通過している。その後、同じGo最小実装へJSON Treeを追加し、通常fixtureに加えてUTF-16 key順・JSON Pointer escape・subtree fingerprintを固定するshared conformance fixtureまで実装したが、追加後のGo suiteはこのセッションではまだ実行していない。
 
