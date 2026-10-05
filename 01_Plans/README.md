@@ -28,8 +28,8 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 | 2（既存） | [Excel範囲貼り付け](issues/issue-0114-excel-range-paste.md) | Open | Paste As宿主dispatchの自動E2Eを追加済み（実行確認待ち）。残: Windows実ExcelのHTML/helper/視覚picker実機証拠。表Candidateの `observed` / `inferred` を保ったまま、採用時にreviewを `accepted` とする経路として扱う |
 | 2（既存） | [CPUでの範囲探索](issues/issue-0115-cpu-range-search.md) | In Progress | 言い換え対応。Candidateの検索として扱う |
 | 2（既存） | [文脈に応じた補完](issues/issue-0110-contextual-input-completion.md)、[参照の作成・編集](issues/issue-0111-reference-authoring-flow.md) | In Progress | 多環境の実機確認、利用者の観測 |
-| **3 Source Adapterの一般化** | [Tree / Hierarchy、JSON/YAML/XML、フラットテキスト](issues/issue-0199-tree-structured-source-adapters.md) | **In Progress**（JSON/YAML/XMLのM0明示Tree、フラットテキストとExcel/CSV明示列設定のM1推定Treeを`inspect`/`extract`/レビュー/ledger/detach freshnessへ接続） | 次: Choice list / ListとTreeの共通Node表現を評価 |
-| 3 | Shape、Choice list | 未起票 | issue-0193・0199でNode/Candidate表現を固めてから起票 |
+| **3 Source Adapterの一般化** | [Tree / Hierarchy、JSON/YAML/XML、フラットテキスト](issues/issue-0199-tree-structured-source-adapters.md) | **In Progress**（Tree各形式を共通ライフサイクルへ接続。Excel Choice listは別kindのまま直接範囲参照をM0解決） | 次: structured artifactの`hierarchy_relation`をPerception providerとして接続し、Shape等はsource semanticsからCandidate化する |
+| 3 | Shape、その他List source | 未起票 | Choice listは既存`choice-list` Candidateを継続し、Treeへ強制統合しない。Shapeはissue-0193のCandidate/provenance契約へsource semanticsを写す |
 | 3（研究） | structured artifact（SAI）、worksheet format、[review route](issues/issue-0190-review-route-evaluation-pipeline-regression.md) | In Progress | 新しい研究段階は、issue-0193の対応表のどの行を強くするかを示してから始める |
 | **4 Detachability** | [実体化とdetach check](issues/issue-0196-materialize-detach-check.md) | **In Progress**（表・別紙・ローカル画像のmaterialize、採用済み表・画像・JSON/YAML/XML/フラットテキスト/表形式階層Treeのfreshness preflight、artifact closureを実装） | build/unitと実務E2Eを確認し、Shape等がExtracted可能になったら同じprovenance/freshness契約へ拡張 |
 | 4 | 参照台帳と影響分析 | 未起票 | issue-0195の台帳と合わせて設計 |
