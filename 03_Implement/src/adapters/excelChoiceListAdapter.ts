@@ -378,7 +378,7 @@ function resolveWorkbookSheet(
   if (exact) return { name: requestedName, sheet: exact };
 
   const matches = Object.keys(workbook.sheets).filter(
-    (name) => name.toLocaleLowerCase() === requestedName.toLocaleLowerCase(),
+    (name) => name.toLowerCase() === requestedName.toLowerCase(),
   );
   if (matches.length !== 1) return undefined;
   const name = matches[0];
@@ -401,7 +401,7 @@ function sourceKindOf(
   const resolved = resolveWorkbookSheet(workbook, reference.sheet);
   if (!resolved) return { sourceKind: 'formula' };
 
-  let parsedRange;
+  let parsedRange: ReturnType<typeof parseRangeToCellRange>;
   try {
     parsedRange = parseRangeToCellRange(reference.range);
   } catch {
