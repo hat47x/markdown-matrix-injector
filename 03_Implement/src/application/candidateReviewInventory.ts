@@ -12,6 +12,11 @@ import {
   type ExcelImage,
   type ImageDiagnostic,
 } from '../adapters/excelImageAdapter.js';
+import {
+  readExcelChoiceLists,
+  type ChoiceListDiagnostic,
+  type ExcelChoiceList,
+} from '../adapters/excelChoiceListAdapter.js';
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
 import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
@@ -45,6 +50,11 @@ export type CandidateReviewInventoryItem =
       image: ExcelImage;
     }
   | {
+      kind: 'choice-list';
+      candidate: Candidate;
+      choiceList: ExcelChoiceList;
+    }
+  | {
       kind: 'tree';
       candidate: Candidate;
       pointer: string;
@@ -65,6 +75,7 @@ export type CandidateReviewInventoryItem =
 export interface CandidateReviewInventory {
   items: CandidateReviewInventoryItem[];
   imageDiagnostics: ImageDiagnostic[];
+  choiceListDiagnostics?: ChoiceListDiagnostic[];
   tabularHierarchyAbstention?: {
     reasonCode: string;
     evidence: string[];
@@ -265,7 +276,13 @@ export function buildCandidateReviewInventory(
     };
   }
 
-  const read = readExcelImages(fs.readFileSync(sourcePath));
+  const packageBytes = fs.readFileSync(sourcePath);
+  const read = readExcelImages(packageBytes);
+  const choiceRead = readExcelChoiceLists(
+    packageBytes,
+    sourceLabel,
+    sourceDigest,
+  );
   const imageCandidateList = imageCandidates({
     source: sourceLabel,
     sourceDigest,
@@ -277,10 +294,22 @@ export function buildCandidateReviewInventory(
       candidate,
       image: read.images[index],
     }));
+  const choiceItems: CandidateReviewInventoryItem[] =
+    choiceRead.lists.map((choiceList) => ({
+      kind: 'choice-list' as const,
+      candidate: choiceList.candidate,
+      choiceList,
+    }));
 
   return {
-    items: [...tableItems, ...imageItems, ...hierarchyItems],
+    items: [
+      ...tableItems,
+      ...imageItems,
+      ...choiceItems,
+      ...hierarchyItems,
+    ],
     imageDiagnostics: read.diagnostics,
+    choiceListDiagnostics: choiceRead.diagnostics,
     ...(tabularHierarchyAbstention
       ? { tabularHierarchyAbstention }
       : {}),
