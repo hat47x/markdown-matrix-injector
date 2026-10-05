@@ -595,7 +595,7 @@ export function extractTabularHierarchyTree(
       || path.basename(options.sourcePath)
     );
 
-  let workbook;
+  let workbook: ReturnType<typeof loadWorkbook>;
   try {
     workbook = loadWorkbook({ absolutePath: options.sourcePath });
   } catch (error) {
