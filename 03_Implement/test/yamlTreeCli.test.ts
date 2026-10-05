@@ -228,7 +228,7 @@ test('CLI and extraction fail closed on malformed YAML features', async () => {
 
   assert.throws(
     () => inspectSource(f.source, 0),
-    /unsupported aliases or values/u,
+    /anchors are not supported/u,
   );
 
   const extracted = extractYamlTree({

@@ -71,6 +71,6 @@ test('Candidate review inventory rejects YAML alias semantics instead of flatten
 
   assert.throws(
     () => buildCandidateReviewInventory(source, 'service.yml'),
-    /unsupported aliases or values/u,
+    /anchors are not supported/u,
   );
 });
