@@ -46,6 +46,7 @@ import {
   type ImportDraftChoiceList,
   type ImportDraftChoiceListProblem,
   type ImportDraftProblem,
+  type ImportDraftSnapshotHint,
 } from './importDraft.js';
 import {
   readWorkbookStructureFromBytes,
