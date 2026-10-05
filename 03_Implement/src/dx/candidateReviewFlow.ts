@@ -93,6 +93,8 @@ function facetLabel(facet: CandidateReviewFacetSelection): string {
         return '$(file-media) 種別: 画像';
       case 'tree':
         return '$(list-tree) 種別: ツリー';
+      case 'choice-list':
+        return '$(list-selection) 種別: 選択肢';
       default:
         return `種別: ${facet.value}`;
     }
