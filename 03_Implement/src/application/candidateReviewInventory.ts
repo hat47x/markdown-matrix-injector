@@ -80,6 +80,14 @@ export interface CandidateReviewInventoryOptions {
   hierarchyOnly?: boolean;
 }
 
+export interface CandidateReviewInventoryOptions {
+  tabularHierarchy?: {
+    sheet: string;
+    config: TabularHierarchyConfig;
+    only?: boolean;
+  };
+}
+
 export function buildCandidateReviewInventory(
   sourcePath: string,
   sourceLabel: string,

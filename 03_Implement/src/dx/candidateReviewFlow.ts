@@ -58,6 +58,8 @@ export const REVIEW_CANDIDATES_COMMAND_ID =
   'markdownMatrixInjector.reviewCandidates';
 export const REVIEW_HIERARCHY_CANDIDATES_COMMAND_ID =
   'markdownMatrixInjector.reviewHierarchyCandidates';
+export const REVIEW_TABULAR_HIERARCHY_CANDIDATES_COMMAND_ID =
+  'markdownMatrixInjector.reviewTabularHierarchyCandidates';
 
 const FILTERS: readonly {
   value: CandidateLedgerFilter;
@@ -192,16 +194,21 @@ async function chooseSource(target?: vscode.Uri): Promise<string | undefined> {
   return picked?.[0]?.fsPath;
 }
 
-function supportedHierarchyReviewSource(sourcePath: string): boolean {
-  return /\.(xlsx|xlsm|xls|csv|xml)$/iu.test(sourcePath);
+function supportedHierarchyReviewSource(
+  sourcePath: string,
+  includeXml = true,
+): boolean {
+  return /\.(xlsx|xlsm|xls|csv)$/iu.test(sourcePath)
+    || (includeXml && /\.xml$/iu.test(sourcePath));
 }
 
 async function chooseHierarchySource(
   target?: vscode.Uri,
+  includeXml = true,
 ): Promise<string | undefined> {
   if (
     target?.scheme === 'file'
-    && supportedHierarchyReviewSource(target.fsPath)
+    && supportedHierarchyReviewSource(target.fsPath, includeXml)
   ) {
     return target.fsPath;
   }
@@ -210,9 +217,13 @@ async function chooseHierarchySource(
     canSelectFolders: false,
     canSelectMany: false,
     filters: {
-      'MMI hierarchy source': ['xlsx', 'xlsm', 'xls', 'csv', 'xml'],
+      'MMI hierarchy source': includeXml
+        ? ['xlsx', 'xlsm', 'xls', 'csv', 'xml']
+        : ['xlsx', 'xlsm', 'xls', 'csv'],
     },
-    title: 'MMI: 階層Candidateを確認するsourceを選択',
+    title: includeXml
+      ? 'MMI: 階層Candidateを確認するsourceを選択'
+      : 'MMI: 表の階層Candidateを確認するsourceを選択',
   });
   return picked?.[0]?.fsPath;
 }
@@ -534,10 +545,11 @@ interface ReviewCandidatesOptions {
   inventory?: CandidateReviewInventoryOptions;
 }
 
-export async function reviewHierarchyCandidates(
-  target?: vscode.Uri,
+async function reviewConfiguredHierarchy(
+  target: vscode.Uri | undefined,
+  includeXml: boolean,
 ): Promise<void> {
-  const sourcePath = await chooseHierarchySource(target);
+  const sourcePath = await chooseHierarchySource(target, includeXml);
   if (!sourcePath) return;
   const hierarchy = await chooseHierarchyConfig(sourcePath);
   if (!hierarchy) return;
@@ -550,6 +562,18 @@ export async function reviewHierarchyCandidates(
       },
     },
   );
+}
+
+export async function reviewHierarchyCandidates(
+  target?: vscode.Uri,
+): Promise<void> {
+  await reviewConfiguredHierarchy(target, true);
+}
+
+export async function reviewTabularHierarchyCandidates(
+  target?: vscode.Uri,
+): Promise<void> {
+  await reviewConfiguredHierarchy(target, false);
 }
 
 export async function reviewCandidates(

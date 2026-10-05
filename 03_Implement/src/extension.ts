@@ -61,8 +61,10 @@ import { IMPORT_WORKBOOK_COMMAND_ID, importFromWorkbook } from './dx/importFlow.
 import {
   REVIEW_CANDIDATES_COMMAND_ID,
   REVIEW_HIERARCHY_CANDIDATES_COMMAND_ID,
+  REVIEW_TABULAR_HIERARCHY_CANDIDATES_COMMAND_ID,
   reviewCandidates,
   reviewHierarchyCandidates,
+  reviewTabularHierarchyCandidates,
 } from './dx/candidateReviewFlow.js';
 import {
   CATALOG_INSERT_TABLE_COMMAND_ID,
@@ -217,6 +219,13 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
       REVIEW_HIERARCHY_CANDIDATES_COMMAND_ID,
       (target?: vscode.Uri) =>
         reviewHierarchyCandidates(
+          target instanceof vscode.Uri ? target : undefined,
+        ),
+    ),
+    vscode.commands.registerCommand(
+      REVIEW_TABULAR_HIERARCHY_CANDIDATES_COMMAND_ID,
+      (target?: vscode.Uri) =>
+        reviewTabularHierarchyCandidates(
           target instanceof vscode.Uri ? target : undefined,
         ),
     ),

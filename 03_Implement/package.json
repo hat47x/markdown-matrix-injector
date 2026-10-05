@@ -97,7 +97,8 @@
     "onCommand:markdownMatrixInjector.reviewCandidates",
     "onCommand:markdownMatrixInjector.reviewHierarchyCandidates",
     "onView:markdownMatrixInjector.tableCatalog",
-    "onLanguage:markdown"
+    "onLanguage:markdown",
+    "onCommand:markdownMatrixInjector.reviewTabularHierarchyCandidates"
   ],
   "contributes": {
     "markdown.markdownItPlugins": true,
@@ -166,6 +167,11 @@
         "category": "MMI"
       },
       {
+        "command": "markdownMatrixInjector.reviewTabularHierarchyCandidates",
+        "title": "%mmi.command.reviewTabularHierarchyCandidates%",
+        "category": "MMI"
+      },
+      {
         "command": "markdownMatrixInjector.catalog.refresh",
         "title": "%mmi.command.catalog.refresh%",
         "category": "MMI",
@@ -220,6 +226,10 @@
         {
           "command": "markdownMatrixInjector.catalog.selectFromTable",
           "when": "false"
+        },
+        {
+          "command": "markdownMatrixInjector.reviewHierarchyCandidates",
+          "when": "false"
         }
       ],
       "explorer/context": [
@@ -230,7 +240,12 @@
         },
         {
           "command": "markdownMatrixInjector.reviewHierarchyCandidates",
-          "when": "resourceExtname =~ /^\\.(xlsx|xlsm|xls|csv|xml)$/i",
+          "when": "resourceExtname =~ /^\\.xml$/i",
+          "group": "mmi@2"
+        },
+        {
+          "command": "markdownMatrixInjector.reviewTabularHierarchyCandidates",
+          "when": "resourceExtname =~ /^\\.(xlsx|xlsm|xls|csv)$/i",
           "group": "mmi@2"
         }
       ],
