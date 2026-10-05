@@ -16,6 +16,10 @@ import {
   type JsonValue,
 } from '../adapters/jsonTreeAdapter.js';
 import {
+  decodeYamlUtf8,
+  readYamlTree,
+} from '../adapters/yamlTreeAdapter.js';
+import {
   readXmlTree,
   resolveXmlTreePath,
   type XmlElementNode,
@@ -139,6 +143,7 @@ function provenanceComment(
   candidateFingerprint: string,
   projection:
     | 'json-nested-list-v1'
+    | 'yaml-nested-list-v1'
     | 'xml-nested-list-v1'
     | 'flat-text-nested-list-v1'
     | 'tabular-hierarchy-nested-list-v1',
@@ -151,14 +156,64 @@ function provenanceComment(
   return `<!-- mmi:extracted-tree source="${provenanceValue(source)}" path="${provenanceValue(pointer)}" source-sha256="${sourceDigest.slice(7)}" candidate-sha256="${candidateFingerprint.slice(7)}" projection="${projection}"${extraAttributes} -->`;
 }
 
+interface JsonCompatibleTreeAdapter {
+  sourcePattern: RegExp;
+  sourceDescription: string;
+  invalidCode: string;
+  pointerLabel: string;
+  projection: 'json-nested-list-v1' | 'yaml-nested-list-v1';
+  mode: 'json-nested-list-v1' | 'yaml-nested-list-v1';
+  read: (
+    bytes: Buffer,
+    source: string,
+    sourceDigest: string,
+  ) => ReturnType<typeof readJsonTree>;
+}
+
+const JSON_TREE_EXTRACTION: JsonCompatibleTreeAdapter = {
+  sourcePattern: /\.json$/iu,
+  sourceDescription: 'JSON',
+  invalidCode: 'MMI_TREE_JSON_INVALID',
+  pointerLabel: 'JSON Pointer',
+  projection: 'json-nested-list-v1',
+  mode: 'json-nested-list-v1',
+  read: (bytes, source, sourceDigest) =>
+    readJsonTree(decodeJsonUtf8(bytes), source, sourceDigest),
+};
+
+const YAML_TREE_EXTRACTION: JsonCompatibleTreeAdapter = {
+  sourcePattern: /\.(yaml|yml)$/iu,
+  sourceDescription: 'YAML',
+  invalidCode: 'MMI_TREE_YAML_INVALID',
+  pointerLabel: 'YAML normalized JSON Pointer',
+  projection: 'yaml-nested-list-v1',
+  mode: 'yaml-nested-list-v1',
+  read: (bytes, source, sourceDigest) =>
+    readYamlTree(decodeYamlUtf8(bytes), source, sourceDigest),
+};
+
 export function extractJsonTree(
   options: ExtractTreeOptions,
 ): ExtractTreeResult {
+  return extractJsonCompatibleTree(options, JSON_TREE_EXTRACTION);
+}
+
+export function extractYamlTree(
+  options: ExtractTreeOptions,
+): ExtractTreeResult {
+  return extractJsonCompatibleTree(options, YAML_TREE_EXTRACTION);
+}
+
+function extractJsonCompatibleTree(
+  options: ExtractTreeOptions,
+  adapter: JsonCompatibleTreeAdapter,
+): ExtractTreeResult {
   const result: ExtractTreeResult = { problems: [] };
-  if (!/\.json$/iu.test(options.sourcePath)) {
+  if (!adapter.sourcePattern.test(options.sourcePath)) {
     result.problems.push({
       code: 'MMI_TREE_SOURCE_UNSUPPORTED',
-      message: 'tree extraction currently supports JSON sources only',
+      message:
+        `${adapter.sourceDescription} Tree extraction requires a matching source file`,
     });
     return result;
   }
@@ -178,16 +233,12 @@ export function extractJsonTree(
       || path.basename(options.sourcePath)
     );
 
-  let tree;
+  let tree: ReturnType<JsonCompatibleTreeAdapter['read']>;
   try {
-    tree = readJsonTree(
-      decodeJsonUtf8(sourceBytes),
-      source,
-      sourceDigest,
-    );
+    tree = adapter.read(sourceBytes, source, sourceDigest);
   } catch (error) {
     result.problems.push({
-      code: 'MMI_TREE_JSON_INVALID',
+      code: adapter.invalidCode,
       message: error instanceof Error ? error.message : String(error),
     });
     return result;
@@ -201,7 +252,7 @@ export function extractJsonTree(
     result.problems.push({
       code: 'MMI_TREE_CANDIDATE_NOT_FOUND',
       message:
-        `no Tree Candidate at JSON Pointer ${options.pointer || '(root)'}; run \`mmi inspect\` to list detected Tree Candidates`,
+        `no Tree Candidate at ${adapter.pointerLabel} ${options.pointer || '(root)'}; run \`mmi inspect\` to list detected Tree Candidates`,
     });
     return result;
   }
@@ -213,7 +264,7 @@ export function extractJsonTree(
     result.problems.push({
       code: 'MMI_TREE_CANDIDATE_CHANGED',
       message:
-        `Tree Candidate at JSON Pointer ${options.pointer || '(root)'} changed after review; review the current Candidate before extraction`,
+        `Tree Candidate at ${adapter.pointerLabel} ${options.pointer || '(root)'} changed after review; review the current Candidate before extraction`,
     });
     return result;
   }
@@ -230,7 +281,7 @@ export function extractJsonTree(
       options.pointer,
       sourceDigest,
       candidate.fingerprint.digest,
-      'json-nested-list-v1',
+      adapter.projection,
     )
     + '\n';
   const data = Buffer.from(assetText, 'utf8');
@@ -283,7 +334,7 @@ export function extractJsonTree(
         file,
         'mmi extract --tree',
         {
-          mode: 'json-nested-list-v1',
+          mode: adapter.mode,
           pointer: options.pointer,
         },
       ),
@@ -292,7 +343,6 @@ export function extractJsonTree(
 
   return result;
 }
-
 
 function parseFlatTextTreePath(
   pointer: string,
