@@ -20,12 +20,14 @@
 import { createHash } from 'node:crypto';
 
 import type { Candidate, Claim, Evidence } from '../core/candidate.js';
-import { fingerprintOf } from '../core/candidate.js';
+import { candidateProblem, fingerprintOf } from '../core/candidate.js';
 import { readZip, ZipError, type ZipEntry } from '../core/zipReader.js';
 
 export const IMAGE_ADAPTER_ALGORITHM = 'mmi.excel-image-reader';
 /** Bump when parsing rules change in a way that can change output. */
 export const IMAGE_ADAPTER_VERSION = '1';
+export const SHAPE_ADAPTER_ALGORITHM = 'mmi.excel-drawing-shape-reader';
+export const SHAPE_ADAPTER_VERSION = '1';
 
 /** Formats Markdown/browsers can display; others are listed but not extractable. */
 export const EXTRACTABLE_FORMATS = ['png', 'jpeg', 'gif', 'bmp', 'svg'] as const;
@@ -83,10 +85,31 @@ export interface ExcelImage {
   extractable: boolean;
 }
 
+export interface ExcelDrawingShape {
+  /** 1-based, in workbook order. */
+  ordinal: number;
+  sheet: string;
+  drawingPart: string;
+  objectKind: 'shape' | 'connector';
+  /** DrawingML cNvPr id when present. */
+  objectId?: string;
+  name?: string;
+  description?: string;
+  textRuns: readonly string[];
+  presetGeometry?: string;
+  anchor: ImageAnchor;
+  /** A1 range covered by the anchor when a cell anchor exists. */
+  range?: string;
+  /** Source-native occurrence identity independent of shape content. */
+  structuralPath: string;
+}
+
 export interface ImageReadResult {
   images: ExcelImage[];
+  /** AutoShape / connector source objects. Reviewable, but not extracted assets yet. */
+  shapes: ExcelDrawingShape[];
   diagnostics: ImageDiagnostic[];
-  /** Drawing objects seen but not extracted here: recorded, not interpreted. `charts` is the legacy graphicFrame count and may also include diagrams. */
+  /** Drawing objects not extracted as Markdown assets. `charts` may also include diagrams. */
   skipped: { shapes: number; charts: number };
 }
 
@@ -191,7 +214,12 @@ function columnLabel(index: number): string {
 const cellName = (point: CellPoint): string => `${columnLabel(point.col)}${point.row + 1}`;
 
 export function readExcelImages(bytes: Uint8Array): ImageReadResult {
-  const result: ImageReadResult = { images: [], diagnostics: [], skipped: { shapes: 0, charts: 0 } };
+  const result: ImageReadResult = {
+    images: [],
+    shapes: [],
+    diagnostics: [],
+    skipped: { shapes: 0, charts: 0 },
+  };
   let zip: Map<string, ZipEntry>;
   try {
     zip = readZip(bytes);
@@ -264,6 +292,40 @@ export function readExcelImages(bytes: Uint8Array): ImageReadResult {
       const anchor: ImageAnchor = { kind, ...(from ? { from } : {}), ...(to ? { to } : {}), ...(ext ? { extentEmu: { cx: Number(ext[1]), cy: Number(ext[2]) } } : {}) };
       const range = from ? (to && (to.col !== from.col || to.row !== from.row) ? `${cellName(from)}:${cellName(to)}` : cellName(from)) : undefined;
 
+      for (const shapeMatch of body.matchAll(
+        /<(?:\w+:)?(sp|cxnSp)\b[^>]*(?:\/>|>[\s\S]*?<\/(?:\w+:)?\1>)/gu,
+      )) {
+        const shapeXml = shapeMatch[0];
+        const objectKind =
+          shapeMatch[1] === 'cxnSp' ? 'connector' as const : 'shape' as const;
+        const props = /<(?:\w+:)?cNvPr\b[^>]*>/u.exec(shapeXml);
+        const propsAttrs = props ? attributes(props[0]) : {};
+        const geometry = /<(?:\w+:)?prstGeom\b[^>]*>/u.exec(shapeXml);
+        const geometryAttrs = geometry ? attributes(geometry[0]) : {};
+        const textRuns = [...shapeXml.matchAll(
+          /<(?:\w+:)?t\b[^>]*>([\s\S]*?)<\/(?:\w+:)?t>/gu,
+        )].map((match) => decodeEntities(match[1]));
+        const ordinal = result.shapes.length + 1;
+        const nativeId = propsAttrs.id;
+        result.shapes.push({
+          ordinal,
+          sheet: sheet.name,
+          drawingPart: drawingRel.target,
+          objectKind,
+          ...(nativeId ? { objectId: nativeId } : {}),
+          ...(propsAttrs.name ? { name: propsAttrs.name } : {}),
+          ...(propsAttrs.descr ? { description: propsAttrs.descr } : {}),
+          textRuns,
+          ...(geometryAttrs.prst
+            ? { presetGeometry: geometryAttrs.prst }
+            : {}),
+          anchor,
+          ...(range ? { range } : {}),
+          structuralPath:
+            `drawing:${drawingRel.target}#${objectKind}:${nativeId ?? ordinal}`,
+        });
+      }
+
       for (const picMatch of body.matchAll(/<(?:\w+:)?pic\b[\s\S]*?<\/(?:\w+:)?pic>/gu)) {
         const pic = picMatch[0];
         const props = /<(?:\w+:)?cNvPr\b[^>]*>/u.exec(pic);
@@ -327,7 +389,7 @@ export function readExcelImages(bytes: Uint8Array): ImageReadResult {
         sheet: sheet.name,
         part: drawingRel.target,
         message:
-          `${skippedShapesOnSheet} shape/connector object(s) are present; MMI does not extract them yet`,
+          `${skippedShapesOnSheet} shape/connector object(s) are present; MMI exposes them as Candidates but does not extract them yet`,
       });
     }
     if (skippedGraphicFramesOnSheet > 0) {
@@ -440,3 +502,96 @@ export function imageCandidates(input: ImageCandidateInput): Candidate[] {
   });
 }
 
+
+
+export interface ShapeCandidateInput {
+  source: string;
+  sourceDigest: string;
+  shapes: readonly ExcelDrawingShape[];
+}
+
+export function shapeCandidates(input: ShapeCandidateInput): Candidate[] {
+  return input.shapes.map((shape) => {
+    const claims: Claim[] = [];
+    const observed = (
+      aspect: string,
+      value: Claim['value'],
+      reasonCode: string,
+      evidence?: Evidence[],
+    ): void => {
+      claims.push({
+        aspect,
+        value,
+        status: 'observed',
+        execution: 'deterministic',
+        method: 'M0',
+        reasonCode,
+        ...(evidence ? { evidence } : {}),
+      });
+    };
+
+    observed('object-type', shape.objectKind, 'drawingml-object-type');
+    observed('drawing-part', shape.drawingPart, 'package-drawing-part');
+    observed('anchor-kind', shape.anchor.kind, 'drawing-anchor-kind');
+    if (shape.range) observed('location', shape.range, 'drawing-anchor');
+    if (shape.objectId) {
+      observed('source-object-id', shape.objectId, 'drawing-cNvPr-id');
+    }
+    if (shape.name) observed('name', shape.name, 'drawing-property');
+    if (shape.description) {
+      observed('description', shape.description, 'drawing-property');
+    }
+    if (shape.textRuns.length > 0) {
+      observed('text-runs', [...shape.textRuns], 'drawingml-text');
+    }
+    if (shape.presetGeometry) {
+      observed(
+        'preset-geometry',
+        shape.presetGeometry,
+        'drawingml-prstGeom',
+      );
+    }
+
+    const candidate: Candidate = {
+      kind: 'shape',
+      locator: {
+        source: input.source,
+        sourceDigest: input.sourceDigest,
+        sheet: shape.sheet,
+        structuralPath: shape.structuralPath,
+      },
+      status: 'observed',
+      execution: 'deterministic',
+      method: 'M0',
+      claims,
+      provenance: {
+        algorithm: SHAPE_ADAPTER_ALGORITHM,
+        run: {
+          execution: 'deterministic',
+          inputDigest: input.sourceDigest,
+          config: { format: 'xlsx-drawingml-shape' },
+          implementationVersion: SHAPE_ADAPTER_VERSION,
+        },
+      },
+      fingerprint: fingerprintOf(
+        'excel-drawing-shape-v1',
+        JSON.stringify({
+          objectKind: shape.objectKind,
+          name: shape.name ?? '',
+          description: shape.description ?? '',
+          textRuns: shape.textRuns,
+          presetGeometry: shape.presetGeometry ?? '',
+        }),
+      ),
+      scores: [],
+    };
+
+    const problem = candidateProblem(candidate);
+    if (problem) {
+      throw new Error(
+        `invalid shape Candidate at ${shape.sheet}:${shape.structuralPath}: ${problem}`,
+      );
+    }
+    return candidate;
+  });
+}
