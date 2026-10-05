@@ -510,6 +510,31 @@ function quickPickItem(
     };
   }
 
+  if (source.kind === 'choice-list') {
+    const choice = source.choiceList;
+    const values = choice.choices
+      ? `${choice.choices.length}件: ${choice.choices.slice(0, 6).join(', ')}${choice.choices.length > 6 ? ', …' : ''}`
+      : choice.formula1
+        ? `参照式: ${choice.formula1}（値は未解決）`
+        : '参照元を読み取れません';
+    return {
+      label: `$(list-selection) 選択肢 ${choice.range}`,
+      description:
+        `${stateLabel(ledgerState)} · 採用: ${reviewStateLabel(reviewState)} · ${choice.sheet} ${choice.range}`,
+      detail: [
+        epistemicDetail(source.candidate),
+        values,
+        choice.allowBlank ? '空欄可' : '空欄不可',
+        providerEvidence,
+      ].join(' · '),
+      source,
+      rejected,
+      deferred,
+      reviewState,
+      ledgerState,
+    };
+  }
+
   return {
     label:
       `$(table) ${source.title ?? `${source.sheet} ${source.range}`}`,
@@ -605,6 +630,16 @@ export async function reviewCandidates(
       `MMI: 画像Candidateの一部を読み取れません: ${imageErrors
         .map((item) => item.message)
         .join(' / ')}。利用できる他のCandidateは引き続き確認できます。`,
+    );
+  }
+
+  const choiceListProblems = inventory.choiceListDiagnostics ?? [];
+  if (choiceListProblems.length > 0) {
+    await vscode.window.showWarningMessage(
+      `MMI: 選択肢Candidateに確認事項があります: ${choiceListProblems
+        .map((item) =>
+          `${item.sheet ? `${item.sheet}: ` : ''}${item.message}`)
+        .join(' / ')}。読み取れたCandidateは引き続き確認できます。`,
     );
   }
 
@@ -766,11 +801,18 @@ export async function reviewCandidates(
 
   const action = await vscode.window.showQuickPick(
     [
-      {
-        label: '取り込む',
-        value: 'extract' as const,
-        description: '既存のextract経路で標準資産と台帳へ記録',
-      },
+      ...(picked.source.kind === 'choice-list'
+        ? [{
+            label: '確認のみで次へ',
+            value: 'next' as const,
+            description:
+              'Excelの入力規則を変換せず、観測内容だけ確認して次へ進む',
+          }]
+        : [{
+            label: '取り込む',
+            value: 'extract' as const,
+            description: '既存のextract経路で標準資産と台帳へ記録',
+          }]),
       ...(picked.source.kind === 'tree'
         ? [{
             label: '確認のみで次へ',
@@ -886,6 +928,14 @@ export async function reviewCandidates(
     await vscode.window.showInformationMessage(
       'MMI: Candidateのレビュー状態を解除しました。',
     );
+    continue;
+  }
+
+  if (picked.source.kind === 'choice-list') {
+    await vscode.window.showErrorMessage(
+      'MMI: 選択肢CandidateはまだExtracted資産へ変換しません。確認・却下・保留のみ利用できます。',
+    );
+    processedKeys.add(candidateReviewSessionKey(picked.source.candidate));
     continue;
   }
 
