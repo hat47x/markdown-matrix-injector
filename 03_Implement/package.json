@@ -93,6 +93,7 @@
     "onCommand:markdownMatrixInjector.clearSearchIndex",
     "onCommand:markdownMatrixInjector.importFromWorkbook",
     "onCommand:markdownMatrixInjector.reviewCandidates",
+    "onCommand:markdownMatrixInjector.reviewTabularHierarchyCandidates",
     "onView:markdownMatrixInjector.tableCatalog",
     "onLanguage:markdown"
   ],
@@ -158,6 +159,11 @@
         "category": "MMI"
       },
       {
+        "command": "markdownMatrixInjector.reviewTabularHierarchyCandidates",
+        "title": "%mmi.command.reviewTabularHierarchyCandidates%",
+        "category": "MMI"
+      },
+      {
         "command": "markdownMatrixInjector.catalog.refresh",
         "title": "%mmi.command.catalog.refresh%",
         "category": "MMI",
@@ -219,6 +225,11 @@
           "command": "markdownMatrixInjector.importFromWorkbook",
           "when": "resourceExtname =~ /^\\.(xlsx|xlsm|xls|xml)$/i",
           "group": "mmi@1"
+        },
+        {
+          "command": "markdownMatrixInjector.reviewTabularHierarchyCandidates",
+          "when": "resourceExtname =~ /^\\.(xlsx|xlsm|xls|csv)$/i",
+          "group": "mmi@2"
         }
       ],
       "editor/context": [
