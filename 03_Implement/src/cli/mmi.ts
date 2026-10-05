@@ -402,6 +402,15 @@ export async function main(argv: string[]): Promise<number> {
       const sourcePath = path.resolve(args[0]);
       const outDir = path.resolve(values['out-dir'] ?? 'assets');
       const ledgerPath = path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE);
+      const hasTabularTreeColumns = Boolean(
+        values['tree-parent-columns']
+        || values['tree-level-columns'],
+      );
+      if (hasTabularTreeColumns && values.tree === undefined) {
+        return usageError(
+          '--tree-parent-columns/--tree-level-columns require extract --tree',
+        );
+      }
 
       if (values.tree !== undefined) {
         const pointer = values.tree === 'root' ? '' : values.tree;
