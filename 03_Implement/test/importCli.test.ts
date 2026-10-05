@@ -351,3 +351,91 @@ test('mmi import requires --copy-source to preserve the workbook extension', asy
   assert.match(result.err, /must keep the source extension/u);
   assert.equal(fs.existsSync(path.join(root, 'sources', 'legacy.bin')), false);
 });
+
+
+test('mmi import reports Excel choice-list evidence without treating it as extracted', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-choice-cli-'));
+  const source = path.join(root, 'form.xlsx');
+  const draft = path.join(root, 'form.md');
+  fs.writeFileSync(
+    source,
+    buildXlsxWithImages(
+      [{
+        name: '申請',
+        cells: [[0, 0, '状態']],
+        extraWorksheetXml: [
+          '<dataValidations count="1">',
+          '<dataValidation type="list" allowBlank="1" sqref="A2:A20">',
+          '<formula1>&quot;未着手,対応中,完了&quot;</formula1>',
+          '</dataValidation>',
+          '</dataValidations>',
+        ].join(''),
+      }],
+      {},
+    ),
+  );
+
+  const result = await quiet([
+    'import',
+    source,
+    '--root', root,
+    '--draft', draft,
+    '--json',
+  ]);
+
+  assert.equal(result.code, 0, result.err);
+  const summary = JSON.parse(result.out);
+  assert.equal(summary.status, 'created');
+  assert.equal(summary.choiceLists.length, 1);
+  assert.equal(summary.choiceLists[0].range, 'A2:A20');
+  assert.deepEqual(summary.choiceLists[0].choices, ['未着手', '対応中', '完了']);
+  assert.deepEqual(summary.choiceListProblems, []);
+  assert.deepEqual(summary.reviewSkippedChoiceLists, []);
+  assert.match(fs.readFileSync(draft, 'utf8'), /### Excelの選択肢/u);
+
+  const ledger = readLedger(path.join(root, 'mmi-ledger.json'));
+  assert.equal(
+    ledger.entries.some((entry) => entry.kind === 'choice-list'),
+    false,
+  );
+});
+
+test('mmi import keeps malformed choice-list metadata as a successful warning result', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-choice-warning-cli-'));
+  const source = path.join(root, 'form.xlsx');
+  const draft = path.join(root, 'form.md');
+  fs.writeFileSync(
+    source,
+    buildXlsxWithImages(
+      [{
+        name: '申請',
+        cells: [[0, 0, '状態']],
+        extraWorksheetXml:
+          '<dataValidations count="1"><dataValidation type="list" sqref="A2:A20"/></dataValidations>',
+      }],
+      {},
+    ),
+  );
+
+  const result = await quiet([
+    'import',
+    source,
+    '--root', root,
+    '--draft', draft,
+    '--json',
+  ]);
+
+  assert.equal(result.code, 0, result.err);
+  const summary = JSON.parse(result.out);
+  assert.equal(summary.status, 'created-with-warnings');
+  assert.equal(summary.choiceLists.length, 1);
+  assert.equal(
+    summary.choiceListProblems.some(
+      (problem: { code: string }) =>
+        problem.code === 'MMI_CHOICE_LIST_FORMULA_MISSING',
+    ),
+    true,
+  );
+  assert.match(result.err, /MMI_CHOICE_LIST_FORMULA_MISSING/u);
+  assert.match(fs.readFileSync(draft, 'utf8'), /## 選択肢の注意/u);
+});
