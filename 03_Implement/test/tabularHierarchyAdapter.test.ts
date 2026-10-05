@@ -250,6 +250,66 @@ test('missing or duplicate configured headers abstain instead of guessing anothe
   );
 });
 
+test('explicit header row supports title and note rows above a hierarchy table', () => {
+  const result = read([
+    ['Hierarchy export', '', ''],
+    ['Generated for review', '', ''],
+    ['ID', 'Parent', 'Name'],
+    ['A', '', 'Account'],
+    ['A-1', 'A', 'Create'],
+  ], {
+    mode: 'parent-id',
+    headerRow: 2,
+    idHeader: 'ID',
+    parentHeader: 'Parent',
+    labelHeader: 'Name',
+  });
+
+  assert.equal(result.status, 'inferred');
+  assert.deepEqual(
+    result.nodes.map((node) => [node.key, node.parentKey ?? null]),
+    [
+      ['A', null],
+      ['A-1', 'A'],
+    ],
+  );
+  assert.equal(
+    result.nodes[0].candidate.provenance.run.config.headerRow,
+    2,
+  );
+  assert.equal(
+    result.nodes[0].candidate.claims.find(
+      (claim) => claim.aspect === 'source-row',
+    )?.value,
+    '4',
+  );
+});
+
+test('configured header row outside the used range abstains instead of falling back', () => {
+  const result = read([
+    ['ID', 'Parent'],
+    ['A', ''],
+  ], {
+    mode: 'parent-id',
+    headerRow: 5,
+    idHeader: 'ID',
+    parentHeader: 'Parent',
+  });
+
+  assert.equal(result.status, 'abstained');
+  assert.equal(
+    result.reasonCode,
+    'tabular-hierarchy-header-row-invalid',
+  );
+  assert.equal(
+    result.candidates[0].claims
+      .flatMap((claim) => claim.evidence ?? [])
+      .some((evidence) =>
+        evidence.code === 'configured-header-row-out-of-range'),
+    true,
+  );
+});
+
 test('parent-ID subtree fingerprint survives row movement while source-row evidence changes', () => {
   const config: TabularHierarchyConfig = {
     mode: 'parent-id',
