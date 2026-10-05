@@ -10,6 +10,10 @@ import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 import { imageCandidates, readExcelImages } from '../adapters/excelImageAdapter.js';
+import {
+  readExcelChoiceLists,
+  type ExcelChoiceList,
+} from '../adapters/excelChoiceListAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import { extractImages, type ExtractProblem, type ExtractedImage } from '../cli/extract.js';
 import {
@@ -35,7 +39,14 @@ import {
   loadWorkbookFromBytes,
   type WorkbookData,
 } from '../core/workbookLoader.js';
-import { analyzeWorkbookForImport, renderImportDraft, type ImportDraftAsset, type ImportDraftProblem } from './importDraft.js';
+import {
+  analyzeWorkbookForImport,
+  renderImportDraft,
+  type ImportDraftAsset,
+  type ImportDraftChoiceList,
+  type ImportDraftChoiceListProblem,
+  type ImportDraftProblem,
+} from './importDraft.js';
 import {
   readWorkbookStructureFromBytes,
   type WorkbookStructure,
@@ -80,6 +91,14 @@ export interface ImportSkippedTable {
   message: string;
 }
 
+export interface ImportSkippedChoiceList {
+  sheet: string;
+  range: string;
+  decision: 'rejected' | 'deferred';
+  code: 'MMI_IMPORT_REVIEW_REJECTED' | 'MMI_IMPORT_REVIEW_DEFERRED';
+  message: string;
+}
+
 export interface WorkbookImportMaterialization {
   markdown: string;
   /** Source bytes used consistently for this materialization. */
@@ -93,6 +112,9 @@ export interface WorkbookImportMaterialization {
   imageProblems: ExtractProblem[];
   reviewSkippedImages: ImportSkippedImage[];
   reviewSkippedTables: ImportSkippedTable[];
+  choiceLists: ImportDraftChoiceList[];
+  choiceListProblems: ImportDraftChoiceListProblem[];
+  reviewSkippedChoiceLists: ImportSkippedChoiceList[];
 }
 
 export interface WorkbookImportPaths {
@@ -364,6 +386,48 @@ export function materializeWorkbookImport(
     })),
   };
 
+  let choiceLists: ImportDraftChoiceList[] = [];
+  let choiceListProblems: ImportDraftChoiceListProblem[] = [];
+  const reviewSkippedChoiceLists: ImportSkippedChoiceList[] = [];
+
+  if (/\.(xlsx|xlsm)$/iu.test(sourcePath)) {
+    const choiceRead = readExcelChoiceLists(
+      sourceBytes,
+      referencePath,
+      sourceDigest,
+    );
+    choiceListProblems = choiceRead.diagnostics.map((diagnostic) => ({
+      code: diagnostic.code,
+      message: diagnostic.message,
+      ...(diagnostic.sheet ? { sheet: diagnostic.sheet } : {}),
+    }));
+    for (const choice of choiceRead.lists) {
+      const reviewDecision = winningReviewDecision(
+        reviewDecisions,
+        reviewDecisionsPath,
+        ledger,
+        ledgerPath,
+        sourcePath,
+        choice.candidate,
+      );
+      if (reviewDecision) {
+        reviewSkippedChoiceLists.push({
+          sheet: choice.sheet,
+          range: choice.range,
+          decision: reviewDecision.decision,
+          code: reviewDecision.decision === 'rejected'
+            ? 'MMI_IMPORT_REVIEW_REJECTED'
+            : 'MMI_IMPORT_REVIEW_DEFERRED',
+          message: reviewDecision.decision === 'rejected'
+            ? '同一選択肢Candidateに有効な却下判断があります。'
+            : '同一選択肢Candidateに有効な保留判断があります。',
+        });
+        continue;
+      }
+      choiceLists.push(importDraftChoiceList(choice));
+    }
+  }
+
   let extractedImages: ExtractedImage[] = [];
   let imageProblems: ExtractProblem[] = [];
   let reviewSkippedImages: ImportSkippedImage[] = [];
@@ -468,6 +532,9 @@ export function materializeWorkbookImport(
     assetProblems: problems,
     reviewSkippedAssets: reviewSkippedImages,
     reviewSkippedTables,
+    choiceLists,
+    choiceListProblems,
+    reviewSkippedChoiceLists,
   };
 
   return {
@@ -481,11 +548,27 @@ export function materializeWorkbookImport(
     imageProblems,
     reviewSkippedImages,
     reviewSkippedTables,
+    choiceLists,
+    choiceListProblems,
+    reviewSkippedChoiceLists,
   };
 }
 
 
 
+
+
+function importDraftChoiceList(choice: ExcelChoiceList): ImportDraftChoiceList {
+  return {
+    ordinal: choice.ordinal,
+    sheet: choice.sheet,
+    range: choice.range,
+    sourceKind: choice.sourceKind,
+    ...(choice.formula1 ? { formula1: choice.formula1 } : {}),
+    ...(choice.choices ? { choices: [...choice.choices] } : {}),
+    allowBlank: choice.allowBlank,
+  };
+}
 
 function assertImportPathRoles(
   sourcePath: string,
