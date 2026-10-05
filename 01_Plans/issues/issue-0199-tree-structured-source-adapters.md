@@ -49,6 +49,18 @@ CLIでは`inspect --tree-parent-columns` / `--tree-level-columns`で列挙した
 
 VS Codeでは「表の列を指定して階層Candidateを確認」から、対象シートと親ID方式またはLevel方式、対応する列を明示して同じTree Candidateをレビューできる。通常のCandidateレビューに追加質問は入れず、階層を確認したいときだけ専用入口を使う。採用・却下・保留、fingerprint再照合、ledger、freshnessは既存レビュー経路を再利用し、別の権限体系や台帳は作らない。
 
+### Choice list / Listとの共通化評価（2026-10-05）
+
+ExcelのData Validation listを`choice-list` Candidateとして実装し、Treeとの共通Node化を評価した。結論として、`choice-list`を`tree`のNodeへ押し込めない。
+
+Tree / Hierarchyは、親子edge、`structuralPath`、subtree fingerprint、Projectionという構造上の意味を持つ。一方、Choice listは特定occurrenceへ付与された有限の選択領域であり、順序付きの値集合とsource occurrenceが中心である。親子関係を持たないChoice listへTreeのNode契約を適用すると、存在しないedgeやsubtree概念を作ることになる。
+
+共通化する層は、`Candidate`の認識論・実行方式、source locator、content fingerprint、provenance、review decision、ledger / freshnessとする。Treeは`kind=tree`、Choice listは`kind=choice-list`のまま同じライフサイクルへ載せる。
+
+PR #454では、Excelで一般的な直接範囲参照のData ValidationもM0で観測できるようにした。`Lists!$A$1:$A$3`、引用付きsheet名、同一sheetの絶対参照は、式を評価せず、同じworkbook snapshotの保存済み表示値から`choices`と参照元を得る。外部workbook、名前定義、`INDIRECT` / `OFFSET`等の式、2次元範囲、上限を超える範囲は推測せず`abstained`のまま残す。`inspect`、Candidateレビュー、一括取り込みは同じworkbook snapshotを使う。
+
+新しいList sourceが現れた場合も、まずそのsourceが階層なのか有限選択領域なのかを判定する。後者は既存`choice-list` Candidateへ写し、形式横断のNode抽象は具体的な共通操作が必要になった時点で再評価する。
+
 ## Validation plan
 
 JSON・YAML・XMLの明示構造はfixtureで親子関係、fingerprint、review guard、ledger、detach freshnessを確認する。YAMLではanchor / alias / merge key / explicit tag / 非string key / YAML 1.1 / 非finite number / 非UTF-8 bytesをfail-closedの回帰対象とする。XMLではnamespace未束縛、展開後の重複属性、不正な文字参照、非UTF-8 bytes・encoding宣言もfail-closedの回帰対象とする。配布CLIのoffline smokeでもJSON / YAML / XML Treeの`inspect` / `extract`を実行する。XML Spreadsheet 2003はTreeではなく既存の表経路へ残ることを確認する。
@@ -60,4 +72,5 @@ JSON・YAML・XMLの明示構造はfixtureで親子関係、fingerprint、review
 ## Remaining work
 
 - structured artifactの `hierarchy_relation` はissue-0193の対応表を通してPerception providerとして再利用する。
-- Choice list / ListはTreeと共通のNode表現を使えるか、実装時に判断する。
+- Shape等の次のSource Adapterは、TreeのNodeへ一般化することを先に目的化せず、観測できるsource semanticsを既存Candidate契約へ写す。
+- 新しいList sourceは、階層なら`tree`、有限選択領域なら`choice-list`として扱う。形式横断のNode抽象は具体的な共通操作が必要になった時点で再評価する。
