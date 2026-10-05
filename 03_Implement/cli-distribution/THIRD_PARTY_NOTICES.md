@@ -32,3 +32,15 @@ Licensed under the Apache License, Version 2.0.
 The complete license text is retained in the bundled `node_modules/saxes`
 package. `saxes` depends on `xmlchars@2.2.0` (MIT); its license text is
 retained in the bundled `node_modules/xmlchars` package.
+
+## yaml
+
+- Version: 2.9.1
+- Source: https://github.com/eemeli/yaml
+- License: ISC
+- Purpose in MMI: AST-preserving parsing of the restricted YAML Tree source profile
+
+MMI rejects anchors, aliases, merge keys, explicit tags, non-string mapping keys,
+YAML 1.1 documents and non-finite scalar numbers before treating YAML structure
+as an observed Tree. The complete license text is retained in the bundled
+`node_modules/yaml` package.

@@ -19,6 +19,7 @@ import {
 } from '../adapters/excelChoiceListAdapter.js';
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
 import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
+import { readYamlTree } from '../adapters/yamlTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import {
   readTabularHierarchy,
@@ -35,6 +36,7 @@ import {
   decodeGenericXmlUtf8,
   isXmlSpreadsheet2003Bytes,
 } from '../core/xmlFormat.js';
+import { decodeYamlUtf8 } from '../core/yamlFormat.js';
 
 export type CandidateReviewInventoryItem =
   | {
@@ -58,7 +60,7 @@ export type CandidateReviewInventoryItem =
       kind: 'tree';
       candidate: Candidate;
       pointer: string;
-      format: 'json' | 'xml' | 'text' | 'tabular';
+      format: 'json' | 'yaml' | 'xml' | 'text' | 'tabular';
       nodeType:
         | 'object'
         | 'array'
@@ -110,6 +112,29 @@ export function buildCandidateReviewInventory(
         candidate: node.candidate,
         pointer: node.pointer,
         format: 'json' as const,
+        nodeType: node.nodeType,
+        childCount: node.childPointers.length,
+        leafCount: node.leafValues.length,
+      })),
+      imageDiagnostics: [],
+    };
+  }
+
+  if (/\.ya?ml$/iu.test(sourcePath)) {
+    const sourceBytes = fs.readFileSync(sourcePath);
+    const sourceDigest =
+      createSourceIdentityFromBytes(sourceBytes).digest;
+    const tree = readYamlTree(
+      decodeYamlUtf8(sourceBytes),
+      sourceLabel,
+      sourceDigest,
+    );
+    return {
+      items: tree.nodes.map((node) => ({
+        kind: 'tree' as const,
+        candidate: node.candidate,
+        pointer: node.pointer,
+        format: 'yaml' as const,
         nodeType: node.nodeType,
         childCount: node.childPointers.length,
         leafCount: node.leafValues.length,

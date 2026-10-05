@@ -27,6 +27,7 @@ import {
 } from '../adapters/flatTextTreeStructuralizer.js';
 import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
 import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
+import { readYamlTree } from '../adapters/yamlTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import {
   readTabularHierarchy,
@@ -67,6 +68,7 @@ import {
   decodeGenericXmlUtf8,
   isXmlSpreadsheet2003Bytes,
 } from '../core/xmlFormat.js';
+import { decodeYamlUtf8 } from '../core/yamlFormat.js';
 import {
   createAiHandoffPackage,
   parseAiHandoffPackage,
@@ -92,6 +94,7 @@ import {
   extractJsonTree,
   extractTabularHierarchyTree,
   extractXmlTree,
+  extractYamlTree,
 } from './extractTree.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './render.js';
 
@@ -108,7 +111,7 @@ Commands:
   core <request.json|->     Execute one mmi.portable-core-request/v1 and emit JSON.
                             Use - to read the request from stdin; source bytes are embedded in the request.
                             This boundary performs no source-file discovery or VS Code access.
-  inspect <source>          List workbook/CSV regions or JSON/XML/flat-text Tree structure.
+  inspect <source>          List workbook/CSV regions or JSON/YAML/XML/flat-text Tree structure.
                             --json adds Semantic Candidates with status, method, provenance and fingerprint
       --values <n>            also print the first n body rows of each region
       --from <doc.md>         write suggested references relative to this document
@@ -126,14 +129,15 @@ Commands:
       --exclude-imported      hide exact imported occurrences; keep changed/stale/duplicate/unimported
                             For .xlsx/.xlsm it also lists embedded pictures and explicit Data Validation choice lists,
                             digest, nearest table) and names any that cannot be read.
-                            For .json it lists object/array nodes by RFC 6901 JSON Pointer.
+                            For .json and safe-subset .yaml/.yml it lists object/array nodes by RFC 6901 JSON Pointer.
+                            YAML anchors/aliases/merge keys/explicit tags/non-string keys are rejected.
                             Generic .xml lists explicit element nodes; XML Spreadsheet 2003 remains a table source.
                             .txt/.text/.log use deterministic M1 hierarchy hypotheses; conflicting methods are not merged.
   extract <source>          Extract one reviewed Candidate as a standard asset without modifying the source
       --image <n|all>         workbook picture number shown by inspect, or all
       --table <range>         exact detected table Candidate range (requires --sheet)
-      --tree <path|root>      exact JSON/XML/flat-text/tabular Tree Candidate structural path shown by inspect;
-                              root means the JSON/XML document root
+      --tree <path|root>      exact JSON/YAML/XML/flat-text/tabular Tree Candidate structural path shown by inspect;
+                              root means the JSON/YAML/XML document root
       --tree-parent-columns <list>
                               tabular Tree: exact header names ID,Parent[,Label]
       --tree-level-columns <list>
@@ -456,24 +460,32 @@ export async function main(argv: string[]): Promise<number> {
               sheet: values.sheet!,
               config: tabularHierarchy,
             })
-          : /\.xml$/iu.test(sourcePath)
-            ? extractXmlTree({
+          : /\.ya?ml$/iu.test(sourcePath)
+            ? extractYamlTree({
                 sourcePath,
                 pointer,
                 outDir,
                 fromDocument: values.from,
                 ledgerPath,
               })
-            : /\.(txt|text|log)$/iu.test(sourcePath)
-              ? extractFlatTextTree({
+            : /\.xml$/iu.test(sourcePath)
+              ? extractXmlTree({
+                sourcePath,
+                pointer,
+                outDir,
+                fromDocument: values.from,
+                ledgerPath,
+              })
+              : /\.(txt|text|log)$/iu.test(sourcePath)
+                ? extractFlatTextTree({
                   sourcePath,
                   pointer,
                   outDir,
                   fromDocument: values.from,
                   ledgerPath,
                 })
-              : extractJsonTree({
-                  sourcePath,
+                : extractJsonTree({
+                    sourcePath,
                   pointer,
                   outDir,
                   fromDocument: values.from,
@@ -1057,9 +1069,9 @@ export interface InspectRegion {
 }
 
 export interface InspectTree {
-  /** Format-native structural path. JSON uses RFC 6901; XML uses element paths. */
+  /** Format-native structural path. JSON/YAML use RFC 6901; XML uses element paths. */
   pointer: string;
-  format?: 'json' | 'xml' | 'text' | 'table';
+  format?: 'json' | 'yaml' | 'xml' | 'text' | 'table';
   nodeType: 'object' | 'array' | 'element' | 'text-node' | 'row';
   childPointers: readonly string[];
   leafValues: readonly string[];
@@ -1178,6 +1190,34 @@ export function inspectSource(
       trees: tree.nodes.map((node) => ({
         pointer: node.pointer,
         format: 'json' as const,
+        nodeType: node.nodeType,
+        childPointers: node.childPointers,
+        leafValues: node.leafValues,
+      })),
+      images: [],
+      choiceLists: [],
+      choiceListDiagnostics: [],
+      imageDiagnostics: [],
+      sheets: [],
+    };
+  }
+
+  if (/\.ya?ml$/iu.test(absolutePath)) {
+    const sourceBytes = fs.readFileSync(absolutePath);
+    const sourceDigest =
+      createSourceIdentityFromBytes(sourceBytes).digest;
+    const tree = readYamlTree(
+      decodeYamlUtf8(sourceBytes),
+      relative,
+      sourceDigest,
+    );
+    return {
+      source: relative,
+      candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
+      candidates: [...tree.candidates],
+      trees: tree.nodes.map((node) => ({
+        pointer: node.pointer,
+        format: 'yaml' as const,
         nodeType: node.nodeType,
         childPointers: node.childPointers,
         leafValues: node.leafValues,

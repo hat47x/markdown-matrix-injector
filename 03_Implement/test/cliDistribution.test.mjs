@@ -33,7 +33,9 @@ function fixture() {
     homepage: 'https://github.com/hat47x/markdown-matrix-injector#readme',
     dependencies: {
       'markdown-it': '^14.1.0',
+      saxes: '6.0.0',
       xlsx: 'https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz',
+      yaml: '2.9.1',
     },
     devDependencies: {
       typescript: '^5.9.2',
@@ -74,7 +76,9 @@ test('CLI distribution manifest contains runtime-only package contract', () => {
     repository: { type: 'git', url: 'https://example.invalid/repo' },
     dependencies: {
       'markdown-it': '^14.1.0',
+      saxes: '6.0.0',
       xlsx: 'https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz',
+      yaml: '2.9.1',
       developmentOnlyByMistake: '1.0.0',
     },
   });
@@ -93,7 +97,9 @@ test('CLI distribution manifest contains runtime-only package contract', () => {
   ]);
   assert.deepEqual(manifest.dependencies, {
     'markdown-it': '^14.1.0',
+    saxes: '6.0.0',
     xlsx: 'https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz',
+    yaml: '2.9.1',
   });
   assert.equal('publisher' in manifest, false);
   assert.equal('contributes' in manifest, false);
@@ -280,9 +286,11 @@ test('CLI manifest refuses a missing required runtime dependency', () => {
       license: 'MIT',
       dependencies: {
         'markdown-it': '^14.1.0',
+        saxes: '6.0.0',
+        xlsx: 'https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz',
       },
     }),
-    /runtime dependency: xlsx/u,
+    /runtime dependency: yaml/u,
   );
 });
 
