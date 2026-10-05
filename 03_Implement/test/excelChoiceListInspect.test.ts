@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { buildCandidateReviewInventory } from '../src/application/candidateReviewInventory.js';
 import { inspectSource } from '../src/cli/mmi.js';
 import { buildXlsxWithImages } from './helpers/buildXlsxWithImages.js';
 
@@ -114,4 +115,67 @@ test('inspect resolves direct range-backed choice lists from the same workbook s
     )?.status,
     'observed',
   );
+});
+
+
+test('Candidate review inventory sees the same resolved range choices as inspect', () => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'mmi-choice-range-review-'),
+  );
+  const source = path.join(root, 'form.xlsx');
+  fs.writeFileSync(
+    source,
+    buildXlsxWithImages(
+      [
+        {
+          name: '申請',
+          cells: [[0, 0, '担当']],
+          extraWorksheetXml: [
+            '<dataValidations count="1">',
+            '<dataValidation type="list" sqref="A2:A20">',
+            '<formula1>担当者!$A$2:$A$4</formula1>',
+            '</dataValidation>',
+            '</dataValidations>',
+          ].join(''),
+        },
+        {
+          name: '担当者',
+          cells: [
+            [0, 0, '氏名'],
+            [1, 0, '佐藤'],
+            [2, 0, '鈴木'],
+            [3, 0, '田中'],
+          ],
+        },
+      ],
+      {},
+    ),
+  );
+
+  const inspected = inspectSource(source, 0);
+  const reviewed = buildCandidateReviewInventory(
+    source,
+    './form.xlsx',
+  );
+  const inspectChoice = inspected.candidates.find(
+    (candidate) => candidate.kind === 'choice-list',
+  );
+  const reviewChoice = reviewed.items.find(
+    (item) => item.kind === 'choice-list',
+  );
+  assert.ok(inspectChoice);
+  assert.ok(reviewChoice && reviewChoice.kind === 'choice-list');
+  assert.equal(
+    reviewChoice.candidate.fingerprint.digest,
+    inspectChoice.fingerprint.digest,
+  );
+  assert.deepEqual(reviewChoice.choiceList.choices, [
+    '佐藤',
+    '鈴木',
+    '田中',
+  ]);
+  assert.deepEqual(reviewChoice.choiceList.resolvedSource, {
+    sheet: '担当者',
+    range: 'A2:A4',
+  });
 });
