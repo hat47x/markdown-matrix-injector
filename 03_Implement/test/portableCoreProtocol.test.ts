@@ -384,3 +384,22 @@ test('mmi core rejects malformed request JSON before invoking Core', async () =>
   assert.equal(result.code, 2);
   assert.equal(result.output, '');
 });
+
+
+test('portable Core v1 keeps YAML outside the frozen conformance scope', () => {
+  assert.throws(
+    () => runPortableCoreRequest({
+      schema: PORTABLE_CORE_REQUEST_SCHEMA,
+      operation: 'inspect',
+      source: {
+        name: 'service.yaml',
+        label: './service.yaml',
+        bytesBase64: Buffer.from(
+          'service:\n  name: billing\n',
+          'utf8',
+        ).toString('base64'),
+      },
+    }),
+    /unsupported portable core source format: \.yaml/u,
+  );
+});
