@@ -581,6 +581,21 @@ export async function reviewCandidates(
     return;
   }
 
+  if (inventory.tabularHierarchyAbstention) {
+    const detail = inventory.tabularHierarchyAbstention.evidence.length > 0
+      ? `: ${inventory.tabularHierarchyAbstention.evidence.join(' / ')}`
+      : '';
+    await vscode.window.showWarningMessage(
+      `MMI: 指定した階層列からTree Candidateを確定できません（${inventory.tabularHierarchyAbstention.reasonCode}）${detail}`,
+    );
+    if (
+      options.inventory?.hierarchyOnly
+      && inventory.items.length === 0
+    ) {
+      return;
+    }
+  }
+
   const imageErrors = inventory.imageDiagnostics.filter(
     (item) => item.severity === 'error',
   );

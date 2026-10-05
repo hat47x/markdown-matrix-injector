@@ -87,28 +87,82 @@ test('hierarchy-only review inventory exposes configured parent-ID Tree Candidat
   );
 });
 
-test('hierarchy review fails closed when configured columns cannot form a hierarchy', () => {
+test('hierarchy review surfaces abstention when configured columns cannot form a hierarchy', () => {
   const source = fixture([
     'ID,Parent',
     'A,Z',
   ].join('\n'));
 
-  assert.throws(
-    () => buildCandidateReviewInventory(
-      source,
-      'hierarchy.csv',
-      {
-        tabularHierarchy: {
-          sheet: 'Sheet1',
-          config: {
-            mode: 'parent-id',
-            idHeader: 'ID',
-            parentHeader: 'Parent',
-          },
+  const inventory = buildCandidateReviewInventory(
+    source,
+    'hierarchy.csv',
+    {
+      tabularHierarchy: {
+        sheet: 'Sheet1',
+        config: {
+          mode: 'parent-id',
+          idHeader: 'ID',
+          parentHeader: 'Parent',
         },
-        hierarchyOnly: true,
       },
-    ),
-    /tabular-hierarchy-parent-missing/u,
+      hierarchyOnly: true,
+    },
   );
+
+  assert.deepEqual(inventory.items, []);
+  assert.equal(
+    inventory.tabularHierarchyAbstention?.reasonCode,
+    'tabular-hierarchy-parent-missing',
+  );
+  assert.equal(
+    inventory.tabularHierarchyAbstention?.evidence.some(
+      (item) => item.includes('parent-id-missing'),
+    ),
+    true,
+  );
+});
+
+test('hierarchy review reports subtree leaf counts instead of a constant placeholder', () => {
+  const source = fixture([
+    'ID,Parent,Name',
+    'A,,Account',
+    'A-1,A,Create',
+    'A-2,A,Disable',
+    'A-2-a,A-2,Reason',
+  ].join('\n'));
+
+  const inventory = buildCandidateReviewInventory(
+    source,
+    'hierarchy.csv',
+    {
+      tabularHierarchy: {
+        sheet: 'Sheet1',
+        config: {
+          mode: 'parent-id',
+          idHeader: 'ID',
+          parentHeader: 'Parent',
+          labelHeader: 'Name',
+        },
+      },
+      hierarchyOnly: true,
+    },
+  );
+
+  const trees = inventory.items.filter(
+    (item) => item.kind === 'tree',
+  );
+  const root = trees.find(
+    (item) => item.kind === 'tree'
+      && item.pointer === 'table-hierarchy:parent-id:id:A',
+  );
+  const branch = trees.find(
+    (item) => item.kind === 'tree'
+      && item.pointer === 'table-hierarchy:parent-id:id:A-2',
+  );
+  assert.ok(root && root.kind === 'tree');
+  assert.ok(branch && branch.kind === 'tree');
+  assert.equal(root.childCount, 2);
+  assert.equal(root.leafCount, 2);
+  assert.equal(branch.childCount, 1);
+  assert.equal(branch.leafCount, 1);
 });
