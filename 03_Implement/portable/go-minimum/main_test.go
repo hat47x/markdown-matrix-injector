@@ -418,7 +418,7 @@ func TestCanonicalJSONMatchesJavaScriptUnicodeSemantics(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if rendered != ""  <>&"" {
+	if rendered != "\"\u2028\u2029<>&\"" {
 		t.Fatalf("string canonical form: got %q", rendered)
 	}
 }
