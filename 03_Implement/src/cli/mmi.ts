@@ -40,6 +40,7 @@ import {
   resolveCognitiveArtifact,
   type CognitiveArtifactManifestV0,
   type CognitiveArtifactResolution,
+  type RuntimeManagedArtifact,
 } from '../core/cognitiveArtifact.js';
 import { decodeJsonUtf8 } from '../core/jsonFormat.js';
 import {
@@ -376,7 +377,7 @@ export async function main(argv: string[]): Promise<number> {
         return 1;
       }
 
-      let runtimeArtifacts = [];
+      let runtimeArtifacts: RuntimeManagedArtifact[] = [];
       if (manifest.sources.some((source) => source.kind === 'runtime-managed')) {
         const discovered = await discoverLocalEmbeddingModels();
         runtimeArtifacts = discovered.map(runtimeManagedArtifactFromEmbeddingModel);
