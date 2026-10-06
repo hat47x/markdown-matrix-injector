@@ -705,6 +705,8 @@ export async function main(argv: string[]): Promise<number> {
         imageOutDir: portableDisplayPath(result.imageOutDir),
         extractedImages: result.extractedImages.length,
         imageProblems: result.imageProblems,
+        shapes: result.shapes,
+        reviewSkippedShapes: result.reviewSkippedShapes,
         reviewSkippedImages: result.reviewSkippedImages,
         reviewSkippedTables: result.reviewSkippedTables,
         choiceLists: result.choiceLists,
