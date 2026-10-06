@@ -4,8 +4,10 @@ import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import { type AutocompleteCandidate } from './autocompleteProvider.js';
 import { validateEmbedDiagnostics, type EmbedDiagnostic, type XmlMode } from './diagnostics.js';
-import { extractEmbedQueries } from '../parser/embedSyntax.js';
+import { extractEmbedQueries, parseEmbedSyntax } from '../parser/embedSyntax.js';
 import { isPathWithinBoundary } from '../core/pathResolver.js';
+import { checkExpectedHeaders, describeHeaderMismatch } from '../core/expectedHeaders.js';
+import type { WorkbookData } from '../core/workbookLoader.js';
 import {
   readTransferValuesFromDataTransfer,
   suggestEmbedFromTransferValues,
@@ -64,6 +66,8 @@ interface DiagnosticsDependencies {
   fileExists(filepath: string): Promise<boolean>;
   readFile(filepath: string): Promise<Uint8Array | Buffer | string>;
   readWorkbookSheetNames(filepath: string): Promise<readonly string[]>;
+  /** When given, `x-headers` is checked against the table the reference resolves to (ADR-0022). */
+  loadWorkbook?(filepath: string): WorkbookData;
 }
 
 export interface DocumentDiagnosticItem {
@@ -192,6 +196,35 @@ export async function createDiagnosticsForDocument(
         },
         range: rangeFromOffsets(text, match.absoluteStart + issue.start, match.absoluteStart + Math.max(issue.start + 1, issue.end)),
       });
+    }
+
+    // The headers the reference expected (x-headers) against the table it points at now.
+    // Only when the file and sheet resolved: a missing file or sheet is already reported above.
+    const headerSpan = /x-headers=[^&\]]*/u.exec(match.raw);
+    if (headerSpan && dependencies.loadWorkbook && fileExists && containmentOk !== false && xmlMode !== 'invalid' && sheetExists !== false) {
+      const query = parseEmbedSyntax(match.raw);
+      if (query) {
+        try {
+          const result = checkExpectedHeaders(query, dependencies.loadWorkbook(resolvedFilepath));
+          if (result && result.status !== 'ok') {
+            const start = headerSpan.index;
+            const end = start + headerSpan[0].length;
+            diagnostics.push({
+              diagnostic: {
+                severity: result.status === 'mismatch' ? 'warning' : 'information',
+                code: 'MMI_HEADERS_MISMATCH',
+                message: describeHeaderMismatch(result),
+                range: { start, end: end - 1 },
+                source: 'markdown-matrix-injector',
+                priority: 6,
+              },
+              range: rangeFromOffsets(text, match.absoluteStart + start, match.absoluteStart + end),
+            });
+          }
+        } catch {
+          // The workbook could not be read for another reason; those errors are reported elsewhere.
+        }
+      }
     }
   }
 

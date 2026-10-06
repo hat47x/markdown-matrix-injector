@@ -60,7 +60,7 @@ test('the catalog lists tables by source with column letters, and holds back cel
 test('columns are chosen by header name and rows by a keyword in one column, checked by rendering', () => {
   const book = analyzeBook(FEATURES, './features.xlsx');
   const exact = selectFromBook(book, './features.xlsx', { table: 'T_受注明細', columns: ['商品', '数量'], rows: { contains: 'ボルト', column: '商品' } });
-  assert.equal(exact.reference, '![[./features.xlsx#テーブル|B4:F8?columns=B,C&header=first&grep=ボルト]]');
+  assert.equal(exact.reference, '![[./features.xlsx#テーブル|B4:F8?columns=B,C&header=first&grep=ボルト&x-headers=商品,数量]]');
   assert.deepEqual(exact.rows, { mode: 'contains', shown: 2, ofTotal: 4, exact: true });
   assert.deepEqual(exact.preview?.headers, ['商品', '数量']);
 
@@ -70,7 +70,7 @@ test('columns are chosen by header name and rows by a keyword in one column, che
   assert.ok(loose.warnings.some((w) => w.code === 'GREP_NOT_EXACT' && w.message.includes('2行') && w.message.includes('4行')));
 
   const byName = selectFromBook(book, './features.xlsx', { table: '受注一覧', columns: ['顧客'] });
-  assert.equal(byName.reference, '![[./features.xlsx#名前|A1:D6?columns=B&header=first]]');
+  assert.equal(byName.reference, '![[./features.xlsx#名前|A1:D6?columns=B&header=first&x-headers=顧客]]');
 });
 
 test('selection errors name what is wrong and what exists', () => {
@@ -90,11 +90,11 @@ test('on a 方眼紙 grid, header names map to the merge anchors and the first r
   const file = gridBook(tmp());
   const book = analyzeBook(file, './画面定義書.xlsx');
   const required = selectFromBook(book, './画面定義書.xlsx', { sheet: '受注登録', table: '画面項目', columns: ['項目名', '必須'], rows: { contains: '○', column: '必須' } });
-  assert.equal(required.reference, '![[./画面定義書.xlsx#受注登録|B2:N6?columns=C,L&header=first&grep=○&mode=table]]');
+  assert.equal(required.reference, '![[./画面定義書.xlsx#受注登録|B2:N6?columns=C,L&header=first&grep=○&mode=table&x-headers=項目名,必須]]');
   // 「○×区分」 also contains ○ in 項目名: the grep shows it, and the result says so.
   assert.deepEqual(required.rows, { mode: 'contains', shown: 3, ofTotal: 4, exact: false });
   const top = selectFromBook(book, './画面定義書.xlsx', { sheet: '受注登録', table: '画面項目', columns: ['項目名'], rows: { first: 2 } });
-  assert.equal(top.reference, '![[./画面定義書.xlsx#受注登録|B2:N4?columns=C&header=first&mode=table]]');
+  assert.equal(top.reference, '![[./画面定義書.xlsx#受注登録|B2:N4?columns=C&header=first&mode=table&x-headers=項目名]]');
 });
 
 test('the CLI select prints the reference alone and signals failure with exit codes', () => {
@@ -110,7 +110,7 @@ test('the CLI select prints the reference alone and signals failure with exit co
 
   const selected = run([bookPath], { sheet: '受注登録', table: '画面項目', columns: '項目名,型', from: 'docs/設計.md' });
   assert.equal(selected.code, 0);
-  assert.equal(selected.out, '![[../画面定義書.xlsx#受注登録|B2:N6?columns=C,H&header=first&mode=table]]');
+  assert.equal(selected.out, '![[../画面定義書.xlsx#受注登録|B2:N6?columns=C,H&header=first&mode=table&x-headers=項目名,型]]');
 
   assert.equal(run([bookPath], {}).code, 2);
   assert.equal(run([bookPath], { table: 'x', contains: 'a', first: '1' }).code, 2);

@@ -10,6 +10,7 @@
  * any shown cell, not one column), the result says so with counts instead of
  * silently widening the selection.
  */
+import { encodeHeaderListForQuery, EXPECTED_HEADERS_PARAM, formatHeaderList } from '../core/expectedHeaders.js';
 import { buildLogicalTable } from '../core/renderTable.js';
 import { getSmartFallbackDecisionAfterLoad } from '../core/smartFallback.js';
 import { cellRangeToA1, indexToColumn } from '../core/tableGeometry.js';
@@ -147,6 +148,7 @@ export function selectFromBook(book: LoadedBook, referencePath: string, request:
   const reference = `![[${referencePath}#${table.sheet}|${a1}${params.length > 0 ? `?${params.join('&')}` : ''}]]`;
 
   // Check with the renderer.
+  let displayedHeaders: readonly string[] | undefined;
   const query = parseEmbedSyntax(reference);
   if (!query) {
     result.errors.push({ code: 'RENDER_FAILED', message: '参照を記法として解釈できませんでした。' });
@@ -174,11 +176,16 @@ export function selectFromBook(book: LoadedBook, referencePath: string, request:
     }
     result.rows = { mode: grep !== undefined ? 'contains' : rows && 'first' in rows ? 'first' : 'all', shown: logical.bodyRows.length, ofTotal: rows && 'first' in rows ? info.bodyRows : total, exact };
     result.preview = { headers: logical.headers, rows: logical.bodyRows.slice(0, 5) };
+    displayedHeaders = logical.headers;
   } catch (error) {
     result.errors.push({ code: 'RENDER_FAILED', message: `参照を描画できませんでした: ${(error as Error).message}` });
     return result;
   }
-  result.reference = reference;
+  // ADR-0022: record the headers the reference was written against, so a later column insertion in the
+  // source is reported instead of silently pointing at another column. Renderers ignore the key (spec P5).
+  result.reference = displayedHeaders && displayedHeaders.length > 0
+    ? reference.replace(/\]\]$/u, () => `&${EXPECTED_HEADERS_PARAM}=${encodeHeaderListForQuery(formatHeaderList(displayedHeaders!))}]]`)
+    : reference;
   result.ok = true;
   return result;
 }

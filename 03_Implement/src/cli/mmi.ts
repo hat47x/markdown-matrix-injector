@@ -1698,6 +1698,7 @@ export async function checkPaths(files: string[], root: string): Promise<CheckPr
       fileExists: async (filepath) => fs.existsSync(filepath) && fs.statSync(filepath).isFile(),
       readFile: async (filepath) => fs.readFileSync(filepath),
       readWorkbookSheetNames: async (filepath) => Object.keys(loadWorkbook({ absolutePath: filepath, cache }).sheets),
+      loadWorkbook: (filepath) => loadWorkbook({ absolutePath: filepath, cache }),
     });
     for (const { diagnostic, range } of items) {
       problems.push({

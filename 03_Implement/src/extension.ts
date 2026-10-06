@@ -1184,6 +1184,7 @@ async function refreshDiagnosticsForDocument(
       const workbook = XLSX.read(await fs.readFile(filepath), { type: 'buffer', dense: true, bookSheets: true });
       return [...workbook.SheetNames];
     },
+    loadWorkbook: (filepath) => loadWorkbook({ absolutePath: filepath, cache: previewRenderCache }),
   });
 
   const editor = vscode.window.visibleTextEditors.find((candidate) => candidate.document === document);

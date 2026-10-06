@@ -74,7 +74,7 @@ test('select --candidate takes a table Candidate straight from inspect, and sele
   const a = io();
   assert.equal(runSelect([file], { candidate: fingerprint, columns: '項目名,必須', from: path.join(dir, 'doc.md'), json: true }, a), 0);
   const selected = JSON.parse(a.lines.out.join(''));
-  assert.equal(selected.result.reference, '![[./設計.xlsx#画面|B2:J5?columns=C,H&header=first]]'.replace('./設計', './' + path.basename(file, '.xlsx')));
+  assert.equal(selected.result.reference, '![[./設計.xlsx#画面|B2:J5?columns=C,H&header=first&x-headers=項目名,必須]]'.replace('./設計', './' + path.basename(file, '.xlsx')));
   assert.equal(selected.candidate.fingerprint, fingerprint, 'the selection is traceable to the Candidate');
 
   const stale = io();

@@ -182,3 +182,16 @@ VS Code参照実装はUTF-8（BOM有無）を優先し、UTF-8として不正な
 対応の一例として、`hat47x/sei-cognition`のSemantic Reference Contract（`sei.semantic-reference/v1alpha1`）では、Exact Artifact Bindingが論理参照、内容のdigest、Representation Profileの識別子を組にする。上の表の「参照」「内容の同一性」「算出方式」がそれぞれに対応し、算出方式は`sei.raw-bytes+sha256/v1alpha1`にあたる。SEIはファイルパスを論理参照そのものにしないため、MMIの参照文字列は所在を示す情報として扱われる。
 
 > EN (informative): An external decision record can bind an MMI table slice as evidence by keeping the reference string (with the location of the referencing document), the SHA-256 of the resolved source file bytes, and optionally the notation version and conformance level. The digest covers the whole file, not the slice. This appendix adds no parameters and leaves P1, P4 and P5 unchanged.
+
+## 実験キー`x-headers`（非規範）
+
+[ADR-0022](../../01_Plans/adr/ADR-0022-semantic-selection-in-notation.md)の試行（選択肢B）として、参照実装は実験キー`x-headers`を検証に使う。このキーは**規範の一部ではない**。準拠プロセッサは、未知の`x-`キーとして無視してよく（P5）、無視しても表示は変わらない。
+
+```text
+![[./設計.xlsx#権限|A1:F13?header=first&columns=B,D&x-headers=操作,承認者]]
+```
+
+- **意味:** 参照を書いたときに表示されていた見出し（`header`で決まる見出し行）を、列の順に並べた期待値。カンマ区切りで、見出しの中のカンマは`\,`、バックスラッシュは`\`と書く。比較は前後の空白と連続する空白を整理してから行う。
+- **目的:** 正本で列の挿入・削除・並べ替えがあると、`columns=B,D`のような座標の指定は黙って別の列を指す。`x-headers`は、その食い違いを検査する側が見つけられるようにする。直すのは人かAIで、自動では追従しない。
+- **参照実装の動作:** 現在の表の見出しと期待値が違うと、診断`MMI_HEADERS_MISMATCH`（警告）を出す。`header`が無く見出し行がないときは情報を出す。ファイルやシートが解決できないときは、その診断だけを出す。表示・変換・Smart Fallbackには影響しない。`mmi select`は、見出しのある表の参照に自動で付ける。
+- **限界:** 同じ見出しの列が入れ替わった場合は検出できない。見出しの無い表には使えない。見出しの文言を人が直した場合も警告になる（意図した変更なら期待値を更新する）。
