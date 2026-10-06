@@ -46,6 +46,12 @@ export interface WorkerRefreshOptions {
   onProgress?: (done: number, total: number) => void;
 }
 
+function abortedQueryError(): Error {
+  const error = new Error('MMI table-search query was cancelled.');
+  error.name = 'AbortError';
+  return error;
+}
+
 export interface WorkspaceSearchWorkerClientOptions {
   /** Test seam; production uses the compiled sibling worker module. */
   workerUrl?: URL;
@@ -107,11 +113,41 @@ export class WorkspaceSearchWorkerClient {
     return result;
   }
 
-  query(text: string, markdownFilePath: string, maxCandidates = 5, semantic?: SemanticSetting): Promise<CompileResult> {
+  query(
+    text: string,
+    markdownFilePath: string,
+    maxCandidates = 5,
+    semantic?: SemanticSetting,
+    signal?: AbortSignal,
+  ): Promise<CompileResult> {
+    if (signal?.aborted) {
+      return Promise.reject(abortedQueryError());
+    }
+
     const id = this.nextId++;
     return new Promise<CompileResult>((resolve, reject) => {
-      this.pending.set(id, { resolve, reject });
-      this.worker.postMessage({ kind: 'query', id, text, markdownFilePath, maxCandidates, ...(semantic ? { semantic } : {}) });
+      const onAbort = (): void => {
+        const pending = this.pending.get(id);
+        if (!pending) return;
+        this.pending.delete(id);
+        pending.cleanup?.();
+        this.worker.postMessage({ kind: 'cancel', requestId: id });
+        reject(abortedQueryError());
+      };
+      signal?.addEventListener('abort', onAbort, { once: true });
+      this.pending.set(id, {
+        resolve,
+        reject,
+        cleanup: () => signal?.removeEventListener('abort', onAbort),
+      });
+      this.worker.postMessage({
+        kind: 'query',
+        id,
+        text,
+        markdownFilePath,
+        maxCandidates,
+        ...(semantic ? { semantic } : {}),
+      });
     });
   }
 
