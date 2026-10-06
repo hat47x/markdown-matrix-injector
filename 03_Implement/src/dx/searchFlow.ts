@@ -28,10 +28,14 @@ export function readSemanticSetting(): SemanticSetting | undefined {
   if (config.get<boolean>('search.semantic.enabled', false) !== true) return undefined;
   const model = (config.get<string>('search.semantic.model', '') ?? '').trim();
   if (model === '') return undefined;
+  const artifactDigest = (
+    config.get<string>('search.semantic.artifactDigest', '') ?? ''
+  ).trim();
   return {
     api: config.get<'ollama' | 'openai-compatible'>('search.semantic.api', 'ollama'),
     endpoint: config.get<string>('search.semantic.endpoint', 'http://127.0.0.1:11434'),
     model,
+    ...(artifactDigest ? { expectedArtifactDigest: artifactDigest } : {}),
     minScore: config.get<number>('search.semantic.minScore', 0.6),
     queryPrefix: config.get<string>('search.semantic.queryPrefix', ''),
     documentPrefix: config.get<string>('search.semantic.documentPrefix', ''),

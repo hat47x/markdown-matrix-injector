@@ -389,6 +389,11 @@
           "default": "",
           "markdownDescription": "%mmi.setting.semanticModel%"
         },
+        "markdownMatrixInjector.search.semantic.artifactDigest": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%mmi.setting.semanticArtifactDigest%"
+        },
         "markdownMatrixInjector.search.semantic.minScore": {
           "type": "number",
           "default": 0.6,

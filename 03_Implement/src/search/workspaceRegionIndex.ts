@@ -16,6 +16,10 @@ import type { WorkbookData } from '../core/workbookLoader.js';
 import { compileQuery, type CompileResult, type QueryAliasRule } from './nlQuery/compiler.js';
 import { indexWorkbookFiles, RegionCatalog, type BookStat, type IndexFilesResult } from './regionCatalog.js';
 import { createEmbeddingProvider, type EmbeddingProvider, type EmbeddingProviderConfig, type FetchLike } from './semantic/embeddingProvider.js';
+import {
+  verifyEmbeddingArtifactIdentity,
+  type DiscoveryFetch,
+} from './semantic/runtimeDiscovery.js';
 import { semanticCandidates, SemanticRegionRanker, type SemanticLaneOptions } from './semantic/semanticLane.js';
 import { RegionSearchIndex, type RetrievalMethod } from './searchIndex.js';
 import type { RegionRecord } from './regionCatalog.js';
@@ -60,8 +64,10 @@ export interface WorkspaceRegionIndexOptions {
   queryAliases?: readonly QueryAliasRule[];
   /** Upper bound on indexed regions (memory cap). */
   maxRegions?: number;
-  /** Test seam for the experimental semantic lane's HTTP call. */
+  /** Test seam for the experimental semantic lane's embedding HTTP call. */
   embeddingFetch?: FetchLike;
+  /** Test seam for runtime-native artifact identity verification. */
+  semanticIdentityFetch?: DiscoveryFetch;
 }
 
 export interface RefreshResult extends IndexFilesResult {
@@ -73,6 +79,12 @@ export interface RefreshResult extends IndexFilesResult {
 export interface SemanticSetting extends EmbeddingProviderConfig, SemanticLaneOptions {
   /** Above this many regions the semantic lane is skipped (every region is embedded once). */
   maxRegions?: number;
+  /**
+   * Optional runtime-native cryptographic identity captured when the user
+   * selected the model. When present, semantic ranking runs only while the
+   * runtime still reports the same artifact.
+   */
+  expectedArtifactDigest?: string;
 }
 
 const DEFAULT_SEMANTIC_MAX_REGIONS = 3000;
@@ -166,14 +178,33 @@ export class WorkspaceRegionIndex {
     if (regions.length === 0 || regions.length > (setting.maxRegions ?? DEFAULT_SEMANTIC_MAX_REGIONS)) return result;
     let active: NonNullable<typeof this.semantic>;
     try {
-      const key = JSON.stringify([setting.api, setting.endpoint, setting.model, setting.queryPrefix, setting.documentPrefix]);
+      if (setting.expectedArtifactDigest) {
+        const identityMatches = await verifyEmbeddingArtifactIdentity(
+          setting,
+          this.options.semanticIdentityFetch,
+          { signal, timeoutMs: Math.min(setting.timeoutMs ?? 20_000, 1_500) },
+        );
+        if (!identityMatches) {
+          this.semantic?.ranker.clear();
+          this.semantic = undefined;
+          return result;
+        }
+      }
+      const key = JSON.stringify([
+        setting.api,
+        setting.endpoint,
+        setting.model,
+        setting.expectedArtifactDigest ?? '',
+        setting.queryPrefix,
+        setting.documentPrefix,
+      ]);
       if (this.semantic?.key !== key) {
         const provider = createEmbeddingProvider(setting, this.options.embeddingFetch);
         this.semantic = { key, provider, ranker: new SemanticRegionRanker(provider) };
       }
       active = this.semantic;
     } catch {
-      return result; // refused endpoint / empty model: behave as if the setting were off
+      return result; // refused endpoint / identity mismatch / unavailable runtime: lexical result remains authoritative
     }
     const found = await semanticCandidates(result.ir, regions, active.ranker, active.provider, relativePath, { ...setting, maxCandidates: Math.min(maxCandidates, setting.maxCandidates ?? 3) }, signal);
     const fresh = found.filter((candidate) => this.isCurrent(candidate));

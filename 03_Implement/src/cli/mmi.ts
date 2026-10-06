@@ -34,6 +34,14 @@ import {
   type TabularHierarchyConfig,
 } from '../adapters/tabularHierarchyAdapter.js';
 import type { Candidate, ProviderScore } from '../core/candidate.js';
+import {
+  cognitiveArtifactManifestSchemaJson,
+  parseCognitiveArtifactManifest,
+  resolveCognitiveArtifact,
+  type CognitiveArtifactManifestV0,
+  type CognitiveArtifactResolution,
+  type RuntimeManagedArtifact,
+} from '../core/cognitiveArtifact.js';
 import { decodeJsonUtf8 } from '../core/jsonFormat.js';
 import {
   SEMANTIC_CANDIDATE_CONTRACT,
@@ -88,6 +96,10 @@ import {
   renderLibreOfficeRegionSnapshot,
 } from '../snapshot/libreOfficeRegionSnapshot.js';
 import { detectTableRegions, regionReference } from '../importAssist/tableRegions.js';
+import {
+  discoverLocalEmbeddingModels,
+  runtimeManagedArtifactFromEmbeddingModel,
+} from '../search/semantic/runtimeDiscovery.js';
 import { runFind, runSelect } from './navigateCommands.js';
 import { extractImages, extractTable, formatImageDiagnostics } from './extract.js';
 import {
@@ -109,9 +121,16 @@ Commands:
                             candidate        mmi.semantic-candidate/v1
                             ledger           mmi.ledger/v1
                             review-decisions mmi.review-decisions/v1
+                            cognitive-artifact mmi.cognitive-artifact-manifest/v0
   core <request.json|->     Execute one mmi.portable-core-request/v1 and emit JSON.
                             Use - to read the request from stdin; source bytes are embedded in the request.
                             This boundary performs no source-file discovery or VS Code access.
+  artifact <manifest.json>  Inspect or explicitly acquire one Cognitive Artifact Manifest v0.
+      --provider <id@version> exact provider compatibility identity (required)
+      --cache <dir>           content-addressed MMI artifact cache root (default: OS user cache)
+      --download              explicitly allow HTTPS acquisition after showing manifest metadata
+      --offline               forbid HTTPS access; use verified cache/local/runtime-managed sources only
+                            Runtime-managed Ollama/LM Studio models are discovered only for this explicit command.
   inspect <source>          List workbook/CSV regions or JSON/YAML/XML/flat-text Tree structure.
                             --json adds Semantic Candidates with status, method, provenance and fingerprint
       --values <n>            also print the first n body rows of each region
@@ -267,6 +286,10 @@ export async function main(argv: string[]): Promise<number> {
       task: { type: 'string' },
       package: { type: 'string' },
       document: { type: 'string' },
+      provider: { type: 'string' },
+      cache: { type: 'string' },
+      download: { type: 'boolean', default: false },
+      offline: { type: 'boolean', default: false },
       'include-values': { type: 'boolean', default: false },
       help: { type: 'boolean', short: 'h', default: false },
       version: { type: 'boolean', short: 'v', default: false },
@@ -288,18 +311,19 @@ export async function main(argv: string[]): Promise<number> {
     case 'schema': {
       if (args.length !== 1) {
         return usageError(
-          'schema needs one of: candidate, ledger, review-decisions',
+          'schema needs one of: candidate, ledger, review-decisions, cognitive-artifact',
         );
       }
       const schemas: Record<string, () => Record<string, unknown>> = {
         candidate: semanticCandidateSchemaJson,
         ledger: importLedgerSchemaJson,
         'review-decisions': reviewDecisionsSchemaJson,
+        'cognitive-artifact': cognitiveArtifactManifestSchemaJson,
       };
       const schema = schemas[args[0]];
       if (!schema) {
         return usageError(
-          'schema needs one of: candidate, ledger, review-decisions',
+          'schema needs one of: candidate, ledger, review-decisions, cognitive-artifact',
         );
       }
       emit(JSON.stringify(schema(), null, 2));
@@ -323,6 +347,79 @@ export async function main(argv: string[]): Promise<number> {
       const response = runPortableCoreRequest(request);
       emit(JSON.stringify(response, null, 2));
       return 0;
+    }
+    case 'artifact': {
+      if (args.length !== 1) {
+        return usageError('artifact takes one Cognitive Artifact Manifest JSON file');
+      }
+      if (!values.provider) {
+        return usageError('artifact needs --provider <id@version>');
+      }
+      if (values.download && values.offline) {
+        return usageError('artifact accepts only one of --download or --offline');
+      }
+
+      const provider = parseArtifactProvider(values.provider);
+      if (!provider) {
+        return usageError('artifact --provider must be <non-empty-id>@<non-empty-version>');
+      }
+
+      const manifestPath = path.resolve(args[0]);
+      let manifest: CognitiveArtifactManifestV0;
+      try {
+        manifest = parseCognitiveArtifactManifest(
+          fs.readFileSync(manifestPath, 'utf8'),
+        );
+      } catch (error) {
+        console.error(
+          `mmi: artifact manifest: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        return 1;
+      }
+
+      let runtimeArtifacts: RuntimeManagedArtifact[] = [];
+      if (manifest.sources.some((source) => source.kind === 'runtime-managed')) {
+        const discovered = await discoverLocalEmbeddingModels();
+        runtimeArtifacts = discovered.map(runtimeManagedArtifactFromEmbeddingModel);
+      }
+
+      let resolution: CognitiveArtifactResolution;
+      try {
+        resolution = await resolveCognitiveArtifact(manifest, {
+          provider,
+          ...(values.cache ? { cacheRoot: path.resolve(values.cache) } : {}),
+          localRoot: path.dirname(manifestPath),
+          runtimeArtifacts,
+          allowDownload: values.download,
+          offline: values.offline,
+        });
+      } catch (error) {
+        console.error(
+          `mmi: artifact: ${error instanceof Error ? error.message : String(error)}`,
+        );
+        return 1;
+      }
+
+      const result = {
+        manifest: {
+          schema: manifest.schema,
+          schemaVersion: manifest.schemaVersion,
+          artifactId: manifest.artifactId,
+          kind: manifest.kind,
+          version: manifest.version,
+          sha256: manifest.sha256,
+          sizeBytes: manifest.sizeBytes,
+          license: manifest.license,
+          compatibleProviders: manifest.compatibleProviders,
+          sources: manifest.sources,
+        },
+        provider,
+        resolution,
+      };
+      emit(values.json
+        ? JSON.stringify(result, null, 2)
+        : formatCognitiveArtifactResult(result));
+      return resolution.status === 'unavailable' ? 1 : 0;
     }
     case 'inspect': {
       if (args.length !== 1) return usageError('inspect takes one source file');
@@ -977,6 +1074,63 @@ export async function main(argv: string[]): Promise<number> {
     default:
       return usageError(`unknown command: ${command}`);
   }
+}
+
+function parseArtifactProvider(
+  value: string,
+): { id: string; version: string } | undefined {
+  const separator = value.lastIndexOf('@');
+  if (separator <= 0 || separator === value.length - 1) return undefined;
+  const id = value.slice(0, separator).trim();
+  const version = value.slice(separator + 1).trim();
+  return id && version ? { id, version } : undefined;
+}
+
+function formatCognitiveArtifactResult(result: {
+  manifest: Pick<
+    CognitiveArtifactManifestV0,
+    | 'artifactId'
+    | 'kind'
+    | 'version'
+    | 'sha256'
+    | 'sizeBytes'
+    | 'license'
+    | 'compatibleProviders'
+    | 'sources'
+  >;
+  provider: { id: string; version: string };
+  resolution: CognitiveArtifactResolution;
+}): string {
+  const sizeMiB = result.manifest.sizeBytes / (1024 * 1024);
+  const lines = [
+    `artifact: ${result.manifest.artifactId}@${result.manifest.version}`,
+    `kind: ${result.manifest.kind}`,
+    `identity: ${result.manifest.sha256}`,
+    `size: ${result.manifest.sizeBytes} bytes (${sizeMiB.toFixed(2)} MiB)`,
+    `license: ${result.manifest.license}`,
+    `provider: ${result.provider.id}@${result.provider.version}`,
+    `status: ${result.resolution.status}`,
+  ];
+
+  if (result.resolution.status === 'available') {
+    if (result.resolution.location.kind === 'runtime-managed') {
+      lines.push(
+        `location: runtime:${result.resolution.location.runtime}/${result.resolution.location.artifactRef}`,
+      );
+    } else {
+      lines.push(`location: ${result.resolution.location.path}`);
+    }
+    lines.push(`reused: ${result.resolution.reused ? 'yes' : 'no'}`);
+  } else if (result.resolution.status === 'download-required') {
+    lines.push(`source: ${result.resolution.source.uri}`);
+    lines.push(`cache: ${result.resolution.cachePath}`);
+    lines.push('download: not started; rerun with --download to acquire explicitly');
+  } else {
+    lines.push(`reason: ${result.resolution.reason}`);
+    if (result.resolution.detail) lines.push(`detail: ${result.resolution.detail}`);
+  }
+
+  return lines.join('\n');
 }
 
 function usageError(message: string): number {

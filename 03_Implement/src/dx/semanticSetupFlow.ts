@@ -93,11 +93,16 @@ export async function selectLocalSemanticModel(): Promise<boolean> {
     config.update('search.semantic.api', picked.model.api, target),
     config.update('search.semantic.endpoint', picked.model.endpoint, target),
     config.update('search.semantic.model', picked.model.model, target),
+    config.update(
+      'search.semantic.artifactDigest',
+      picked.model.artifactDigest ?? '',
+      target,
+    ),
     config.update('search.semantic.enabled', true, target),
   ]);
 
   await vscode.window.showInformationMessage(
-    `MMI: ${picked.model.displayName} をローカル意味検索に設定しました。モデルの取得やloadは行っていません。`,
+    `MMI: ${picked.model.displayName} をローカル意味検索に設定しました。${picked.model.artifactDigest ? ' artifact digestも固定しました。' : ' runtimeがdigestを公開していないため、artifact同一性は名前だけでは確定しません。'} モデルの取得やloadは行っていません。`,
   );
   return true;
 }
