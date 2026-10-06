@@ -242,7 +242,9 @@ MMI_ENABLE_TEST_COMMANDS=1 node --import tsx ./test/e2e/runTest.ts
 1. `test/e2e/suite/extensionHost.test.ts`の期待値が2026-09-14の変更に追従していなかった。 `PASTE_FALLBACK_EXPECTED_INSERT`・`NATIVE_PASTE_EXPECTED_INSERT`が旧契約の`#Summary|A1:B2`形式のままで、2026-09-14に撤去したはずのシート名・範囲推測を期待し続けていた。e2eが本環境で一度も成功実行できていなかったため、これまで検出されなかった。`![[...]]`（filepathのみ）へ修正。
 2. `insertEmbedByContentMatch`の登録方法が誤っていた（本物の実装バグ）。 `registerTextEditorCommand`は非同期コールバックをサポートしない（VS Code既知の制約、microsoft/vscode#178931・#2933・#16814・#90834）——`editor`/`edit`引数は同期区間でのみ有効で、`executeCommand`はコールバックが返すPromiseを一切待たない。実際に実e2eで観測したのは「コマンドは開始するが、最初の`await`（クリップボード読込み）以降が孤立し、`executeCommand`は即座に解決、ドキュメントは変化しない」という挙動——つまりこのコマンドは実運用でも常に何も挿入できなかった可能性が高い。 `registerCommand`（引数なし、`vscode.window.activeTextEditor`を関数内で自前解決）へ変更し、最終編集の直前にも`activeTextEditor`を再解決するよう修正した（非同期区間中にフォーカスが変わっている可能性への防御）。
 
-**未確認のまま残る点**: `editor.action.pasteAs`（Ctrl+.）統合のe2e確認はまだ行っていない。この経路は実OSクリップボードが`text/html`を持つ必要があり（`vscode.env.clipboard`はプレーンテキストのみ設定可能）、本環境には`xclip`/`wl-copy`等が無く、sudoでの追加インストールもできない（前回と同じ認証キャッシュ失効の制約）。
+**2026-10-06の確認:** `editor.action.pasteAs`（`preferences`指定）が実VS Code 1.140.0の拡張機能ホストで、登録した貼り付けプロバイダ（`PasteAs`トリガー）に届き、プレーンTSV（`Alice	Admin`）から内容照合の参照が挿入されることを3回連続で確認した。通常の貼り付け（Automatic）は文字列のままで、参照は挿入されない（R1）。初回は、エディタにフォーカスが移る前に実行するとプロバイダが呼ばれなかったため、テストにフォーカス待ちを加えた。実Excelの`text/html`・Windowsヘルパーの形式と、選択UIの目視は引き続き手動確認が要る。
+
+**（以下は2026-09時点の記述）未確認のまま残る点**: `editor.action.pasteAs`（Ctrl+.）統合のe2e確認はまだ行っていない。この経路は実OSクリップボードが`text/html`を持つ必要があり（`vscode.env.clipboard`はプレーンテキストのみ設定可能）、本環境には`xclip`/`wl-copy`等が無く、sudoでの追加インストールもできない（前回と同じ認証キャッシュ失効の制約）。
 
 ### 2026-09-16の試行記録（xvfbが不要と判明する前の経緯）
 

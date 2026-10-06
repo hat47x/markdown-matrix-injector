@@ -235,7 +235,7 @@ async function verifyGuidedFlowsScripted(workspaceRoot: string): Promise<void> {
 
   // Edit: keep file and range, add mode=card; unknown x-keep survives; preview shows a card; one Undo restores.
   const transcript = await run([{ keep: true }, { keep: true }, { options: ['header=first', 'mode=card'] }, 'insert']);
-  const edited = '![[../data/roles.csv#Sheet1|A1:B3?x-keep=1&header=first&mode=card]]';
+  const edited = '![[../data/roles.csv#Sheet1|A1:B3?x-keep=1&header=first&mode=card]]'; // an existing reference does not gain x-headers from a plain edit
   assert.equal(document.lineAt(1).text, edited);
   assert.match(transcript[transcript.length - 1].placeholder, /別紙カード/u, 'The confirm step must show what the engine renders.');
   await vscode.commands.executeCommand('undo');
@@ -352,6 +352,25 @@ async function verifyDiagnosticsIntegration(workspaceRoot: string): Promise<void
   assert.ok(typoFix?.edit, `Expected a fix to table, got: ${(typoActions ?? []).map((action) => action.title).join(', ')}`);
   assert.ok(await vscode.workspace.applyEdit(typoFix.edit));
   assert.equal(typo.lineAt(1).text, '![[../data/roles.csv#Sheet1|A1:B3?mode=table]]');
+
+  // ADR-0022: a reference written against other headers warns, and the fix is offered (never preferred, never automatic).
+  const stale = await openMarkdownDocument(
+    path.join(workspaceRoot, 'docs', 'stale-headers.md'),
+    ['# Stale', '![[../data/roles.csv#Sheet1|A1:B3?header=first&x-headers=Name,Permission]]'].join('\n'),
+  );
+  const [headerWarning] = await waitForDiagnostics(stale.uri, 1);
+  assert.equal(headerWarning.code?.toString(), 'MMI_HEADERS_MISMATCH');
+  const headerActions = await vscode.commands.executeCommand<vscode.CodeAction[]>(
+    'vscode.executeCodeActionProvider',
+    stale.uri,
+    headerWarning.range,
+    vscode.CodeActionKind.QuickFix.value,
+  );
+  const headerFix = (headerActions ?? []).find((action) => action.title.includes('x-headers'));
+  assert.ok(headerFix?.edit, `Expected an x-headers update fix, got: ${(headerActions ?? []).map((action) => action.title).join(', ')}`);
+  assert.notEqual(headerFix.isPreferred, true, 'A source change must never be accepted by default.');
+  assert.ok(await vscode.workspace.applyEdit(headerFix.edit));
+  assert.equal(stale.lineAt(1).text, '![[../data/roles.csv#Sheet1|A1:B3?header=first&x-headers=Name,Role]]');
 }
 
 interface NativeProviderCapability {
@@ -503,7 +522,7 @@ async function verifyPasteDropCoverage(
   assert.equal(integrationState.nativeEditKind, 'text.markdownMatrixInjector.embed');
   assert.match(
     verificationBoundary.e2eProofBoundary,
-    /does not prove final OS-native .* UX dispatch/,
+    /does not prove real Excel HTML\/Windows-helper clipboard formats or visual picker interaction/,
     `Expected paste/drop proof boundary to remain explicit. boundary=${JSON.stringify(verificationBoundary)}`,
   );
   assert.ok(integrationState.pasteMimeTypes.includes('text/html'));
@@ -767,6 +786,9 @@ async function verifyContentMatchPasteAsHostCommand(
   editor.selection = new vscode.Selection(new vscode.Position(1, 0), new vscode.Position(1, 0));
 
   await vscode.env.clipboard.writeText('Alice\tAdmin');
+  // The command acts on the focused editor; showTextDocument can resolve before focus has settled.
+  await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
+  await delay(500);
   await vscode.commands.executeCommand('editor.action.pasteAs', {
     preferences: [integrationState.contentMatchPasteEditKind],
   });
@@ -778,7 +800,7 @@ async function verifyContentMatchPasteAsHostCommand(
   assert.match(
     pasteAsText,
     /!\[\[\.\.\/data\/roles\.csv#Sheet1\|A2:B2\]\]/u,
-    'Expected editor.action.pasteAs to dispatch through the registered MMI provider and insert the unique content-match reference.',
+    `Expected editor.action.pasteAs to dispatch through the registered MMI provider and insert the unique content-match reference. Document was: ${JSON.stringify(pasteAsText)}`,
   );
 
   // Registering text/plain as a provider trigger must not turn ordinary

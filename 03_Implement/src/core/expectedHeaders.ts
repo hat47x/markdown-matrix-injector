@@ -84,6 +84,15 @@ export function checkExpectedHeaders(query: EmbedQuery, workbook: WorkbookData):
   return { status: mismatches.length === 0 ? 'ok' : 'mismatch', expected, actual, mismatches };
 }
 
+/**
+ * The `x-headers` value (list syntax, not yet query-encoded) that would match the table the reference
+ * resolves to now; `undefined` when there is no header row to record.
+ */
+export function currentExpectedHeaders(query: EmbedQuery, workbook: WorkbookData): string | undefined {
+  const headers = buildLogicalTable(query, workbook).headers;
+  return headers && headers.length > 0 ? formatHeaderList(headers) : undefined;
+}
+
 /** One readable sentence for a diagnostic; at most three columns are spelled out. */
 export function describeHeaderMismatch(result: ExpectedHeadersResult): string {
   if (result.status === 'not-checkable') {

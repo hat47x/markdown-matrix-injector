@@ -44,6 +44,8 @@ node --import tsx ./test/e2e/runImport.ts   # VSCODE_EXECUTABLE_PATH で既存�
 
 **2026-10-03:** `mmi select --candidate <fingerprint>`で`inspect --json`の表Candidateを直接選べる。`select`と`find`のJSONに同じCandidate指紋を載せ、台帳・レビューと同じ識別で追える（結合のあるシートの表Candidateは論理列で認識）。指紋が変わっていれば理由を示して止める。
 
+**2026-10-06:** ADR-0022の選択肢B（`x-headers`）を拡張した。案内付き作成が新しい参照へ`x-headers`を記録し、警告`MMI_HEADERS_MISMATCH`に「現在の表に更新する」修正候補を出す。実VS Code・実Excelのブックで確認した（詳細はADR）。
+
 残りは次のとおりです。
 
 - 画面操作の目視確認と、AIエージェントでの実環境の確認。

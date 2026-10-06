@@ -14,6 +14,7 @@ import {
 } from '../src/core/expectedHeaders.js';
 import { buildLogicalTable } from '../src/core/renderTable.js';
 import { loadWorkbook } from '../src/core/workbookLoader.js';
+import { parseEmbedParts, serializeEmbedParts, withCurrentExpectedHeaders } from '../src/dx/embedEditor.js';
 import { parseEmbedSyntax } from '../src/parser/embedSyntax.js';
 import { analyzeBook } from '../src/navigate/catalog.js';
 import { selectFromBook } from '../src/navigate/select.js';
@@ -110,4 +111,28 @@ test('select writes x-headers, and a header with a comma, ampersand or space rou
   assert.match(commaSelected.reference!, /&x-headers=a\\,b\]\]$/u);
   fs.writeFileSync(comma.doc, `${commaSelected.reference}\n`);
   assert.deepEqual(await checkPaths([comma.doc], comma.root), []);
+});
+
+test('guided authoring records the current headers, and re-recording replaces the stale ones (quick fix)', () => {
+  const { root, csvPath } = project(BEFORE);
+  const plain = parseEmbedParts('![[./spec.csv#Sheet1|A1:D3?header=first&columns=B,C]]')!;
+  const recorded = withCurrentExpectedHeaders(plain, loadWorkbook({ absolutePath: csvPath }));
+  assert.equal(serializeEmbedParts(recorded), REF);
+
+  // The source gains a column: the recorded reference warns, and re-recording yields the new displayed headers.
+  fs.writeFileSync(csvPath, AFTER);
+  const after = loadWorkbook({ absolutePath: path.join(root, 'spec.csv') });
+  assert.equal(checkExpectedHeaders(parseEmbedSyntax(serializeEmbedParts(recorded))!, after)?.status, 'mismatch');
+  const refreshed = withCurrentExpectedHeaders(recorded, after);
+  assert.match(serializeEmbedParts(refreshed), /x-headers=名前,区分\]\]$/u);
+  assert.equal(checkExpectedHeaders(parseEmbedSyntax(serializeEmbedParts(refreshed))!, after)?.status, 'ok');
+  // Everything but x-headers is untouched, and the key is written once.
+  assert.equal(serializeEmbedParts(refreshed).match(/x-headers=/gu)?.length, 1);
+});
+
+test('without a header row nothing is recorded and a stale x-headers is dropped', () => {
+  const { csvPath } = project(BEFORE);
+  const data = loadWorkbook({ absolutePath: csvPath });
+  const noHeader = parseEmbedParts('![[./spec.csv#Sheet1|A1:D3?x-headers=a,b]]')!;
+  assert.equal(serializeEmbedParts(withCurrentExpectedHeaders(noHeader, data)), '![[./spec.csv#Sheet1|A1:D3]]');
 });

@@ -159,7 +159,7 @@ async function checkGuidedAuthoring(folder: string): Promise<void> {
   const confirm = transcript[transcript.length - 1]?.placeholder ?? '';
   const rangeStep = transcript.find((step) => step.items.some((item) => item.startsWith('B11:AD19')));
   note('guided', { inserted, confirm, rangeItems: rangeStep?.items.slice(0, 3) });
-  expect(inserted === '![[./画面定義書_受注.xlsx#受注登録|B11:AD19?header=first&columns=A,C,I,O,R,T,V&mode=table]]', `guided authoring inserted: ${inserted}`);
+  expect(inserted === '![[./画面定義書_受注.xlsx#受注登録|B11:AD19?header=first&columns=A,C,I,O,R,T,V&mode=table&x-headers=No,項目名,項目ID,型,桁,必須,備考]]', `guided authoring inserted: ${inserted}`);
   expect(/^表として表示: 本体8行 × 7列（見出しあり）/u.test(confirm), `guided confirm step: ${confirm}`);
 }
 
@@ -187,7 +187,7 @@ async function checkCatalog(folder: string): Promise<void> {
   const inserted = document.lineAt(2).text;
   const confirm = transcript[transcript.length - 1]?.placeholder ?? '';
   note('catalog-select', { reference: result.reference, rows: result.rows, inserted, confirm });
-  expect(inserted === '![[./画面定義書_受注.xlsx#受注登録|B11:AD19?columns=C,T&header=first&grep=○&mode=table]]', `catalog selection inserted: ${inserted}`);
+  expect(inserted === '![[./画面定義書_受注.xlsx#受注登録|B11:AD19?columns=C,T&header=first&grep=○&mode=table&x-headers=項目名,必須]]', `catalog selection inserted: ${inserted}`);
   expect(/^表として表示: 本体5行 × 2列（見出しあり）/u.test(confirm), `catalog selection confirm step: ${confirm}`);
 }
 

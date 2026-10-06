@@ -17,10 +17,11 @@ import * as vscode from 'vscode';
 import type { WorkbookData } from '../core/workbookLoader.js';
 import { detectTableRegions, gridProjection } from '../importAssist/tableRegions.js';
 import type { DetectedRegion } from '../search/regionDetector.js';
+import { EXPECTED_HEADERS_PARAM } from '../core/expectedHeaders.js';
 import { readWorkbookCached } from './sharedWorkbookCache.js';
 import { analyzeCompletionContext } from './completionContext.js';
 import { rangeCandidates } from './completionCandidates.js';
-import { getParams, parseEmbedParts, serializeEmbedParts, setParam, type EmbedParts } from './embedEditor.js';
+import { getParams, parseEmbedParts, serializeEmbedParts, setParam, withCurrentExpectedHeaders, type EmbedParts } from './embedEditor.js';
 import { fileFixCandidates, sheetFixCandidates } from './embedFixes.js';
 import { parameterIssues } from './parameterDiagnostics.js';
 import { describePreview, summarizeRenderedEmbed, type PreviewSummary } from './embedPreview.js';
@@ -183,6 +184,10 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
       result = await pickOptions(title, parts);
       if (result.kind === 'options') parts = result.parts;
     } else {
+      // A new reference records the headers of the table being chosen, so a later column shift in the source is reported
+      // (ADR-0022). An existing one is never given the key by a plain confirm (loss-free edit); one that already has it is refreshed.
+      const sourceData = parts.filepath ? workbookOf(parts.filepath).data : undefined;
+      if (sourceData && (!existing || getParams(parts, EXPECTED_HEADERS_PARAM).length > 0)) parts = withCurrentExpectedHeaders(parts, sourceData);
       const markdown = serializeEmbedParts(parts);
       const summary = await preview(deps, markdown, document.uri.fsPath, workspaceRoot);
       const sourceStamp = stamp(workbookOf(parts.filepath).absolute);
@@ -424,6 +429,7 @@ export function createEmbedFixProvider(workbookGlob: string): vscode.CodeActionP
         const embedStart = document.offsetAt(embed.range.start);
         let fixes: { replacement: string }[] = [];
         let span: vscode.Range | undefined;
+        let headerFix = false;
         if (diagnostic.code === 'MMI_SHEET_NOT_FOUND' && embed.parts.sheet) {
           const at = embedText.indexOf(`#${embed.parts.sheet}`);
           if (at >= 0) {
@@ -445,6 +451,23 @@ export function createEmbedFixProvider(workbookGlob: string): vscode.CodeActionP
             span = new vscode.Range(document.positionAt(embedStart + issue.start), document.positionAt(embedStart + issue.end));
             fixes = [{ replacement: issue.suggestion }];
           }
+        } else if (diagnostic.code === 'MMI_HEADERS_MISMATCH') {
+          // Offered only: the person decides whether the source change is intended (never auto-confirmed).
+          try {
+            const absolute = resolveWorkbookPath(embed.parts.filepath, document.uri.fsPath, workspaceRoot);
+            const updated = withCurrentExpectedHeaders(embed.parts, readWorkbookCached(absolute));
+            const value = getParams(updated, EXPECTED_HEADERS_PARAM)[0];
+            const at = embedText.search(/x-headers=[^&\]]*/u);
+            const written = /x-headers=[^&\]]*/u.exec(embedText)?.[0];
+            if (value !== undefined && at >= 0 && written) {
+              span = new vscode.Range(document.positionAt(embedStart + at), document.positionAt(embedStart + at + written.length));
+              fixes = [{ replacement: updated.segments.find((segment) => segment.startsWith(`${EXPECTED_HEADERS_PARAM}=`)) ?? '' }]
+                .filter((fix) => fix.replacement !== '' && fix.replacement !== written);
+              headerFix = true;
+            }
+          } catch {
+            fixes = [];
+          }
         } else if (diagnostic.code === 'MMI_FILE_NOT_FOUND' && workspaceRoot) {
           const at = embedText.indexOf(embed.parts.filepath, 3);
           if (at >= 0) {
@@ -457,9 +480,9 @@ export function createEmbedFixProvider(workbookGlob: string): vscode.CodeActionP
         }
         if (!span) continue;
         fixes.forEach((fix, index) => {
-          const action = new vscode.CodeAction(`「${fix.replacement}」に置き換える`, vscode.CodeActionKind.QuickFix);
+          const action = new vscode.CodeAction(headerFix ? 'MMI: 見出しの期待値（x-headers）を現在の表に更新する' : `「${fix.replacement}」に置き換える`, vscode.CodeActionKind.QuickFix);
           action.diagnostics = [diagnostic];
-          action.isPreferred = index === 0 && fixes.length === 1; // a single sure candidate only
+          action.isPreferred = !headerFix && index === 0 && fixes.length === 1; // a single sure candidate only
           action.edit = new vscode.WorkspaceEdit();
           action.edit.replace(document.uri, span!, fix.replacement);
           actions.push(action);

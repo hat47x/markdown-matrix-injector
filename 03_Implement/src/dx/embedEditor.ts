@@ -7,6 +7,10 @@
  * a round trip without changes reproduces the input byte for byte.
  */
 
+import { currentExpectedHeaders, EXPECTED_HEADERS_PARAM } from '../core/expectedHeaders.js';
+import type { WorkbookData } from '../core/workbookLoader.js';
+import { parseEmbedSyntax } from '../parser/embedSyntax.js';
+
 export interface EmbedParts {
   filepath: string;
   sheet?: string;
@@ -105,5 +109,22 @@ function decodeSafe(text: string): string {
     return decodeURIComponent(text.replace(/\+/gu, ' '));
   } catch {
     return text;
+  }
+}
+
+/**
+ * Records the headers the embed resolves to now as `x-headers` (ADR-0022), so a later column
+ * insertion in the source shows up as a warning instead of silently pointing at another column.
+ * Dropped when the table has no header row; unchanged when the embed cannot be rendered.
+ */
+export function withCurrentExpectedHeaders(parts: EmbedParts, workbook: WorkbookData): EmbedParts {
+  const without = setParam(parts, EXPECTED_HEADERS_PARAM, undefined);
+  const query = parseEmbedSyntax(serializeEmbedParts(without));
+  if (!query) return parts;
+  try {
+    const value = currentExpectedHeaders(query, workbook);
+    return value === undefined ? without : setParam(parts, EXPECTED_HEADERS_PARAM, value);
+  } catch {
+    return parts;
   }
 }
