@@ -27,7 +27,7 @@ const DEFAULT_ROW_PX = 20;
 const EMU_PER_PX_96DPI = 9525;
 const MAX_DIMENSION_PX = 16384;
 const MAX_AREA_PX = 80000000;
-const FONT_FAMILY = 'Arial, Noto Sans CJK JP, sans-serif';
+const FONT_FAMILY = 'Arial, "Noto Sans CJK JP", sans-serif';
 
 export interface NativeSvgRegionSnapshotOptions {
   sourcePath: string;
@@ -116,7 +116,10 @@ export function renderNativeSvgRegionSnapshot(options: NativeSvgRegionSnapshotOp
     );
   }
 
-  const limitations = new Set<string>(['font-rasterization-environment-dependent']);
+  const limitations = new Set<string>([
+    'font-rasterization-environment-dependent',
+    'excel-layout-metrics-approximated',
+  ]);
   const svg = buildSvg({
     worksheet, workbookBytes: sourceBytes, sheet: options.sheet,
     selection, columns, rows, limitations,
@@ -292,6 +295,9 @@ function buildSvg(options: {
   }
 
   const drawings = readExcelImages(options.workbookBytes);
+  if (drawings.images.length > 0 || drawings.shapes.length > 0 || drawings.snapshotHints.length > 0) {
+    limitations.add('drawing-anchor-offsets-not-preserved');
+  }
   const zip = readZip(options.workbookBytes);
   for (const image of drawings.images.filter((item) => item.sheet === options.sheet)) {
     const rect = anchorRect(image.anchor, selection, columns, rows, limitations);
@@ -308,7 +314,14 @@ function buildSvg(options: {
       continue;
     }
     const mime = image.format === 'jpeg' ? 'image/jpeg' : 'image/' + image.format;
-    const data = entry.read().toString('base64');
+    let data: string;
+    try {
+      data = entry.read().toString('base64');
+    } catch {
+      limitations.add('embedded-image-media-unreadable');
+      body.push(placeholderRect(rect, 'unreadable image', 'mmi-image-placeholder'));
+      continue;
+    }
     body.push(
       '<image class="mmi-image" x="' + round(rect.x) + '" y="' + round(rect.y)
       + '" width="' + round(rect.width) + '" height="' + round(rect.height)
@@ -452,15 +465,16 @@ function borderSvg(rect: SnapshotRect, border: NativeCellStyle['border'], limita
     ['bottom', rect.x, rect.y + rect.height, rect.x + rect.width, rect.y + rect.height],
     ['left', rect.x, rect.y, rect.x, rect.y + rect.height],
   ];
-  return sides.map(([name, x1, y1, x2, y2]) => {
+  return sides.flatMap(([name, x1, y1, x2, y2]) => {
     const side = border?.[name];
     const style = side?.style?.toLowerCase();
-    if (style && !['none', 'thin', 'hair', 'medium', 'thick', 'double'].includes(style)) {
+    if (!style || style === 'none') return [];
+    if (!['thin', 'hair', 'medium', 'thick', 'double'].includes(style)) {
       limitations.add('border-style-approximated:' + style);
     }
-    return '<line x1="' + round(x1) + '" y1="' + round(y1) + '" x2="' + round(x2)
-      + '" y2="' + round(y2) + '" stroke="' + colorHex(side?.color, '#d0d0d0', limitations)
-      + '" stroke-width="' + borderWidth(style) + '"/>';
+    return ['<line x1="' + round(x1) + '" y1="' + round(y1) + '" x2="' + round(x2)
+      + '" y2="' + round(y2) + '" stroke="' + colorHex(side?.color, '#222222', limitations)
+      + '" stroke-width="' + borderWidth(style) + '"/>'];
   });
 }
 
