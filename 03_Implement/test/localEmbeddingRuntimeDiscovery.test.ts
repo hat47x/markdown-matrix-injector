@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   discoverLocalEmbeddingModels,
+  runtimeManagedArtifactFromEmbeddingModel,
   type DiscoveryFetch,
 } from '../src/search/semantic/runtimeDiscovery.js';
 
@@ -168,4 +169,40 @@ test('local embedding discovery degrades when one local runtime is unavailable',
   assert.equal(models.length, 1);
   assert.equal(models[0].runtime, 'lm-studio');
   assert.equal(models[0].model, 'available-embed');
+});
+
+
+test('discovered local models expose runtime-managed artifact identity without changing discovery shape', () => {
+  const ollama = runtimeManagedArtifactFromEmbeddingModel({
+    runtime: 'ollama',
+    api: 'ollama',
+    endpoint: 'http://127.0.0.1:11434',
+    model: 'embed-model:latest',
+    displayName: 'embed-model:latest',
+    artifactDigest: `sha256:${'a'.repeat(64)}`,
+    sizeBytes: 123,
+  });
+  assert.deepEqual(ollama, {
+    runtime: 'ollama',
+    artifactRef: 'embed-model:latest',
+    runtimeIdentity: 'embed-model:latest',
+    sha256: `sha256:${'a'.repeat(64)}`,
+    sizeBytes: 123,
+  });
+
+  const lmStudio = runtimeManagedArtifactFromEmbeddingModel({
+    runtime: 'lm-studio',
+    api: 'openai-compatible',
+    endpoint: 'http://127.0.0.1:1234',
+    model: 'text-embed',
+    displayName: 'Text Embed',
+    sizeBytes: 456,
+  });
+  assert.deepEqual(lmStudio, {
+    runtime: 'lm-studio',
+    artifactRef: 'text-embed',
+    runtimeIdentity: 'text-embed',
+    sizeBytes: 456,
+  });
+  assert.equal('sha256' in lmStudio, false);
 });
