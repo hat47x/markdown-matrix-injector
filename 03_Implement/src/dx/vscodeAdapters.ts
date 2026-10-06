@@ -6,7 +6,9 @@ import { type AutocompleteCandidate } from './autocompleteProvider.js';
 import { validateEmbedDiagnostics, type EmbedDiagnostic, type XmlMode } from './diagnostics.js';
 import { extractEmbedQueries, parseEmbedSyntax } from '../parser/embedSyntax.js';
 import { isPathWithinBoundary } from '../core/pathResolver.js';
+import { bindingSeverity, checkExpectedBindings, describeBinding } from '../core/expectedBinding.js';
 import { checkExpectedHeaders, describeHeaderMismatch } from '../core/expectedHeaders.js';
+import type { WorkbookStructure } from '../importAssist/workbookStructure.js';
 import type { WorkbookData } from '../core/workbookLoader.js';
 import {
   readTransferValuesFromDataTransfer,
@@ -68,6 +70,8 @@ interface DiagnosticsDependencies {
   readWorkbookSheetNames(filepath: string): Promise<readonly string[]>;
   /** When given, `x-headers` is checked against the table the reference resolves to (ADR-0022). */
   loadWorkbook?(filepath: string): WorkbookData;
+  /** With `loadWorkbook`, `x-table` / `x-name` are checked against the workbook's declarations (ADR-0022). */
+  loadStructure?(filepath: string, workbook: WorkbookData): WorkbookStructure;
 }
 
 export interface DocumentDiagnosticItem {
@@ -223,6 +227,38 @@ export async function createDiagnosticsForDocument(
           }
         } catch {
           // The workbook could not be read for another reason; those errors are reported elsewhere.
+        }
+      }
+    }
+
+    // The Excel table / defined name the range was taken from (x-table, x-name) against its current definition.
+    const bindingSpans = [...match.raw.matchAll(/x-(?:table|name)=[^&\]]*/gu)];
+    if (bindingSpans.length > 0 && dependencies.loadWorkbook && dependencies.loadStructure && fileExists && containmentOk !== false && xmlMode !== 'invalid' && sheetExists !== false) {
+      const query = parseEmbedSyntax(match.raw);
+      if (query) {
+        try {
+          const workbook = dependencies.loadWorkbook(resolvedFilepath);
+          const results = checkExpectedBindings(query, dependencies.loadStructure(resolvedFilepath, workbook));
+          for (const result of results) {
+            const severity = bindingSeverity(result);
+            const span = bindingSpans.find((item) => item[0].startsWith(result.kind === 'table' ? 'x-table=' : 'x-name='));
+            if (!severity || !span) continue;
+            const start = span.index ?? 0;
+            const end = start + span[0].length;
+            diagnostics.push({
+              diagnostic: {
+                severity,
+                code: 'MMI_BINDING_MISMATCH',
+                message: describeBinding(result),
+                range: { start, end: end - 1 },
+                source: 'markdown-matrix-injector',
+                priority: 6,
+              },
+              range: rangeFromOffsets(text, match.absoluteStart + start, match.absoluteStart + end),
+            });
+          }
+        } catch {
+          // Structure that cannot be read is not a binding problem; file errors are reported elsewhere.
         }
       }
     }

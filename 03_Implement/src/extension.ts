@@ -56,6 +56,7 @@ import { clearSearchIndexes, FIND_EMBED_COMMAND_ID, scriptedSearch, searchEmbedB
 import { selectContainedWorkbookFilesDetailed } from './dx/workbookCandidateOrder.js';
 import { findUnknownProseIds, UNKNOWN_PROSE_ID_CODE } from './application/proseIdCheck.js';
 import { referencedSheets, unknownIdMessage } from './application/referencedSheets.js';
+import { readWorkbookStructure } from './importAssist/workbookStructure.js';
 import { applyDiagnosticPolicy, AUTHORING_DEBOUNCE_MS, type DiagnosticPhase, type WhileTyping } from './dx/diagnosticPolicy.js';
 import { IMPORT_WORKBOOK_COMMAND_ID, importFromWorkbook } from './dx/importFlow.js';
 import {
@@ -1185,6 +1186,7 @@ async function refreshDiagnosticsForDocument(
       return [...workbook.SheetNames];
     },
     loadWorkbook: (filepath) => loadWorkbook({ absolutePath: filepath, cache: previewRenderCache }),
+    loadStructure: (filepath, workbook) => readWorkbookStructure(filepath, workbook),
   });
 
   const editor = vscode.window.visibleTextEditors.find((candidate) => candidate.document === document);

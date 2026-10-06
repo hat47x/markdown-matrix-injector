@@ -10,6 +10,7 @@
  * any shown cell, not one column), the result says so with counts instead of
  * silently widening the selection.
  */
+import { EXPECTED_TABLE_PARAM } from '../core/expectedBinding.js';
 import { encodeHeaderListForQuery, EXPECTED_HEADERS_PARAM, formatHeaderList } from '../core/expectedHeaders.js';
 import { buildLogicalTable } from '../core/renderTable.js';
 import { getSmartFallbackDecisionAfterLoad } from '../core/smartFallback.js';
@@ -186,6 +187,11 @@ export function selectFromBook(book: LoadedBook, referencePath: string, request:
   result.reference = displayedHeaders && displayedHeaders.length > 0
     ? reference.replace(/\]\]$/u, () => `&${EXPECTED_HEADERS_PARAM}=${encodeHeaderListForQuery(formatHeaderList(displayedHeaders!))}]]`)
     : reference;
+  // The Excel table the range was taken from is a declaration in the book itself: record it as well, so a
+  // table that grows or is renamed is reported (x-table, ADR-0022). Names are not recorded: one range can carry several.
+  if (info.excelTable) {
+    result.reference = result.reference.replace(/\]\]$/u, () => `&${EXPECTED_TABLE_PARAM}=${encodeHeaderListForQuery(info.excelTable!)}]]`);
+  }
   result.ok = true;
   return result;
 }
