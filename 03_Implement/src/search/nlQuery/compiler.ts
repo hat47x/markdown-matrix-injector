@@ -309,7 +309,7 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
 // ---------------------------------------------------------------------------
 
 /** Constructs that a described table can contain without being a request for them. */
-const SOFT_UNSUPPORTED: ReadonlySet<UnsupportedConstruct> = new Set<UnsupportedConstruct>(['comparison', 'aggregation', 'negation', 'columnCondition']);
+const SOFT_UNSUPPORTED: ReadonlySet<UnsupportedConstruct> = new Set<UnsupportedConstruct>(['comparison', 'aggregation', 'negation', 'columnCondition', 'sort']);
 const MAX_PARAPHRASE_CANDIDATES = 3;
 
 function paraphraseCandidates(

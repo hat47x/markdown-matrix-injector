@@ -49,11 +49,14 @@ export const CONCEPT_SLOTS: readonly ConceptSlot[] = [
   { id: 'kind', cues: ['種類', 'タイプ', '分類', '区別'], headerTerms: ['種別', '種類', '分類', '区分', 'タイプ'] },
 ];
 
-/** The request is a question that describes a table (not an imperative task). */
+/**
+ * The request asks something about a table's content (an interrogative is
+ * in it) instead of commanding a task. "〜を集計して" and "〜を見せて" are tasks.
+ */
 export function isDescriptionQuestion(input: string): boolean {
-  const text = input.normalize('NFKC').trim();
-  if (!/[?？]$|か$|か。$/u.test(text)) return false;
-  return /誰|だれ|いつ|どれ|どの|どこ|何|どう|どんな|いくら|なぜ/u.test(text);
+  const text = input.normalize('NFKC').trim().replace(/[。！!?？s]+$/u, '');
+  if (/(して|てください|ください|出して|見せて|数えて|並べて|比較して|貼って|貼りたい)$/u.test(text)) return false;
+  return /誰|だれ|いつ|どれ|どの|どこ|何|どう|どんな|いくら|なぜ|どちら/u.test(text);
 }
 
 const CONTENT_RUN = /[\p{Script=Han}゠-ヿｦ-ﾟa-z0-9]{2,}/gu;
@@ -99,6 +102,8 @@ export interface ParaphraseOptions {
    * which states what is asked; 2 for a bare noun phrase, which states less.
    */
   minStructural?: number;
+  /** Distinct header words the request must name outright when no topic word of it is in the table's names. */
+  minNamedHeadersWithoutTopic?: number;
 }
 
 export function paraphraseMatches(
@@ -119,7 +124,6 @@ export function paraphraseMatches(
   const matches: ParaphraseMatch[] = [];
   regions.forEach((region, index) => {
     const topic = queryGrams.filter((gram) => topicGrams[index].has(gram) && (df.get(gram) ?? 0) <= maxDf);
-    if (topic.length === 0) return;
     const headers = (region.headers ?? []).map((header) => normalizeText(header));
     const slots = triggered
       .filter((slot) => headers.some((header) => slot.headerTerms.some((term) => header.includes(normalizeText(term)))))
@@ -131,6 +135,10 @@ export function paraphraseMatches(
     });
     const structural = slots.length + direct.length;
     if (structural < (options.minStructural ?? 1)) return;
+    // Without a topic word in the names, the request must name several of the table's own headers
+    // (a column signature). Generic concepts (結果, どう) alone are far too common to count.
+    const namedWords = new Set(direct.flatMap((header) => contentBigrams(header).filter((gram) => queryGrams.includes(gram))));
+    if (topic.length === 0 && namedWords.size < (options.minNamedHeadersWithoutTopic ?? 2)) return;
     // Half of the asked-for concepts must be present, so a table that has one
     // of five asked slots is not offered on a shared topic word alone.
     if (triggered.length >= 2 && slots.length + direct.length < Math.ceil(triggered.length / 2)) return;
