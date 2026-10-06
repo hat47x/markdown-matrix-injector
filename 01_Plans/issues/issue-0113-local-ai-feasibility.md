@@ -12,6 +12,10 @@
 - Related ADR/Spec: ADR-0018 D2・D4・D8・D11、ADR-0020 D2・D7・D10
 - Dependency: provider-neutral Cognitive Contract（issue-0135）はDone。Candidate側の利用箇所はissue-0193以降で具体化する
 
+## 再開の前提（2026-10-07、[ADR-0023](../adr/ADR-0023-fuzzy-search-before-paraphrase-and-model-runtime.md)・提案）
+
+言い換え検索だけを理由に、ローカルのモデル実行環境を導入させない。需要は未観測で、あいまい検索（略語・表記ゆれ）のほうが先である。本Issueを再開するのは、M0〜M2で足りない具体的なタスクが検索の言い換え以外にも記録され、利用者がすでに実行環境を持ち、新しい未見セットで決定論の方式に対する改善が測定されたときとする。既定オフの実験的な埋め込み経路（issue-0115）は拡張しない。
+
 ## 背景
 
 MMI内部の認知は、外部API課金を前提にしない。決定論的規則、Fly-inspired matcher、Jev類似のbounded model、ローカルLLM等から、要件に最も単純で十分な方式を選ぶ。
