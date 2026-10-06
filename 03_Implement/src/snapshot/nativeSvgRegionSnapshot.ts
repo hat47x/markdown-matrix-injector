@@ -92,6 +92,10 @@ type NativeCellStyle = {
 type NativeCell = XLSX.CellObject & { s?: NativeCellStyle };
 type NativeColumn = { hidden?: boolean; wpx?: number; wch?: number; width?: number };
 type NativeRow = { hidden?: boolean; hpx?: number; hpt?: number };
+interface CellRange {
+  s: { r: number; c: number };
+  e: { r: number; c: number };
+}
 interface AxisMetrics { start: number; end: number; sizes: number[]; offsets: number[]; total: number }
 interface SnapshotRect { x: number; y: number; width: number; height: number }
 
@@ -266,7 +270,7 @@ function buildSvg(options: {
   worksheet: XLSX.WorkSheet;
   workbookBytes: Buffer;
   sheet: string;
-  selection: XLSX.Range;
+  selection: CellRange;
   columns: AxisMetrics;
   rows: AxisMetrics;
   limitations: Set<string>;
@@ -276,11 +280,11 @@ function buildSvg(options: {
     '<rect x="0" y="0" width="' + columns.total + '" height="' + rows.total + '" fill="#ffffff"/>',
   ];
   const mergeCoverage = new Set<string>();
-  const merges = (worksheet['!merges'] ?? []) as XLSX.Range[];
+  const merges = (worksheet['!merges'] ?? []) as CellRange[];
 
   for (const merge of merges) {
     if (!rangesOverlap(selection, merge)) continue;
-    const clipped: XLSX.Range = {
+    const clipped: CellRange = {
       s: { c: Math.max(selection.s.c, merge.s.c), r: Math.max(selection.s.r, merge.s.r) },
       e: { c: Math.min(selection.e.c, merge.e.c), r: Math.min(selection.e.r, merge.e.r) },
     };
@@ -414,7 +418,7 @@ function buildSvg(options: {
 function renderCell(
   sourceRow: number,
   sourceCol: number,
-  visibleRange: XLSX.Range,
+  visibleRange: CellRange,
   cell: NativeCell | undefined,
   columns: AxisMetrics,
   rows: AxisMetrics,
@@ -575,7 +579,7 @@ function axisMetrics(start: number, end: number, sizes: number[]): AxisMetrics {
   return { start, end, sizes, offsets, total: offsets[offsets.length - 1] };
 }
 
-function rangeRect(range: XLSX.Range, columns: AxisMetrics, rows: AxisMetrics): SnapshotRect {
+function rangeRect(range: CellRange, columns: AxisMetrics, rows: AxisMetrics): SnapshotRect {
   const startCol = clamp(range.s.c, columns.start, columns.end + 1);
   const endCol = clamp(range.e.c + 1, columns.start, columns.end + 1);
   const startRow = clamp(range.s.r, rows.start, rows.end + 1);
@@ -587,7 +591,7 @@ function rangeRect(range: XLSX.Range, columns: AxisMetrics, rows: AxisMetrics): 
 
 function anchorRect(
   anchor: ImageAnchor,
-  selection: XLSX.Range,
+  selection: CellRange,
   columns: AxisMetrics,
   rows: AxisMetrics,
   limitations: Set<string>,
@@ -598,7 +602,7 @@ function anchorRect(
   }
   if (!anchor.from) return undefined;
   if (anchor.kind === 'twoCellAnchor' && anchor.to) {
-    const sourceRange: XLSX.Range = {
+    const sourceRange: CellRange = {
       s: { c: anchor.from.col, r: anchor.from.row },
       e: { c: anchor.to.col, r: anchor.to.row },
     };
@@ -626,7 +630,7 @@ function axisEdge(metrics: AxisMetrics, coordinate: number): number {
   if (coordinate >= metrics.end + 1) return metrics.total;
   return metrics.offsets[coordinate - metrics.start];
 }
-function rangesOverlap(left: XLSX.Range, right: XLSX.Range): boolean {
+function rangesOverlap(left: CellRange, right: CellRange): boolean {
   return left.s.r <= right.e.r && right.s.r <= left.e.r && left.s.c <= right.e.c && right.s.c <= left.e.c;
 }
 function placeholderRect(rect: SnapshotRect, label: string, className: string): string {
