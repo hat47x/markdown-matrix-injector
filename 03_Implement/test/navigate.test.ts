@@ -60,7 +60,7 @@ test('the catalog lists tables by source with column letters, and holds back cel
 test('columns are chosen by header name and rows by a keyword in one column, checked by rendering', () => {
   const book = analyzeBook(FEATURES, './features.xlsx');
   const exact = selectFromBook(book, './features.xlsx', { table: 'T_受注明細', columns: ['商品', '数量'], rows: { contains: 'ボルト', column: '商品' } });
-  assert.equal(exact.reference, '![[./features.xlsx#テーブル|B4:F8?columns=B,C&header=first&grep=ボルト&x-headers=商品,数量]]');
+  assert.equal(exact.reference, '![[./features.xlsx#テーブル|B4:F8?columns=B,C&header=first&grep=ボルト&x-headers=商品,数量&x-table=T_受注明細]]');
   assert.deepEqual(exact.rows, { mode: 'contains', shown: 2, ofTotal: 4, exact: true });
   assert.deepEqual(exact.preview?.headers, ['商品', '数量']);
 

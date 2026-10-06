@@ -78,6 +78,7 @@ import { validateAiHandoffCandidateSelection } from '../dx/aiHandoffCandidateSel
 import { validateAiHandoffNotationProposal } from '../dx/aiHandoffProposalValidation.js';
 import { validateAiHandoffTransformationProposal } from '../dx/aiHandoffTransformationValidation.js';
 import { createDiagnosticsForDocument } from '../dx/vscodeAdapters.js';
+import { readWorkbookStructure } from '../importAssist/workbookStructure.js';
 import { inspectImportAssistance, type InspectImportAssistanceCandidate } from '../importAssist/inspectImportAssistance.js';
 import { writeWorkbookImportDraft } from '../importAssist/importMaterialization.js';
 import { intakeSourceFile, pathWithinBoundaryForWrite } from '../importAssist/sourceIntake.js';
@@ -1699,6 +1700,7 @@ export async function checkPaths(files: string[], root: string): Promise<CheckPr
       readFile: async (filepath) => fs.readFileSync(filepath),
       readWorkbookSheetNames: async (filepath) => Object.keys(loadWorkbook({ absolutePath: filepath, cache }).sheets),
       loadWorkbook: (filepath) => loadWorkbook({ absolutePath: filepath, cache }),
+      loadStructure: (filepath, workbook) => readWorkbookStructure(filepath, workbook),
     });
     for (const { diagnostic, range } of items) {
       problems.push({
