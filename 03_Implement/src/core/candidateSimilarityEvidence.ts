@@ -6,7 +6,8 @@
 import fs from 'node:fs';
 import type { Candidate, CandidateKind, Fingerprint } from './candidate.js';
 
-const CANDIDATE_KINDS = new Set<CandidateKind>([
+// Kinds a research sidecar may name; kept as plain strings because the sidecar is external input.
+const CANDIDATE_KINDS = new Set<string>([
   'table-range',
   'image',
   'text-block',

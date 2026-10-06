@@ -1,7 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import type { CandidateLedgerFilter, LedgerState } from '../core/candidateLedgerView.js';
+import type { CandidateLedgerFilter } from '../core/candidateLedgerView.js';
+import type { LedgerState } from '../core/importLedger.js';
 import type { ReviewState } from '../core/candidate.js';
 import type { CandidateReviewViewItem } from '../core/candidateReviewView.js';
 import { matchesCandidateReviewFacets, type CandidateReviewFacetFilter } from './candidateReviewFilter.js';

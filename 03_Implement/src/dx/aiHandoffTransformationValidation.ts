@@ -549,6 +549,18 @@ function normalizeSource(source: string): string {
   return source.replaceAll('\\', '/');
 }
 
+/** Order in which checks are reported; a check that did not run is reported as `not-run`. */
+const CHECK_ORDER: readonly AiHandoffTransformationCheckName[] = [
+  'package',
+  'proposal-schema',
+  'operation-boundary',
+  'candidate-allowlist',
+  'source-identity',
+  'current-candidate',
+  'transformation-contract',
+  'authority-revalidation',
+];
+
 function finish(
   proposal: unknown,
   checks: Map<

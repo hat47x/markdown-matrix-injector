@@ -670,7 +670,7 @@ function tabularHierarchyProvenance(
 ): Record<string, string> {
   const encoded = (value: string): string =>
     encodeURIComponent(value);
-  const headerRow = options.config.headerRow === undefined
+  const headerRow: Record<string, string> = options.config.headerRow === undefined
     ? {}
     : { 'header-row': String(options.config.headerRow + 1) };
   return options.config.mode === 'parent-id'

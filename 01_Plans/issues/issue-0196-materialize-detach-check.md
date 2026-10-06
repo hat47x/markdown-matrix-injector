@@ -40,6 +40,21 @@ Detachedは「MMI記法が無い」だけでは不十分である。materialize�
 - CLI: `materialize` / `detach-check`。出力先は`--root`内に限定し、既存attachmentと内容が違う場合は上書きしない。
 - `test/detach.test.ts`: 別紙相当の外出し、小表inline化、安全にmaterializeできない参照、closure検査のfixtureを追加。
 
+## 実務E2Eの実測（2026-10-06）
+
+最新の`main`（`6fba0dd`）で、実務サンプルとキットを`materialize`し、出力フォルダーだけを別の場所へコピー（原本なし）して`detach-check`を実行した（Linux、Node 20.20.2、CLIは開発ツリーから実行）。
+
+| 文書 | materialize | 原本なしのdetach-check |
+| --- | --- | --- |
+| 09-large-table（別紙カード、60件×11列） | 成功（別紙の表1件） | 指摘0件 |
+| 02-requirements | 成功 | 指摘0件 |
+| 08-release | 失敗（exit 1）。`mode=card`でsheetの指定が無い参照を「sheetを選んでから切り離す」と診断し、`mmi:unmaterialized`を残す | 未実体化の参照が残るため指摘2件 |
+| 基本設計書キット | 成功 | 1件。本文が`masters/基本設計.xlsx`へ通常リンクしており、原本を外すと壊れる（`MMI_DETACH_BROKEN_LINK`） |
+
+- 失敗と指摘は、どれも黙って欠落させず理由を示す設計どおりの動きである。08-releaseはsheetを明示すれば実体化できる。キットの1件は、本文の説明にある原本へのリンクを、原本を廃止する範囲ではリンクでなく文字に書き換える必要がある。
+- 受入条件のE2E（上記の表）は実施した。**画像を含む文書でのE2E**（`extract`で取り込んだ画像を`mmi-assets/`へ複製して原本を外す）は未実施。
+- Windows・macOSでは未実施。
+
 ## Validation plan
 
 1. unit fixtureで、小表→inline、大表→別Markdown、sheet未指定→unmaterialized、壊れたリンク→detach errorを確認する。

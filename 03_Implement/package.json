@@ -32,6 +32,7 @@
   ],
   "scripts": {
     "build": "tsc -p tsconfig.json",
+    "build:product": "tsc -p tsconfig.product.json",
     "mmi": "node --import tsx src/cli/mmi.ts",
     "test:unit": "node --import tsx --test ./test/*.test.ts",
     "test:review-route-evaluation-pipeline": "node --import tsx --test ./test/worksheetReviewRouteEvaluationPipeline.test.ts",
@@ -48,7 +49,7 @@
     "test:e2e:import": "npm run build && node --import tsx ./test/e2e/runImport.ts",
     "test": "npm run test:unit && npm run test:cli-distribution && npm run test:phase9-sync && npm run test:phase9-guide-sync",
     "test:cli-distribution": "node --test ./test/cliDistribution.test.mjs",
-    "package:cli": "npm run build && node scripts/build-cli-package.mjs",
+    "package:cli": "npm run build:product && node scripts/build-cli-package.mjs",
     "verify:cli-package": "node scripts/verify-cli-package.mjs",
     "release:gate": "python3 ../01_Plans/tools/release_gate_check.py --repo-root .. --format json",
     "release:gate:artifacts": "python3 ../01_Plans/tools/release_gate_check.py --repo-root .. --format json --output-file artifacts/release-gate.json --output-markdown-file artifacts/release-gate.md",

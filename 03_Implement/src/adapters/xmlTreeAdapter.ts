@@ -8,6 +8,37 @@ import {
 
 export const XML_TREE_ADAPTER_VERSION = '2';
 
+export interface XmlAttribute {
+  name: string;
+  value: string;
+}
+
+export type XmlTreeContent =
+  | { kind: 'text'; value: string }
+  | { kind: 'element'; element: XmlElementNode };
+
+export interface XmlElementNode {
+  name: string;
+  attributes: readonly XmlAttribute[];
+  content: readonly XmlTreeContent[];
+}
+
+export interface XmlTreeNode {
+  path: string;
+  name: string;
+  childPaths: readonly string[];
+  attributeValues: readonly string[];
+  textValues: readonly string[];
+  element: XmlElementNode;
+  candidate: Candidate;
+}
+
+export interface XmlTreeDocument {
+  root: XmlElementNode;
+  nodes: readonly XmlTreeNode[];
+  candidates: readonly Candidate[];
+}
+
 function parseXml(text: string): XmlElementNode {
   type Frame = {
     name: string;

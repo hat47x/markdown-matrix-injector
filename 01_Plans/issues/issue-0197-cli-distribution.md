@@ -32,6 +32,15 @@ stageではリポジトリの`package-lock.json`と通常manifestを一時的に
 
 `test/cliDistribution.test.mjs`では、CLI packageがVS Code固有の`main`、`publisher`、`contributes`を持ち込まないこと、runtime dependencyとpackage file allowlistが限定されること、CLIから到達するmoduleだけがstageへ入りextension/experimental codeが混入しないこと、コメントや文字列中の疑似importを依存と誤認しないこと、欠落module・root外import・compiled entry欠落でfail-closedになることを回帰として追加した。`cli.test.ts`には`mmi --version` / `-v`とpackage metadataの一致確認を追加した。
 
+## Linuxでの実測（2026-10-06）
+
+最新の`main`（`6fba0dd`）で`npm run package:cli`を実行した（WSL2、Node 20.20.2）。
+
+- **既存の不具合を修正した。** `package:cli`は最初に`npm run build`（`tsc -p tsconfig.json`）を実行するが、`tsconfig.json`は`test/**`と研究層も含むため、型エラーが残ると配布物が作れなかった。最新の`main`では、`saxes`導入時に`xmlTreeAdapter.ts`から型定義が落ちたこと、`aiHandoffTransformationValidation.ts`の`CHECK_ORDER`が未定義のまま使われていたこと、`inspect`の汎用XML分岐に`choiceLists`等が無いこと等、**product側にも型エラーが55件あった**（`npm ci`済みの環境）。product側を直し、さらに`package:cli`が使うビルドを`tsconfig.product.json`（`src`のうち研究層を除く）の`build:product`へ切り替えた。`npm run build`（全体）は、研究層・凍結テストの既存の型エラー17件が残るため、引き続き失敗する。凍結テストは固定されたダイジェストを検証するので、型エラーのために編集しない。
+- 生成: `artifacts/cli-package/markdown-matrix-injector-0.1.0.tgz`（約3.3MB、`bundleDependencies`込み）。生成直後の隔離検証（新しいprefix、空のnpm cache、`--offline`）は16項目すべて`passed`（`help`・`version`・`check`・`render`・JSON/XML/YAMLのTree `inspect`/`extract`/ledgerを含む）。
+- 修正の効果: product側の型・実行時の不具合を直したところ、全体テストの失敗が77件から61件に減り、16件のテスト（CLIの`inspect`/`extract`、AI手渡しの検証等）が合格に変わった。新しい失敗は0件（変更前の`origin/main`と、失敗するテスト名を比較）。
+- 見つかった課題: **Node 18で実行すると、xlsxの`SyntaxError`という分かりにくい失敗になる**（`engines.node>=20`はnpmの警告にとどまる）。ESMの`import`は巻き上げられるため、`mmi.js`の先頭では検査できない。起動用の薄い入口（Nodeの版を確かめてから`import()`する）が必要。
+
 ## Validation plan
 
 `npm run package:cli`で配布tarballを作り、WindowsとLinuxの新規環境で次を実行する。開発用checkoutやTypeScript toolchainは置かない。

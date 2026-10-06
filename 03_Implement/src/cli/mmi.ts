@@ -1307,6 +1307,8 @@ export function inspectSource(
           ],
         })),
         images: [],
+        choiceLists: [],
+        choiceListDiagnostics: [],
         imageDiagnostics: [],
         sheets: [],
       };
@@ -1365,6 +1367,7 @@ export function inspectSource(
     ? readExcelImages(packageBytes)
     : {
         images: [],
+        snapshotHints: [],
         diagnostics: /\.xls$/iu.test(absolutePath)
           ? [{ code: 'MMI_IMAGE_PACKAGE_UNSUPPORTED' as const, severity: 'warning' as const, message: 'binary .xls: embedded pictures are not read' }]
           : [],
