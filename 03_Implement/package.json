@@ -94,6 +94,7 @@
     "onCommand:markdownMatrixInjector.insertEmbedByContentMatch",
     "onCommand:markdownMatrixInjector.authorEmbed",
     "onCommand:markdownMatrixInjector.findEmbedByDescription",
+    "onCommand:markdownMatrixInjector.selectLocalSemanticModel",
     "onCommand:markdownMatrixInjector.clearSearchIndex",
     "onCommand:markdownMatrixInjector.importFromWorkbook",
     "onCommand:markdownMatrixInjector.reviewCandidates",
@@ -146,6 +147,11 @@
       {
         "command": "markdownMatrixInjector.findEmbedByDescription",
         "title": "%mmi.command.findEmbedByDescription%",
+        "category": "MMI"
+      },
+      {
+        "command": "markdownMatrixInjector.selectLocalSemanticModel",
+        "title": "%mmi.command.selectLocalSemanticModel%",
         "category": "MMI"
       },
       {
@@ -366,7 +372,10 @@
         },
         "markdownMatrixInjector.search.semantic.api": {
           "type": "string",
-          "enum": ["ollama", "openai-compatible"],
+          "enum": [
+            "ollama",
+            "openai-compatible"
+          ],
           "default": "ollama",
           "markdownDescription": "%mmi.setting.semanticApi%"
         },
