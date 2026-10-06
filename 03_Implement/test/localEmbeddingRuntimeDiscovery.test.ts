@@ -4,6 +4,7 @@ import assert from 'node:assert/strict';
 import {
   discoverLocalEmbeddingModels,
   runtimeManagedArtifactFromEmbeddingModel,
+  verifyEmbeddingArtifactIdentity,
   type DiscoveryFetch,
 } from '../src/search/semantic/runtimeDiscovery.js';
 
@@ -205,4 +206,106 @@ test('discovered local models expose runtime-managed artifact identity without c
     sizeBytes: 456,
   });
   assert.equal('sha256' in lmStudio, false);
+});
+
+
+test('Ollama artifact identity verification matches only the selected local digest', async () => {
+  const expected = `sha256:${'a'.repeat(64)}`;
+  const fetchImpl: DiscoveryFetch = async (url) => {
+    assert.equal(url, 'http://127.0.0.1:11434/api/tags');
+    return response({
+      models: [
+        {
+          model: 'embed-model:latest',
+          digest: 'a'.repeat(64),
+          size: 123,
+        },
+        {
+          model: 'cloud-embed:cloud',
+          digest: 'b'.repeat(64),
+          remote_model: 'cloud-embed:cloud',
+          remote_host: 'https://ollama.com',
+        },
+      ],
+    });
+  };
+
+  assert.equal(
+    await verifyEmbeddingArtifactIdentity({
+      api: 'ollama',
+      endpoint: 'http://127.0.0.1:11434',
+      model: 'embed-model:latest',
+      expectedArtifactDigest: expected,
+    }, fetchImpl),
+    true,
+  );
+  assert.equal(
+    await verifyEmbeddingArtifactIdentity({
+      api: 'ollama',
+      endpoint: 'http://127.0.0.1:11434',
+      model: 'embed-model:latest',
+      expectedArtifactDigest: `sha256:${'c'.repeat(64)}`,
+    }, fetchImpl),
+    false,
+  );
+});
+
+test('artifact identity verification fails closed when the runtime cannot prove the digest', async () => {
+  let calls = 0;
+  const fetchImpl: DiscoveryFetch = async () => {
+    calls += 1;
+    return response({ models: [] });
+  };
+
+  assert.equal(
+    await verifyEmbeddingArtifactIdentity({
+      api: 'openai-compatible',
+      endpoint: 'http://127.0.0.1:1234',
+      model: 'text-embed',
+      expectedArtifactDigest: `sha256:${'a'.repeat(64)}`,
+    }, fetchImpl),
+    false,
+  );
+  assert.equal(calls, 0);
+
+  assert.equal(
+    await verifyEmbeddingArtifactIdentity({
+      api: 'ollama',
+      endpoint: 'http://192.168.1.20:11434',
+      model: 'embed-model:latest',
+      expectedArtifactDigest: `sha256:${'a'.repeat(64)}`,
+    }, fetchImpl),
+    false,
+  );
+  assert.equal(calls, 0);
+
+  assert.equal(
+    await verifyEmbeddingArtifactIdentity({
+      api: 'ollama',
+      endpoint: 'http://127.0.0.1:11434',
+      model: 'embed-model:latest',
+    }, fetchImpl),
+    true,
+  );
+  assert.equal(calls, 0);
+});
+
+test('remote Ollama aliases cannot satisfy a pinned local artifact digest', async () => {
+  const fetchImpl: DiscoveryFetch = async () => response({
+    models: [{
+      model: 'embed-model:latest',
+      digest: 'a'.repeat(64),
+      remote_model: 'embed-model:latest',
+      remote_host: 'https://ollama.com',
+    }],
+  });
+  assert.equal(
+    await verifyEmbeddingArtifactIdentity({
+      api: 'ollama',
+      endpoint: 'http://127.0.0.1:11434',
+      model: 'embed-model:latest',
+      expectedArtifactDigest: `sha256:${'a'.repeat(64)}`,
+    }, fetchImpl),
+    false,
+  );
 });
