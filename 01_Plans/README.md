@@ -26,7 +26,7 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 | 2 | [既存設計書の取り込み候補](issues/issue-0205-import-assistance-prototype.md)（方眼紙の表の参照提案・役割候補・下書き） | **In Progress**（VS Code/CLIへ接続、架空データで評価済み） | 残: 画面操作の目視確認、実在設計書で候補の採用・修正・却下を観測 |
 | 2 | [Excelを開かずに表・列・行を選ぶ入口](issues/issue-0206-table-navigation-and-agent-interface.md)（名前・テーブル・非表示、見出しによる選択） | In Progress（試作） | 残: 目視確認、[ADR-0022](adr/ADR-0022-semantic-selection-in-notation.md)の採否（選択肢Bの`x-headers`は参照実装で試行済み。2026-10-06）（select/findのCandidate指紋対応は実施済み） |
 | 2（既存） | [Excel範囲貼り付け](issues/issue-0114-excel-range-paste.md) | Open | Paste As宿主dispatchの自動E2Eは実VS Code 1.140.0で3回連続成功（2026-10-06）。残: Windows実ExcelのHTML/helper/視覚picker実機証拠。表Candidateの `observed` / `inferred` を保ったまま、採用時にreviewを `accepted` とする経路として扱う |
-| 2（既存） | [CPUでの範囲探索](issues/issue-0115-cpu-range-search.md) | In Progress | 言い換え対応。Candidateの検索として扱う |
+| 2（既存） | [CPUでの範囲探索](issues/issue-0115-cpu-range-search.md) | In Progress | 言い換え対応。v4初回評価（2026-10-06）でRecall@5 0.633・言い換え1/8・誤受理0。辞書では扱えないため、M2の類似で言い換えを扱う方式を、別エージェント作成の新しい未見セットv5で測る |
 | 2（既存） | [文脈に応じた補完](issues/issue-0110-contextual-input-completion.md)、[参照の作成・編集](issues/issue-0111-reference-authoring-flow.md) | In Progress | 多環境の実機確認、利用者の観測 |
 | **3 Source Adapterの一般化** | [Tree / Hierarchy、JSON/YAML/XML、フラットテキスト](issues/issue-0199-tree-structured-source-adapters.md) | **In Progress**（Tree各形式を共通ライフサイクルへ接続。Excel Choice listは別kindのまま直接範囲参照をM0解決） | 次: structured artifactの`hierarchy_relation`をPerception providerとして接続し、Shape等はsource semanticsからCandidate化する |
 | 3 | Shape、その他List source | 未起票 | Choice listは既存`choice-list` Candidateを継続し、Treeへ強制統合しない。Shapeはissue-0193のCandidate/provenance契約へsource semanticsを写す |

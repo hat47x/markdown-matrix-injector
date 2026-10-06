@@ -1,0 +1,2393 @@
+{
+  "evidence": {
+    "kind": "cpu-search-test4-first-run",
+    "gitCommit": "13df5d646f1d0770bb7eb0761a79e2de7bcdc053",
+    "cleanWorktree": true,
+    "queryBlobSha": "34f9dfc205f10b18f1fd13927c67f7e6a44bd72f",
+    "queryCount": 40,
+    "categoryCounts": {
+      "exact": 8,
+      "abbreviation": 6,
+      "paraphrase": 8,
+      "typo": 4,
+      "duplicate": 4,
+      "unsupported": 5,
+      "none": 5
+    },
+    "dictionaryBlobSha": "dc418c576d800dba64442a3acabdb26b8e80f34d",
+    "dictionaryVersion": "dev-2",
+    "methods": [
+      "exact",
+      "bm25",
+      "cosine",
+      "flyhash"
+    ],
+    "iterations": 30,
+    "command": "npm run eval:cpu-search:test4:first"
+  },
+  "report": {
+    "generatedAt": "2026-10-06T03:26:14.194Z",
+    "environment": {
+      "cpuModel": "13th Gen Intel(R) Core(TM) i7-1365U",
+      "logicalCores": 12,
+      "totalMemGiB": 7.6,
+      "os": "Linux 6.18.33.1-microsoft-standard-WSL2",
+      "wsl": true,
+      "node": "v20.20.2",
+      "gpuUsed": false,
+      "network": "none (no external calls in this harness)",
+      "iterations": 30,
+      "flyhashSeed": 20260924,
+      "corpusSeed": 20260924
+    },
+    "corpus": {
+      "kind": "fictional business data (not synthetic scale data)",
+      "books": 32,
+      "totalBytes": 572681,
+      "regions": 49,
+      "vocabulary": 1809
+    },
+    "queries": {
+      "set": "test4",
+      "count": 40,
+      "dictionary": "dev-2"
+    },
+    "detection": {
+      "manifest": 49,
+      "detected": 49,
+      "exact": 49,
+      "headerLikely": 48
+    },
+    "timingsMs": {
+      "coldLoadPerBookP50": 1.712,
+      "coldLoadPerBookP95": 4.668,
+      "coldLoadTotal": 81.526,
+      "detectPerBookP50": 0.138,
+      "detectPerBookP95": 0.399,
+      "fullIndexSync": 84.046,
+      "retrieverBuild": {
+        "exact": 3.793,
+        "bm25": 4.044,
+        "cosine": 1.137,
+        "flyhash": 32.654
+      },
+      "diffUpdate": {
+        "ms": 8.928,
+        "reloadedBooks": 1,
+        "docsRemoved": 4,
+        "docsAdded": 4
+      }
+    },
+    "memoryBytes": {
+      "corpus": 133560,
+      "byMethod": {
+        "exact": 94576,
+        "bm25": 224800,
+        "cosine": 225976,
+        "flyhash": 304196
+      }
+    },
+    "quality": {
+      "exact": {
+        "regionQueries": 30,
+        "rejectQueries": 10,
+        "recallAt5": 0.633,
+        "top1": 0.633,
+        "duplicatesAllOffered": 0.5,
+        "exactNotation": 0.533,
+        "falseRejections": 11,
+        "rejectionAccuracy": 1,
+        "automaticConfirmations": 0,
+        "byCategory": {
+          "exact": {
+            "n": 8,
+            "recall5": 1,
+            "top1": 1
+          },
+          "abbreviation": {
+            "n": 6,
+            "recall5": 0.667,
+            "top1": 0.667
+          },
+          "paraphrase": {
+            "n": 8,
+            "recall5": 0.125,
+            "top1": 0.125
+          },
+          "typo": {
+            "n": 4,
+            "recall5": 1,
+            "top1": 1
+          },
+          "duplicate": {
+            "n": 4,
+            "recall5": 0.5,
+            "top1": 0.5
+          },
+          "unsupported": {
+            "n": 5,
+            "rejection": 1
+          },
+          "none": {
+            "n": 5,
+            "rejection": 1
+          }
+        },
+        "failures": [
+          {
+            "id": "v4-09",
+            "category": "abbreviation",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-14",
+            "category": "abbreviation",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-15",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-16",
+            "category": "paraphrase",
+            "status": "unsupported"
+          },
+          {
+            "id": "v4-17",
+            "category": "paraphrase",
+            "status": "unsupported"
+          },
+          {
+            "id": "v4-18",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-20",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-21",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-22",
+            "category": "paraphrase",
+            "status": "unsupported"
+          },
+          {
+            "id": "v4-27",
+            "category": "duplicate",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-30",
+            "category": "duplicate",
+            "status": "no-match"
+          }
+        ]
+      },
+      "bm25": {
+        "regionQueries": 30,
+        "rejectQueries": 10,
+        "recallAt5": 0.633,
+        "top1": 0.633,
+        "duplicatesAllOffered": 0.5,
+        "exactNotation": 0.533,
+        "falseRejections": 11,
+        "rejectionAccuracy": 1,
+        "automaticConfirmations": 0,
+        "byCategory": {
+          "exact": {
+            "n": 8,
+            "recall5": 1,
+            "top1": 1
+          },
+          "abbreviation": {
+            "n": 6,
+            "recall5": 0.667,
+            "top1": 0.667
+          },
+          "paraphrase": {
+            "n": 8,
+            "recall5": 0.125,
+            "top1": 0.125
+          },
+          "typo": {
+            "n": 4,
+            "recall5": 1,
+            "top1": 1
+          },
+          "duplicate": {
+            "n": 4,
+            "recall5": 0.5,
+            "top1": 0.5
+          },
+          "unsupported": {
+            "n": 5,
+            "rejection": 1
+          },
+          "none": {
+            "n": 5,
+            "rejection": 1
+          }
+        },
+        "failures": [
+          {
+            "id": "v4-09",
+            "category": "abbreviation",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-14",
+            "category": "abbreviation",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-15",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-16",
+            "category": "paraphrase",
+            "status": "unsupported"
+          },
+          {
+            "id": "v4-17",
+            "category": "paraphrase",
+            "status": "unsupported"
+          },
+          {
+            "id": "v4-18",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-20",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-21",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-22",
+            "category": "paraphrase",
+            "status": "unsupported"
+          },
+          {
+            "id": "v4-27",
+            "category": "duplicate",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-30",
+            "category": "duplicate",
+            "status": "no-match"
+          }
+        ]
+      },
+      "cosine": {
+        "regionQueries": 30,
+        "rejectQueries": 10,
+        "recallAt5": 0.633,
+        "top1": 0.633,
+        "duplicatesAllOffered": 0.5,
+        "exactNotation": 0.533,
+        "falseRejections": 11,
+        "rejectionAccuracy": 1,
+        "automaticConfirmations": 0,
+        "byCategory": {
+          "exact": {
+            "n": 8,
+            "recall5": 1,
+            "top1": 1
+          },
+          "abbreviation": {
+            "n": 6,
+            "recall5": 0.667,
+            "top1": 0.667
+          },
+          "paraphrase": {
+            "n": 8,
+            "recall5": 0.125,
+            "top1": 0.125
+          },
+          "typo": {
+            "n": 4,
+            "recall5": 1,
+            "top1": 1
+          },
+          "duplicate": {
+            "n": 4,
+            "recall5": 0.5,
+            "top1": 0.5
+          },
+          "unsupported": {
+            "n": 5,
+            "rejection": 1
+          },
+          "none": {
+            "n": 5,
+            "rejection": 1
+          }
+        },
+        "failures": [
+          {
+            "id": "v4-09",
+            "category": "abbreviation",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-14",
+            "category": "abbreviation",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-15",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-16",
+            "category": "paraphrase",
+            "status": "unsupported"
+          },
+          {
+            "id": "v4-17",
+            "category": "paraphrase",
+            "status": "unsupported"
+          },
+          {
+            "id": "v4-18",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-20",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-21",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-22",
+            "category": "paraphrase",
+            "status": "unsupported"
+          },
+          {
+            "id": "v4-27",
+            "category": "duplicate",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-30",
+            "category": "duplicate",
+            "status": "no-match"
+          }
+        ]
+      },
+      "flyhash": {
+        "regionQueries": 30,
+        "rejectQueries": 10,
+        "recallAt5": 0.633,
+        "top1": 0.633,
+        "duplicatesAllOffered": 0.5,
+        "exactNotation": 0.533,
+        "falseRejections": 11,
+        "rejectionAccuracy": 1,
+        "automaticConfirmations": 0,
+        "byCategory": {
+          "exact": {
+            "n": 8,
+            "recall5": 1,
+            "top1": 1
+          },
+          "abbreviation": {
+            "n": 6,
+            "recall5": 0.667,
+            "top1": 0.667
+          },
+          "paraphrase": {
+            "n": 8,
+            "recall5": 0.125,
+            "top1": 0.125
+          },
+          "typo": {
+            "n": 4,
+            "recall5": 1,
+            "top1": 1
+          },
+          "duplicate": {
+            "n": 4,
+            "recall5": 0.5,
+            "top1": 0.5
+          },
+          "unsupported": {
+            "n": 5,
+            "rejection": 1
+          },
+          "none": {
+            "n": 5,
+            "rejection": 1
+          }
+        },
+        "failures": [
+          {
+            "id": "v4-09",
+            "category": "abbreviation",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-14",
+            "category": "abbreviation",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-15",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-16",
+            "category": "paraphrase",
+            "status": "unsupported"
+          },
+          {
+            "id": "v4-17",
+            "category": "paraphrase",
+            "status": "unsupported"
+          },
+          {
+            "id": "v4-18",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-20",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-21",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-22",
+            "category": "paraphrase",
+            "status": "unsupported"
+          },
+          {
+            "id": "v4-27",
+            "category": "duplicate",
+            "status": "no-match"
+          },
+          {
+            "id": "v4-30",
+            "category": "duplicate",
+            "status": "no-match"
+          }
+        ]
+      }
+    },
+    "latency": {
+      "exact": {
+        "samples": 1200,
+        "retrievalP50": 0.019,
+        "retrievalP95": 0.067,
+        "compileP50": 0.423,
+        "compileP95": 1.76,
+        "withVerificationP50": 0.421,
+        "withVerificationP95": 1.776,
+        "staleCandidates": 0
+      },
+      "bm25": {
+        "samples": 1200,
+        "retrievalP50": 0.022,
+        "retrievalP95": 0.066,
+        "compileP50": 0.73,
+        "compileP95": 2.31,
+        "withVerificationP50": 0.736,
+        "withVerificationP95": 2.392,
+        "staleCandidates": 0
+      },
+      "cosine": {
+        "samples": 1200,
+        "retrievalP50": 0.018,
+        "retrievalP95": 0.058,
+        "compileP50": 0.649,
+        "compileP95": 2.068,
+        "withVerificationP50": 0.608,
+        "withVerificationP95": 2.132,
+        "staleCandidates": 0
+      },
+      "flyhash": {
+        "samples": 1200,
+        "retrievalP50": 0.051,
+        "retrievalP95": 0.133,
+        "compileP50": 0.398,
+        "compileP95": 1.11,
+        "withVerificationP50": 0.37,
+        "withVerificationP95": 1.103,
+        "staleCandidates": 0
+      }
+    },
+    "perQuery": {
+      "exact": [
+        {
+          "id": "v4-01",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./コード定義書.xlsx#区分コード|A1:C7?columns=A,C&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-02",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./運用設計書.xlsx#運用|B4:E8?columns=B,C,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-03",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./問い合わせ管理.xlsx#問い合わせ|A1:D7?columns=C,A,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-04",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./教育計画.xlsx#研修|A1:D4?columns=A,B,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-05",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./外部IF一覧.xlsx#Sheet1|A2:E6?columns=B,D,E&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-06",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./変更管理台帳.xlsx#変更要求|A1:E6?columns=A,C,E&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-07",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./移行計画書.xlsx#移行対象|A1:D5?columns=A,C,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-08",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./会議体一覧.xlsx#Sheet1|A1:D5?columns=A,B,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-09",
+          "category": "abbreviation",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-10",
+          "category": "abbreviation",
+          "status": "candidates",
+          "top": "![[./変更管理台帳.xlsx#変更要求|A1:E6?columns=B,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-11",
+          "category": "abbreviation",
+          "status": "candidates",
+          "top": "![[./ネットワーク設計書.xlsx#FW|A2:E7?columns=B,C,E]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-12",
+          "category": "abbreviation",
+          "status": "candidates",
+          "top": "![[./WBS.xlsx#WBS|A2:F8?columns=B,C,F&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-13",
+          "category": "abbreviation",
+          "status": "candidates",
+          "top": "![[./外部IF一覧.xlsx#Sheet1|A2:E6?columns=A,C,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-14",
+          "category": "abbreviation",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-15",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-16",
+          "category": "paraphrase",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-17",
+          "category": "paraphrase",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-18",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-19",
+          "category": "paraphrase",
+          "status": "candidates",
+          "top": "![[./受注_API仕様書.xlsx#エラーコード|A1:D6?columns=A,B,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-20",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-21",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-22",
+          "category": "paraphrase",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-23",
+          "category": "typo",
+          "status": "candidates",
+          "top": "![[./会議体一覧.xlsx#Sheet1|A1:D5?header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-24",
+          "category": "typo",
+          "status": "candidates",
+          "top": "![[./教育計画.xlsx#研修|A1:D4?columns=A,C&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-25",
+          "category": "typo",
+          "status": "candidates",
+          "top": "![[./移行計画書.xlsx#移行対象|A1:D5?columns=A,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-26",
+          "category": "typo",
+          "status": "candidates",
+          "top": "![[./外部IF一覧.xlsx#Sheet1|A2:E6?columns=D,E&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-27",
+          "category": "duplicate",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-28",
+          "category": "duplicate",
+          "status": "candidates",
+          "top": "![[./DB設計書_受注.xlsx#テーブル一覧|A2:C6?columns=A,B&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-29",
+          "category": "duplicate",
+          "status": "candidates",
+          "top": "![[./受注_API仕様書.xlsx#IF一覧|C5:G11?header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-30",
+          "category": "duplicate",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-31",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-32",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-33",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-34",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-35",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-36",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-37",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-38",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-39",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-40",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        }
+      ],
+      "bm25": [
+        {
+          "id": "v4-01",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./コード定義書.xlsx#区分コード|A1:C7?columns=A,C&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-02",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./運用設計書.xlsx#運用|B4:E8?columns=B,C,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-03",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./問い合わせ管理.xlsx#問い合わせ|A1:D7?columns=C,A,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-04",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./教育計画.xlsx#研修|A1:D4?columns=A,B,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-05",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./外部IF一覧.xlsx#Sheet1|A2:E6?columns=B,D,E&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-06",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./変更管理台帳.xlsx#変更要求|A1:E6?columns=A,C,E&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-07",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./移行計画書.xlsx#移行対象|A1:D5?columns=A,C,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-08",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./会議体一覧.xlsx#Sheet1|A1:D5?columns=A,B,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-09",
+          "category": "abbreviation",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-10",
+          "category": "abbreviation",
+          "status": "candidates",
+          "top": "![[./変更管理台帳.xlsx#変更要求|A1:E6?columns=B,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-11",
+          "category": "abbreviation",
+          "status": "candidates",
+          "top": "![[./ネットワーク設計書.xlsx#FW|A2:E7?columns=B,C,E]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-12",
+          "category": "abbreviation",
+          "status": "candidates",
+          "top": "![[./WBS.xlsx#WBS|A2:F8?columns=B,C,F&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-13",
+          "category": "abbreviation",
+          "status": "candidates",
+          "top": "![[./外部IF一覧.xlsx#Sheet1|A2:E6?columns=A,C,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-14",
+          "category": "abbreviation",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-15",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-16",
+          "category": "paraphrase",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-17",
+          "category": "paraphrase",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-18",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-19",
+          "category": "paraphrase",
+          "status": "candidates",
+          "top": "![[./受注_API仕様書.xlsx#エラーコード|A1:D6?columns=A,B,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-20",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-21",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-22",
+          "category": "paraphrase",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-23",
+          "category": "typo",
+          "status": "candidates",
+          "top": "![[./会議体一覧.xlsx#Sheet1|A1:D5?header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-24",
+          "category": "typo",
+          "status": "candidates",
+          "top": "![[./教育計画.xlsx#研修|A1:D4?columns=A,C&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-25",
+          "category": "typo",
+          "status": "candidates",
+          "top": "![[./移行計画書.xlsx#移行対象|A1:D5?columns=A,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-26",
+          "category": "typo",
+          "status": "candidates",
+          "top": "![[./外部IF一覧.xlsx#Sheet1|A2:E6?columns=D,E&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-27",
+          "category": "duplicate",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-28",
+          "category": "duplicate",
+          "status": "candidates",
+          "top": "![[./DB設計書_会計.xlsx#テーブル一覧|A2:C5?columns=A,B&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-29",
+          "category": "duplicate",
+          "status": "candidates",
+          "top": "![[./受注_API仕様書.xlsx#IF一覧|C5:G11?header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-30",
+          "category": "duplicate",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-31",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-32",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-33",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-34",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-35",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-36",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-37",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-38",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-39",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-40",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        }
+      ],
+      "cosine": [
+        {
+          "id": "v4-01",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./コード定義書.xlsx#区分コード|A1:C7?columns=A,C&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-02",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./運用設計書.xlsx#運用|B4:E8?columns=B,C,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-03",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./問い合わせ管理.xlsx#問い合わせ|A1:D7?columns=C,A,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-04",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./教育計画.xlsx#研修|A1:D4?columns=A,B,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-05",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./外部IF一覧.xlsx#Sheet1|A2:E6?columns=B,D,E&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-06",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./変更管理台帳.xlsx#変更要求|A1:E6?columns=A,C,E&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-07",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./移行計画書.xlsx#移行対象|A1:D5?columns=A,C,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-08",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./会議体一覧.xlsx#Sheet1|A1:D5?columns=A,B,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-09",
+          "category": "abbreviation",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-10",
+          "category": "abbreviation",
+          "status": "candidates",
+          "top": "![[./変更管理台帳.xlsx#変更要求|A1:E6?columns=B,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-11",
+          "category": "abbreviation",
+          "status": "candidates",
+          "top": "![[./ネットワーク設計書.xlsx#FW|A2:E7?columns=B,C,E]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-12",
+          "category": "abbreviation",
+          "status": "candidates",
+          "top": "![[./WBS.xlsx#WBS|A2:F8?columns=B,C,F&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-13",
+          "category": "abbreviation",
+          "status": "candidates",
+          "top": "![[./外部IF一覧.xlsx#Sheet1|A2:E6?columns=A,C,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-14",
+          "category": "abbreviation",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-15",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-16",
+          "category": "paraphrase",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-17",
+          "category": "paraphrase",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-18",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-19",
+          "category": "paraphrase",
+          "status": "candidates",
+          "top": "![[./受注_API仕様書.xlsx#エラーコード|A1:D6?columns=A,B,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-20",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-21",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-22",
+          "category": "paraphrase",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-23",
+          "category": "typo",
+          "status": "candidates",
+          "top": "![[./会議体一覧.xlsx#Sheet1|A1:D5?header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-24",
+          "category": "typo",
+          "status": "candidates",
+          "top": "![[./教育計画.xlsx#研修|A1:D4?columns=A,C&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-25",
+          "category": "typo",
+          "status": "candidates",
+          "top": "![[./移行計画書.xlsx#移行対象|A1:D5?columns=A,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-26",
+          "category": "typo",
+          "status": "candidates",
+          "top": "![[./外部IF一覧.xlsx#Sheet1|A2:E6?columns=D,E&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-27",
+          "category": "duplicate",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-28",
+          "category": "duplicate",
+          "status": "candidates",
+          "top": "![[./DB設計書_受注.xlsx#テーブル一覧|A2:C6?columns=A,B&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-29",
+          "category": "duplicate",
+          "status": "candidates",
+          "top": "![[./受注_API仕様書.xlsx#IF一覧|C5:G11?header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-30",
+          "category": "duplicate",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-31",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-32",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-33",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-34",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-35",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-36",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-37",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-38",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-39",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-40",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        }
+      ],
+      "flyhash": [
+        {
+          "id": "v4-01",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./コード定義書.xlsx#区分コード|A1:C7?columns=A,C&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-02",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./運用設計書.xlsx#運用|B4:E8?columns=B,C,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-03",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./問い合わせ管理.xlsx#問い合わせ|A1:D7?columns=C,A,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-04",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./教育計画.xlsx#研修|A1:D4?columns=A,B,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-05",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./外部IF一覧.xlsx#Sheet1|A2:E6?columns=B,D,E&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-06",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./変更管理台帳.xlsx#変更要求|A1:E6?columns=A,C,E&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-07",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./移行計画書.xlsx#移行対象|A1:D5?columns=A,C,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-08",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./会議体一覧.xlsx#Sheet1|A1:D5?columns=A,B,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-09",
+          "category": "abbreviation",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-10",
+          "category": "abbreviation",
+          "status": "candidates",
+          "top": "![[./変更管理台帳.xlsx#変更要求|A1:E6?columns=B,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-11",
+          "category": "abbreviation",
+          "status": "candidates",
+          "top": "![[./ネットワーク設計書.xlsx#FW|A2:E7?columns=B,C,E]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-12",
+          "category": "abbreviation",
+          "status": "candidates",
+          "top": "![[./WBS.xlsx#WBS|A2:F8?columns=B,C,F&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-13",
+          "category": "abbreviation",
+          "status": "candidates",
+          "top": "![[./外部IF一覧.xlsx#Sheet1|A2:E6?columns=A,C,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-14",
+          "category": "abbreviation",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-15",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-16",
+          "category": "paraphrase",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-17",
+          "category": "paraphrase",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-18",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-19",
+          "category": "paraphrase",
+          "status": "candidates",
+          "top": "![[./受注_API仕様書.xlsx#エラーコード|A1:D6?columns=A,B,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-20",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-21",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-22",
+          "category": "paraphrase",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-23",
+          "category": "typo",
+          "status": "candidates",
+          "top": "![[./会議体一覧.xlsx#Sheet1|A1:D5?header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-24",
+          "category": "typo",
+          "status": "candidates",
+          "top": "![[./教育計画.xlsx#研修|A1:D4?columns=A,C&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-25",
+          "category": "typo",
+          "status": "candidates",
+          "top": "![[./移行計画書.xlsx#移行対象|A1:D5?columns=A,D&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-26",
+          "category": "typo",
+          "status": "candidates",
+          "top": "![[./外部IF一覧.xlsx#Sheet1|A2:E6?columns=D,E&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-27",
+          "category": "duplicate",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-28",
+          "category": "duplicate",
+          "status": "candidates",
+          "top": "![[./DB設計書_受注.xlsx#テーブル一覧|A2:C6?columns=A,B&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-29",
+          "category": "duplicate",
+          "status": "candidates",
+          "top": "![[./受注_API仕様書.xlsx#IF一覧|C5:G11?header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v4-30",
+          "category": "duplicate",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-31",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-32",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-33",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-34",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-35",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-36",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-37",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-38",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-39",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v4-40",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        }
+      ]
+    }
+  }
+}
