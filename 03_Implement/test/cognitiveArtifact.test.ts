@@ -130,7 +130,7 @@ test('default cache root follows explicit override, XDG and Windows LOCALAPPDATA
       'win32',
       'C:\\Users\\u',
     ),
-    path.join(
+    path.win32.join(
       'C:\\Users\\u\\AppData\\Local',
       'MMI',
       'cognitive-artifacts',
@@ -161,6 +161,12 @@ test('existing verified cache is reused without contacting any source', async ()
   if (result.status !== 'available') return;
   assert.deepEqual(result.location, { kind: 'cache', path: cachePath });
   assert.equal(result.reused, true);
+  assert.deepEqual(result.metrics, {
+    artifactBytes: bytes.byteLength,
+    downloadedBytes: 0,
+    cacheHit: true,
+    availableWithoutNetwork: true,
+  });
   assert.equal(fetchCalls, 0);
 });
 
@@ -242,6 +248,12 @@ test('HTTPS source reports size and source before download and does not fetch im
   if (result.status !== 'download-required') return;
   assert.equal(result.sizeBytes, bytes.byteLength);
   assert.equal(result.source.uri, 'https://models.example.test/semantic.bin');
+  assert.deepEqual(result.metrics, {
+    artifactBytes: bytes.byteLength,
+    downloadedBytes: 0,
+    cacheHit: false,
+    availableWithoutNetwork: false,
+  });
   assert.equal(fetchCalls, 0);
 });
 
@@ -274,6 +286,12 @@ test('explicit HTTPS download streams, verifies and atomically populates shared 
   if (downloaded.location.kind === 'cache') {
     assert.deepEqual(fs.readFileSync(downloaded.location.path), bytes);
   }
+  assert.deepEqual(downloaded.metrics, {
+    artifactBytes: bytes.byteLength,
+    downloadedBytes: bytes.byteLength,
+    cacheHit: false,
+    availableWithoutNetwork: false,
+  });
   assert.equal(fetchCalls, 1);
 
   const reusedByAnotherProvider = await resolveCognitiveArtifact(m, {
@@ -288,6 +306,12 @@ test('explicit HTTPS download streams, verifies and atomically populates shared 
   if (reusedByAnotherProvider.status === 'available') {
     assert.equal(reusedByAnotherProvider.reused, true);
     assert.deepEqual(reusedByAnotherProvider.location, downloaded.location);
+    assert.deepEqual(reusedByAnotherProvider.metrics, {
+      artifactBytes: bytes.byteLength,
+      downloadedBytes: 0,
+      cacheHit: true,
+      availableWithoutNetwork: true,
+    });
   }
 });
 
@@ -378,6 +402,12 @@ test('runtime-managed artifact is reused without copying only when sha256 identi
   if (exact.status === 'available') {
     assert.equal(exact.location.kind, 'runtime-managed');
     assert.equal(exact.reused, true);
+    assert.deepEqual(exact.metrics, {
+      artifactBytes: bytes.byteLength,
+      downloadedBytes: 0,
+      cacheHit: false,
+      availableWithoutNetwork: true,
+    });
   }
   assert.equal(fs.existsSync(cognitiveArtifactCachePath(cacheRoot, m.sha256)), false);
 
