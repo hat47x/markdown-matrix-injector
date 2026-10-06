@@ -1,3 +1,4 @@
+import type { RuntimeManagedArtifact } from '../../core/cognitiveArtifact.js';
 import { endpointProblem, type EmbeddingApi } from './embeddingProvider.js';
 
 export type LocalEmbeddingRuntime = 'ollama' | 'lm-studio';
@@ -10,6 +11,18 @@ export interface DiscoveredEmbeddingModel {
   displayName: string;
   artifactDigest?: string;
   sizeBytes?: number;
+}
+
+export function runtimeManagedArtifactFromEmbeddingModel(
+  model: DiscoveredEmbeddingModel,
+): RuntimeManagedArtifact {
+  return {
+    runtime: model.runtime,
+    artifactRef: model.model,
+    runtimeIdentity: model.model,
+    ...(model.artifactDigest ? { sha256: model.artifactDigest } : {}),
+    ...(model.sizeBytes !== undefined ? { sizeBytes: model.sizeBytes } : {}),
+  };
 }
 
 export interface LocalEmbeddingDiscoveryOptions {
