@@ -6,7 +6,7 @@
  * provider compatibility and source provenance.
  */
 import { createHash, randomUUID } from 'node:crypto';
-import fs from 'node:fs';
+import fs, { type WriteStream } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { finished } from 'node:stream/promises';
@@ -777,7 +777,7 @@ async function downloadHttpsArtifact(
 }
 
 async function waitForDrain(
-  output: fs.WriteStream,
+  output: WriteStream,
 ): Promise<void> {
   await new Promise<void>((resolve, reject) => {
     const onDrain = () => {
