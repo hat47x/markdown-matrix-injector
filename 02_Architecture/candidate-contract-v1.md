@@ -87,9 +87,10 @@ run       deterministic       { inputDigest, config, implementationVersion }
 | `source-object-id`・`name`・`description` | `observed` | M0 | `cNvPr` |
 | `text-runs` | `observed` | M0 | DrawingML text |
 | `preset-geometry` | `observed` | M0 | `prstGeom` |
+| `drawingml-content-digest` | `observed` | M0 | anchor外のShape要素そのもののsha256 |
 | `location`・`anchor-kind` | `observed` | M0 | worksheet drawing anchor |
 
-occurrence identityはDrawing partとsource-native object idから作る`locator.structuralPath`で保持し、セル位置はClaimとして分離する。content fingerprintはobject type、名前、説明、図形内テキスト、preset geometryから作り、セル上で図形を移動しただけではcontent identityを変えない。位置の変更はClaim basisの変化としてレビュー上のstale判定に反映できる。
+occurrence identityはDrawing partとsource-native object idから作る`locator.structuralPath`で保持し、セル位置はClaimとして分離する。同じsource object idが重複した場合はsource順のsuffixを付け、別Shapeへレビュー判断が誤って移らないようにする。content fingerprintはanchor外のDrawingML Shape要素全体のsha256を基礎とする。したがって、セル上で図形を移動しただけではcontent identityを変えない一方、塗り、線、回転等の未投影な視覚属性が変わっても再レビューできる。位置の変更はClaim basisの変化としてstale判定に反映する。
 
 Shape Candidateは`mmi inspect --json`、AI handoff、VS CodeのCandidateレビュー、一括取り込みへ接続する。レビューでは確認・却下・保留を扱い、現時点ではShape自体をExtracted資産へ変換しない。一括取り込みでは未却下・未保留のShapeを名前・テキスト・形状・位置つきの観測情報として下書きへ残し、同じanchorのsnapshot hintも有効なShape数へ絞る。graphic frameはこの契約へ含めず、種類未確定のwarningとして残す。
 

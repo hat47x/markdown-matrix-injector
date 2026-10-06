@@ -30,7 +30,7 @@ Excel方眼紙で、罫線・セル結合・AutoShape・画面ダンプを組み
 
 画像化方式を選ぶ前段として、原本にある図形等を取り込み結果から黙って落とさない経路を追加した。
 
-既存のOOXML drawing readerから、AutoShape（`sp`）とコネクタ（`cxnSp`）を個別の`shape` Candidateへ写す経路を追加した。名前、説明、図形内テキスト、preset geometry、anchorを原本の明示情報として`observed + deterministic + M0`で保持する。occurrence identityはDrawing partとsource object idによる`structuralPath`、content fingerprintは図形の内容として分離したため、セル上の移動だけで内容同一性を失わない。
+既存のOOXML drawing readerから、AutoShape（`sp`）とコネクタ（`cxnSp`）を個別の`shape` Candidateへ写す経路を追加した。名前、説明、図形内テキスト、preset geometry、anchorを原本の明示情報として`observed + deterministic + M0`で保持する。occurrence identityはDrawing partとsource object idによる`structuralPath`で持ち、ID重複時はsource順suffixで衝突を避ける。content fingerprintにはanchor外のDrawingML Shape要素全体のdigestを使うため、位置だけを動かしても同一内容を保ち、塗り・線・回転等の視覚属性が変われば内容変更として再レビューできる。
 
 Shape Candidateは`mmi inspect --json`、AI handoff、VS Codeレビュー、一括取り込みへ接続した。レビューでは確認・却下・保留を扱い、却下・保留したShapeは一括取り込みの通常表示から外す。同じanchorのsnapshot hintも有効なShape数へ減算し、対象がすべて外れた場合はhintを出さない。一括取り込みではShapeを個別の観測情報として下書きへ残すため、`MMI_DRAWING_SHAPES_NOT_EXTRACTED`を重複警告としては表示しない。
 
