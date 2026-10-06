@@ -289,6 +289,7 @@ export function readExcelImages(bytes: Uint8Array): ImageReadResult {
 
     let skippedShapesOnSheet = 0;
     let skippedGraphicFramesOnSheet = 0;
+    const shapePathCounts = new Map<string, number>();
     for (const anchorMatch of xml.matchAll(/<((?:\w+:)?)(twoCellAnchor|oneCellAnchor|absoluteAnchor)\b[^>]*>([\s\S]*?)<\/\1\2>/gu)) {
       const kind = anchorMatch[2] as ImageAnchor['kind'];
       const body = anchorMatch[3];
@@ -327,6 +328,17 @@ export function readExcelImages(bytes: Uint8Array): ImageReadResult {
         )].map((match) => decodeEntities(match[1]));
         const ordinal = result.shapes.length + 1;
         const nativeId = propsAttrs.id;
+        const structuralPathBase =
+          `drawing:${drawingRel.target}#${objectKind}:${nativeId ?? ordinal}`;
+        const structuralPathOccurrence =
+          (shapePathCounts.get(structuralPathBase) ?? 0) + 1;
+        shapePathCounts.set(
+          structuralPathBase,
+          structuralPathOccurrence,
+        );
+        const structuralPath = structuralPathOccurrence === 1
+          ? structuralPathBase
+          : `${structuralPathBase}:occurrence:${structuralPathOccurrence}`;
         result.shapes.push({
           ordinal,
           sheet: sheet.name,
@@ -341,8 +353,7 @@ export function readExcelImages(bytes: Uint8Array): ImageReadResult {
             : {}),
           anchor,
           ...(range ? { range } : {}),
-          structuralPath:
-            `drawing:${drawingRel.target}#${objectKind}:${nativeId ?? ordinal}`,
+          structuralPath,
         });
       }
 

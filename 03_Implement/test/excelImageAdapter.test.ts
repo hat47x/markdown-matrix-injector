@@ -336,3 +336,39 @@ test('shape content fingerprint is independent from its cell anchor', () => {
     movedCandidate.fingerprint.digest,
   );
 });
+
+
+test('duplicate DrawingML object ids keep distinct occurrence identities', () => {
+  const drawing = [
+    '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing">',
+    '<xdr:twoCellAnchor>',
+    '<xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>',
+    '<xdr:to><xdr:col>2</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>2</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>',
+    '<xdr:sp><xdr:nvSpPr><xdr:cNvPr id="7" name="A"/></xdr:nvSpPr></xdr:sp>',
+    '<xdr:sp><xdr:nvSpPr><xdr:cNvPr id="7" name="B"/></xdr:nvSpPr></xdr:sp>',
+    '<xdr:clientData/>',
+    '</xdr:twoCellAnchor>',
+    '</xdr:wsDr>',
+  ].join('');
+  const read = readExcelImages(buildXlsxWithImages(
+    [{ name: 'Flow', rawDrawing: drawing }],
+    {},
+  ));
+
+  assert.deepEqual(
+    read.shapes.map((shape) => shape.structuralPath),
+    [
+      'drawing:xl/drawings/drawing1.xml#shape:7',
+      'drawing:xl/drawings/drawing1.xml#shape:7:occurrence:2',
+    ],
+  );
+  const candidates = shapeCandidates({
+    source: './flow.xlsx',
+    sourceDigest: 'sha256:' + 'd'.repeat(64),
+    shapes: read.shapes,
+  });
+  assert.notEqual(
+    candidates[0].locator.structuralPath,
+    candidates[1].locator.structuralPath,
+  );
+});
