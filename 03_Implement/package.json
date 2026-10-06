@@ -359,6 +359,44 @@
           "default": true,
           "markdownDescription": "%mmi.setting.useClipboardSource%"
         },
+        "markdownMatrixInjector.search.semantic.enabled": {
+          "type": "boolean",
+          "default": false,
+          "markdownDescription": "%mmi.setting.semanticEnabled%"
+        },
+        "markdownMatrixInjector.search.semantic.api": {
+          "type": "string",
+          "enum": ["ollama", "openai-compatible"],
+          "default": "ollama",
+          "markdownDescription": "%mmi.setting.semanticApi%"
+        },
+        "markdownMatrixInjector.search.semantic.endpoint": {
+          "type": "string",
+          "default": "http://127.0.0.1:11434",
+          "markdownDescription": "%mmi.setting.semanticEndpoint%"
+        },
+        "markdownMatrixInjector.search.semantic.model": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%mmi.setting.semanticModel%"
+        },
+        "markdownMatrixInjector.search.semantic.minScore": {
+          "type": "number",
+          "default": 0.6,
+          "minimum": 0,
+          "maximum": 1,
+          "markdownDescription": "%mmi.setting.semanticMinScore%"
+        },
+        "markdownMatrixInjector.search.semantic.queryPrefix": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%mmi.setting.semanticQueryPrefix%"
+        },
+        "markdownMatrixInjector.search.semantic.documentPrefix": {
+          "type": "string",
+          "default": "",
+          "markdownDescription": "%mmi.setting.semanticDocumentPrefix%"
+        },
         "markdownMatrixInjector.reviewObservation.enabled": {
           "type": "boolean",
           "default": false,

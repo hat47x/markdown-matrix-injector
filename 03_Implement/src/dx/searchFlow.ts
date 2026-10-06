@@ -16,7 +16,27 @@ import * as vscode from 'vscode';
 import type { CompileResult } from '../search/nlQuery/compiler.js';
 import { QUERY_EXAMPLES } from '../search/workspaceRegionIndex.js';
 import { WorkspaceSearchWorkerClient } from '../search/workspaceSearchWorkerClient.js';
+import type { SemanticSetting } from '../search/workspaceRegionIndex.js';
 import { parseEmbedParts, type EmbedParts } from './embedEditor.js';
+
+/**
+ * Experimental, off by default: a local embedding model for descriptions that share no word with a
+ * table's name. Returns undefined unless the person turned it on and named a model.
+ */
+export function readSemanticSetting(): SemanticSetting | undefined {
+  const config = vscode.workspace.getConfiguration('markdownMatrixInjector');
+  if (config.get<boolean>('search.semantic.enabled', false) !== true) return undefined;
+  const model = (config.get<string>('search.semantic.model', '') ?? '').trim();
+  if (model === '') return undefined;
+  return {
+    api: config.get<'ollama' | 'openai-compatible'>('search.semantic.api', 'ollama'),
+    endpoint: config.get<string>('search.semantic.endpoint', 'http://127.0.0.1:11434'),
+    model,
+    minScore: config.get<number>('search.semantic.minScore', 0.6),
+    queryPrefix: config.get<string>('search.semantic.queryPrefix', ''),
+    documentPrefix: config.get<string>('search.semantic.documentPrefix', ''),
+  };
+}
 
 export const FIND_EMBED_COMMAND_ID = 'markdownMatrixInjector.findEmbedByDescription';
 
@@ -118,7 +138,7 @@ export async function searchEmbedByDescription(document: vscode.TextDocument, wo
           const revision = queryRevision;
           pendingText = undefined;
           try {
-            const result = await index.query(text, document.uri.fsPath);
+            const result = await index.query(text, document.uri.fsPath, 5, readSemanticSetting());
             // The running request may finish after newer input arrived. Its
             // result is discarded, and the loop immediately runs only the
             // latest pending text rather than every intermediate keystroke.
@@ -190,7 +210,7 @@ export async function scriptedSearch(
   if (!workspaceRoot) return { items: [] };
   const index = await ensureIndexed(workspaceRoot, workbookGlob);
   if (!index) return { items: [] };
-  const result = await index.query(text, document.uri.fsPath);
+  const result = await index.query(text, document.uri.fsPath, 5, readSemanticSetting());
   const items = toItems(result);
   return { items: items.map((item) => `${item.label} | ${item.detail ?? ''}`), parts: items[pickIndex]?.parts };
 }

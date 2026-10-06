@@ -15,7 +15,10 @@
 import type { WorkbookData } from '../core/workbookLoader.js';
 import { compileQuery, type CompileResult, type QueryAliasRule } from './nlQuery/compiler.js';
 import { indexWorkbookFiles, RegionCatalog, type BookStat, type IndexFilesResult } from './regionCatalog.js';
+import { createEmbeddingProvider, type EmbeddingProvider, type EmbeddingProviderConfig, type FetchLike } from './semantic/embeddingProvider.js';
+import { semanticCandidates, SemanticRegionRanker, type SemanticLaneOptions } from './semantic/semanticLane.js';
 import { RegionSearchIndex, type RetrievalMethod } from './searchIndex.js';
+import type { RegionRecord } from './regionCatalog.js';
 import { verifyRegion } from './verify.js';
 
 /** Business dictionary (tuned on the dev query set only; see scripts/cpu-search-eval/dictionary.json). */
@@ -57,6 +60,8 @@ export interface WorkspaceRegionIndexOptions {
   queryAliases?: readonly QueryAliasRule[];
   /** Upper bound on indexed regions (memory cap). */
   maxRegions?: number;
+  /** Test seam for the experimental semantic lane's HTTP call. */
+  embeddingFetch?: FetchLike;
 }
 
 export interface RefreshResult extends IndexFilesResult {
@@ -64,7 +69,16 @@ export interface RefreshResult extends IndexFilesResult {
   method: RetrievalMethod;
 }
 
+/** Experimental, off unless the caller passes it (the VS Code setting defaults to off). */
+export interface SemanticSetting extends EmbeddingProviderConfig, SemanticLaneOptions {
+  /** Above this many regions the semantic lane is skipped (every region is embedded once). */
+  maxRegions?: number;
+}
+
+const DEFAULT_SEMANTIC_MAX_REGIONS = 3000;
+
 export class WorkspaceRegionIndex {
+  private semantic?: { key: string; provider: EmbeddingProvider; ranker: SemanticRegionRanker };
   private readonly catalog = new RegionCatalog();
   private index = new RegionSearchIndex(this.catalog, { methods: ['bm25'] });
   private method: RetrievalMethod = 'bm25';
@@ -112,16 +126,7 @@ export class WorkspaceRegionIndex {
       queryAliases: this.options.queryAliases ?? DEFAULT_QUERY_ALIASES,
       maxCandidates,
     });
-    const current = (candidate: CompileResult['candidates'][number]): boolean => {
-      try {
-        const stat = this.options.statFile(candidate.region.bookPath);
-        if (this.catalog.needsUpdate(candidate.region.bookPath, stat)) return false;
-        const workbook = this.options.loadWorkbook(candidate.region.bookPath);
-        return verifyRegion(candidate.region, workbook.sheets[candidate.region.sheet]).ok;
-      } catch {
-        return false;
-      }
-    };
+    const current = (candidate: CompileResult['candidates'][number]): boolean => this.isCurrent(candidate);
     if (result.status !== 'candidates') {
       return result.nearMisses ? { ...result, nearMisses: result.nearMisses.filter(current) } : result;
     }
@@ -132,7 +137,62 @@ export class WorkspaceRegionIndex {
     return { ...result, candidates: fresh };
   }
 
+  private isCurrent(candidate: CompileResult['candidates'][number]): boolean {
+    try {
+      const stat = this.options.statFile(candidate.region.bookPath);
+      if (this.catalog.needsUpdate(candidate.region.bookPath, stat)) return false;
+      const workbook = this.options.loadWorkbook(candidate.region.bookPath);
+      return verifyRegion(candidate.region, workbook.sheets[candidate.region.sheet]).ok;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * `query`, then -- only when it found nothing and a local embedding provider is configured -- the
+   * experimental semantic lane. Without a setting, or when the provider is unavailable, this is
+   * exactly `query`. Semantic candidates are re-verified against the source like any other.
+   */
+  async querySemantic(
+    text: string,
+    relativePath: (bookPath: string) => string,
+    setting: SemanticSetting | undefined,
+    signal?: AbortSignal,
+    maxCandidates = 5,
+  ): Promise<CompileResult> {
+    const result = this.query(text, relativePath, maxCandidates);
+    if (!setting || result.status === 'candidates' || result.status === 'needs-more-input') return result;
+    const regions = this.allRegions();
+    if (regions.length === 0 || regions.length > (setting.maxRegions ?? DEFAULT_SEMANTIC_MAX_REGIONS)) return result;
+    let active: NonNullable<typeof this.semantic>;
+    try {
+      const key = JSON.stringify([setting.api, setting.endpoint, setting.model, setting.queryPrefix, setting.documentPrefix]);
+      if (this.semantic?.key !== key) {
+        const provider = createEmbeddingProvider(setting, this.options.embeddingFetch);
+        this.semantic = { key, provider, ranker: new SemanticRegionRanker(provider) };
+      }
+      active = this.semantic;
+    } catch {
+      return result; // refused endpoint / empty model: behave as if the setting were off
+    }
+    const found = await semanticCandidates(result.ir, regions, active.ranker, active.provider, relativePath, { ...setting, maxCandidates: Math.min(maxCandidates, setting.maxCandidates ?? 3) }, signal);
+    const fresh = found.filter((candidate) => this.isCurrent(candidate));
+    return fresh.length > 0 ? { ...result, status: 'candidates', candidates: fresh, reasons: [] } : result;
+  }
+
+  /** All indexed regions, for evaluation harnesses. */
+  allRegionsForEvaluation(): RegionRecord[] {
+    return this.allRegions();
+  }
+
+  private allRegions(): RegionRecord[] {
+    return this.index.bookPaths().flatMap((path) =>
+      this.index.docsOfBook(path).map((doc) => this.index.region(doc)).filter((region): region is RegionRecord => region !== undefined));
+  }
+
   clear(): void {
+    this.semantic?.ranker.clear();
+    this.semantic = undefined;
     this.catalog.clear();
     this.index = new RegionSearchIndex(this.catalog, { methods: [this.method] });
   }

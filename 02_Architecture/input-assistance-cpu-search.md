@@ -276,6 +276,18 @@ Intel Core i7-1365U（論理12コア）、RAM 7.6GiB（WSL2割当）、WSL2 Ubun
 - どの設定でもコサインの結果を完全には再現しない（最良0.946）。速度と一致率は交換関係にあり、sとkの組合せで単調に変わらない。m・s・kは用途の規模ごとに測って選ぶ必要がある。
 - 構築は他方式の約10倍遅い（射影の配線を特徴ごとに求めるため）。
 
+### 7.4b 言い換えの限界と、実験的なローカル意味検索（2026-10-06）
+
+決定論的な方式（名前の一致、同義語辞書、見出し概念の構造照合）では、未見の言い換えに届かなかった（独立作成の未見セットv5で言い換え0/22。調整に使ったv4では6/8）。失敗の本体は語彙（予行演習/リハーサル、打合せ/会議など）で、規則や辞書を足しても網羅できない。詳細は[issue-0115](../01_Plans/issues/issue-0115-cpu-range-search.md)。
+
+そこで、意味の近さを持つ認知を**実験的機能・既定オフ**で足した（ADR-0018 D4・ADR-0020のM2に当たる）。
+
+- `src/search/semantic/embeddingProvider.ts`: 利用者が既に起動しているローカルruntime（Ollama `/api/embed`、OpenAI互換 `/v1/embeddings`）の埋め込みAPI。endpointはloopbackに限る。取得・導入・クラウドへの退避はしない。不在・時間切れは`unavailable`（検索は通常どおり続く）。descriptorは既存の`CognitiveProviderDescriptor`（category: perception、境界: local）。
+- `src/search/semantic/semanticLane.ts`: 名前の方式と構造の言い換えレーンが何も見つけなかった**説明の依頼**にだけ動く。領域の表現は名前（ブック・シート・表題・見出し）だけで、セル値は渡さない。類似度が閾値以上で、最良との差が窓内の領域を最大3件、`basis=semantic`・`providerScore`（providerごとの値。他方式と合成しない）付きの推定候補として出す。確定はしない（R1）。
+- `WorkspaceRegionIndex.querySemantic`: 設定が無い・endpointが拒否された・runtimeが不在のときは`query`と同一。候補は原本と再照合する。
+- 設定 `markdownMatrixInjector.search.semantic.*`（既定オフ）と、閾値を測る`scripts/cpu-search-eval/semantic-eval.ts`（閾値ごとの再現率と誤受理）。
+- **未測定:** 実モデルでの効果。この環境にはruntimeもGPUも無く、モデルを勝手に取得しない契約のため、配管・境界・失敗時の振る舞いを単体テスト（偽の埋め込みサーバ）で確認した段階。実測は、利用者が導入した多言語の埋め込みモデルで、新しい未見セットv6に対して行う。
+
 ### 7.5 FlyHashの判定: 条件付き採用
 
 **根拠:**

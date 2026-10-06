@@ -89,7 +89,9 @@ export interface Candidate {
   partial: boolean;
   notes: string[];
   /** `paraphrase`: found by the structure of a described request, not by name (always inferred). */
-  basis?: 'name' | 'paraphrase';
+  basis?: 'name' | 'paraphrase' | 'semantic';
+  /** `semantic` only: the provider's own score. Scores of different providers are never merged. */
+  providerScore?: { provider: string; model: string; score: number };
 }
 
 export interface CompileResult {
@@ -312,6 +314,55 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
 const SOFT_UNSUPPORTED: ReadonlySet<UnsupportedConstruct> = new Set<UnsupportedConstruct>(['comparison', 'aggregation', 'negation', 'columnCondition', 'sort']);
 const MAX_PARAPHRASE_CANDIDATES = 3;
 
+/**
+ * Whether a request describes a table (rather than naming one or asking for a task MMI cannot do), so a
+ * description-based lane may answer it. Shared by the structural lane and the optional semantic lane.
+ */
+export function describableRequest(ir: QueryIR, allowedUnsupported: ReadonlySet<UnsupportedConstruct> = new Set()): boolean {
+  // Without a question, a bare noun phrase must not carry any construct MMI cannot express.
+  if (!isDescriptionQuestion(ir.input) && ir.unsupported.length > 0) return false;
+  if (ir.unsupported.some((item) => !allowedUnsupported.has(item.kind))) return false;
+  // Anything the person named outright is judged by name, not by description. (Columns the parser
+  // guessed out of a description are not names: such a lane never applies columns.)
+  // A bare 「表」「一覧」 only says what kind of thing is wanted; it names nothing.
+  // Likewise a clause ending in a verb/adjective form before it (「分かる表」「載っている一覧」).
+  const namedTable = ir.table !== undefined && !/^(?:.*[るたいすてで])?(?:表|テーブル|一覧|一覧表|リスト|マトリクス表)$/u.test(ir.table.text.trim());
+  if (ir.source || ir.sheet || ir.range || namedTable || ir.contains.length > 0) return false;
+  return !ir.target.some((hint) => hint.quoted);
+}
+
+export const SOFT_UNSUPPORTED_CONSTRUCTS = SOFT_UNSUPPORTED;
+
+/** An inferred candidate for a whole region; the notation is emitted by the same code as every other candidate. */
+export function inferredCandidate(
+  region: RegionRecord,
+  ir: QueryIR,
+  relativePath: (bookPath: string) => string,
+  basis: 'paraphrase' | 'semantic',
+  retrievalScore: number,
+  firstNote: string,
+  providerScore?: Candidate['providerScore'],
+): Candidate | undefined {
+  const emitted = emit(region, ir, [], relativePath(region.bookPath));
+  if (!emitted.ok) return undefined;
+  const unexpressed = ir.unsupported.length > 0
+    ? [`依頼の「${[...new Set(ir.unsupported.map((item) => item.text))].join('・')}」はMMI記法で表せないため反映していません。`]
+    : [];
+  const notes = [firstNote, ...unexpressed, ...emitted.notes];
+  return {
+    region,
+    markdown: emitted.markdown,
+    explanation: explain(region, emitted.range, [], ir, notes),
+    retrievalScore,
+    coverage: 0,
+    columns: [],
+    partial: false,
+    notes,
+    basis,
+    ...(providerScore ? { providerScore } : {}),
+  };
+}
+
 function paraphraseCandidates(
   ir: QueryIR,
   options: CompileOptions,
@@ -319,41 +370,27 @@ function paraphraseCandidates(
 ): Candidate[] {
   if (options.paraphrase === false) return [];
   const question = isDescriptionQuestion(ir.input);
-  // Without a question, a bare noun phrase must not carry any construct MMI cannot express.
-  if (!question && ir.unsupported.length > 0) return [];
-  if (ir.unsupported.some((item) => !allowedUnsupported.has(item.kind))) return [];
-  // Anything the person named outright is judged by name, not by description. (Columns the parser
-  // guessed out of a description are not names: the lane never applies columns.)
-  if (ir.source || ir.sheet || ir.range || ir.table || ir.contains.length > 0) return [];
-  if (ir.target.some((hint) => hint.quoted)) return [];
+  if (!describableRequest(ir, allowedUnsupported)) return [];
   const regions = options.index.bookPaths().flatMap((path) =>
     options.index.docsOfBook(path).map((doc) => options.index.region(doc)).filter((region): region is RegionRecord => region !== undefined));
   const matches = paraphraseMatches(ir.input, regions, { minStructural: question ? 1 : 2 });
   const candidates: Candidate[] = [];
   for (const match of matches) {
     if (candidates.length >= (options.maxCandidates ?? MAX_PARAPHRASE_CANDIDATES)) break;
-    const emitted = emit(match.region, ir, [], options.relativePath(match.region.bookPath));
-    if (!emitted.ok) continue;
     const evidence = [
       match.topic.length > 0 ? `話題の語「${match.topic.slice(0, 3).join('・')}」が表名にあります` : '',
       match.slots.length > 0 ? `尋ねている観点（${match.slots.join('・')}）に当たる見出しがあります` : '',
       match.headers.length > 0 ? `見出し「${match.headers.slice(0, 3).join('・')}」が依頼の語と一致します` : '',
     ].filter((text) => text !== '');
-    const unexpressed = ir.unsupported.length > 0
-      ? [`依頼の「${[...new Set(ir.unsupported.map((item) => item.text))].join('・')}」はMMI記法で表せないため反映していません。`]
-      : [];
-    const notes = [`表名の言葉ではなく、依頼の説明と表の構造の近さから推定した候補です（${evidence.join('。')}）。確認してから選んでください。`, ...unexpressed, ...emitted.notes];
-    candidates.push({
-      region: match.region,
-      markdown: emitted.markdown,
-      explanation: explain(match.region, emitted.range, [], ir, notes),
-      retrievalScore: match.score,
-      coverage: 0,
-      columns: [],
-      partial: false,
-      notes,
-      basis: 'paraphrase',
-    });
+    const candidate = inferredCandidate(
+      match.region,
+      ir,
+      options.relativePath,
+      'paraphrase',
+      match.score,
+      `表名の言葉ではなく、依頼の説明と表の構造の近さから推定した候補です（${evidence.join('。')}）。確認してから選んでください。`,
+    );
+    if (candidate) candidates.push(candidate);
   }
   return candidates;
 }

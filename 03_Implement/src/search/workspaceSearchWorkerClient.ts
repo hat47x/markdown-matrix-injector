@@ -9,7 +9,7 @@
 import { Worker } from 'node:worker_threads';
 
 import type { CompileResult } from './nlQuery/compiler.js';
-import type { RefreshResult } from './workspaceRegionIndex.js';
+import type { RefreshResult, SemanticSetting } from './workspaceRegionIndex.js';
 import type { RetrievalMethod } from './searchIndex.js';
 
 interface ProgressMessage {
@@ -107,11 +107,11 @@ export class WorkspaceSearchWorkerClient {
     return result;
   }
 
-  query(text: string, markdownFilePath: string, maxCandidates = 5): Promise<CompileResult> {
+  query(text: string, markdownFilePath: string, maxCandidates = 5, semantic?: SemanticSetting): Promise<CompileResult> {
     const id = this.nextId++;
     return new Promise<CompileResult>((resolve, reject) => {
       this.pending.set(id, { resolve, reject });
-      this.worker.postMessage({ kind: 'query', id, text, markdownFilePath, maxCandidates });
+      this.worker.postMessage({ kind: 'query', id, text, markdownFilePath, maxCandidates, ...(semantic ? { semantic } : {}) });
     });
   }
 

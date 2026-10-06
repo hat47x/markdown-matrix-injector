@@ -11,7 +11,7 @@ import { parentPort } from 'node:worker_threads';
 
 import { WorkbookCache } from '../cache/workbookCache.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
-import { WorkspaceRegionIndex } from './workspaceRegionIndex.js';
+import { WorkspaceRegionIndex, type SemanticSetting } from './workspaceRegionIndex.js';
 
 interface RefreshRequest {
   kind: 'refresh';
@@ -25,6 +25,8 @@ interface QueryRequest {
   text: string;
   markdownFilePath: string;
   maxCandidates: number;
+  /** Experimental local-embedding lane; absent unless the user turned it on. */
+  semantic?: SemanticSetting;
 }
 
 interface CancelRequest {
@@ -92,6 +94,8 @@ async function handle(request: RefreshRequest | QueryRequest): Promise<void> {
     const relative = path.relative(path.dirname(request.markdownFilePath), bookPath).replace(/\\/g, '/');
     return relative.startsWith('.') ? relative : `./${relative}`;
   };
-  const value = index.query(request.text, relativePath, request.maxCandidates);
+  const value = request.semantic
+    ? await index.querySemantic(request.text, relativePath, request.semantic, undefined, request.maxCandidates)
+    : index.query(request.text, relativePath, request.maxCandidates);
   port.postMessage({ kind: 'result', id: request.id, op: 'query', value });
 }
