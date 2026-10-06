@@ -25,6 +25,67 @@ export function runtimeManagedArtifactFromEmbeddingModel(
   };
 }
 
+export interface ExpectedEmbeddingArtifactIdentity {
+  api: EmbeddingApi;
+  endpoint: string;
+  model: string;
+  expectedArtifactDigest?: string;
+}
+
+/**
+ * Verify a configured model alias against a runtime-native cryptographic
+ * identity before provider-dependent ranking runs. v0 can verify Ollama
+ * because /api/tags exposes sha256 digests. OpenAI-compatible runtimes that do
+ * not expose a digest cannot satisfy an expected digest and therefore fail
+ * closed instead of silently accepting an alias.
+ */
+export async function verifyEmbeddingArtifactIdentity(
+  selection: ExpectedEmbeddingArtifactIdentity,
+  fetchImpl: DiscoveryFetch = fetch as unknown as DiscoveryFetch,
+  options: Pick<LocalEmbeddingDiscoveryOptions, 'signal' | 'timeoutMs'> = {},
+): Promise<boolean> {
+  const expected = selection.expectedArtifactDigest?.trim();
+  if (!expected) return true;
+  if (!/^sha256:[0-9a-f]{64}$/u.test(expected)) return false;
+  if (selection.api !== 'ollama') return false;
+
+  const safe = safeEndpoint(selection.endpoint);
+  if (!safe) return false;
+  const listed = await fetchJson(
+    fetchImpl,
+    `${safe}/api/tags`,
+    { method: 'GET' },
+    options.signal,
+    options.timeoutMs ?? 1_500,
+  ) as {
+    models?: Array<{
+      name?: unknown;
+      model?: unknown;
+      digest?: unknown;
+      remote_model?: unknown;
+      remote_host?: unknown;
+    }>;
+  } | undefined;
+  if (!Array.isArray(listed?.models)) return false;
+
+  const matching = listed.models.find((item) => {
+    const model = typeof item.model === 'string'
+      ? item.model
+      : typeof item.name === 'string'
+        ? item.name
+        : undefined;
+    const remote =
+      (typeof item.remote_model === 'string' && item.remote_model.length > 0)
+      || (typeof item.remote_host === 'string' && item.remote_host.length > 0);
+    return model === selection.model && !remote;
+  });
+  if (!matching || typeof matching.digest !== 'string') return false;
+  const digest = matching.digest.startsWith('sha256:')
+    ? matching.digest
+    : `sha256:${matching.digest}`;
+  return digest === expected;
+}
+
 export interface LocalEmbeddingDiscoveryOptions {
   signal?: AbortSignal;
   timeoutMs?: number;
