@@ -32,6 +32,13 @@ test('local embedding discovery keeps only Ollama models with embedding capabili
             digest: '2'.repeat(64),
             size: 20,
           },
+          {
+            model: 'cloud-embed:cloud',
+            remote_model: 'cloud-embed:cloud',
+            remote_host: 'https://ollama.com',
+            digest: '3'.repeat(64),
+            size: 30,
+          },
         ],
       });
     }
