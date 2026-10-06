@@ -420,6 +420,7 @@ test('extension integration boundaries keep canonical native providers and compa
       'onCommand:markdownMatrixInjector.insertEmbedByContentMatch',
       'onCommand:markdownMatrixInjector.authorEmbed',
       'onCommand:markdownMatrixInjector.findEmbedByDescription',
+      'onCommand:markdownMatrixInjector.selectLocalSemanticModel',
       'onCommand:markdownMatrixInjector.clearSearchIndex',
       'onCommand:markdownMatrixInjector.importFromWorkbook',
       'onCommand:markdownMatrixInjector.reviewCandidates',
@@ -440,6 +441,7 @@ test('extension integration boundaries keep canonical native providers and compa
       'markdownMatrixInjector.insertEmbedByContentMatch',
       'markdownMatrixInjector.authorEmbed',
       'markdownMatrixInjector.findEmbedByDescription',
+      'markdownMatrixInjector.selectLocalSemanticModel',
       'markdownMatrixInjector.clearSearchIndex',
       'markdownMatrixInjector.importFromWorkbook',
       'markdownMatrixInjector.reviewCandidates',
@@ -449,6 +451,34 @@ test('extension integration boundaries keep canonical native providers and compa
       'markdownMatrixInjector.catalog.insertTable',
       'markdownMatrixInjector.catalog.selectFromTable',
     ],
+  );
+});
+
+test('local semantic model selector stays explicitly user-invoked and palette-visible', async () => {
+  const [{ default: fs }, packageJsonModule] = await Promise.all([
+    import('node:fs/promises'),
+    import('../package.json', { with: { type: 'json' } }),
+  ]);
+  const source = await fs.readFile(
+    new URL('../src/extension.ts', import.meta.url),
+    'utf8',
+  );
+  const packageJson = packageJsonModule.default;
+
+  assert.ok(
+    packageJson.activationEvents.includes(
+      'onCommand:markdownMatrixInjector.selectLocalSemanticModel',
+    ),
+  );
+  assert.ok(
+    packageJson.contributes.commands.some(
+      (command: { command: string }) =>
+        command.command === 'markdownMatrixInjector.selectLocalSemanticModel',
+    ),
+  );
+  assert.match(
+    source,
+    /registerCommand\(\s*SELECT_LOCAL_SEMANTIC_MODEL_COMMAND_ID,\s*\(\) => selectLocalSemanticModel\(\),\s*\)/s,
   );
 });
 
@@ -466,6 +496,7 @@ test('native provider metadata stays API-visible without collapsing command fall
     insertEmbedByContentMatch: 'Insert Embed by Content Match (search workspace workbooks for the copied range)',
     authorEmbed: 'Create or Edit Embed (file, sheet, range, preview, confirm)',
     findEmbedByDescription: 'Find Table by Description (e.g. 状態遷移表のIDと操作を見せて)',
+    selectLocalSemanticModel: 'Select Existing Local Semantic Model (Ollama / LM Studio)',
     clearSearchIndex: 'Clear Table Search Index',
     importFromWorkbook: 'Import from Workbook (draft with live table references and extracted image assets)',
     reviewCandidates: 'Review Import Candidates (tables, images, trees, import state, provenance)',
