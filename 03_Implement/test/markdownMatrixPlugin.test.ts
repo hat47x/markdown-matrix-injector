@@ -365,8 +365,11 @@ test('markdownMatrixPlugin exposes a coded cooperative-budget error when HTML re
   let consumed = 0;
   const budget: CooperativeTimeBudget = {
     check() {},
-    consume() {
-      consumed += 1;
+    // Count work units, not calls: one call may consume several (e.g. a whole row).
+    // For this 2x2 table building the logical table uses 8 units and rendering 4 more,
+    // so a limit of 10 is crossed only if the budget stays active during rendering.
+    consume(units = 1) {
+      consumed += units;
       if (consumed > 10) {
         throw new CooperativeTimeBudgetExceededError(11, 10);
       }

@@ -255,7 +255,7 @@ test('mmi import succeeds with created-with-warnings when unsupported images are
   assert.equal(summary.imageProblems.length, 1);
   assert.equal(summary.imageProblems[0].code, 'MMI_IMAGE_UNSUPPORTED_FORMAT');
   assert.match(result.err, /warning: MMI_IMAGE_UNSUPPORTED_FORMAT/u);
-  assert.match(fs.readFileSync(draft, 'utf8'), /## 画像の注意/u);
+  assert.match(fs.readFileSync(draft, 'utf8'), /## 画像・図形の注意/u);
 });
 
 test('mmi import never overwrites a different --copy-source destination', async () => {
@@ -316,7 +316,11 @@ test('mmi import removes a newly copied source when the later import commit fail
   const source = path.join(legacyRoot, 'legacy.xlsx');
   const destination = path.join(root, 'sources', 'legacy.xlsx');
   const draft = path.join(root, 'draft.md');
-  fs.writeFileSync(source, Buffer.from('not-an-xlsx'));
+  fs.writeFileSync(source, screenDesignWorkbook().bytes);
+  // The import must fail after the source was copied. A non-workbook file no longer fails
+  // (the reader accepts it and reports warnings), so make the ledger unwritable instead.
+  const ledger = path.join(root, 'mmi-ledger.json');
+  fs.mkdirSync(ledger);
 
   const result = await quiet([
     'import',
@@ -330,7 +334,7 @@ test('mmi import removes a newly copied source when the later import commit fail
   assert.match(result.err, /import failed/u);
   assert.equal(fs.existsSync(destination), false);
   assert.equal(fs.existsSync(draft), false);
-  assert.equal(fs.existsSync(path.join(root, 'mmi-ledger.json')), false);
+  assert.equal(fs.statSync(ledger).isDirectory(), true);
 });
 
 test('mmi import requires --copy-source to preserve the workbook extension', async () => {

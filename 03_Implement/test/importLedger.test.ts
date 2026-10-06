@@ -123,7 +123,7 @@ test('legacy confirmed ledger state is read as accepted without rewriting the fi
   );
 
   assert.equal(readLedger(ledgerPath).entries[0].reviewState, 'accepted');
-  assert.match(fs.readFileSync(ledgerPath, 'utf8'), /\"reviewState\": \"confirmed\"/u);
+  assert.match(fs.readFileSync(ledgerPath, 'utf8'), /"reviewState": "confirmed"/u);
 });
 
 

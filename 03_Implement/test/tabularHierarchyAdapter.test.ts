@@ -128,11 +128,12 @@ test('level column infers nearest preceding parent without pretending level sema
     ]),
     [
       ['Overview', null, 0],
-      ['Scope', 'row:3', 1],
-      ['Data', 'row:3', 1],
-      ['Field', 'row:5', 2],
+      // Header is row 1, so the parent rows are: Overview 2, Data 4, Operations 6.
+      ['Scope', 'row:2', 1],
+      ['Data', 'row:2', 1],
+      ['Field', 'row:4', 2],
       ['Operations', null, 0],
-      ['Deploy', 'row:7', 1],
+      ['Deploy', 'row:6', 1],
     ],
   );
 

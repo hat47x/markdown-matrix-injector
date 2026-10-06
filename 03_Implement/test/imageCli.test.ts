@@ -13,7 +13,9 @@ import {
 import { sliceRegion } from '../src/core/tableGeometry.js';
 import { loadWorkbook } from '../src/core/workbookLoader.js';
 import { inspectSource, main } from '../src/cli/mmi.js';
+import { imageCandidates, readExcelImages } from '../src/adapters/excelImageAdapter.js';
 import { readLedger } from '../src/core/importLedger.js';
+import { readSourceFileIdentity } from '../src/core/sourceIdentity.js';
 import { buildXlsxWithImages, emfOf, pngOf, screenDesignWorkbook } from './helpers/buildXlsxWithImages.js';
 
 function workspace(): { root: string; book: string; doc: string; bytes: Buffer; media: Record<string, Buffer> } {
@@ -23,6 +25,20 @@ function workspace(): { root: string; book: string; doc: string; bytes: Buffer; 
   const book = path.join(root, 'data', '設計.xlsx');
   fs.writeFileSync(book, bytes);
   return { root, book, doc: path.join(root, 'docs', 'spec.md'), bytes, media };
+}
+
+/**
+ * Image Candidates as the review flow builds them (no `nearby-table` claim). `inspect` adds that geometry claim,
+ * and finalizing a review rediscovers the Candidate the review flow's way, so a Candidate taken from `inspect`
+ * would always look changed.
+ */
+function reviewCandidates(book: string, doc: string) {
+  const source = path.relative(path.dirname(doc), book).split(path.sep).join('/');
+  return imageCandidates({
+    source,
+    sourceDigest: readSourceFileIdentity(book).digest,
+    images: readExcelImages(fs.readFileSync(book)).images,
+  });
 }
 
 const fileDigest = (file: string) => `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`;
@@ -87,7 +103,7 @@ test('human-reviewed image alt text is recorded without changing image bytes or 
   const outDir = path.join(root, 'docs', 'assets');
   const ledgerPath = path.join(root, 'mmi-ledger.json');
   const sourceBefore = fileDigest(book);
-  const reviewed = inspectSource(book, 0, doc).candidates.find(
+  const reviewed = reviewCandidates(book, doc).find(
     (candidate) =>
       candidate.kind === 'image'
       && candidate.locator.sheet === '画面一覧'
@@ -157,7 +173,7 @@ test('unchanged image alt text remains accepted and stale review context fails c
   fs.mkdirSync(path.dirname(doc), { recursive: true });
   const outDir = path.join(root, 'docs', 'assets');
   const ledgerPath = path.join(root, 'mmi-ledger.json');
-  const reviewed = inspectSource(book, 0, doc).candidates.find(
+  const reviewed = reviewCandidates(book, doc).find(
     (candidate) =>
       candidate.kind === 'image'
       && candidate.locator.sheet === '画面一覧'

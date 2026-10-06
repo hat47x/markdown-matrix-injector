@@ -194,9 +194,10 @@ test('loadWorkbook still parses plain (unquoted) CSV exactly as before', () => {
 test('loadWorkbook preserves leading blank CSV rows so the header keeps its physical row number', () => {
   const rows = loadCsv('\n\nName,Role\nAlice,Admin\n');
 
+  // Slicing returns a rectangle (input-assistance-source-model.md, option D): a blank record is as wide as the used range.
   assert.deepEqual(rows, [
-    [''],
-    [''],
+    ['', ''],
+    ['', ''],
     ['Name', 'Role'],
     ['Alice', 'Admin'],
   ]);
@@ -213,7 +214,7 @@ test('loadWorkbook preserves an explicit trailing blank CSV record', () => {
   assert.deepEqual(loadCsv('Name,Role\nAlice,Admin\n\n'), [
     ['Name', 'Role'],
     ['Alice', 'Admin'],
-    [''],
+    ['', ''],
   ]);
 });
 

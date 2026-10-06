@@ -25,6 +25,7 @@ function candidate(): Candidate {
       status: 'inferred',
       execution: 'deterministic',
       method: 'M1',
+      value: ['Name', 'Role'],
       reasonCode: 'header-likely',
     }],
     provenance: {

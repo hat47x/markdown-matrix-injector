@@ -297,7 +297,7 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
     for (const problem of workbookImport.assetProblems) {
       const where = problem.sheet ? ` [${escapeText(problem.sheet)}]` : '';
       const ordinal = problem.ordinal ? ` #${problem.ordinal}` : '';
-      lines.push(`- ${escapeText(problem.code)}${ordinal}${where}: ${escapeText(problem.message)}`);
+      lines.push(`- \`${problem.code}\`${ordinal}${where}: ${escapeText(problem.message)}`);
     }
     lines.push('');
   }
@@ -311,7 +311,7 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
     );
     for (const problem of workbookImport.choiceListProblems) {
       const where = problem.sheet ? ` [${escapeText(problem.sheet)}]` : '';
-      lines.push(`- ${escapeText(problem.code)}${where}: ${escapeText(problem.message)}`);
+      lines.push(`- \`${problem.code}\`${where}: ${escapeText(problem.message)}`);
     }
     lines.push('');
   }

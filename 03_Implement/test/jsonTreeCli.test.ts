@@ -120,9 +120,11 @@ test('tree projection escapes Markdown syntax inside JSON keys and scalar values
 
   assert.deepEqual(result.problems, []);
   assert.ok(result.extracted);
-  assert.match(result.extracted.markdown, /^- "\\*section\\*" \(object\)/u);
-  assert.match(result.extracted.markdown, /- "\\[label\\]": "\\*literal\\*"/u);
-  assert.match(result.extracted.markdown, /- "html": "\\<b\\>not markup\\<\/b\\>"/u);
+  // Fixed strings, not regular expressions: in a regex `\\*` means "zero or more backslashes", not a backslash and a star.
+  const markdown = result.extracted.markdown;
+  assert.ok(markdown.startsWith('- "\\*section\\*" (object)'), markdown);
+  assert.ok(markdown.includes('- "\\[label\\]": "\\*literal\\*"'), markdown);
+  assert.ok(markdown.includes('- "html": "\\<b\\>not markup\\</b\\>"'), markdown);
 });
 
 test('CLI inspect and extract support JSON Pointer selection while scalar paths fail closed', async () => {
