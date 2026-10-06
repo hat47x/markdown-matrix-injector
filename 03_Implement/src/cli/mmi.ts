@@ -18,7 +18,7 @@ import {
   readExcelChoiceLists,
   type ChoiceListDiagnostic,
 } from '../adapters/excelChoiceListAdapter.js';
-import { imageCandidates, readExcelImages, relationToTables, type ImageDiagnostic, type TableRect } from '../adapters/excelImageAdapter.js';
+import { imageCandidates, readExcelImages, relationToTables, shapeCandidates, type ImageDiagnostic, type TableRect } from '../adapters/excelImageAdapter.js';
 import {
   DEFAULT_FLAT_TEXT_TREE_METHODS,
   decodeFlatTextUtf8,
@@ -741,6 +741,8 @@ export async function main(argv: string[]): Promise<number> {
         imageOutDir: portableDisplayPath(result.imageOutDir),
         extractedImages: result.extractedImages.length,
         imageProblems: result.imageProblems,
+        shapes: result.shapes,
+        reviewSkippedShapes: result.reviewSkippedShapes,
         reviewSkippedImages: result.reviewSkippedImages,
         reviewSkippedTables: result.reviewSkippedTables,
         choiceLists: result.choiceLists,
@@ -1187,6 +1189,8 @@ export interface InspectResult {
   candidates: Candidate[];
   /** Embedded pictures of an .xlsx/.xlsm (empty for other sources). */
   images: InspectImage[];
+  /** DrawingML AutoShape / connector objects. */
+  shapes?: InspectShape[];
   /** Explicit list Data Validation occurrences from .xlsx/.xlsm. */
   choiceLists: InspectChoiceList[];
   /** Choice-list validations that could not be interpreted safely. */
@@ -1238,6 +1242,19 @@ export interface InspectSnapshotHint {
   graphicFrameCount: number;
   reasonCode: string;
   ready: boolean;
+}
+
+export interface InspectShape {
+  ordinal: number;
+  sheet: string;
+  objectKind: 'shape' | 'connector';
+  structuralPath: string;
+  objectId?: string;
+  name?: string;
+  description?: string;
+  textRuns: readonly string[];
+  presetGeometry?: string;
+  range?: string;
 }
 
 export interface InspectImage {
@@ -1404,6 +1421,7 @@ export function inspectSource(
     ? readExcelImages(packageBytes)
     : {
         images: [],
+        shapes: [],
         snapshotHints: [],
         diagnostics: /\.xls$/iu.test(absolutePath)
           ? [{ code: 'MMI_IMAGE_PACKAGE_UNSUPPORTED' as const, severity: 'warning' as const, message: 'binary .xls: embedded pictures are not read' }]
@@ -1440,6 +1458,11 @@ export function inspectSource(
     candidates: [
       ...Object.entries(workbook.sheets).flatMap(([sheetName, sheet]) => tableCandidates({ source: relative, sourceDigest, sheetName, sheet })),
       ...imageCandidates({ source: relative, sourceDigest, images: imageRead.images, tablesBySheet }),
+      ...shapeCandidates({
+        source: relative,
+        sourceDigest,
+        shapes: imageRead.shapes,
+      }),
       ...choiceRead.lists.map((item) => item.candidate),
       ...tabularHierarchies.flatMap(({ result }) => result.candidates),
     ],
@@ -1482,6 +1505,20 @@ export function inspectSource(
       allowBlank: item.allowBlank,
     })),
     choiceListDiagnostics: choiceRead.diagnostics,
+    shapes: imageRead.shapes.map((shape) => ({
+      ordinal: shape.ordinal,
+      sheet: shape.sheet,
+      objectKind: shape.objectKind,
+      structuralPath: shape.structuralPath,
+      ...(shape.objectId ? { objectId: shape.objectId } : {}),
+      ...(shape.name ? { name: shape.name } : {}),
+      ...(shape.description ? { description: shape.description } : {}),
+      textRuns: [...shape.textRuns],
+      ...(shape.presetGeometry
+        ? { presetGeometry: shape.presetGeometry }
+        : {}),
+      ...(shape.range ? { range: shape.range } : {}),
+    })),
     images: imageRead.images.map((image) => {
       const near = relationToTables(image, tablesBySheet[image.sheet] ?? []);
       return {
@@ -1685,6 +1722,17 @@ function formatInspect(result: InspectResult): string {
       const near = image.nearbyTable ? `  near table ${image.nearbyTable.range} (${image.nearbyTable.relation}, gap ${image.nearbyTable.gap})` : '';
       const place = image.range ?? `name:${image.name ?? ''}`;
       lines.push(`  image #${image.ordinal}  ${image.range ?? '(no cell anchor)'}  ${image.format}  ${image.bytes} bytes  ${image.digest.slice(0, 19)}…${image.name ? `  "${image.name}"` : ''}${near}${image.extractable ? '' : '  (not extractable)'}${ledgerSuffix('image', sheet.name, place)}`);
+    }
+    for (const shape of (result.shapes ?? []).filter((item) => item.sheet === sheet.name)) {
+      const text = shape.textRuns.length > 0
+        ? `  text: ${shape.textRuns.join(' / ')}`
+        : '';
+      const geometry = shape.presetGeometry
+        ? `  geometry: ${shape.presetGeometry}`
+        : '';
+      lines.push(
+        `  ${shape.objectKind} #${shape.ordinal}  ${shape.range ?? '(no cell anchor)'}${shape.name ? `  "${shape.name}"` : ''}${geometry}${text}${ledgerSuffix('shape', sheet.name, `path:${shape.structuralPath}`)}  (review only)`,
+      );
     }
     for (const hint of (result.snapshotHints ?? []).filter((item) => item.sheet === sheet.name)) {
       const objects = [

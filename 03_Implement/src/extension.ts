@@ -53,6 +53,7 @@ import {
 } from './dx/authoringFlow.js';
 import { readWorkbookCached } from './dx/sharedWorkbookCache.js';
 import { clearSearchIndexes, FIND_EMBED_COMMAND_ID, scriptedSearch, searchEmbedByDescription } from './dx/searchFlow.js';
+import { SELECT_LOCAL_SEMANTIC_MODEL_COMMAND_ID, selectLocalSemanticModel } from './dx/semanticSetupFlow.js';
 import { selectContainedWorkbookFilesDetailed } from './dx/workbookCandidateOrder.js';
 import { findUnknownProseIds, UNKNOWN_PROSE_ID_CODE } from './application/proseIdCheck.js';
 import { referencedSheets, unknownIdMessage } from './application/referencedSheets.js';
@@ -210,6 +211,10 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
       // A chosen candidate goes to preview & confirm, never straight into the document (R1).
       if (parts) await runAuthoringFlow(authoringDependencies(), { parts, step: 'confirm' });
     }),
+    vscode.commands.registerCommand(
+      SELECT_LOCAL_SEMANTIC_MODEL_COMMAND_ID,
+      () => selectLocalSemanticModel(),
+    ),
     vscode.commands.registerCommand(IMPORT_WORKBOOK_COMMAND_ID, (target?: vscode.Uri) =>
       importFromWorkbook(WORKBOOK_FILE_GLOB, target instanceof vscode.Uri ? target : undefined),
     ),

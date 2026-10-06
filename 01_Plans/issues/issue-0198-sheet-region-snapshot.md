@@ -30,11 +30,11 @@ Excel方眼紙で、罫線・セル結合・AutoShape・画面ダンプを組み
 
 画像化方式を選ぶ前段として、原本にある図形等を取り込み結果から黙って落とさない経路を追加した。
 
-既存のOOXML drawing readerは、埋込画像とは別にAutoShape・コネクタとgraphic frameの存在を読み取っていたが、件数は内部の集計にとどまり、利用者には表示していなかった。現在はシート単位で集計し、`MMI_DRAWING_SHAPES_NOT_EXTRACTED` と `MMI_DRAWING_GRAPHIC_FRAMES_NOT_EXTRACTED` をwarningとして返す。`graphicFrame`はグラフ以外の図を含む場合があるため、MMIは種類を断定しない。
+既存のOOXML drawing readerから、AutoShape（`sp`）とコネクタ（`cxnSp`）を個別の`shape` Candidateへ写す経路を追加した。名前、説明、図形内テキスト、preset geometry、anchorを原本の明示情報として`observed + deterministic + M0`で保持する。occurrence identityはDrawing partとsource object idによる`structuralPath`、content fingerprintは図形の内容として分離したため、セル上の移動だけで内容同一性を失わない。
 
-このwarningは `mmi inspect` と既存ブックの一括取り込みに流し、下書きの「画像・図形の注意」に残す。表や埋込画像の既存処理は継続し、図形があることだけを理由に全体の取り込みを止めない。
+Shape Candidateは`mmi inspect --json`、AI handoff、VS Codeレビュー、一括取り込みへ接続した。レビューでは確認・却下・保留を扱い、却下・保留したShapeは一括取り込みの通常表示から外す。同じanchorのsnapshot hintも有効なShape数へ減算し、対象がすべて外れた場合はhintを出さない。一括取り込みではShapeを個別の観測情報として下書きへ残すため、`MMI_DRAWING_SHAPES_NOT_EXTRACTED`を重複警告としては表示しない。
 
-この段階では、図形をCandidate化せず、画像化・抽出も行わない。したがって、本Issueの描画方式比較、PNG生成、再現性、provenanceに関する受入条件は未完了のままとする。まず欠落の存在を観測可能にし、その実測をもとにMMI自身の描画とLibreOfficeの比較へ進む。
+`graphicFrame`はグラフ、図、その他の埋込オブジェクトを含み得るため種類を断定せず、`MMI_DRAWING_GRAPHIC_FRAMES_NOT_EXTRACTED`をwarningとして残す。Shape自体のExtracted変換もまだ行わない。本Issueの描画方式比較、PNG生成、再現性、provenanceに関する受入条件は引き続き未完了である。
 
 ## LibreOffice range snapshot（2026-10-05）
 
@@ -70,7 +70,7 @@ AutoShape・コネクタ・graphic frameを検出したとき、warningだけで
 
 - `twoCellAnchor`は開始・終了セルを原本から明示的に読めるため、物理A1範囲を`snapshot hint`として`mmi inspect`へ出す。`mmi snapshot <book> --hint <番号>`で、その範囲を既存のLibreOffice描画へ渡せる。
 - `oneCellAnchor`と`absoluteAnchor`は終端セルを安全に確定できないため、自動rangeを作らない。開始セルが分かる場合だけ表示し、利用者に明示rangeの確認を求める。
-- 一括取り込みの下書きにも同じ候補を「図形のsnapshot候補」として残す。従来の`MMI_DRAWING_*_NOT_EXTRACTED` warningは消さず、未対応の事実と次に取れる操作を併記する。
+- 一括取り込みの下書きにも同じ候補を「図形のsnapshot候補」として残す。AutoShape/connectorは個別Candidateとして観測情報を表示するため、Shapeの集約warningは重複表示しない。graphic frameのwarningは残す。
 - hint自体はCandidate採用や図形の意味付けではない。PNG生成に成功した時点で初めて、既存の`region-snapshot` Candidateとledger記録が作られる。
 
 これにより「範囲の候補をどう示すか」のうち、OOXML drawingに明示されたtwo-cell anchorは製品経路へ接続できた。セルで描いた図、one-cell/absolute anchor、研究層の非表領域など、終端セルを観測できない対象は引き続き明示rangeまたは別の候補化が必要である。
@@ -78,7 +78,7 @@ AutoShape・コネクタ・graphic frameを検出したとき、warningだけで
 ## Validation plan
 AutoShapeと画面ダンプを含む架空の設計シートを、CIで動く方式で画像化し、Excelでの見た目と比べる（目視）。同じ処理をGitHub ActionsのLinuxで実行し、手元と同じダイジェストになるかを確かめる。COMを使う場合はWindows実機で行う。原本のダイジェストを前後で比較する。Excelを開いて作業中の状態でも実行し、作業中のブックに影響が無いことを確かめる。
 
-前段の自動テストでは、コード生成したOOXML drawingにAutoShape・コネクタ・graphic frameを含め、画像reader、`mmi inspect`、一括取り込みの下書きまでwarningが伝わることを確認する。warningがあっても、同じブックの表・埋込画像の処理は継続する。
+前段の自動テストでは、コード生成したOOXML drawingにAutoShape・コネクタ・graphic frameを含める。AutoShape/connectorは画像readerからShape Candidate、`mmi inspect`、Candidateレビュー、一括取り込みへ同じ内容で伝わることを確認する。graphic frameはwarningとして残り、warningがあっても同じブックの表・埋込画像の処理は継続する。
 
 ## Remaining work
 - MMI自身の描画で、どこまでの図形（直線、矩形、矢印、テキストボックス）を扱えば実務の大半を覆えるか。LibreOffice方式と同一fixtureで比較する。
