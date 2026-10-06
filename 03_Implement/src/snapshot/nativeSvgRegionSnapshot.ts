@@ -80,6 +80,14 @@ type NativeCellStyle = {
   border?: { top?: NativeBorderSide; right?: NativeBorderSide; bottom?: NativeBorderSide; left?: NativeBorderSide };
   font?: { name?: string; sz?: number; bold?: boolean; italic?: boolean; color?: NativeColor };
   alignment?: { horizontal?: string; vertical?: string; wrapText?: boolean };
+  /** SheetJS 0.20.x may expose stable style fields directly on s. */
+  patternType?: string;
+  fgColor?: NativeColor;
+  bgColor?: NativeColor;
+  top?: NativeBorderSide;
+  right?: NativeBorderSide;
+  bottom?: NativeBorderSide;
+  left?: NativeBorderSide;
 };
 type NativeCell = XLSX.CellObject & { s?: NativeCellStyle };
 type NativeColumn = { hidden?: boolean; wpx?: number; wch?: number; width?: number };
@@ -381,8 +389,8 @@ function buildSvg(options: {
     );
   }
 
-  if (drawings.diagnostics.some((item) => item.code === 'MMI_IMAGE_DRAWING_UNREADABLE')) {
-    limitations.add('drawing-part-unreadable');
+  for (const diagnostic of drawings.diagnostics) {
+    limitations.add('source-drawing-diagnostic:' + diagnostic.code);
   }
 
   const metadata = escapeXml(JSON.stringify({
@@ -419,8 +427,8 @@ function renderCell(
   const result = [
     '<rect class="mmi-cell" x="' + round(rect.x) + '" y="' + round(rect.y)
       + '" width="' + round(rect.width) + '" height="' + round(rect.height)
-      + '" fill="' + fillColor(style?.fill, limitations) + '"/>',
-    ...borderSvg(rect, style?.border, limitations),
+      + '" fill="' + fillColor(fillOf(style), limitations) + '"/>',
+    ...borderSvg(rect, borderOf(style), limitations),
   ];
   const text = cellText(cell);
   if (!text) return result;
@@ -456,6 +464,34 @@ function renderCell(
   );
   if (style?.alignment?.wrapText) limitations.add('excel-text-wrapping-approximated');
   return result;
+}
+
+function fillOf(style: NativeCellStyle | undefined): NativeCellStyle['fill'] | undefined {
+  if (!style) return undefined;
+  return style.fill ?? (
+    style.patternType !== undefined || style.fgColor !== undefined || style.bgColor !== undefined
+      ? {
+          ...(style.patternType !== undefined ? { patternType: style.patternType } : {}),
+          ...(style.fgColor !== undefined ? { fgColor: style.fgColor } : {}),
+          ...(style.bgColor !== undefined ? { bgColor: style.bgColor } : {}),
+        }
+      : undefined
+  );
+}
+
+function borderOf(style: NativeCellStyle | undefined): NativeCellStyle['border'] | undefined {
+  if (!style) return undefined;
+  return style.border ?? (
+    style.top !== undefined || style.right !== undefined
+      || style.bottom !== undefined || style.left !== undefined
+      ? {
+          ...(style.top !== undefined ? { top: style.top } : {}),
+          ...(style.right !== undefined ? { right: style.right } : {}),
+          ...(style.bottom !== undefined ? { bottom: style.bottom } : {}),
+          ...(style.left !== undefined ? { left: style.left } : {}),
+        }
+      : undefined
+  );
 }
 
 function borderSvg(rect: SnapshotRect, border: NativeCellStyle['border'], limitations: Set<string>): string[] {
