@@ -35,6 +35,7 @@ import {
 } from '../adapters/tabularHierarchyAdapter.js';
 import type { Candidate, ProviderScore } from '../core/candidate.js';
 import {
+  cognitiveArtifactManifestSchemaJson,
   parseCognitiveArtifactManifest,
   resolveCognitiveArtifact,
   type CognitiveArtifactManifestV0,
@@ -119,6 +120,7 @@ Commands:
                             candidate        mmi.semantic-candidate/v1
                             ledger           mmi.ledger/v1
                             review-decisions mmi.review-decisions/v1
+                            cognitive-artifact mmi.cognitive-artifact-manifest/v0
   core <request.json|->     Execute one mmi.portable-core-request/v1 and emit JSON.
                             Use - to read the request from stdin; source bytes are embedded in the request.
                             This boundary performs no source-file discovery or VS Code access.
@@ -308,18 +310,19 @@ export async function main(argv: string[]): Promise<number> {
     case 'schema': {
       if (args.length !== 1) {
         return usageError(
-          'schema needs one of: candidate, ledger, review-decisions',
+          'schema needs one of: candidate, ledger, review-decisions, cognitive-artifact',
         );
       }
       const schemas: Record<string, () => Record<string, unknown>> = {
         candidate: semanticCandidateSchemaJson,
         ledger: importLedgerSchemaJson,
         'review-decisions': reviewDecisionsSchemaJson,
+        'cognitive-artifact': cognitiveArtifactManifestSchemaJson,
       };
       const schema = schemas[args[0]];
       if (!schema) {
         return usageError(
-          'schema needs one of: candidate, ledger, review-decisions',
+          'schema needs one of: candidate, ledger, review-decisions, cognitive-artifact',
         );
       }
       emit(JSON.stringify(schema(), null, 2));
