@@ -41,11 +41,13 @@ interface Args {
   corpus: string;
   out?: string;
   dictionary: boolean;
+  /** `--no-paraphrase`: ablation of the paraphrase lane. */
+  paraphrase: boolean;
   methods: RetrievalMethod[];
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { queries: 'dev', iterations: 30, corpus: DEFAULT_CORPUS_DIR, dictionary: true, methods: [...RETRIEVAL_METHODS] };
+  const args: Args = { queries: 'dev', iterations: 30, corpus: DEFAULT_CORPUS_DIR, dictionary: true, paraphrase: true, methods: [...RETRIEVAL_METHODS] };
   for (let i = 0; i < argv.length; i += 1) {
     const next = (): string => argv[++i];
     switch (argv[i]) {
@@ -54,6 +56,7 @@ function parseArgs(argv: string[]): Args {
       case '--corpus': args.corpus = next(); break;
       case '--out': args.out = next(); break;
       case '--no-dictionary': args.dictionary = false; break;
+      case '--no-paraphrase': args.paraphrase = false; break;
       case '--methods': args.methods = next().split(',') as RetrievalMethod[]; break;
       default: throw new Error(`Unknown argument: ${argv[i]}`);
     }
@@ -229,7 +232,7 @@ export function main(argv = process.argv.slice(2)): Record<string, unknown> {
   const quality: Record<string, unknown> = {};
   const judgedByMethod: Record<string, Judged[]> = {};
   for (const method of args.methods) {
-    const judged = queries.map((query) => judge(query, compileQuery(query.text, { index, method, relativePath, synonyms, queryAliases })));
+    const judged = queries.map((query) => judge(query, compileQuery(query.text, { index, method, relativePath, synonyms, queryAliases, paraphrase: args.paraphrase })));
     judgedByMethod[method] = judged;
     quality[method] = summarize(judged);
   }
@@ -244,11 +247,11 @@ export function main(argv = process.argv.slice(2)): Record<string, unknown> {
     for (let iteration = 0; iteration < args.iterations; iteration += 1) {
       for (const query of queries) {
         let t = now();
-        const result = compileQuery(query.text, { index, method, relativePath, synonyms, queryAliases });
+        const result = compileQuery(query.text, { index, method, relativePath, synonyms, queryAliases, paraphrase: args.paraphrase });
         compile.push(now() - t);
 
         t = now();
-        const again = compileQuery(query.text, { index, method, relativePath, synonyms, queryAliases });
+        const again = compileQuery(query.text, { index, method, relativePath, synonyms, queryAliases, paraphrase: args.paraphrase });
         for (const candidate of again.candidates) {
           const snapshot = readSnapshot(candidate.region.bookPath);
           const workbook = cache.get(candidate.region.bookPath, snapshot) ?? load(candidate.region.bookPath);

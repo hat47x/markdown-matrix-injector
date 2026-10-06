@@ -40,6 +40,7 @@
     "eval:cpu-search": "node --import tsx scripts/cpu-search-eval/evaluate.ts",
     "eval:cpu-search:scale": "node --import tsx scripts/cpu-search-eval/scale.ts",
     "eval:cpu-search:test4:first": "node --import tsx scripts/cpu-search-eval/test4-first-run.ts",
+    "eval:cpu-search:test5:first": "node --import tsx scripts/cpu-search-eval/test5-first-run.ts",
     "eval:import-assist": "node --import tsx scripts/import-assist-eval/evaluate.ts",
     "bench:workbook-load": "node --import tsx scripts/workbook-load-benchmark.ts",
     "test:phase9-sync": "python3 ../01_Plans/tools/check_phase9_template_sync.py",

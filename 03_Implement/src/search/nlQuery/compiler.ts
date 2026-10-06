@@ -19,6 +19,7 @@ import { gridProjection, logicalColumnLetter } from '../../importAssist/tableReg
 import type { RegionRecord } from '../regionCatalog.js';
 import type { RegionHit, RegionSearchIndex, RetrievalMethod } from '../searchIndex.js';
 import { addTextFeatures, bigramDice, normalizeText, segments, textFeatureList, type FeatureBag } from '../textFeatures.js';
+import { isDescriptionQuestion, paraphraseMatches } from './paraphrase.js';
 import { parseQuery, type Hint, type QueryIR, type UnsupportedConstruct } from './parser.js';
 
 export interface QueryAliasRule {
@@ -57,6 +58,12 @@ export interface CompileOptions {
    * retrieval/coverage. They never rewrite columns or emitted MMI notation.
    */
   queryAliases?: readonly QueryAliasRule[];
+  /**
+   * Paraphrase lane (paraphrase.ts): offers tables whose structure fits a
+   * described request when name coverage found none. On by default; `false` is
+   * for ablation measurements.
+   */
+  paraphrase?: boolean;
 }
 
 export type CompileStatus = 'candidates' | 'unsupported' | 'no-match' | 'needs-more-input';
@@ -81,6 +88,8 @@ export interface Candidate {
   /** Some requested column names were not found; the notes say which. */
   partial: boolean;
   notes: string[];
+  /** `paraphrase`: found by the structure of a described request, not by name (always inferred). */
+  basis?: 'name' | 'paraphrase';
 }
 
 export interface CompileResult {
@@ -133,7 +142,11 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
   const unsupported = new Set(ir.unsupported.map((item) => item.kind));
   const reasons = [...unsupported].map((kind) => UNSUPPORTED_REASON[kind]);
   if (ir.contains.length > 1) reasons.push('grepは1語だけです。複数語の条件は表せません。');
-  if (reasons.length > 0) return result('unsupported', reasons);
+  if (reasons.length > 0) {
+    // A question that merely describes a table ("どの値を超えたら誰に知らせるか") is not a request to compare.
+    const described = paraphraseCandidates(ir, options, SOFT_UNSUPPORTED);
+    return described.length > 0 ? result('candidates', [], described) : result('unsupported', reasons);
+  }
   if (ir.diagnostics.some((diagnostic) => diagnostic.code === 'empty-request')) {
     return result('needs-more-input', ['ブック・シート・表の名前を含めてください（例: 「状態遷移表のIDと操作を見せて」）。']);
   }
@@ -252,6 +265,10 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
   }
 
   if (candidates.length === 0) {
+    const described = paraphraseCandidates(ir, options);
+    // Only a question states what is asked. A bare noun phrase is a name-style request: the same structural
+    // evidence is offered as a near miss, never as a candidate ("総合テストケース" must not become 結合テストケース).
+    if (described.length > 0 && isDescriptionQuestion(ir.input)) return result('candidates', [], described);
     const nearMisses = near.flatMap(({ hit, coverage, columnSignature, lexicalConflict }) => {
       const resolved = resolveColumns(hit.region, ir.columns, options.minColumnSimilarity ?? 0.6, synonyms);
       const columns = resolved.ok ? resolved.columns : [];
@@ -281,7 +298,7 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
     });
     return {
       ...result('no-match', rejections.size > 0 ? [...rejections] : ['条件に合う表が見つかりません。']),
-      ...(nearMisses.length > 0 ? { nearMisses } : {}),
+      ...(nearMisses.length + described.length > 0 ? { nearMisses: [...nearMisses, ...described].slice(0, 3) } : {}),
     };
   }
   // Candidates that honour every requested column come before partial ones.
@@ -290,6 +307,56 @@ export function compileQuery(input: string, options: CompileOptions): CompileRes
 }
 
 // ---------------------------------------------------------------------------
+
+/** Constructs that a described table can contain without being a request for them. */
+const SOFT_UNSUPPORTED: ReadonlySet<UnsupportedConstruct> = new Set<UnsupportedConstruct>(['comparison', 'aggregation', 'negation', 'columnCondition']);
+const MAX_PARAPHRASE_CANDIDATES = 3;
+
+function paraphraseCandidates(
+  ir: QueryIR,
+  options: CompileOptions,
+  allowedUnsupported: ReadonlySet<UnsupportedConstruct> = new Set(),
+): Candidate[] {
+  if (options.paraphrase === false) return [];
+  const question = isDescriptionQuestion(ir.input);
+  // Without a question, a bare noun phrase must not carry any construct MMI cannot express.
+  if (!question && ir.unsupported.length > 0) return [];
+  if (ir.unsupported.some((item) => !allowedUnsupported.has(item.kind))) return [];
+  // Anything the person named outright is judged by name, not by description. (Columns the parser
+  // guessed out of a description are not names: the lane never applies columns.)
+  if (ir.source || ir.sheet || ir.range || ir.table || ir.contains.length > 0) return [];
+  if (ir.target.some((hint) => hint.quoted)) return [];
+  const regions = options.index.bookPaths().flatMap((path) =>
+    options.index.docsOfBook(path).map((doc) => options.index.region(doc)).filter((region): region is RegionRecord => region !== undefined));
+  const matches = paraphraseMatches(ir.input, regions, { minStructural: question ? 1 : 2 });
+  const candidates: Candidate[] = [];
+  for (const match of matches) {
+    if (candidates.length >= (options.maxCandidates ?? MAX_PARAPHRASE_CANDIDATES)) break;
+    const emitted = emit(match.region, ir, [], options.relativePath(match.region.bookPath));
+    if (!emitted.ok) continue;
+    const evidence = [
+      match.topic.length > 0 ? `話題の語「${match.topic.slice(0, 3).join('・')}」が表名にあります` : '',
+      match.slots.length > 0 ? `尋ねている観点（${match.slots.join('・')}）に当たる見出しがあります` : '',
+      match.headers.length > 0 ? `見出し「${match.headers.slice(0, 3).join('・')}」が依頼の語と一致します` : '',
+    ].filter((text) => text !== '');
+    const unexpressed = ir.unsupported.length > 0
+      ? [`依頼の「${[...new Set(ir.unsupported.map((item) => item.text))].join('・')}」はMMI記法で表せないため反映していません。`]
+      : [];
+    const notes = [`表名の言葉ではなく、依頼の説明と表の構造の近さから推定した候補です（${evidence.join('。')}）。確認してから選んでください。`, ...unexpressed, ...emitted.notes];
+    candidates.push({
+      region: match.region,
+      markdown: emitted.markdown,
+      explanation: explain(match.region, emitted.range, [], ir, notes),
+      retrievalScore: match.score,
+      coverage: 0,
+      columns: [],
+      partial: false,
+      notes,
+      basis: 'paraphrase',
+    });
+  }
+  return candidates;
+}
 
 /**
  * The retrieval query for a parsed request: name hints weigh 2, columns 1,
