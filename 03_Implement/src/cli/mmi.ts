@@ -87,6 +87,9 @@ import {
   RegionSnapshotError,
   renderLibreOfficeRegionSnapshot,
 } from '../snapshot/libreOfficeRegionSnapshot.js';
+import {
+  renderNativeSvgRegionSnapshot,
+} from '../snapshot/nativeSvgRegionSnapshot.js';
 import { detectTableRegions, regionReference } from '../importAssist/tableRegions.js';
 import { runFind, runSelect } from './navigateCommands.js';
 import { extractImages, extractTable, formatImageDiagnostics } from './extract.js';
@@ -148,7 +151,8 @@ Commands:
       --out-dir <dir>         assets folder (default: assets); files are content-addressed
       --from <doc.md>         provenance/source labels are relative to this document
       --ledger <file>         import ledger (default: <root>/mmi-ledger.json)
-  snapshot <workbook>       Render one sheet range as a deterministic PNG via LibreOffice
+  snapshot <workbook>       Render one sheet range as a deterministic visual snapshot
+      --renderer <name>       libreoffice (PNG, default) or native-svg (dependency-free SVG)
       --sheet <name>          worksheet to render with --range
       --range <A1:B9>         physical cell range to render with --sheet
       --hint <n>              use a ready drawing snapshot hint shown by inspect
@@ -245,6 +249,7 @@ export async function main(argv: string[]): Promise<number> {
       range: { type: 'string' },
       hint: { type: 'string' },
       dpi: { type: 'string' },
+      renderer: { type: 'string' },
       'tree-parent-columns': { type: 'string' },
       'tree-level-columns': { type: 'string' },
       'out-dir': { type: 'string' },
@@ -582,46 +587,77 @@ export async function main(argv: string[]): Promise<number> {
         range = hint.range;
       }
 
-      let result;
+      const renderer = values.renderer ?? 'libreoffice';
+      if (!['libreoffice', 'native-svg'].includes(renderer)) {
+        return usageError('snapshot --renderer must be libreoffice or native-svg');
+      }
+      if (renderer === 'native-svg' && values.dpi) {
+        return usageError('snapshot --dpi applies only to the libreoffice renderer');
+      }
+
+      let result:
+        | Awaited<ReturnType<typeof renderLibreOfficeRegionSnapshot>>
+        | ReturnType<typeof renderNativeSvgRegionSnapshot>;
       try {
-        result = await renderLibreOfficeRegionSnapshot({
-          sourcePath,
-          sourceLabel: portableDisplayPath(sourcePath),
-          sheet: sheet!,
-          range: range!,
-          outDir,
-          ledgerPath,
-          ...(values.from ? { fromDocument: path.resolve(values.from) } : {}),
-          ...(values.dpi ? { dpi: Number(values.dpi) } : {}),
-        });
+        result = renderer === 'native-svg'
+          ? renderNativeSvgRegionSnapshot({
+              sourcePath,
+              sourceLabel: portableDisplayPath(sourcePath),
+              sheet: sheet!,
+              range: range!,
+              outDir,
+              ledgerPath,
+              ...(values.from ? { fromDocument: path.resolve(values.from) } : {}),
+            })
+          : await renderLibreOfficeRegionSnapshot({
+              sourcePath,
+              sourceLabel: portableDisplayPath(sourcePath),
+              sheet: sheet!,
+              range: range!,
+              outDir,
+              ledgerPath,
+              ...(values.from ? { fromDocument: path.resolve(values.from) } : {}),
+              ...(values.dpi ? { dpi: Number(values.dpi) } : {}),
+            });
       } catch (error) {
         if (!(error instanceof RegionSnapshotError)) throw error;
         console.error(`mmi: ${error.code}: ${error.message}`);
         return 1;
       }
 
+      const artifactFile = 'pngFile' in result ? result.pngFile : result.svgFile;
+      const limitations = 'limitations' in result.manifest
+        ? result.manifest.limitations
+        : [];
       const summary = {
         status: result.status,
         source: result.manifest.source,
         sheet: result.manifest.selection.sheet,
         range: result.manifest.selection.range,
-        png: portableDisplayPath(result.pngFile),
+        artifact: portableDisplayPath(artifactFile),
+        ...('pngFile' in result ? { png: portableDisplayPath(result.pngFile) } : {}),
+        ...('svgFile' in result ? { svg: portableDisplayPath(result.svgFile) } : {}),
         digest: result.manifest.artifact.digest,
         bytes: result.manifest.artifact.bytes,
         widthPx: result.manifest.artifact.widthPx,
         heightPx: result.manifest.artifact.heightPx,
         manifest: portableDisplayPath(result.manifestFile),
         renderer: result.manifest.renderer,
+        ...(limitations.length > 0 ? { limitations } : {}),
         markdown: result.markdown,
         ...(hintOrdinal ? { hint: hintOrdinal } : {}),
       };
+      const rendererText = 'libreOfficeVersion' in summary.renderer
+        ? summary.renderer.libreOfficeVersion + '; ' + summary.renderer.pdftoppmVersion
+        : summary.renderer.id + '; SheetJS ' + summary.renderer.sheetJsVersion;
       emit(values.json
         ? JSON.stringify(summary, null, 2)
         : [
-            `snapshot: ${summary.png}`,
+            `snapshot: ${summary.artifact}`,
             `source: ${summary.source.label}#${summary.sheet}|${summary.range}`,
             `digest: ${summary.digest} (${summary.widthPx}x${summary.heightPx}px)`,
-            `renderer: ${summary.renderer.libreOfficeVersion}; ${summary.renderer.pdftoppmVersion}`,
+            `renderer: ${rendererText}`,
+            ...(limitations.length > 0 ? [`limitations: ${limitations.join(', ')}`] : []),
             `manifest: ${summary.manifest}`,
             '',
             summary.markdown,
