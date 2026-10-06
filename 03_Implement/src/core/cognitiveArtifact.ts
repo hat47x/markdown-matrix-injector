@@ -253,7 +253,7 @@ export function cognitiveArtifactCacheRoot(
     return path.resolve(env.MMI_COGNITIVE_ARTIFACT_CACHE);
   }
   if (platform === 'win32' && env.LOCALAPPDATA?.trim()) {
-    return path.join(
+    return path.win32.join(
       env.LOCALAPPDATA,
       'MMI',
       'cognitive-artifacts',
@@ -598,7 +598,10 @@ function assertSource(
   if (source.kind === 'local-file') {
     assertExactKeys(source, ['kind', 'uri'], `sources[${index}]`);
     assertNonEmpty(`sources[${index}].uri`, source.uri);
-    if (path.isAbsolute(source.uri)) {
+    if (
+      path.posix.isAbsolute(source.uri)
+      || path.win32.isAbsolute(source.uri)
+    ) {
       throw new Error(`sources[${index}].uri must be relative to localRoot`);
     }
     return;
