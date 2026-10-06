@@ -44,6 +44,8 @@ model-basedなM3/M4が必要な場合も、MMI専用runtimeを先に抱えず、
 
 M2の表検索については、既存ローカルruntimeを利用する製品導線まで実装した。コマンド「MMI: 端末内の意味検索モデルを選択（Ollama / LM Studio）」は、loopback上ですでに起動しているOllama / LM Studioだけを調べ、既存のembedding modelを利用者に選択させる。Ollamaではembedding capabilityを確認し、remote/cloud modelは候補から外す。LM Studioではembedding typeだけを候補にする。MMIからmodelのdownload・pull・loadは行わず、runtime不在時も既存機能を継続する。
 
+また、意味検索中に入力が変わった場合は、古いprovider-dependent queryをworkerからproviderのAbortSignalまで取消す。単に古い結果をUIで捨てるだけではなく、遅いlocal runtime呼出しが新しい検索をtimeoutまで待たせる経路を閉じた。
+
 この実装は本Issue全体の完了ではない。M3 bounded judgment / M4 generative reasoningのruntime discovery、runtime versionやartifact identityを含む再現性情報、明示endpointと既知runtimeの優先順位、実機での資源・latency測定は引き続き未完である。今回の導線は、それらを先取りして一般化せず、実際に製品価値が確認できたM2意味検索だけへ限定する。
 
 ## Remaining work
