@@ -92,6 +92,8 @@ async function discoverOllama(
       model?: unknown;
       digest?: unknown;
       size?: unknown;
+      remote_model?: unknown;
+      remote_host?: unknown;
     }>;
   } | undefined;
   if (!Array.isArray(listed?.models)) return [];
@@ -103,7 +105,10 @@ async function discoverOllama(
         : typeof item.name === 'string'
           ? item.name
           : undefined;
-      return model ? [{
+      const remote =
+        (typeof item.remote_model === 'string' && item.remote_model.length > 0)
+        || (typeof item.remote_host === 'string' && item.remote_host.length > 0);
+      return model && !remote ? [{
         model,
         digest:
           typeof item.digest === 'string' ? item.digest : undefined,
