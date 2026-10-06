@@ -253,7 +253,12 @@ test('DrawingML shape properties become observed M0 shape Candidates', () => {
   );
   const read = readExcelImages(bytes);
   assert.equal(read.shapes.length, 1);
-  assert.deepEqual(read.shapes[0], {
+  const {
+    contentDigest,
+    ...shapeWithoutDigest
+  } = read.shapes[0];
+  assert.match(contentDigest, /^sha256:[0-9a-f]{64}$/u);
+  assert.deepEqual(shapeWithoutDigest, {
     ordinal: 1,
     sheet: '業務フロー',
     drawingPart: 'xl/drawings/drawing1.xml',
@@ -293,6 +298,16 @@ test('DrawingML shape properties become observed M0 shape Candidates', () => {
   assert.deepEqual(
     candidate.claims.find((claim) => claim.aspect === 'text-runs')?.value,
     ['申請', '受付'],
+  );
+  assert.equal(
+    candidate.claims.find(
+      (claim) => claim.aspect === 'drawingml-content-digest',
+    )?.value,
+    contentDigest,
+  );
+  assert.equal(
+    candidate.fingerprint.representation,
+    'excel-drawing-shape-xml-v1',
   );
   assert.equal(candidateProblem(candidate), undefined);
 });
@@ -337,6 +352,53 @@ test('shape content fingerprint is independent from its cell anchor', () => {
   );
 });
 
+
+test('shape fingerprint changes when an unprojected visual property changes', () => {
+  const makeDrawing = (fill: string): string => [
+    '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">',
+    '<xdr:twoCellAnchor>',
+    '<xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>',
+    '<xdr:to><xdr:col>2</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>2</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>',
+    '<xdr:sp>',
+    '<xdr:nvSpPr><xdr:cNvPr id="3" name="処理"/></xdr:nvSpPr>',
+    `<xdr:spPr><a:prstGeom prst="rect"/><a:solidFill><a:srgbClr val="${fill}"/></a:solidFill></xdr:spPr>`,
+    '<xdr:txBody><a:p><a:r><a:t>処理</a:t></a:r></a:p></xdr:txBody>',
+    '</xdr:sp>',
+    '<xdr:clientData/>',
+    '</xdr:twoCellAnchor>',
+    '</xdr:wsDr>',
+  ].join('');
+  const sourceDigest = 'sha256:' + 'c'.repeat(64);
+  const first = shapeCandidates({
+    source: './flow.xlsx',
+    sourceDigest,
+    shapes: readExcelImages(buildXlsxWithImages(
+      [{ name: 'Flow', rawDrawing: makeDrawing('FF0000') }],
+      {},
+    )).shapes,
+  })[0];
+  const changed = shapeCandidates({
+    source: './flow.xlsx',
+    sourceDigest,
+    shapes: readExcelImages(buildXlsxWithImages(
+      [{ name: 'Flow', rawDrawing: makeDrawing('00FF00') }],
+      {},
+    )).shapes,
+  })[0];
+
+  assert.notEqual(
+    first.fingerprint.digest,
+    changed.fingerprint.digest,
+  );
+  assert.equal(
+    first.claims.find((claim) => claim.aspect === 'preset-geometry')?.value,
+    changed.claims.find((claim) => claim.aspect === 'preset-geometry')?.value,
+  );
+  assert.deepEqual(
+    first.claims.find((claim) => claim.aspect === 'text-runs')?.value,
+    changed.claims.find((claim) => claim.aspect === 'text-runs')?.value,
+  );
+});
 
 test('duplicate DrawingML object ids keep distinct occurrence identities', () => {
   const drawing = [
