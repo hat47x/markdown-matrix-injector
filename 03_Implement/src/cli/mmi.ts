@@ -1433,7 +1433,6 @@ export function inspectSource(
     },
   );
   const {
-    sourceDigest,
     workbook,
     imageRead,
     choiceRead,
