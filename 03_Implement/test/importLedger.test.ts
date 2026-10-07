@@ -127,9 +127,13 @@ test('atomic ledger replacement preserves the previous file and cleans temp file
   const before = fs.readFileSync(ledgerPath, 'utf8');
 
   const originalRenameSync = fs.renameSync;
-  fs.renameSync = (() => {
-    throw new Error('simulated atomic replace failure');
-  }) as typeof fs.renameSync;
+  Object.defineProperty(fs, 'renameSync', {
+    configurable: true,
+    writable: true,
+    value: () => {
+      throw new Error('simulated atomic replace failure');
+    },
+  });
   try {
     assert.throws(
       () => recordEntries(ledgerPath, [
@@ -144,7 +148,11 @@ test('atomic ledger replacement preserves the previous file and cleans temp file
       /simulated atomic replace failure/u,
     );
   } finally {
-    fs.renameSync = originalRenameSync;
+    Object.defineProperty(fs, 'renameSync', {
+      configurable: true,
+      writable: true,
+      value: originalRenameSync,
+    });
   }
 
   assert.equal(fs.readFileSync(ledgerPath, 'utf8'), before);
