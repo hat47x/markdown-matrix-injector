@@ -5,6 +5,7 @@ import type { CandidateReviewObservation } from '../src/application/candidateRev
 import {
   aggregateCandidateReviewProductRun,
   compareCandidateReviewProductBaseline,
+  evaluateCandidateReviewProductRuns,
   type CandidateReviewProductRun,
   type ProductBaselineSafetyEvidence,
 } from '../src/evaluation/candidateReviewProductBaseline.js';
@@ -395,6 +396,34 @@ test('aggregate fails closed when a safety count is omitted at runtime', () => {
       }),
     ),
     /workspaceEscape/u,
+  );
+});
+
+test('recommended A/B entry rejects different source bytes and review facets', () => {
+  const baselineObservation = observation();
+  const assistedDifferentSource = {
+    ...observation(),
+    source: {
+      ...observation().source,
+      digest: 'sha256:' + 'b'.repeat(64),
+    },
+  };
+  assert.throws(
+    () => evaluateCandidateReviewProductRuns(
+      run('current-product-baseline', [baselineObservation]),
+      run('assisted', [assistedDifferentSource]),
+    ),
+    /source digest differs/u,
+  );
+
+  const assistedDifferentFacet = observation();
+  assistedDifferentFacet.ui.facets.kinds = ['table-range'];
+  assert.throws(
+    () => evaluateCandidateReviewProductRuns(
+      run('current-product-baseline', [baselineObservation]),
+      run('assisted', [assistedDifferentFacet]),
+    ),
+    /review facets differ/u,
   );
 });
 
