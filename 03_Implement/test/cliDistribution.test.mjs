@@ -42,6 +42,10 @@ function fixture() {
     },
   });
   write(
+    path.join(root, 'dist/src/cli/bootstrap.js'),
+    "#!/usr/bin/env node\nawait import('./mmi.js');\n",
+  );
+  write(
     path.join(root, 'dist/src/cli/mmi.js'),
     "#!/usr/bin/env node\nimport '../core/example.js';\nimport 'xlsx';\n",
   );
@@ -85,7 +89,7 @@ test('CLI distribution manifest contains runtime-only package contract', () => {
 
   assert.equal(manifest.name, 'markdown-matrix-injector');
   assert.equal(manifest.version, '0.1.0');
-  assert.deepEqual(manifest.bin, { mmi: './dist/src/cli/mmi.js' });
+  assert.deepEqual(manifest.bin, { mmi: './dist/src/cli/bootstrap.js' });
   assert.deepEqual(manifest.engines, { node: '>=20' });
   assert.equal(manifest.bundleDependencies, true);
   assert.deepEqual(manifest.files, [
@@ -124,6 +128,7 @@ test('CLI staging copies compiled runtime and disclosure files, not extension ma
     false,
   );
   assert.deepEqual(result.runtimeFiles, [
+    'cli/bootstrap.js',
     'cli/mmi.js',
     'core/example.js',
     'core/nested.js',
@@ -142,7 +147,7 @@ test('CLI staging copies compiled runtime and disclosure files, not extension ma
   const manifest = JSON.parse(
     fs.readFileSync(path.join(stage, 'package.json'), 'utf8'),
   );
-  assert.equal(manifest.bin.mmi, './dist/src/cli/mmi.js');
+  assert.equal(manifest.bin.mmi, './dist/src/cli/bootstrap.js');
   assert.equal(manifest.engines.node, '>=20');
   assert.equal(manifest.bundleDependencies, true);
   assert.deepEqual(manifest.files, [
@@ -179,7 +184,7 @@ test('runtime graph ignores external packages and follows local imports recursiv
   const root = fixture();
   assert.deepEqual(
     collectRuntimeModuleGraph(
-      path.join(root, 'dist/src/cli/mmi.js'),
+      path.join(root, 'dist/src/cli/bootstrap.js'),
       path.join(root, 'dist/src'),
     ),
     [
@@ -274,7 +279,7 @@ test('CLI staging fails closed when compiled CLI is absent', () => {
       projectRoot: root,
       stageDirectory: path.join(root, 'stage'),
     }),
-    /Compiled CLI entry is missing/u,
+    /Compiled CLI bootstrap is missing/u,
   );
 });
 
