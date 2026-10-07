@@ -277,3 +277,14 @@ test('semantic lane: unverifiable pinned digest disables only semantic ranking',
     'candidates',
   );
 });
+
+test('frozen CPU search v6 evidence input keeps its exact Git blob', async () => {
+  const { gitBlobSha, TEST6_CATEGORY_COUNTS, TEST6_QUERY_BLOB_SHA, TEST6_QUERY_COUNT } = await import('../scripts/cpu-search-eval/test6-first-run.js');
+  const bytes = fs.readFileSync(new URL('../scripts/cpu-search-eval/queries.test6.json', import.meta.url));
+  assert.equal(gitBlobSha(bytes), TEST6_QUERY_BLOB_SHA);
+  const queries = JSON.parse(bytes.toString('utf8')) as Array<{ category: string }>;
+  assert.equal(queries.length, TEST6_QUERY_COUNT);
+  const counts: Record<string, number> = {};
+  for (const query of queries) counts[query.category] = (counts[query.category] ?? 0) + 1;
+  assert.deepEqual(counts, TEST6_CATEGORY_COUNTS);
+});

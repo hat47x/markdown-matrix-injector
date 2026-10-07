@@ -1,0 +1,612 @@
+[
+ {
+  "id": "v6-01",
+  "text": "受注管理システムの画面一覧が欲しい。画面IDと画面名を載せたい",
+  "category": "exact",
+  "expect": {
+   "regions": [
+    "受注_基本設計書.xlsx#画面一覧!A2:D9"
+   ],
+   "columns": [
+    "画面ID",
+    "画面名"
+   ]
+  }
+ },
+ {
+  "id": "v6-02",
+  "text": "受注状態遷移表",
+  "category": "exact",
+  "expect": {
+   "regions": [
+    "受注_基本設計書.xlsx#状態遷移!B4:F10"
+   ]
+  }
+ },
+ {
+  "id": "v6-03",
+  "text": "権限マトリクスの機能と管理者の列",
+  "category": "exact",
+  "expect": {
+   "regions": [
+    "権限設計書.xlsx#権限!A2:D7"
+   ],
+   "columns": [
+    "機能",
+    "管理者"
+   ]
+  }
+ },
+ {
+  "id": "v6-04",
+  "text": "自動仕訳パターン定義の借方科目と貸方科目",
+  "category": "exact",
+  "expect": {
+   "regions": [
+    "会計_基本設計書.xlsx#仕訳パターン!C4:F9"
+   ],
+   "columns": [
+    "借方科目",
+    "貸方科目"
+   ]
+  }
+ },
+ {
+  "id": "v6-05",
+  "text": "プロジェクト体制表でチームとリーダーを見せたい",
+  "category": "exact",
+  "expect": {
+   "regions": [
+    "プロジェクト体制.xlsx#体制!A2:D6"
+   ],
+   "columns": [
+    "チーム",
+    "リーダー"
+   ]
+  }
+ },
+ {
+  "id": "v6-06",
+  "text": "IPアドレス割当表",
+  "category": "exact",
+  "expect": {
+   "regions": [
+    "ネットワーク設計書.xlsx#IP!A2:C7"
+   ]
+  }
+ },
+ {
+  "id": "v6-07",
+  "text": "FWルール一覧",
+  "category": "abbreviation",
+  "expect": {
+   "regions": [
+    "ネットワーク設計書.xlsx#FW!A2:E7"
+   ]
+  }
+ },
+ {
+  "id": "v6-08",
+  "text": "NFRの目標値と測定方法を書いた表",
+  "category": "abbreviation",
+  "expect": {
+   "regions": [
+    "要件定義書.xlsx#非機能要件!A1:D7"
+   ],
+   "columns": [
+    "目標値",
+    "測定方法"
+   ]
+  }
+ },
+ {
+  "id": "v6-09",
+  "text": "RTMを貼りたい",
+  "category": "abbreviation",
+  "expect": {
+   "regions": [
+    "要件トレーサビリティマトリクス.xlsx#Sheet1!B5:E13"
+   ]
+  }
+ },
+ {
+  "id": "v6-10",
+  "text": "CRの一覧",
+  "category": "abbreviation",
+  "expect": {
+   "regions": [
+    "変更管理台帳.xlsx#変更要求!A1:E6"
+   ]
+  }
+ },
+ {
+  "id": "v6-11",
+  "text": "お客様向けの請求や納品に関する書類を、どんな形式でどのくらいの頻度で出すか知りたい",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "受注_基本設計書.xlsx#帳票一覧!B2:E6"
+   ]
+  }
+ },
+ {
+  "id": "v6-12",
+  "text": "夜間に自動で走る処理は何時に動くのか",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "会計_基本設計書.xlsx#バッチ一覧!A1:D6"
+   ]
+  }
+ },
+ {
+  "id": "v6-13",
+  "text": "APIが失敗したときに返ってくる番号と、その対処法をまとめたもの",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "受注_API仕様書.xlsx#エラーコード!A1:D6"
+   ]
+  }
+ },
+ {
+  "id": "v6-14",
+  "text": "システムにやってほしいことを優先度つきで並べたもの",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "要件定義書.xlsx#機能要件!A1:D9"
+   ]
+  }
+ },
+ {
+  "id": "v6-15",
+  "text": "応答の速さや稼働の安定性など、品質面の目標を決めた表",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "要件定義書.xlsx#非機能要件!A1:D7"
+   ]
+  }
+ },
+ {
+  "id": "v6-16",
+  "text": "本番に出してよいか最終確認する項目と合否が分かる表",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "リリース判定チェックリスト.xlsx#判定!A2:E8"
+   ]
+  }
+ },
+ {
+  "id": "v6-17",
+  "text": "最終的にゴーサインを出したのは誰か",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "リリース判定チェックリスト.xlsx#判定!A12:C15"
+   ]
+  }
+ },
+ {
+  "id": "v6-18",
+  "text": "バグの一覧。誰が直していて今どうなっているか",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "障害管理台帳.xlsx#障害一覧!A1:F9"
+   ]
+  }
+ },
+ {
+  "id": "v6-19",
+  "text": "トラブルが起きたとき、原因をどう絞り込むかの手順",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "障害管理台帳.xlsx#切り分け手順!B4:E9"
+   ]
+  }
+ },
+ {
+  "id": "v6-20",
+  "text": "利用者の種類ごとの説明と、どんな条件でその立場になれるのかを知りたい",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "権限設計書.xlsx#ロール!A1:C5"
+   ]
+  }
+ },
+ {
+  "id": "v6-21",
+  "text": "テストで何を見るべきかの着眼点リスト",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "テスト計画書.xlsx#観点!A1:C6"
+   ]
+  }
+ },
+ {
+  "id": "v6-22",
+  "text": "受注から出荷まで通しで動かす動作確認のシナリオと期待される動き",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "結合テスト仕様書_受注.xlsx#テストケース!A5:E13"
+   ]
+  }
+ },
+ {
+  "id": "v6-23",
+  "text": "旧システムから持っていくデータの種類と件数はどれくらいか",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "移行計画書.xlsx#移行対象!A1:D5"
+   ]
+  }
+ },
+ {
+  "id": "v6-24",
+  "text": "本番移行の予行演習はうまくいったのか",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "移行計画書.xlsx#リハーサル!A2:D5"
+   ]
+  }
+ },
+ {
+  "id": "v6-25",
+  "text": "プロジェクトで困っていることとその期限をまとめたもの",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "課題管理表.xlsx#課題一覧!A1:F8"
+   ]
+  }
+ },
+ {
+  "id": "v6-26",
+  "text": "作業をタスクに分解して、進み具合を見られる表",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "WBS.xlsx#WBS!A2:F8"
+   ]
+  }
+ },
+ {
+  "id": "v6-27",
+  "text": "定例ミーティングにはどんな種類があって誰が出るのか",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "会議体一覧.xlsx#Sheet1!A1:D5"
+   ]
+  }
+ },
+ {
+  "id": "v6-28",
+  "text": "ドロップダウンに出す分類の値と名前の対応が分かる表",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "コード定義書.xlsx#区分コード!A1:C7"
+   ]
+  }
+ },
+ {
+  "id": "v6-29",
+  "text": "県の番号と名前の対応",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "コード定義書.xlsx#都道府県!A1:B6"
+   ]
+  }
+ },
+ {
+  "id": "v6-30",
+  "text": "言葉の意味や読み方を調べたい",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "用語集.xlsx#用語!A1:C6"
+   ]
+  }
+ },
+ {
+  "id": "v6-31",
+  "text": "仕訳データの項目ごとのデータ型と桁数、空にできるかどうか",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "DB設計書_会計.xlsx#T_JOURNAL!A2:E7"
+   ]
+  }
+ },
+ {
+  "id": "v6-32",
+  "text": "異常を検知する対象としきい値、誰に知らせるかをまとめたもの",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "運用設計書.xlsx#運用!B4:E8"
+   ]
+  }
+ },
+ {
+  "id": "v6-33",
+  "text": "データを何世代残して、どこにしまっておくのか",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "運用設計書.xlsx#運用!H4:K7"
+   ]
+  }
+ },
+ {
+  "id": "v6-34",
+  "text": "負荷をかけたときの応答の速さを測った数字が分かる表",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "性能試験結果.xlsx#結果!A2:E8"
+   ]
+  }
+ },
+ {
+  "id": "v6-35",
+  "text": "セキュリティチェックで見つかった弱点と、直したかどうか",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "脆弱性診断結果.xlsx#指摘事項!A1:E7"
+   ]
+  }
+ },
+ {
+  "id": "v6-36",
+  "text": "工程ごとのお金の見込みはどれくらいか",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "見積書.xlsx#見積!B4:E9"
+   ]
+  }
+ },
+ {
+  "id": "v6-37",
+  "text": "他のシステムとデータをやり取りする相手先と、その方法",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "外部IF一覧.xlsx#Sheet1!A2:E6"
+   ]
+  }
+ },
+ {
+  "id": "v6-38",
+  "text": "エラーや警告のときに画面へ出す文言の集まり",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "メッセージ一覧.xlsx#メッセージ!A1:C7"
+   ]
+  }
+ },
+ {
+  "id": "v6-39",
+  "text": "請求の書類に印字する各項目の位置や桁数、書式",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "帳票レイアウト_請求書.xlsx#レイアウト!A2:D7"
+   ]
+  }
+ },
+ {
+  "id": "v6-40",
+  "text": "利用者向けの勉強会はいつ誰が教えるのか",
+  "category": "paraphrase",
+  "expect": {
+   "regions": [
+    "教育計画.xlsx#研修!A1:D4"
+   ]
+  }
+ },
+ {
+  "id": "v6-41",
+  "text": "受注状態遷移票",
+  "category": "typo",
+  "expect": {
+   "regions": [
+    "受注_基本設計書.xlsx#状態遷移!B4:F10"
+   ]
+  }
+ },
+ {
+  "id": "v6-42",
+  "text": "権限マトリクッス",
+  "category": "typo",
+  "expect": {
+   "regions": [
+    "権限設計書.xlsx#権限!A2:D7"
+   ]
+  }
+ },
+ {
+  "id": "v6-43",
+  "text": "画面一覧",
+  "category": "duplicate",
+  "expect": {
+   "regions": [
+    "受注_基本設計書.xlsx#画面一覧!A2:D9",
+    "会計_基本設計書.xlsx#画面一覧!A2:D7"
+   ]
+  }
+ },
+ {
+  "id": "v6-44",
+  "text": "テーブル一覧が見たい",
+  "category": "duplicate",
+  "expect": {
+   "regions": [
+    "DB設計書_受注.xlsx#テーブル一覧!A2:C6",
+    "DB設計書_会計.xlsx#テーブル一覧!A2:C5"
+   ]
+  }
+ },
+ {
+  "id": "v6-45",
+  "text": "状態遷移表",
+  "category": "duplicate",
+  "expect": {
+   "regions": [
+    "受注_基本設計書.xlsx#状態遷移!B4:F10",
+    "受注_基本設計書.xlsx#状態遷移!B14:E18"
+   ]
+  }
+ },
+ {
+  "id": "v6-46",
+  "text": "テーブル定義のカラム名と型",
+  "category": "duplicate",
+  "expect": {
+   "regions": [
+    "DB設計書_受注.xlsx#T_ORDER!A2:E7",
+    "DB設計書_会計.xlsx#T_JOURNAL!A2:E7"
+   ]
+  }
+ },
+ {
+  "id": "v6-47",
+  "text": "障害の一覧を重要度の高い順に並べ替えた表",
+  "category": "unsupported",
+  "expect": {
+   "regions": [],
+   "reject": "unsupported"
+  }
+ },
+ {
+  "id": "v6-48",
+  "text": "性能測定結果で判定がNGのシナリオだけ抜き出して",
+  "category": "unsupported",
+  "expect": {
+   "regions": [],
+   "reject": "unsupported"
+  }
+ },
+ {
+  "id": "v6-49",
+  "text": "受注と会計の画面一覧を比較して差分を出して",
+  "category": "unsupported",
+  "expect": {
+   "regions": [],
+   "reject": "unsupported"
+  }
+ },
+ {
+  "id": "v6-50",
+  "text": "見積の金額を全部合計して",
+  "category": "unsupported",
+  "expect": {
+   "regions": [],
+   "reject": "unsupported"
+  }
+ },
+ {
+  "id": "v6-51",
+  "text": "障害の一覧と課題管理表を担当者でつなげて見たい",
+  "category": "unsupported",
+  "expect": {
+   "regions": [],
+   "reject": "unsupported"
+  }
+ },
+ {
+  "id": "v6-52",
+  "text": "売上が1000を超えた月だけ表示して",
+  "category": "unsupported",
+  "expect": {
+   "regions": [],
+   "reject": "unsupported"
+  }
+ },
+ {
+  "id": "v6-53",
+  "text": "WBSで進捗率が50未満のタスクの件数を集計して",
+  "category": "unsupported",
+  "expect": {
+   "regions": [],
+   "reject": "unsupported"
+  }
+ },
+ {
+  "id": "v6-54",
+  "text": "契約書の管理一覧",
+  "category": "none",
+  "expect": {
+   "regions": [],
+   "reject": "no-match"
+  }
+ },
+ {
+  "id": "v6-55",
+  "text": "在庫の棚卸表",
+  "category": "none",
+  "expect": {
+   "regions": [],
+   "reject": "no-match"
+  }
+ },
+ {
+  "id": "v6-56",
+  "text": "人事評価シート",
+  "category": "none",
+  "expect": {
+   "regions": [],
+   "reject": "no-match"
+  }
+ },
+ {
+  "id": "v6-57",
+  "text": "顧客マスタの項目定義",
+  "category": "none",
+  "expect": {
+   "regions": [],
+   "reject": "no-match"
+  }
+ },
+ {
+  "id": "v6-58",
+  "text": "予算と実績の管理表",
+  "category": "none",
+  "expect": {
+   "regions": [],
+   "reject": "no-match"
+  }
+ },
+ {
+  "id": "v6-59",
+  "text": "配送ルートの一覧",
+  "category": "none",
+  "expect": {
+   "regions": [],
+   "reject": "no-match"
+  }
+ },
+ {
+  "id": "v6-60",
+  "text": "稟議申請の承認フロー",
+  "category": "none",
+  "expect": {
+   "regions": [],
+   "reject": "no-match"
+  }
+ }
+]
