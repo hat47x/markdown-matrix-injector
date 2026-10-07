@@ -301,3 +301,84 @@ test('one provider lane deduplicates repeated copies of the same Candidate', asy
   assert.equal(summary.cachedItemCount, 1);
   assert.equal(cache.get(context).length, 1);
 });
+
+
+test('provider parameters remain separate review evidence', () => {
+  const left = providerCandidate('provider-a');
+  const right = providerCandidate('provider-a');
+  if (
+    left.provenance.run.execution !== 'provider-dependent'
+    || right.provenance.run.execution !== 'provider-dependent'
+  ) {
+    assert.fail('expected provider-dependent fixtures');
+  }
+  left.provenance.run.parameters = { threshold: 0.6, mode: 'local' };
+  right.provenance.run.parameters = { mode: 'local', threshold: 0.7 };
+
+  assert.notEqual(
+    candidateReviewSessionKey(left),
+    candidateReviewSessionKey(right),
+  );
+
+  const sameAsLeft = providerCandidate('provider-a');
+  if (sameAsLeft.provenance.run.execution !== 'provider-dependent') {
+    assert.fail('expected provider-dependent fixture');
+  }
+  sameAsLeft.provenance.run.parameters = { mode: 'local', threshold: 0.6 };
+  assert.equal(
+    candidateReviewSessionKey(left),
+    candidateReviewSessionKey(sameAsLeft),
+    'parameter key order must not change identity',
+  );
+});
+
+test('duplicate provider lanes fail closed instead of racing to overwrite cache', async () => {
+  const cache = new CandidateReviewProviderCache();
+  let duplicateCalled = false;
+  const summary = await startCandidateReviewProviderRefresh(
+    context,
+    [
+      {
+        providerId: 'provider-a',
+        collect: async () => [tableItem('provider-a')],
+      },
+      {
+        providerId: 'provider-a',
+        collect: async () => {
+          duplicateCalled = true;
+          return [];
+        },
+      },
+    ],
+    cache,
+  ).settled;
+
+  assert.deepEqual(summary.completedProviders, ['provider-a']);
+  assert.equal(summary.failedProviders.length, 1);
+  assert.match(summary.failedProviders[0].message, /Duplicate/u);
+  assert.equal(duplicateCalled, false);
+  assert.equal(cache.get(context).length, 1);
+});
+
+test('provider review item kind must match Candidate kind', async () => {
+  const cache = new CandidateReviewProviderCache();
+  const item = tableItem('provider-a');
+  const mismatched = {
+    ...item,
+    kind: 'image' as const,
+  } as unknown as CandidateReviewInventoryItem;
+
+  const summary = await startCandidateReviewProviderRefresh(
+    context,
+    [{
+      providerId: 'provider-a',
+      collect: async () => [mismatched],
+    }],
+    cache,
+  ).settled;
+
+  assert.equal(summary.completedProviders.length, 0);
+  assert.equal(summary.failedProviders.length, 1);
+  assert.match(summary.failedProviders[0].message, /does not match Candidate kind/u);
+  assert.deepEqual(cache.get(context), []);
+});
