@@ -1533,8 +1533,7 @@ export async function reviewCandidates(
         );
         const observation = createCandidateReviewObservation({
           sourceLabel,
-          sourceDigest:
-            inventory.items[0].candidate.locator.sourceDigest,
+          sourceDigest,
           startedAtUtc: observationStartedAtUtc,
           endedAtUtc: new Date().toISOString(),
           interruptedMarkdownEditing: Boolean(sessionMarkdownEditor),
