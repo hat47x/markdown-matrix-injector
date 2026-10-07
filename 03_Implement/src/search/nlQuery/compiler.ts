@@ -613,14 +613,32 @@ function normalizeComparableName(value: string): string {
   return normalizeText(withoutQualifier.replace(STRUCTURAL_SUFFIX, ''));
 }
 
+/**
+ * Where `term` occurs in `text`. A term written in Latin letters or digits only counts when
+ * it stands alone ("IF" in "IF一覧", not in "specific"); Japanese terms match anywhere.
+ */
+function indexOfTerm(text: string, term: string): number {
+  if (!/^[a-z0-9]/u.test(term) && !/[a-z0-9]$/u.test(term)) return text.indexOf(term);
+  for (let at = text.indexOf(term); at >= 0; at = text.indexOf(term, at + 1)) {
+    const before = text[at - 1];
+    const after = text[at + term.length];
+    const startsLatin = /^[a-z0-9]/u.test(term);
+    const endsLatin = /[a-z0-9]$/u.test(term);
+    if ((startsLatin && before !== undefined && /[a-z0-9]/u.test(before)) || (endsLatin && after !== undefined && /[a-z0-9]/u.test(after))) continue;
+    return at;
+  }
+  return -1;
+}
+
 /** The text plus each single-term substitution from its synonym groups. */
-function variantsOf(text: string, synonyms: readonly (readonly string[])[]): string[] {
+export function variantsOf(text: string, synonyms: readonly (readonly string[])[]): string[] {
   const variants = [text];
   const normalized = normalizeText(text);
   for (const group of synonyms) {
     for (const term of group) {
-      const at = normalized.indexOf(normalizeText(term));
-      if (at < 0 || term.length === 0) continue;
+      if (term.length === 0) continue;
+      const at = indexOfTerm(normalized, normalizeText(term));
+      if (at < 0) continue;
       for (const other of group) {
         if (other === term) continue;
         const variant = normalized.slice(0, at) + normalizeText(other) + normalized.slice(at + normalizeText(term).length);
