@@ -501,17 +501,11 @@ function writeLedgerAtomically(ledgerPath: string, ledger: Ledger): void {
       }
     }
     try {
-      fs.unlinkSync(tempPath);
-    } catch (cleanupError) {
-      const code =
-        cleanupError
-        && typeof cleanupError === 'object'
-        && 'code' in cleanupError
-          ? String((cleanupError as { code?: unknown }).code)
-          : '';
-      if (code !== 'ENOENT') {
-        // Preserve the original write failure.
+      if (fs.existsSync(tempPath)) {
+        fs.unlinkSync(tempPath);
       }
+    } catch {
+      // Preserve the original write failure.
     }
     throw error;
   }
