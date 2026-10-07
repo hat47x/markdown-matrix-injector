@@ -7,6 +7,18 @@ import path from 'node:path';
 import {
   buildCandidateReviewInventory,
 } from '../src/application/candidateReviewInventory.js';
+import {
+  collectStandaloneTreeCandidates,
+} from '../src/application/sourceCandidateInventory.js';
+import {
+  collectWorkbookCandidates,
+} from '../src/application/workbookCandidateInventory.js';
+import {
+  DEFAULT_FLAT_TEXT_TREE_METHODS,
+} from '../src/adapters/flatTextTreeStructuralizer.js';
+import type {
+  TabularHierarchyConfig,
+} from '../src/adapters/tabularHierarchyAdapter.js';
 import type { Candidate } from '../src/core/candidate.js';
 import { inspectSource } from '../src/cli/mmi.js';
 import {
@@ -34,7 +46,23 @@ test('CLI inspect and VS Code review inventory produce identical image Candidate
   );
 
   const reviewCandidates = review.items.map((item) => item.candidate);
-  assert.deepEqual(reviewCandidates, cli.candidates);
+  const application = collectWorkbookCandidates(
+    source,
+    './design.xlsx',
+  );
+
+  assert.deepEqual(cli.candidates, application.candidates);
+  assert.deepEqual(reviewCandidates, application.candidates);
+  assert.deepEqual(
+    cli.sheets.map((sheet) => ({
+      name: sheet.name,
+      ranges: sheet.regions.map((region) => region.a1),
+    })),
+    application.tableRegions.map((sheet) => ({
+      name: sheet.name,
+      ranges: sheet.regions.map((region) => region.a1),
+    })),
+  );
 
   const cliImages = imageCandidates(cli.candidates);
   const reviewImages = review.items
@@ -68,9 +96,22 @@ function assertHostCandidateParity(
 ): void {
   const cli = inspectSource(source, 0, document);
   const review = buildCandidateReviewInventory(source, sourceLabel);
+  const standalone = collectStandaloneTreeCandidates(
+    source,
+    sourceLabel,
+  );
+  const applicationCandidates = standalone
+    ? standalone.candidates
+    : collectWorkbookCandidates(source, sourceLabel).candidates;
+
+  assert.deepEqual(cli.candidates, applicationCandidates);
   assert.deepEqual(
     review.items.map((item) => item.candidate),
-    cli.candidates,
+    standalone
+      ? applicationCandidates.filter(
+          (candidate) => candidate.status !== 'abstained',
+        )
+      : applicationCandidates,
   );
 }
 
@@ -224,4 +265,66 @@ test('CLI inspect and VS Code review inventory keep Choice List Candidates ident
   );
 
   assertHostCandidateParity(source, './form.xlsx', document);
+});
+
+
+test('CLI, review host and Application snapshot share explicit tabular hierarchy Candidates', () => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'mmi-tabular-hierarchy-parity-'),
+  );
+  const source = path.join(root, 'hierarchy.csv');
+  const document = path.join(root, 'spec.md');
+  fs.writeFileSync(document, '# Spec\n');
+  fs.writeFileSync(
+    source,
+    [
+      'ID,Parent,Name',
+      'A,,Account',
+      'A-1,A,Create',
+      'B,,Operations',
+    ].join('\n'),
+  );
+
+  const config: TabularHierarchyConfig = {
+    mode: 'parent-id',
+    idHeader: 'ID',
+    parentHeader: 'Parent',
+    labelHeader: 'Name',
+  };
+  const cli = inspectSource(
+    source,
+    0,
+    document,
+    DEFAULT_FLAT_TEXT_TREE_METHODS,
+    config,
+  );
+  const review = buildCandidateReviewInventory(
+    source,
+    './hierarchy.csv',
+    {
+      tabularHierarchy: {
+        sheet: 'Sheet1',
+        config,
+      },
+    },
+  );
+  const application = collectWorkbookCandidates(
+    source,
+    './hierarchy.csv',
+    { tabularHierarchy: config },
+  );
+
+  assert.deepEqual(cli.candidates, application.candidates);
+  assert.deepEqual(
+    review.items.map((item) => item.candidate),
+    application.candidates,
+  );
+  assert.equal(
+    application.hierarchies[0]?.result.candidates.some(
+      (candidate) =>
+        candidate.locator.structuralPath
+        === 'table-hierarchy:parent-id:id:A-1',
+    ),
+    true,
+  );
 });

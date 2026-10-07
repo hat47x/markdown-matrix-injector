@@ -87,7 +87,7 @@ import {
   RegionSnapshotError,
   renderLibreOfficeRegionSnapshot,
 } from '../snapshot/libreOfficeRegionSnapshot.js';
-import { detectTableRegions, regionReference } from '../importAssist/tableRegions.js';
+import { regionReference } from '../importAssist/tableRegions.js';
 import {
   discoverLocalEmbeddingModels,
   runtimeManagedArtifactFromEmbeddingModel,
@@ -1433,7 +1433,6 @@ export function inspectSource(
     },
   );
   const {
-    sourceDigest,
     workbook,
     imageRead,
     choiceRead,
@@ -1529,11 +1528,12 @@ export function inspectSource(
       ready: Boolean(hint.range),
     })),
     imageDiagnostics: imageRead.diagnostics,
-    sheets: Object.entries(workbook.sheets).map(([name, sheet]) => ({
-      name,
-      ...(sheet.usedRange ? { usedRange: a1Of(sheet.usedRange) } : {}),
-      regions: detectTableRegions(name, sheet, { maxValueSample: 0 }).map((region) => {
-        return {
+    sheets: detected.map(({ name, regions }) => {
+      const sheet = workbook.sheets[name];
+      return {
+        name,
+        ...(sheet.usedRange ? { usedRange: a1Of(sheet.usedRange) } : {}),
+        regions: regions.map((region) => ({
           a1: region.a1,
           rows: region.range.endRow - region.range.startRow + 1,
           columns: region.range.endCol - region.range.startCol + 1,
@@ -1542,10 +1542,17 @@ export function inspectSource(
           headerConfidence: region.headerConfidence,
           notes: region.reasons,
           reference: regionReference(relative, region),
-          ...(sampleRows > 0 ? { sample: sliceRegion(sheet, region.a1).slice(region.headers ? 1 : 0, (region.headers ? 1 : 0) + sampleRows) } : {}),
-        };
-      }),
-    })),
+          ...(sampleRows > 0
+            ? {
+                sample: sliceRegion(sheet, region.a1).slice(
+                  region.headers ? 1 : 0,
+                  (region.headers ? 1 : 0) + sampleRows,
+                ),
+              }
+            : {}),
+        })),
+      };
+    }),
   };
 }
 

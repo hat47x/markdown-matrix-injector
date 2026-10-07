@@ -1,6 +1,11 @@
 import { createHash } from 'node:crypto';
 
-import { buildCandidateReviewInventory } from '../application/candidateReviewInventory.js';
+import {
+  collectStandaloneTreeCandidates,
+} from '../application/sourceCandidateInventory.js';
+import {
+  collectWorkbookCandidates,
+} from '../application/workbookCandidateInventory.js';
 import {
   candidateProblem,
   type Candidate,
@@ -348,17 +353,21 @@ function rediscoverCandidates(
   sourceDigest: string,
   kind: CandidateKind,
 ): Candidate[] {
-  const inventory = buildCandidateReviewInventory(
+  const standalone = collectStandaloneTreeCandidates(
     sourcePath,
     sourceLabel,
   );
-  return inventory.items
-    .map((item) => item.candidate)
-    .filter(
-      (candidate) =>
-        candidate.kind === kind
-        && candidate.locator.sourceDigest === sourceDigest,
-    );
+  const candidates = standalone
+    ? standalone.candidates
+    : collectWorkbookCandidates(
+        sourcePath,
+        sourceLabel,
+      ).candidates;
+  return candidates.filter(
+    (candidate) =>
+      candidate.kind === kind
+      && candidate.locator.sourceDigest === sourceDigest,
+  );
 }
 
 function extractionPlan(
