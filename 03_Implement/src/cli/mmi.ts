@@ -1425,6 +1425,7 @@ export function inspectSource(
     };
   }
 
+  const sourceDigest = readSourceFileIdentity(absolutePath).digest;
   const workbook = loadWorkbook({ absolutePath });
   const isPackage = /\.(xlsx|xlsm)$/iu.test(absolutePath);
   const packageBytes = isPackage
