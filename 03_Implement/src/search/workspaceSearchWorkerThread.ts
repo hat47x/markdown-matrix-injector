@@ -48,15 +48,15 @@ const index = new WorkspaceRegionIndex({
   loadWorkbook: (bookPath) => loadWorkbook({ absolutePath: bookPath, cache: workbookCache }),
 });
 
-const refreshControllers = new Map<number, AbortController>();
-const cancelledRefreshes = new Set<number>();
+const requestControllers = new Map<number, AbortController>();
+const cancelledRequests = new Set<number>();
 let queue = Promise.resolve();
 
 port.on('message', (request: Request) => {
   if (request.kind === 'cancel') {
-    const controller = refreshControllers.get(request.requestId);
+    const controller = requestControllers.get(request.requestId);
     if (controller) controller.abort();
-    else cancelledRefreshes.add(request.requestId);
+    else cancelledRequests.add(request.requestId);
     return;
   }
   queue = queue.then(() => handle(request)).catch((error) => {
@@ -71,8 +71,8 @@ port.on('message', (request: Request) => {
 async function handle(request: RefreshRequest | QueryRequest): Promise<void> {
   if (request.kind === 'refresh') {
     const controller = new AbortController();
-    refreshControllers.set(request.id, controller);
-    if (cancelledRefreshes.delete(request.id)) controller.abort();
+    requestControllers.set(request.id, controller);
+    if (cancelledRequests.delete(request.id)) controller.abort();
     try {
       const value = await index.refresh(request.paths, {
         signal: controller.signal,
@@ -84,18 +84,48 @@ async function handle(request: RefreshRequest | QueryRequest): Promise<void> {
       workbookCache.clear();
       port.postMessage({ kind: 'result', id: request.id, op: 'refresh', value });
     } finally {
-      refreshControllers.delete(request.id);
-      cancelledRefreshes.delete(request.id);
+      requestControllers.delete(request.id);
+      cancelledRequests.delete(request.id);
     }
     return;
   }
 
-  const relativePath = (bookPath: string): string => {
-    const relative = path.relative(path.dirname(request.markdownFilePath), bookPath).replace(/\\/g, '/');
-    return relative.startsWith('.') ? relative : `./${relative}`;
-  };
-  const value = request.semantic
-    ? await index.querySemantic(request.text, relativePath, request.semantic, undefined, request.maxCandidates)
-    : index.query(request.text, relativePath, request.maxCandidates);
-  port.postMessage({ kind: 'result', id: request.id, op: 'query', value });
+  const controller = new AbortController();
+  requestControllers.set(request.id, controller);
+  if (cancelledRequests.delete(request.id)) controller.abort();
+  try {
+    if (controller.signal.aborted) return;
+
+    const relativePath = (bookPath: string): string => {
+      const relative = path.relative(
+        path.dirname(request.markdownFilePath),
+        bookPath,
+      ).replace(/\\/g, '/');
+      return relative.startsWith('.') ? relative : `./${relative}`;
+    };
+    const value = request.semantic
+      ? await index.querySemantic(
+          request.text,
+          relativePath,
+          request.semantic,
+          controller.signal,
+          request.maxCandidates,
+        )
+      : index.query(
+          request.text,
+          relativePath,
+          request.maxCandidates,
+        );
+    if (!controller.signal.aborted) {
+      port.postMessage({
+        kind: 'result',
+        id: request.id,
+        op: 'query',
+        value,
+      });
+    }
+  } finally {
+    requestControllers.delete(request.id);
+    cancelledRequests.delete(request.id);
+  }
 }

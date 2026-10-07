@@ -32,16 +32,20 @@ parentPort.on('message', (message) => {
   }
 
   if (message.kind === 'query') {
-    parentPort.postMessage({
+    const finish = () => parentPort.postMessage({
       kind: 'result',
       id: message.id,
       op: 'query',
       value: {
         status: 'no-match',
         candidates: [],
-        reasons: [message.text],
+        reasons: message.text === 'cancel-state'
+          ? [`cancelled:${cancelled.size}`]
+          : [message.text],
         requiresSelection: true,
       },
     });
+    if (message.text === 'wait-query') setTimeout(finish, 25);
+    else finish();
   }
 });

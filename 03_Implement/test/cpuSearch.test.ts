@@ -184,6 +184,9 @@ test('parser: design §3.3 unsupported requests are captured, not dropped', () =
   const kinds = (input: string): string[] => [...new Set(parseQuery(input).unsupported.map((u) => u.kind))];
   assert.deepEqual(kinds('担当者別に集計'), ['aggregation']);
   assert.deepEqual(kinds('判定列が完全に一致する行'), ['columnCondition', 'exactMatch']);
+  assert.ok(kinds('障害の一覧と課題管理表を担当者でつなげて見たい').includes('join'));
+  // 「結合」 is a name (結合テスト), not a join request.
+  assert.ok(!kinds('結合テストケースの試験項目を見せて').includes('join'));
   assert.deepEqual(kinds('最新のものだけ'), ['sort']);
   assert.deepEqual(kinds('要確認以外の行'), ['negation']);
   assert.deepEqual(kinds('金額が1000以上の行'), ['columnCondition', 'comparison']);

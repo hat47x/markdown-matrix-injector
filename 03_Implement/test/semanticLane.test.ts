@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import type { SheetSource, SourceCell } from '../src/core/sheetSource.js';
 import type { WorkbookData } from '../src/core/workbookLoader.js';
 import { createEmbeddingProvider, endpointProblem, type FetchLike } from '../src/search/semantic/embeddingProvider.js';
+import type { DiscoveryFetch } from '../src/search/semantic/runtimeDiscovery.js';
 import { WorkspaceRegionIndex, type SemanticSetting } from '../src/search/workspaceRegionIndex.js';
 
 function sheet(cells: Record<string, string>): SheetSource {
@@ -58,11 +59,15 @@ function fakeFetch(log: Array<{ url: string; body: { model: string; input: strin
   };
 }
 
-function build(fetchImpl?: FetchLike) {
+function build(
+  fetchImpl?: FetchLike,
+  semanticIdentityFetch?: DiscoveryFetch,
+) {
   const index = new WorkspaceRegionIndex({
     statFile: () => ({ mtimeMs: 1, size: 1 }),
     loadWorkbook: (path) => BOOKS[path],
     ...(fetchImpl ? { embeddingFetch: fetchImpl } : {}),
+    ...(semanticIdentityFetch ? { semanticIdentityFetch } : {}),
   });
   return index;
 }
@@ -163,6 +168,7 @@ test('semantic lane is off by default in the extension settings and the endpoint
   const properties = manifest.contributes.configuration.properties;
   assert.equal(properties['markdownMatrixInjector.search.semantic.enabled'].default, false);
   assert.equal(properties['markdownMatrixInjector.search.semantic.model'].default, '');
+  assert.equal(properties['markdownMatrixInjector.search.semantic.artifactDigest'].default, '');
   assert.equal(endpointProblem(String(properties['markdownMatrixInjector.search.semantic.endpoint'].default)), undefined);
 });
 
@@ -196,4 +202,89 @@ test('semantic-eval harness: sweeps thresholds against a local runtime and repor
   } finally {
     server.close();
   }
+});
+
+
+test('semantic lane: pinned artifact digest must still match the runtime before ranking', async () => {
+  const embeddingLog: Array<{ url: string; body: { model: string; input: string[] } }> = [];
+  let identityCalls = 0;
+  const identityFetch: DiscoveryFetch = async (url) => {
+    identityCalls += 1;
+    assert.equal(url, 'http://127.0.0.1:11434/api/tags');
+    return {
+      ok: true,
+      async json() {
+        return {
+          models: [{
+            model: 'fake-embed',
+            digest: 'a'.repeat(64),
+            size: 123,
+          }],
+        };
+      },
+    };
+  };
+  const index = build(fakeFetch(embeddingLog), identityFetch);
+  await index.refresh(Object.keys(BOOKS));
+
+  const accepted = await index.querySemantic(
+    REQUEST,
+    relative,
+    {
+      ...SETTING,
+      expectedArtifactDigest: `sha256:${'a'.repeat(64)}`,
+    },
+  );
+  assert.equal(accepted.status, 'candidates');
+  assert.ok(embeddingLog.length > 0);
+  assert.equal(identityCalls, 1);
+
+  embeddingLog.length = 0;
+  const changed = await index.querySemantic(
+    REQUEST,
+    relative,
+    {
+      ...SETTING,
+      expectedArtifactDigest: `sha256:${'b'.repeat(64)}`,
+    },
+  );
+  assert.notEqual(changed.status, 'candidates');
+  assert.equal(embeddingLog.length, 0);
+  assert.equal(identityCalls, 2);
+});
+
+test('semantic lane: unverifiable pinned digest disables only semantic ranking', async () => {
+  const embeddingLog: Array<{ url: string; body: { model: string; input: string[] } }> = [];
+  const index = build(fakeFetch(embeddingLog), async () => {
+    throw new Error('runtime unavailable');
+  });
+  await index.refresh(Object.keys(BOOKS));
+
+  const result = await index.querySemantic(
+    REQUEST,
+    relative,
+    {
+      ...SETTING,
+      expectedArtifactDigest: `sha256:${'a'.repeat(64)}`,
+    },
+  );
+  assert.notEqual(result.status, 'candidates');
+  assert.equal(embeddingLog.length, 0);
+
+  // Lexical retrieval remains available and authoritative.
+  assert.equal(
+    index.query('本番移行', relative).status,
+    'candidates',
+  );
+});
+
+test('frozen CPU search v6 evidence input keeps its exact Git blob', async () => {
+  const { gitBlobSha, TEST6_CATEGORY_COUNTS, TEST6_QUERY_BLOB_SHA, TEST6_QUERY_COUNT } = await import('../scripts/cpu-search-eval/test6-first-run.js');
+  const bytes = fs.readFileSync(new URL('../scripts/cpu-search-eval/queries.test6.json', import.meta.url));
+  assert.equal(gitBlobSha(bytes), TEST6_QUERY_BLOB_SHA);
+  const queries = JSON.parse(bytes.toString('utf8')) as Array<{ category: string }>;
+  assert.equal(queries.length, TEST6_QUERY_COUNT);
+  const counts: Record<string, number> = {};
+  for (const query of queries) counts[query.category] = (counts[query.category] ?? 0) + 1;
+  assert.deepEqual(counts, TEST6_CATEGORY_COUNTS);
 });

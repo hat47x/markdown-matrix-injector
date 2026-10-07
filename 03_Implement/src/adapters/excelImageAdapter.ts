@@ -27,7 +27,7 @@ export const IMAGE_ADAPTER_ALGORITHM = 'mmi.excel-image-reader';
 /** Bump when parsing rules change in a way that can change output. */
 export const IMAGE_ADAPTER_VERSION = '1';
 export const SHAPE_ADAPTER_ALGORITHM = 'mmi.excel-drawing-shape-reader';
-export const SHAPE_ADAPTER_VERSION = '1';
+export const SHAPE_ADAPTER_VERSION = '2';
 
 /** Formats Markdown/browsers can display; others are listed but not extractable. */
 export const EXTRACTABLE_FORMATS = ['png', 'jpeg', 'gif', 'bmp', 'svg'] as const;
@@ -97,6 +97,8 @@ export interface ExcelDrawingShape {
   description?: string;
   textRuns: readonly string[];
   presetGeometry?: string;
+  /** sha256 of the exact DrawingML shape element, excluding its outer anchor. */
+  contentDigest: string;
   anchor: ImageAnchor;
   /** A1 range covered by the anchor when a cell anchor exists. */
   range?: string;
@@ -289,6 +291,7 @@ export function readExcelImages(bytes: Uint8Array): ImageReadResult {
 
     let skippedShapesOnSheet = 0;
     let skippedGraphicFramesOnSheet = 0;
+    const shapePathCounts = new Map<string, number>();
     for (const anchorMatch of xml.matchAll(/<((?:\w+:)?)(twoCellAnchor|oneCellAnchor|absoluteAnchor)\b[^>]*>([\s\S]*?)<\/\1\2>/gu)) {
       const kind = anchorMatch[2] as ImageAnchor['kind'];
       const body = anchorMatch[3];
@@ -316,6 +319,8 @@ export function readExcelImages(bytes: Uint8Array): ImageReadResult {
         /<(?:\w+:)?(sp|cxnSp)\b[^>]*(?:\/>|>[\s\S]*?<\/(?:\w+:)?\1>)/gu,
       )) {
         const shapeXml = shapeMatch[0];
+        const contentDigest =
+          `sha256:${createHash('sha256').update(shapeXml, 'utf8').digest('hex')}`;
         const objectKind =
           shapeMatch[1] === 'cxnSp' ? 'connector' as const : 'shape' as const;
         const props = /<(?:\w+:)?cNvPr\b[^>]*>/u.exec(shapeXml);
@@ -327,6 +332,17 @@ export function readExcelImages(bytes: Uint8Array): ImageReadResult {
         )].map((match) => decodeEntities(match[1]));
         const ordinal = result.shapes.length + 1;
         const nativeId = propsAttrs.id;
+        const structuralPathBase =
+          `drawing:${drawingRel.target}#${objectKind}:${nativeId ?? ordinal}`;
+        const structuralPathOccurrence =
+          (shapePathCounts.get(structuralPathBase) ?? 0) + 1;
+        shapePathCounts.set(
+          structuralPathBase,
+          structuralPathOccurrence,
+        );
+        const structuralPath = structuralPathOccurrence === 1
+          ? structuralPathBase
+          : `${structuralPathBase}:occurrence:${structuralPathOccurrence}`;
         result.shapes.push({
           ordinal,
           sheet: sheet.name,
@@ -336,13 +352,13 @@ export function readExcelImages(bytes: Uint8Array): ImageReadResult {
           ...(propsAttrs.name ? { name: propsAttrs.name } : {}),
           ...(propsAttrs.descr ? { description: propsAttrs.descr } : {}),
           textRuns,
+          contentDigest,
           ...(geometryAttrs.prst
             ? { presetGeometry: geometryAttrs.prst }
             : {}),
           anchor,
           ...(range ? { range } : {}),
-          structuralPath:
-            `drawing:${drawingRel.target}#${objectKind}:${nativeId ?? ordinal}`,
+          structuralPath,
         });
       }
 
@@ -591,6 +607,11 @@ export function shapeCandidates(input: ShapeCandidateInput): Candidate[] {
         'drawingml-prstGeom',
       );
     }
+    observed(
+      'drawingml-content-digest',
+      shape.contentDigest,
+      'drawingml-shape-sha256',
+    );
 
     const candidate: Candidate = {
       kind: 'shape',
@@ -614,14 +635,8 @@ export function shapeCandidates(input: ShapeCandidateInput): Candidate[] {
         },
       },
       fingerprint: fingerprintOf(
-        'excel-drawing-shape-v1',
-        JSON.stringify({
-          objectKind: shape.objectKind,
-          name: shape.name ?? '',
-          description: shape.description ?? '',
-          textRuns: shape.textRuns,
-          presetGeometry: shape.presetGeometry ?? '',
-        }),
+        'excel-drawing-shape-xml-v1',
+        shape.contentDigest,
       ),
       scores: [],
     };

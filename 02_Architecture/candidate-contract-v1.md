@@ -1,6 +1,6 @@
 # Semantic Candidate 契約 v1
 
-- 状態: 実装済み（型・不変条件・表・画像・Choice list・JSON/YAML/XML Tree、フラットテキストとExcel / CSVの推定Tree、`mmi inspect --json`、`mmi extract`、Candidateレビュー）。2026-10-03のIssue #417で認識論上の状態と採用状態を分離した。図形、メモ、見出し等のAdapterは未実装。
+- 状態: 実装済み（型・不変条件・表・画像・Choice list・AutoShape/connector・JSON/YAML/XML Tree、フラットテキストとExcel / CSVの推定Tree、`mmi inspect --json`、`mmi extract`、Candidateレビュー）。2026-10-03のIssue #417で認識論上の状態と採用状態を分離した。AutoShape/connectorは観測・レビューまで実装し、Extracted変換は未実装。graphic frame、メモ、見出し等のAdapterは未実装。
 - 関連: [ADR-0019](../01_Plans/adr/ADR-0019-ai-era-sier-document-value-and-policy.md) D4・D6・D8、[ADR-0018](../01_Plans/adr/ADR-0018-cognitive-assistance-plane.md) D1〜D5、[ADR-0020](../01_Plans/adr/ADR-0020-requirement-oriented-cognition-method-selection.md)、[issue-0193](../01_Plans/issues/issue-0193-candidate-source-adapter-contract.md)
 - 実装: `src/core/candidate.ts`（型とruntime不変条件）、`src/core/candidateContract.ts`（公開JSON Schema）、`src/adapters/tableRegionAdapter.ts`、`src/adapters/excelImageAdapter.ts`、`src/adapters/excelChoiceListAdapter.ts`、`src/adapters/jsonTreeAdapter.ts`、`src/adapters/yamlTreeAdapter.ts`、`src/adapters/xmlTreeAdapter.ts`、`src/adapters/flatTextTreeStructuralizer.ts`、`src/adapters/tabularHierarchyAdapter.ts`
 
@@ -73,11 +73,28 @@ run       deterministic       { inputDigest, config, implementationVersion }
 - Candidate全体は`observed`（画像とその位置はパッケージが述べている）、実行特性は`deterministic`。fingerprintは**画像バイト列**のsha256（`image-media-bytes-v1`）で、同じ画像は置き場所が違っても同じfingerprintになる。
 - 診断（黙って失敗しない）: `MMI_IMAGE_NOT_A_PACKAGE`・`PACKAGE_UNSUPPORTED`（ZIP64・暗号化・旧`.xls`）、`DRAWING_UNREADABLE`、`MEDIA_MISSING`（CRC不一致を含む）、`EXTERNAL_LINK`、`UNSUPPORTED_FORMAT`（EMF/WMF/TIFFは列挙するが書き出さない）。1枚の失敗が他の画像を止めない。
 - zip読込は、エントリ数・展開サイズに上限があり、CRCとサイズを検証する（巨大な展開で記憶域を使い切らない）。
-- 図形（AutoShape・connector）とグラフは数だけ記録し解釈しない（issue-0199以降）。
+- AutoShape・connectorは画像とは別の`shape` Candidateとして個別に観測する。graphic frameはグラフや図を含み得るため種類を断定せず、現時点では件数とsnapshot hintだけを残す。
 
 `mmi extract`は画像を`assets/<ダイジェスト先頭12桁>.<拡張子>`へ書き出し、`![代替文](相対パス)`と出典コメントを出す。名前を内容由来にしたので、同じ画像は1ファイルに集約され、Excelで画像を動かしても名前が変わらない。同名で内容が違えば上書きせず拒否する。
 
-## 3c. JSON TreeのSource Adapter（issue-0199）
+## 3c. Excel Drawing ShapeのSource Adapter
+
+`readExcelImages()`が読む同じDrawingMLから、AutoShape（`sp`）とconnector（`cxnSp`）を`shape` Candidateへ写す。画像bytesの抽出とは別の経路であり、図形の意味や業務上の役割は推測しない。
+
+| 主張 | 状態 | method | 根拠 |
+| --- | --- | --- | --- |
+| `object-type` | `observed` | M0 | DrawingMLの`sp` / `cxnSp` |
+| `source-object-id`・`name`・`description` | `observed` | M0 | `cNvPr` |
+| `text-runs` | `observed` | M0 | DrawingML text |
+| `preset-geometry` | `observed` | M0 | `prstGeom` |
+| `drawingml-content-digest` | `observed` | M0 | anchor外のShape要素そのもののsha256 |
+| `location`・`anchor-kind` | `observed` | M0 | worksheet drawing anchor |
+
+occurrence identityはDrawing partとsource-native object idから作る`locator.structuralPath`で保持し、セル位置はClaimとして分離する。同じsource object idが重複した場合はsource順のsuffixを付け、別Shapeへレビュー判断が誤って移らないようにする。content fingerprintはanchor外のDrawingML Shape要素全体のsha256を基礎とする。したがって、セル上で図形を移動しただけではcontent identityを変えない一方、塗り、線、回転等の未投影な視覚属性が変わっても再レビューできる。位置の変更はClaim basisの変化としてstale判定に反映する。
+
+Shape Candidateは`mmi inspect --json`、AI handoff、VS CodeのCandidateレビュー、一括取り込みへ接続する。レビューでは確認・却下・保留を扱い、現時点ではShape自体をExtracted資産へ変換しない。一括取り込みでは未却下・未保留のShapeを名前・テキスト・形状・位置つきの観測情報として下書きへ残し、同じanchorのsnapshot hintも有効なShape数へ絞る。graphic frameはこの契約へ含めず、種類未確定のwarningとして残す。
+
+## 3d. JSON TreeのSource Adapter（issue-0199）
 
 `readJsonTree()`はJSONのobject / arrayが原本に持つ親子関係を、そのまま`tree` Candidateへ写す。JSONの明示構造を認知処理で推測し直さない。
 
@@ -94,7 +111,7 @@ Candidate全体は`observed + deterministic + M0`とする。object keyはfinger
 
 Markdownへの変換はSource Adapterに含めない。`extractJsonTree()`が選択したsubtreeを`json-nested-list-v1`として投影し、content-addressedなMarkdown assetと`mmi:extracted-tree` provenanceを生成する。JSON文字列中のMarkdown記号はエスケープし、表示時に原文の文字が装飾やリンクへ変わらないようにする。採用後は既存ledgerとdetach freshnessへ接続する。VS CodeレビューUIも同じCandidateと`extractJsonTree()`を利用し、Tree専用の採用状態は作らない。UIからの採用では表示時のCandidate fingerprintを`expectedCandidateFingerprint`として渡し、同じJSON Pointerでもsubtreeが変わっていれば再レビューを要求する。
 
-## 3d. 汎用XML TreeのSource Adapter（issue-0199）
+## 3e. 汎用XML TreeのSource Adapter（issue-0199）
 
 XML Spreadsheet 2003は従来のworkbook/table経路に残し、それ以外のXMLだけを`readXmlTree()`へ渡す。elementのqualified name、同名兄弟の出現順、属性、本文、親子関係を原本の明示構造として`observed + deterministic + M0`で保持する。`structuralPath`は`/service[1]/endpoint[2]`のようなelement pathとする。
 
@@ -102,13 +119,13 @@ XML Spreadsheet 2003は従来のworkbook/table経路に残し、それ以外のX
 
 `extractXmlTree()`は選択したelement subtreeを`xml-nested-list-v1`として投影する。JSON Treeと同じledger、Candidateレビュー、review-time fingerprint guard、detach freshnessを使い、XML専用の採用状態は作らない。
 
-## 3e. YAML Treeと共通Structured Tree境界（issue-0199）
+## 3f. YAML Treeと共通Structured Tree境界（issue-0199）
 
 YAMLはYAML 1.2のうち、JSON互換のmapping / sequence / scalarだけを明示Treeとして扱う。anchor、alias、merge key、explicit tag、非string keyは意味を展開してから取り込まず、fail closedとする。JSONとYAMLの数値はfiniteを必須とし、整数はJavaScript safe integer範囲に限定する。原本値を倍精度浮動小数点で正確に保持できない整数を丸めてCandidate化しない。
 
 JSONとYAMLのmapping / sequenceは`readStructuredValueTree()`へ合流し、親子関係、Claim、canonical fingerprintの組み立てを共有する。形式固有のprovenanceとreason codeは分ける。YAMLの構造位置はJSONと同じRFC 6901 Pointerを用いる。採用後はJSON/XML Treeと同じreview、ledger、fingerprint再照合、detach freshnessを使う。
 
-## 3f. Excel Choice listのSource Adapter
+## 3g. Excel Choice listのSource Adapter
 
 Excel Data Validationのlistは`choice-list` Candidateとして扱い、`tree`へ変換しない。Choice listは特定のセル範囲へ付与された有限の選択領域であり、Treeの親子edgeやsubtreeを持たないためである。共通化するのはCandidateの状態、locator、fingerprint、provenance、review decisionである。
 
@@ -168,7 +185,7 @@ Choice listは`inspect`、通常のCandidateレビュー、一括取り込みに
 [ギャップ分析](../01_Plans/product-gap-analysis.md)の旧§5は、次を研究済みの成果として並べていたが、実コードでは生成されていない。
 
 - `region.hierarchy_relation`、`region.repeated_block`、`ambiguous_or_non_table`は、`structuredArtifactNeutralObservation.ts`に**ラベル名として宣言があるだけ**で、`src`にも`test`にも出力する生成コードが無い。中立アダプタは`labels: {}`を返し、ラベルを持つのは合成fixtureの正解側だけである。
-- この研究ラベル自体を生成する製品コードは現在も無い。一方、Tree / Hierarchyは研究ラベルを経由せず、JSON/YAML/XMLの明示構造と、フラットテキスト・Excel / CSVの決定論的な推定から製品Adapterを実装した。Excel Data Validationのlistも独立した`choice-list` Candidateとして実装済みである。Note、Section、Shape等は未実装である。
+- この研究ラベル自体を生成する製品コードは現在も無い。一方、Tree / Hierarchyは研究ラベルを経由せず、JSON/YAML/XMLの明示構造と、フラットテキスト・Excel / CSVの決定論的な推定から製品Adapterを実装した。Excel Data Validationのlistは独立した`choice-list` Candidate、AutoShape/connectorは`shape` Candidateとして実装済みである。Note、Section、graphic frame等は未実装である。
 
 ## 7. 次に強くする行
 

@@ -1,0 +1,1168 @@
+{
+  "evidence": {
+    "kind": "cpu-search-test6-first-run",
+    "gitCommit": "248ad6826e161bac04fcb1085b8d0a3cd023e31c",
+    "cleanWorktree": true,
+    "queryBlobSha": "7ef9e68f9286d824cb6c467e02f3a00a4de17a9c",
+    "queryCount": 60,
+    "categoryCounts": {
+      "exact": 6,
+      "abbreviation": 4,
+      "paraphrase": 30,
+      "typo": 2,
+      "duplicate": 4,
+      "unsupported": 7,
+      "none": 7
+    },
+    "preregistered": {
+      "model": "qwen3-embedding:0.6b",
+      "api": "ollama",
+      "endpoint": "http://127.0.0.1:11434",
+      "queryPrefix": "",
+      "minScore": 0.6
+    },
+    "modelDigest": "ac6da0dfba84a81fdbfbaf330198c33cd77c4cdfc53e8bc50eb581914a15621d",
+    "headlineThreshold": 0.6,
+    "command": "npm run eval:cpu-search:test6:first"
+  },
+  "withoutModel": {
+    "generatedAt": "2026-10-07T00:59:47.962Z",
+    "environment": {
+      "cpuModel": "13th Gen Intel(R) Core(TM) i7-1365U",
+      "logicalCores": 12,
+      "totalMemGiB": 7.6,
+      "os": "Linux 6.18.33.1-microsoft-standard-WSL2",
+      "wsl": true,
+      "node": "v20.20.2",
+      "gpuUsed": false,
+      "network": "none (no external calls in this harness)",
+      "iterations": 1,
+      "flyhashSeed": 20260924,
+      "corpusSeed": 20260924
+    },
+    "corpus": {
+      "kind": "fictional business data (not synthetic scale data)",
+      "books": 32,
+      "totalBytes": 572681,
+      "regions": 49,
+      "vocabulary": 1809
+    },
+    "queries": {
+      "set": "test6",
+      "count": 60,
+      "dictionary": "dev-2"
+    },
+    "detection": {
+      "manifest": 49,
+      "detected": 49,
+      "exact": 49,
+      "headerLikely": 48
+    },
+    "timingsMs": {
+      "coldLoadPerBookP50": 1.468,
+      "coldLoadPerBookP95": 4.152,
+      "coldLoadTotal": 72.331,
+      "detectPerBookP50": 0.114,
+      "detectPerBookP95": 0.312,
+      "fullIndexSync": 15.278,
+      "retrieverBuild": {
+        "bm25": 0.713
+      },
+      "diffUpdate": {
+        "ms": 4.195,
+        "reloadedBooks": 1,
+        "docsRemoved": 4,
+        "docsAdded": 4
+      }
+    },
+    "memoryBytes": {
+      "corpus": 133560,
+      "byMethod": {
+        "bm25": 224800
+      }
+    },
+    "quality": {
+      "bm25": {
+        "regionQueries": 46,
+        "rejectQueries": 14,
+        "recallAt5": 0.391,
+        "top1": 0.37,
+        "duplicatesAllOffered": 1,
+        "exactNotation": 0.326,
+        "falseRejections": 27,
+        "rejectionAccuracy": 0.857,
+        "automaticConfirmations": 0,
+        "byCategory": {
+          "exact": {
+            "n": 6,
+            "recall5": 1,
+            "top1": 1
+          },
+          "abbreviation": {
+            "n": 4,
+            "recall5": 0.5,
+            "top1": 0.5
+          },
+          "paraphrase": {
+            "n": 30,
+            "recall5": 0.133,
+            "top1": 0.1
+          },
+          "typo": {
+            "n": 2,
+            "recall5": 1,
+            "top1": 1
+          },
+          "duplicate": {
+            "n": 4,
+            "recall5": 1,
+            "top1": 1
+          },
+          "unsupported": {
+            "n": 7,
+            "rejection": 0.857
+          },
+          "none": {
+            "n": 7,
+            "rejection": 0.857
+          }
+        },
+        "failures": [
+          {
+            "id": "v6-08",
+            "category": "abbreviation",
+            "status": "no-match"
+          },
+          {
+            "id": "v6-09",
+            "category": "abbreviation",
+            "status": "no-match"
+          },
+          {
+            "id": "v6-12",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v6-13",
+            "category": "paraphrase",
+            "status": "unsupported"
+          },
+          {
+            "id": "v6-14",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v6-15",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v6-16",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v6-17",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v6-18",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v6-21",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v6-22",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v6-24",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v6-25",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v6-26",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v6-27",
+            "category": "paraphrase",
+            "status": "unsupported"
+          },
+          {
+            "id": "v6-28",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v6-29",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v6-30",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v6-31",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v6-32",
+            "category": "paraphrase",
+            "status": "candidates",
+            "top": "![[./移行計画書.xlsx#移行対象|A1:D5?header=first]]"
+          },
+          {
+            "id": "v6-33",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v6-34",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v6-35",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v6-36",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v6-37",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v6-38",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v6-39",
+            "category": "paraphrase",
+            "status": "no-match"
+          },
+          {
+            "id": "v6-40",
+            "category": "paraphrase",
+            "status": "unsupported"
+          },
+          {
+            "id": "v6-51",
+            "category": "unsupported",
+            "status": "candidates",
+            "top": "![[./障害管理台帳.xlsx#障害一覧|A1:F9?header=first]]"
+          },
+          {
+            "id": "v6-59",
+            "category": "none",
+            "status": "candidates",
+            "top": "![[./ネットワーク設計書.xlsx#FW|A2:E7]]"
+          }
+        ]
+      }
+    },
+    "latency": {
+      "bm25": {
+        "samples": 60,
+        "retrievalP50": 0.033,
+        "retrievalP95": 0.14,
+        "compileP50": 1.304,
+        "compileP95": 4.049,
+        "withVerificationP50": 1.258,
+        "withVerificationP95": 3.365,
+        "staleCandidates": 0
+      }
+    },
+    "perQuery": {
+      "bm25": [
+        {
+          "id": "v6-01",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./受注_基本設計書.xlsx#画面一覧|A2:D9?header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-02",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./受注_基本設計書.xlsx#状態遷移|B4:F10?header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v6-03",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./権限設計書.xlsx#権限|A2:D7?columns=A&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-04",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./会計_基本設計書.xlsx#仕訳パターン|C4:F9?columns=B,C&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v6-05",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./プロジェクト体制.xlsx#体制|A2:D6?columns=A,B&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v6-06",
+          "category": "exact",
+          "status": "candidates",
+          "top": "![[./ネットワーク設計書.xlsx#IP|A2:C7?header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v6-07",
+          "category": "abbreviation",
+          "status": "candidates",
+          "top": "![[./ネットワーク設計書.xlsx#FW|A2:E7]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v6-08",
+          "category": "abbreviation",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-09",
+          "category": "abbreviation",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-10",
+          "category": "abbreviation",
+          "status": "candidates",
+          "top": "![[./変更管理台帳.xlsx#変更要求|A1:E6?header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v6-11",
+          "category": "paraphrase",
+          "status": "candidates",
+          "top": "![[./受注_基本設計書.xlsx#帳票一覧|B2:E6?header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v6-12",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-13",
+          "category": "paraphrase",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-14",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-15",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-16",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-17",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-18",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-19",
+          "category": "paraphrase",
+          "status": "candidates",
+          "top": "![[./障害管理台帳.xlsx#切り分け手順|B4:E9?header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v6-20",
+          "category": "paraphrase",
+          "status": "candidates",
+          "top": "![[./権限設計書.xlsx#ロール|A1:C5?header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v6-21",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-22",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-23",
+          "category": "paraphrase",
+          "status": "candidates",
+          "top": "![[./会計_基本設計書.xlsx#画面一覧|A2:D7?header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": false,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v6-24",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-25",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-26",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-27",
+          "category": "paraphrase",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-28",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-29",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-30",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-31",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-32",
+          "category": "paraphrase",
+          "status": "candidates",
+          "top": "![[./移行計画書.xlsx#移行対象|A1:D5?header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-33",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-34",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-35",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-36",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-37",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-38",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-39",
+          "category": "paraphrase",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-40",
+          "category": "paraphrase",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "region",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-41",
+          "category": "typo",
+          "status": "candidates",
+          "top": "![[./受注_基本設計書.xlsx#状態遷移|B4:F10?header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v6-42",
+          "category": "typo",
+          "status": "candidates",
+          "top": "![[./権限設計書.xlsx#権限|A2:D7?header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v6-43",
+          "category": "duplicate",
+          "status": "candidates",
+          "top": "![[./会計_基本設計書.xlsx#画面一覧|A2:D7?header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v6-44",
+          "category": "duplicate",
+          "status": "candidates",
+          "top": "![[./DB設計書_会計.xlsx#テーブル一覧|A2:C5?header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v6-45",
+          "category": "duplicate",
+          "status": "candidates",
+          "top": "![[./受注_基本設計書.xlsx#状態遷移|B14:E18?header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": true
+        },
+        {
+          "id": "v6-46",
+          "category": "duplicate",
+          "status": "candidates",
+          "top": "![[./DB設計書_受注.xlsx#T_ORDER|A2:E7?columns=A,C&header=first]]",
+          "rejected": false,
+          "kind": "region",
+          "recall5": true,
+          "top1": true,
+          "allOffered": true,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-47",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-48",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-49",
+          "category": "unsupported",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-50",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-51",
+          "category": "unsupported",
+          "status": "candidates",
+          "top": "![[./障害管理台帳.xlsx#障害一覧|A1:F9?header=first]]",
+          "rejected": false,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-52",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-53",
+          "category": "unsupported",
+          "status": "unsupported",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-54",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-55",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-56",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-57",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-58",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-59",
+          "category": "none",
+          "status": "candidates",
+          "top": "![[./ネットワーク設計書.xlsx#FW|A2:E7]]",
+          "rejected": false,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        },
+        {
+          "id": "v6-60",
+          "category": "none",
+          "status": "no-match",
+          "rejected": true,
+          "kind": "reject",
+          "recall5": false,
+          "top1": false,
+          "allOffered": false,
+          "exactNotation": false
+        }
+      ]
+    }
+  },
+  "withModel": {
+    "kind": "cpu-search-semantic-eval",
+    "generatedAt": "2026-10-07T01:01:58.076Z",
+    "provider": {
+      "id": "local-embedding:ollama",
+      "version": "1",
+      "category": "perception",
+      "executionBoundary": "local",
+      "capabilities": [
+        "text-embedding"
+      ],
+      "model": "qwen3-embedding:0.6b",
+      "api": "ollama",
+      "endpointHost": "127.0.0.1:11434"
+    },
+    "queries": "test6",
+    "window": 0.08,
+    "regions": 49,
+    "requestsReachingModel": 26,
+    "elapsedMs": 130050,
+    "note": "Choose the threshold on one set and report on another. Candidates are inferred and always need a person to choose.",
+    "sweep": [
+      {
+        "threshold": 0.3,
+        "recallAt5": 0.87,
+        "rejectionAccuracy": 0.714,
+        "falseAcceptances": [
+          "v6-57",
+          "v6-60"
+        ],
+        "byCategory": {
+          "exact": "6/6",
+          "abbreviation": "4/4",
+          "paraphrase": "24/30",
+          "typo": "2/2",
+          "duplicate": "4/4",
+          "unsupported": "6/7 rejected",
+          "none": "4/7 rejected"
+        }
+      },
+      {
+        "threshold": 0.4,
+        "recallAt5": 0.848,
+        "rejectionAccuracy": 0.714,
+        "falseAcceptances": [
+          "v6-57",
+          "v6-60"
+        ],
+        "byCategory": {
+          "exact": "6/6",
+          "abbreviation": "4/4",
+          "paraphrase": "23/30",
+          "typo": "2/2",
+          "duplicate": "4/4",
+          "unsupported": "6/7 rejected",
+          "none": "4/7 rejected"
+        }
+      },
+      {
+        "threshold": 0.5,
+        "recallAt5": 0.717,
+        "rejectionAccuracy": 0.714,
+        "falseAcceptances": [
+          "v6-57",
+          "v6-60"
+        ],
+        "byCategory": {
+          "exact": "6/6",
+          "abbreviation": "3/4",
+          "paraphrase": "18/30",
+          "typo": "2/2",
+          "duplicate": "4/4",
+          "unsupported": "6/7 rejected",
+          "none": "4/7 rejected"
+        }
+      },
+      {
+        "threshold": 0.55,
+        "recallAt5": 0.543,
+        "rejectionAccuracy": 0.857,
+        "falseAcceptances": [],
+        "byCategory": {
+          "exact": "6/6",
+          "abbreviation": "3/4",
+          "paraphrase": "10/30",
+          "typo": "2/2",
+          "duplicate": "4/4",
+          "unsupported": "6/7 rejected",
+          "none": "6/7 rejected"
+        }
+      },
+      {
+        "threshold": 0.6,
+        "recallAt5": 0.5,
+        "rejectionAccuracy": 0.857,
+        "falseAcceptances": [],
+        "byCategory": {
+          "exact": "6/6",
+          "abbreviation": "3/4",
+          "paraphrase": "8/30",
+          "typo": "2/2",
+          "duplicate": "4/4",
+          "unsupported": "6/7 rejected",
+          "none": "6/7 rejected"
+        }
+      },
+      {
+        "threshold": 0.65,
+        "recallAt5": 0.435,
+        "rejectionAccuracy": 0.857,
+        "falseAcceptances": [],
+        "byCategory": {
+          "exact": "6/6",
+          "abbreviation": "2/4",
+          "paraphrase": "6/30",
+          "typo": "2/2",
+          "duplicate": "4/4",
+          "unsupported": "6/7 rejected",
+          "none": "6/7 rejected"
+        }
+      },
+      {
+        "threshold": 0.7,
+        "recallAt5": 0.413,
+        "rejectionAccuracy": 0.857,
+        "falseAcceptances": [],
+        "byCategory": {
+          "exact": "6/6",
+          "abbreviation": "2/4",
+          "paraphrase": "5/30",
+          "typo": "2/2",
+          "duplicate": "4/4",
+          "unsupported": "6/7 rejected",
+          "none": "6/7 rejected"
+        }
+      },
+      {
+        "threshold": 0.75,
+        "recallAt5": 0.391,
+        "rejectionAccuracy": 0.857,
+        "falseAcceptances": [],
+        "byCategory": {
+          "exact": "6/6",
+          "abbreviation": "2/4",
+          "paraphrase": "4/30",
+          "typo": "2/2",
+          "duplicate": "4/4",
+          "unsupported": "6/7 rejected",
+          "none": "6/7 rejected"
+        }
+      },
+      {
+        "threshold": 0.8,
+        "recallAt5": 0.391,
+        "rejectionAccuracy": 0.857,
+        "falseAcceptances": [],
+        "byCategory": {
+          "exact": "6/6",
+          "abbreviation": "2/4",
+          "paraphrase": "4/30",
+          "typo": "2/2",
+          "duplicate": "4/4",
+          "unsupported": "6/7 rejected",
+          "none": "6/7 rejected"
+        }
+      },
+      {
+        "threshold": 0.85,
+        "recallAt5": 0.391,
+        "rejectionAccuracy": 0.857,
+        "falseAcceptances": [],
+        "byCategory": {
+          "exact": "6/6",
+          "abbreviation": "2/4",
+          "paraphrase": "4/30",
+          "typo": "2/2",
+          "duplicate": "4/4",
+          "unsupported": "6/7 rejected",
+          "none": "6/7 rejected"
+        }
+      }
+    ]
+  }
+}

@@ -500,6 +500,85 @@ test('inspect reports shapes and graphic frames as drawing problems', async () =
 });
 
 
+test('inspect exposes DrawingML shapes as Semantic Candidates', async () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-drawing-candidate-'));
+  const book = path.join(root, 'drawing.xlsx');
+  const drawing = [
+    '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">',
+    '<xdr:twoCellAnchor>',
+    '<xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>',
+    '<xdr:to><xdr:col>3</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>3</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>',
+    '<xdr:sp>',
+    '<xdr:nvSpPr><xdr:cNvPr id="9" name="承認" descr="承認工程"/></xdr:nvSpPr>',
+    '<xdr:spPr><a:prstGeom prst="diamond"/></xdr:spPr>',
+    '<xdr:txBody><a:p><a:r><a:t>承認</a:t></a:r></a:p></xdr:txBody>',
+    '</xdr:sp>',
+    '<xdr:clientData/>',
+    '</xdr:twoCellAnchor>',
+    '</xdr:wsDr>',
+  ].join('');
+  fs.writeFileSync(
+    book,
+    buildXlsxWithImages(
+      [{ name: '業務フロー', cells: [[0, 0, '工程']], rawDrawing: drawing }],
+      {},
+    ),
+  );
+
+  const jsonChunks: string[] = [];
+  const out = process.stdout.write.bind(process.stdout);
+  process.stdout.write = ((chunk: string) => (
+    jsonChunks.push(String(chunk)),
+    true
+  )) as typeof process.stdout.write;
+  try {
+    assert.equal(await main(['inspect', book, '--json']), 0);
+  } finally {
+    process.stdout.write = out;
+  }
+
+  const inspected = JSON.parse(jsonChunks.join(''));
+  const shapeCandidate = inspected.candidates.find(
+    (candidate: any) => candidate.kind === 'shape',
+  );
+  assert.ok(shapeCandidate);
+  assert.equal(shapeCandidate.status, 'observed');
+  assert.equal(shapeCandidate.method, 'M0');
+  assert.equal(
+    shapeCandidate.locator.structuralPath,
+    'drawing:xl/drawings/drawing1.xml#shape:9',
+  );
+  assert.deepEqual(inspected.shapes, [{
+    ordinal: 1,
+    sheet: '業務フロー',
+    objectKind: 'shape',
+    structuralPath: 'drawing:xl/drawings/drawing1.xml#shape:9',
+    objectId: '9',
+    name: '承認',
+    description: '承認工程',
+    textRuns: ['承認'],
+    presetGeometry: 'diamond',
+    range: 'A1:C3',
+  }]);
+
+  const textChunks: string[] = [];
+  process.stdout.write = ((chunk: string) => (
+    textChunks.push(String(chunk)),
+    true
+  )) as typeof process.stdout.write;
+  try {
+    assert.equal(await main(['inspect', book]), 0);
+  } finally {
+    process.stdout.write = out;
+  }
+  const textOutput = textChunks.join('');
+  assert.match(
+    textOutput,
+    /shape #1\s+A1:C3\s+"承認"\s+geometry: diamond\s+text: 承認/u,
+  );
+  assert.match(textOutput, /\(review only\)/u);
+});
+
 test('inspect exposes actionable two-cell drawing snapshot hints', async () => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-drawing-hint-'));
   const book = path.join(root, 'drawing.xlsx');
