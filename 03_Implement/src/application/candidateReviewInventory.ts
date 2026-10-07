@@ -1,34 +1,22 @@
-import fs from 'node:fs';
-
 import type {
   FlatTextTreeMethod,
 } from '../adapters/flatTextTreeStructuralizer.js';
-import {
-  imageCandidates,
-  readExcelImages,
-  shapeCandidates,
-  type ExcelDrawingShape,
-  type ExcelImage,
-  type ImageDiagnostic,
-  type TableRect,
+import type {
+  ExcelDrawingShape,
+  ExcelImage,
+  ImageDiagnostic,
 } from '../adapters/excelImageAdapter.js';
-import {
-  readExcelChoiceLists,
-  type ChoiceListDiagnostic,
-  type ExcelChoiceList,
+import type {
+  ChoiceListDiagnostic,
+  ExcelChoiceList,
 } from '../adapters/excelChoiceListAdapter.js';
-import { tableCandidates } from '../adapters/tableRegionAdapter.js';
-import {
-  readTabularHierarchy,
-  type TabularHierarchyConfig,
+import type {
+  TabularHierarchyConfig,
 } from '../adapters/tabularHierarchyAdapter.js';
-import { detectTableRegions } from '../importAssist/tableRegions.js';
 import type { Candidate } from '../core/candidate.js';
 import {
-  createSourceIdentityFromBytes,
-  readSourceFileIdentity,
-} from '../core/sourceIdentity.js';
-import { loadWorkbook } from '../core/workbookLoader.js';
+  collectWorkbookCandidates,
+} from './workbookCandidateInventory.js';
 import {
   collectStandaloneTreeCandidates,
 } from './sourceCandidateInventory.js';
@@ -119,27 +107,31 @@ export function buildCandidateReviewInventory(
     };
   }
 
-  const sourceDigest = readSourceFileIdentity(sourcePath).digest;
-  const workbook = loadWorkbook({ absolutePath: sourcePath });
+  const workbookInventory = collectWorkbookCandidates(
+    sourcePath,
+    sourceLabel,
+    {
+      ...(options.tabularHierarchy
+        ? {
+            tabularHierarchy: options.tabularHierarchy.config,
+            hierarchySheets: [options.tabularHierarchy.sheet],
+          }
+        : {}),
+      ...(options.hierarchyOnly ? { hierarchyOnly: true } : {}),
+    },
+  );
 
   const hierarchyItems: CandidateReviewInventoryItem[] = [];
   let tabularHierarchyAbstention:
     | CandidateReviewInventory['tabularHierarchyAbstention']
     | undefined;
   if (options.tabularHierarchy) {
-    const sheet = workbook.sheets[options.tabularHierarchy.sheet];
-    if (!sheet) {
+    const hierarchy = workbookInventory.hierarchies[0]?.result;
+    if (!hierarchy) {
       throw new Error(
         `Hierarchy review sheet not found: ${options.tabularHierarchy.sheet}`,
       );
     }
-    const hierarchy = readTabularHierarchy({
-      source: sourceLabel,
-      sourceDigest,
-      sheetName: options.tabularHierarchy.sheet,
-      sheet,
-      config: options.tabularHierarchy.config,
-    });
     if (hierarchy.status !== 'inferred') {
       tabularHierarchyAbstention = {
         reasonCode: hierarchy.reasonCode,
@@ -194,91 +186,29 @@ export function buildCandidateReviewInventory(
     };
   }
 
-  const tableItems: CandidateReviewInventoryItem[] = Object.entries(
-    workbook.sheets,
-  ).flatMap(([sheetName, sheet]) =>
-    tableCandidates({
-      source: sourceLabel,
-      sourceDigest,
-      sheetName,
-      sheet,
-    }).map((candidate) => {
-      const title = candidate.claims.find(
-        (claim) => claim.aspect === 'title',
-      )?.value;
-      return {
-        kind: 'table' as const,
-        candidate,
-        sheet: sheetName,
-        range: candidate.locator.range ?? '',
-        ...(typeof title === 'string' ? { title } : {}),
-      };
-    }),
-  );
+  const tableItems: CandidateReviewInventoryItem[] =
+    workbookInventory.tableItems.map((item) => ({
+      kind: 'table' as const,
+      candidate: item.candidate,
+      sheet: item.sheet,
+      range: item.range,
+      ...(item.title ? { title: item.title } : {}),
+    }));
 
-  if (!/\.(xlsx|xlsm)$/iu.test(sourcePath)) {
-    return {
-      items: [...tableItems, ...hierarchyItems],
-      imageDiagnostics: [],
-      ...(tabularHierarchyAbstention
-        ? { tabularHierarchyAbstention }
-        : {}),
-    };
-  }
-
-  const packageBytes = fs.readFileSync(sourcePath);
-  const read = readExcelImages(packageBytes);
-  // Candidate identity must not depend on which host asked for it. CLI inspect
-  // already supplies the detected table geometry to imageCandidates so that
-  // the inferred nearby-table Claim is stable. Review inventory must use the
-  // same detector/evidence instead of silently dropping that Claim.
-  const tablesBySheet: Record<string, TableRect[]> = Object.fromEntries(
-    Object.entries(workbook.sheets).map(([sheetName, sheet]) => [
-      sheetName,
-      detectTableRegions(
-        sheetName,
-        sheet,
-        { maxValueSample: 0 },
-      ).map((region) => ({
-        a1: region.a1,
-        startRow: region.range.startRow,
-        startCol: region.range.startCol,
-        endRow: region.range.endRow,
-        endCol: region.range.endCol,
-      })),
-    ]),
-  );
-  const choiceRead = readExcelChoiceLists(
-    packageBytes,
-    sourceLabel,
-    sourceDigest,
-    workbook,
-  );
-  const imageCandidateList = imageCandidates({
-    source: sourceLabel,
-    sourceDigest,
-    images: read.images,
-    tablesBySheet,
-  });
   const imageItems: CandidateReviewInventoryItem[] =
-    imageCandidateList.map((candidate, index) => ({
+    workbookInventory.imageCandidateList.map((candidate, index) => ({
       kind: 'image' as const,
       candidate,
-      image: read.images[index],
+      image: workbookInventory.imageRead.images[index],
     }));
-  const shapeCandidateList = shapeCandidates({
-    source: sourceLabel,
-    sourceDigest,
-    shapes: read.shapes,
-  });
   const shapeItems: CandidateReviewInventoryItem[] =
-    shapeCandidateList.map((candidate, index) => ({
+    workbookInventory.shapeCandidateList.map((candidate, index) => ({
       kind: 'shape' as const,
       candidate,
-      shape: read.shapes[index],
+      shape: workbookInventory.imageRead.shapes[index],
     }));
   const choiceItems: CandidateReviewInventoryItem[] =
-    choiceRead.lists.map((choiceList) => ({
+    workbookInventory.choiceRead.lists.map((choiceList) => ({
       kind: 'choice-list' as const,
       candidate: choiceList.candidate,
       choiceList,
@@ -292,10 +222,13 @@ export function buildCandidateReviewInventory(
       ...choiceItems,
       ...hierarchyItems,
     ],
-    imageDiagnostics: read.diagnostics,
-    choiceListDiagnostics: choiceRead.diagnostics,
+    imageDiagnostics: workbookInventory.isPackage
+      ? workbookInventory.imageRead.diagnostics
+      : [],
+    choiceListDiagnostics:
+      workbookInventory.choiceRead.diagnostics,
     ...(tabularHierarchyAbstention
       ? { tabularHierarchyAbstention }
       : {}),
   };
-}
+}}
