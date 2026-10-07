@@ -28,6 +28,17 @@ function observation(input: {
 } = {}): CandidateReviewObservation {
   const tableModifiedItems = input.tableModifiedItems ?? 0;
   const imageModifiedItems = input.imageModifiedItems ?? 0;
+  const selectedCount = input.selectedCount ?? 10;
+  const reviewStateChanged = input.reviewStateChanged ?? selectedCount;
+  const accepted = input.accepted ?? Math.min(3, reviewStateChanged);
+  let remaining = reviewStateChanged - accepted;
+  const modified = input.modified ?? Math.min(1, Math.max(remaining, 0));
+  remaining -= modified;
+  const deferred = input.deferred ?? Math.min(2, Math.max(remaining, 0));
+  remaining -= deferred;
+  const rejected = input.rejected ?? Math.max(remaining, 0);
+  const newlyImported =
+    input.newlyImported ?? Math.min(accepted + modified, selectedCount);
   return {
     schema: 'mmi.candidate-review-observation/v2',
     source: {
@@ -45,16 +56,16 @@ function observation(input: {
         statuses: [],
         executions: [],
       },
-      selectedCount: input.selectedCount ?? 10,
+      selectedCount,
     },
     initial: {
-      total: input.selectedCount ?? 10,
+      total: selectedCount,
       ledgerStates: {
         imported: 0,
         changed: 0,
         stale: 0,
         duplicate: 0,
-        unimported: input.selectedCount ?? 10,
+        unimported: selectedCount,
       },
       reviewStates: {
         unreviewed: input.selectedCount ?? 10,
@@ -65,31 +76,31 @@ function observation(input: {
       },
     },
     final: {
-      total: input.selectedCount ?? 10,
+      total: selectedCount,
       ledgerStates: {
-        imported: input.newlyImported ?? 4,
+        imported: newlyImported,
         changed: 0,
         stale: 0,
         duplicate: 0,
         unimported:
-          (input.selectedCount ?? 10) - (input.newlyImported ?? 4),
+          selectedCount - newlyImported,
       },
       reviewStates: {
-        unreviewed: 0,
-        accepted: input.accepted ?? 3,
-        modified: input.modified ?? 1,
-        rejected: input.rejected ?? 4,
-        deferred: input.deferred ?? 2,
+        unreviewed: Math.max(selectedCount - reviewStateChanged, 0),
+        accepted,
+        modified,
+        rejected,
+        deferred,
       },
     },
     transitions: {
-      reviewStateChanged: input.reviewStateChanged ?? 10,
-      toAccepted: input.accepted ?? 3,
-      toModified: input.modified ?? 1,
-      toRejected: input.rejected ?? 4,
-      toDeferred: input.deferred ?? 2,
+      reviewStateChanged,
+      toAccepted: accepted,
+      toModified: modified,
+      toRejected: rejected,
+      toDeferred: deferred,
       toUnreviewed: 0,
-      newlyImported: input.newlyImported ?? 4,
+      newlyImported,
     },
     adjustments: {
       table: {
@@ -284,8 +295,8 @@ test('safety violations cannot be compensated by large productivity gains', () =
       [
         observation({
           durationMs: 1_000,
-          selectedCount: 1,
-          reviewStateChanged: 1,
+          selectedCount: 4,
+          reviewStateChanged: 4,
           newlyImported: 4,
         }),
       ],
@@ -340,6 +351,29 @@ test('zero safety counts without evidence references are not enough for promotio
     comparison.promotion.reasons.includes(
       'safety counts need explicit evidence references',
     ),
+  );
+});
+
+test('aggregate rejects internally inconsistent observation logs', () => {
+  const inconsistent = observation();
+  inconsistent.transitions.toRejected += 1;
+
+  assert.throws(
+    () => aggregateCandidateReviewProductRun(
+      run('current-product-baseline', [inconsistent]),
+    ),
+    /review transition counts are inconsistent/u,
+  );
+
+  const invalidProxy = {
+    ...observation(),
+    editingInterruptionProxy: 2,
+  } as unknown as CandidateReviewObservation;
+  assert.throws(
+    () => aggregateCandidateReviewProductRun(
+      run('current-product-baseline', [invalidProxy]),
+    ),
+    /editingInterruptionProxy/u,
   );
 });
 
