@@ -24,6 +24,11 @@ import {
   remainingCandidateReviewItems,
 } from '../application/candidateReviewSession.js';
 import {
+  CandidateReviewProviderCache,
+  startCandidateReviewProviderRefresh,
+  type CandidateReviewProviderLane,
+} from '../application/candidateReviewProviderRefresh.js';
+import {
   discardUnrecordedImageExtraction,
   discardUnrecordedTableExtraction,
   extractImages,
@@ -54,6 +59,7 @@ import {
 } from '../core/candidateReviewDecisions.js';
 import { candidateReviewView } from '../core/candidateReviewView.js';
 import { placeOf, readLedger } from '../core/importLedger.js';
+import { readSourceFileIdentity } from '../core/sourceIdentity.js';
 import {
   RegionSnapshotError,
   renderLibreOfficeRegionSnapshot,
@@ -650,9 +656,19 @@ function quickPickItem(
   };
 }
 
-interface ReviewCandidatesOptions {
+export interface ReviewCandidatesOptions {
   inventory?: CandidateReviewInventoryOptions;
+  /**
+   * Slow/model-backed Candidate producers. Review opens from deterministic
+   * items and memory-cached provider results; these lanes refresh in the
+   * background and never gate the current session.
+   */
+  providerLanes?: readonly CandidateReviewProviderLane[];
+  /** Dependency injection for tests/hosts. Defaults to the extension cache. */
+  providerCache?: CandidateReviewProviderCache;
 }
+
+const reviewProviderCache = new CandidateReviewProviderCache();
 
 async function reviewConfiguredHierarchy(
   target: vscode.Uri | undefined,
@@ -748,15 +764,54 @@ export async function reviewCandidates(
     );
   }
 
-  if (inventory.items.length === 0) {
-    await vscode.window.showInformationMessage(
-      'MMI: このsourceにはレビュー可能なCandidateがありません。',
-    );
+  const providerLanes = options.providerLanes ?? [];
+  const providerCache = options.providerCache ?? reviewProviderCache;
+  const sourceDigest = inventory.items[0]?.candidate.locator.sourceDigest
+    ?? readSourceFileIdentity(sourcePath).digest;
+  const providerRefresh = startCandidateReviewProviderRefresh(
+    { sourcePath, sourceLabel, sourceDigest },
+    providerLanes,
+    providerCache,
+  );
+  // Current review uses only deterministic + already-cached provider output.
+  // Newly generated provider results never mutate an open QuickPick session.
+  const reviewItems = [
+    ...inventory.items,
+    ...providerRefresh.cachedItems,
+  ];
+  if (providerLanes.length > 0) {
+    void providerRefresh.settled.then((summary) => {
+      if (summary.completedProviders.length > 0) {
+        void vscode.window.setStatusBarMessage(
+          `MMI: provider Candidateの準備完了（${summary.cachedItemCount}件）。次回レビューで反映します。`,
+          5000,
+        );
+      }
+      if (summary.failedProviders.length > 0) {
+        void vscode.window.setStatusBarMessage(
+          `MMI: provider Candidate ${summary.failedProviders.length}系統を取得できませんでした。編集は継続できます。`,
+          5000,
+        );
+      }
+    });
+  }
+
+  if (reviewItems.length === 0) {
+    if (providerLanes.length > 0) {
+      void vscode.window.setStatusBarMessage(
+        'MMI: 即時Candidateはありません。provider Candidateをバックグラウンドで準備しています。',
+        5000,
+      );
+    } else {
+      await vscode.window.showInformationMessage(
+        'MMI: このsourceにはレビュー可能なCandidateがありません。',
+      );
+    }
     return;
   }
 
   const byKey = new Map(
-    inventory.items.map((item) => [candidateReviewSessionKey(item.candidate), item]),
+    reviewItems.map((item) => [candidateReviewSessionKey(item.candidate), item]),
   );
   let ledger: ReturnType<typeof readLedger>;
   let reviewDecisions: ReturnType<typeof readReviewDecisions>;
@@ -779,7 +834,7 @@ export async function reviewCandidates(
   if (!filterChoice) return;
 
   const initialView = candidateReviewView(
-    inventory.items.map((item) => item.candidate),
+    reviewItems.map((item) => item.candidate),
     ledger,
     reviewDecisions,
     ledgerPath,
@@ -844,7 +899,7 @@ export async function reviewCandidates(
     }
 
     const view = candidateReviewView(
-      inventory.items.map((item) => item.candidate),
+      reviewItems.map((item) => item.candidate),
       ledger,
       reviewDecisions,
       ledgerPath,
@@ -1468,7 +1523,7 @@ export async function reviewCandidates(
           reviewDecisionsPath,
         );
         const finalView = candidateReviewView(
-          inventory.items.map((item) => item.candidate),
+          reviewItems.map((item) => item.candidate),
           finalLedger,
           finalReviewDecisions,
           ledgerPath,
@@ -1478,8 +1533,7 @@ export async function reviewCandidates(
         );
         const observation = createCandidateReviewObservation({
           sourceLabel,
-          sourceDigest:
-            inventory.items[0].candidate.locator.sourceDigest,
+          sourceDigest,
           startedAtUtc: observationStartedAtUtc,
           endedAtUtc: new Date().toISOString(),
           interruptedMarkdownEditing: Boolean(sessionMarkdownEditor),
