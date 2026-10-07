@@ -28,10 +28,14 @@ export function readSemanticSetting(): SemanticSetting | undefined {
   if (config.get<boolean>('search.semantic.enabled', false) !== true) return undefined;
   const model = (config.get<string>('search.semantic.model', '') ?? '').trim();
   if (model === '') return undefined;
+  const artifactDigest = (
+    config.get<string>('search.semantic.artifactDigest', '') ?? ''
+  ).trim();
   return {
     api: config.get<'ollama' | 'openai-compatible'>('search.semantic.api', 'ollama'),
     endpoint: config.get<string>('search.semantic.endpoint', 'http://127.0.0.1:11434'),
     model,
+    ...(artifactDigest ? { expectedArtifactDigest: artifactDigest } : {}),
     minScore: config.get<number>('search.semantic.minScore', 0.6),
     queryPrefix: config.get<string>('search.semantic.queryPrefix', ''),
     documentPrefix: config.get<string>('search.semantic.documentPrefix', ''),
@@ -122,12 +126,15 @@ export async function searchEmbedByDescription(document: vscode.TextDocument, wo
     let queryRevision = 0;
     let pendingText: string | undefined;
     let queryPump: Promise<void> | undefined;
+    let activeQueryController: AbortController | undefined;
     const finish = (value: EmbedParts | undefined): void => {
       if (settled) return;
       settled = true;
       queryRevision += 1;
       pendingText = undefined;
       if (timer) clearTimeout(timer);
+      activeQueryController?.abort();
+      activeQueryController = undefined;
       resolve(value);
       quickPick.dispose();
     };
@@ -137,19 +144,37 @@ export async function searchEmbedByDescription(document: vscode.TextDocument, wo
           const text = pendingText;
           const revision = queryRevision;
           pendingText = undefined;
+          const controller = new AbortController();
+          activeQueryController = controller;
           try {
-            const result = await index.query(text, document.uri.fsPath, 5, readSemanticSetting());
+            const result = await index.query(
+              text,
+              document.uri.fsPath,
+              5,
+              readSemanticSetting(),
+              controller.signal,
+            );
             // The running request may finish after newer input arrived. Its
             // result is discarded, and the loop immediately runs only the
             // latest pending text rather than every intermediate keystroke.
-            if (!settled && revision === queryRevision) quickPick.items = toItems(result);
-          } catch (error) {
             if (!settled && revision === queryRevision) {
+              quickPick.items = toItems(result);
+            }
+          } catch (error) {
+            if (
+              !controller.signal.aborted
+              && !settled
+              && revision === queryRevision
+            ) {
               quickPick.items = [{
                 label: '$(error) 表の検索に失敗しました',
                 detail: error instanceof Error ? error.message : String(error),
                 alwaysShow: true,
               }];
+            }
+          } finally {
+            if (activeQueryController === controller) {
+              activeQueryController = undefined;
             }
           }
         }
@@ -164,6 +189,7 @@ export async function searchEmbedByDescription(document: vscode.TextDocument, wo
     };
     const update = (text: string): void => {
       queryRevision += 1;
+      activeQueryController?.abort();
       if (!text.trim()) {
         pendingText = undefined;
         quickPick.items = examples();

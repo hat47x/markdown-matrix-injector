@@ -38,3 +38,68 @@ test('search worker client forwards refresh cancellation', async () => {
     client.dispose();
   }
 });
+
+
+test('search worker client cancels stale queries and keeps later queries usable', async () => {
+  const client = new WorkspaceSearchWorkerClient({ workerUrl });
+  try {
+    const controller = new AbortController();
+    const stale = client.query(
+      'wait-query',
+      '/ws/docs/readme.md',
+      5,
+      undefined,
+      controller.signal,
+    );
+    controller.abort();
+
+    await assert.rejects(
+      stale,
+      (error: unknown) =>
+        error instanceof Error && error.name === 'AbortError',
+    );
+
+    const state = await client.query(
+      'cancel-state',
+      '/ws/docs/readme.md',
+    );
+    assert.deepEqual(state.reasons, ['cancelled:1']);
+
+    const latest = await client.query(
+      'latest-query',
+      '/ws/docs/readme.md',
+    );
+    assert.deepEqual(latest.reasons, ['latest-query']);
+  } finally {
+    client.dispose();
+  }
+});
+
+test('semantic query cancellation is wired from UI through worker to provider signal', async () => {
+  const { default: fs } = await import('node:fs/promises');
+  const [flow, thread] = await Promise.all([
+    fs.readFile(
+      new URL('../src/dx/searchFlow.ts', import.meta.url),
+      'utf8',
+    ),
+    fs.readFile(
+      new URL('../src/search/workspaceSearchWorkerThread.ts', import.meta.url),
+      'utf8',
+    ),
+  ]);
+
+  assert.match(flow, /let activeQueryController: AbortController \| undefined;/u);
+  assert.match(flow, /activeQueryController\?\.abort\(\);/u);
+  assert.match(
+    flow,
+    /readSemanticSetting\(\),\s*controller\.signal,/su,
+  );
+  assert.match(
+    thread,
+    /index\.querySemantic\([\s\S]*?controller\.signal,[\s\S]*?request\.maxCandidates/su,
+  );
+  assert.match(
+    thread,
+    /requestControllers\.get\(request\.requestId\)[\s\S]*?controller\.abort\(\)/su,
+  );
+});

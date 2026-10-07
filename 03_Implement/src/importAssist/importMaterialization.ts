@@ -9,7 +9,12 @@
 import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
-import { imageCandidates, readExcelImages } from '../adapters/excelImageAdapter.js';
+import {
+  imageCandidates,
+  readExcelImages,
+  shapeCandidates,
+  type ExcelDrawingShape,
+} from '../adapters/excelImageAdapter.js';
 import {
   readExcelChoiceLists,
   type ExcelChoiceList,
@@ -46,6 +51,8 @@ import {
   type ImportDraftChoiceList,
   type ImportDraftChoiceListProblem,
   type ImportDraftProblem,
+  type ImportDraftShape,
+  type ImportDraftShapeReviewSkip,
   type ImportDraftSnapshotHint,
 } from './importDraft.js';
 import {
@@ -112,6 +119,8 @@ export interface WorkbookImportMaterialization {
   extractedImages: ExtractedImage[];
   imageProblems: ExtractProblem[];
   snapshotHints: ImportDraftSnapshotHint[];
+  shapes: ImportDraftShape[];
+  reviewSkippedShapes: ImportDraftShapeReviewSkip[];
   reviewSkippedImages: ImportSkippedImage[];
   reviewSkippedTables: ImportSkippedTable[];
   choiceLists: ImportDraftChoiceList[];
@@ -434,6 +443,8 @@ export function materializeWorkbookImport(
   let extractedImages: ExtractedImage[] = [];
   let imageProblems: ExtractProblem[] = [];
   let snapshotHints: ImportDraftSnapshotHint[] = [];
+  let shapes: ImportDraftShape[] = [];
+  const reviewSkippedShapes: ImportDraftShapeReviewSkip[] = [];
   let reviewSkippedImages: ImportSkippedImage[] = [];
 
   if (/\.(xlsx|xlsm)$/iu.test(sourcePath)) {
@@ -443,17 +454,62 @@ export function materializeWorkbookImport(
       sourceDigest,
       images: imageRead.images,
     });
-    snapshotHints = imageRead.snapshotHints.map((hint) => ({
-      ordinal: hint.ordinal,
-      sheet: hint.sheet,
-      ...(hint.range ? { range: hint.range } : {}),
-      ...(hint.anchor.from
-        ? { fromCell: cellNameFromPoint(hint.anchor.from.col, hint.anchor.from.row) }
-        : {}),
-      shapeCount: hint.shapeCount,
-      graphicFrameCount: hint.graphicFrameCount,
-      reasonCode: hint.reasonCode,
-    }));
+    const shapeCandidateList = shapeCandidates({
+      source: referencePath,
+      sourceDigest,
+      shapes: imageRead.shapes,
+    });
+    const activeShapePaths = new Set<string>();
+    for (let index = 0; index < imageRead.shapes.length; index += 1) {
+      const shape = imageRead.shapes[index];
+      const candidate = shapeCandidateList[index];
+      const reviewDecision = winningReviewDecision(
+        reviewDecisions,
+        reviewDecisionsPath,
+        ledger,
+        ledgerPath,
+        sourcePath,
+        candidate,
+      );
+      if (reviewDecision) {
+        reviewSkippedShapes.push({
+          ordinal: shape.ordinal,
+          sheet: shape.sheet,
+          objectKind: shape.objectKind,
+          structuralPath: shape.structuralPath,
+          ...(shape.name ? { name: shape.name } : {}),
+          decision: reviewDecision.decision,
+          code: reviewDecision.decision === 'rejected'
+            ? 'MMI_IMPORT_REVIEW_REJECTED'
+            : 'MMI_IMPORT_REVIEW_DEFERRED',
+          message: reviewDecision.decision === 'rejected'
+            ? '同一図形Candidateに有効な却下判断があります。'
+            : '同一図形Candidateに有効な保留判断があります。',
+        });
+        continue;
+      }
+      activeShapePaths.add(shape.structuralPath);
+      shapes.push(importDraftShape(shape));
+    }
+    snapshotHints = imageRead.snapshotHints.flatMap((hint) => {
+      const shapeCount = imageRead.shapes.filter(
+        (shape) =>
+          shape.anchor === hint.anchor
+          && activeShapePaths.has(shape.structuralPath),
+      ).length;
+      if (shapeCount === 0 && hint.graphicFrameCount === 0) return [];
+      return [{
+        ordinal: hint.ordinal,
+        sheet: hint.sheet,
+        ...(hint.range ? { range: hint.range } : {}),
+        ...(hint.anchor.from
+          ? { fromCell: cellNameFromPoint(hint.anchor.from.col, hint.anchor.from.row) }
+          : {}),
+        shapeCount,
+        graphicFrameCount: hint.graphicFrameCount,
+        reasonCode: hint.reasonCode,
+      }];
+    });
 
     const fatalProblems: ExtractProblem[] = imageRead.diagnostics
       .filter((diagnostic) => diagnostic.severity === 'error')
@@ -466,7 +522,9 @@ export function materializeWorkbookImport(
       .filter((diagnostic) =>
         diagnostic.severity === 'warning'
         // Non-extractable media is represented with an ordinal by extractImages.
-        && diagnostic.code !== 'MMI_IMAGE_UNSUPPORTED_FORMAT')
+        && diagnostic.code !== 'MMI_IMAGE_UNSUPPORTED_FORMAT'
+        // AutoShape / connector objects are represented individually below.
+        && diagnostic.code !== 'MMI_DRAWING_SHAPES_NOT_EXTRACTED')
       .map((diagnostic) => ({
         code: diagnostic.code,
         message: diagnostic.message,
@@ -546,6 +604,8 @@ export function materializeWorkbookImport(
     assets,
     assetProblems: problems,
     snapshotHints,
+    shapes,
+    reviewSkippedShapes,
     reviewSkippedAssets: reviewSkippedImages,
     reviewSkippedTables,
     choiceLists,
@@ -563,6 +623,8 @@ export function materializeWorkbookImport(
     extractedImages,
     imageProblems,
     snapshotHints,
+    shapes,
+    reviewSkippedShapes,
     reviewSkippedImages,
     reviewSkippedTables,
     choiceLists,
@@ -581,6 +643,23 @@ function cellNameFromPoint(col: number, row: number): string {
     label = String.fromCharCode(65 + ((value - 1) % 26)) + label;
   }
   return `${label}${row + 1}`;
+}
+
+function importDraftShape(shape: ExcelDrawingShape): ImportDraftShape {
+  return {
+    ordinal: shape.ordinal,
+    sheet: shape.sheet,
+    objectKind: shape.objectKind,
+    structuralPath: shape.structuralPath,
+    ...(shape.objectId ? { objectId: shape.objectId } : {}),
+    ...(shape.name ? { name: shape.name } : {}),
+    ...(shape.description ? { description: shape.description } : {}),
+    textRuns: [...shape.textRuns],
+    ...(shape.presetGeometry
+      ? { presetGeometry: shape.presetGeometry }
+      : {}),
+    ...(shape.range ? { range: shape.range } : {}),
+  };
 }
 
 function importDraftChoiceList(choice: ExcelChoiceList): ImportDraftChoiceList {

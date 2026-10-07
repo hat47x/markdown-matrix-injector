@@ -821,15 +821,30 @@ test('workbook shapes and graphic frames stay visible as drawing warnings', () =
       reasonCode: 'drawing-absolute-anchor-needs-range',
     },
   ]);
-  assert.ok(codes.includes('MMI_DRAWING_SHAPES_NOT_EXTRACTED'));
+  assert.equal(codes.includes('MMI_DRAWING_SHAPES_NOT_EXTRACTED'), false);
   assert.ok(codes.includes('MMI_DRAWING_GRAPHIC_FRAMES_NOT_EXTRACTED'));
+  assert.deepEqual(
+    result.shapes.map((shape) => [
+      shape.ordinal,
+      shape.objectKind,
+      shape.sheet,
+      shape.range,
+    ]),
+    [
+      [1, 'shape', '構成図', 'A1:B2'],
+      [2, 'connector', '構成図', 'A1:B2'],
+    ],
+  );
+  assert.match(result.markdown, /### Excelの図形・コネクタ/u);
+  assert.match(result.markdown, /図形 #1（図形 A1:B2）/u);
+  assert.match(result.markdown, /コネクタ #2（コネクタ A1:B2）/u);
   assert.match(result.markdown, /## 図形のsnapshot候補/u);
   assert.match(result.markdown, /#1 \[構成図\] A1:B2: 2個の図形・コネクタ/u);
   assert.match(result.markdown, /snapshot hint #1として実行できます/u);
   assert.match(result.markdown, /#2 \[構成図\] 絶対位置: 1個のgraphic frame/u);
   assert.match(result.markdown, /snapshot範囲を原本で確認/u);
   assert.match(result.markdown, /## 画像・図形の注意/u);
-  assert.match(result.markdown, /MMI_DRAWING_SHAPES_NOT_EXTRACTED/u);
+  assert.doesNotMatch(result.markdown, /MMI_DRAWING_SHAPES_NOT_EXTRACTED/u);
   assert.match(result.markdown, /MMI_DRAWING_GRAPHIC_FRAMES_NOT_EXTRACTED/u);
   assert.match(result.markdown, /\[構成図\]/u);
 });
@@ -972,6 +987,164 @@ test('bulk import respects rejected choice-list decisions and reopens changed li
     ['未着手', '対応中', '完了', '差戻し'],
   );
   assert.match(second.markdown, /差戻し/u);
+});
+
+test('bulk import respects rejected and deferred shape decisions including snapshot hints', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-shape-review-'));
+  const sourcePath = path.join(root, 'drawing.xlsx');
+  const draftPath = path.join(root, 'drawing-import.md');
+  const decisionPath = path.join(root, 'mmi-review-decisions.json');
+  const drawing = [
+    '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing">',
+    '<xdr:twoCellAnchor>',
+    '<xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>',
+    '<xdr:to><xdr:col>2</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>2</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>',
+    '<xdr:sp><xdr:nvSpPr><xdr:cNvPr id="1" name="開始"/></xdr:nvSpPr></xdr:sp>',
+    '<xdr:sp><xdr:nvSpPr><xdr:cNvPr id="2" name="終了"/></xdr:nvSpPr></xdr:sp>',
+    '<xdr:clientData/>',
+    '</xdr:twoCellAnchor>',
+    '</xdr:wsDr>',
+  ].join('');
+  fs.writeFileSync(
+    sourcePath,
+    buildXlsxWithImages(
+      [{ name: '構成図', cells: [[0, 0, '構成図']], rawDrawing: drawing }],
+      {},
+    ),
+  );
+
+  const inventory = buildCandidateReviewInventory(
+    sourcePath,
+    './drawing.xlsx',
+  );
+  const shapes = inventory.items.filter((item) => item.kind === 'shape');
+  assert.equal(shapes.length, 2);
+  recordRejectedDecision(
+    decisionPath,
+    sourcePath,
+    shapes[0].candidate,
+    'test shape rejection',
+  );
+  recordDeferredDecision(
+    decisionPath,
+    sourcePath,
+    shapes[1].candidate,
+    'test shape defer',
+  );
+
+  const result = materializeWorkbookImport({
+    sourcePath,
+    draftPath,
+    reviewDecisionsPath: decisionPath,
+  });
+
+  assert.deepEqual(result.shapes, []);
+  assert.deepEqual(result.snapshotHints, []);
+  assert.deepEqual(
+    result.reviewSkippedShapes.map((item) => [
+      item.name,
+      item.decision,
+      item.code,
+    ]),
+    [
+      ['開始', 'rejected', 'MMI_IMPORT_REVIEW_REJECTED'],
+      ['終了', 'deferred', 'MMI_IMPORT_REVIEW_DEFERRED'],
+    ],
+  );
+  assert.equal(
+    result.imageProblems.some(
+      (problem) => problem.code === 'MMI_DRAWING_SHAPES_NOT_EXTRACTED',
+    ),
+    false,
+  );
+  assert.match(result.markdown, /## 既存のレビュー判断/u);
+  assert.match(result.markdown, /却下 \[構成図\] 「開始」/u);
+  assert.match(result.markdown, /保留 \[構成図\] 「終了」/u);
+  assert.doesNotMatch(result.markdown, /## 図形のsnapshot候補/u);
+  assert.doesNotMatch(result.markdown, /### Excelの図形・コネクタ/u);
+});
+
+test('moved reviewed shape returns to bulk import because its location basis changed', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-import-shape-move-'));
+  const sourcePath = path.join(root, 'drawing.xlsx');
+  const draftPath = path.join(root, 'drawing-import.md');
+  const decisionPath = path.join(root, 'mmi-review-decisions.json');
+
+  const drawingAt = (
+    fromCol: number,
+    fromRow: number,
+    toCol: number,
+    toRow: number,
+  ): string => [
+    '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">',
+    '<xdr:twoCellAnchor>',
+    `<xdr:from><xdr:col>${fromCol}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${fromRow}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>`,
+    `<xdr:to><xdr:col>${toCol}</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>${toRow}</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>`,
+    '<xdr:sp>',
+    '<xdr:nvSpPr><xdr:cNvPr id="5" name="承認"/></xdr:nvSpPr>',
+    '<xdr:spPr><a:prstGeom prst="diamond"/></xdr:spPr>',
+    '<xdr:txBody><a:p><a:r><a:t>承認</a:t></a:r></a:p></xdr:txBody>',
+    '</xdr:sp>',
+    '<xdr:clientData/>',
+    '</xdr:twoCellAnchor>',
+    '</xdr:wsDr>',
+  ].join('');
+
+  fs.writeFileSync(
+    sourcePath,
+    buildXlsxWithImages(
+      [{ name: '構成図', rawDrawing: drawingAt(0, 0, 2, 2) }],
+      {},
+    ),
+  );
+  const inventory = buildCandidateReviewInventory(
+    sourcePath,
+    './drawing.xlsx',
+  );
+  const reviewed = inventory.items.find(
+    (item) => item.kind === 'shape',
+  );
+  assert.ok(reviewed && reviewed.kind === 'shape');
+  recordRejectedDecision(
+    decisionPath,
+    sourcePath,
+    reviewed.candidate,
+    'old location rejection',
+  );
+
+  fs.writeFileSync(
+    sourcePath,
+    buildXlsxWithImages(
+      [{ name: '構成図', rawDrawing: drawingAt(3, 3, 5, 5) }],
+      {},
+    ),
+  );
+
+  const result = materializeWorkbookImport({
+    sourcePath,
+    draftPath,
+    reviewDecisionsPath: decisionPath,
+  });
+
+  assert.equal(result.reviewSkippedShapes.length, 0);
+  assert.equal(result.shapes.length, 1);
+  assert.equal(result.shapes[0].name, '承認');
+  assert.equal(result.shapes[0].range, 'D4:E5');
+  assert.equal(
+    result.shapes[0].structuralPath,
+    reviewed.shape.structuralPath,
+  );
+  assert.deepEqual(result.snapshotHints, [{
+    ordinal: 1,
+    sheet: '構成図',
+    range: 'D4:E5',
+    fromCell: 'D4',
+    shapeCount: 1,
+    graphicFrameCount: 0,
+    reasonCode: 'drawing-two-cell-anchor',
+  }]);
+  assert.match(result.markdown, /### Excelの図形・コネクタ/u);
+  assert.match(result.markdown, /「承認」（図形 D4:E5）/u);
 });
 
 test('malformed Excel choice-list metadata remains visible as a draft warning', () => {

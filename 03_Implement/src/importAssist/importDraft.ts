@@ -36,6 +36,30 @@ export interface ImportDraftSnapshotHint {
   reasonCode: string;
 }
 
+export interface ImportDraftShape {
+  ordinal: number;
+  sheet: string;
+  objectKind: 'shape' | 'connector';
+  structuralPath: string;
+  objectId?: string;
+  name?: string;
+  description?: string;
+  textRuns: readonly string[];
+  presetGeometry?: string;
+  range?: string;
+}
+
+export interface ImportDraftShapeReviewSkip {
+  ordinal: number;
+  sheet: string;
+  objectKind: 'shape' | 'connector';
+  structuralPath: string;
+  name?: string;
+  decision: 'rejected' | 'deferred';
+  code: 'MMI_IMPORT_REVIEW_REJECTED' | 'MMI_IMPORT_REVIEW_DEFERRED';
+  message: string;
+}
+
 export interface ImportDraftReviewSkip {
   ordinal: number;
   sheet: string;
@@ -86,6 +110,8 @@ export interface WorkbookImportOptions extends Omit<ImportAnalysisOptions, 'refe
   assets?: readonly ImportDraftAsset[];
   assetProblems?: readonly ImportDraftProblem[];
   snapshotHints?: readonly ImportDraftSnapshotHint[];
+  shapes?: readonly ImportDraftShape[];
+  reviewSkippedShapes?: readonly ImportDraftShapeReviewSkip[];
   reviewSkippedAssets?: readonly ImportDraftReviewSkip[];
   reviewSkippedTables?: readonly ImportDraftTableReviewSkip[];
   choiceLists?: readonly ImportDraftChoiceList[];
@@ -103,6 +129,8 @@ export interface WorkbookImport {
   assets: ImportDraftAsset[];
   assetProblems: ImportDraftProblem[];
   snapshotHints: ImportDraftSnapshotHint[];
+  shapes: ImportDraftShape[];
+  reviewSkippedShapes: ImportDraftShapeReviewSkip[];
   reviewSkippedAssets: ImportDraftReviewSkip[];
   reviewSkippedTables: ImportDraftTableReviewSkip[];
   choiceLists: ImportDraftChoiceList[];
@@ -120,6 +148,8 @@ export function analyzeWorkbookForImport(
     assets = [],
     assetProblems = [],
     snapshotHints = [],
+    shapes = [],
+    reviewSkippedShapes = [],
     reviewSkippedAssets = [],
     reviewSkippedTables = [],
     choiceLists = [],
@@ -140,6 +170,8 @@ export function analyzeWorkbookForImport(
     assets: [...assets],
     assetProblems: [...assetProblems],
     snapshotHints: [...snapshotHints],
+    shapes: [...shapes],
+    reviewSkippedShapes: [...reviewSkippedShapes],
     reviewSkippedAssets: [...reviewSkippedAssets],
     reviewSkippedTables: [...reviewSkippedTables],
     choiceLists: [...choiceLists],
@@ -194,6 +226,11 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
   if (workbookImport.assets.length > 0) {
     lines.push(`- 抽出した画像: ${workbookImport.assets.length}件（元のシート位置と出典を保持）`);
   }
+  if (workbookImport.shapes.length > 0) {
+    lines.push(
+      `- 原本から読めた図形・コネクタ: ${workbookImport.shapes.length}件`,
+    );
+  }
   if (workbookImport.snapshotHints.length > 0) {
     const ready = workbookImport.snapshotHints.filter((item) => item.range).length;
     lines.push(
@@ -224,6 +261,11 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
       `- 既存のレビュー判断により通常表示から外した選択肢: ${workbookImport.reviewSkippedChoiceLists.length}件`,
     );
   }
+  if (workbookImport.reviewSkippedShapes.length > 0) {
+    lines.push(
+      `- 既存のレビュー判断により通常表示から外した図形・コネクタ: ${workbookImport.reviewSkippedShapes.length}件`,
+    );
+  }
   const counts = countBy(others.map((candidate) => ROLE_JA[candidate.role]));
   if (counts.length > 0) lines.push(`- 表ではない領域: ${counts.map(([role, count]) => `${role} ${count}件`).join('、')}`);
   lines.push('');
@@ -235,6 +277,7 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
     workbookImport.reviewSkippedTables.length > 0
     || workbookImport.reviewSkippedAssets.length > 0
     || workbookImport.reviewSkippedChoiceLists.length > 0
+    || workbookImport.reviewSkippedShapes.length > 0
   ) {
     lines.push(
       '## 既存のレビュー判断',
@@ -262,6 +305,15 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
       const decision = item.decision === 'rejected' ? '却下' : '保留';
       lines.push(
         `- ${decision} [${escapeText(item.sheet)}] 選択肢 ${escapeText(item.range)}: ${escapeText(item.message)}`,
+      );
+    }
+    for (const item of workbookImport.reviewSkippedShapes) {
+      const decision = item.decision === 'rejected' ? '却下' : '保留';
+      const label = item.name
+        ? `「${escapeText(item.name)}」`
+        : `${item.objectKind === 'connector' ? 'コネクタ' : '図形'} #${item.ordinal}`;
+      lines.push(
+        `- ${decision} [${escapeText(item.sheet)}] ${label}: ${escapeText(item.message)}`,
       );
     }
     lines.push('');
@@ -335,7 +387,15 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
     const choiceLists = workbookImport.choiceLists.filter(
       (choice) => choice.sheet === sheet.sheet,
     );
-    if (sheet.candidates.length === 0 && assets.length === 0 && choiceLists.length === 0) {
+    const shapes = workbookImport.shapes.filter(
+      (shape) => shape.sheet === sheet.sheet,
+    );
+    if (
+      sheet.candidates.length === 0
+      && assets.length === 0
+      && choiceLists.length === 0
+      && shapes.length === 0
+    ) {
       lines.push('> 内容がありません。', '');
       continue;
     }
@@ -353,6 +413,18 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
       lines.push('');
     }
 
+    if (shapes.length > 0) {
+      lines.push('### Excelの図形・コネクタ', '');
+      lines.push(
+        '> OOXML DrawingMLに原本から明示されている図形です。MMIはまだ別形式へ変換せず、名前・図形内テキスト・形状・位置を観測情報として残します。',
+        '',
+      );
+      for (const shape of shapes) {
+        lines.push(renderShape(shape));
+      }
+      lines.push('');
+    }
+
     if (assets.length > 0) {
       lines.push('### 抽出した画像', '');
       lines.push('> 画像は通常のMarkdownファイルとして取り込み済みです。必要な位置へ移動し、不要ならこの参照を削除してください。原本の画像自体は変更していません。', '');
@@ -362,6 +434,26 @@ export function renderImportDraft(workbookImport: WorkbookImport, layout: Layout
   return `${lines.join('\n').replace(/\n{3,}/g, '\n\n').trimEnd()}\n`;
 }
 
+
+function renderShape(shape: ImportDraftShape): string {
+  const kind = shape.objectKind === 'connector' ? 'コネクタ' : '図形';
+  const label = shape.name
+    ? `「${escapeText(shape.name)}」`
+    : `${kind} #${shape.ordinal}`;
+  const where = shape.range
+    ? ` ${escapeText(shape.range)}`
+    : ' セル範囲なし';
+  const geometry = shape.presetGeometry
+    ? `・形状: ${escapeText(shape.presetGeometry)}`
+    : '';
+  const text = shape.textRuns.length > 0
+    ? `・テキスト: ${shape.textRuns.map(escapeText).join(' / ')}`
+    : '';
+  const description = shape.description
+    ? `・説明: ${escapeText(shape.description)}`
+    : '';
+  return `- ${label}（${kind}${where}）${geometry}${text}${description}`;
+}
 
 function renderChoiceList(choice: ImportDraftChoiceList): string {
   const blank = choice.allowBlank ? '・空欄可' : '・空欄不可';
