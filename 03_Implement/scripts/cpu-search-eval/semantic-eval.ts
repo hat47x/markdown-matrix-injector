@@ -4,6 +4,7 @@
  *
  *   node --import tsx scripts/cpu-search-eval/semantic-eval.ts --queries test5 \
  *        --api ollama --endpoint http://127.0.0.1:11434 --model <name> \
+ *        [--artifact-manifest artifact.json] \
  *        [--query-prefix "query: "] [--document-prefix "passage: "] [--out report.json]
  *
  * Every request first goes through the name lane and the structural paraphrase
@@ -13,6 +14,12 @@
  * acceptance. The headline numbers are for the reported threshold list, never
  * for one tuned on the very set being reported: use a set that was not used to
  * choose the threshold (a fresh held-out set), and record the model/runtime.
+ *
+ * When --artifact-manifest is supplied, the selected runtime model must expose
+ * a cryptographic digest matching the manifest before evaluation starts. The
+ * report then carries common artifact size/download/cache/offline metrics.
+ * Without a manifest the report says not-measured; missing evidence is never
+ * converted to zero-cost evidence.
  */
 import fs from 'node:fs';
 import os from 'node:os';
