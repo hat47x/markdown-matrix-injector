@@ -9,6 +9,15 @@ import {
 export function candidateReviewSessionKey(
   candidate: Candidate,
 ): string {
+  const providerIdentity =
+    candidate.execution === 'provider-dependent'
+    && candidate.provenance.run.execution === 'provider-dependent'
+      ? [
+          candidate.provenance.run.provider,
+          candidate.provenance.run.model,
+          candidate.provenance.run.artifactVersion,
+        ].join('\u0000')
+      : '';
   return [
     candidate.kind,
     candidate.locator.source,
@@ -16,6 +25,7 @@ export function candidateReviewSessionKey(
     placeOf(candidate),
     candidate.fingerprint.representation,
     candidate.fingerprint.digest,
+    providerIdentity,
   ].join('\u0000');
 }
 
