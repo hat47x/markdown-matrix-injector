@@ -105,6 +105,13 @@ export function startCandidateReviewProviderRefresh(
   const seenProviderIds = new Set<string>();
   const settled = Promise.all(
     lanes.map(async (lane) => {
+      if (!lane.providerId.trim()) {
+        return {
+          providerId: lane.providerId,
+          ok: false as const,
+          message: 'Candidate review provider id must not be empty',
+        };
+      }
       if (seenProviderIds.has(lane.providerId)) {
         return {
           providerId: lane.providerId,
@@ -158,10 +165,6 @@ function validateProviderItems(
   providerId: string,
   items: readonly CandidateReviewInventoryItem[],
 ): CandidateReviewInventoryItem[] {
-  if (!providerId.trim()) {
-    throw new Error('Candidate review provider id must not be empty');
-  }
-
   const seen = new Set<string>();
   const validated: CandidateReviewInventoryItem[] = [];
   for (const item of items) {
@@ -192,6 +195,13 @@ function validateProviderItems(
     ) {
       throw new Error(
         `Provider ${providerId} Candidate does not match the current source snapshot`,
+      );
+    }
+    if (
+      candidate.scores.some((score) => score.provider !== providerId)
+    ) {
+      throw new Error(
+        `Provider ${providerId} Candidate contains score evidence from another provider`,
       );
     }
     const expectedKind =
