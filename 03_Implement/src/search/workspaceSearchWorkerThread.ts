@@ -29,12 +29,17 @@ interface QueryRequest {
   semantic?: SemanticSetting;
 }
 
+interface AliasesRequest {
+  kind: 'aliases';
+  pairs: { short: string; long: string }[];
+}
+
 interface CancelRequest {
   kind: 'cancel';
   requestId: number;
 }
 
-type Request = RefreshRequest | QueryRequest | CancelRequest;
+type Request = RefreshRequest | QueryRequest | CancelRequest | AliasesRequest;
 
 if (!parentPort) throw new Error('workspaceSearchWorkerThread must run inside a worker thread.');
 
@@ -53,6 +58,11 @@ const cancelledRequests = new Set<number>();
 let queue = Promise.resolve();
 
 port.on('message', (request: Request) => {
+  if (request.kind === 'aliases') {
+    // Applied on receipt: the client posts it before the query it belongs to, and messages arrive in order.
+    index.setUserAliases(request.pairs);
+    return;
+  }
   if (request.kind === 'cancel') {
     const controller = requestControllers.get(request.requestId);
     if (controller) controller.abort();

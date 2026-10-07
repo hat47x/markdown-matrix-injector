@@ -25,7 +25,7 @@ export interface GlossaryPair {
   short: string;
   /** The formal name as written. */
   long: string;
-  kind: 'parenthetical' | 'glossary-table';
+  kind: 'parenthetical' | 'glossary-table' | 'user-alias';
   /** Where it was written, for display: `book / sheet`. */
   origin: string;
 }

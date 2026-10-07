@@ -41,6 +41,8 @@ interface BookEntry {
 
 export class RegionCatalog {
   private readonly books = new Map<string, BookEntry>();
+  /** Pairs the user registered themselves (settings). They live outside any book, so a re-read never drops them. */
+  private userPairs: GlossaryPair[] = [];
   private version = 0;
 
   /** True when `path` is unknown or its stat differs from the indexed one. */
@@ -105,9 +107,18 @@ export class RegionCatalog {
     return [...this.books.keys()];
   }
 
-  /** Abbreviation pairs written in the indexed books, with where each was found (deduplicated across books). */
+  /** Replaces the user's own abbreviation pairs (ADR-0023). Not tied to any book; nothing is written to disk here. */
+  setUserPairs(pairs: readonly { short: string; long: string }[]): void {
+    this.userPairs = pairs.map((pair) => ({ short: pair.short, long: pair.long, kind: 'user-alias' as const, origin: '利用者が登録した別名' }));
+    this.version += 1;
+  }
+
+  /** Abbreviation pairs the user registered and the indexed books write down, with where each was found (deduplicated). */
   glossaryPairs(): GlossaryPair[] {
     const seen = new Map<string, GlossaryPair>();
+    for (const pair of this.userPairs) {
+      seen.set(`${pair.short.normalize('NFKC').toLowerCase()}\u0000${pair.long.normalize('NFKC').toLowerCase()}`, pair);
+    }
     for (const entry of this.books.values()) {
       for (const pair of entry.glossary) {
         const id = `${pair.short.normalize('NFKC').toLowerCase()}\u0000${pair.long.normalize('NFKC').toLowerCase()}`;

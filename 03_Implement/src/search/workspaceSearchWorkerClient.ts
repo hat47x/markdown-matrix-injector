@@ -64,6 +64,7 @@ export class WorkspaceSearchWorkerClient {
   private disposed = false;
   private regions = 0;
   private method: RetrievalMethod = 'bm25';
+  private aliasKey = '[]';
 
   constructor(options: WorkspaceSearchWorkerClientOptions = {}) {
     this.worker = new Worker(options.workerUrl ?? new URL('./workspaceSearchWorkerThread.js', import.meta.url));
@@ -80,6 +81,14 @@ export class WorkspaceSearchWorkerClient {
 
   get retrievalMethod(): RetrievalMethod {
     return this.method;
+  }
+
+  /** Sends the user's own abbreviation pairs (ADR-0023). Sent only when they changed; later queries use them. */
+  setAliases(pairs: readonly { short: string; long: string }[]): void {
+    const key = JSON.stringify(pairs);
+    if (key === this.aliasKey || this.disposed) return;
+    this.aliasKey = key;
+    this.worker.postMessage({ kind: 'aliases', pairs: pairs.map((pair) => ({ short: pair.short, long: pair.long })) });
   }
 
   async refresh(paths: readonly string[], options: WorkerRefreshOptions = {}): Promise<RefreshResult> {
