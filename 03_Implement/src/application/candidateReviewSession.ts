@@ -9,24 +9,25 @@ import {
 export function candidateReviewSessionKey(
   candidate: Candidate,
 ): string {
-  const providerIdentity =
-    candidate.execution === 'provider-dependent'
-    && candidate.provenance.run.execution === 'provider-dependent'
-      ? [
-          candidate.provenance.run.provider,
-          candidate.provenance.run.model,
-          candidate.provenance.run.artifactVersion,
-        ].join('\u0000')
-      : '';
-  return [
+  const parts = [
     candidate.kind,
     candidate.locator.source,
     candidate.locator.sheet ?? '',
     placeOf(candidate),
     candidate.fingerprint.representation,
     candidate.fingerprint.digest,
-    providerIdentity,
-  ].join('\u0000');
+  ];
+  if (
+    candidate.execution === 'provider-dependent'
+    && candidate.provenance.run.execution === 'provider-dependent'
+  ) {
+    parts.push(
+      candidate.provenance.run.provider,
+      candidate.provenance.run.model,
+      candidate.provenance.run.artifactVersion,
+    );
+  }
+  return parts.join('\u0000');
 }
 
 export function remainingCandidateReviewItems(
