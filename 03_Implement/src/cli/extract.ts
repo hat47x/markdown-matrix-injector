@@ -20,7 +20,6 @@ import type { Candidate } from '../core/candidate.js';
 import { buildLogicalTable } from '../core/renderTable.js';
 import {
   createSourceIdentityFromBytes,
-  readSourceFileIdentity,
 } from '../core/sourceIdentity.js';
 import { loadWorkbookFromBytes } from '../core/workbookLoader.js';
 import { parseEmbedSyntax, type EmbedQuery } from '../parser/embedSyntax.js';
