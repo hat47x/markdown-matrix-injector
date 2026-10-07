@@ -40,6 +40,12 @@ export interface ExtractOptions {
   ledgerPath?: string;
   /** Operation recorded as the review/import basis. */
   basis?: string;
+  /**
+   * Candidate shown to a reviewer before extraction. When present, extraction
+   * fails closed if the current source no longer has the same occurrence,
+   * content fingerprint and reviewed Claim basis.
+   */
+  expectedCandidate?: Candidate;
 }
 
 export interface ExtractedImage {
@@ -111,6 +117,11 @@ export interface ExtractTableOptions {
   fromDocument?: string;
   sourceLabel?: string;
   ledgerPath?: string;
+  /**
+   * Candidate shown to a reviewer before extraction. When present, extraction
+   * fails closed if the current table no longer matches that reviewed basis.
+   */
+  expectedCandidate?: Candidate;
 }
 
 export interface ExtractedTable {
@@ -262,6 +273,50 @@ export function extractImages(options: ExtractOptions): ExtractResult {
 
   const documentDirectory = path.dirname(path.resolve(options.fromDocument ?? path.join(process.cwd(), 'x.md')));
   const source = options.sourceLabel ?? (path.relative(documentDirectory, options.sourcePath).split(path.sep).join('/') || path.basename(options.sourcePath));
+
+  let sourceDigest: string | undefined;
+  let currentImageCandidates: Candidate[] | undefined;
+  if (options.expectedCandidate || options.ledgerPath) {
+    sourceDigest = options.sourceBytes
+      ? createSourceIdentityFromBytes(packageBytes).digest
+      : readSourceFileIdentity(options.sourcePath).digest;
+    currentImageCandidates = imageCandidates({
+      source,
+      sourceDigest,
+      images: read.images,
+    });
+  }
+  if (options.expectedCandidate) {
+    if (chosen.length !== 1) {
+      result.problems.push({
+        code: 'MMI_IMAGE_REVIEW_STALE',
+        message:
+          'review-time image extraction must select exactly one current Candidate; reopen Candidate review',
+      });
+      return result;
+    }
+    const chosenIndex = read.images.findIndex(
+      (image) => image.ordinal === chosen[0].ordinal,
+    );
+    const currentCandidate = currentImageCandidates?.[chosenIndex];
+    if (
+      !currentCandidate
+      || !sameCandidateReviewBasis(
+        options.expectedCandidate,
+        currentCandidate,
+      )
+    ) {
+      result.problems.push({
+        ordinal: chosen[0].ordinal,
+        sheet: chosen[0].sheet,
+        code: 'MMI_IMAGE_REVIEW_STALE',
+        message:
+          'image Candidate changed after it was shown for review; reopen Candidate review before extraction',
+      });
+      return result;
+    }
+  }
+
   fs.mkdirSync(options.outDir, { recursive: true });
   const outDirectory = fs.realpathSync(options.outDir);
   const sourceReal = fs.realpathSync(options.sourcePath);
@@ -311,13 +366,31 @@ export function extractImages(options: ExtractOptions): ExtractResult {
     });
   }
   if (options.ledgerPath && result.extracted.length > 0) {
-    const sourceDigest = options.sourceBytes
+    sourceDigest ??= options.sourceBytes
       ? createSourceIdentityFromBytes(packageBytes).digest
       : readSourceFileIdentity(options.sourcePath).digest;
+    currentImageCandidates ??= imageCandidates({
+      source,
+      sourceDigest,
+      images: read.images,
+    });
     const entries: LedgerEntry[] = [];
     for (const item of result.extracted) {
       const image = chosen.find((candidateImage) => candidateImage.ordinal === item.ordinal)!;
-      const [candidate] = imageCandidates({ source: source, sourceDigest, images: [image] });
+      const candidateIndex = read.images.findIndex(
+        (candidateImage) => candidateImage.ordinal === item.ordinal,
+      );
+      const candidate = currentImageCandidates[candidateIndex];
+      if (!candidate) {
+        result.problems.push({
+          ordinal: item.ordinal,
+          sheet: item.sheet,
+          code: 'MMI_IMAGE_REVIEW_STALE',
+          message:
+            'image Candidate changed before ledger recording; reopen Candidate review',
+        });
+        continue;
+      }
       entries.push(entryFor(
         options.ledgerPath,
         options.sourcePath,
@@ -344,6 +417,8 @@ function sameCandidateReviewBasis(
 ): boolean {
   if (
     before.kind !== after.kind
+    || (before.locator.sheet ?? '') !== (after.locator.sheet ?? '')
+    || placeOf(before) !== placeOf(after)
     || before.fingerprint.representation
       !== after.fingerprint.representation
     || before.fingerprint.digest !== after.fingerprint.digest
@@ -541,6 +616,17 @@ export function extractTable(options: ExtractTableOptions): ExtractTableResult {
       code: 'MMI_TABLE_CANDIDATE_NOT_FOUND',
       message:
         `no table Candidate ${options.sheet}!${options.range}; run \`mmi inspect\` to list detected table Candidates`,
+    });
+    return result;
+  }
+  if (
+    options.expectedCandidate
+    && !sameCandidateReviewBasis(options.expectedCandidate, candidate)
+  ) {
+    result.problems.push({
+      code: 'MMI_TABLE_REVIEW_STALE',
+      message:
+        'table Candidate changed after it was shown for review; reopen Candidate review before extraction',
     });
     return result;
   }
