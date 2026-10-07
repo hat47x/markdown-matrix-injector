@@ -120,6 +120,10 @@ test(
       report.schema,
       PRODUCT_BASELINE_SCHEMA,
     );
+    assert.equal(
+      report.cohort.distinctSourceDigests,
+      2,
+    );
     assert.deepEqual(
       report.cohort.sourceDigests,
       [digest('a'), digest('b')],
