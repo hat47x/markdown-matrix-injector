@@ -53,6 +53,10 @@ import {
 } from '../core/candidateReviewDecisions.js';
 import { candidateReviewView } from '../core/candidateReviewView.js';
 import { placeOf, readLedger } from '../core/importLedger.js';
+import {
+  RegionSnapshotError,
+  renderLibreOfficeRegionSnapshot,
+} from '../snapshot/libreOfficeRegionSnapshot.js';
 
 export const REVIEW_CANDIDATES_COMMAND_ID =
   'markdownMatrixInjector.reviewCandidates';
@@ -899,17 +903,38 @@ export async function reviewCandidates(
     continue;
   }
 
+  const canSnapshotShape =
+    picked.source.kind === 'shape'
+    && picked.source.shape.anchor.kind === 'twoCellAnchor'
+    && Boolean(picked.source.shape.range);
+
   const action = await vscode.window.showQuickPick(
     [
-      ...(picked.source.kind === 'choice-list' || picked.source.kind === 'shape'
+      ...(picked.source.kind === 'choice-list'
         ? [{
             label: '確認のみで次へ',
             value: 'next' as const,
-            description: picked.source.kind === 'choice-list'
-              ? 'Excelの入力規則を変換せず、観測内容だけ確認して次へ進む'
-              : '図形を変換せず、原本から読めた内容だけ確認して次へ進む',
+            description:
+              'Excelの入力規則を変換せず、観測内容だけ確認して次へ進む',
           }]
-        : [{
+        : picked.source.kind === 'shape'
+          ? [
+              {
+                label: '確認のみで次へ',
+                value: 'next' as const,
+                description:
+                  '図形を変換せず、原本から読めた内容だけ確認して次へ進む',
+              },
+              ...(canSnapshotShape
+                ? [{
+                    label: 'この範囲を画像化',
+                    value: 'snapshot-shape' as const,
+                    description:
+                      'two-cell anchorの範囲をregion-snapshotとして画像化し、別Candidateとして台帳へ記録',
+                  }]
+                : []),
+            ]
+          : [{
             label: '取り込む',
             value: 'extract' as const,
             description: '既存のextract経路で標準資産と台帳へ記録',
@@ -1028,6 +1053,98 @@ export async function reviewCandidates(
     }
     await vscode.window.showInformationMessage(
       'MMI: Candidateのレビュー状態を解除しました。',
+    );
+    continue;
+  }
+
+  if (
+    action.value === 'snapshot-shape'
+    && picked.source.kind === 'shape'
+  ) {
+    const shape = picked.source.shape;
+    if (
+      shape.anchor.kind !== 'twoCellAnchor'
+      || !shape.range
+    ) {
+      await vscode.window.showErrorMessage(
+        'MMI: この図形は終端セルを安全に確定できないため、自動画像化できません。',
+      );
+      continue;
+    }
+
+    const active = sessionMarkdownEditor;
+    const markdownDocument =
+      active?.document.languageId === 'markdown'
+        ? active.document.uri.fsPath
+        : undefined;
+    let snapshot;
+    try {
+      snapshot = await renderLibreOfficeRegionSnapshot({
+        sourcePath,
+        sourceLabel,
+        sheet: shape.sheet,
+        range: shape.range,
+        outDir: path.join(root, 'assets', 'snapshots'),
+        ledgerPath,
+        ...(markdownDocument
+          ? { fromDocument: markdownDocument }
+          : {}),
+      });
+    } catch (error) {
+      const detail = error instanceof RegionSnapshotError
+        ? `${error.code}: ${error.message}`
+        : error instanceof Error
+          ? error.message
+          : String(error);
+      await vscode.window.showErrorMessage(
+        `MMI: 図形範囲を画像化できません: ${detail}`,
+      );
+      continue;
+    }
+
+    if (active?.document.languageId === 'markdown') {
+      const insert = await vscode.window.showQuickPick(
+        [
+          {
+            label: 'Markdownにも挿入',
+            value: true,
+            description:
+              '現在のカーソル位置へsnapshot画像参照とprovenanceを挿入',
+          },
+          {
+            label: '画像化だけ',
+            value: false,
+            description:
+              'region-snapshot資産と台帳だけを作り、本文は変更しない',
+          },
+        ],
+        { title: 'MMI: 図形範囲の画像化完了' },
+      );
+      if (insert?.value) {
+        const targetEditor = await vscode.window.showTextDocument(
+          active.document,
+          active.viewColumn,
+        );
+        const insertAt = targetEditor.selection.active;
+        const insertedText = `${snapshot.markdown}\n`;
+        const edited = await targetEditor.edit((edit) =>
+          edit.insert(insertAt, insertedText));
+        if (edited) {
+          const endOffset =
+            targetEditor.document.offsetAt(insertAt)
+            + insertedText.length;
+          const end = targetEditor.document.positionAt(endOffset);
+          targetEditor.selection = new vscode.Selection(end, end);
+          targetEditor.revealRange(new vscode.Range(end, end));
+        }
+      }
+    }
+
+    await vscode.window.showInformationMessage(
+      `MMI: ${path.relative(root, snapshot.pngFile)} に図形範囲を画像化し、region-snapshotとしてmmi-ledger.jsonへ記録しました。Shape Candidate自体のレビュー状態は変更していません。`,
+    );
+    processedKeys.add(
+      candidateReviewSessionKey(picked.source.candidate),
     );
     continue;
   }
