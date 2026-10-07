@@ -101,6 +101,67 @@ test('ledger is readable JSON and survives a write/read round trip', () => {
   assert.match(raw, /"mode": "raw-image-bytes-v1"/u);
   assert.match(raw, /"sourceDigest": "sha256:/u);
   assert.match(raw, /"reviewedAt": "/u);
+  assert.deepEqual(
+    fs.readdirSync(path.dirname(ledgerPath))
+      .filter((name) => name.includes('.mmi-ledger.json.') && name.endsWith('.tmp')),
+    [],
+  );
+});
+
+test('atomic ledger replacement preserves the previous file and cleans temp files on rename failure', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-ledger-atomic-'));
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const source = path.join(root, 'design.xlsx');
+  const first = candidate('image-a');
+  const second = candidate('image-b', '別画面', 'A1:C7');
+
+  recordEntries(ledgerPath, [
+    entryFor(
+      ledgerPath,
+      source,
+      first,
+      path.join(root, 'assets', 'image-a.png'),
+      'first review',
+    ),
+  ]);
+  const before = fs.readFileSync(ledgerPath, 'utf8');
+
+  const originalRenameSync = fs.renameSync;
+  Object.defineProperty(fs, 'renameSync', {
+    configurable: true,
+    writable: true,
+    value: () => {
+      throw new Error('simulated atomic replace failure');
+    },
+  });
+  try {
+    assert.throws(
+      () => recordEntries(ledgerPath, [
+        entryFor(
+          ledgerPath,
+          source,
+          second,
+          path.join(root, 'assets', 'image-b.png'),
+          'second review',
+        ),
+      ]),
+      /simulated atomic replace failure/u,
+    );
+  } finally {
+    Object.defineProperty(fs, 'renameSync', {
+      configurable: true,
+      writable: true,
+      value: originalRenameSync,
+    });
+  }
+
+  assert.equal(fs.readFileSync(ledgerPath, 'utf8'), before);
+  assert.equal(readLedger(ledgerPath).entries.length, 1);
+  assert.deepEqual(
+    fs.readdirSync(root)
+      .filter((name) => name.includes('.mmi-ledger.json.') && name.endsWith('.tmp')),
+    [],
+  );
 });
 
 test('legacy confirmed ledger state is read as accepted without rewriting the file', () => {
