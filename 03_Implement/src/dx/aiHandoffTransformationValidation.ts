@@ -63,7 +63,8 @@ export type AiHandoffTransformationPlan =
       conversion:
         | 'json-nested-list-v1'
         | 'yaml-nested-list-v1'
-        | 'xml-nested-list-v1';
+        | 'xml-nested-list-v1'
+        | 'flat-text-nested-list-v1';
     };
 
 export type AiHandoffTransformationCheckName =
@@ -422,7 +423,7 @@ function extractionPlan(
           'Tree extraction requires a current structuralPath.',
       };
     }
-    const conversion = EXPLICIT_TREE_CONVERSIONS.get(
+    const conversion = TREE_EXTRACTION_CONVERSIONS.get(
       candidate.provenance.algorithm,
     );
     if (!conversion) {
@@ -459,15 +460,19 @@ const EXTRACTABLE_IMAGE_FORMATS = new Set([
   'svg',
 ]);
 
-const EXPLICIT_TREE_CONVERSIONS = new Map<
+const TREE_EXTRACTION_CONVERSIONS = new Map<
   string,
   | 'json-nested-list-v1'
   | 'yaml-nested-list-v1'
   | 'xml-nested-list-v1'
+  | 'flat-text-nested-list-v1'
 >([
   ['mmi.json-tree-adapter', 'json-nested-list-v1'],
   ['mmi.yaml-tree-adapter', 'yaml-nested-list-v1'],
   ['mmi.xml-tree-adapter', 'xml-nested-list-v1'],
+  ['mmi.flat-text-tree.indent', 'flat-text-nested-list-v1'],
+  ['mmi.flat-text-tree.heading-number', 'flat-text-nested-list-v1'],
+  ['mmi.flat-text-tree.prefix-code', 'flat-text-nested-list-v1'],
 ]);
 
 function offeredCandidate(

@@ -10,6 +10,7 @@ import {
   readExcelImages,
   shapeCandidates,
 } from '../src/adapters/excelImageAdapter.js';
+import { readFlatTextTree } from '../src/adapters/flatTextTreeStructuralizer.js';
 import { readJsonTree } from '../src/adapters/jsonTreeAdapter.js';
 import { tableCandidates } from '../src/adapters/tableRegionAdapter.js';
 import { readXmlTree } from '../src/adapters/xmlTreeAdapter.js';
@@ -351,6 +352,77 @@ test('explicit JSON/YAML/XML Tree transformations return only existing nested-li
     );
     assert.equal(fs.readdirSync(data).length, 1);
   }
+});
+
+test('inferred flat-text Tree transformation keeps M1 provenance and returns the existing nested-list review plan', async () => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'mmi-ai-transform-text-tree-'),
+  );
+  const docs = path.join(root, 'docs');
+  const data = path.join(root, 'data');
+  fs.mkdirSync(docs);
+  fs.mkdirSync(data);
+  const markdownFilePath = path.join(docs, 'spec.md');
+  const sourcePath = path.join(data, 'outline.txt');
+  const contents = [
+    '1. 概要',
+    '1.1 対象',
+    '1.2 前提',
+    '',
+  ].join('\n');
+  fs.writeFileSync(markdownFilePath, '# Spec\n');
+  fs.writeFileSync(sourcePath, contents);
+
+  const source = '../data/outline.txt';
+  const sourceDigest = readSourceFileIdentity(sourcePath).digest;
+  const tree = readFlatTextTree(
+    contents,
+    source,
+    sourceDigest,
+    { methods: ['heading-number'] },
+  );
+  const candidate = tree.candidates.find(
+    (item) =>
+      item.provenance.algorithm
+      === 'mmi.flat-text-tree.heading-number',
+  );
+  assert.ok(candidate);
+  assert.equal(candidate.status, 'inferred');
+  assert.equal(candidate.method, 'M1');
+  const identity = candidateIdentityOf(candidate);
+  const handoff = createAiHandoffPackage({
+    task: '推定Tree CandidateのExtracted案をレビューする',
+    candidates: [candidate],
+  });
+
+  const result = await validateAiHandoffTransformationProposal({
+    handoff,
+    proposal: proposal(identity, 'extracted'),
+    markdownFilePath,
+    workspaceRoot: root,
+  });
+
+  assert.equal(result.status, 'accepted-for-review');
+  assert.deepEqual(result.plan, {
+    operation: 'extract-standard-asset',
+    candidate: identity,
+    candidateKind: 'tree',
+    conversion: 'flat-text-nested-list-v1',
+  });
+  assert.equal(
+    check(result, 'current-candidate')?.code,
+    'TRANSFORMATION_CURRENT_CANDIDATE_REDISCOVERED',
+  );
+  assert.equal(
+    check(result, 'authority-revalidation')?.code,
+    'TRANSFORMATION_EXTRACTION_CURRENT_CANDIDATE_REVALIDATED',
+  );
+  assert.equal(
+    candidate.status,
+    'inferred',
+    'accepted-for-review must not upgrade inferred provenance',
+  );
+  assert.equal(fs.readdirSync(data).length, 1);
 });
 
 test('fabricated Candidate identity is blocked before source or transform checks', async () => {
