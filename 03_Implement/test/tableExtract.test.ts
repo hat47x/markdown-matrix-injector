@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
+import { buildCandidateReviewInventory } from '../src/application/candidateReviewInventory.js';
 import {
   discardUnrecordedTableExtraction,
   extractTable,
@@ -206,6 +207,44 @@ test('unchanged reviewed table remains accepted and an abandoned draft is remova
   assert.ok(another.extracted);
   assert.equal(discardUnrecordedTableExtraction(another.extracted), true);
   assert.equal(fs.existsSync(another.extracted.file), false);
+});
+
+test('review-time table extraction rejects source changes after Candidate display', () => {
+  const f = workspace();
+  const reviewed = buildCandidateReviewInventory(
+    f.source,
+    'roles.csv',
+  ).items.find(
+    (item) =>
+      item.kind === 'table'
+      && item.sheet === 'Sheet1'
+      && item.range === 'A1:C3',
+  );
+  assert.ok(reviewed);
+  assert.equal(reviewed.kind, 'table');
+  if (reviewed.kind !== 'table') {
+    assert.fail('expected table Candidate');
+  }
+
+  fs.writeFileSync(
+    f.source,
+    'ID,操作,備考\nOP-01,申請,a|b\nOP-02,差戻し,\n',
+  );
+
+  const result = extractTable({
+    sourcePath: f.source,
+    sheet: reviewed.sheet,
+    range: reviewed.range,
+    outDir: f.outDir,
+    fromDocument: f.doc,
+    ledgerPath: f.ledgerPath,
+    expectedCandidate: reviewed.candidate,
+  });
+
+  assert.equal(result.extracted, undefined);
+  assert.equal(result.problems[0]?.code, 'MMI_TABLE_REVIEW_STALE');
+  assert.equal(fs.existsSync(f.outDir), false);
+  assert.equal(fs.existsSync(f.ledgerPath), false);
 });
 
 test('extractTable rejects arbitrary ranges that are not current table Candidates', () => {
