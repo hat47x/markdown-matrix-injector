@@ -62,7 +62,8 @@ export function endpointProblem(endpoint: string): string | undefined {
   return undefined;
 }
 
-const MAX_BATCH = 32;
+// Small batches: on CPU a batch of 32 took 38 s but 8 took 2 s (qwen3-embedding:0.6b, measured), so a big batch can hit the timeout.
+const MAX_BATCH = 8;
 
 export function createEmbeddingProvider(config: EmbeddingProviderConfig, fetchImpl: FetchLike = fetch as unknown as FetchLike): EmbeddingProvider {
   const problem = endpointProblem(config.endpoint);
@@ -72,7 +73,7 @@ export function createEmbeddingProvider(config: EmbeddingProviderConfig, fetchIm
   const url = config.api === 'ollama' ? `${base}/api/embed` : `${base}/v1/embeddings`;
 
   const call = async (inputs: readonly string[], signal: AbortSignal | undefined): Promise<number[][] | undefined> => {
-    const timeout = AbortSignal.timeout(config.timeoutMs ?? 20_000);
+    const timeout = AbortSignal.timeout(config.timeoutMs ?? 60_000);
     const combined = signal ? AbortSignal.any([signal, timeout]) : timeout;
     try {
       const response = await fetchImpl(url, {
