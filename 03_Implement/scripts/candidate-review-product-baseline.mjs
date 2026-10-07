@@ -229,7 +229,7 @@ export function buildProductBaselineReport({
     condition: normalizedCondition,
     cohort: {
       sessions: observations.length,
-      sources: sourceDigests.length,
+      distinctSourceDigests: sourceDigests.length,
       sourceDigests,
     },
     work: {
