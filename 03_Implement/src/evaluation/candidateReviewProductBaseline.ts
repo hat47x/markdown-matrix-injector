@@ -158,6 +158,9 @@ export function aggregateCandidateReviewProductRun(
   const safetyCounts = copyAndValidateSafety(run.safety.counts);
   const violationCount = Object.values(safetyCounts)
     .reduce((sum, count) => sum + count, 0);
+  if (!Array.isArray(run.safety.evidenceRefs)) {
+    throw new Error('safety.evidenceRefs must be an array');
+  }
   const evidenceRefs = run.safety.evidenceRefs.map((ref, index) => {
     assertText(`safety.evidenceRefs[${index}]`, ref);
     return ref;
@@ -348,13 +351,29 @@ function validateObservation(
 function copyAndValidateSafety(
   counts: ProductBaselineSafetyCounts,
 ): ProductBaselineSafetyCounts {
-  const copy = { ...counts };
-  for (const [name, value] of Object.entries(copy)) {
+  if (!counts || typeof counts !== 'object') {
+    throw new Error('safety counts are required');
+  }
+  const names: Array<keyof ProductBaselineSafetyCounts> = [
+    'sourceMutation',
+    'failedImportResidue',
+    'staleAcceptanceInheritance',
+    'inferredToObservedPromotion',
+    'workspaceEscape',
+  ];
+  for (const name of names) {
+    const value = counts[name];
     if (!Number.isInteger(value) || value < 0) {
       throw new Error(`safety count ${name} must be a non-negative integer`);
     }
   }
-  return copy;
+  return {
+    sourceMutation: counts.sourceMutation,
+    failedImportResidue: counts.failedImportResidue,
+    staleAcceptanceInheritance: counts.staleAcceptanceInheritance,
+    inferredToObservedPromotion: counts.inferredToObservedPromotion,
+    workspaceEscape: counts.workspaceEscape,
+  };
 }
 
 function emptyAdjustmentAggregate(): ProductBaselineAdjustmentAggregate {
