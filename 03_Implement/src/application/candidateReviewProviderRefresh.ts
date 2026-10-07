@@ -36,6 +36,7 @@ export interface CandidateReviewProviderRefreshSummary {
 
 function contextKey(context: CandidateReviewProviderContext): string {
   return [
+    context.sourcePath,
     context.sourceLabel,
     context.sourceDigest,
   ].join('\u0000');
@@ -155,15 +156,15 @@ function validateProviderItems(
   const validated: CandidateReviewInventoryItem[] = [];
   for (const item of items) {
     const candidate = item.candidate;
+    if (candidate.execution !== 'provider-dependent') {
+      throw new Error(
+        `Provider ${providerId} returned a non-provider-dependent Candidate`,
+      );
+    }
     const problem = candidateProblem(candidate);
     if (problem) {
       throw new Error(
         `Invalid Candidate from provider ${providerId}: ${problem}`,
-      );
-    }
-    if (candidate.execution !== 'provider-dependent') {
-      throw new Error(
-        `Provider ${providerId} returned a non-provider-dependent Candidate`,
       );
     }
     const run = candidate.provenance.run;
@@ -209,25 +210,3 @@ function deduplicateItems(
   return out;
 }
 
-/**
- * Provider identity is part of a review-session key for provider-dependent
- * Candidates. Two providers may make the same semantic proposal, but their
- * Evidence and scores must remain separately reviewable rather than being
- * silently combined.
- */
-export function candidateReviewProviderIdentity(
-  candidate: Candidate,
-): string {
-  if (
-    candidate.execution !== 'provider-dependent'
-    || candidate.provenance.run.execution !== 'provider-dependent'
-  ) {
-    return '';
-  }
-  const run = candidate.provenance.run;
-  return [
-    run.provider,
-    run.model,
-    run.artifactVersion,
-  ].join('\u0000');
-}
