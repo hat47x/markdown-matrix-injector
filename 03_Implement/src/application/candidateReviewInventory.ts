@@ -1,10 +1,7 @@
 import fs from 'node:fs';
 
-import {
-  DEFAULT_FLAT_TEXT_TREE_METHODS,
-  decodeFlatTextUtf8,
-  readFlatTextTree,
-  type FlatTextTreeMethod,
+import type {
+  FlatTextTreeMethod,
 } from '../adapters/flatTextTreeStructuralizer.js';
 import {
   imageCandidates,
@@ -20,9 +17,6 @@ import {
   type ChoiceListDiagnostic,
   type ExcelChoiceList,
 } from '../adapters/excelChoiceListAdapter.js';
-import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
-import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
-import { readYamlTree } from '../adapters/yamlTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import {
   readTabularHierarchy,
@@ -30,17 +24,14 @@ import {
 } from '../adapters/tabularHierarchyAdapter.js';
 import { detectTableRegions } from '../importAssist/tableRegions.js';
 import type { Candidate } from '../core/candidate.js';
-import { decodeJsonUtf8 } from '../core/jsonFormat.js';
 import {
   createSourceIdentityFromBytes,
   readSourceFileIdentity,
 } from '../core/sourceIdentity.js';
 import { loadWorkbook } from '../core/workbookLoader.js';
 import {
-  decodeGenericXmlUtf8,
-  isXmlSpreadsheet2003Bytes,
-} from '../core/xmlFormat.js';
-import { decodeYamlUtf8 } from '../core/yamlFormat.js';
+  collectStandaloneTreeCandidates,
+} from './sourceCandidateInventory.js';
 
 export type CandidateReviewInventoryItem =
   | {
@@ -106,99 +97,24 @@ export function buildCandidateReviewInventory(
   sourceLabel: string,
   options: CandidateReviewInventoryOptions = {},
 ): CandidateReviewInventory {
-  if (/\.json$/iu.test(sourcePath)) {
-    const sourceBytes = fs.readFileSync(sourcePath);
-    const sourceDigest =
-      createSourceIdentityFromBytes(sourceBytes).digest;
-    const tree = readJsonTree(
-      decodeJsonUtf8(sourceBytes),
-      sourceLabel,
-      sourceDigest,
-    );
+  const standaloneTree = collectStandaloneTreeCandidates(
+    sourcePath,
+    sourceLabel,
+  );
+  if (standaloneTree) {
     return {
-      items: tree.nodes.map((node) => ({
-        kind: 'tree' as const,
-        candidate: node.candidate,
-        pointer: node.pointer,
-        format: 'json' as const,
-        nodeType: node.nodeType,
-        childCount: node.childPointers.length,
-        leafCount: node.leafValues.length,
-      })),
-      imageDiagnostics: [],
-    };
-  }
-
-  if (/\.ya?ml$/iu.test(sourcePath)) {
-    const sourceBytes = fs.readFileSync(sourcePath);
-    const sourceDigest =
-      createSourceIdentityFromBytes(sourceBytes).digest;
-    const tree = readYamlTree(
-      decodeYamlUtf8(sourceBytes),
-      sourceLabel,
-      sourceDigest,
-    );
-    return {
-      items: tree.nodes.map((node) => ({
-        kind: 'tree' as const,
-        candidate: node.candidate,
-        pointer: node.pointer,
-        format: 'yaml' as const,
-        nodeType: node.nodeType,
-        childCount: node.childPointers.length,
-        leafCount: node.leafValues.length,
-      })),
-      imageDiagnostics: [],
-    };
-  }
-
-  if (/\.xml$/iu.test(sourcePath)) {
-    const sourceBytes = fs.readFileSync(sourcePath);
-    if (!isXmlSpreadsheet2003Bytes(sourceBytes)) {
-      const xml = decodeGenericXmlUtf8(sourceBytes);
-      const sourceDigest =
-        createSourceIdentityFromBytes(sourceBytes).digest;
-      const tree = readXmlTree(xml, sourceLabel, sourceDigest);
-      return {
-        items: tree.nodes.map((node) => ({
+      items: standaloneTree.nodes
+        .filter((node) => node.candidate.status !== 'abstained')
+        .map((node) => ({
           kind: 'tree' as const,
           candidate: node.candidate,
-          pointer: node.path,
-          format: 'xml' as const,
-          nodeType: 'element' as const,
-          childCount: node.childPaths.length,
-          leafCount:
-            node.attributeValues.length + node.textValues.length,
+          pointer: node.pointer,
+          format: node.format,
+          nodeType: node.nodeType,
+          childCount: node.childPointers.length,
+          leafCount: node.leafValues.length,
+          ...(node.method ? { method: node.method } : {}),
         })),
-        imageDiagnostics: [],
-      };
-    }
-  }
-
-  if (/\.(txt|text|log)$/iu.test(sourcePath)) {
-    const sourceBytes = fs.readFileSync(sourcePath);
-    const sourceDigest =
-      createSourceIdentityFromBytes(sourceBytes).digest;
-    const tree = readFlatTextTree(
-      decodeFlatTextUtf8(sourceBytes),
-      sourceLabel,
-      sourceDigest,
-      { methods: DEFAULT_FLAT_TEXT_TREE_METHODS },
-    );
-    return {
-      items: tree.hypotheses.flatMap((hypothesis) =>
-        hypothesis.status === 'inferred'
-          ? hypothesis.nodes.map((node) => ({
-              kind: 'tree' as const,
-              candidate: node.candidate,
-              pointer: node.structuralPath,
-              format: 'text' as const,
-              nodeType: 'text-node' as const,
-              childCount: node.childLines.length,
-              leafCount: 1,
-              method: hypothesis.method,
-            }))
-          : []),
       imageDiagnostics: [],
     };
   }

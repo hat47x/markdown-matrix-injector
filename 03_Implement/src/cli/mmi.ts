@@ -11,6 +11,9 @@ import { parseArgs } from 'node:util';
 import XLSX from 'xlsx';
 import { WorkbookCache } from '../cache/workbookCache.js';
 import { checkDetachedDocument } from '../application/detachCheck.js';
+import {
+  collectStandaloneTreeCandidates,
+} from '../application/sourceCandidateInventory.js';
 import { checkExtractedProvenanceFreshness } from '../application/detachFreshness.js';
 import { materializeDocument } from '../application/materialize.js';
 import { runPortableCoreRequest } from '../application/portableCoreProtocol.js';
@@ -21,13 +24,8 @@ import {
 import { imageCandidates, readExcelImages, relationToTables, shapeCandidates, type ImageDiagnostic, type TableRect } from '../adapters/excelImageAdapter.js';
 import {
   DEFAULT_FLAT_TEXT_TREE_METHODS,
-  decodeFlatTextUtf8,
-  readFlatTextTree,
   type FlatTextTreeMethod,
 } from '../adapters/flatTextTreeStructuralizer.js';
-import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
-import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
-import { readYamlTree } from '../adapters/yamlTreeAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import {
   readTabularHierarchy,
@@ -42,7 +40,6 @@ import {
   type CognitiveArtifactResolution,
   type RuntimeManagedArtifact,
 } from '../core/cognitiveArtifact.js';
-import { decodeJsonUtf8 } from '../core/jsonFormat.js';
 import {
   SEMANTIC_CANDIDATE_CONTRACT,
   semanticCandidateSchemaJson,
@@ -72,11 +69,6 @@ import {
 } from '../core/sourceIdentity.js';
 import { sliceRegion } from '../core/tableGeometry.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
-import {
-  decodeGenericXmlUtf8,
-  isXmlSpreadsheet2003Bytes,
-} from '../core/xmlFormat.js';
-import { decodeYamlUtf8 } from '../core/yamlFormat.js';
 import {
   createAiHandoffPackage,
   parseAiHandoffPackage,
@@ -1400,26 +1392,31 @@ export function inspectSource(
   let relative = path.relative(base, absolutePath).split(path.sep).join('/');
   if (!relative.startsWith('.')) relative = `./${relative}`;
 
-  if (/\.json$/iu.test(absolutePath)) {
-    const sourceBytes = fs.readFileSync(absolutePath);
-    const sourceDigest =
-      createSourceIdentityFromBytes(sourceBytes).digest;
-    const tree = readJsonTree(
-      decodeJsonUtf8(sourceBytes),
-      relative,
-      sourceDigest,
-    );
+  const standaloneTree = collectStandaloneTreeCandidates(
+    absolutePath,
+    relative,
+    flatTextMethods,
+  );
+  if (standaloneTree) {
     return {
       source: relative,
       candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
-      candidates: [...tree.candidates],
-      trees: tree.nodes.map((node) => ({
+      candidates: [...standaloneTree.candidates],
+      trees: standaloneTree.nodes.map((node) => ({
         pointer: node.pointer,
-        format: 'json' as const,
+        format: node.format,
         nodeType: node.nodeType,
         childPointers: node.childPointers,
         leafValues: node.leafValues,
+        ...(node.method ? { method: node.method } : {}),
+        ...(node.status ? { status: node.status } : {}),
       })),
+      ...(standaloneTree.hypotheses
+        ? { treeHypotheses: [...standaloneTree.hypotheses] }
+        : {}),
+      ...(standaloneTree.ambiguous !== undefined
+        ? { treeAmbiguous: standaloneTree.ambiguous }
+        : {}),
       images: [],
       choiceLists: [],
       choiceListDiagnostics: [],
@@ -1428,108 +1425,6 @@ export function inspectSource(
     };
   }
 
-  if (/\.ya?ml$/iu.test(absolutePath)) {
-    const sourceBytes = fs.readFileSync(absolutePath);
-    const sourceDigest =
-      createSourceIdentityFromBytes(sourceBytes).digest;
-    const tree = readYamlTree(
-      decodeYamlUtf8(sourceBytes),
-      relative,
-      sourceDigest,
-    );
-    return {
-      source: relative,
-      candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
-      candidates: [...tree.candidates],
-      trees: tree.nodes.map((node) => ({
-        pointer: node.pointer,
-        format: 'yaml' as const,
-        nodeType: node.nodeType,
-        childPointers: node.childPointers,
-        leafValues: node.leafValues,
-      })),
-      images: [],
-      choiceLists: [],
-      choiceListDiagnostics: [],
-      imageDiagnostics: [],
-      sheets: [],
-    };
-  }
-
-  if (/\.xml$/iu.test(absolutePath)) {
-    const sourceBytes = fs.readFileSync(absolutePath);
-    if (!isXmlSpreadsheet2003Bytes(sourceBytes)) {
-      const xml = decodeGenericXmlUtf8(sourceBytes);
-      const sourceDigest =
-        createSourceIdentityFromBytes(sourceBytes).digest;
-      const tree = readXmlTree(xml, relative, sourceDigest);
-      return {
-        source: relative,
-        candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
-        candidates: [...tree.candidates],
-        trees: tree.nodes.map((node) => ({
-          pointer: node.path,
-          format: 'xml' as const,
-          nodeType: 'element' as const,
-          childPointers: node.childPaths,
-          leafValues: [
-            ...node.attributeValues,
-            ...node.textValues.map((value) =>
-              `#text=${JSON.stringify(value)}`),
-          ],
-        })),
-        images: [],
-        choiceLists: [],
-        choiceListDiagnostics: [],
-        imageDiagnostics: [],
-        sheets: [],
-      };
-    }
-  }
-
-  if (/\.(txt|text|log)$/iu.test(absolutePath)) {
-    const sourceBytes = fs.readFileSync(absolutePath);
-    const sourceDigest =
-      createSourceIdentityFromBytes(sourceBytes).digest;
-    const sourceText = decodeFlatTextUtf8(sourceBytes);
-    const tree = readFlatTextTree(
-      sourceText,
-      relative,
-      sourceDigest,
-      { methods: flatTextMethods },
-    );
-    return {
-      source: relative,
-      candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
-      candidates: [...tree.candidates],
-      trees: tree.hypotheses.flatMap((hypothesis) =>
-        hypothesis.nodes.map((node) => ({
-          pointer: node.structuralPath,
-          format: 'text' as const,
-          nodeType: 'text-node' as const,
-          childPointers: node.childLines.map(
-            (line) => `text:${hypothesis.method}:line:${line}`,
-          ),
-          leafValues: [node.label],
-          method: hypothesis.method,
-          status: hypothesis.status,
-        }))),
-      treeHypotheses: tree.hypotheses.map((hypothesis) => ({
-        method: hypothesis.method,
-        status: hypothesis.status,
-        reasonCode: hypothesis.reasonCode,
-        nodeCount: hypothesis.nodes.length,
-      })),
-      treeAmbiguous: tree.ambiguous,
-      images: [],
-      choiceLists: [],
-      choiceListDiagnostics: [],
-      imageDiagnostics: [],
-      sheets: [],
-    };
-  }
-
-  const sourceDigest = readSourceFileIdentity(absolutePath).digest;
   const workbook = loadWorkbook({ absolutePath });
   const isPackage = /\.(xlsx|xlsm)$/iu.test(absolutePath);
   const packageBytes = isPackage
