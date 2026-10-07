@@ -168,6 +168,33 @@ test('human-reviewed image alt text is recorded without changing image bytes or 
   assert.equal(ledger.entries[0].outputDigest, imageBefore);
 });
 
+test('review-time image extraction accepts the unchanged displayed Candidate', () => {
+  const { root, book, doc } = workspace();
+  fs.mkdirSync(path.dirname(doc), { recursive: true });
+  const outDir = path.join(root, 'review-guard-ok-assets');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const reviewed = reviewCandidates(book, doc).find(
+    (candidate) =>
+      candidate.kind === 'image'
+      && candidate.locator.sheet === '画面一覧'
+      && candidate.locator.range === 'D1:F4',
+  );
+  assert.ok(reviewed);
+
+  const result = extractImages({
+    sourcePath: book,
+    selection: '1',
+    outDir,
+    fromDocument: doc,
+    ledgerPath,
+    expectedCandidate: reviewed,
+  });
+
+  assert.deepEqual(result.problems, []);
+  assert.equal(result.extracted.length, 1);
+  assert.equal(readLedger(ledgerPath).entries.length, 1);
+});
+
 test('review-time image extraction rejects Candidate claim changes before adoption', () => {
   const { root, book, doc } = workspace();
   fs.mkdirSync(path.dirname(doc), { recursive: true });
