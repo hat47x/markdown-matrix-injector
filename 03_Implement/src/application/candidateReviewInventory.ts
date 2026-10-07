@@ -13,6 +13,7 @@ import {
   type ExcelDrawingShape,
   type ExcelImage,
   type ImageDiagnostic,
+  type TableRect,
 } from '../adapters/excelImageAdapter.js';
 import {
   readExcelChoiceLists,
@@ -27,6 +28,7 @@ import {
   readTabularHierarchy,
   type TabularHierarchyConfig,
 } from '../adapters/tabularHierarchyAdapter.js';
+import { detectTableRegions } from '../importAssist/tableRegions.js';
 import type { Candidate } from '../core/candidate.js';
 import { decodeJsonUtf8 } from '../core/jsonFormat.js';
 import {
@@ -310,6 +312,26 @@ export function buildCandidateReviewInventory(
 
   const packageBytes = fs.readFileSync(sourcePath);
   const read = readExcelImages(packageBytes);
+  // Candidate identity must not depend on which host asked for it. CLI inspect
+  // already supplies the detected table geometry to imageCandidates so that
+  // the inferred nearby-table Claim is stable. Review inventory must use the
+  // same detector/evidence instead of silently dropping that Claim.
+  const tablesBySheet: Record<string, TableRect[]> = Object.fromEntries(
+    Object.entries(workbook.sheets).map(([sheetName, sheet]) => [
+      sheetName,
+      detectTableRegions(
+        sheetName,
+        sheet,
+        { maxValueSample: 0 },
+      ).map((region) => ({
+        a1: region.a1,
+        startRow: region.range.startRow,
+        startCol: region.range.startCol,
+        endRow: region.range.endRow,
+        endCol: region.range.endCol,
+      })),
+    ]),
+  );
   const choiceRead = readExcelChoiceLists(
     packageBytes,
     sourceLabel,
@@ -320,6 +342,7 @@ export function buildCandidateReviewInventory(
     source: sourceLabel,
     sourceDigest,
     images: read.images,
+    tablesBySheet,
   });
   const imageItems: CandidateReviewInventoryItem[] =
     imageCandidateList.map((candidate, index) => ({
