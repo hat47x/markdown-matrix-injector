@@ -1,6 +1,5 @@
 import {
   candidateProblem,
-  type Candidate,
 } from '../core/candidate.js';
 import type {
   CandidateReviewInventoryItem,
@@ -45,8 +44,9 @@ function contextKey(context: CandidateReviewProviderContext): string {
 /**
  * Memory-only cache for provider-dependent review Candidates.
  *
- * Source digest is part of the key, so a changed source never reuses provider
- * output from older bytes. Nothing is persisted and no provider result is
+ * Source path, logical label and digest are part of the key, so a changed
+ * source or another workspace never reuses provider output. Nothing is
+ * persisted and no provider result is
  * promoted into Authority data.
  */
 export class CandidateReviewProviderCache {
@@ -102,8 +102,18 @@ export function startCandidateReviewProviderRefresh(
 ): CandidateReviewProviderRefresh {
   const cachedItems = cache.get(context);
 
+  const seenProviderIds = new Set<string>();
   const settled = Promise.all(
     lanes.map(async (lane) => {
+      if (seenProviderIds.has(lane.providerId)) {
+        return {
+          providerId: lane.providerId,
+          ok: false as const,
+          message:
+            `Duplicate Candidate review provider lane: ${lane.providerId}`,
+        };
+      }
+      seenProviderIds.add(lane.providerId);
       try {
         const items = await lane.collect(context);
         const validated = validateProviderItems(
@@ -182,6 +192,17 @@ function validateProviderItems(
     ) {
       throw new Error(
         `Provider ${providerId} Candidate does not match the current source snapshot`,
+      );
+    }
+    const expectedKind =
+      item.kind === 'table'
+        ? 'table-range'
+        : item.kind === 'choice-list'
+          ? 'choice-list'
+          : item.kind;
+    if (candidate.kind !== expectedKind) {
+      throw new Error(
+        `Provider ${providerId} review item kind ${item.kind} does not match Candidate kind ${candidate.kind}`,
       );
     }
     if (candidate.status === 'abstained') {
