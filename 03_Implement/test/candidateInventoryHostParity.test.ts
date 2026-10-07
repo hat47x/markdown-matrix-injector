@@ -32,11 +32,13 @@ test('CLI inspect and VS Code review inventory produce identical image Candidate
     './design.xlsx',
   );
 
+  const reviewCandidates = review.items.map((item) => item.candidate);
+  assert.deepEqual(reviewCandidates, cli.candidates);
+
   const cliImages = imageCandidates(cli.candidates);
   const reviewImages = review.items
     .filter((item) => item.kind === 'image')
     .map((item) => item.candidate);
-
   assert.deepEqual(reviewImages, cliImages);
 
   const login = reviewImages.find(
