@@ -14,22 +14,26 @@ import { checkDetachedDocument } from '../application/detachCheck.js';
 import {
   collectStandaloneTreeCandidates,
 } from '../application/sourceCandidateInventory.js';
+import {
+  collectWorkbookCandidates,
+} from '../application/workbookCandidateInventory.js';
 import { checkExtractedProvenanceFreshness } from '../application/detachFreshness.js';
 import { materializeDocument } from '../application/materialize.js';
 import { runPortableCoreRequest } from '../application/portableCoreProtocol.js';
-import {
-  readExcelChoiceLists,
-  type ChoiceListDiagnostic,
+import type {
+  ChoiceListDiagnostic,
 } from '../adapters/excelChoiceListAdapter.js';
-import { imageCandidates, readExcelImages, relationToTables, shapeCandidates, type ImageDiagnostic, type TableRect } from '../adapters/excelImageAdapter.js';
+import {
+  readExcelImages,
+  relationToTables,
+  type ImageDiagnostic,
+} from '../adapters/excelImageAdapter.js';
 import {
   DEFAULT_FLAT_TEXT_TREE_METHODS,
   type FlatTextTreeMethod,
 } from '../adapters/flatTextTreeStructuralizer.js';
-import { tableCandidates } from '../adapters/tableRegionAdapter.js';
-import {
-  readTabularHierarchy,
-  type TabularHierarchyConfig,
+import type {
+  TabularHierarchyConfig,
 } from '../adapters/tabularHierarchyAdapter.js';
 import type { Candidate, ProviderScore } from '../core/candidate.js';
 import {
@@ -63,10 +67,6 @@ import {
   importLedgerSchemaJson,
   reviewDecisionsSchemaJson,
 } from '../core/reviewContracts.js';
-import {
-  createSourceIdentityFromBytes,
-  readSourceFileIdentity,
-} from '../core/sourceIdentity.js';
 import { sliceRegion } from '../core/tableGeometry.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
 import {
@@ -1425,61 +1425,27 @@ export function inspectSource(
     };
   }
 
-  const sourceDigest = readSourceFileIdentity(absolutePath).digest;
-  const workbook = loadWorkbook({ absolutePath });
-  const isPackage = /\.(xlsx|xlsm)$/iu.test(absolutePath);
-  const packageBytes = isPackage
-    ? fs.readFileSync(absolutePath)
-    : undefined;
-  const imageRead = packageBytes
-    ? readExcelImages(packageBytes)
-    : {
-        images: [],
-        shapes: [],
-        snapshotHints: [],
-        diagnostics: /\.xls$/iu.test(absolutePath)
-          ? [{ code: 'MMI_IMAGE_PACKAGE_UNSUPPORTED' as const, severity: 'warning' as const, message: 'binary .xls: embedded pictures are not read' }]
-          : [],
-      };
-  const choiceRead = packageBytes
-    ? readExcelChoiceLists(
-        packageBytes,
-        relative,
-        sourceDigest,
-        workbook,
-      )
-    : { lists: [], diagnostics: [] };
-  const detected = Object.entries(workbook.sheets).map(([name, sheet]) => ({ name, sheet, regions: detectTableRegions(name, sheet, { maxValueSample: 0 }) }));
-  const tabularHierarchies = tabularHierarchy
-    ? Object.entries(workbook.sheets).map(([sheetName, sheet]) => ({
-        sheetName,
-        result: readTabularHierarchy({
-          source: relative,
-          sourceDigest,
-          sheetName,
-          sheet,
-          config: tabularHierarchy,
-        }),
-      }))
-    : [];
-
-  const tablesBySheet: Record<string, TableRect[]> = Object.fromEntries(
-    detected.map(({ name, regions }) => [name, regions.map((r) => ({ a1: r.a1, startRow: r.range.startRow, startCol: r.range.startCol, endRow: r.range.endRow, endCol: r.range.endCol }))]),
+  const workbookInventory = collectWorkbookCandidates(
+    absolutePath,
+    relative,
+    {
+      ...(tabularHierarchy ? { tabularHierarchy } : {}),
+    },
   );
+  const {
+    sourceDigest,
+    workbook,
+    imageRead,
+    choiceRead,
+    tablesBySheet,
+    detected,
+    hierarchies: tabularHierarchies,
+  } = workbookInventory;
+
   return {
     source: relative,
     candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
-    candidates: [
-      ...Object.entries(workbook.sheets).flatMap(([sheetName, sheet]) => tableCandidates({ source: relative, sourceDigest, sheetName, sheet })),
-      ...imageCandidates({ source: relative, sourceDigest, images: imageRead.images, tablesBySheet }),
-      ...shapeCandidates({
-        source: relative,
-        sourceDigest,
-        shapes: imageRead.shapes,
-      }),
-      ...choiceRead.lists.map((item) => item.candidate),
-      ...tabularHierarchies.flatMap(({ result }) => result.candidates),
-    ],
+    candidates: [...workbookInventory.candidates],
     ...(tabularHierarchy
       ? {
           trees: tabularHierarchies.flatMap(({ sheetName, result }) =>

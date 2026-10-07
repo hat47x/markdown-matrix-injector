@@ -45,10 +45,16 @@ export interface WorkbookCandidateInventoryOptions {
   hierarchyOnly?: boolean;
 }
 
+export interface WorkbookDetectedSheet {
+  name: string;
+  regions: ReturnType<typeof detectTableRegions>;
+}
+
 export interface WorkbookCandidateInventory {
   sourceDigest: string;
   workbook: WorkbookData;
   isPackage: boolean;
+  detected: readonly WorkbookDetectedSheet[];
   tableItems: readonly WorkbookTableCandidate[];
   tablesBySheet: Readonly<Record<string, readonly TableRect[]>>;
   imageRead: ImageReadResult;
@@ -117,6 +123,7 @@ export function collectWorkbookCandidates(
       sourceDigest,
       workbook,
       isPackage: /\.(xlsx|xlsm)$/iu.test(sourcePath),
+      detected: [],
       tableItems: [],
       tablesBySheet: {},
       imageRead: empty,
@@ -203,6 +210,7 @@ export function collectWorkbookCandidates(
     sourceDigest,
     workbook,
     isPackage,
+    detected,
     tableItems,
     tablesBySheet,
     imageRead,
