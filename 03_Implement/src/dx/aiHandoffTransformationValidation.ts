@@ -1,12 +1,6 @@
 import { createHash } from 'node:crypto';
-import fs from 'node:fs';
 
-import {
-  imageCandidates,
-  readExcelImages,
-  shapeCandidates,
-} from '../adapters/excelImageAdapter.js';
-import { tableCandidates } from '../adapters/tableRegionAdapter.js';
+import { buildCandidateReviewInventory } from '../application/candidateReviewInventory.js';
 import {
   candidateProblem,
   type Candidate,
@@ -16,7 +10,6 @@ import {
 } from '../core/candidate.js';
 import { resolveSourcePath } from '../core/pathResolver.js';
 import { readSourceFileIdentity } from '../core/sourceIdentity.js';
-import { loadWorkbook } from '../core/workbookLoader.js';
 import {
   AI_HANDOFF_SCHEMA,
   assertAiHandoffPackage,
@@ -62,6 +55,15 @@ export type AiHandoffTransformationPlan =
       candidate: HandoffCandidateIdentity;
       candidateKind: 'image';
       conversion: 'raw-image-bytes-v1';
+    }
+  | {
+      operation: 'extract-standard-asset';
+      candidate: HandoffCandidateIdentity;
+      candidateKind: 'tree';
+      conversion:
+        | 'json-nested-list-v1'
+        | 'yaml-nested-list-v1'
+        | 'xml-nested-list-v1';
     };
 
 export type AiHandoffTransformationCheckName =
@@ -345,37 +347,17 @@ function rediscoverCandidates(
   sourceDigest: string,
   kind: CandidateKind,
 ): Candidate[] {
-  if (kind === 'table-range') {
-    const workbook = loadWorkbook({ absolutePath: sourcePath });
-    return Object.entries(workbook.sheets).flatMap(
-      ([sheetName, sheet]) =>
-        tableCandidates({
-          source: sourceLabel,
-          sourceDigest,
-          sheetName,
-          sheet,
-        }),
+  const inventory = buildCandidateReviewInventory(
+    sourcePath,
+    sourceLabel,
+  );
+  return inventory.items
+    .map((item) => item.candidate)
+    .filter(
+      (candidate) =>
+        candidate.kind === kind
+        && candidate.locator.sourceDigest === sourceDigest,
     );
-  }
-  if (kind === 'image' || kind === 'shape') {
-    if (!/\.(xlsx|xlsm)$/iu.test(sourcePath)) return [];
-    const drawings = readExcelImages(fs.readFileSync(sourcePath));
-    if (drawings.diagnostics.some((item) => item.severity === 'error')) {
-      return [];
-    }
-    return kind === 'image'
-      ? imageCandidates({
-          source: sourceLabel,
-          sourceDigest,
-          images: drawings.images,
-        })
-      : shapeCandidates({
-          source: sourceLabel,
-          sourceDigest,
-          shapes: drawings.shapes,
-        });
-  }
-  return [];
 }
 
 function extractionPlan(
@@ -431,6 +413,37 @@ function extractionPlan(
     };
   }
 
+  if (candidate.kind === 'tree') {
+    if (!candidate.locator.structuralPath) {
+      return {
+        ok: false,
+        code: 'TRANSFORMATION_TREE_LOCATOR_INCOMPLETE',
+        detail:
+          'Tree extraction requires a current structuralPath.',
+      };
+    }
+    const conversion = EXPLICIT_TREE_CONVERSIONS.get(
+      candidate.provenance.algorithm,
+    );
+    if (!conversion) {
+      return {
+        ok: false,
+        code: 'TRANSFORMATION_TREE_CONVERSION_UNSUPPORTED',
+        detail:
+          `No AI transformation review plan is implemented for Tree algorithm ${candidate.provenance.algorithm}.`,
+      };
+    }
+    return {
+      ok: true,
+      plan: {
+        operation: 'extract-standard-asset',
+        candidate: identity,
+        candidateKind: 'tree',
+        conversion,
+      },
+    };
+  }
+
   return {
     ok: false,
     code: 'TRANSFORMATION_CANDIDATE_KIND_UNSUPPORTED',
@@ -444,6 +457,17 @@ const EXTRACTABLE_IMAGE_FORMATS = new Set([
   'gif',
   'bmp',
   'svg',
+]);
+
+const EXPLICIT_TREE_CONVERSIONS = new Map<
+  string,
+  | 'json-nested-list-v1'
+  | 'yaml-nested-list-v1'
+  | 'xml-nested-list-v1'
+>([
+  ['mmi.json-tree-adapter', 'json-nested-list-v1'],
+  ['mmi.yaml-tree-adapter', 'yaml-nested-list-v1'],
+  ['mmi.xml-tree-adapter', 'xml-nested-list-v1'],
 ]);
 
 function offeredCandidate(

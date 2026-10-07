@@ -10,8 +10,11 @@ import {
   readExcelImages,
   shapeCandidates,
 } from '../src/adapters/excelImageAdapter.js';
+import { readJsonTree } from '../src/adapters/jsonTreeAdapter.js';
 import { tableCandidates } from '../src/adapters/tableRegionAdapter.js';
-import { fingerprintOf } from '../src/core/candidate.js';
+import { readXmlTree } from '../src/adapters/xmlTreeAdapter.js';
+import { readYamlTree } from '../src/adapters/yamlTreeAdapter.js';
+import { fingerprintOf, type Candidate } from '../src/core/candidate.js';
 import { readSourceFileIdentity } from '../src/core/sourceIdentity.js';
 import { loadWorkbook } from '../src/core/workbookLoader.js';
 import {
@@ -251,6 +254,103 @@ test('shape transformation is revalidated then blocked as unsupported instead of
     'not-run',
   );
   assert.equal(result.plan, undefined);
+});
+
+test('explicit JSON/YAML/XML Tree transformations return only existing nested-list review plans', async () => {
+  const cases: readonly {
+    extension: 'json' | 'yaml' | 'xml';
+    contents: string;
+    conversion:
+      | 'json-nested-list-v1'
+      | 'yaml-nested-list-v1'
+      | 'xml-nested-list-v1';
+    candidateOf: (
+      text: string,
+      source: string,
+      digest: string,
+    ) => Candidate;
+  }[] = [
+    {
+      extension: 'json',
+      contents: '{"service":{"name":"api"}}',
+      conversion: 'json-nested-list-v1',
+      candidateOf: (text, source, digest) =>
+        readJsonTree(text, source, digest).candidates[0],
+    },
+    {
+      extension: 'yaml',
+      contents: '%YAML 1.2\n---\nservice:\n  name: api\n',
+      conversion: 'yaml-nested-list-v1',
+      candidateOf: (text, source, digest) =>
+        readYamlTree(text, source, digest).candidates[0],
+    },
+    {
+      extension: 'xml',
+      contents: '<service><name>api</name></service>',
+      conversion: 'xml-nested-list-v1',
+      candidateOf: (text, source, digest) =>
+        readXmlTree(text, source, digest).candidates[0],
+    },
+  ];
+
+  for (const fixture of cases) {
+    const root = fs.mkdtempSync(
+      path.join(os.tmpdir(), `mmi-ai-transform-tree-${fixture.extension}-`),
+    );
+    const docs = path.join(root, 'docs');
+    const data = path.join(root, 'data');
+    fs.mkdirSync(docs);
+    fs.mkdirSync(data);
+    const markdownFilePath = path.join(docs, 'spec.md');
+    const sourcePath = path.join(
+      data,
+      `tree.${fixture.extension}`,
+    );
+    fs.writeFileSync(markdownFilePath, '# Spec\n');
+    fs.writeFileSync(sourcePath, fixture.contents);
+
+    const source = `../data/tree.${fixture.extension}`;
+    const sourceDigest = readSourceFileIdentity(sourcePath).digest;
+    const candidate = fixture.candidateOf(
+      fixture.contents,
+      source,
+      sourceDigest,
+    );
+    assert.ok(candidate);
+    const identity = candidateIdentityOf(candidate);
+    const handoff = createAiHandoffPackage({
+      task: '明示Tree CandidateのExtracted案をレビューする',
+      candidates: [candidate],
+    });
+
+    const result = await validateAiHandoffTransformationProposal({
+      handoff,
+      proposal: proposal(identity, 'extracted'),
+      markdownFilePath,
+      workspaceRoot: root,
+    });
+
+    assert.equal(
+      result.status,
+      'accepted-for-review',
+      fixture.extension,
+    );
+    assert.deepEqual(result.plan, {
+      operation: 'extract-standard-asset',
+      candidate: identity,
+      candidateKind: 'tree',
+      conversion: fixture.conversion,
+    });
+    assert.equal(
+      check(result, 'current-candidate')?.code,
+      'TRANSFORMATION_CURRENT_CANDIDATE_REDISCOVERED',
+    );
+    assert.equal(
+      check(result, 'authority-revalidation')?.code,
+      'TRANSFORMATION_EXTRACTION_CURRENT_CANDIDATE_REVALIDATED',
+    );
+    assert.equal(fs.readdirSync(data).length, 1);
+  }
 });
 
 test('fabricated Candidate identity is blocked before source or transform checks', async () => {
