@@ -33,7 +33,7 @@ export function createCliPackageManifest(sourcePackage) {
     license: sourcePackage.license,
     type: 'module',
     bin: {
-      mmi: './dist/src/cli/mmi.js',
+      mmi: './dist/src/cli/bootstrap.js',
     },
     engines: {
       node: '>=20',
@@ -66,10 +66,10 @@ export function stageCliPackage(options = {}) {
   const manifest = createCliPackageManifest(sourcePackage);
 
   const compiledRoot = path.join(projectRoot, 'dist', 'src');
-  const cliEntry = path.join(compiledRoot, 'cli', 'mmi.js');
+  const cliEntry = path.join(compiledRoot, 'cli', 'bootstrap.js');
   if (!fs.existsSync(cliEntry)) {
     throw new Error(
-      `Compiled CLI entry is missing: ${cliEntry}. Run npm run build first.`,
+      `Compiled CLI bootstrap is missing: ${cliEntry}. Run npm run build:product first.`,
     );
   }
 
