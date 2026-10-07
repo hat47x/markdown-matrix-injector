@@ -49,7 +49,7 @@
     "test:e2e": "npm run build && bash ./scripts/run-vscode-e2e.sh",
     "test:e2e:practical": "npm run build && node --import tsx ./test/e2e/runPractical.ts",
     "test:e2e:import": "npm run build && node --import tsx ./test/e2e/runImport.ts",
-    "test": "npm run test:unit && npm run test:cli-distribution && npm run test:phase9-sync && npm run test:phase9-guide-sync",
+    "test": "npm run test:unit && npm run test:candidate-review-product-baseline && npm run test:cli-distribution && npm run test:phase9-sync && npm run test:phase9-guide-sync",
     "test:cli-distribution": "node --test ./test/cliDistribution.test.mjs",
     "package:cli": "npm run build:product && node scripts/build-cli-package.mjs",
     "verify:cli-package": "node scripts/verify-cli-package.mjs",
@@ -61,7 +61,9 @@
     "docs:phase7-rollup": "python3 ../01_Plans/tools/phase7_issue_rollup.py --repo-root .. --output-file artifacts/phase7-issue-rollup.md",
     "release:gate:assert": "python3 ../01_Plans/tools/release_gate_assert_artifacts.py --repo-root ..",
     "package": "vsce package",
-    "publish": "vsce publish"
+    "publish": "vsce publish",
+    "eval:candidate-review-product-baseline": "node scripts/candidate-review-product-baseline.mjs",
+    "test:candidate-review-product-baseline": "node --test ./test/candidateReviewProductBaseline.test.mjs"
   },
   "dependencies": {
     "markdown-it": "^14.1.0",
