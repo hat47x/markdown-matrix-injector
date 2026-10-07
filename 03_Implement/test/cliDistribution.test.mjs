@@ -119,6 +119,7 @@ test('CLI staging copies compiled runtime and disclosure files, not extension ma
   });
 
   assert.equal(result.stageDirectory, stage);
+  assert.equal(fs.existsSync(path.join(stage, 'dist/src/cli/bootstrap.js')), true);
   assert.equal(fs.existsSync(path.join(stage, 'dist/src/cli/mmi.js')), true);
   assert.equal(fs.existsSync(path.join(stage, 'dist/src/core/example.js')), true);
   assert.equal(fs.existsSync(path.join(stage, 'dist/src/core/nested.js')), true);
@@ -188,6 +189,7 @@ test('runtime graph ignores external packages and follows local imports recursiv
       path.join(root, 'dist/src'),
     ),
     [
+      'cli/bootstrap.js',
       'cli/mmi.js',
       'core/example.js',
       'core/nested.js',
@@ -270,9 +272,9 @@ test('successful CLI tarball verification keeps artifacts', () => {
   assert.equal(fs.existsSync(digest), true);
 });
 
-test('CLI staging fails closed when compiled CLI is absent', () => {
+test('CLI staging fails closed when compiled bootstrap is absent', () => {
   const root = fixture();
-  fs.rmSync(path.join(root, 'dist/src/cli/mmi.js'));
+  fs.rmSync(path.join(root, 'dist/src/cli/bootstrap.js'));
 
   assert.throws(
     () => stageCliPackage({
