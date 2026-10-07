@@ -3,7 +3,7 @@
  * Candidate occurrences. Occurrence identity, content identity, Claim review
  * basis and lineage evidence remain separate (ADR-0021).
  */
-import { createHash } from 'node:crypto';
+import { createHash, randomUUID } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -467,6 +467,53 @@ export function entryFor(
   };
 }
 
+function writeLedgerAtomically(ledgerPath: string, ledger: Ledger): void {
+  const absoluteLedgerPath = path.resolve(ledgerPath);
+  const directory = path.dirname(absoluteLedgerPath);
+  fs.mkdirSync(directory, { recursive: true });
+
+  const tempPath = path.join(
+    directory,
+    `.${path.basename(absoluteLedgerPath)}.${process.pid}.${randomUUID()}.tmp`,
+  );
+  let descriptor: number | undefined;
+
+  try {
+    descriptor = fs.openSync(tempPath, 'wx', 0o600);
+    fs.writeFileSync(
+      descriptor,
+      `${JSON.stringify(ledger, null, 2)}\n`,
+      'utf8',
+    );
+    fs.fsyncSync(descriptor);
+    fs.closeSync(descriptor);
+    descriptor = undefined;
+    fs.renameSync(tempPath, absoluteLedgerPath);
+  } catch (error) {
+    if (descriptor !== undefined) {
+      try {
+        fs.closeSync(descriptor);
+      } catch {
+        // Preserve the original write failure.
+      }
+    }
+    try {
+      fs.unlinkSync(tempPath);
+    } catch (cleanupError) {
+      const code =
+        cleanupError
+        && typeof cleanupError === 'object'
+        && 'code' in cleanupError
+          ? String((cleanupError as { code?: unknown }).code)
+          : '';
+      if (code !== 'ENOENT') {
+        // Preserve the original write failure.
+      }
+    }
+    throw error;
+  }
+}
+
 /** Adds or replaces entries by occurrence, keeps file order stable, and writes the ledger. */
 export function recordEntries(ledgerPath: string, entries: readonly LedgerEntry[]): Ledger {
   const ledger = readLedger(ledgerPath);
@@ -479,7 +526,6 @@ export function recordEntries(ledgerPath: string, entries: readonly LedgerEntry[
   ledger.entries.sort((a, b) =>
     `${a.source}\u0000${a.sheet ?? ''}\u0000${a.place}`
       .localeCompare(`${b.source}\u0000${b.sheet ?? ''}\u0000${b.place}`));
-  fs.mkdirSync(path.dirname(path.resolve(ledgerPath)), { recursive: true });
-  fs.writeFileSync(ledgerPath, `${JSON.stringify(ledger, null, 2)}\n`);
+  writeLedgerAtomically(ledgerPath, ledger);
   return ledger;
 }
