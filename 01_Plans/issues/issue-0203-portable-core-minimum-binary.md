@@ -67,7 +67,7 @@ VS CodeのCandidateレビューは`application/candidateReviewInventory.ts`を�
 
 同じparity suiteをJSON / YAML / 汎用XML Tree、推定flat-text Tree、AutoShape / connector、range-backed Choice listへ拡張した。これらはCLI `inspectSource()`とApplication review inventoryで同じCandidate配列を生成することを契約にする。ただしhost固有の**操作可能性**まで同一化しない。例えばflat textの`abstained` CandidateはCLI `inspect`では「主張しなかった」というEvidenceとして残す一方、VS Codeレビューinventoryでは操作可能itemへしない。この差はCandidate生成後のhost policyであり、Coreのidentity/provenance差とは区別する。
 
-parity固定後、Candidate生成そのものをApplication層へ移した。JSON / YAML / 汎用XML / flat-textは`application/sourceCandidateInventory.ts`、workbook系の表・画像・Shape・Choice list・明示列階層は`application/workbookCandidateInventory.ts`を正規の生成経路とする。CLI `inspect`とVS Codeレビューは同じsnapshotを利用し、CLIの表示用metadata、sample行、ledger表示、VS CodeのQuickPickや`abstained`を操作対象にしないpolicyだけをhost側へ残す。表領域の検出もworkbook snapshotで1回だけ行い、画像の`nearby-table` EvidenceとCLI表示が同じ検出結果を参照する。
+parity固定後、Candidate生成そのものをApplication層へ移した。JSON / YAML / 汎用XML / flat-textは`application/sourceCandidateInventory.ts`、workbook系の表・画像・Shape・Choice list・明示列階層は`application/workbookCandidateInventory.ts`を正規の生成経路とする。CLI `inspect`とVS Codeレビューは同じsnapshotを利用し、CLIの表示用metadata、sample行、ledger表示、VS CodeのQuickPickや`abstained`を操作対象にしないpolicyだけをhost側へ残す。表領域の検出もworkbook snapshotで1回だけ行い、画像の`nearby-table` EvidenceとCLI表示が同じ検出結果を参照する。 `candidateInventoryHostParity.test.ts`は、単なるCLI対VS Codeの比較ではなく、両hostのCandidate列が共通Application inventoryそのものと一致することを確認する。workbookでは表領域snapshotもCLI表示と同一であること、明示列のtabular hierarchyもCLI・レビュー・Applicationの三者で一致することを固定する。standalone Treeでは`abstained`をレビュー操作対象から外す差だけをhost policyとして明示する。
 
 ## Validation plan
 
