@@ -4,8 +4,7 @@ import { fileURLToPath } from 'node:url';
 
 import type { CandidateReviewObservation } from '../../src/application/candidateReviewObservation.js';
 import {
-  aggregateCandidateReviewProductRun,
-  compareCandidateReviewProductBaseline,
+  evaluateCandidateReviewProductRuns,
   type ProductBaselineSafetyEvidence,
 } from '../../src/evaluation/candidateReviewProductBaseline.js';
 
@@ -98,25 +97,27 @@ function readSafety(file: string): ProductBaselineSafetyEvidence {
 
 export function main(argv = process.argv.slice(2)): Record<string, unknown> {
   const options = parseArgs(argv);
-  const baseline = aggregateCandidateReviewProductRun({
-    conditionId: options.baselineId,
-    conditionClass: 'current-product-baseline',
-    fixtureCohort: options.fixtureCohort,
-    protocolId: options.protocolId,
-    observations: readObservations(options.baseline),
-    safety: readSafety(options.baselineSafety),
-  });
-  const assisted = aggregateCandidateReviewProductRun({
-    conditionId: options.assistedId,
-    conditionClass: 'assisted',
-    fixtureCohort: options.fixtureCohort,
-    protocolId: options.protocolId,
-    observations: readObservations(options.assisted),
-    safety: readSafety(options.assistedSafety),
-  });
-  const comparison = compareCandidateReviewProductBaseline(
+  const {
     baseline,
     assisted,
+    comparison,
+  } = evaluateCandidateReviewProductRuns(
+    {
+      conditionId: options.baselineId,
+      conditionClass: 'current-product-baseline',
+      fixtureCohort: options.fixtureCohort,
+      protocolId: options.protocolId,
+      observations: readObservations(options.baseline),
+      safety: readSafety(options.baselineSafety),
+    },
+    {
+      conditionId: options.assistedId,
+      conditionClass: 'assisted',
+      fixtureCohort: options.fixtureCohort,
+      protocolId: options.protocolId,
+      observations: readObservations(options.assisted),
+      safety: readSafety(options.assistedSafety),
+    },
   );
 
   const report = {
