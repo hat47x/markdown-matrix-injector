@@ -343,6 +343,27 @@ test('zero safety counts without evidence references are not enough for promotio
   );
 });
 
+test('aggregate fails closed when a safety count is omitted at runtime', () => {
+  const incomplete = {
+    sourceMutation: 0,
+    failedImportResidue: 0,
+    staleAcceptanceInheritance: 0,
+    inferredToObservedPromotion: 0,
+  } as unknown as ProductBaselineSafetyEvidence['counts'];
+
+  assert.throws(
+    () => aggregateCandidateReviewProductRun(
+      run('current-product-baseline', [observation()], {
+        safety: {
+          counts: incomplete,
+          evidenceRefs: ['test:safety'],
+        },
+      }),
+    ),
+    /workspaceEscape/u,
+  );
+});
+
 test('comparison refuses different cohorts, protocols, and unequal session counts', () => {
   const baseline = aggregateCandidateReviewProductRun(
     run('current-product-baseline', [observation()]),
