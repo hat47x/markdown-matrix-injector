@@ -156,7 +156,9 @@ artifact resolverは、認知方式の評価に使える値として次を返す
 - `cacheHit`
 - `availableWithoutNetwork`
 
-精度・latencyだけでなく、初回取得量、disk footprint、offlineでcold startできるかを同じ評価表へ持ち込むための最小値である。各認知方式の評価reportへこの値を転記する接続は別途行う。
+精度・latencyだけでなく、初回取得量、disk footprint、offlineでcold startできるかを同じ評価表へ持ち込むための最小値である。評価reportでは`mmi.cognitive-artifact-evaluation/v0`を共通形とし、artifact identity、provider identity、resolution種別とこの4値を一緒に保持する。artifactを測っていない場合は`not-measured`を明示し、欠測を0として扱わない。
+
+最初の利用箇所はCPU semantic評価である。`--artifact-manifest`を指定した評価では、MMI cacheに同じbytesがあることだけでは実行modelの証拠にせず、選択中のruntimeが公開するmodel digestをmanifest SHA-256と照合する。digest一致を確認できるruntime-managed modelだけを評価対象にし、reportへ`artifactEvaluation`を含める。runtime digestを確認できない場合は、精度・latencyだけを測ってartifact costを推測するのではなく、manifest指定評価自体を開始しない。
 
 ## v0で行わないこと
 
