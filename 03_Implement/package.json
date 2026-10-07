@@ -61,7 +61,8 @@
     "docs:phase7-rollup": "python3 ../01_Plans/tools/phase7_issue_rollup.py --repo-root .. --output-file artifacts/phase7-issue-rollup.md",
     "release:gate:assert": "python3 ../01_Plans/tools/release_gate_assert_artifacts.py --repo-root ..",
     "package": "vsce package",
-    "publish": "vsce publish"
+    "publish": "vsce publish",
+    "eval:product-baseline": "node --import tsx scripts/product-baseline-eval/evaluate.ts"
   },
   "dependencies": {
     "markdown-it": "^14.1.0",
