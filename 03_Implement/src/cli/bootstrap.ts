@@ -42,9 +42,7 @@ export async function bootstrap(
 
 if (
   process.argv[1]
-  && new URL(import.meta.url).pathname.endsWith(
-    process.argv[1].replaceAll('\\', '/'),
-  )
+  && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))
 ) {
   bootstrap().then(
     (code) => { process.exitCode = code; },
