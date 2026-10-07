@@ -4,6 +4,7 @@
  *
  *   node --import tsx scripts/cpu-search-eval/semantic-eval.ts --queries test5 \
  *        --api ollama --endpoint http://127.0.0.1:11434 --model <name> \
+ *        [--artifact-manifest artifact.json] \
  *        [--query-prefix "query: "] [--document-prefix "passage: "] [--out report.json]
  *
  * Every request first goes through the name lane and the structural paraphrase
@@ -13,13 +14,36 @@
  * acceptance. The headline numbers are for the reported threshold list, never
  * for one tuned on the very set being reported: use a set that was not used to
  * choose the threshold (a fresh held-out set), and record the model/runtime.
+ *
+ * When --artifact-manifest is supplied, the selected runtime model must expose
+ * a cryptographic digest matching the manifest before evaluation starts. The
+ * report then carries common artifact size/download/cache/offline metrics.
+ * Without a manifest the report says not-measured; missing evidence is never
+ * converted to zero-cost evidence.
  */
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import {
+  parseCognitiveArtifactManifest,
+  resolveCognitiveArtifact,
+  type CognitiveArtifactManifestV0,
+  type CognitiveArtifactProvider,
+} from '../../src/core/cognitiveArtifact.js';
 import { loadWorkbook } from '../../src/core/workbookLoader.js';
+import {
+  cognitiveArtifactEvaluationObservation,
+  cognitiveArtifactNotMeasured,
+  type CognitiveArtifactEvaluationObservation,
+} from '../../src/evaluation/cognitiveArtifactEvaluation.js';
 import { createEmbeddingProvider, type EmbeddingApi } from '../../src/search/semantic/embeddingProvider.js';
+import {
+  discoverLocalEmbeddingModels,
+  runtimeManagedArtifactFromEmbeddingModel,
+  type DiscoveredEmbeddingModel,
+} from '../../src/search/semantic/runtimeDiscovery.js';
 import { SemanticRegionRanker } from '../../src/search/semantic/semanticLane.js';
 import { describableRequest, SOFT_UNSUPPORTED_CONSTRUCTS } from '../../src/search/nlQuery/compiler.js';
 import { WorkspaceRegionIndex } from '../../src/search/workspaceRegionIndex.js';
@@ -37,6 +61,7 @@ interface Args {
   queryPrefix: string;
   documentPrefix: string;
   window: number;
+  artifactManifest?: string;
   out?: string;
 }
 
@@ -52,12 +77,101 @@ function parseArgs(argv: string[]): Args {
       case '--query-prefix': args.queryPrefix = next(); break;
       case '--document-prefix': args.documentPrefix = next(); break;
       case '--window': args.window = Number(next()); break;
+      case '--artifact-manifest': args.artifactManifest = next(); break;
       case '--out': args.out = next(); break;
       default: throw new Error(`Unknown argument: ${argv[i]}`);
     }
   }
   if (args.model === '') throw new Error('--model is required (a model already available in your local runtime).');
   return args;
+}
+
+
+function normalizedEndpoint(value: string): string {
+  return value.replace(/\/+$/u, '');
+}
+
+export async function resolveSemanticEvaluationArtifact(
+  manifest: CognitiveArtifactManifestV0,
+  provider: CognitiveArtifactProvider,
+  selection: {
+    api: EmbeddingApi;
+    endpoint: string;
+    model: string;
+  },
+  discoveredModels: readonly DiscoveredEmbeddingModel[],
+): Promise<CognitiveArtifactEvaluationObservation> {
+  const selected = discoveredModels.filter(
+    (model) =>
+      model.api === selection.api
+      && normalizedEndpoint(model.endpoint)
+        === normalizedEndpoint(selection.endpoint)
+      && model.model === selection.model,
+  );
+  if (selected.length === 0) {
+    throw new Error(
+      'artifact manifest was supplied, but the selected runtime model could not be rediscovered',
+    );
+  }
+  const digestBound = selected.filter(
+    (model) => model.artifactDigest === manifest.sha256,
+  );
+  if (digestBound.length === 0) {
+    const observed = selected
+      .map((model) => model.artifactDigest ?? 'digest-unavailable')
+      .join(', ');
+    throw new Error(
+      `selected runtime model is not cryptographically bound to the artifact manifest: expected ${manifest.sha256}, runtime reported ${observed}`,
+    );
+  }
+
+  const cacheRoot = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'mmi-semantic-eval-artifact-'),
+  );
+  try {
+    const resolution = await resolveCognitiveArtifact(manifest, {
+      provider,
+      cacheRoot,
+      offline: true,
+      runtimeArtifacts: digestBound.map(
+        runtimeManagedArtifactFromEmbeddingModel,
+      ),
+    });
+    const observed = cognitiveArtifactEvaluationObservation(
+      manifest,
+      provider,
+      resolution,
+    );
+    if (
+      resolution.status !== 'available'
+      || resolution.location.kind !== 'runtime-managed'
+    ) {
+      const detail = resolution.status === 'unavailable'
+        ? resolution.reason
+        : resolution.status;
+      throw new Error(
+        `selected semantic runtime is not cryptographically bound to the supplied artifact manifest (${detail})`,
+      );
+    }
+    return observed;
+  } finally {
+    fs.rmSync(cacheRoot, { recursive: true, force: true });
+  }
+}
+
+async function discoverSelectedRuntimeModels(
+  args: Pick<Args, 'api' | 'endpoint'>,
+): Promise<DiscoveredEmbeddingModel[]> {
+  const unreachable = 'http://127.0.0.1:9';
+  return discoverLocalEmbeddingModels(undefined, {
+    timeoutMs: 1_500,
+    ollamaEndpoint: args.api === 'ollama'
+      ? args.endpoint
+      : unreachable,
+    lmStudioEndpoint: args.api === 'openai-compatible'
+      ? args.endpoint
+      : unreachable,
+  });
 }
 
 const keyOf = (bookPath: string, sheet: string, a1: string): string => `${path.basename(bookPath)}#${sheet}!${a1}`;
@@ -80,6 +194,25 @@ export async function main(argv = process.argv.slice(2)): Promise<Record<string,
   await index.refresh(files);
 
   const provider = createEmbeddingProvider({ api: args.api, endpoint: args.endpoint, model: args.model, queryPrefix: args.queryPrefix, documentPrefix: args.documentPrefix });
+  const artifactEvaluation = args.artifactManifest
+    ? await resolveSemanticEvaluationArtifact(
+        parseCognitiveArtifactManifest(
+          fs.readFileSync(path.resolve(args.artifactManifest), 'utf8'),
+        ),
+        {
+          id: provider.descriptor.id,
+          version: provider.descriptor.version,
+        },
+        {
+          api: args.api,
+          endpoint: args.endpoint,
+          model: args.model,
+        },
+        await discoverSelectedRuntimeModels(args),
+      )
+    : cognitiveArtifactNotMeasured(
+        'no --artifact-manifest was supplied',
+      );
   const ranker = new SemanticRegionRanker(provider);
   const regions = index.allRegionsForEvaluation();
   const relativePath = (file: string): string => `./${path.basename(file)}`;
@@ -137,6 +270,7 @@ export async function main(argv = process.argv.slice(2)): Promise<Record<string,
     kind: 'cpu-search-semantic-eval',
     generatedAt: new Date().toISOString(),
     provider: { ...provider.descriptor, model: args.model, api: args.api, endpointHost: new URL(args.endpoint).host },
+    artifactEvaluation,
     queries: args.queries,
     window: args.window,
     regions: regions.length,
