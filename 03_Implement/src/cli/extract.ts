@@ -145,6 +145,8 @@ export interface FinalizeReviewedTableOptions {
   ledgerPath: string;
   extracted: ExtractedTable;
   editedMarkdown: string;
+  /** Candidate shown to the reviewer before the human edit. */
+  candidate?: Candidate;
   fromDocument?: string;
   sourceLabel?: string;
   basis?: string;
@@ -366,21 +368,25 @@ export function extractImages(options: ExtractOptions): ExtractResult {
     });
   }
   if (options.ledgerPath && result.extracted.length > 0) {
-    sourceDigest ??= options.sourceBytes
-      ? createSourceIdentityFromBytes(packageBytes).digest
-      : readSourceFileIdentity(options.sourcePath).digest;
-    currentImageCandidates ??= imageCandidates({
-      source,
-      sourceDigest,
-      images: read.images,
-    });
+    const ledgerSourceDigest = sourceDigest
+      ?? (options.sourceBytes
+        ? createSourceIdentityFromBytes(packageBytes).digest
+        : readSourceFileIdentity(options.sourcePath).digest);
+    const ledgerCandidates = currentImageCandidates
+      ?? imageCandidates({
+        source,
+        sourceDigest: ledgerSourceDigest,
+        images: read.images,
+      });
+    sourceDigest = ledgerSourceDigest;
+    currentImageCandidates = ledgerCandidates;
     const entries: LedgerEntry[] = [];
     for (const item of result.extracted) {
       const image = chosen.find((candidateImage) => candidateImage.ordinal === item.ordinal)!;
       const candidateIndex = read.images.findIndex(
         (candidateImage) => candidateImage.ordinal === item.ordinal,
       );
-      const candidate = currentImageCandidates[candidateIndex];
+      const candidate = ledgerCandidates[candidateIndex];
       if (!candidate) {
         result.problems.push({
           ordinal: item.ordinal,
@@ -792,6 +798,10 @@ export function finalizeReviewedTableExtraction(
     !candidate
     || candidate.fingerprint.digest
       !== options.extracted.candidateFingerprint
+    || (
+      options.candidate
+      && !sameCandidateReviewBasis(options.candidate, candidate)
+    )
   ) {
     result.problems.push({
       code: 'MMI_TABLE_REVIEW_STALE',
