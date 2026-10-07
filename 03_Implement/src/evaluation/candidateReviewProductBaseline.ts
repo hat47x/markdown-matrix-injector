@@ -79,6 +79,12 @@ export interface CandidateReviewProductBaseline {
   };
 }
 
+export interface CandidateReviewProductEvaluation {
+  baseline: CandidateReviewProductBaseline;
+  assisted: CandidateReviewProductBaseline;
+  comparison: CandidateReviewProductComparison;
+}
+
 export interface CandidateReviewProductComparison {
   schema: typeof CANDIDATE_REVIEW_PRODUCT_BASELINE_SCHEMA;
   fixtureCohort: string;
@@ -208,6 +214,29 @@ export function aggregateCandidateReviewProductRun(
 }
 
 /**
+ * Recommended product comparison entry point.
+ *
+ * It verifies that A/B observations came from the same source bytes and the
+ * same review filter/facets before discarding those identities from the report.
+ */
+export function evaluateCandidateReviewProductRuns(
+  baselineRun: CandidateReviewProductRun,
+  assistedRun: CandidateReviewProductRun,
+): CandidateReviewProductEvaluation {
+  assertComparableObservationProtocol(
+    baselineRun.observations,
+    assistedRun.observations,
+  );
+  const baseline = aggregateCandidateReviewProductRun(baselineRun);
+  const assisted = aggregateCandidateReviewProductRun(assistedRun);
+  return {
+    baseline,
+    assisted,
+    comparison: compareCandidateReviewProductBaseline(baseline, assisted),
+  };
+}
+
+/**
  * Compare the existing deterministic product path with one assisted condition.
  *
  * This first policy is intentionally conservative:
@@ -323,6 +352,15 @@ function validateObservation(
   if (observation.schema !== 'mmi.candidate-review-observation/v2') {
     throw new Error(`observation ${index} uses unsupported schema`);
   }
+  if (
+    !observation.source
+    || typeof observation.source.label !== 'string'
+    || !observation.source.label.trim()
+    || typeof observation.source.digest !== 'string'
+    || !/^sha256:[0-9a-f]{64}$/u.test(observation.source.digest)
+  ) {
+    throw new Error(`observation ${index} contains invalid source identity`);
+  }
   const values = [
     observation.durationMs,
     observation.ui.selectedCount,
@@ -364,6 +402,46 @@ function validateObservation(
     observation.adjustments.imageAlt,
   ]) {
     validateAdjustmentAggregate(aggregate, `observation ${index}`);
+  }
+}
+
+function assertComparableObservationProtocol(
+  baseline: readonly CandidateReviewObservation[],
+  assisted: readonly CandidateReviewObservation[],
+): void {
+  if (baseline.length !== assisted.length) {
+    throw new Error('controlled comparison requires the same session count');
+  }
+  for (let index = 0; index < baseline.length; index += 1) {
+    const left = baseline[index];
+    const right = assisted[index];
+    if (!left || !right) {
+      throw new Error('controlled comparison session pairing is incomplete');
+    }
+    validateObservation(left, index);
+    validateObservation(right, index);
+    if (left.source.digest !== right.source.digest) {
+      throw new Error(
+        `observation ${index} source digest differs between conditions`,
+      );
+    }
+    if (left.ui.ledgerFilter !== right.ui.ledgerFilter) {
+      throw new Error(
+        `observation ${index} ledger filter differs between conditions`,
+      );
+    }
+    if (
+      JSON.stringify(left.ui.facets.kinds)
+        !== JSON.stringify(right.ui.facets.kinds)
+      || JSON.stringify(left.ui.facets.statuses)
+        !== JSON.stringify(right.ui.facets.statuses)
+      || JSON.stringify(left.ui.facets.executions)
+        !== JSON.stringify(right.ui.facets.executions)
+    ) {
+      throw new Error(
+        `observation ${index} review facets differ between conditions`,
+      );
+    }
   }
 }
 
