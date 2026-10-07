@@ -227,3 +227,77 @@ test('lane provenance must match provider id and current source', async () => {
   );
   assert.deepEqual(cache.get(context), []);
 });
+
+
+test('provider cache does not leak across workspaces with the same label and bytes', async () => {
+  const cache = new CandidateReviewProviderCache();
+  await startCandidateReviewProviderRefresh(
+    context,
+    [{
+      providerId: 'provider-a',
+      collect: async () => [tableItem('provider-a')],
+    }],
+    cache,
+  ).settled;
+
+  const otherWorkspace = startCandidateReviewProviderRefresh(
+    { ...context, sourcePath: '/other-workspace/design.xlsx' },
+    [],
+    cache,
+  );
+  assert.deepEqual(otherWorkspace.cachedItems, []);
+});
+
+test('deterministic review session keys keep their pre-provider format', () => {
+  const candidate = providerCandidate('provider-a');
+  candidate.execution = 'deterministic';
+  candidate.method = 'M1';
+  candidate.claims = [{
+    aspect: 'boundary',
+    value: 'A1:B2',
+    status: 'inferred',
+    execution: 'deterministic',
+    method: 'M1',
+    reasonCode: 'test-boundary',
+  }];
+  candidate.provenance = {
+    algorithm: 'test.deterministic',
+    run: {
+      execution: 'deterministic',
+      inputDigest: digestA,
+      config: {},
+      implementationVersion: 'fixture-v1',
+    },
+  };
+  candidate.scores = [];
+
+  assert.equal(
+    candidateReviewSessionKey(candidate),
+    [
+      'table-range',
+      './design.xlsx',
+      'Sheet1',
+      'A1:B2',
+      'test-provider-table-v1',
+      fingerprint,
+    ].join('\u0000'),
+  );
+});
+
+test('one provider lane deduplicates repeated copies of the same Candidate', async () => {
+  const cache = new CandidateReviewProviderCache();
+  const item = tableItem('provider-a');
+
+  const summary = await startCandidateReviewProviderRefresh(
+    context,
+    [{
+      providerId: 'provider-a',
+      collect: async () => [item, item],
+    }],
+    cache,
+  ).settled;
+
+  assert.deepEqual(summary.completedProviders, ['provider-a']);
+  assert.equal(summary.cachedItemCount, 1);
+  assert.equal(cache.get(context).length, 1);
+});
