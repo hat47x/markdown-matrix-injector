@@ -477,9 +477,12 @@ function writeLedgerAtomically(ledgerPath: string, ledger: Ledger): void {
     `.${path.basename(absoluteLedgerPath)}.${process.pid}.${randomUUID()}.tmp`,
   );
   let descriptor: number | undefined;
+  const mode = fs.existsSync(absoluteLedgerPath)
+    ? fs.statSync(absoluteLedgerPath).mode & 0o777
+    : 0o666;
 
   try {
-    descriptor = fs.openSync(tempPath, 'wx', 0o600);
+    descriptor = fs.openSync(tempPath, 'wx', mode);
     fs.writeFileSync(
       descriptor,
       `${JSON.stringify(ledger, null, 2)}\n`,
