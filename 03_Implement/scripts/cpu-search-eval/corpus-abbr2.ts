@@ -113,7 +113,7 @@ export const GROUP_OF: Readonly<Record<string, 'glossary' | 'mentioned' | 'undoc
 
 if (process.argv[1] && path.resolve(process.argv[1]) === path.resolve(new URL(import.meta.url).pathname)) {
   const outDir = process.argv[2];
-  if (!outDir) throw new Error('usage: corpus-v7.ts <outDir>');
+  if (!outDir) throw new Error('usage: corpus-abbr2.ts <outDir>');
   const manifest = writeCorpus(outDir, 20261007, BOOKS_V7);
   fs.writeFileSync(path.join(outDir, 'manifest.json'), `${JSON.stringify(manifest, null, 2)}\n`);
   console.log(`${BOOKS_V7.length} books, ${manifest.length} regions -> ${outDir}`);

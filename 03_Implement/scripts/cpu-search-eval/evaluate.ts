@@ -24,7 +24,6 @@ import { detectRegions } from '../../src/search/regionDetector.js';
 import { Bm25Retriever, CosineRetriever, ExactTokenRetriever, FlyHashRetriever } from '../../src/search/retrievers.js';
 import { RegionSearchIndex, RETRIEVAL_METHODS, type RetrievalMethod } from '../../src/search/searchIndex.js';
 import { verifyRegion } from '../../src/search/verify.js';
-import { IT_ACRONYM_GROUPS } from '../../src/search/lexicon/itAcronyms.js';
 import { DEFAULT_CORPUS_DIR, writeCorpus, type ManifestRegion } from './corpus.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -44,15 +43,13 @@ interface Args {
   dictionary: boolean;
   /** `--no-paraphrase`: ablation of the paraphrase lane. */
   paraphrase: boolean;
-  /** `--no-lexicon`: ablation of the built-in abbreviation lexicon (ADR-0023). */
-  lexicon: boolean;
   /** `--no-glossary`: ablation of the abbreviation pairs read from the indexed workbooks (ADR-0023). */
   glossary: boolean;
   methods: RetrievalMethod[];
 }
 
 function parseArgs(argv: string[]): Args {
-  const args: Args = { queries: 'dev', iterations: 30, corpus: DEFAULT_CORPUS_DIR, dictionary: true, paraphrase: true, lexicon: true, glossary: true, methods: [...RETRIEVAL_METHODS] };
+  const args: Args = { queries: 'dev', iterations: 30, corpus: DEFAULT_CORPUS_DIR, dictionary: true, paraphrase: true, glossary: true, methods: [...RETRIEVAL_METHODS] };
   for (let i = 0; i < argv.length; i += 1) {
     const next = (): string => argv[++i];
     switch (argv[i]) {
@@ -62,7 +59,6 @@ function parseArgs(argv: string[]): Args {
       case '--out': args.out = next(); break;
       case '--no-dictionary': args.dictionary = false; break;
       case '--no-paraphrase': args.paraphrase = false; break;
-      case '--no-lexicon': args.lexicon = false; break;
       case '--no-glossary': args.glossary = false; break;
       case '--methods': args.methods = next().split(',') as RetrievalMethod[]; break;
       default: throw new Error(`Unknown argument: ${argv[i]}`);
@@ -180,7 +176,7 @@ export function main(argv = process.argv.slice(2)): Record<string, unknown> {
   const badIds = queries.flatMap((q) => (q.expect.regions ?? []).filter((id) => !known.has(id)).map((id) => `${q.id}: ${id}`));
   if (badIds.length > 0) throw new Error(`Queries reference unknown regions:\n${badIds.join('\n')}`);
   const dictionary = JSON.parse(fs.readFileSync(path.join(here, 'dictionary.json'), 'utf8'));
-  const synonyms: string[][] = [...(args.dictionary ? dictionary.groups : []), ...(args.lexicon ? IT_ACRONYM_GROUPS.map((group) => [...group]) : [])];
+  const synonyms: string[][] = args.dictionary ? dictionary.groups : [];
   const queryAliases = args.dictionary ? (dictionary.queryAliases ?? []) : [];
 
   const files = [...new Set(manifest.map((region) => region.file))].map((file) => path.resolve(args.corpus, file));

@@ -20,10 +20,9 @@ import { semanticCandidates, SemanticRegionRanker, type SemanticLaneOptions } fr
 import { RegionSearchIndex, type RetrievalMethod } from './searchIndex.js';
 import type { RegionRecord } from './regionCatalog.js';
 import { verifyRegion } from './verify.js';
-import { IT_ACRONYM_GROUPS } from './lexicon/itAcronyms.js';
 
 /** Business dictionary (tuned on the dev query set only; see scripts/cpu-search-eval/dictionary.json). */
-const BUSINESS_SYNONYMS: readonly (readonly string[])[] = [
+export const DEFAULT_SYNONYMS: readonly (readonly string[])[] = [
   ['API', 'インターフェース', 'IF'],
   ['障害', 'インシデント', '不具合'],
   ['スケジュール', '日程'],
@@ -32,9 +31,6 @@ const BUSINESS_SYNONYMS: readonly (readonly string[])[] = [
   ['スペック', '構成'],
   ['見積', '見積もり'],
 ];
-
-/** Business synonyms plus the built-in abbreviation lexicon (ADR-0023). */
-export const DEFAULT_SYNONYMS: readonly (readonly string[])[] = [...BUSINESS_SYNONYMS, ...IT_ACRONYM_GROUPS];
 
 /**
  * High-precision directional descriptions for phrases that are not true

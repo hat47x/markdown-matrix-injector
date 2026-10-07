@@ -44,7 +44,7 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 
 **認知方式:** [ADR-0020](adr/ADR-0020-requirement-oriented-cognition-method-selection.md)により、認知はLLM等に限定せず、M0明示抽出 → M1決定論的推定 → M2軽量類似 → M3 bounded Judgment → M4 local generative → M5 external handoffを要件ごとに比較する。最も単純で十分な方式を優先し、`observed/inferred/abstained`、`accepted/rejected`等のreview、`deterministic/provider-dependent`を別軸として扱う。採用済みの推定も`inferred`のまま保持する。provider-dependent処理は編集・CIの主経路から外す。
 
-**表の探索の次の一手（[ADR-0023](adr/ADR-0023-fuzzy-search-before-paraphrase-and-model-runtime.md)・提案）:** 言い換え検索のためにモデル実行環境を導入させない。需要がありそうな略語・表記ゆれを、決定論のまま先に強め、未見のv6で測る。
+**表の探索の次の一手（[ADR-0023](adr/ADR-0023-fuzzy-search-before-paraphrase-and-model-runtime.md)・提案）:** 言い換え検索のためにモデル実行環境を導入させない。需要がありそうな略語・表記ゆれを、決定論のまま先に強め、未見の略語セットA1で測る。
 
 ## 確定した事実
 

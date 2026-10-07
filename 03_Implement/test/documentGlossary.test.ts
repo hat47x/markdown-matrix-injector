@@ -4,7 +4,7 @@ import test from 'node:test';
 import type { SheetSource, SourceCell } from '../src/core/sheetSource.js';
 import type { WorkbookData } from '../src/core/workbookLoader.js';
 import { pairsInText } from '../src/search/lexicon/documentGlossary.js';
-import { compileQuery } from '../src/search/nlQuery/compiler.js';
+import { compileQuery, variantsOf } from '../src/search/nlQuery/compiler.js';
 import { RegionCatalog } from '../src/search/regionCatalog.js';
 import { RegionSearchIndex } from '../src/search/searchIndex.js';
 
@@ -126,4 +126,13 @@ test('the fit label is shown modestly, with two decimals, and only when there is
   assert.equal(fitLabel(undefined), '');
   assert.equal(withFit('設計書 / 画面一覧 A1:D5', 0.725), '設計書 / 画面一覧 A1:D5 ・ 適合度 0.72');
   assert.equal(withFit('設計書 / 画面一覧 A1:D5', undefined), '設計書 / 画面一覧 A1:D5');
+});
+
+test('a synonym written in Latin letters matches only as a whole word', () => {
+  const groups = [['OS', 'オペレーティングシステム'], ['N/W', 'ネットワーク']];
+  assert.equal(variantsOf('POST一覧', groups).length, 1, '"OS" inside "POST"');
+  assert.equal(variantsOf('OS一覧', groups).length, 2);
+  assert.equal(variantsOf('os一覧', groups).length, 2, 'case-insensitive');
+  assert.equal(variantsOf('N/Wの表', groups).length, 2, 'a symbol inside the term');
+  assert.equal(variantsOf('ネットワークOS', groups).length, 3, 'a Japanese term matches next to Latin letters');
 });
