@@ -11,7 +11,7 @@
  * stays part of the word while the と in 「IDと操作」 is a particle.
  */
 
-export type UnsupportedKind = 'aggregation' | 'comparison' | 'negation' | 'sort' | 'exactMatch';
+export type UnsupportedKind = 'aggregation' | 'comparison' | 'negation' | 'sort' | 'exactMatch' | 'join';
 
 export type TokenKind =
   | 'WORD'
@@ -106,6 +106,10 @@ const KEYWORDS: Keyword[] = [
   ),
   ...['完全一致', '完全に一致', 'と一致', 'に一致', 'と等しい', 'に等しい', '等しい', 'と同じ', 'ぴったり', '='].map(
     (text) => ({ text, kind: 'UNSUPPORTED' as const, unsupported: 'exactMatch' as const }),
+  ),
+  // Putting two tables together. 「結合」 alone is not listed: it is part of names like 結合テスト.
+  ...['つなげて', 'つなげる', 'つなげたい', 'つなぎ合わせ', '突き合わせ', '突合', '紐付け', '紐づけ', 'ひも付け', 'ジョイン', 'マージ', '結合して', '結合したい', 'くっつけ'].map(
+    (text) => ({ text, kind: 'UNSUPPORTED' as const, unsupported: 'join' as const }),
   ),
 ];
 

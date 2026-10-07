@@ -33,7 +33,7 @@
   "mmi.setting.semanticEndpoint": "実験的。ローカルruntimeのベースURL。`localhost`・`127.0.0.1`・`::1`だけを受け付けます。",
   "mmi.setting.semanticModel": "実験的。ローカルruntimeに導入済みの埋め込みモデル。Ollama / LM Studioでは **MMI: 端末内の意味検索モデルを選択** から、モデルを取得・loadせずに選べます。その他のloopback上のOpenAI互換serverは従来どおり手動設定できます。",
   "mmi.setting.semanticArtifactDigest": "実験的。選択したローカルモデルについてruntimeが公開するSHA-256をMMIが確認できた場合に固定します（現在はOllama）。同じモデル名でもruntime側のartifactが変わった場合、意味検索を実行せず通常検索へ戻します。暗号学的artifact identityを公開しないruntimeでは空欄のままです。",
-  "mmi.setting.semanticMinScore": "実験的。この値以上のコサイン類似度の表だけを提示します。モデルによって適切な値が違うため、使う前に`scripts/cpu-search-eval/semantic-eval.ts`で測ってください。",
+  "mmi.setting.semanticMinScore": "実験的。この値以上のコサイン類似度の表だけを提示します。モデルによって適切な値が違うため、使う前に`scripts/cpu-search-eval/semantic-eval.ts`で測ってください。`qwen3-embedding:0.6b`での未見セット（60件、言い換え30件）の実測では、0.6で言い換え8/30（誤った提示なし）、0.55で10/30（同じく誤りなし）、0.5以下は18〜24/30に増える一方、存在しない表への依頼にも候補を出しました。モデルが違えば値も違います。",
   "mmi.setting.semanticQueryPrefix": "実験的。モデルによっては質問文の前に必要な接頭辞（e5系なら`query: `）。",
   "mmi.setting.semanticDocumentPrefix": "実験的。モデルによっては文書の前に必要な接頭辞（e5系なら`passage: `）。",
   "mmi.setting.reviewObservation": "Candidateレビューの利用状況をローカルに記録します。有効にすると、開始・終了時刻、所要時間、選択して確認した候補数、採用・修正採用・却下・保留などの状態変化をワークスペースの.mmi/candidate-review-observations.jsonlへ追記します。Candidateの本文やセル値は記録せず、外部にも送信しません。",

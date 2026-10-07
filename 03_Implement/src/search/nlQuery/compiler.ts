@@ -111,6 +111,7 @@ export interface CompileResult {
 
 const UNSUPPORTED_REASON: Record<UnsupportedConstruct, string> = {
   aggregation: '集計（合計・件数・〜別など）はMMI記法にありません。',
+  join: '複数の表をつなげる操作（結合・突き合わせ）はMMI記法にありません。表を1つずつ参照してください。',
   comparison: '大小・日付の比較はMMI記法にありません。',
   negation: '否定（〜以外・〜を含まないなど）はMMI記法にありません。grepは「含む」だけを表せます。',
   sort: '並べ替えや最新・上位の抽出はMMI記法にありません。',
