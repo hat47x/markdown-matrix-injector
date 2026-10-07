@@ -340,6 +340,25 @@ function validateObservation(
       throw new Error(`observation ${index} contains invalid work counts`);
     }
   }
+  if (
+    observation.editingInterruptionProxy !== 0
+    && observation.editingInterruptionProxy !== 1
+  ) {
+    throw new Error(
+      `observation ${index} editingInterruptionProxy must be 0 or 1`,
+    );
+  }
+  const transitionSum =
+    observation.transitions.toAccepted
+    + observation.transitions.toModified
+    + observation.transitions.toRejected
+    + observation.transitions.toDeferred
+    + observation.transitions.toUnreviewed;
+  if (transitionSum !== observation.transitions.reviewStateChanged) {
+    throw new Error(
+      `observation ${index} review transition counts are inconsistent`,
+    );
+  }
   for (const aggregate of [
     observation.adjustments.table,
     observation.adjustments.imageAlt,
