@@ -103,7 +103,18 @@ export async function resolveSemanticEvaluationArtifact(
   );
   if (selected.length === 0) {
     throw new Error(
-      'artifact manifest was supplied, but the selected runtime model could not be rediscovered with a verifiable runtime identity',
+      'artifact manifest was supplied, but the selected runtime model could not be rediscovered',
+    );
+  }
+  const digestBound = selected.filter(
+    (model) => model.artifactDigest === manifest.sha256,
+  );
+  if (digestBound.length === 0) {
+    const observed = selected
+      .map((model) => model.artifactDigest ?? 'digest-unavailable')
+      .join(', ');
+    throw new Error(
+      `selected runtime model is not cryptographically bound to the artifact manifest: expected ${manifest.sha256}, runtime reported ${observed}`,
     );
   }
 
@@ -115,7 +126,7 @@ export async function resolveSemanticEvaluationArtifact(
       provider,
       cacheRoot,
       offline: true,
-      runtimeArtifacts: selected.map(
+      runtimeArtifacts: digestBound.map(
         runtimeManagedArtifactFromEmbeddingModel,
       ),
     });
