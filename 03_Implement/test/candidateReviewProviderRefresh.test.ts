@@ -382,3 +382,48 @@ test('provider review item kind must match Candidate kind', async () => {
   assert.match(summary.failedProviders[0].message, /does not match Candidate kind/u);
   assert.deepEqual(cache.get(context), []);
 });
+
+
+test('empty provider id fails before invoking provider work', async () => {
+  const cache = new CandidateReviewProviderCache();
+  let called = false;
+  const summary = await startCandidateReviewProviderRefresh(
+    context,
+    [{
+      providerId: '   ',
+      collect: async () => {
+        called = true;
+        return [];
+      },
+    }],
+    cache,
+  ).settled;
+
+  assert.equal(called, false);
+  assert.equal(summary.failedProviders.length, 1);
+  assert.match(summary.failedProviders[0].message, /must not be empty/u);
+});
+
+test('provider Candidate cannot smuggle score evidence from another provider', async () => {
+  const cache = new CandidateReviewProviderCache();
+  const item = tableItem('provider-a');
+  item.candidate.scores = [{
+    provider: 'provider-b',
+    scale: 'cosine',
+    value: 0.9,
+  }];
+
+  const summary = await startCandidateReviewProviderRefresh(
+    context,
+    [{
+      providerId: 'provider-a',
+      collect: async () => [item],
+    }],
+    cache,
+  ).settled;
+
+  assert.equal(summary.completedProviders.length, 0);
+  assert.equal(summary.failedProviders.length, 1);
+  assert.match(summary.failedProviders[0].message, /another provider/u);
+  assert.deepEqual(cache.get(context), []);
+});
