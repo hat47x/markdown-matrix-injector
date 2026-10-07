@@ -38,6 +38,7 @@ import {
   extractXmlTree,
   extractYamlTree,
 } from '../cli/extractTree.js';
+import { shapeSnapshotSelection } from '../adapters/excelImageAdapter.js';
 import type {
   TabularHierarchyConfig,
 } from '../adapters/tabularHierarchyAdapter.js';
@@ -903,10 +904,11 @@ export async function reviewCandidates(
     continue;
   }
 
-  const canSnapshotShape =
+  const shapeSnapshot =
     picked.source.kind === 'shape'
-    && picked.source.shape.anchor.kind === 'twoCellAnchor'
-    && Boolean(picked.source.shape.range);
+      ? shapeSnapshotSelection(picked.source.shape)
+      : undefined;
+  const canSnapshotShape = Boolean(shapeSnapshot);
 
   const action = await vscode.window.showQuickPick(
     [
@@ -1061,11 +1063,8 @@ export async function reviewCandidates(
     action.value === 'snapshot-shape'
     && picked.source.kind === 'shape'
   ) {
-    const shape = picked.source.shape;
-    if (
-      shape.anchor.kind !== 'twoCellAnchor'
-      || !shape.range
-    ) {
+    const selection = shapeSnapshotSelection(picked.source.shape);
+    if (!selection) {
       await vscode.window.showErrorMessage(
         'MMI: この図形は終端セルを安全に確定できないため、自動画像化できません。',
       );
@@ -1082,8 +1081,8 @@ export async function reviewCandidates(
       snapshot = await renderLibreOfficeRegionSnapshot({
         sourcePath,
         sourceLabel,
-        sheet: shape.sheet,
-        range: shape.range,
+        sheet: selection.sheet,
+        range: selection.range,
         outDir: path.join(root, 'assets', 'snapshots'),
         ledgerPath,
         ...(markdownDocument

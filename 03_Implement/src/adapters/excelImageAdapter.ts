@@ -106,6 +106,28 @@ export interface ExcelDrawingShape {
   structuralPath: string;
 }
 
+export interface ShapeSnapshotSelection {
+  sheet: string;
+  range: string;
+}
+
+export function shapeSnapshotSelection(
+  shape: ExcelDrawingShape,
+): ShapeSnapshotSelection | undefined {
+  if (
+    shape.anchor.kind !== 'twoCellAnchor'
+    || !shape.anchor.from
+    || !shape.anchor.to
+    || !shape.range
+  ) {
+    return undefined;
+  }
+  return {
+    sheet: shape.sheet,
+    range: shape.range,
+  };
+}
+
 export type DrawingSnapshotHintReason =
   | 'drawing-two-cell-anchor'
   | 'drawing-one-cell-anchor-needs-range'
