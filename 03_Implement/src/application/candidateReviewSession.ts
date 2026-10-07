@@ -21,10 +21,16 @@ export function candidateReviewSessionKey(
     candidate.execution === 'provider-dependent'
     && candidate.provenance.run.execution === 'provider-dependent'
   ) {
+    const parameters = Object.entries(
+      candidate.provenance.run.parameters,
+    )
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, value]) => [key, value]);
     parts.push(
       candidate.provenance.run.provider,
       candidate.provenance.run.model,
       candidate.provenance.run.artifactVersion,
+      JSON.stringify(parameters),
     );
   }
   return parts.join('\u0000');
