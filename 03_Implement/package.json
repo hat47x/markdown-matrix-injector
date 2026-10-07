@@ -80,7 +80,7 @@
   },
   "main": "./dist/src/extension.js",
   "bin": {
-    "mmi": "./dist/src/cli/mmi.js"
+    "mmi": "./dist/src/cli/bootstrap.js"
   },
   "engines": {
     "vscode": "^1.100.0"

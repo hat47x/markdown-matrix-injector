@@ -30,7 +30,7 @@ stageではリポジトリの`package-lock.json`と通常manifestを一時的に
 
 `scripts/verify-cli-package.mjs`は、新しい一時prefixと空の専用npm cacheを作り、tarballを`npm install --offline`する。既存cacheから不足依存を補えないため、runtime dependencyの同梱漏れを検出できる。導入後は生成された`mmi` binaryで`--help`、`--version`、`check`、`render`を実行し、`--version`がインストール済みpackage.jsonのversionと一致することも確認する。`npm run package:cli`はtarball生成直後にこの検証を自動実行し、検証失敗時は`.tgz`とSHA-256 sidecarを削除するため、未検証artifactを配布対象として残さない。LinuxとWindowsで同じ検証手順を使えるが、本Issueのmanual-e2eとしての両OS実行はまだ行っていない。
 
-`test/cliDistribution.test.mjs`では、CLI packageがVS Code固有の`main`、`publisher`、`contributes`を持ち込まないこと、runtime dependencyとpackage file allowlistが限定されること、CLIから到達するmoduleだけがstageへ入りextension/experimental codeが混入しないこと、コメントや文字列中の疑似importを依存と誤認しないこと、欠落module・root外import・compiled entry欠落でfail-closedになることを回帰として追加した。`cli.test.ts`には`mmi --version` / `-v`とpackage metadataの一致確認を追加した。
+`test/cliDistribution.test.mjs`では、CLI packageがVS Code固有の`main`、`publisher`、`contributes`を持ち込まないこと、runtime dependencyとpackage file allowlistが限定されること、bootstrapから到達するmoduleだけがstageへ入りextension/experimental codeが混入しないこと、コメントや文字列中の疑似importを依存と誤認しないこと、欠落module・root外import・compiled bootstrap欠落でfail-closedになることを回帰として追加した。`cli.test.ts`には`mmi --version` / `-v`とpackage metadataの一致確認を追加した。`cliBootstrap.test.ts`ではNode 18/19を拒否し、20以上を許可するversion gateと、非対応Nodeでruntime graphを読み込まずexit 2になることを固定した。
 
 ## Linuxでの実測（2026-10-06）
 
@@ -39,7 +39,7 @@ stageではリポジトリの`package-lock.json`と通常manifestを一時的に
 - **既存の不具合を修正した。** `package:cli`は最初に`npm run build`（`tsc -p tsconfig.json`）を実行するが、`tsconfig.json`は`test/**`と研究層も含むため、型エラーが残ると配布物が作れなかった。最新の`main`では、`saxes`導入時に`xmlTreeAdapter.ts`から型定義が落ちたこと、`aiHandoffTransformationValidation.ts`の`CHECK_ORDER`が未定義のまま使われていたこと、`inspect`の汎用XML分岐に`choiceLists`等が無いこと等、**product側にも型エラーが55件あった**（`npm ci`済みの環境）。product側を直し、さらに`package:cli`が使うビルドを`tsconfig.product.json`（`src`のうち研究層を除く）の`build:product`へ切り替えた。`npm run build`（全体）は、研究層・凍結テストの既存の型エラー17件が残るため、引き続き失敗する。凍結テストは固定されたダイジェストを検証するので、型エラーのために編集しない。
 - 生成: `artifacts/cli-package/markdown-matrix-injector-0.1.0.tgz`（約3.3MB、`bundleDependencies`込み）。生成直後の隔離検証（新しいprefix、空のnpm cache、`--offline`）は16項目すべて`passed`（`help`・`version`・`check`・`render`・JSON/XML/YAMLのTree `inspect`/`extract`/ledgerを含む）。
 - 修正の効果: product側の型・実行時の不具合を直したところ、全体テストの失敗が77件から61件に減り、16件のテスト（CLIの`inspect`/`extract`、AI手渡しの検証等）が合格に変わった。新しい失敗は0件（変更前の`origin/main`と、失敗するテスト名を比較）。
-- 見つかった課題: **Node 18で実行すると、xlsxの`SyntaxError`という分かりにくい失敗になる**（`engines.node>=20`はnpmの警告にとどまる）。ESMの`import`は巻き上げられるため、`mmi.js`の先頭では検査できない。起動用の薄い入口（Nodeの版を確かめてから`import()`する）が必要。
+- Node 18で実行すると、従来はSheetJSを読み込んだ後に`SyntaxError`へ落ち、必要なNode版が利用者に伝わらなかった。2026-10-07に`src/cli/bootstrap.ts`を追加し、配布`bin`をbootstrapへ変更した。bootstrapはproduct/runtime依存を静的importせず、Node 20未満なら本体を読み込む前に「Node.js 20 or newer is required」と現在versionを表示してexit 2にする。Node 20以上でのみ`mmi.js`をdynamic importする。runtime graph収集もbootstrapを起点にするため、本体moduleの同梱は維持される。
 
 ## Validation plan
 
@@ -56,6 +56,6 @@ mmi render <basic-design-kit>/基本設計書.md --root <basic-design-kit>
 
 ## Remaining work
 
-- 実際のtarballを生成し、Windows・Linuxの新規環境でmanual-e2eを実施する。これが終わるまで「開発環境なしで検証済み」とは扱わない。
+- 最新bootstrapを含むtarballを生成し、Windows・Linuxの新規環境でmanual-e2eを実施する。Node 20以上で通常動作することに加え、可能ならNode 18環境で本体依存を読む前に明示的version errorへ落ちることも確認する。これが終わるまで「開発環境なしで両OS検証済み」とは扱わない。
 - npm registryへの公開名・公開時期は、tarball配布の実測後に決める。tarball自体はregistryなしでも配布できる。
 - MCPサーバーは、CLIだけで不足すると分かってから検討する（ADR-0019 D10）。

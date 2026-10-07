@@ -2,7 +2,7 @@
 
 このディレクトリは、VS Code拡張とは別に配布するMMI CLIのnpm tarballを作るための正本です。
 
-利用者に必要なのはNode.js 20以上と配布された`.tgz`です。リポジトリのcheckout、TypeScript、`npm ci`、MMIのbuildは不要です。runtime依存もtarballへ同梱するため、配布物のインストール時にSheetJS CDNやnpm registryからMMIの依存packageを取得することを前提にしません。
+利用者に必要なのはNode.js 20以上と配布された`.tgz`です。Node 20未満で`mmi`を起動した場合は、SheetJS等のruntime依存を読み込む前に必要versionを明示して終了します。リポジトリのcheckout、TypeScript、`npm ci`、MMIのbuildは不要です。runtime依存もtarballへ同梱するため、配布物のインストール時にSheetJS CDNやnpm registryからMMIの依存packageを取得することを前提にしません。
 
 ## 配布物を作る
 

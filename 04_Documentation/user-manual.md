@@ -252,7 +252,7 @@ VS Codeの「取り込み候補を確認」でも、表・画像・Choice list�
 
 **画像について。** Excelに画面ダンプなどを貼って設計を整理する書き方は、そのまま続けられます。`extract`は画像を取り出して参照できる形にするだけで、Excel側の画像は変わりません。Excelで画像を差し替えたり動かしたりしても、次に`inspect`を実行すれば現在の位置と内容が分かります。取り出せるのはPNG・JPEG・GIF・BMP・SVGです。EMF・WMF・TIFF、外部ファイルへのリンク、壊れた図形は、取り出さずに理由を表示します。`.xls`（旧形式）の画像は読めません。
 
-配布CLIはNode.js 20以上で動くnpm互換tarballです。配布された`.tgz`を使う場合、MMIリポジトリのcheckout、TypeScript、`npm ci`、buildは不要です。runtime依存もtarballへ同梱します。
+配布CLIはNode.js 20以上で動くnpm互換tarballです。配布された`.tgz`を使う場合、MMIリポジトリのcheckout、TypeScript、`npm ci`、buildは不要です。Node 20未満で起動した場合は、本体依存を読み込む前に必要なNode版を表示して終了します。runtime依存もtarballへ同梱します。
 
 ```bash
 npm install -g ./markdown-matrix-injector-<version>.tgz
