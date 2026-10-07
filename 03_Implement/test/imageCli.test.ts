@@ -168,6 +168,68 @@ test('human-reviewed image alt text is recorded without changing image bytes or 
   assert.equal(ledger.entries[0].outputDigest, imageBefore);
 });
 
+test('review-time image extraction accepts the unchanged displayed Candidate', () => {
+  const { root, book, doc } = workspace();
+  fs.mkdirSync(path.dirname(doc), { recursive: true });
+  const outDir = path.join(root, 'review-guard-ok-assets');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const reviewed = reviewCandidates(book, doc).find(
+    (candidate) =>
+      candidate.kind === 'image'
+      && candidate.locator.sheet === '画面一覧'
+      && candidate.locator.range === 'D1:F4',
+  );
+  assert.ok(reviewed);
+
+  const result = extractImages({
+    sourcePath: book,
+    selection: '1',
+    outDir,
+    fromDocument: doc,
+    ledgerPath,
+    expectedCandidate: reviewed,
+  });
+
+  assert.deepEqual(result.problems, []);
+  assert.equal(result.extracted.length, 1);
+  assert.equal(readLedger(ledgerPath).entries.length, 1);
+});
+
+test('review-time image extraction rejects Candidate claim changes before adoption', () => {
+  const { root, book, doc } = workspace();
+  fs.mkdirSync(path.dirname(doc), { recursive: true });
+  const outDir = path.join(root, 'review-guard-assets');
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const reviewed = reviewCandidates(book, doc).find(
+    (candidate) =>
+      candidate.kind === 'image'
+      && candidate.locator.sheet === '画面一覧'
+      && candidate.locator.range === 'D1:F4',
+  );
+  assert.ok(reviewed);
+
+  // Keep the image bytes but change source metadata that contributes to the
+  // Candidate Claim basis. A fingerprint-only guard would miss this.
+  fs.writeFileSync(
+    book,
+    screenDesignWorkbook({ loginName: 'ログイン画面（改名）' }).bytes,
+  );
+
+  const result = extractImages({
+    sourcePath: book,
+    selection: '1',
+    outDir,
+    fromDocument: doc,
+    ledgerPath,
+    expectedCandidate: reviewed,
+  });
+
+  assert.deepEqual(result.extracted, []);
+  assert.equal(result.problems[0]?.code, 'MMI_IMAGE_REVIEW_STALE');
+  assert.equal(fs.existsSync(outDir), false);
+  assert.equal(fs.existsSync(ledgerPath), false);
+});
+
 test('unchanged image alt text remains accepted and stale review context fails closed', () => {
   const { root, book, doc } = workspace();
   fs.mkdirSync(path.dirname(doc), { recursive: true });

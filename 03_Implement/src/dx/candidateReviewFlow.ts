@@ -1182,6 +1182,7 @@ export async function reviewCandidates(
         ? { fromDocument: markdownDocument }
         : {}),
       sourceLabel,
+      expectedCandidate: picked.source.candidate,
     });
     if (
       draft.problems.length > 0
@@ -1251,6 +1252,7 @@ export async function reviewCandidates(
         ? { fromDocument: markdownDocument }
         : {}),
       sourceLabel,
+      expectedCandidate: picked.source.candidate,
     });
     if (draft.problems.length > 0 || !draft.extracted) {
       await vscode.window.showErrorMessage(
@@ -1285,6 +1287,7 @@ export async function reviewCandidates(
       ledgerPath,
       extracted: draft.extracted,
       editedMarkdown: reviewDocument.getText(),
+      candidate: picked.source.candidate,
       ...(markdownDocument
         ? { fromDocument: markdownDocument }
         : {}),
@@ -1319,6 +1322,7 @@ export async function reviewCandidates(
         : {}),
       sourceLabel,
       ledgerPath,
+      expectedCandidate: picked.source.candidate,
     });
     if (
       result.problems.length > 0
@@ -1380,6 +1384,7 @@ export async function reviewCandidates(
         : {}),
       sourceLabel,
       ledgerPath,
+      expectedCandidate: picked.source.candidate,
     });
     if (result.problems.length > 0 || !result.extracted) {
       await vscode.window.showErrorMessage(
