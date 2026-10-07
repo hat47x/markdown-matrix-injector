@@ -8,6 +8,7 @@ import { main } from '../src/cli/mmi.js';
 import {
   imageCandidates,
   readExcelImages,
+  shapeCandidates,
 } from '../src/adapters/excelImageAdapter.js';
 import { tableCandidates } from '../src/adapters/tableRegionAdapter.js';
 import { fingerprintOf } from '../src/core/candidate.js';
@@ -24,7 +25,10 @@ import {
   AI_HANDOFF_TRANSFORMATION_VALIDATION_SCHEMA,
   validateAiHandoffTransformationProposal,
 } from '../src/dx/aiHandoffTransformationValidation.js';
-import { screenDesignWorkbook } from './helpers/buildXlsxWithImages.js';
+import {
+  buildXlsxWithImages,
+  screenDesignWorkbook,
+} from './helpers/buildXlsxWithImages.js';
 
 function tableFixture() {
   const root = fs.mkdtempSync(
@@ -178,6 +182,75 @@ test('image extraction proposal is rederived from the current XLSX package', asy
     candidateKind: 'image',
     conversion: 'raw-image-bytes-v1',
   });
+});
+
+test('shape transformation is revalidated then blocked as unsupported instead of pretending the Candidate disappeared', async () => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'mmi-ai-transform-shape-'),
+  );
+  const docs = path.join(root, 'docs');
+  const data = path.join(root, 'data');
+  fs.mkdirSync(docs);
+  fs.mkdirSync(data);
+  const markdownFilePath = path.join(docs, 'spec.md');
+  const sourcePath = path.join(data, 'flow.xlsx');
+  fs.writeFileSync(markdownFilePath, '# Spec\n');
+  const drawing = [
+    '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">',
+    '<xdr:twoCellAnchor>',
+    '<xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>',
+    '<xdr:to><xdr:col>2</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>2</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>',
+    '<xdr:sp><xdr:nvSpPr><xdr:cNvPr id="4" name="承認"/></xdr:nvSpPr><xdr:spPr><a:prstGeom prst="diamond"/></xdr:spPr><xdr:txBody><a:p><a:r><a:t>承認</a:t></a:r></a:p></xdr:txBody></xdr:sp>',
+    '<xdr:clientData/>',
+    '</xdr:twoCellAnchor>',
+    '</xdr:wsDr>',
+  ].join('');
+  const bytes = buildXlsxWithImages(
+    [{ name: 'Flow', rawDrawing: drawing }],
+    {},
+  );
+  fs.writeFileSync(sourcePath, bytes);
+
+  const source = '../data/flow.xlsx';
+  const sourceDigest = readSourceFileIdentity(sourcePath).digest;
+  const read = readExcelImages(bytes);
+  const candidate = shapeCandidates({
+    source,
+    sourceDigest,
+    shapes: read.shapes,
+  })[0];
+  assert.ok(candidate);
+  const identity = candidateIdentityOf(candidate);
+  const handoff = createAiHandoffPackage({
+    task: 'Shape Candidateの利用案をレビューする',
+    candidates: [candidate],
+  });
+
+  const result = await validateAiHandoffTransformationProposal({
+    handoff,
+    proposal: proposal(identity, 'extracted'),
+    markdownFilePath,
+    workspaceRoot: root,
+  });
+
+  assert.equal(result.status, 'blocked');
+  assert.equal(
+    check(result, 'current-candidate')?.code,
+    'TRANSFORMATION_CURRENT_CANDIDATE_REDISCOVERED',
+  );
+  assert.equal(
+    check(result, 'transformation-contract')?.code,
+    'TRANSFORMATION_CANDIDATE_KIND_UNSUPPORTED',
+  );
+  assert.match(
+    check(result, 'transformation-contract')?.detail ?? '',
+    /Candidate kind shape/u,
+  );
+  assert.equal(
+    check(result, 'authority-revalidation')?.status,
+    'not-run',
+  );
+  assert.equal(result.plan, undefined);
 });
 
 test('fabricated Candidate identity is blocked before source or transform checks', async () => {

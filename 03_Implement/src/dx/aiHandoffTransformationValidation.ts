@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import {
   imageCandidates,
   readExcelImages,
+  shapeCandidates,
 } from '../adapters/excelImageAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import {
@@ -356,17 +357,23 @@ function rediscoverCandidates(
         }),
     );
   }
-  if (kind === 'image') {
+  if (kind === 'image' || kind === 'shape') {
     if (!/\.(xlsx|xlsm)$/iu.test(sourcePath)) return [];
-    const images = readExcelImages(fs.readFileSync(sourcePath));
-    if (images.diagnostics.some((item) => item.severity === 'error')) {
+    const drawings = readExcelImages(fs.readFileSync(sourcePath));
+    if (drawings.diagnostics.some((item) => item.severity === 'error')) {
       return [];
     }
-    return imageCandidates({
-      source: sourceLabel,
-      sourceDigest,
-      images: images.images,
-    });
+    return kind === 'image'
+      ? imageCandidates({
+          source: sourceLabel,
+          sourceDigest,
+          images: drawings.images,
+        })
+      : shapeCandidates({
+          source: sourceLabel,
+          sourceDigest,
+          shapes: drawings.shapes,
+        });
   }
   return [];
 }
