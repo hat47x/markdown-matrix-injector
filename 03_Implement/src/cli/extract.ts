@@ -22,7 +22,7 @@ import {
   createSourceIdentityFromBytes,
   readSourceFileIdentity,
 } from '../core/sourceIdentity.js';
-import { loadWorkbook } from '../core/workbookLoader.js';
+import { loadWorkbookFromBytes } from '../core/workbookLoader.js';
 import { parseEmbedSyntax, type EmbedQuery } from '../parser/embedSyntax.js';
 
 export interface ExtractOptions {
@@ -279,9 +279,7 @@ export function extractImages(options: ExtractOptions): ExtractResult {
   let sourceDigest: string | undefined;
   let currentImageCandidates: Candidate[] | undefined;
   if (options.expectedCandidate || options.ledgerPath) {
-    sourceDigest = options.sourceBytes
-      ? createSourceIdentityFromBytes(packageBytes).digest
-      : readSourceFileIdentity(options.sourcePath).digest;
+    sourceDigest = createSourceIdentityFromBytes(packageBytes).digest;
     currentImageCandidates = imageCandidates({
       source,
       sourceDigest,
@@ -368,10 +366,8 @@ export function extractImages(options: ExtractOptions): ExtractResult {
     });
   }
   if (options.ledgerPath && result.extracted.length > 0) {
-    const ledgerSourceDigest = sourceDigest
-      ?? (options.sourceBytes
-        ? createSourceIdentityFromBytes(packageBytes).digest
-        : readSourceFileIdentity(options.sourcePath).digest);
+    const ledgerSourceDigest =
+      sourceDigest ?? createSourceIdentityFromBytes(packageBytes).digest;
     const ledgerCandidates = currentImageCandidates
       ?? imageCandidates({
         source,
@@ -480,9 +476,11 @@ export function finalizeReviewedImageExtraction(
     return result;
   }
 
+  let sourceBytes: Buffer;
   let read: ReturnType<typeof readExcelImages>;
   try {
-    read = readExcelImages(fs.readFileSync(options.sourcePath));
+    sourceBytes = fs.readFileSync(options.sourcePath);
+    read = readExcelImages(sourceBytes);
   } catch (error) {
     result.problems.push({
       code: 'MMI_IMAGE_REVIEW_STALE',
@@ -514,7 +512,7 @@ export function finalizeReviewedImageExtraction(
         .join('/')
       || path.basename(options.sourcePath)
     );
-  const sourceDigest = readSourceFileIdentity(options.sourcePath).digest;
+  const sourceDigest = createSourceIdentityFromBytes(sourceBytes).digest;
   const currentCandidates = imageCandidates({
     source,
     sourceDigest,
@@ -587,7 +585,8 @@ export function finalizeReviewedImageExtraction(
 
 export function extractTable(options: ExtractTableOptions): ExtractTableResult {
   const result: ExtractTableResult = { problems: [] };
-  const workbook = loadWorkbook({ absolutePath: options.sourcePath });
+  const sourceBytes = fs.readFileSync(options.sourcePath);
+  const workbook = loadWorkbookFromBytes(options.sourcePath, sourceBytes);
   const sheet = workbook.sheets[options.sheet];
   if (!sheet) {
     result.problems.push({
@@ -607,7 +606,7 @@ export function extractTable(options: ExtractTableOptions): ExtractTableResult {
         .join('/')
       || path.basename(options.sourcePath)
     );
-  const sourceDigest = readSourceFileIdentity(options.sourcePath).digest;
+  const sourceDigest = createSourceIdentityFromBytes(sourceBytes).digest;
   const candidates = tableCandidates({
     source,
     sourceDigest,
@@ -763,7 +762,8 @@ export function finalizeReviewedTableExtraction(
   options: FinalizeReviewedTableOptions,
 ): FinalizeReviewedTableResult {
   const result: FinalizeReviewedTableResult = { problems: [] };
-  const workbook = loadWorkbook({ absolutePath: options.sourcePath });
+  const sourceBytes = fs.readFileSync(options.sourcePath);
+  const workbook = loadWorkbookFromBytes(options.sourcePath, sourceBytes);
   const sheet = workbook.sheets[options.extracted.sheet];
   if (!sheet) {
     result.problems.push({
@@ -785,7 +785,7 @@ export function finalizeReviewedTableExtraction(
         .join('/')
       || path.basename(options.sourcePath)
     );
-  const sourceDigest = readSourceFileIdentity(options.sourcePath).digest;
+  const sourceDigest = createSourceIdentityFromBytes(sourceBytes).digest;
   const candidate = tableCandidates({
     source,
     sourceDigest,
