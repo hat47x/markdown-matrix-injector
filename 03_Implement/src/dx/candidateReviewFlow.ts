@@ -1171,6 +1171,7 @@ export async function reviewCandidates(
       ledgerPath,
       extracted: draft.extracted,
       editedMarkdown: reviewDocument.getText(),
+      candidate: picked.source.candidate,
       ...(markdownDocument
         ? { fromDocument: markdownDocument }
         : {}),
