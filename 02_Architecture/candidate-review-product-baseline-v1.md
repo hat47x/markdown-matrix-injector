@@ -34,7 +34,9 @@ B: assisted
 
 AとBで、import transaction、source authority、review decision、UI lifecycleを別物にしません。
 
-比較には同じ`fixtureCohort`、同じ`protocolId`、同じsession数を要求します。別のfixtureや別の作業手順を使った結果を、モデル効果として比較しません。
+比較には同じ`fixtureCohort`、同じ`protocolId`、同じsession数を要求します。さらにProduct CLIは、対応する各sessionについてsource digest、ledger filter、review facetが一致することを内部で確認します。文字列上のcohort名が同じだけでは比較可能とみなしません。
+
+source digestは比較の同一性確認にだけ使い、baseline reportへコピーしません。別の原本や別のreview filterを使った結果を、モデル効果として比較しません。
 
 ## 3. Existing observationを再利用する
 
@@ -72,6 +74,7 @@ v1では、次を個別の値として比較します。
 
 Product promotionの最初のpolicyは保守的にします。
 
+- A/Bで同じsource bytesとreview filter/facetを使う
 - `newlyImported`を減らさない
 - lower-is-betterの各work metricを悪化させない
 - 少なくとも一つのwork metricを改善する
