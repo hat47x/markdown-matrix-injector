@@ -63,7 +63,11 @@ VS CodeのCandidateレビューは`application/candidateReviewInventory.ts`を�
 
 `test/candidateInventoryHostParity.test.ts`では同一の架空XLSXをCLI `inspectSource()`とVS Code側Application inventoryへ渡し、画像Candidate配列が完全一致すること、画面表の右側にある画像が同じ`nearby-table=A1:B3` Evidenceを持つことを固定した。
 
-これはCLI全体をVS Code実装へ依存させる変更ではない。Application/Core境界へ収束する前に、host別Candidate生成が同じidentity/provenanceを返すことを先に固定する。次は表・Tree・Choice list・Shapeについて同様のparityを確認し、差が無い経路からCandidate列挙そのものを共通Application APIへ置き換える。
+これはCLI全体をVS Code実装へ依存させる変更ではない。Application/Core境界へ収束する前に、host別Candidate生成が同じidentity/provenanceを返すことを先に固定する。
+
+同じparity suiteをJSON / YAML / 汎用XML Tree、推定flat-text Tree、AutoShape / connector、range-backed Choice listへ拡張した。これらはCLI `inspectSource()`とApplication review inventoryで同じCandidate配列を生成することを契約にする。ただしhost固有の**操作可能性**まで同一化しない。例えばflat textの`abstained` CandidateはCLI `inspect`では「主張しなかった」というEvidenceとして残す一方、VS Codeレビューinventoryでは操作可能itemへしない。この差はCandidate生成後のhost policyであり、Coreのidentity/provenance差とは区別する。
+
+次段では、このparityが固定された表・画像・明示Tree・Choice list・ShapeからCandidate列挙そのものを共通Application APIへ置き換える。CLI表示用metadataやVS Code QuickPick等はhost adapterに残す。
 
 ## Validation plan
 
@@ -74,7 +78,7 @@ VS CodeのCandidateレビューは`application/candidateReviewInventory.ts`を�
 - 追加したTypeScript conformance corpusを依存が揃った通常開発環境で実行し、v1 baseline responseを固定する。
 - 標準GoのCSV table Candidateはshared contractで初期conformanceを確認済み。JSON Treeもshared fixtureへ実装済みなので、まず通常のGo開発環境でnative/WASMの全suiteを再実行し、追加したUnicode・pointer・fingerprint境界を実測で確認する。その後、Go 1.25以上の隔離環境でExcelize v2.11.0を固定し、XLSX decoder gateをTypeScript参照と同じcorpusで評価する。binary/WASM増分、transitive dependency、display semantics、安全性を同時に測る。
 - TinyGo native / WASMを同じcorpusで測定し、標準Go native / WASMの実測値とbinary size、startup、peak memory、互換性を比較する。現環境ではTinyGo未導入のため未測定。
-- CLI `inspect`とVS Code側Candidate列挙を段階的に同じApplication/Core APIへ収束させる。画像Candidateはhost間parityを固定済み。次に表・Tree・Choice list・Shapeのparityを確認し、Candidate列挙を共通Application APIへ置き換える。二重実装を残したままGo移行を始めない。
+- CLI `inspect`とVS Code側Candidate列挙を段階的に同じApplication/Core APIへ収束させる。表・画像・JSON/YAML/XML Tree・推定flat-text Tree・Choice list・Shape/connectorのhost間Candidate parityを回帰化した。次にCandidate列挙を共通Application APIへ置き換え、abstained表示等のhost固有policyだけをadapter側へ残す。二重実装を残したままGo移行を始めない。
 - `check` / `render` / `extract`のJSON contractは、inspect v1の境界が実測で成立してから追加する。
 - Go移行そのものは本Issueの完了条件にしない。まずportable core boundaryと評価基準を固定する。
 - Hike類似技術のwatchは定期的に見直すが、成熟前にproduction dependencyへ入れない。
