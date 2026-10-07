@@ -19,7 +19,7 @@ export const DEFAULT_CORPUS_DIR = path.join(os.tmpdir(), 'mmi-cpu-search-eval', 
 
 type Gen = string;
 
-interface TableSpec {
+export interface TableSpec {
   /** Top-left of the title if present, else of the header row. */
   origin: string;
   title?: string;
@@ -31,7 +31,7 @@ interface TableSpec {
   rows: number;
 }
 
-interface BookSpec {
+export interface BookSpec {
   file: string;
   sheets: { name: string; tables: TableSpec[] }[];
 }
@@ -213,6 +213,10 @@ function cellValue(gen: Gen, index: number, random: () => number): string | numb
       const options = arg.split('|');
       return options[Math.floor(random() * options.length)];
     }
+    case 'cycle': {
+      const options = arg.split('|');
+      return options[index % options.length];
+    }
     case 'int': {
       const [lo, hi] = arg.split('-').map(Number);
       return lo + Math.floor(random() * (hi - lo + 1));
@@ -227,11 +231,11 @@ function cellValue(gen: Gen, index: number, random: () => number): string | numb
 }
 
 /** Writes every book into `outDir` and returns the ground-truth manifest. */
-export function writeCorpus(outDir: string, seed = 20260924): ManifestRegion[] {
+export function writeCorpus(outDir: string, seed = 20260924, books: readonly BookSpec[] = BOOKS): ManifestRegion[] {
   fs.mkdirSync(outDir, { recursive: true });
   const random = mulberry32(seed);
   const manifest: ManifestRegion[] = [];
-  for (const book of BOOKS) {
+  for (const book of books) {
     const workbook = XLSX.utils.book_new();
     for (const sheetSpec of book.sheets) {
       const ws: XLSX.WorkSheet = {};

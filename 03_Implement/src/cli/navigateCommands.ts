@@ -12,6 +12,7 @@ import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
 import { toRelativeSuggestion } from '../dx/vscodeAdapters.js';
 import { analyzeBook } from '../navigate/catalog.js';
 import { selectFromBook, type RowSelection, type SelectionResult } from '../navigate/select.js';
+import { fitLabel } from '../search/fitLabel.js';
 import { WorkspaceRegionIndex } from '../search/workspaceRegionIndex.js';
 
 export const NAVIGATE_SCHEMA = 'mmi.cli/v0';
@@ -98,12 +99,12 @@ export async function runFind(args: readonly string[], options: NavigateOptions,
     } catch {
       ref = undefined; // the book changed or became unreadable since indexing: no identity to offer
     }
-    return { reference: candidate.markdown, explanation: candidate.explanation, notes: candidate.notes, ...(ref ? { candidate: ref } : {}) };
+    return { reference: candidate.markdown, explanation: candidate.explanation, notes: candidate.notes, ...(candidate.fit !== undefined ? { fit: candidate.fit } : {}), ...(ref ? { candidate: ref } : {}) };
   });
   if (options.json) {
     io.out(JSON.stringify({ schema: NAVIGATE_SCHEMA, command: 'find', status: result.status, reasons: result.reasons, candidates, requiresSelection: true }, null, 2));
   } else {
-    io.out([...candidates.map((c, i) => `${i + 1}. ${c.reference}\n   ${c.explanation}`), ...result.reasons.map((reason) => `理由: ${reason}`)].join('\n') || '候補はありません。');
+    io.out([...candidates.map((c, i) => `${i + 1}. ${c.reference}\n   ${c.explanation}${c.fit !== undefined ? ` （${fitLabel(c.fit)}）` : ''}`), ...result.reasons.map((reason) => `理由: ${reason}`)].join('\n') || '候補はありません。');
   }
   return result.status === 'candidates' ? 0 : 1;
 }

@@ -15,6 +15,7 @@ import * as vscode from 'vscode';
 
 import type { CompileResult } from '../search/nlQuery/compiler.js';
 import { QUERY_EXAMPLES } from '../search/workspaceRegionIndex.js';
+import { withFit } from '../search/fitLabel.js';
 import { WorkspaceSearchWorkerClient } from '../search/workspaceSearchWorkerClient.js';
 import type { SemanticSetting } from '../search/workspaceRegionIndex.js';
 import { parseEmbedParts, type EmbedParts } from './embedEditor.js';
@@ -220,7 +221,7 @@ export function toItems(result: CompileResult): ResultItem[] {
   if (result.status === 'candidates') {
     return result.candidates.map((candidate) => ({
       label: `$(table) ${candidate.region.title ?? candidate.region.sheet}`,
-      description: `${candidate.region.bookStem} / ${candidate.region.sheet} ${candidate.region.a1}`,
+      description: withFit(`${candidate.region.bookStem} / ${candidate.region.sheet} ${candidate.region.a1}`, candidate.fit),
       detail: [
         candidate.explanation,
         candidate.region.headers?.length ? `見出し: ${candidate.region.headers.slice(0, 6).join('・')}` : '',
@@ -243,7 +244,7 @@ export function toItems(result: CompileResult): ResultItem[] {
         { label: '近いかもしれない表（名前は一致しません）', kind: vscode.QuickPickItemKind.Separator },
         ...(result.nearMisses ?? []).map((candidate) => ({
           label: `$(question) ${candidate.region.title ?? candidate.region.sheet}`,
-          description: `${candidate.region.bookStem} / ${candidate.region.sheet} ${candidate.region.a1}`,
+          description: withFit(`${candidate.region.bookStem} / ${candidate.region.sheet} ${candidate.region.a1}`, candidate.fit),
           detail: candidate.explanation,
           parts: parseEmbedParts(candidate.markdown),
           alwaysShow: true,

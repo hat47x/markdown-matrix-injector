@@ -64,6 +64,11 @@ export interface CompileOptions {
    * for ablation measurements.
    */
   paraphrase?: boolean;
+  /**
+   * Abbreviation pairs the indexed workbooks write down themselves (ADR-0023) widen name matching.
+   * On by default; `false` is for ablation measurements.
+   */
+  derivedGlossary?: boolean;
 }
 
 export type CompileStatus = 'candidates' | 'unsupported' | 'no-match' | 'needs-more-input';
@@ -89,7 +94,15 @@ export interface Candidate {
   partial: boolean;
   notes: string[];
   /** `paraphrase`: found by the structure of a described request, not by name (always inferred). */
-  basis?: 'name' | 'paraphrase' | 'semantic';
+  basis?: 'name' | 'paraphrase' | 'semantic' | 'glossary';
+  /**
+   * A modest 0-1 guide to how well the request fits this table, for showing next to the candidate
+   * (name coverage, requested columns, and how the candidate was reached). It is a rule of thumb,
+   * not a probability, and never decides whether a candidate is offered.
+   */
+  fit?: number;
+  /** The abbreviation pair that connected the request to this table (ADR-0023), when one did. */
+  glossary?: { short: string; long: string; origin: string };
   /** `semantic` only: the provider's own score. Scores of different providers are never merged. */
   providerScore?: { provider: string; model: string; score: number };
 }
@@ -129,6 +142,76 @@ const NOTATION_UNSAFE = /[|#[\]?\n\r]/u;
 const PARAM_ESCAPE = /[%&+=#|[\]?\s]/gu;
 
 export function compileQuery(input: string, options: CompileOptions): CompileResult {
+  const result = compileQueryCore(input, {
+    ...options,
+    synonyms: [
+      ...(options.synonyms ?? []),
+      ...(options.derivedGlossary === false ? [] : options.index.glossaryPairs().map((pair) => [pair.short, pair.long])),
+    ],
+  });
+  const pairs = options.derivedGlossary === false ? [] : options.index.glossaryPairs();
+  const requested = result.ir.columns.length;
+  const decorate = (candidate: Candidate, nearMiss: boolean): Candidate => {
+    const found = glossaryEvidence(result.ir.input, candidate.region, pairs);
+    const note = found
+      ? `「${found.from}」は、文書内の記載（${found.pair.origin}）にもとづいて「${found.to}」と対応づけました。`
+      : undefined;
+    const basis = found && (candidate.basis === undefined || candidate.basis === 'name') ? 'glossary' : candidate.basis;
+    return {
+      ...candidate,
+      ...(basis ? { basis } : {}),
+      ...(found ? { glossary: { short: found.pair.short, long: found.pair.long, origin: found.pair.origin } } : {}),
+      ...(note ? { notes: [...candidate.notes, note], explanation: `${candidate.explanation} ${note}` } : {}),
+      fit: fitOf(candidate, requested, nearMiss, found !== undefined),
+    };
+  };
+  return {
+    ...result,
+    candidates: result.candidates.map((candidate) => decorate(candidate, false)),
+    ...(result.nearMisses ? { nearMisses: result.nearMisses.map((candidate) => decorate(candidate, true)) } : {}),
+  };
+}
+
+const COLUMN_FIT = { exact: 1, synonym: 0.9, fuzzy: 0.7 } as const;
+
+/**
+ * The 0-1 guide shown next to a candidate. Name coverage weighs 0.65 and the requested columns 0.35
+ * (an unresolved column counts 0). A candidate reached through an abbreviation pair, a described
+ * structure, a semantic provider, or only as a near miss is capped, so the guide never reads higher
+ * than the evidence behind it.
+ */
+export function fitOf(candidate: Candidate, requestedColumns: number, nearMiss: boolean, viaGlossary: boolean): number {
+  const columnScore = requestedColumns === 0
+    ? 1
+    : candidate.columns.reduce((sum, column) => sum + COLUMN_FIT[column.match], 0) / requestedColumns;
+  let fit = 0.65 * Math.min(1, candidate.coverage) + 0.35 * columnScore;
+  if (candidate.partial) fit *= 0.85;
+  const cap = nearMiss ? 0.4
+    : candidate.basis === 'paraphrase' || candidate.basis === 'semantic' ? 0.5
+    : viaGlossary ? 0.8
+    : 1;
+  return Math.round(Math.min(fit, cap) * 100) / 100;
+}
+
+/** The abbreviation pair, if any, linking the request to the table's own names (book / sheet / title). */
+function glossaryEvidence(
+  input: string,
+  region: RegionRecord,
+  pairs: readonly { short: string; long: string; origin: string }[],
+): { pair: { short: string; long: string; origin: string }; from: string; to: string } | undefined {
+  if (pairs.length === 0) return undefined;
+  const request = normalizeText(input);
+  const names = normalizeText([region.bookStem, region.sheet, region.title ?? ''].join(' '));
+  for (const pair of pairs) {
+    const short = normalizeText(pair.short);
+    const long = normalizeText(pair.long);
+    if (indexOfTerm(request, short) >= 0 && names.includes(long) && indexOfTerm(names, short) < 0) return { pair, from: pair.short, to: pair.long };
+    if (request.includes(long) && indexOfTerm(names, short) >= 0 && !names.includes(long)) return { pair, from: pair.long, to: pair.short };
+  }
+  return undefined;
+}
+
+function compileQueryCore(input: string, options: CompileOptions): CompileResult {
   const ir = parseQuery(input);
   const result = (status: CompileStatus, reasons: string[], candidates: Candidate[] = []): CompileResult => ({
     status,

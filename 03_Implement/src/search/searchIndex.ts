@@ -9,6 +9,7 @@
  * where FlyHash freezes its IDF snapshot).
  */
 import type { RegionCatalog, RegionRecord } from './regionCatalog.js';
+import type { GlossaryPair } from './lexicon/documentGlossary.js';
 import { regionFeatureBag, regionNames } from './regionCatalog.js';
 import {
   Bm25Retriever,
@@ -65,6 +66,11 @@ export class RegionSearchIndex {
     for (const method of options.methods ?? RETRIEVAL_METHODS) {
       this.retrievers.set(method, this.createRetriever(method, options.flyhash));
     }
+  }
+
+  /** Abbreviation pairs the indexed books write down themselves (ADR-0023). */
+  glossaryPairs(): GlossaryPair[] {
+    return this.catalog.glossaryPairs();
   }
 
   get methods(): RetrievalMethod[] {

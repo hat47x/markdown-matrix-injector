@@ -13,6 +13,7 @@
  */
 import type { WorkbookData } from '../core/workbookLoader.js';
 import { detectTableRegions } from '../importAssist/tableRegions.js';
+import { mineWorkbookGlossary, type GlossaryPair } from './lexicon/documentGlossary.js';
 import type { DetectOptions, DetectedRegion } from './regionDetector.js';
 import { addTextFeatures, DEFAULT_ROLE_WEIGHTS, type FeatureBag } from './textFeatures.js';
 
@@ -34,6 +35,8 @@ interface BookEntry {
   regions: RegionRecord[];
   /** False when the book was intentionally truncated by the retained-region cap. */
   complete: boolean;
+  /** Abbreviation pairs the book writes down itself (ADR-0023). */
+  glossary: GlossaryPair[];
 }
 
 export class RegionCatalog {
@@ -73,7 +76,8 @@ export class RegionCatalog {
         regions.push({ ...region, id: `${path}#${sheetName}!${region.a1}`, bookPath: path, bookStem: stem });
       }
     }
-    this.books.set(path, { stat, regions, complete });
+    const glossary = mineWorkbookGlossary(stem, workbook.sheets, regions);
+    this.books.set(path, { stat, regions, complete, glossary });
     this.version += 1;
     return regions;
   }
@@ -99,6 +103,18 @@ export class RegionCatalog {
 
   bookPaths(): string[] {
     return [...this.books.keys()];
+  }
+
+  /** Abbreviation pairs written in the indexed books, with where each was found (deduplicated across books). */
+  glossaryPairs(): GlossaryPair[] {
+    const seen = new Map<string, GlossaryPair>();
+    for (const entry of this.books.values()) {
+      for (const pair of entry.glossary) {
+        const id = `${pair.short.normalize('NFKC').toLowerCase()}\u0000${pair.long.normalize('NFKC').toLowerCase()}`;
+        if (!seen.has(id)) seen.set(id, pair);
+      }
+    }
+    return [...seen.values()];
   }
 
   /** Increments on every change; retrievers use it to detect staleness. */
