@@ -484,7 +484,7 @@ func xmlDeclarationEncoding(instruction string) string {
 		return ""
 	}
 	rest = strings.TrimLeft(rest[1:], " \t\r\n")
-	if len(rest) < 2 || (rest[0] != '"' && rest[0] != '\\'') {
+	if len(rest) < 2 || (rest[0] != '"' && rest[0] != '\'') {
 		return ""
 	}
 	quote := rest[0]
