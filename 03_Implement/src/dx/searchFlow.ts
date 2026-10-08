@@ -16,10 +16,13 @@ import * as vscode from 'vscode';
 import type { CompileResult } from '../search/nlQuery/compiler.js';
 import { QUERY_EXAMPLES } from '../search/workspaceRegionIndex.js';
 import { withFit } from '../search/fitLabel.js';
+import type { PickedCandidate } from '../search/observation/record.js';
+import type { AliasResult } from '../search/observation/types.js';
 import { formatAlias, parseAliasSetting, suggestAlias, type UserAlias } from '../search/userAliases.js';
 import { WorkspaceSearchWorkerClient } from '../search/workspaceSearchWorkerClient.js';
 import type { SemanticSetting } from '../search/workspaceRegionIndex.js';
 import { parseEmbedParts, type EmbedParts } from './embedEditor.js';
+import { beginObservedSession, finishObservedSession } from './searchObservation.js';
 
 /**
  * Experimental, off by default: a local embedding model for descriptions that share no word with a
@@ -102,6 +105,8 @@ interface ResultItem extends vscode.QuickPickItem {
   example?: string;
   /** An abbreviation the user may want remembered if they pick this table (ADR-0023). */
   learn?: UserAlias;
+  /** Which candidate this row is, for the local observation (never the table's name). */
+  pick?: PickedCandidate;
 }
 
 const ALIAS_SETTING = 'search.aliases';
@@ -111,29 +116,29 @@ function readUserAliases(): UserAlias[] {
 }
 
 /** Offers to remember `alias` after the user picked a table the typed name did not match. Saved only on consent. */
-async function offerToRemember(alias: UserAlias): Promise<void> {
+async function offerToRemember(alias: UserAlias): Promise<AliasResult> {
   const remember = '覚える';
   const answer = await vscode.window.showInformationMessage(
     `MMI: 「${alias.short}」を、この表（${alias.long}）の略語として覚えますか？ 次回から「${alias.short}」でも探せます。設定 ${ALIAS_SETTING} に保存します。`,
     remember,
     '今回だけ',
   );
-  if (answer !== remember) return;
+  if (answer !== remember) return 'offered-declined';
   const edited = await vscode.window.showInputBox({
     title: `MMI: 「${alias.short}」の正式名称`,
     prompt: '表の名前に含まれている語で登録します（確認・修正できます）',
     value: alias.long,
   });
-  if (edited === undefined) return;
+  if (edited === undefined) return 'offered-declined';
   const entry = formatAlias({ short: alias.short, long: edited });
   if (parseAliasSetting([entry]).length === 0) {
     void vscode.window.showWarningMessage('MMI: 正式名称は2〜40文字で入力してください。登録しませんでした。');
-    return;
+    return 'offered-declined';
   }
   const config = vscode.workspace.getConfiguration('markdownMatrixInjector');
   const existing = config.get<string[]>(ALIAS_SETTING, []);
-  if (existing.includes(entry)) return;
-  await config.update(ALIAS_SETTING, [...existing, entry], vscode.ConfigurationTarget.Workspace);
+  if (!existing.includes(entry)) await config.update(ALIAS_SETTING, [...existing, entry], vscode.ConfigurationTarget.Workspace);
+  return 'offered-accepted';
 }
 
 /**
@@ -150,6 +155,13 @@ export async function searchEmbedByDescription(document: vscode.TextDocument, wo
   if (!index) return undefined;
 
   return new Promise((resolve) => {
+    const recorder = beginObservedSession();
+    let sessionRecorded = false;
+    const recordSession = (alias: AliasResult): Promise<void> => {
+      if (sessionRecorded) return Promise.resolve();
+      sessionRecorded = true;
+      return finishObservedSession(recorder, alias);
+    };
     const quickPick = vscode.window.createQuickPick<ResultItem>();
     quickPick.title = `MMI: 説明から表を探す（${index.regionCount}表を索引済み）`;
     quickPick.placeholder = `例: ${QUERY_EXAMPLES.join(' ／ ')}`;
@@ -195,6 +207,7 @@ export async function searchEmbedByDescription(document: vscode.TextDocument, wo
             // result is discarded, and the loop immediately runs only the
             // latest pending text rather than every intermediate keystroke.
             if (!settled && revision === queryRevision) {
+              recorder?.onResult(result, text);
               quickPick.items = toItems(result);
             }
           } catch (error) {
@@ -253,11 +266,20 @@ export async function searchEmbedByDescription(document: vscode.TextDocument, wo
         return;
       }
       if (chosen?.parts) {
+        if (chosen.pick) recorder?.onPick(chosen.pick);
         finish(chosen.parts);
-        if (chosen.learn) void offerToRemember(chosen.learn);
+        const learn = chosen.learn;
+        void (async () => {
+          const alias: AliasResult = learn ? await offerToRemember(learn) : 'none';
+          await recordSession(alias);
+        })();
       }
     });
-    quickPick.onDidHide(() => finish(undefined));
+    quickPick.onDidHide(() => {
+      // Closing without a choice is an outcome too; a choice records itself after the alias offer.
+      if (!recorder?.hasPick) void recordSession('none');
+      finish(undefined);
+    });
     quickPick.show();
   });
 }
@@ -285,7 +307,8 @@ export async function scriptedSearch(
 /** Candidates, or a reason the request cannot be expressed / matched. Always shown regardless of label filtering. */
 export function toItems(result: CompileResult): ResultItem[] {
   if (result.status === 'candidates') {
-    return result.candidates.map((candidate) => ({
+    return result.candidates.map((candidate, rank) => ({
+      pick: { source: 'candidate' as const, rank: rank + 1, ...(candidate.fit !== undefined ? { fit: candidate.fit } : {}), basis: candidate.basis ?? 'name' },
       label: `$(table) ${candidate.region.title ?? candidate.region.sheet}`,
       description: withFit(`${candidate.region.bookStem} / ${candidate.region.sheet} ${candidate.region.a1}`, candidate.fit),
       detail: [
@@ -308,7 +331,8 @@ export function toItems(result: CompileResult): ResultItem[] {
   const near: ResultItem[] = (result.nearMisses ?? []).length > 0
     ? [
         { label: '近いかもしれない表（名前は一致しません）', kind: vscode.QuickPickItemKind.Separator },
-        ...(result.nearMisses ?? []).map((candidate) => ({
+        ...(result.nearMisses ?? []).map((candidate, rank) => ({
+          pick: { source: 'near-miss' as const, rank: rank + 1, ...(candidate.fit !== undefined ? { fit: candidate.fit } : {}), basis: candidate.basis ?? 'name' },
           label: `$(question) ${candidate.region.title ?? candidate.region.sheet}`,
           description: withFit(`${candidate.region.bookStem} / ${candidate.region.sheet} ${candidate.region.a1}`, candidate.fit),
           detail: candidate.explanation,

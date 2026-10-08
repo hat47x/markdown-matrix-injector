@@ -53,6 +53,13 @@ import {
 } from './dx/authoringFlow.js';
 import { readWorkbookCached } from './dx/sharedWorkbookCache.js';
 import { clearSearchIndexes, FIND_EMBED_COMMAND_ID, scriptedSearch, searchEmbedByDescription } from './dx/searchFlow.js';
+import {
+  clearObservation,
+  CLEAR_OBSERVATION_COMMAND_ID,
+  initSearchObservation,
+  summarizeObservation,
+  SUMMARIZE_OBSERVATION_COMMAND_ID,
+} from './dx/searchObservation.js';
 import { SELECT_LOCAL_SEMANTIC_MODEL_COMMAND_ID, selectLocalSemanticModel } from './dx/semanticSetupFlow.js';
 import { selectContainedWorkbookFilesDetailed } from './dx/workbookCandidateOrder.js';
 import { findUnknownProseIds, UNKNOWN_PROSE_ID_CODE } from './application/proseIdCheck.js';
@@ -171,6 +178,7 @@ function createPasteDropIntegrationTestMetadata(): PasteDropIntegrationTestMetad
 }
 
 export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: typeof extendMarkdownIt } {
+  initSearchObservation(context);
   const diagnostics = vscode.languages.createDiagnosticCollection('markdown-matrix-injector');
   extensionRootPath = context.extensionPath;
   // Start the Windows clipboard reader in the background so the first Paste As does not wait for it.
@@ -236,6 +244,8 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
         ),
     ),
     ...registerTableCatalog(),
+    vscode.commands.registerCommand(SUMMARIZE_OBSERVATION_COMMAND_ID, () => summarizeObservation()),
+    vscode.commands.registerCommand(CLEAR_OBSERVATION_COMMAND_ID, () => clearObservation()),
     vscode.commands.registerCommand(CLEAR_SEARCH_INDEX_COMMAND_ID, () => {
       clearSearchIndexes();
       void vscode.window.showInformationMessage('MMI: 表の検索索引を消去しました（メモリ上のみに保持していました）。');

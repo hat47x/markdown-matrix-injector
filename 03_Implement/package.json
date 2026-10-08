@@ -100,6 +100,8 @@
     "onCommand:markdownMatrixInjector.findEmbedByDescription",
     "onCommand:markdownMatrixInjector.selectLocalSemanticModel",
     "onCommand:markdownMatrixInjector.clearSearchIndex",
+    "onCommand:markdownMatrixInjector.summarizeSearchObservation",
+    "onCommand:markdownMatrixInjector.clearSearchObservation",
     "onCommand:markdownMatrixInjector.importFromWorkbook",
     "onCommand:markdownMatrixInjector.reviewCandidates",
     "onCommand:markdownMatrixInjector.reviewHierarchyCandidates",
@@ -161,6 +163,16 @@
       {
         "command": "markdownMatrixInjector.clearSearchIndex",
         "title": "%mmi.command.clearSearchIndex%",
+        "category": "MMI"
+      },
+      {
+        "command": "markdownMatrixInjector.summarizeSearchObservation",
+        "title": "%mmi.command.summarizeSearchObservation%",
+        "category": "MMI"
+      },
+      {
+        "command": "markdownMatrixInjector.clearSearchObservation",
+        "title": "%mmi.command.clearSearchObservation%",
         "category": "MMI"
       },
       {
@@ -397,6 +409,18 @@
           "type": "string",
           "default": "",
           "markdownDescription": "%mmi.setting.semanticArtifactDigest%"
+        },
+        "markdownMatrixInjector.search.observation.enabled": {
+          "type": "boolean",
+          "default": false,
+          "scope": "resource",
+          "markdownDescription": "%mmi.setting.searchObservationEnabled%"
+        },
+        "markdownMatrixInjector.search.observation.includeText": {
+          "type": "boolean",
+          "default": false,
+          "scope": "resource",
+          "markdownDescription": "%mmi.setting.searchObservationIncludeText%"
         },
         "markdownMatrixInjector.search.aliases": {
           "type": "array",
