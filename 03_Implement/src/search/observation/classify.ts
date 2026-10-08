@@ -4,6 +4,17 @@ import type { SearchObservationFinal } from './types.js';
 
 const LATIN_WORD = /[A-Za-z][A-Za-z0-9/&.\-]*/gu;
 const WORD = /[\p{L}\p{N}]+/gu;
+// A file name (設計.xlsx) is not an abbreviation, so its extension is removed before words are read.
+const FILE_NAME = /[A-Za-z0-9_-]*\.(?:xlsx?|xlsm|xlsb|csv|tsv|xml|json|ya?ml|md|txt)(?![A-Za-z0-9])/giu;
+
+/** The Latin words of a text, lowercased, without file names and trailing punctuation. */
+export function latinWordsOf(text: string): string[] {
+  return [...new Set(
+    [...text.normalize('NFKC').replace(FILE_NAME, ' ').matchAll(LATIN_WORD)]
+      .map(([word]) => word.replace(/[./&-]+$/u, '').toLowerCase())
+      .filter((word) => word.length >= 2),
+  )];
+}
 
 export function classifySearchObservation(
   query: string,
@@ -12,8 +23,7 @@ export function classifySearchObservation(
 ): SearchObservationFinal {
   const text = query.trim();
   const question = isDescriptionQuestion(text) || /[?？]\s*$/u.test(text);
-  const latin = [...text.matchAll(LATIN_WORD)].map(([word]) =>
-    word.normalize('NFKC').toLowerCase());
+  const latin = latinWordsOf(text);
   const tokens = [...text.normalize('NFKC').matchAll(WORD)].length;
 
   let klass: SearchObservationFinal['class'];
@@ -57,19 +67,20 @@ function candidateNames(candidate: Candidate): string[] {
     candidate.region.bookStem,
     candidate.region.sheet,
     candidate.region.title ?? '',
+    ...(candidate.region.headers ?? []),
   ].filter(Boolean);
 }
 
+/**
+ * True when exactly one Latin word of the request is not a whole word of any near miss's names.
+ * Whole words only: "if" inside "specification" does not count as the word IF.
+ */
 function singleUnseenLatinWord(
   latinWords: readonly string[],
   candidates: readonly Candidate[],
 ): boolean {
-  const names = candidates
-    .flatMap(candidateNames)
-    .join(' ')
-    .normalize('NFKC')
-    .toLowerCase();
-  const unseen = [...new Set(latinWords.filter((word) => !names.includes(word)))];
+  const seen = new Set(candidates.flatMap((candidate) => candidateNames(candidate).flatMap(latinWordsOf)));
+  const unseen = latinWords.filter((word) => !seen.has(word));
   return unseen.length === 1;
 }
 
