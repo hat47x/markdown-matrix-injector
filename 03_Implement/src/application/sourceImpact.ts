@@ -128,7 +128,7 @@ export function analyzeSourceImpact(
   const localLink = impacts.filter((item) => item.relation === 'local-link').length;
 
   return {
-    schema: SOURCE_IMACT_SCHEMA,
+    schema: SOURCE_IMPACT_SCHEMA,
     source: {
       path: portableRelativePath(
         path.resolve(options.workspaceRoot),
