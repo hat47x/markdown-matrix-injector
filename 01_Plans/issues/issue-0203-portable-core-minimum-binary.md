@@ -53,6 +53,16 @@ TypeScript参照実装の正本suiteは、この実行コンテナに`xlsx` / `t
 
 XLSX decoderについては[Portable XLSX Decoder Evaluation v1](../../02_Architecture/portable-xlsx-decoder-evaluation-v1.md)を追加した。候補の軽量さだけで選ばず、used range原点、merge、display text、raw type/value、number/date format、formula saved result、shared/inline string、異常入力のfail-closedをconformance gateとする。2026-10-04時点ではExcelize v2.11.0（BSD-3-Clause、Go 1.25以上、公式系WASM経路あり）を最初の実測候補とし、現行Go 1.23環境に合わせて古い版へ下げることはsecurity fixを失う可能性があるため採用理由にしない。
 
+### 汎用XML Treeの標準Go conformance拡張（2026-10-08）
+
+標準Go最小実装へ汎用XML Tree Candidateを追加した。TypeScriptの`xmlTreeAdapter`と同じqualified-name sibling path、attributes/text/children Claim、provenance version 2、`xml-subtree-canonical-v1` fingerprintを生成する。
+
+既存`xml-tree.case.json`はcandidate count/pathだけでなく、3 CandidateすべてのClaim列・provenance version・fingerprint digestまで固定した。さらにnamespace付きfixtureを追加し、`p:root` / `p:item`のqualified name、`xmlns:p` / `p:id`等の属性、同名sibling ordinalをTypeScript / Goの共有corpusにした。
+
+Go側はDTD/declaration、UTF-8以外のXML宣言、未宣言namespace prefixをfail-closedで拒否する。XML Spreadsheet 2003 signatureは汎用Treeへ流さず、Go最小実装では表profile未実装として明示拒否するため、誤ったCandidateを返さない。
+
+このチャットの実行環境ではGitHub checkoutを作れず、正本`go test ./...`はまだ実行していない。追加XML部分だけを標準Goで独立再現したfocused checkでは、basic XML 3件とnamespace XML 3件のcanonical fingerprintがshared fixture値と一致し、DTD・非UTF-8宣言・未宣言prefix拒否も確認した。正本suite通過とは区別して扱う。
+
 詳細な境界は[Portable Core Contract v1](../../02_Architecture/portable-core-contract-v1.md)を正とする。
 
 ### Host間Candidate parityの最初の収束（2026-10-07）
@@ -76,7 +86,7 @@ parity固定後、Candidate生成そのものをApplication層へ移した。JSO
 ## Remaining work
 
 - 追加したTypeScript conformance corpusを依存が揃った通常開発環境で実行し、v1 baseline responseを固定する。
-- 標準GoのCSV table Candidateはshared contractで初期conformanceを確認済み。JSON Treeもshared fixtureへ実装済みなので、まず通常のGo開発環境でnative/WASMの全suiteを再実行し、追加したUnicode・pointer・fingerprint境界を実測で確認する。その後、Go 1.25以上の隔離環境でExcelize v2.11.0を固定し、XLSX decoder gateをTypeScript参照と同じcorpusで評価する。binary/WASM増分、transitive dependency、display semantics、安全性を同時に測る。
+- 標準GoのCSV table Candidateはshared contractで初期conformanceを確認済み。JSON Treeに加えて汎用XML Treeもshared fixtureへ実装した。まず通常のGo開発環境でnative/WASMの全suiteを再実行し、CSV座標、JSON Unicode/pointer、XML qualified-name/namespace/fingerprint境界をまとめて実測確認する。その後、Go 1.25以上の隔離環境でExcelize v2.11.0を固定し、XLSX decoder gateをTypeScript参照と同じcorpusで評価する。binary/WASM増分、transitive dependency、display semantics、安全性を同時に測る。
 - TinyGo native / WASMを同じcorpusで測定し、標準Go native / WASMの実測値とbinary size、startup、peak memory、互換性を比較する。現環境ではTinyGo未導入のため未測定。
 - CLI `inspect`とVS Code側Candidate列挙は共通Application APIへ収束済み。parity suiteを維持し、今後Source Adapterを追加するときもCandidate生成をhost側へ複製しない。次は通常の開発環境でこのsuiteを実行し、Go/native/WASM側のconformance corpusへ同じ境界を段階的に広げる。
 - `check` / `render` / `extract`のJSON contractは、inspect v1の境界が実測で成立してから追加する。
