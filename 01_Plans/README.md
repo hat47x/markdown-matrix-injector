@@ -35,6 +35,7 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 | 4 | 参照台帳と影響分析 | 未起票 | issue-0195の台帳と合わせて設計 |
 | **5 組織導入** | 文書キットの追加、CI関門、執筆ベンチマーク v1（大きな表・複数シート・本文と表の矛盾） | 未起票 | 優先度2の縦切りの後 |
 | 5 | [外部の判断記録からの根拠の固定（SEI）](issues/issue-0192-sei-decision-basis-table-binding.md) | Draft | CLIの契約が固まった後 |
+| **最優先（停止中）** | [リファクタ後の製品テスト9件の食い違い（origin/mainが赤い）](issues/issue-0212-refactor-test-drift.md) | Open（担当者未定） | 担当者の割り当てと、テストと実装のどちらが正かの判断が要る |
 | 横断 | [上位プロダクト名とMMI互換層の整理](issues/issue-0201-product-name-and-compatibility-layer.md) | Draft | 実装を止めずに検討。決定前はrepo/package/CLI名を変更しない |
 | 2（既存） | [表の検索で見つからなかった依頼の観測](issues/issue-0207-search-demand-observation.md)（略語・表記・言い換えの需要を、同意のもとローカルに数える。[設計](../02_Architecture/search-observation.md)） | **In Progress**（既定オフ、privacy-safe record、1,000件循環、件数集計、検索セッション接続を実装） | 次: 拡張機能ホストE2Eで選択・入力修正・キャンセル・alias結果を確認し、観測オン/オフで候補順位が不変であることを固定 |
 | 3（認知候補） | [ローカル認知runtime評価](issues/issue-0113-local-ai-feasibility.md) | Draft | M0〜M2で不足する具体的taskが定まったら、Ollama / LM Studio等の導入済みruntimeを含め比較評価 |
