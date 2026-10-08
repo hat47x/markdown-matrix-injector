@@ -13,7 +13,12 @@
  */
 import * as vscode from 'vscode';
 
-import type { CompileResult } from '../search/nlQuery/compiler.js';
+import type { Candidate, CompileResult } from '../search/nlQuery/compiler.js';
+import { buildSearchObservation } from '../search/observation/record.js';
+import type {
+  SearchObservationAlias,
+  SearchObservationRecord,
+} from '../search/observation/types.js';
 import { QUERY_EXAMPLES } from '../search/workspaceRegionIndex.js';
 import { withFit } from '../search/fitLabel.js';
 import { formatAlias, parseAliasSetting, suggestAlias, type UserAlias } from '../search/userAliases.js';
@@ -102,6 +107,17 @@ interface ResultItem extends vscode.QuickPickItem {
   example?: string;
   /** An abbreviation the user may want remembered if they pick this table (ADR-0023). */
   learn?: UserAlias;
+  observation?: {
+    candidate: Candidate;
+    rank: number;
+    nearMiss: boolean;
+  };
+}
+
+export interface SearchObservationHost {
+  enabled: boolean;
+  includeText: boolean;
+  record(record: SearchObservationRecord): void | Promise<void>;
 }
 
 const ALIAS_SETTING = 'search.aliases';
@@ -111,36 +127,41 @@ function readUserAliases(): UserAlias[] {
 }
 
 /** Offers to remember `alias` after the user picked a table the typed name did not match. Saved only on consent. */
-async function offerToRemember(alias: UserAlias): Promise<void> {
+async function offerToRemember(alias: UserAlias): Promise<SearchObservationAlias> {
   const remember = '覚える';
   const answer = await vscode.window.showInformationMessage(
     `MMI: 「${alias.short}」を、この表（${alias.long}）の略語として覚えますか？ 次回から「${alias.short}」でも探せます。設定 ${ALIAS_SETTING} に保存します。`,
     remember,
     '今回だけ',
   );
-  if (answer !== remember) return;
+  if (answer !== remember) return 'offered-declined';
   const edited = await vscode.window.showInputBox({
     title: `MMI: 「${alias.short}」の正式名称`,
     prompt: '表の名前に含まれている語で登録します（確認・修正できます）',
     value: alias.long,
   });
-  if (edited === undefined) return;
+  if (edited === undefined) return 'offered-declined';
   const entry = formatAlias({ short: alias.short, long: edited });
   if (parseAliasSetting([entry]).length === 0) {
     void vscode.window.showWarningMessage('MMI: 正式名称は2〜40文字で入力してください。登録しませんでした。');
-    return;
+    return 'offered-declined';
   }
   const config = vscode.workspace.getConfiguration('markdownMatrixInjector');
   const existing = config.get<string[]>(ALIAS_SETTING, []);
-  if (existing.includes(entry)) return;
+  if (existing.includes(entry)) return 'offered-accepted';
   await config.update(ALIAS_SETTING, [...existing, entry], vscode.ConfigurationTarget.Workspace);
+  return 'offered-accepted';
 }
 
 /**
  * Opens the search box and resolves to the chosen embed's parts, or
  * `undefined` when cancelled. Does not edit anything.
  */
-export async function searchEmbedByDescription(document: vscode.TextDocument, workbookGlob: string): Promise<EmbedParts | undefined> {
+export async function searchEmbedByDescription(
+  document: vscode.TextDocument,
+  workbookGlob: string,
+  observation?: SearchObservationHost,
+): Promise<EmbedParts | undefined> {
   const workspaceRoot = vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath;
   if (!workspaceRoot) {
     void vscode.window.showInformationMessage('MMI: 説明から探すには、文書をワークスペースのフォルダ内に置いてください。');
@@ -163,6 +184,34 @@ export async function searchEmbedByDescription(document: vscode.TextDocument, wo
     let pendingText: string | undefined;
     let queryPump: Promise<void> | undefined;
     let activeQueryController: AbortController | undefined;
+    const startedAtMs = Date.now();
+    let visibleQueries = 0;
+    let finalText = '';
+    let finalResult: CompileResult | undefined;
+    const recordObservation = (
+      outcome: 'picked-candidate' | 'picked-near-miss' | 'picked-after-edit' | 'cancelled',
+      picked?: ResultItem['observation'],
+      alias: SearchObservationAlias = 'none',
+    ): void => {
+      if (!observation?.enabled || !finalResult || visibleQueries < 1) return;
+      try {
+        const record = buildSearchObservation({
+          finalQuery: finalText,
+          result: finalResult,
+          queries: visibleQueries,
+          outcome,
+          ...(picked ? { picked } : {}),
+          alias,
+          startedAtMs,
+          endedAtMs: Date.now(),
+          localDate: localCalendarDate(new Date()),
+          includeText: observation.includeText,
+        });
+        void Promise.resolve(observation.record(record)).catch(() => undefined);
+      } catch {
+        // Observation is deliberately outside the search critical path.
+      }
+    };
     const finish = (value: EmbedParts | undefined): void => {
       if (settled) return;
       settled = true;
@@ -195,6 +244,9 @@ export async function searchEmbedByDescription(document: vscode.TextDocument, wo
             // result is discarded, and the loop immediately runs only the
             // latest pending text rather than every intermediate keystroke.
             if (!settled && revision === queryRevision) {
+              finalText = text;
+              finalResult = result;
+              visibleQueries += 1;
               quickPick.items = toItems(result);
             }
           } catch (error) {
@@ -253,11 +305,35 @@ export async function searchEmbedByDescription(document: vscode.TextDocument, wo
         return;
       }
       if (chosen?.parts) {
+        const picked = chosen.observation;
+        const outcome = picked?.nearMiss
+          ? 'picked-near-miss'
+          : visibleQueries > 1
+            ? 'picked-after-edit'
+            : 'picked-candidate';
         finish(chosen.parts);
-        if (chosen.learn) void offerToRemember(chosen.learn);
+        if (chosen.learn) {
+          void offerToRemember(chosen.learn)
+            .then((alias) => recordObservation(outcome, picked, alias))
+            .catch(() => recordObservation(outcome, picked));
+        } else {
+          recordObservation(outcome, picked);
+        }
       }
     });
-    quickPick.onDidHide(() => finish(undefined));
+    quickPick.onDidHide(() => {
+      // If a newer query is still pending/running, the visible result belongs
+      // to an older request. Dropping the observation is safer than binding
+      // the wrong classification to the user's final text.
+      if (
+        !settled
+        && pendingText === undefined
+        && activeQueryController === undefined
+      ) {
+        recordObservation('cancelled');
+      }
+      finish(undefined);
+    });
     quickPick.show();
   });
 }
@@ -285,7 +361,7 @@ export async function scriptedSearch(
 /** Candidates, or a reason the request cannot be expressed / matched. Always shown regardless of label filtering. */
 export function toItems(result: CompileResult): ResultItem[] {
   if (result.status === 'candidates') {
-    return result.candidates.map((candidate) => ({
+    return result.candidates.map((candidate, index) => ({
       label: `$(table) ${candidate.region.title ?? candidate.region.sheet}`,
       description: withFit(`${candidate.region.bookStem} / ${candidate.region.sheet} ${candidate.region.a1}`, candidate.fit),
       detail: [
@@ -295,6 +371,7 @@ export function toItems(result: CompileResult): ResultItem[] {
         .filter(Boolean)
         .join(' ｜ '),
       parts: parseEmbedParts(candidate.markdown),
+      observation: { candidate, rank: index + 1, nearMiss: false },
       alwaysShow: true,
     }));
   }
@@ -308,11 +385,12 @@ export function toItems(result: CompileResult): ResultItem[] {
   const near: ResultItem[] = (result.nearMisses ?? []).length > 0
     ? [
         { label: '近いかもしれない表（名前は一致しません）', kind: vscode.QuickPickItemKind.Separator },
-        ...(result.nearMisses ?? []).map((candidate) => ({
+        ...(result.nearMisses ?? []).map((candidate, index) => ({
           label: `$(question) ${candidate.region.title ?? candidate.region.sheet}`,
           description: withFit(`${candidate.region.bookStem} / ${candidate.region.sheet} ${candidate.region.a1}`, candidate.fit),
           detail: candidate.explanation,
           parts: parseEmbedParts(candidate.markdown),
+          observation: { candidate, rank: index + 1, nearMiss: true },
           alwaysShow: true,
           ...(suggestAlias(result.ir.input, candidate.region) ? { learn: suggestAlias(result.ir.input, candidate.region) } : {}),
         })),
@@ -323,4 +401,12 @@ export function toItems(result: CompileResult): ResultItem[] {
     ...near,
     ...QUERY_EXAMPLES.map((example) => ({ label: `$(lightbulb) ${example}`, description: '入力例', example, alwaysShow: true })),
   ];
+}
+
+
+function localCalendarDate(date: Date): string {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }

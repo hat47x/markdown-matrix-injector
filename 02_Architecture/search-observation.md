@@ -1,6 +1,6 @@
 # 表の検索の需要観測（設計）
 
-- 状態: 設計（未実装。2026-10-08）
+- 状態: 実装中（分類・privacy-safe record・workspace-local store・集計・検索セッション接続まで。2026-10-08）
 - 関連: [ADR-0023](../01_Plans/adr/ADR-0023-fuzzy-search-before-paraphrase-and-model-runtime.md)、[issue-0207](../01_Plans/issues/issue-0207-search-demand-observation.md)、[CPUでの範囲探索](input-assistance-cpu-search.md)（§2.1の保存規約）、[認知機能の仮説カード](../01_Plans/cognitive-hypothesis-cards.md)（K5）
 
 ## 1. 何を知りたいか

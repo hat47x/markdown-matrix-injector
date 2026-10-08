@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Feature
-- Status: In Progress（表・別紙・ローカル画像のmaterialize、採用済みExtracted Candidateの鮮度preflight、artifact closure checkを実装。表・キットの実務E2Eは実施済み。画像manual-E2Eと正本suite実行待ち）
+- Status: In Progress（表・別紙・ローカル画像のmaterialize、採用済みExtracted Candidateの鮮度preflight、artifact closure checkを実装。表・キット・画像つき文書の実務E2Eは実施済み（2026-10-08）。Windows・macOSの実行確認が残り）
 - Priority: Medium
 - Scope: src/application（materialize / detach check）、src/cli、docs
 - Expected verification level: integration
@@ -28,7 +28,7 @@ Detachedは「MMI記法が無い」だけでは不十分である。materialize�
 - [x] 文書中の`mmi:extracted` / `mmi:extracted-table` provenanceを「この文書への採用関係」として使い、import ledgerと現在のsource Candidateを照合する。changed / stale / missing / untrackedはmaterializeのdetachability判定を失敗させる。ブック内に存在するだけの未採用Candidateはblockerにしない。
 - [x] 通常Markdownのローカル画像参照をcontent digest名で`mmi-assets/`へ複製し、Detached文書のリンクを成果物側へrebaseする。同じbytesは1コピーにまとめ、欠落・workspace境界外はfail-closedにする。
 - [x] 実体化した成果物から原本フォルダーを取り除いた状態で、実務サンプルと基本設計書キットを使ったE2Eを実行・記録する（2026-10-06。成功ケースとfail-closedケースを下表へ記録）。
-- [ ] CLI build / unit testを実行し、新規`detach.test.ts`を含む回帰を確認する。
+- [x] CLI build / unit testを実行し、新規`detach.test.ts`を含む回帰を確認する（2026-10-08、origin/main `06ab712`、Node 20）。`detach.test.ts`・`detachFreshness.test.ts`・`yamlTreeDetachFreshness.test.ts`は全て通過。`importMaterialization.test.ts`は56件中3件が失敗（一括取り込みの画像の判断。下記の内訳）。
 
 ## 実装（2026-10-02）
 
@@ -55,6 +55,29 @@ Detachedは「MMI記法が無い」だけでは不十分である。materialize�
 - 受入条件のE2E（上記の表）は実施した。**画像を含む文書でのE2E**（`extract`で取り込んだ画像を`mmi-assets/`へ複製して原本を外す）は未実施。
 - Windows・macOSでは未実施。
 
+## 画像つき文書の手動E2E（2026-10-08）
+
+実在の設計書ではなく架空のワークブック（表1枚、画像3か所、うち1件は同一内容の重複）で、利用者の流れを`dist`のCLIから順に実行した。再実行できる手順は`03_Implement/scripts/manual-e2e/image-detach.sh`に置いた。
+
+| 手順 | 結果 |
+| --- | --- |
+| `mmi extract --image all` → 台帳`mmi-ledger.json`と`assets/` | 成功。画像3か所を抽出（同一内容は1ファイル、provenance付きの参照を出力） |
+| `mmi materialize`（表を実体化し、画像を`mmi-assets/`へ複製） | 成功。表はGFM、画像は`mmi-assets/`の2ファイル（重複を1つにまとめた） |
+| 元ワークブック・`assets/`・台帳を削除し、出力フォルダーだけを別の場所へ移す | — |
+| `mmi detach-check`（出力フォルダーだけで） | 成功（指摘0件） |
+| 負のケース: レビュー後に画像をExcelで差し替えた | `materialize`は終了コード1（`MMI_DETACH_EXTRACTED_STALE`、「採用したCandidateが変わっている」）。出力は作られない |
+
+**環境の注意（再現時に必要）。** 非ログインのWSLシェルは`/usr/bin/node`（Node 18）を選び、CLIが`SyntaxError`で落ちる（[0197](issue-0197-cli-distribution.md)と同じ問題）。Node 20を`PATH`の先頭に置くか、`NODE_BIN`で指定する。tsxでTypeScriptを起動すると`/mnt/c`上では1回あたり数分かかったため、`npm run build:product`で作る`dist`を使う。最初の試行はこれらが原因で無効になったため、結果には含めない。
+
+**まだ確認していないこと。** 実在する設計書（形式・パス・画像の数が多い文書）での操作、Windows・macOSでの実行、図形（Shape）の取り込みを伴う文書。
+
+## origin/main全体テストの内訳（2026-10-08、`06ab712`、Node 20）
+
+1931件中45件が失敗した。内訳は次のとおり（本Issueの回帰は含まない）。
+
+- **研究層の既知の失敗（37件）:** フィル・SAI・Jev・凍結済みブロブ等。以前から失敗していたもの。
+- **Candidate生成の共通化リファクタの途中で、テストと実装が食い違っている製品テスト（8件程度）:** 例として、`CLI inspect`と`VS Code review inventory`の画像Candidateの一致（`application.tableRegions`が欠落）、一括取り込みで画像を拒否・保留した判断の保存（`importMaterialization`の3件）、JSON/YAML/XMLのTree変換、`extensionIntegration`のコマンド一覧、`cognitiveArtifactCli`（バイナリ出力をJSONとして読む）。2026-10-07以降のコミット（`dc83af3`〜`761b5fc`）に由来すると見られる。このIssueの範囲外で、各担当の作業に任せる。
+
 ## 画像Detached縦通し回帰（2026-10-08）
 
 `test/detach.test.ts`へ、Excel埋込画像を実際の採用ライフサイクルへ通す統合回帰を追加した。架空XLSXから`extractImages`で画像を取り込み、`mmi-ledger.json`へreview basisを記録し、文書へ`mmi:extracted` provenanceを置く。その状態でfreshness preflightを通し、`materializeDocument`が画像をcontent-addressedな`mmi-assets/`へ複製することを確認する。Detached文書と複製assetを書いた後は、元workbook、取り込み時のasset directory、ledgerを削除し、`detach-check`がsource-independentな成果物だけで0 errorになることを契約にした。
@@ -76,6 +99,6 @@ Detachedは「MMI記法が無い」だけでは不十分である。materialize�
 
 ## Remaining work
 
-- **画像の完全性:** 自動回帰ではextract→ledger freshness→materialize→原本/元asset除去→detach-checkまで固定した。次は画像を含む実在設計書で同じ操作をmanual-E2Eし、自動fixtureだけでは見えないパス・画像形式・運用上の問題を観測する。「ブックに画像がある」だけではdetach blockerにせず、本文中のMMI provenanceを採用関係の正本とする境界は維持する。
+- **画像の完全性:** 自動回帰に加え、画像つき文書の手動E2E（2026-10-08、架空のブック）を実施し、再実行手順を`scripts/manual-e2e/`に置いた。残りは実在する設計書での同じ操作（パス・画像形式・件数の多さによる運用上の問題を観測する）。「ブックに画像がある」だけではdetach blockerにせず、本文中のMMI provenanceを採用関係の正本とする境界は維持する。
 - **本文の業務的鮮度:** 本文の説明が正本と矛盾していないかはAuthority保証外。detached成果物に対するoptional review warningとして扱う余地はあるが、detach可否の必須判定にはしない。
 - **非表Candidate:** Tree / Shape / Diagram等がextract/materialize可能になった時点で同じclosure checkへ追加する。

@@ -20,9 +20,184 @@
     },
     "candidateCount": 3,
     "candidates": [
-      {"kind":"tree","structuralPath":"/service[1]","execution":"deterministic","method":"M0","provenanceAlgorithm":"mmi.xml-tree-adapter","fingerprintRepresentation":"xml-subtree-canonical-v1"},
-      {"kind":"tree","structuralPath":"/service[1]/name[1]","execution":"deterministic","method":"M0","provenanceAlgorithm":"mmi.xml-tree-adapter","fingerprintRepresentation":"xml-subtree-canonical-v1"},
-      {"kind":"tree","structuralPath":"/service[1]/endpoint[1]","execution":"deterministic","method":"M0","provenanceAlgorithm":"mmi.xml-tree-adapter","fingerprintRepresentation":"xml-subtree-canonical-v1"}
+      {
+        "kind": "tree",
+        "structuralPath": "/service[1]",
+        "status": "observed",
+        "claims": [
+          {
+            "aspect": "structural-path",
+            "value": "/service[1]",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-element-path"
+          },
+          {
+            "aspect": "node-type",
+            "value": "element",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-element"
+          },
+          {
+            "aspect": "element-name",
+            "value": "service",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-qualified-name"
+          },
+          {
+            "aspect": "children",
+            "value": [
+              "/service[1]/name[1]",
+              "/service[1]/endpoint[1]"
+            ],
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-parent-child"
+          },
+          {
+            "aspect": "attributes",
+            "value": [
+              "@id=\"billing\""
+            ],
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-attributes"
+          }
+        ],
+        "execution": "deterministic",
+        "method": "M0",
+        "provenanceAlgorithm": "mmi.xml-tree-adapter",
+        "provenanceVersion": "2",
+        "fingerprintRepresentation": "xml-subtree-canonical-v1",
+        "fingerprintDigest": "sha256:f05166c106527e383106a3a5038d60c5dec662a00dd34e1eee020011404fce6b"
+      },
+      {
+        "kind": "tree",
+        "structuralPath": "/service[1]/name[1]",
+        "status": "observed",
+        "claims": [
+          {
+            "aspect": "structural-path",
+            "value": "/service[1]/name[1]",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-element-path"
+          },
+          {
+            "aspect": "node-type",
+            "value": "element",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-element"
+          },
+          {
+            "aspect": "element-name",
+            "value": "name",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-qualified-name"
+          },
+          {
+            "aspect": "children",
+            "value": [],
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-parent-child"
+          },
+          {
+            "aspect": "text",
+            "value": [
+              "Billing"
+            ],
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-text"
+          }
+        ],
+        "execution": "deterministic",
+        "method": "M0",
+        "provenanceAlgorithm": "mmi.xml-tree-adapter",
+        "provenanceVersion": "2",
+        "fingerprintRepresentation": "xml-subtree-canonical-v1",
+        "fingerprintDigest": "sha256:cb864f5587b4d797425778eb76eadbb124569e1c588dc9f6d87eeb9b6eb402be"
+      },
+      {
+        "kind": "tree",
+        "structuralPath": "/service[1]/endpoint[1]",
+        "status": "observed",
+        "claims": [
+          {
+            "aspect": "structural-path",
+            "value": "/service[1]/endpoint[1]",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-element-path"
+          },
+          {
+            "aspect": "node-type",
+            "value": "element",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-element"
+          },
+          {
+            "aspect": "element-name",
+            "value": "endpoint",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-qualified-name"
+          },
+          {
+            "aspect": "children",
+            "value": [],
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-parent-child"
+          },
+          {
+            "aspect": "attributes",
+            "value": [
+              "@method=\"POST\""
+            ],
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-attributes"
+          },
+          {
+            "aspect": "text",
+            "value": [
+              "/pay"
+            ],
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-text"
+          }
+        ],
+        "execution": "deterministic",
+        "method": "M0",
+        "provenanceAlgorithm": "mmi.xml-tree-adapter",
+        "provenanceVersion": "2",
+        "fingerprintRepresentation": "xml-subtree-canonical-v1",
+        "fingerprintDigest": "sha256:74247f506ee8c195410cb3b7fd2c7d08482a7e999cbed4b34f5afabb1a60100e"
+      }
     ]
   }
 }

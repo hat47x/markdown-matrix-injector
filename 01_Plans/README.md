@@ -32,12 +32,13 @@
 | **3 Source Adapterの一般化** | [Tree / Hierarchy、JSON/YAML/XML、フラットテキスト](issues/issue-0199-tree-structured-source-adapters.md) | **In Progress**（Tree各形式を共通ライフサイクルへ接続。Excel Choice listは別kindのまま直接範囲参照をM0解決。AutoShape/connectorもsource semanticsからM0 Candidate化） | 次: structured artifactの`hierarchy_relation`をAuthorityへ昇格させないPerception providerとして接続する |
 | 3 | Shape、その他List source | **In Progress** | AutoShape/connectorのSource Adapterとreview/import観測は実装済み。Choice listは独立kindを継続。残る主課題はShapeのExtracted変換とgraphic frame等の安全な分類 |
 | 3（研究） | structured artifact（SAI）、worksheet format、[review route](issues/issue-0190-review-route-evaluation-pipeline-regression.md) | In Progress | 新しい研究段階は、issue-0193の対応表のどの行を強くするかを示してから始める |
-| **4 Detachability** | [実体化とdetach check](issues/issue-0196-materialize-detach-check.md) | **In Progress**（表・別紙・ローカル画像のmaterialize、採用済み表・画像・JSON/YAML/XML/フラットテキスト/表形式階層Treeのfreshness preflight、artifact closureを実装） | build/unitと実務E2Eを確認し、Shape等がExtracted可能になったら同じprovenance/freshness契約へ拡張 |
+| **4 Detachability** | [実体化とdetach check](issues/issue-0196-materialize-detach-check.md) | **In Progress**（表・別紙・ローカル画像のmaterialize、採用済み表・画像・JSON/YAML/XML/フラットテキスト/表形式階層Treeのfreshness preflight、artifact closureを実装） | 表・キット・画像つき文書の手動E2Eを確認済み（2026-10-08）。残: 実在する設計書での確認、Windows/macOS。Shape等がExtracted可能になったら同じprovenance/freshness契約へ拡張 |
 | 4 | 参照台帳と影響分析 | 未起票 | issue-0195の台帳と合わせて設計 |
 | **5 組織導入** | 文書キットの追加、CI関門、執筆ベンチマーク v1（大きな表・複数シート・本文と表の矛盾） | 未起票 | 優先度2の縦切りの後 |
 | 5 | [外部の判断記録からの根拠の固定（SEI）](issues/issue-0192-sei-decision-basis-table-binding.md) | Draft | CLIの契約が固まった後 |
+| **最優先（停止中）** | [リファクタ後の製品テスト9件の食い違い（origin/mainが赤い）](issues/issue-0212-refactor-test-drift.md) | Open（担当者未定） | 担当者の割り当てと、テストと実装のどちらが正かの判断が要る |
 | 横断 | [上位プロダクト名とMMI互換層の整理](issues/issue-0201-product-name-and-compatibility-layer.md) | Draft | 実装を止めずに検討。決定前はrepo/package/CLI名を変更しない |
-| 2（既存） | [表の検索で見つからなかった依頼の観測](issues/issue-0207-search-demand-observation.md)（略語・表記・言い換えの需要を、同意のもとローカルに数える。[設計](../02_Architecture/search-observation.md)） | Draft | 実装は設計文書§8の分担。言い換えのモデル導入の判断材料（ADR-0023） |
+| 2（既存） | [表の検索で見つからなかった依頼の観測](issues/issue-0207-search-demand-observation.md)（略語・表記・言い換えの需要を、同意のもとローカルに数える。[設計](../02_Architecture/search-observation.md)） | **In Progress**（既定オフ、privacy-safe record、1,000件循環、件数集計、検索セッション接続を実装） | 次: 拡張機能ホストE2Eで選択・入力修正・キャンセル・alias結果を確認し、観測オン/オフで候補順位が不変であることを固定 |
 | 3（認知候補） | [ローカル認知runtime評価](issues/issue-0113-local-ai-feasibility.md) | Draft | M0〜M2で不足する具体的taskが定まったら、Ollama / LM Studio等の導入済みruntimeを含め比較評価 |
 | 横断（認知・採用保留） | [条件付き比較と次の一問](issues/issue-0209-condition-bound-comparison-draft.md) | Draft / Low（意味対応・条件入力の準備を上回る執筆上の効果は未確認） | 通常レビューで不足する具体例と修正成果を示す。専用CLI作業票を先行しない |
 | 横断（認知・採用保留） | [条件節を伴う参照下書き](issues/issue-0210-explicit-context-draft.md) | Draft（通常の参照＋Markdown追記との比較が先） | 既存のVS Code参照経路へ任意の引用支援を加える価値があるかを確認する |

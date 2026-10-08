@@ -1,0 +1,194 @@
+{
+  "schema": "mmi.portable-core-conformance/v1",
+  "request": {
+    "schema": "mmi.portable-core-request/v1",
+    "operation": "inspect",
+    "source": {
+      "name": "namespaced.xml",
+      "label": "./namespaced.xml",
+      "bytesBase64": "PD94bWwgdmVyc2lvbj0iMS4wIiBlbmNvZGluZz0iVVRGLTgiPz48cDpyb290IHhtbG5zOnA9InVybjp4IiBwOmlkPSIxIj48cDppdGVtPuWApDwvcDppdGVtPjxwOml0ZW0gcDprPSJ2Ii8+PC9wOnJvb3Q+"
+    },
+    "executionPolicy": {
+      "allowProviderDependent": false
+    }
+  },
+  "expected": {
+    "source": {
+      "format": "xml",
+      "digest": "sha256:81f9c62972cf0ca21d8122b7d107718f569e0c4fa65eb9ff566d14ec7e75267f",
+      "byteLength": 117
+    },
+    "candidateCount": 3,
+    "candidates": [
+      {
+        "kind": "tree",
+        "structuralPath": "/p:root[1]",
+        "status": "observed",
+        "claims": [
+          {
+            "aspect": "structural-path",
+            "value": "/p:root[1]",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-element-path"
+          },
+          {
+            "aspect": "node-type",
+            "value": "element",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-element"
+          },
+          {
+            "aspect": "element-name",
+            "value": "p:root",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-qualified-name"
+          },
+          {
+            "aspect": "children",
+            "value": [
+              "/p:root[1]/p:item[1]",
+              "/p:root[1]/p:item[2]"
+            ],
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-parent-child"
+          },
+          {
+            "aspect": "attributes",
+            "value": [
+              "@p:id=\"1\"",
+              "@xmlns:p=\"urn:x\""
+            ],
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-attributes"
+          }
+        ],
+        "execution": "deterministic",
+        "method": "M0",
+        "provenanceAlgorithm": "mmi.xml-tree-adapter",
+        "provenanceVersion": "2",
+        "fingerprintRepresentation": "xml-subtree-canonical-v1",
+        "fingerprintDigest": "sha256:06cb423d5ea17e1b45aba7caa4e4694da53be5fb89147af32d1ba6f3ca9c29d3"
+      },
+      {
+        "kind": "tree",
+        "structuralPath": "/p:root[1]/p:item[1]",
+        "status": "observed",
+        "claims": [
+          {
+            "aspect": "structural-path",
+            "value": "/p:root[1]/p:item[1]",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-element-path"
+          },
+          {
+            "aspect": "node-type",
+            "value": "element",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-element"
+          },
+          {
+            "aspect": "element-name",
+            "value": "p:item",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-qualified-name"
+          },
+          {
+            "aspect": "children",
+            "value": [],
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-parent-child"
+          },
+          {
+            "aspect": "text",
+            "value": [
+              "値"
+            ],
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-text"
+          }
+        ],
+        "execution": "deterministic",
+        "method": "M0",
+        "provenanceAlgorithm": "mmi.xml-tree-adapter",
+        "provenanceVersion": "2",
+        "fingerprintRepresentation": "xml-subtree-canonical-v1",
+        "fingerprintDigest": "sha256:7c6a3cd85f3417ec820c0ecba5b7f09866eaa2efacdfb5cccf7045eab2c22197"
+      },
+      {
+        "kind": "tree",
+        "structuralPath": "/p:root[1]/p:item[2]",
+        "status": "observed",
+        "claims": [
+          {
+            "aspect": "structural-path",
+            "value": "/p:root[1]/p:item[2]",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-element-path"
+          },
+          {
+            "aspect": "node-type",
+            "value": "element",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-element"
+          },
+          {
+            "aspect": "element-name",
+            "value": "p:item",
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-qualified-name"
+          },
+          {
+            "aspect": "children",
+            "value": [],
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-parent-child"
+          },
+          {
+            "aspect": "attributes",
+            "value": [
+              "@p:k=\"v\""
+            ],
+            "status": "observed",
+            "execution": "deterministic",
+            "method": "M0",
+            "reasonCode": "xml-attributes"
+          }
+        ],
+        "execution": "deterministic",
+        "method": "M0",
+        "provenanceAlgorithm": "mmi.xml-tree-adapter",
+        "provenanceVersion": "2",
+        "fingerprintRepresentation": "xml-subtree-canonical-v1",
+        "fingerprintDigest": "sha256:cec8b4cda901568206af5446ae07c8f5df7e03cf1a2dce34a554351822665ae5"
+      }
+    ]
+  }
+}
