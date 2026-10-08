@@ -23,6 +23,9 @@ import { runPortableCoreRequest } from '../application/portableCoreProtocol.js';
 import type {
   ChoiceListDiagnostic,
 } from '../adapters/excelChoiceListAdapter.js';
+import type {
+  NoteDiagnostic,
+} from '../adapters/excelNoteAdapter.js';
 import {
   readExcelImages,
   relationToTables,
@@ -142,8 +145,8 @@ Commands:
                               workbook/CSV only: exact header names Level,Label
       --unimported            show only occurrences never imported (duplicates remain separate)
       --exclude-imported      hide exact imported occurrences; keep changed/stale/duplicate/unimported
-                            For .xlsx/.xlsm it also lists embedded pictures and explicit Data Validation choice lists,
-                            digest, nearest table) and names any that cannot be read.
+                            For .xlsx/.xlsm it also lists embedded pictures, explicit Data Validation choice lists,
+                            and classic cell Notes. Note bodies are omitted from text output; --json retains source claims.
                             For .json and safe-subset .yaml/.yml it lists object/array nodes by RFC 6901 JSON Pointer.
                             YAML anchors/aliases/merge keys/explicit tags/non-string keys are rejected.
                             Generic .xml lists explicit element nodes; XML Spreadsheet 2003 remains a table source.
@@ -1320,6 +1323,15 @@ export interface InspectChoiceList {
   allowBlank: boolean;
 }
 
+export interface InspectNote {
+  ordinal: number;
+  sheet: string;
+  cell: string;
+  author?: string;
+  characters: number;
+  contentDigest: string;
+}
+
 export interface InspectResult {
   source: string;
   /** Public machine-readable contract used by every item in candidates. */
@@ -1339,8 +1351,12 @@ export interface InspectResult {
   shapes?: InspectShape[];
   /** Explicit list Data Validation occurrences from .xlsx/.xlsm. */
   choiceLists: InspectChoiceList[];
+  /** Classic Excel cell Notes. Text stays in the Semantic Candidate; this summary is content-light. */
+  notes: InspectNote[];
   /** Choice-list validations that could not be interpreted safely. */
   choiceListDiagnostics: ChoiceListDiagnostic[];
+  /** Classic Note parts that could not be interpreted safely. */
+  noteDiagnostics: NoteDiagnostic[];
   /** Pictures or drawings that could not be read, by name. */
   imageDiagnostics: ImageDiagnostic[];
   /**
@@ -1455,7 +1471,9 @@ export function inspectSource(
         : {}),
       images: [],
       choiceLists: [],
+      notes: [],
       choiceListDiagnostics: [],
+      noteDiagnostics: [],
       imageDiagnostics: [],
       sheets: [],
     };
@@ -1472,6 +1490,7 @@ export function inspectSource(
     workbook,
     imageRead,
     choiceRead,
+    noteRead,
     tablesBySheet,
     detected,
     hierarchies: tabularHierarchies,
@@ -1519,7 +1538,16 @@ export function inspectSource(
         : {}),
       allowBlank: item.allowBlank,
     })),
+    notes: noteRead.notes.map((note) => ({
+      ordinal: note.ordinal,
+      sheet: note.sheet,
+      cell: note.cell,
+      ...(note.author !== undefined ? { author: note.author } : {}),
+      characters: note.text.length,
+      contentDigest: note.contentDigest,
+    })),
     choiceListDiagnostics: choiceRead.diagnostics,
+    noteDiagnostics: noteRead.diagnostics,
     shapes: imageRead.shapes.map((shape) => ({
       ordinal: shape.ordinal,
       sheet: shape.sheet,
@@ -1631,6 +1659,10 @@ function applyLedgerView(
       allowed.has(
         `choice-list\u0000${item.sheet}\u0000${item.range}`,
       )),
+    notes: result.notes.filter((item) =>
+      allowed.has(
+        `note\u0000${item.sheet}\u0000${item.cell}`,
+      )),
     ...(result.trees
       ? {
           trees: result.trees.filter((tree) =>
@@ -1741,6 +1773,11 @@ function formatInspect(result: InspectResult): string {
         `  choice-list #${choice.ordinal}  ${choice.range}  ${summary}${resolved}${choice.allowBlank ? '  allow blank' : ''}${ledgerSuffix('choice-list', sheet.name, choice.range)}`,
       );
     }
+    for (const note of result.notes.filter((item) => item.sheet === sheet.name)) {
+      lines.push(
+        `  note #${note.ordinal}  ${note.cell}  ${note.characters} chars  ${note.contentDigest.slice(0, 19)}…${note.author !== undefined ? `  author: ${note.author}` : ''}${ledgerSuffix('note', sheet.name, note.cell)}  (review only)`,
+      );
+    }
     for (const image of result.images.filter((item) => item.sheet === sheet.name)) {
       const near = image.nearbyTable ? `  near table ${image.nearbyTable.range} (${image.nearbyTable.relation}, gap ${image.nearbyTable.gap})` : '';
       const place = image.range ?? `name:${image.name ?? ''}`;
@@ -1780,6 +1817,16 @@ function formatInspect(result: InspectResult): string {
       ...result.choiceListDiagnostics.map(
         (item) =>
           `  ${item.code}${item.sheet ? ` ${item.sheet}` : ''}: ${item.message}`,
+      ),
+    );
+  }
+  if (result.noteDiagnostics.length > 0) {
+    lines.push(
+      '',
+      'note problems:',
+      ...result.noteDiagnostics.map(
+        (item) =>
+          `  ${item.code}${item.sheet ? ` ${item.sheet}` : ''}${item.cell ? `!${item.cell}` : ''}: ${item.message}`,
       ),
     );
   }

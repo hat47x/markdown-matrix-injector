@@ -25,20 +25,6 @@ export interface CandidateReviewActionPolicy {
 export function candidateReviewActionPolicy(
   item: CandidateReviewInventoryItem,
 ): CandidateReviewActionPolicy {
-  if (item.kind === 'choice-list') {
-    return {
-      extraction: 'review-only',
-      reason:
-        '選択肢CandidateはまだExtracted資産へ変換しません。',
-    };
-  }
-  if (item.kind === 'shape') {
-    return {
-      extraction: 'review-only',
-      reason:
-        'Shape Candidate自体はまだExtracted資産へ変換しません。',
-    };
-  }
   if (item.candidate.execution === 'provider-dependent') {
     return {
       extraction: 'review-only',
@@ -46,5 +32,28 @@ export function candidateReviewActionPolicy(
         'provider依存Candidateは、原本のdeterministic Candidateへ同一性を再検証する契約が未接続のため、現時点では確認・却下・保留のみ利用できます。',
     };
   }
-  return { extraction: 'deterministic-extract' };
+  switch (item.kind) {
+    case 'table':
+    case 'image':
+    case 'tree':
+      return { extraction: 'deterministic-extract' };
+    case 'choice-list':
+      return {
+        extraction: 'review-only',
+        reason:
+          '選択肢CandidateはまだExtracted資産へ変換しません。',
+      };
+    case 'shape':
+      return {
+        extraction: 'review-only',
+        reason:
+          'Shape Candidate自体はまだExtracted資産へ変換しません。',
+      };
+    case 'note':
+      return {
+        extraction: 'review-only',
+        reason:
+          'Excel Noteは原本の補足情報として確認できますが、本文への自動取り込みはまだ行いません。',
+      };
+  }
 }
