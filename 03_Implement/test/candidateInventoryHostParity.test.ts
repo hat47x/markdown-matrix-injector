@@ -58,7 +58,7 @@ test('CLI inspect and VS Code review inventory produce identical image Candidate
       name: sheet.name,
       ranges: sheet.regions.map((region) => region.a1),
     })),
-    application.tableRegions.map((sheet) => ({
+    application.detected.map((sheet) => ({
       name: sheet.name,
       ranges: sheet.regions.map((region) => region.a1),
     })),
