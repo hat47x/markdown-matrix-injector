@@ -15,7 +15,7 @@
 
 ## Execution Plan
 ### Proposed solution
-[入力支援企画](../input-assistance-proposal.md)の該当範囲を1件ずつ実施する。今回は企画のみで未着手。ADRの提案を具体化してからOpenへ変更する。
+[入力支援企画](../input-assistance-proposal.md)の部分補完と範囲候補は実装済みである。残る実環境検証を、[issue-0211](issue-0211-vscode-excel-coauthoring-flow.md)の併用執筆にも対応付け、新しいExcel表の保存後や原本変更後に候補を選んで書き続けられるかを確認する。
 
 ### Acceptance criteria
 - [x] 未完成記法のカーソル区間を解析し、途中の値だけを置換して後続記法と本文を保持する。コード例と閉じた記法の外では候補を出さない。
@@ -41,3 +41,4 @@
 
 - CSV/Excel/XML/TSV、multi-root、IME、Undo、原本変更、遅い旧要求の破棄の実機検証（criterion 4）。
 - 既存のe2eの「#の後のシート候補」の既知の不安定さが解消したかの継続観測。
+- issue-0211の新しいブック・シート・表の保存後と構造変更後の補完を確認する。キャッシュの読取り経路だけで、実機での候補更新済みとは扱わない。

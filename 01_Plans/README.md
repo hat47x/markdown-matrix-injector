@@ -2,16 +2,17 @@
 
 ## 現況
 
-**製品方針:** [ADR-0019](adr/ADR-0019-ai-era-sier-document-value-and-policy.md)（2026-10-01採択・同日改訂）により、MMIは**人が慣れた道具で書き続けたまま、その内容をAIと機械が扱える形へ緩やかに移し、最終的には元文書やMMIからも安全に切り離せる基盤**である。MMIは、Excel方眼紙をレガシーとみなす見方と既存のスタイルの両方を否定せず、両者の橋になる。Excelで書き続ける人はそのままAIと協業でき、Markdownへ移りたい人は資産を失わずに移れる。図形やレイアウトに意味があるシート・範囲は、そのまま画像として取り込んでよい（D0）。Linked（参照）・Extracted（取り込み）・Detached（切り離し）は情報単位ごとに選ぶ状態で、順に進む段階ではない。人の作業を止めないことを移行の速さより優先する（D13）。表参照・Read-only・決定論的なAuthority Planeは中核の保証として継続し、軽量認知は表・画像・図形・ツリー等の候補（Semantic Candidate）を見つける非権威的な支援とする。
+**製品方針:** [ADR-0019](adr/ADR-0019-ai-era-sier-document-value-and-policy.md)（2026-10-01採択、2026-10-08改訂）により、既存Excel設計書の書式・運用を踏襲してMarkdown文書と共存させるユースケースを最優先とする。新しい表も人がExcelで作成・保存し、VS Codeで参照・確認・修正しながら本文を書けるようにする。Excel方眼紙をレガシーとみなす見方と既存のスタイルの両方を尊重し、図形やレイアウトに意味がある範囲は画像として取り込んでよい（D0）。Linked・Extracted・Detachedは情報単位ごとに選ぶ状態で、共存する文書をDetachedへ進める必要はない。人の作業を止めないことを移行の速さより優先する（D13）。共通Core、MMI記法、Read-only、決定論的なAuthority Planeを中核とし、認知機能は執筆の具体的な不足を補う非権威的な支援として選ぶ。
 
 **実装の到達点:** Linkedは表で実装済み。Extractedは表・Excel埋込画像に加え、JSON / 安全subset YAMLのobject / arrayと汎用XMLのelement、フラットテキスト、Excel / CSVの親列・Level列から得たTree Candidateを選択的に取り込める。AutoShapeとコネクタはDrawingMLから`shape` Candidateとして観測し、`inspect`・AI handoff・VS Codeレビュー・一括取り込みの下書きへ接続済みである。two-cell anchorで範囲を安全に確定できるShapeは、レビュー画面から既存の`region-snapshot`生成へ渡せる。Shape自体はまだExtracted資産へ変換しない。graphic frameはグラフや図を含み得るため種類を断定せず警告に残す。表・画像・Treeは共通Candidate/ledgerを使い、`inspect`で列挙し、`extract`で標準Markdownまたは画像assetへ取り込む。VS CodeのレビューUIも同じ採否・保留経路を使い、表形式階層は利用者がシートと列を明示してから同じレビュー画面へ渡す。Treeは構造位置とsubtree fingerprintを分けて記録し、採用後に対象subtreeが変わっていないかdetach前に再確認する。汎用XMLはnamespaceを検証し、DTD依存の解釈と非UTF-8入力をfail closedにする。既存ブックの初回取り込みでは、VS CodeとCLI `mmi import`が同じ処理を使い、表はLinked参照のまま、.xlsx/.xlsmの埋込画像はExtracted assetとして1回で下書き化する。Detachedも最小縦切りが入り、`materialize`でMMI参照を標準Markdownへ実体化し、`detach-check`で残存参照・未実体化marker・壊れた/境界外リンクを検査できる。Shape等へのExtracted一般化と実務E2Eは未完。CLIは`schema candidate`・`inspect`・`extract`・`import`・`check`・`render`・`materialize`・`detach-check`・`manifest`・AI handoff/再検証を提供する。`inspect --json`はCandidate配列とともに`mmi.semantic-candidate/v1`を明示し、外部AIや連携基盤がTypeScript実装を読まず契約を取得できる。AI向け指示パック（`skills/mmi`）、基本設計書キット、執筆ベンチマーク v0もある。記法仕様はDraft、配布物は公開準備中の検証版。差分の詳細は[ギャップ分析](product-gap-analysis.md)を参照する。
 
 ## 優先度と作業
 
-ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から順に割り当てるが、下位の作業を禁止しない。
+利用者向けの最優先は、D0・D13と要求EW01〜EW07に基づく併用執筆の受入と不足の修正である。既存の技術基盤の優先度番号は維持し、それぞれをこの作業へつなぐ。
 
 | 優先度 | 作業 | 状態 | 次の一手 |
 | --- | --- | --- | --- |
+| **利用者向け最優先（D0・D13）** | [既存・新規のExcel表とMarkdownの併用執筆](issues/issue-0211-vscode-excel-coauthoring-flow.md)（[見直し](vscode-excel-authoring-review.md)・[利用案内](../04_Documentation/excel-markdown-authoring.md)） | **Open**（既存の参照作成・補完・目録を使い、一連の執筆を確認する） | 既存設計書、新規表、保存後の値変更、構造変更、取消・Undo、取得不能の六場面で不足を特定する |
 | **1 Coreと入口** | [Candidate・Source Adapter・provenanceの契約](issues/issue-0193-candidate-source-adapter-contract.md) | **Done**（契約 v1。表・画像・Choice list・AutoShape/connector・JSON/YAML/XML/推定Tree Candidateが利用。`mmi schema candidate`で機械可読契約を取得可能） | 次の一般化はNote / Section / graphic frame等、source semanticsを安全に読める対象へ |
 | 1 | CLI（inspect/check/render/manifest）、AI向け指示パック、基本設計書キット、[執筆ベンチマーク](../04_Documentation/benchmarks/ai-writing/README.md) | 実装済み | ベンチマーク v0は実施済み。表を大きくした v1は優先度5 |
 | 1 | [外部LLMへの作業提案と判断材料](issues/issue-0112-ai-proposal-handoff.md) | **In Progress**（local-only handoff、MMI記法・Candidate選択・変換案のfail-closed再検証を実装。変換案は共通Candidate目録で再発見し、表・画像・JSON/YAML/XML/フラットテキストTreeの既存変換へ束縛） | 次: manual-e2eでhandoff → 外部提案 → 3種類の再検証が自動適用なしで完結することを確認 |
@@ -38,6 +39,9 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 | 横断 | [上位プロダクト名とMMI互換層の整理](issues/issue-0201-product-name-and-compatibility-layer.md) | Draft | 実装を止めずに検討。決定前はrepo/package/CLI名を変更しない |
 | 2（既存） | [表の検索で見つからなかった依頼の観測](issues/issue-0207-search-demand-observation.md)（略語・表記・言い換えの需要を、同意のもとローカルに数える。[設計](../02_Architecture/search-observation.md)） | Draft | 実装は設計文書§8の分担。言い換えのモデル導入の判断材料（ADR-0023） |
 | 3（認知候補） | [ローカル認知runtime評価](issues/issue-0113-local-ai-feasibility.md) | Draft | M0〜M2で不足する具体的taskが定まったら、Ollama / LM Studio等の導入済みruntimeを含め比較評価 |
+| 横断（認知・採用保留） | [条件付き比較と次の一問](issues/issue-0209-condition-bound-comparison-draft.md) | Draft / Low（意味対応・条件入力の準備を上回る執筆上の効果は未確認） | 通常レビューで不足する具体例と修正成果を示す。専用CLI作業票を先行しない |
+| 横断（認知・採用保留） | [条件節を伴う参照下書き](issues/issue-0210-explicit-context-draft.md) | Draft（通常の参照＋Markdown追記との比較が先） | 既存のVS Code参照経路へ任意の引用支援を加える価値があるかを確認する |
+| 横断（探索） | [文化的体系を併用した認知機能の探索](issues/issue-0208-cognitive-cultural-exploration.md) | In Progress（[採用判断](cognitive-cultural-adoption-plan.md)を執筆の観点で見直した） | N01・N02を原本確認と執筆再開の仕事へ戻し、通常の参照・追記で足りない要素を深める |
 
 **優先度の根拠:** 執筆ベンチマーク v0では、小さな表をAIが誤って写すことはなく、MMIの差は正本の変更への追従に出た（[結果](../04_Documentation/benchmarks/ai-writing/results/2026-09-30-v0.md)）。人がExcelで書き続けても追従する（Linked）ことは、それだけで価値がある。そのうえで、人がExcel等に置いた表・画像を選択的に標準資産へ移し、同じledgerとレビュー経路で追跡できるExtractedの経路が次に価値が大きい。Detachedは、原本を廃止すると決めた範囲のための経路として優先度4に置き、最小materialize/check縦切りまで実装した。その入口がCandidateの契約（issue-0193）で、研究の成果を製品へ合流させる唯一の経路でもあるため、最上位に置く。
 
