@@ -36,6 +36,7 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 | **5 組織導入** | 文書キットの追加、CI関門、執筆ベンチマーク v1（大きな表・複数シート・本文と表の矛盾） | 未起票 | 優先度2の縦切りの後 |
 | 5 | [外部の判断記録からの根拠の固定（SEI）](issues/issue-0192-sei-decision-basis-table-binding.md) | Draft | CLIの契約が固まった後 |
 | 横断 | [上位プロダクト名とMMI互換層の整理](issues/issue-0201-product-name-and-compatibility-layer.md) | Draft | 実装を止めずに検討。決定前はrepo/package/CLI名を変更しない |
+| 2（既存） | [表の検索で見つからなかった依頼の観測](issues/issue-0207-search-demand-observation.md)（略語・表記・言い換えの需要を、同意のもとローカルに数える。[設計](../02_Architecture/search-observation.md)） | Draft | 実装は設計文書§8の分担。言い換えのモデル導入の判断材料（ADR-0023） |
 | 3（認知候補） | [ローカル認知runtime評価](issues/issue-0113-local-ai-feasibility.md) | Draft | M0〜M2で不足する具体的taskが定まったら、Ollama / LM Studio等の導入済みruntimeを含め比較評価 |
 
 **優先度の根拠:** 執筆ベンチマーク v0では、小さな表をAIが誤って写すことはなく、MMIの差は正本の変更への追従に出た（[結果](../04_Documentation/benchmarks/ai-writing/results/2026-09-30-v0.md)）。人がExcelで書き続けても追従する（Linked）ことは、それだけで価値がある。そのうえで、人がExcel等に置いた表・画像を選択的に標準資産へ移し、同じledgerとレビュー経路で追跡できるExtractedの経路が次に価値が大きい。Detachedは、原本を廃止すると決めた範囲のための経路として優先度4に置き、最小materialize/check縦切りまで実装した。その入口がCandidateの契約（issue-0193）で、研究の成果を製品へ合流させる唯一の経路でもあるため、最上位に置く。
