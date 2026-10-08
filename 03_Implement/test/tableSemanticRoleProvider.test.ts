@@ -102,7 +102,7 @@ function tableCandidate(
 
 function tableItem(
   candidate = tableCandidate(),
-): CandidateReviewInventoryItem {
+): Extract<CandidateReviewInventoryItem, { kind: 'table' }> {
   return {
     kind: 'table',
     candidate,
