@@ -7,6 +7,10 @@
  * SheetJS that may use newer JavaScript syntax.
  */
 
+// Node built-ins only: safe to load on any supported or unsupported Node version.
+import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
+
 export const MINIMUM_NODE_MAJOR = 20;
 
 export function nodeMajor(version: string): number | undefined {
