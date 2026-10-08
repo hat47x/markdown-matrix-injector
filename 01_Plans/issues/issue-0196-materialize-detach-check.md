@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Feature
-- Status: In Progress（表・別紙・ローカル画像のmaterialize、採用済みExtracted Candidateの鮮度preflight、artifact closure checkを実装。実務E2Eは未実行）
+- Status: In Progress（表・別紙・ローカル画像のmaterialize、採用済みExtracted Candidateの鮮度preflight、artifact closure checkを実装。表・キットの実務E2Eは実施済み。画像manual-E2Eと正本suite実行待ち）
 - Priority: Medium
 - Scope: src/application（materialize / detach check）、src/cli、docs
 - Expected verification level: integration
@@ -27,7 +27,7 @@ Detachedは「MMI記法が無い」だけでは不十分である。materialize�
 - [x] GFM表投影をCore側（`src/core/markdownTable.ts`）へ共有し、通常renderとmaterializeが同じ変換を使う。
 - [x] 文書中の`mmi:extracted` / `mmi:extracted-table` provenanceを「この文書への採用関係」として使い、import ledgerと現在のsource Candidateを照合する。changed / stale / missing / untrackedはmaterializeのdetachability判定を失敗させる。ブック内に存在するだけの未採用Candidateはblockerにしない。
 - [x] 通常Markdownのローカル画像参照をcontent digest名で`mmi-assets/`へ複製し、Detached文書のリンクを成果物側へrebaseする。同じbytesは1コピーにまとめ、欠落・workspace境界外はfail-closedにする。
-- [ ] 実体化した成果物から原本フォルダーを取り除いた状態で、実務サンプルと基本設計書キットを使ったE2Eを実行・記録する。
+- [x] 実体化した成果物から原本フォルダーを取り除いた状態で、実務サンプルと基本設計書キットを使ったE2Eを実行・記録する（2026-10-06。成功ケースとfail-closedケースを下表へ記録）。
 - [ ] CLI build / unit testを実行し、新規`detach.test.ts`を含む回帰を確認する。
 
 ## 実装（2026-10-02）
@@ -55,6 +55,16 @@ Detachedは「MMI記法が無い」だけでは不十分である。materialize�
 - 受入条件のE2E（上記の表）は実施した。**画像を含む文書でのE2E**（`extract`で取り込んだ画像を`mmi-assets/`へ複製して原本を外す）は未実施。
 - Windows・macOSでは未実施。
 
+## 画像Detached縦通し回帰（2026-10-08）
+
+`test/detach.test.ts`へ、Excel埋込画像を実際の採用ライフサイクルへ通す統合回帰を追加した。架空XLSXから`extractImages`で画像を取り込み、`mmi-ledger.json`へreview basisを記録し、文書へ`mmi:extracted` provenanceを置く。その状態でfreshness preflightを通し、`materializeDocument`が画像をcontent-addressedな`mmi-assets/`へ複製することを確認する。Detached文書と複製assetを書いた後は、元workbook、取り込み時のasset directory、ledgerを削除し、`detach-check`がsource-independentな成果物だけで0 errorになることを契約にした。
+
+同じfixtureで、workbook内の無関係なメモだけを変更した場合は画像のClaim-level review basisをstaleにしない一方、採用した画像bytesを変更した場合は`MMI_DETACH_EXTRACTED_STALE / ledgerState=changed`で止める回帰も追加した。whole-workbook digestの変化だけで局所的な採用判断を無効化せず、実際の採用対象変更はdetachment前に止める境界を確認する。
+
+さらに利用者経路として、`mmi extract --image` → `mmi materialize` → 元workbook・元asset・ledger削除 → `mmi detach-check`をCLI経由で通す回帰を追加した。source画像変更後の`mmi materialize`はexit 1、`written=false`となりDetached出力を作らないことも固定する。
+
+これらは正本テストコードとして追加したが、このチャットの実行環境にはリポジトリcheckoutと依存一式がないため、ここではsuite実行済みとは扱わない。画像を含む実際の設計書でのmanual-E2Eも別途残す。
+
 ## Validation plan
 
 1. unit fixtureで、小表→inline、大表→別Markdown、sheet未指定→unmaterialized、壊れたリンク→detach errorを確認する。
@@ -66,6 +76,6 @@ Detachedは「MMI記法が無い」だけでは不十分である。materialize�
 
 ## Remaining work
 
-- **画像の完全性:** 「ブックに画像がある」だけではdetach blockerにしない。現在は本文中のMMI provenanceを採用関係の正本とし、採用済みExtracted表/画像だけをfreshness監査する。将来review stateをledger v2で分離する場合も、この文書単位の採用関係を失わない。
+- **画像の完全性:** 自動回帰ではextract→ledger freshness→materialize→原本/元asset除去→detach-checkまで固定した。次は画像を含む実在設計書で同じ操作をmanual-E2Eし、自動fixtureだけでは見えないパス・画像形式・運用上の問題を観測する。「ブックに画像がある」だけではdetach blockerにせず、本文中のMMI provenanceを採用関係の正本とする境界は維持する。
 - **本文の業務的鮮度:** 本文の説明が正本と矛盾していないかはAuthority保証外。detached成果物に対するoptional review warningとして扱う余地はあるが、detach可否の必須判定にはしない。
 - **非表Candidate:** Tree / Shape / Diagram等がextract/materialize可能になった時点で同じclosure checkへ追加する。
