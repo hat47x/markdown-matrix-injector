@@ -7,6 +7,9 @@ import {
   type CandidateReviewInventoryOptions,
 } from '../application/candidateReviewInventory.js';
 import {
+  candidateReviewActionPolicy,
+} from '../application/candidateReviewActionPolicy.js';
+import {
   availableCandidateReviewFacets,
   candidateReviewFacetFilter,
   type CandidateReviewFacetSelection,
@@ -947,6 +950,9 @@ export async function reviewCandidates(
     );
     if (!picked) return;
     selectedCount += 1;
+    const actionPolicy = candidateReviewActionPolicy(picked.source);
+    const canUseDeterministicExtract =
+      actionPolicy.extraction === 'deterministic-extract';
 
   if (
     picked.source.kind === 'image'
@@ -963,7 +969,9 @@ export async function reviewCandidates(
     picked.source.kind === 'shape'
       ? shapeSnapshotSelection(picked.source.shape)
       : undefined;
-  const canSnapshotShape = Boolean(shapeSnapshot);
+  const canSnapshotShape =
+    Boolean(shapeSnapshot)
+    && picked.source.candidate.execution === 'deterministic';
 
   const action = await vscode.window.showQuickPick(
     [
@@ -980,42 +988,51 @@ export async function reviewCandidates(
                 label: '確認のみで次へ',
                 value: 'next' as const,
                 description:
-                  '図形を変換せず、原本から読めた内容だけ確認して次へ進む',
+                  actionPolicy.reason
+                  ?? '図形を変換せず、原本から読めた内容だけ確認して次へ進む',
               },
               ...(canSnapshotShape
                 ? [{
                     label: 'この範囲を画像化',
                     value: 'snapshot-shape' as const,
                     description:
-                      'two-cell anchorの範囲をregion-snapshotとして画像化し、別Candidateとして台帳へ記録',
+                      'deterministicなtwo-cell anchorの範囲をregion-snapshotとして画像化し、別Candidateとして台帳へ記録',
                   }]
                 : []),
             ]
-          : [{
-            label: '取り込む',
-            value: 'extract' as const,
-            description: '既存のextract経路で標準資産と台帳へ記録',
-          }]),
-      ...(picked.source.kind === 'tree'
+          : canUseDeterministicExtract
+            ? [{
+                label: '取り込む',
+                value: 'extract' as const,
+                description: '既存のdeterministic extract経路で標準資産と台帳へ記録',
+              }]
+            : [{
+                label: '確認のみで次へ',
+                value: 'next' as const,
+                description:
+                  actionPolicy.reason
+                  ?? 'このCandidateは現在のAuthority境界では取り込めません',
+              }]),
+      ...(picked.source.kind === 'tree' && canUseDeterministicExtract
         ? [{
             label: '確認のみで次へ',
             value: 'next' as const,
             description: 'Treeを取り込まず、確認だけして次へ進む',
           }]
         : []),
-      ...(picked.source.kind === 'table'
+      ...(canUseDeterministicExtract && picked.source.kind === 'table'
         ? [{
             label: '修正して取り込む',
             value: 'extract-modified' as const,
             description:
               '抽出したMarkdown表を編集し、修正版として台帳へ記録',
           }]
-        : picked.source.kind === 'image'
+        : canUseDeterministicExtract && picked.source.kind === 'image'
           ? [{
               label: '説明を修正して取り込む',
               value: 'extract-modified-image' as const,
               description:
-                '画像bytesは変えず、alt textを人手修正して台帳へ記録',
+                '画像bytesは変えず、alt textだけを人手修正して台帳へ記録',
             }]
           : []),
       ...(picked.ledgerState === 'imported'
@@ -1055,6 +1072,21 @@ export async function reviewCandidates(
     },
   );
   if (!action) continue;
+
+  if (
+    !canUseDeterministicExtract
+    && (
+      action.value === 'extract'
+      || action.value === 'extract-modified'
+      || action.value === 'extract-modified-image'
+    )
+  ) {
+    await vscode.window.showErrorMessage(
+      'MMI: provider依存Candidateはdeterministicなsource再検証へ束縛されていないため、この経路では取り込めません。',
+    );
+    processedKeys.add(candidateReviewSessionKey(picked.source.candidate));
+    continue;
+  }
 
   if (action.value === 'next') {
     processedKeys.add(candidateReviewSessionKey(picked.source.candidate));
