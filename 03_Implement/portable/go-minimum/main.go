@@ -479,11 +479,11 @@ func xmlDeclarationEncoding(instruction string) string {
 		return ""
 	}
 	rest := instruction[index+len("encoding"):]
-	rest = strings.TrimLeft(rest, " \\t\\r\\n")
+	rest = strings.TrimLeft(rest, " \t\r\n")
 	if len(rest) == 0 || rest[0] != '=' {
 		return ""
 	}
-	rest = strings.TrimLeft(rest[1:], " \\t\\r\\n")
+	rest = strings.TrimLeft(rest[1:], " \t\r\n")
 	if len(rest) < 2 || (rest[0] != '"' && rest[0] != '\\'') {
 		return ""
 	}
