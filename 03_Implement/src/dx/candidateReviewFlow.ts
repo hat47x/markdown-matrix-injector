@@ -1489,7 +1489,7 @@ export async function reviewCandidates(
     }
     extractedMarkdown = result.extracted.markdown;
     extractedFile = result.extracted.file;
-  } else {
+  } else if (picked.source.kind === 'table') {
     const result = extractTable({
       sourcePath,
       sheet: picked.source.sheet,
@@ -1512,6 +1512,15 @@ export async function reviewCandidates(
     }
     extractedMarkdown = result.extracted.markdown;
     extractedFile = result.extracted.file;
+  } else {
+    // Note candidates are review-only (candidateReviewActionPolicy), so the
+    // action list never offers an extract action for them and this branch is
+    // not reached. The explicit guard keeps the table-only fields narrowed.
+    await vscode.window.showErrorMessage(
+      'MMI: Excel NoteはまだExtracted資産へ変換しません。確認・却下・保留のみ利用できます。',
+    );
+    processedKeys.add(candidateReviewSessionKey(picked.source.candidate));
+    continue;
   }
 
   try {
