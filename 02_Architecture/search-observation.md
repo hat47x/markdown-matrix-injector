@@ -1,6 +1,6 @@
 # 表の検索の需要観測（設計）
 
-- 状態: 設計（未実装。2026-10-08）
+- 状態: 実装済み（単体テストまで。画面操作の目視確認と実利用での観測は未実施。2026-10-08）
 - 関連: [ADR-0023](../01_Plans/adr/ADR-0023-fuzzy-search-before-paraphrase-and-model-runtime.md)、[issue-0207](../01_Plans/issues/issue-0207-search-demand-observation.md)、[CPUでの範囲探索](input-assistance-cpu-search.md)（§2.1の保存規約）、[認知機能の仮説カード](../01_Plans/cognitive-hypothesis-cards.md)（K5）
 
 ## 1. 何を知りたいか
@@ -64,7 +64,7 @@ includeText をオンにした場合だけ、final.text を追加する。
 
 | 分類 | 判定 |
 | --- | --- |
-| found | 通常の候補が出た |
+| found | 名前または別名で、通常の候補が出た（構造だけで見つけた候補は、下の description に数える） |
 | unsupported-op | 集計・比較・並べ替えなど、記法で表せない操作の依頼として棄却された |
 | notation | 近い候補が出て、その名前との差が表記（全角半角・長音・送り仮名・誤字）の範囲に収まる |
 | abbreviation | 依頼に、どの候補の名前にも無い英字の語が一つだけあり、上の分類に当たらない |
@@ -122,6 +122,7 @@ includeText をオンにした場合だけ、final.text を追加する。
 | src/search/observation/store.ts | ローカルの保存（循環・消去・件数上限）。ファイル操作はここだけ |
 | src/search/observation/summary.ts | 集計（§6）。純粋関数 |
 | src/dx/searchFlow.ts | セッションの開始・終了を検知して記録を依頼する。記録は検索の応答を待たせない |
+| src/dx/searchObservation.ts | 設定の読取り、ワークスペースの保存先、初回の案内、集計・消去のコマンド（VS Codeに依存する部分はここだけ） |
 | コマンドと設定 | 集計の表示・書き出し・消去。search.observation.* の設定 |
 
 分類・記録・集計は、VS Codeに依存しない純粋な部分に置き、拡張機能ホストなしで試験できるようにする。searchFlow.ts は、セッションの出入口だけを担う。

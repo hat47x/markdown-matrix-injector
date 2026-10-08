@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Feature / Evaluation
-- Status: Draft（設計済み。2026-10-08）
+- Status: In Progress（実装・単体テスト済み。画面操作の目視確認と実利用での観測は未実施。2026-10-08）
 - Priority: Medium
 - Scope: `src/search/observation/`（分類・記録・保存・集計）、`src/dx/searchFlow.ts`（セッションの入口）、設定とコマンド
 - Expected verification level: unit / manual-e2e
@@ -35,6 +35,7 @@
 
 ## Remaining work
 
-- 実装（設計文書§8の分担）。
+- **実装済み（2026-10-08）:** `src/search/observation/`（分類・記録・保存・集計）、`src/dx/searchObservation.ts`、検索画面への接続、設定`search.observation.enabled`・`includeText`、コマンド2件。テストは`test/searchObservation.test.ts`（8件）と`test/extensionIntegration.test.ts`の固定。受入条件のうち、記録の有無で検索結果が変わらないこと（記録は結果を読むだけ）と、既定の記録に依頼文・表名が入らないことは単体テストで確認した。
+- 残り: 拡張機能ホストでの画面操作（選ぶ・閉じる・入力を直す・別名の登録の各経路で記録されること、初回の案内、集計の表示、消去）の目視確認。ネットワークを使うコードを含まないことの確認。
 - 設定のうち`includeText`は、利用者がローカルでの見直しのためにオンにする場合の注意文を決める。
 - 観測を実在の設計書の利用者へ依頼する範囲・期間は、Human Sponsorが決める。
