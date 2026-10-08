@@ -245,6 +245,30 @@ func TestXMLTreeConformanceCase(t *testing.T) {
 	}
 }
 
+
+func TestNamespacedXMLTreeConformanceCase(t *testing.T) {
+	actualResponse := runConformanceCase(
+		t,
+		"xml-tree-namespace.case.json",
+	)
+	wantPaths := []string{
+		"/p:root[1]",
+		"/p:root[1]/p:item[1]",
+		"/p:root[1]/p:item[2]",
+	}
+	for index, want := range wantPaths {
+		actual := actualResponse.Candidates[index].Locator.StructuralPath
+		if actual == nil || *actual != want {
+			t.Fatalf(
+				"candidate %d structural path: got %v want %q",
+				index,
+				actual,
+				want,
+			)
+		}
+	}
+}
+
 func TestXMLTreeRejectsDTDEncodingAndUndeclaredPrefixes(t *testing.T) {
 	for _, source := range []string{
 		`<!DOCTYPE service [<!ENTITY x "value">]><service>&x;</service>`,
