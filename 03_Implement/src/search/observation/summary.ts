@@ -19,12 +19,19 @@ export interface ObservationSummary {
   total: number;
   from?: string;
   to?: string;
-  /** Sessions whose last search did not find a table by name (class other than `found`). */
+  /**
+   * Sessions whose last search did not find a table and whose cause was determined (design §7:
+   * the threshold counts determined classes only). `other` is counted separately as `undetermined`.
+   */
   unresolved: number;
+  undetermined: number;
   byClass: Record<RequestClass, number>;
   /** class -> outcome -> sessions. */
   matrix: Record<RequestClass, Record<Outcome, number>>;
-  /** For sessions that picked a candidate: how often the first candidate was the one picked, by fit. */
+  /**
+   * Calibration of the fit guide: sessions that picked a candidate from the main list (not a near
+   * miss, which has its own capped fit and its own ranking), by fit, and how often rank 1 was picked.
+   */
   fitBins: { label: string; picked: number; first: number }[];
   alias: { offered: number; accepted: number };
 }
@@ -42,7 +49,7 @@ export function summarize(records: readonly ObservationRecord[]): ObservationSum
     const name = REQUEST_CLASSES.includes(record.final.class) ? record.final.class : 'other';
     byClass[name] += 1;
     if (OUTCOMES.includes(record.outcome)) matrix[name][record.outcome] += 1;
-    if (record.picked?.fit !== undefined) {
+    if (record.picked?.fit !== undefined && record.outcome !== 'picked-near-miss') {
       const fit = record.picked.fit;
       const index = FIT_BINS.findIndex((bin) => fit >= bin.min && fit < bin.max);
       if (index >= 0) {
@@ -57,7 +64,8 @@ export function summarize(records: readonly ObservationRecord[]): ObservationSum
   return {
     total: records.length,
     ...(days.length > 0 ? { from: days[0], to: days[days.length - 1] } : {}),
-    unresolved: records.length - byClass.found,
+    unresolved: byClass['unsupported-op'] + byClass.notation + byClass.abbreviation + byClass.description + byClass['no-such-table'],
+    undetermined: byClass.other,
     byClass,
     matrix,
     fitBins,
@@ -87,7 +95,8 @@ const percent = (part: number, whole: number): string => (whole === 0 ? '-' : `$
 export function renderSummary(summary: ObservationSummary): string {
   const lines: string[] = ['# 表の検索の観測（集計）', ''];
   lines.push(`- 記録件数: ${summary.total}${summary.from ? `（${summary.from} 〜 ${summary.to}）` : ''}`);
-  lines.push(`- 名前で見つからなかったセッション: ${summary.unresolved}`);
+  lines.push(`- 名前で見つからなかったセッション（原因が判定できたもの）: ${summary.unresolved}`);
+  lines.push(`- 名前で見つからず、原因を判定できなかったセッション: ${summary.undetermined}`);
   lines.push('- この集計に依頼文・表名・ファイル名・利用者名は含まれません。');
   lines.push(
     summary.unresolved < MIN_UNRESOLVED_FOR_CONCLUSION

@@ -43,6 +43,22 @@ test('each class is decided by a fixed rule', () => {
   assert.equal(classifyResult(result('在庫の棚卸表を貼りたい', 'no-match')).class, 'no-such-table');
 });
 
+test('a structure-only near miss is a description, and an unmatched request with a near miss is not no-such-table', () => {
+  // The paraphrase route offered a table only as a near miss (a non-question description request).
+  assert.equal(classifyResult(result('担当者と期限が分かる表', 'no-match', { nearMisses: [candidate('作業一覧', { basis: 'paraphrase' })] })).class, 'description');
+  // A near miss that matches neither the name nor a Latin word: design §4 says this is "other", not "no-such-table".
+  assert.equal(classifyResult(result('在庫管理表を見せて', 'no-match', { target: ['在庫管理表'], nearMisses: [candidate('在庫一覧')] })).class, 'other');
+});
+
+test('Latin words are whole words, file names are not abbreviations, and a long word is one word', () => {
+  // "if" inside "specification" is not the word IF, so the request's IF is unseen.
+  assert.equal(classifyResult(result('IFの表を貼りたい', 'no-match', { nearMisses: [candidate('Specification一覧')] })).class, 'abbreviation');
+  // A file name contributes no abbreviation.
+  assert.equal(classifyResult(result('設計書.xlsxの表を貼りたい', 'no-match')).class, 'no-such-table');
+  // One long English word is still one word.
+  assert.equal(classifyResult(result('SupplierOrderDetailHistoryの表を貼りたい', 'no-match')).class, 'abbreviation');
+});
+
 test('the request is reduced to counts', () => {
   const c = classifyResult(result('CBM の 係数 を 貼りたい', 'no-match'));
   assert.equal(c.latinWords, 1);
@@ -112,7 +128,7 @@ test('the store keeps the newest records, skips damaged lines, and can be cleare
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-observation-'));
   const file = path.join(dir, 'nested', 'search-observation.jsonl');
   const store = new ObservationStore(file, 5);
-  for (let i = 0; i < 8; i += 1) assert.equal(await store.append(sample({ queries: i + 1 })), true);
+  for (let i = 0; i < 8; i += 1) assert.equal(await store.append(sample({ queries: i + 1 }), true), true);
   assert.deepEqual((await store.readAll()).map((r) => r.queries), [4, 5, 6, 7, 8]);
   fs.appendFileSync(file, 'not json\n{"schema":"other"}\n');
   assert.equal((await store.readAll()).length, 5);
@@ -126,7 +142,64 @@ test('a store that cannot write reports failure instead of throwing', async () =
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-observation-'));
   const blocker = path.join(dir, 'file');
   fs.writeFileSync(blocker, 'x');
-  assert.equal(await new ObservationStore(path.join(blocker, 'sub', 'x.jsonl')).append(sample()), false);
+  assert.equal(await new ObservationStore(path.join(blocker, 'sub', 'x.jsonl')).append(sample(), true), false);
+});
+
+test('a transient read error never makes an append overwrite the stored records', async (t) => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-observation-'));
+  const file = path.join(dir, 'search-observation.jsonl');
+  const store = new ObservationStore(file, 1000);
+  for (let i = 0; i < 3; i += 1) assert.equal(await store.append(sample({ queries: i + 1 }), true), true);
+  // A read that fails for a reason other than "no such file" (a lock held by another program, say).
+  t.mock.method(fs.promises, 'readFile', async () => {
+    throw Object.assign(new Error('resource busy'), { code: 'EBUSY' });
+  });
+  assert.equal(await store.append(sample({ queries: 4 }), true), false, 'the append must report failure');
+  t.mock.restoreAll();
+  assert.deepEqual((await store.readAll()).map((r) => r.queries), [1, 2, 3], 'the stored records are untouched');
+});
+
+test('the store keeps no records at all when max is 1, and the newest one when it is 2', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-observation-'));
+  const one = new ObservationStore(path.join(dir, 'one.jsonl'), 1);
+  await one.append(sample({ queries: 1 }), true);
+  await one.append(sample({ queries: 2 }), true);
+  assert.deepEqual((await one.readAll()).map((r) => r.queries), [2]);
+  const two = new ObservationStore(path.join(dir, 'two.jsonl'), 2);
+  for (let i = 1; i <= 3; i += 1) await two.append(sample({ queries: i }), true);
+  assert.deepEqual((await two.readAll()).map((r) => r.queries), [2, 3]);
+});
+
+test('turning includeText off removes request text that earlier records kept', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-observation-'));
+  const file = path.join(dir, 'search-observation.jsonl');
+  const store = new ObservationStore(file);
+  const withText = sample({ queries: 1 });
+  withText.final.text = '山田商事の人事表';
+  await store.append(withText, true);
+  assert.match(fs.readFileSync(file, 'utf8'), /山田商事/u);
+  await store.append(sample({ queries: 2 }), false);
+  assert.ok(!fs.readFileSync(file, 'utf8').includes('山田商事'), 'the old request text must be gone from the file');
+  assert.deepEqual((await store.readAll()).map((r) => r.queries), [1, 2]);
+});
+
+test('clear also removes a staging file left by an interrupted write', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-observation-'));
+  const file = path.join(dir, 'search-observation.jsonl');
+  const store = new ObservationStore(file);
+  await store.append(sample(), true);
+  fs.writeFileSync(`${file}.tmp`, '山田商事の人事表\n');
+  assert.equal(await store.clear(), true);
+  assert.equal(fs.existsSync(`${file}.tmp`), false, 'a leftover .tmp copy of the records must go too');
+  assert.equal(await store.exists(), false);
+});
+
+test('concurrent appends are not lost', async () => {
+  const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-observation-'));
+  const store = new ObservationStore(path.join(dir, 'search-observation.jsonl'));
+  const results = await Promise.all(Array.from({ length: 12 }, (_, i) => store.append(sample({ queries: i + 1 }), true)));
+  assert.ok(results.every(Boolean));
+  assert.equal((await store.readAll()).length, 12);
 });
 
 test('the summary counts classes, outcomes, fit bins and alias offers, and shares no text', () => {
@@ -143,7 +216,9 @@ test('the summary counts classes, outcomes, fit bins and alias offers, and share
   assert.equal(summary.unresolved, 4);
   assert.equal(summary.byClass.abbreviation, 3);
   assert.equal(summary.matrix.abbreviation['picked-near-miss'], 2);
-  assert.deepEqual(summary.fitBins.map((bin) => [bin.picked, bin.first]), [[2, 1], [0, 0], [0, 0], [2, 2]]);
+  // Near-miss picks have their own capped fit and are not part of the calibration of the main list.
+  assert.deepEqual(summary.fitBins.map((bin) => [bin.picked, bin.first]), [[2, 1], [0, 0], [0, 0], [0, 0]]);
+  assert.equal(summary.undetermined, 0);
   assert.deepEqual(summary.alias, { offered: 2, accepted: 1 });
   const text = renderSummary(summary);
   assert.match(text, /見つからなかったセッションが100件に満たない/u);

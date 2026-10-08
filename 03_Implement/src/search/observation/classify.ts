@@ -17,10 +17,28 @@ export interface Classification {
 }
 
 const CONTENT_RUN = /[\p{Script=Han}\p{Script=Katakana}ー\p{Script=Latin}0-9]+/gu;
-const LATIN_WORD = /[A-Za-z][A-Za-z0-9/&.-]{1,9}/gu;
+const LATIN_WORD = /[A-Za-z][A-Za-z0-9/&.-]*/gu;
+const FILE_NAME_PATTERN = /[A-Za-z0-9_-]*\.(?:xlsx?|xlsm|xlsb|csv|tsv|xml|json|ya?ml|md|txt)(?![A-Za-z0-9])/giu;
 const SEPARATORS = /[\s・\-_ー/()（）]/gu;
 
 const strip = (value: string): string => normalizeText(value).replace(SEPARATORS, '');
+
+/**
+ * The Latin words of a text as the person wrote them. A file name (`設計.xlsx`) is not an
+ * abbreviation, so its extension is dropped; trailing punctuation is not part of a word.
+ */
+export function latinWordsOf(text: string): string[] {
+  const withoutFileNames = text.normalize('NFKC').replace(FILE_NAME_PATTERN, ' ');
+  const words = (withoutFileNames.match(LATIN_WORD) ?? [])
+    .map((word) => word.replace(/[./&-]+$/u, ''))
+    .filter((word) => word.length >= 2);
+  return [...new Set(words)];
+}
+
+/** Whole Latin words of a name, lowercased. A word inside a longer word ("if" in "specification") does not count. */
+function latinWordSetOf(text: string): Set<string> {
+  return new Set(latinWordsOf(text).map((word) => word.toLowerCase()));
+}
 
 /** True when `a` and `b` differ by at most one inserted, deleted or replaced character (and are long enough to be words). */
 export function withinOneEdit(a: string, b: string): boolean {
@@ -40,17 +58,18 @@ function regionNames(region: RegionRecord): string[] {
 export function classifyResult(result: CompileResult): Classification {
   const input = result.ir.input;
   const tokens = (input.normalize('NFKC').match(CONTENT_RUN) ?? []).length;
-  const latin = [...new Set(input.normalize('NFKC').match(LATIN_WORD) ?? [])];
+  const latin = latinWordsOf(input);
   const question = isDescriptionQuestion(input);
   const base = { tokens, latinWords: latin.length, question };
+  const near = result.nearMisses ?? [];
 
-  const viaStructure = result.candidates.some((candidate) => candidate.basis === 'paraphrase' || candidate.basis === 'semantic');
-  if (viaStructure) return { ...base, class: 'description' };
+  // Structure-only evidence counts as a description whether it was promoted to a candidate or only offered as a near miss.
+  const structural = [...result.candidates, ...near].some((candidate) => candidate.basis === 'paraphrase' || candidate.basis === 'semantic');
+  if (structural) return { ...base, class: 'description' };
   if (result.candidates.length > 0) return { ...base, class: 'found' };
   if (result.status === 'unsupported') return { ...base, class: 'unsupported-op' };
   if (result.status === 'needs-more-input') return { ...base, class: 'other' };
 
-  const near = result.nearMisses ?? [];
   const hints = [result.ir.source, result.ir.sheet, result.ir.table, ...result.ir.target]
     .filter((hint) => hint !== undefined)
     .map((hint) => strip(hint.text))
@@ -59,12 +78,18 @@ export function classifyResult(result: CompileResult): Classification {
     return { ...base, class: 'notation' };
   }
 
-  const candidates = [...near.map((candidate) => candidate.region)];
-  const known = candidates.map((region) => [region.bookStem, region.sheet, region.title ?? '', ...(region.headers ?? [])].join(' ').normalize('NFKC').toLowerCase());
-  const unseen = latin.filter((word) => !known.some((names) => names.includes(word.toLowerCase())));
+  // A word is seen when it is a whole word of a near miss's book, sheet, title or headers.
+  const seen = new Set<string>();
+  for (const { region } of near) {
+    for (const text of [region.bookStem, region.sheet, region.title ?? '', ...(region.headers ?? [])]) {
+      for (const word of latinWordSetOf(text)) seen.add(word);
+    }
+  }
+  const unseen = latin.filter((word) => !seen.has(word.toLowerCase()));
   if (unseen.length === 1) return { ...base, class: 'abbreviation' };
 
   if (question) return { ...base, class: 'description' };
-  if (result.status === 'no-match') return { ...base, class: 'no-such-table' };
+  // Design §4: no-such-table requires that no near candidate appeared at all.
+  if (result.status === 'no-match' && near.length === 0) return { ...base, class: 'no-such-table' };
   return { ...base, class: 'other' };
 }
