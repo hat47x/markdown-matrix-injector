@@ -53,6 +53,11 @@ import {
 } from './dx/authoringFlow.js';
 import { readWorkbookCached } from './dx/sharedWorkbookCache.js';
 import { clearSearchIndexes, FIND_EMBED_COMMAND_ID, scriptedSearch, searchEmbedByDescription } from './dx/searchFlow.js';
+import {
+  createSearchObservationHost,
+  registerSearchObservationCommands,
+  showSearchObservationNoticeOnce,
+} from './dx/searchObservationHost.js';
 import { SELECT_LOCAL_SEMANTIC_MODEL_COMMAND_ID, selectLocalSemanticModel } from './dx/semanticSetupFlow.js';
 import { selectContainedWorkbookFilesDetailed } from './dx/workbookCandidateOrder.js';
 import { findUnknownProseIds, UNKNOWN_PROSE_ID_CODE } from './application/proseIdCheck.js';
@@ -207,7 +212,12 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
     vscode.commands.registerCommand(FIND_EMBED_COMMAND_ID, async () => {
       const document = vscode.window.activeTextEditor?.document;
       if (!document || document.languageId !== 'markdown') return;
-      const parts = await searchEmbedByDescription(document, WORKBOOK_FILE_GLOB);
+      await showSearchObservationNoticeOnce(context);
+      const parts = await searchEmbedByDescription(
+        document,
+        WORKBOOK_FILE_GLOB,
+        createSearchObservationHost(context),
+      );
       // A chosen candidate goes to preview & confirm, never straight into the document (R1).
       if (parts) await runAuthoringFlow(authoringDependencies(), { parts, step: 'confirm' });
     }),
@@ -236,6 +246,7 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
         ),
     ),
     ...registerTableCatalog(),
+    ...registerSearchObservationCommands(context),
     vscode.commands.registerCommand(CLEAR_SEARCH_INDEX_COMMAND_ID, () => {
       clearSearchIndexes();
       void vscode.window.showInformationMessage('MMI: 表の検索索引を消去しました（メモリ上のみに保持していました）。');
