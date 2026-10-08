@@ -98,11 +98,11 @@ export function tableSemanticRoleDescriptor(
       ? [header]
       : [];
   const parts = [
-    `シート: \${item.sheet}`,
+    `シート: ${item.sheet}`,
     typeof title === 'string' && title.trim()
-      ? `表題: \${title.trim()}`
+      ? `表題: ${title.trim()}`
       : '',
-    headers.length > 0 ? `見出し: \${headers.join('、')}` : '',
+    headers.length > 0 ? `見出し: ${headers.join('、')}` : '',
   ].filter(Boolean);
   return parts.length > 1 ? parts.join(' / ') : undefined;
 }
@@ -124,7 +124,7 @@ export function createTableSemanticRoleProviderLane(
     options.embeddingFetch,
   );
   const providerId =
-    `mmi.table-semantic-role:\${provider.descriptor.id}`;
+    `mmi.table-semantic-role:${provider.descriptor.id}`;
   const tables = options.items.flatMap((item) =>
     item.kind === 'table'
       && item.candidate.execution === 'deterministic'
@@ -167,7 +167,7 @@ export function createTableSemanticRoleProviderLane(
 
       const roleVectors = await provider.embed(
         TABLE_SEMANTIC_ROLES.map((role) =>
-          `\${provider.documentPrefix}\${role.description}`),
+          `${provider.documentPrefix}${role.description}`),
       );
       if (!roleVectors) {
         throw new Error('Local embedding runtime/model is unavailable');
@@ -175,14 +175,14 @@ export function createTableSemanticRoleProviderLane(
 
       const tableVectors = await provider.embed(
         eligible.map(({ descriptor }) =>
-          `\${provider.queryPrefix}\${descriptor}`),
+          `${provider.queryPrefix}${descriptor}`),
       );
       if (!tableVectors) {
         throw new Error('Local embedding runtime/model is unavailable');
       }
 
       const artifactVersion = options.expectedArtifactDigest
-        ?? `runtime-alias:\${provider.model}`;
+        ?? `runtime-alias:${provider.model}`;
       const parameters = {
         roleCatalogVersion: TABLE_SEMANTIC_ROLE_CATALOG_VERSION,
         minScore,
