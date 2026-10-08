@@ -40,5 +40,10 @@
   "mmi.setting.reviewObservation": "Opt in to local Candidate-review observation. MMI appends session timing, selected-candidate count and review-state transitions to .mmi/candidate-review-observations.jsonl in the workspace. Candidate content and cell values are not recorded, and nothing is sent externally.",
   "mmi.command.reviewCandidates": "Review Import Candidates (tables, images, trees, import state, provenance)",
   "mmi.command.reviewHierarchyCandidates": "Review Hierarchy Candidates from Explicit Table Columns",
-  "mmi.command.reviewTabularHierarchyCandidates": "Review Tabular Hierarchy Candidates (choose sheet and explicit hierarchy columns)"
+  "mmi.command.reviewTabularHierarchyCandidates": "Review Tabular Hierarchy Candidates (choose sheet and explicit hierarchy columns)",
+  "mmi.command.searchObservationSummary": "Summarize Table Search Observation",
+  "mmi.command.searchObservationExport": "Export Table Search Observation Summary",
+  "mmi.command.searchObservationClear": "Clear Table Search Observation",
+  "mmi.setting.searchObservationEnabled": "Opt in to local table-search demand observation for this workspace. Records only classification, outcome, query count, candidate rank/fit, alias-offer result and duration in VS Code workspace storage. Off by default. No table/file/user names are stored and nothing is sent externally.",
+  "mmi.setting.searchObservationIncludeText": "Also store the final search request text for local review. Off by default. Enable only when workspace policy permits storing potentially sensitive request text. This does not enable any external transmission."
 }
