@@ -217,3 +217,34 @@ function observation(at: string, ms: number): SearchObservationRecord {
     ms,
   };
 }
+
+
+test('building an observation does not mutate the search result or its ranking', () => {
+  const first = candidate('第一候補', { fit: 0.8 });
+  const second = candidate('第二候補', { fit: 0.6 });
+  const search: CompileResult = {
+    status: 'candidates',
+    ir: { input: '候補を探す' } as CompileResult['ir'],
+    candidates: [first, second],
+    reasons: [],
+    requiresSelection: true,
+  };
+  const before = JSON.stringify(search);
+
+  buildSearchObservation({
+    finalQuery: '候補を探す',
+    result: search,
+    queries: 1,
+    outcome: 'picked-candidate',
+    picked: { candidate: second, rank: 2 },
+    startedAtMs: 0,
+    endedAtMs: 10,
+    localDate: '2026-10-08',
+  });
+
+  assert.equal(JSON.stringify(search), before);
+  assert.deepEqual(search.candidates.map((item) => item.region.title), [
+    '第一候補',
+    '第二候補',
+  ]);
+});
