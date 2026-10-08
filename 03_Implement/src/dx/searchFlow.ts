@@ -322,7 +322,16 @@ export async function searchEmbedByDescription(
       }
     });
     quickPick.onDidHide(() => {
-      if (!settled) recordObservation('cancelled');
+      // If a newer query is still pending/running, the visible result belongs
+      // to an older request. Dropping the observation is safer than binding
+      // the wrong classification to the user's final text.
+      if (
+        !settled
+        && pendingText === undefined
+        && activeQueryController === undefined
+      ) {
+        recordObservation('cancelled');
+      }
       finish(undefined);
     });
     quickPick.show();
