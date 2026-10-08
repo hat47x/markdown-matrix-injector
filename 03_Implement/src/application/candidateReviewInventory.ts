@@ -231,4 +231,4 @@ export function buildCandidateReviewInventory(
       ? { tabularHierarchyAbstention }
       : {}),
   };
-}}
+}
