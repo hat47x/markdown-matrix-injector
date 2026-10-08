@@ -398,6 +398,13 @@
           "default": "",
           "markdownDescription": "%mmi.setting.semanticArtifactDigest%"
         },
+        "markdownMatrixInjector.search.aliases": {
+          "type": "array",
+          "items": { "type": "string" },
+          "default": [],
+          "scope": "resource",
+          "markdownDescription": "%mmi.setting.searchAliases%"
+        },
         "markdownMatrixInjector.search.semantic.minScore": {
           "type": "number",
           "default": 0.6,

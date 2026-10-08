@@ -16,6 +16,7 @@ import * as vscode from 'vscode';
 import type { CompileResult } from '../search/nlQuery/compiler.js';
 import { QUERY_EXAMPLES } from '../search/workspaceRegionIndex.js';
 import { withFit } from '../search/fitLabel.js';
+import { formatAlias, parseAliasSetting, suggestAlias, type UserAlias } from '../search/userAliases.js';
 import { WorkspaceSearchWorkerClient } from '../search/workspaceSearchWorkerClient.js';
 import type { SemanticSetting } from '../search/workspaceRegionIndex.js';
 import { parseEmbedParts, type EmbedParts } from './embedEditor.js';
@@ -99,6 +100,40 @@ async function ensureIndexed(workspaceRoot: string, workbookGlob: string): Promi
 interface ResultItem extends vscode.QuickPickItem {
   parts?: EmbedParts;
   example?: string;
+  /** An abbreviation the user may want remembered if they pick this table (ADR-0023). */
+  learn?: UserAlias;
+}
+
+const ALIAS_SETTING = 'search.aliases';
+
+function readUserAliases(): UserAlias[] {
+  return parseAliasSetting(vscode.workspace.getConfiguration('markdownMatrixInjector').get<unknown[]>(ALIAS_SETTING, []));
+}
+
+/** Offers to remember `alias` after the user picked a table the typed name did not match. Saved only on consent. */
+async function offerToRemember(alias: UserAlias): Promise<void> {
+  const remember = '覚える';
+  const answer = await vscode.window.showInformationMessage(
+    `MMI: 「${alias.short}」を、この表（${alias.long}）の略語として覚えますか？ 次回から「${alias.short}」でも探せます。設定 ${ALIAS_SETTING} に保存します。`,
+    remember,
+    '今回だけ',
+  );
+  if (answer !== remember) return;
+  const edited = await vscode.window.showInputBox({
+    title: `MMI: 「${alias.short}」の正式名称`,
+    prompt: '表の名前に含まれている語で登録します（確認・修正できます）',
+    value: alias.long,
+  });
+  if (edited === undefined) return;
+  const entry = formatAlias({ short: alias.short, long: edited });
+  if (parseAliasSetting([entry]).length === 0) {
+    void vscode.window.showWarningMessage('MMI: 正式名称は2〜40文字で入力してください。登録しませんでした。');
+    return;
+  }
+  const config = vscode.workspace.getConfiguration('markdownMatrixInjector');
+  const existing = config.get<string[]>(ALIAS_SETTING, []);
+  if (existing.includes(entry)) return;
+  await config.update(ALIAS_SETTING, [...existing, entry], vscode.ConfigurationTarget.Workspace);
 }
 
 /**
@@ -148,6 +183,7 @@ export async function searchEmbedByDescription(document: vscode.TextDocument, wo
           const controller = new AbortController();
           activeQueryController = controller;
           try {
+            index.setAliases(readUserAliases());
             const result = await index.query(
               text,
               document.uri.fsPath,
@@ -216,7 +252,10 @@ export async function searchEmbedByDescription(document: vscode.TextDocument, wo
         update(chosen.example);
         return;
       }
-      if (chosen?.parts) finish(chosen.parts);
+      if (chosen?.parts) {
+        finish(chosen.parts);
+        if (chosen.learn) void offerToRemember(chosen.learn);
+      }
     });
     quickPick.onDidHide(() => finish(undefined));
     quickPick.show();
@@ -237,6 +276,7 @@ export async function scriptedSearch(
   if (!workspaceRoot) return { items: [] };
   const index = await ensureIndexed(workspaceRoot, workbookGlob);
   if (!index) return { items: [] };
+  index.setAliases(readUserAliases());
   const result = await index.query(text, document.uri.fsPath, 5, readSemanticSetting());
   const items = toItems(result);
   return { items: items.map((item) => `${item.label} | ${item.detail ?? ''}`), parts: items[pickIndex]?.parts };
@@ -274,6 +314,7 @@ export function toItems(result: CompileResult): ResultItem[] {
           detail: candidate.explanation,
           parts: parseEmbedParts(candidate.markdown),
           alwaysShow: true,
+          ...(suggestAlias(result.ir.input, candidate.region) ? { learn: suggestAlias(result.ir.input, candidate.region) } : {}),
         })),
       ]
     : [];

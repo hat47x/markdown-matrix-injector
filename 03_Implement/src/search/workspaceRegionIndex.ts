@@ -108,6 +108,11 @@ export class WorkspaceRegionIndex {
     return this.method;
   }
 
+  /** The user's own abbreviation pairs (ADR-0023); they apply to every later query. */
+  setUserAliases(aliases: readonly { short: string; long: string }[]): void {
+    this.catalog.setUserPairs(aliases);
+  }
+
   async refresh(paths: readonly string[], progress: { signal?: AbortSignal; onProgress?: (done: number, total: number) => void } = {}): Promise<RefreshResult> {
     const result = await indexWorkbookFiles(this.catalog, paths, {
       statFile: this.options.statFile,
