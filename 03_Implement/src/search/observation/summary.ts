@@ -1,5 +1,4 @@
 import type {
-  SearchObservationAlias,
   SearchObservationClass,
   SearchObservationOutcome,
   SearchObservationRecord,
