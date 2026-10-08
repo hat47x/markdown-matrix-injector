@@ -8,9 +8,14 @@ import { main } from '../src/cli/mmi.js';
 import {
   imageCandidates,
   readExcelImages,
+  shapeCandidates,
 } from '../src/adapters/excelImageAdapter.js';
+import { readFlatTextTree } from '../src/adapters/flatTextTreeStructuralizer.js';
+import { readJsonTree } from '../src/adapters/jsonTreeAdapter.js';
 import { tableCandidates } from '../src/adapters/tableRegionAdapter.js';
-import { fingerprintOf } from '../src/core/candidate.js';
+import { readXmlTree } from '../src/adapters/xmlTreeAdapter.js';
+import { readYamlTree } from '../src/adapters/yamlTreeAdapter.js';
+import { fingerprintOf, type Candidate } from '../src/core/candidate.js';
 import { readSourceFileIdentity } from '../src/core/sourceIdentity.js';
 import { loadWorkbook } from '../src/core/workbookLoader.js';
 import {
@@ -24,7 +29,10 @@ import {
   AI_HANDOFF_TRANSFORMATION_VALIDATION_SCHEMA,
   validateAiHandoffTransformationProposal,
 } from '../src/dx/aiHandoffTransformationValidation.js';
-import { screenDesignWorkbook } from './helpers/buildXlsxWithImages.js';
+import {
+  buildXlsxWithImages,
+  screenDesignWorkbook,
+} from './helpers/buildXlsxWithImages.js';
 
 function tableFixture() {
   const root = fs.mkdtempSync(
@@ -178,6 +186,243 @@ test('image extraction proposal is rederived from the current XLSX package', asy
     candidateKind: 'image',
     conversion: 'raw-image-bytes-v1',
   });
+});
+
+test('shape transformation is revalidated then blocked as unsupported instead of pretending the Candidate disappeared', async () => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'mmi-ai-transform-shape-'),
+  );
+  const docs = path.join(root, 'docs');
+  const data = path.join(root, 'data');
+  fs.mkdirSync(docs);
+  fs.mkdirSync(data);
+  const markdownFilePath = path.join(docs, 'spec.md');
+  const sourcePath = path.join(data, 'flow.xlsx');
+  fs.writeFileSync(markdownFilePath, '# Spec\n');
+  const drawing = [
+    '<xdr:wsDr xmlns:xdr="http://schemas.openxmlformats.org/drawingml/2006/spreadsheetDrawing" xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">',
+    '<xdr:twoCellAnchor>',
+    '<xdr:from><xdr:col>0</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>0</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:from>',
+    '<xdr:to><xdr:col>2</xdr:col><xdr:colOff>0</xdr:colOff><xdr:row>2</xdr:row><xdr:rowOff>0</xdr:rowOff></xdr:to>',
+    '<xdr:sp><xdr:nvSpPr><xdr:cNvPr id="4" name="承認"/></xdr:nvSpPr><xdr:spPr><a:prstGeom prst="diamond"/></xdr:spPr><xdr:txBody><a:p><a:r><a:t>承認</a:t></a:r></a:p></xdr:txBody></xdr:sp>',
+    '<xdr:clientData/>',
+    '</xdr:twoCellAnchor>',
+    '</xdr:wsDr>',
+  ].join('');
+  const bytes = buildXlsxWithImages(
+    [{ name: 'Flow', rawDrawing: drawing }],
+    {},
+  );
+  fs.writeFileSync(sourcePath, bytes);
+
+  const source = '../data/flow.xlsx';
+  const sourceDigest = readSourceFileIdentity(sourcePath).digest;
+  const read = readExcelImages(bytes);
+  const candidate = shapeCandidates({
+    source,
+    sourceDigest,
+    shapes: read.shapes,
+  })[0];
+  assert.ok(candidate);
+  const identity = candidateIdentityOf(candidate);
+  const handoff = createAiHandoffPackage({
+    task: 'Shape Candidateの利用案をレビューする',
+    candidates: [candidate],
+  });
+
+  const result = await validateAiHandoffTransformationProposal({
+    handoff,
+    proposal: proposal(identity, 'extracted'),
+    markdownFilePath,
+    workspaceRoot: root,
+  });
+
+  assert.equal(result.status, 'blocked');
+  assert.equal(
+    check(result, 'current-candidate')?.code,
+    'TRANSFORMATION_CURRENT_CANDIDATE_REDISCOVERED',
+  );
+  assert.equal(
+    check(result, 'transformation-contract')?.code,
+    'TRANSFORMATION_CANDIDATE_KIND_UNSUPPORTED',
+  );
+  assert.match(
+    check(result, 'transformation-contract')?.detail ?? '',
+    /Candidate kind shape/u,
+  );
+  assert.equal(
+    check(result, 'authority-revalidation')?.status,
+    'not-run',
+  );
+  assert.equal(result.plan, undefined);
+});
+
+test('explicit JSON/YAML/XML Tree transformations return only existing nested-list review plans', async () => {
+  const cases: readonly {
+    extension: 'json' | 'yaml' | 'xml';
+    contents: string;
+    conversion:
+      | 'json-nested-list-v1'
+      | 'yaml-nested-list-v1'
+      | 'xml-nested-list-v1';
+    candidateOf: (
+      text: string,
+      source: string,
+      digest: string,
+    ) => Candidate;
+  }[] = [
+    {
+      extension: 'json',
+      contents: '{"service":{"name":"api"}}',
+      conversion: 'json-nested-list-v1',
+      candidateOf: (text, source, digest) =>
+        readJsonTree(text, source, digest).candidates[0],
+    },
+    {
+      extension: 'yaml',
+      contents: '%YAML 1.2\n---\nservice:\n  name: api\n',
+      conversion: 'yaml-nested-list-v1',
+      candidateOf: (text, source, digest) =>
+        readYamlTree(text, source, digest).candidates[0],
+    },
+    {
+      extension: 'xml',
+      contents: '<service><name>api</name></service>',
+      conversion: 'xml-nested-list-v1',
+      candidateOf: (text, source, digest) =>
+        readXmlTree(text, source, digest).candidates[0],
+    },
+  ];
+
+  for (const fixture of cases) {
+    const root = fs.mkdtempSync(
+      path.join(os.tmpdir(), `mmi-ai-transform-tree-${fixture.extension}-`),
+    );
+    const docs = path.join(root, 'docs');
+    const data = path.join(root, 'data');
+    fs.mkdirSync(docs);
+    fs.mkdirSync(data);
+    const markdownFilePath = path.join(docs, 'spec.md');
+    const sourcePath = path.join(
+      data,
+      `tree.${fixture.extension}`,
+    );
+    fs.writeFileSync(markdownFilePath, '# Spec\n');
+    fs.writeFileSync(sourcePath, fixture.contents);
+
+    const source = `../data/tree.${fixture.extension}`;
+    const sourceDigest = readSourceFileIdentity(sourcePath).digest;
+    const candidate = fixture.candidateOf(
+      fixture.contents,
+      source,
+      sourceDigest,
+    );
+    assert.ok(candidate);
+    const identity = candidateIdentityOf(candidate);
+    const handoff = createAiHandoffPackage({
+      task: '明示Tree CandidateのExtracted案をレビューする',
+      candidates: [candidate],
+    });
+
+    const result = await validateAiHandoffTransformationProposal({
+      handoff,
+      proposal: proposal(identity, 'extracted'),
+      markdownFilePath,
+      workspaceRoot: root,
+    });
+
+    assert.equal(
+      result.status,
+      'accepted-for-review',
+      fixture.extension,
+    );
+    assert.deepEqual(result.plan, {
+      operation: 'extract-standard-asset',
+      candidate: identity,
+      candidateKind: 'tree',
+      conversion: fixture.conversion,
+    });
+    assert.equal(
+      check(result, 'current-candidate')?.code,
+      'TRANSFORMATION_CURRENT_CANDIDATE_REDISCOVERED',
+    );
+    assert.equal(
+      check(result, 'authority-revalidation')?.code,
+      'TRANSFORMATION_EXTRACTION_CURRENT_CANDIDATE_REVALIDATED',
+    );
+    assert.equal(fs.readdirSync(data).length, 1);
+  }
+});
+
+test('inferred flat-text Tree transformation keeps M1 provenance and returns the existing nested-list review plan', async () => {
+  const root = fs.mkdtempSync(
+    path.join(os.tmpdir(), 'mmi-ai-transform-text-tree-'),
+  );
+  const docs = path.join(root, 'docs');
+  const data = path.join(root, 'data');
+  fs.mkdirSync(docs);
+  fs.mkdirSync(data);
+  const markdownFilePath = path.join(docs, 'spec.md');
+  const sourcePath = path.join(data, 'outline.txt');
+  const contents = [
+    '1. 概要',
+    '1.1 対象',
+    '1.2 前提',
+    '',
+  ].join('\n');
+  fs.writeFileSync(markdownFilePath, '# Spec\n');
+  fs.writeFileSync(sourcePath, contents);
+
+  const source = '../data/outline.txt';
+  const sourceDigest = readSourceFileIdentity(sourcePath).digest;
+  const tree = readFlatTextTree(
+    contents,
+    source,
+    sourceDigest,
+    { methods: ['heading-number'] },
+  );
+  const candidate = tree.candidates.find(
+    (item) =>
+      item.provenance.algorithm
+      === 'mmi.flat-text-tree.heading-number',
+  );
+  assert.ok(candidate);
+  assert.equal(candidate.status, 'inferred');
+  assert.equal(candidate.method, 'M1');
+  const identity = candidateIdentityOf(candidate);
+  const handoff = createAiHandoffPackage({
+    task: '推定Tree CandidateのExtracted案をレビューする',
+    candidates: [candidate],
+  });
+
+  const result = await validateAiHandoffTransformationProposal({
+    handoff,
+    proposal: proposal(identity, 'extracted'),
+    markdownFilePath,
+    workspaceRoot: root,
+  });
+
+  assert.equal(result.status, 'accepted-for-review');
+  assert.deepEqual(result.plan, {
+    operation: 'extract-standard-asset',
+    candidate: identity,
+    candidateKind: 'tree',
+    conversion: 'flat-text-nested-list-v1',
+  });
+  assert.equal(
+    check(result, 'current-candidate')?.code,
+    'TRANSFORMATION_CURRENT_CANDIDATE_REDISCOVERED',
+  );
+  assert.equal(
+    check(result, 'authority-revalidation')?.code,
+    'TRANSFORMATION_EXTRACTION_CURRENT_CANDIDATE_REVALIDATED',
+  );
+  assert.equal(
+    candidate.status,
+    'inferred',
+    'accepted-for-review must not upgrade inferred provenance',
+  );
+  assert.equal(fs.readdirSync(data).length, 1);
 });
 
 test('fabricated Candidate identity is blocked before source or transform checks', async () => {

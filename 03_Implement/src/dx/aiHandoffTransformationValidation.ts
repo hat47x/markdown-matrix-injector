@@ -1,11 +1,11 @@
 import { createHash } from 'node:crypto';
-import fs from 'node:fs';
 
 import {
-  imageCandidates,
-  readExcelImages,
-} from '../adapters/excelImageAdapter.js';
-import { tableCandidates } from '../adapters/tableRegionAdapter.js';
+  collectStandaloneTreeCandidates,
+} from '../application/sourceCandidateInventory.js';
+import {
+  collectWorkbookCandidates,
+} from '../application/workbookCandidateInventory.js';
 import {
   candidateProblem,
   type Candidate,
@@ -15,7 +15,6 @@ import {
 } from '../core/candidate.js';
 import { resolveSourcePath } from '../core/pathResolver.js';
 import { readSourceFileIdentity } from '../core/sourceIdentity.js';
-import { loadWorkbook } from '../core/workbookLoader.js';
 import {
   AI_HANDOFF_SCHEMA,
   assertAiHandoffPackage,
@@ -61,6 +60,16 @@ export type AiHandoffTransformationPlan =
       candidate: HandoffCandidateIdentity;
       candidateKind: 'image';
       conversion: 'raw-image-bytes-v1';
+    }
+  | {
+      operation: 'extract-standard-asset';
+      candidate: HandoffCandidateIdentity;
+      candidateKind: 'tree';
+      conversion:
+        | 'json-nested-list-v1'
+        | 'yaml-nested-list-v1'
+        | 'xml-nested-list-v1'
+        | 'flat-text-nested-list-v1';
     };
 
 export type AiHandoffTransformationCheckName =
@@ -344,31 +353,21 @@ function rediscoverCandidates(
   sourceDigest: string,
   kind: CandidateKind,
 ): Candidate[] {
-  if (kind === 'table-range') {
-    const workbook = loadWorkbook({ absolutePath: sourcePath });
-    return Object.entries(workbook.sheets).flatMap(
-      ([sheetName, sheet]) =>
-        tableCandidates({
-          source: sourceLabel,
-          sourceDigest,
-          sheetName,
-          sheet,
-        }),
-    );
-  }
-  if (kind === 'image') {
-    if (!/\.(xlsx|xlsm)$/iu.test(sourcePath)) return [];
-    const images = readExcelImages(fs.readFileSync(sourcePath));
-    if (images.diagnostics.some((item) => item.severity === 'error')) {
-      return [];
-    }
-    return imageCandidates({
-      source: sourceLabel,
-      sourceDigest,
-      images: images.images,
-    });
-  }
-  return [];
+  const standalone = collectStandaloneTreeCandidates(
+    sourcePath,
+    sourceLabel,
+  );
+  const candidates = standalone
+    ? standalone.candidates
+    : collectWorkbookCandidates(
+        sourcePath,
+        sourceLabel,
+      ).candidates;
+  return candidates.filter(
+    (candidate) =>
+      candidate.kind === kind
+      && candidate.locator.sourceDigest === sourceDigest,
+  );
 }
 
 function extractionPlan(
@@ -424,6 +423,37 @@ function extractionPlan(
     };
   }
 
+  if (candidate.kind === 'tree') {
+    if (!candidate.locator.structuralPath) {
+      return {
+        ok: false,
+        code: 'TRANSFORMATION_TREE_LOCATOR_INCOMPLETE',
+        detail:
+          'Tree extraction requires a current structuralPath.',
+      };
+    }
+    const conversion = TREE_EXTRACTION_CONVERSIONS.get(
+      candidate.provenance.algorithm,
+    );
+    if (!conversion) {
+      return {
+        ok: false,
+        code: 'TRANSFORMATION_TREE_CONVERSION_UNSUPPORTED',
+        detail:
+          `No AI transformation review plan is implemented for Tree algorithm ${candidate.provenance.algorithm}.`,
+      };
+    }
+    return {
+      ok: true,
+      plan: {
+        operation: 'extract-standard-asset',
+        candidate: identity,
+        candidateKind: 'tree',
+        conversion,
+      },
+    };
+  }
+
   return {
     ok: false,
     code: 'TRANSFORMATION_CANDIDATE_KIND_UNSUPPORTED',
@@ -437,6 +467,21 @@ const EXTRACTABLE_IMAGE_FORMATS = new Set([
   'gif',
   'bmp',
   'svg',
+]);
+
+const TREE_EXTRACTION_CONVERSIONS = new Map<
+  string,
+  | 'json-nested-list-v1'
+  | 'yaml-nested-list-v1'
+  | 'xml-nested-list-v1'
+  | 'flat-text-nested-list-v1'
+>([
+  ['mmi.json-tree-adapter', 'json-nested-list-v1'],
+  ['mmi.yaml-tree-adapter', 'yaml-nested-list-v1'],
+  ['mmi.xml-tree-adapter', 'xml-nested-list-v1'],
+  ['mmi.flat-text-tree.indent', 'flat-text-nested-list-v1'],
+  ['mmi.flat-text-tree.heading-number', 'flat-text-nested-list-v1'],
+  ['mmi.flat-text-tree.prefix-code', 'flat-text-nested-list-v1'],
 ]);
 
 function offeredCandidate(

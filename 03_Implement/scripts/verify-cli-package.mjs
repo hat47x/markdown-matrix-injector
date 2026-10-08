@@ -40,7 +40,7 @@ export function verifyCliPackage(tarballPath) {
   const packageJson = JSON.parse(
     fs.readFileSync(path.join(packageRoot, 'package.json'), 'utf8'),
   );
-  if (packageJson.bin?.mmi !== './dist/src/cli/mmi.js') {
+  if (packageJson.bin?.mmi !== './dist/src/cli/bootstrap.js') {
     throw new Error('Installed CLI package does not expose the expected mmi binary.');
   }
 

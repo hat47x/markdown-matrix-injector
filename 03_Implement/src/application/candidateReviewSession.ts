@@ -9,14 +9,31 @@ import {
 export function candidateReviewSessionKey(
   candidate: Candidate,
 ): string {
-  return [
+  const parts = [
     candidate.kind,
     candidate.locator.source,
     candidate.locator.sheet ?? '',
     placeOf(candidate),
     candidate.fingerprint.representation,
     candidate.fingerprint.digest,
-  ].join('\u0000');
+  ];
+  if (
+    candidate.execution === 'provider-dependent'
+    && candidate.provenance.run.execution === 'provider-dependent'
+  ) {
+    const parameters = Object.entries(
+      candidate.provenance.run.parameters,
+    )
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, value]) => [key, value]);
+    parts.push(
+      candidate.provenance.run.provider,
+      candidate.provenance.run.model,
+      candidate.provenance.run.artifactVersion,
+      JSON.stringify(parameters),
+    );
+  }
+  return parts.join('\u0000');
 }
 
 export function remainingCandidateReviewItems(

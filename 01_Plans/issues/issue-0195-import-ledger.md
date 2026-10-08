@@ -38,6 +38,12 @@ lineage reconciliationは自動同一視を行わず、過去entryを候補と�
 
 研究層のEvidenceは二層を明示する。Candidate自身に属する`provider / scale / value`付き`scores[]`は`researchScores`としてそのまま載せる。別occurrenceとのpairwise similarityは`mmi.candidate-similarity-evidence/v1` sidecarにcurrent occurrence、target occurrence、provider/version、metric namespace/name/semantics/value/rangeを保持し、`mmi inspect --similarity-evidence <file>`で同じinspect面へ表示する。provider間・scale/namespace間で平均や正規化をせず、ledger state判定とfilterは従来どおりoccurrence/content/Claim review basisだけで決める。高いcosine等も`imported`や`duplicate`の証明にはならず、`--unimported`から自動除外しない。
 
+## Hardening checkpoint (2026-10-07)
+
+人手レビュー済みCandidateの履歴は、source/content/Claim basisだけでなく**保存そのものもfail-safe**である必要がある。台帳更新は同一ディレクトリの一時ファイルへ完全なJSONを書き、`fsync`後にrenameで置換する。置換前に失敗した場合は既存`mmi-ledger.json`を維持し、一時ファイルを残さない。既存台帳を置換する場合はfile modeを引き継ぐ。
+
+これは同時更新のマージを自動化するものではなく、単一更新の途中失敗でreview historyを破損させないdurability boundaryである。複数writerの競合制御が必要になった場合は別途扱う。
+
 ## Validation plan
 issue-0194のテスト用ブックで、画像を1件取り込んだ後に`inspect --unimported`から外れること、ブック内の別シートにある同じ画像が「完全一致」と示されること、画像を差し替えると「変更あり」と示されることを確かめる。
 

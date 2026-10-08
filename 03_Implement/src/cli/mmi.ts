@@ -11,27 +11,29 @@ import { parseArgs } from 'node:util';
 import XLSX from 'xlsx';
 import { WorkbookCache } from '../cache/workbookCache.js';
 import { checkDetachedDocument } from '../application/detachCheck.js';
+import {
+  collectStandaloneTreeCandidates,
+} from '../application/sourceCandidateInventory.js';
+import {
+  collectWorkbookCandidates,
+} from '../application/workbookCandidateInventory.js';
 import { checkExtractedProvenanceFreshness } from '../application/detachFreshness.js';
 import { materializeDocument } from '../application/materialize.js';
 import { runPortableCoreRequest } from '../application/portableCoreProtocol.js';
-import {
-  readExcelChoiceLists,
-  type ChoiceListDiagnostic,
+import type {
+  ChoiceListDiagnostic,
 } from '../adapters/excelChoiceListAdapter.js';
-import { imageCandidates, readExcelImages, relationToTables, shapeCandidates, type ImageDiagnostic, type TableRect } from '../adapters/excelImageAdapter.js';
+import {
+  readExcelImages,
+  relationToTables,
+  type ImageDiagnostic,
+} from '../adapters/excelImageAdapter.js';
 import {
   DEFAULT_FLAT_TEXT_TREE_METHODS,
-  decodeFlatTextUtf8,
-  readFlatTextTree,
   type FlatTextTreeMethod,
 } from '../adapters/flatTextTreeStructuralizer.js';
-import { readJsonTree } from '../adapters/jsonTreeAdapter.js';
-import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
-import { readYamlTree } from '../adapters/yamlTreeAdapter.js';
-import { tableCandidates } from '../adapters/tableRegionAdapter.js';
-import {
-  readTabularHierarchy,
-  type TabularHierarchyConfig,
+import type {
+  TabularHierarchyConfig,
 } from '../adapters/tabularHierarchyAdapter.js';
 import type { Candidate, ProviderScore } from '../core/candidate.js';
 import {
@@ -42,7 +44,6 @@ import {
   type CognitiveArtifactResolution,
   type RuntimeManagedArtifact,
 } from '../core/cognitiveArtifact.js';
-import { decodeJsonUtf8 } from '../core/jsonFormat.js';
 import {
   SEMANTIC_CANDIDATE_CONTRACT,
   semanticCandidateSchemaJson,
@@ -66,17 +67,8 @@ import {
   importLedgerSchemaJson,
   reviewDecisionsSchemaJson,
 } from '../core/reviewContracts.js';
-import {
-  createSourceIdentityFromBytes,
-  readSourceFileIdentity,
-} from '../core/sourceIdentity.js';
 import { sliceRegion } from '../core/tableGeometry.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
-import {
-  decodeGenericXmlUtf8,
-  isXmlSpreadsheet2003Bytes,
-} from '../core/xmlFormat.js';
-import { decodeYamlUtf8 } from '../core/yamlFormat.js';
 import {
   createAiHandoffPackage,
   parseAiHandoffPackage,
@@ -95,7 +87,7 @@ import {
   RegionSnapshotError,
   renderLibreOfficeRegionSnapshot,
 } from '../snapshot/libreOfficeRegionSnapshot.js';
-import { detectTableRegions, regionReference } from '../importAssist/tableRegions.js';
+import { regionReference } from '../importAssist/tableRegions.js';
 import {
   discoverLocalEmbeddingModels,
   runtimeManagedArtifactFromEmbeddingModel,
@@ -1400,190 +1392,59 @@ export function inspectSource(
   let relative = path.relative(base, absolutePath).split(path.sep).join('/');
   if (!relative.startsWith('.')) relative = `./${relative}`;
 
-  if (/\.json$/iu.test(absolutePath)) {
-    const sourceBytes = fs.readFileSync(absolutePath);
-    const sourceDigest =
-      createSourceIdentityFromBytes(sourceBytes).digest;
-    const tree = readJsonTree(
-      decodeJsonUtf8(sourceBytes),
-      relative,
-      sourceDigest,
-    );
-    return {
-      source: relative,
-      candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
-      candidates: [...tree.candidates],
-      trees: tree.nodes.map((node) => ({
-        pointer: node.pointer,
-        format: 'json' as const,
-        nodeType: node.nodeType,
-        childPointers: node.childPointers,
-        leafValues: node.leafValues,
-      })),
-      images: [],
-      choiceLists: [],
-      choiceListDiagnostics: [],
-      imageDiagnostics: [],
-      sheets: [],
-    };
-  }
-
-  if (/\.ya?ml$/iu.test(absolutePath)) {
-    const sourceBytes = fs.readFileSync(absolutePath);
-    const sourceDigest =
-      createSourceIdentityFromBytes(sourceBytes).digest;
-    const tree = readYamlTree(
-      decodeYamlUtf8(sourceBytes),
-      relative,
-      sourceDigest,
-    );
-    return {
-      source: relative,
-      candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
-      candidates: [...tree.candidates],
-      trees: tree.nodes.map((node) => ({
-        pointer: node.pointer,
-        format: 'yaml' as const,
-        nodeType: node.nodeType,
-        childPointers: node.childPointers,
-        leafValues: node.leafValues,
-      })),
-      images: [],
-      choiceLists: [],
-      choiceListDiagnostics: [],
-      imageDiagnostics: [],
-      sheets: [],
-    };
-  }
-
-  if (/\.xml$/iu.test(absolutePath)) {
-    const sourceBytes = fs.readFileSync(absolutePath);
-    if (!isXmlSpreadsheet2003Bytes(sourceBytes)) {
-      const xml = decodeGenericXmlUtf8(sourceBytes);
-      const sourceDigest =
-        createSourceIdentityFromBytes(sourceBytes).digest;
-      const tree = readXmlTree(xml, relative, sourceDigest);
-      return {
-        source: relative,
-        candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
-        candidates: [...tree.candidates],
-        trees: tree.nodes.map((node) => ({
-          pointer: node.path,
-          format: 'xml' as const,
-          nodeType: 'element' as const,
-          childPointers: node.childPaths,
-          leafValues: [
-            ...node.attributeValues,
-            ...node.textValues.map((value) =>
-              `#text=${JSON.stringify(value)}`),
-          ],
-        })),
-        images: [],
-        choiceLists: [],
-        choiceListDiagnostics: [],
-        imageDiagnostics: [],
-        sheets: [],
-      };
-    }
-  }
-
-  if (/\.(txt|text|log)$/iu.test(absolutePath)) {
-    const sourceBytes = fs.readFileSync(absolutePath);
-    const sourceDigest =
-      createSourceIdentityFromBytes(sourceBytes).digest;
-    const sourceText = decodeFlatTextUtf8(sourceBytes);
-    const tree = readFlatTextTree(
-      sourceText,
-      relative,
-      sourceDigest,
-      { methods: flatTextMethods },
-    );
-    return {
-      source: relative,
-      candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
-      candidates: [...tree.candidates],
-      trees: tree.hypotheses.flatMap((hypothesis) =>
-        hypothesis.nodes.map((node) => ({
-          pointer: node.structuralPath,
-          format: 'text' as const,
-          nodeType: 'text-node' as const,
-          childPointers: node.childLines.map(
-            (line) => `text:${hypothesis.method}:line:${line}`,
-          ),
-          leafValues: [node.label],
-          method: hypothesis.method,
-          status: hypothesis.status,
-        }))),
-      treeHypotheses: tree.hypotheses.map((hypothesis) => ({
-        method: hypothesis.method,
-        status: hypothesis.status,
-        reasonCode: hypothesis.reasonCode,
-        nodeCount: hypothesis.nodes.length,
-      })),
-      treeAmbiguous: tree.ambiguous,
-      images: [],
-      choiceLists: [],
-      choiceListDiagnostics: [],
-      imageDiagnostics: [],
-      sheets: [],
-    };
-  }
-
-  const sourceDigest = readSourceFileIdentity(absolutePath).digest;
-  const workbook = loadWorkbook({ absolutePath });
-  const isPackage = /\.(xlsx|xlsm)$/iu.test(absolutePath);
-  const packageBytes = isPackage
-    ? fs.readFileSync(absolutePath)
-    : undefined;
-  const imageRead = packageBytes
-    ? readExcelImages(packageBytes)
-    : {
-        images: [],
-        shapes: [],
-        snapshotHints: [],
-        diagnostics: /\.xls$/iu.test(absolutePath)
-          ? [{ code: 'MMI_IMAGE_PACKAGE_UNSUPPORTED' as const, severity: 'warning' as const, message: 'binary .xls: embedded pictures are not read' }]
-          : [],
-      };
-  const choiceRead = packageBytes
-    ? readExcelChoiceLists(
-        packageBytes,
-        relative,
-        sourceDigest,
-        workbook,
-      )
-    : { lists: [], diagnostics: [] };
-  const detected = Object.entries(workbook.sheets).map(([name, sheet]) => ({ name, sheet, regions: detectTableRegions(name, sheet, { maxValueSample: 0 }) }));
-  const tabularHierarchies = tabularHierarchy
-    ? Object.entries(workbook.sheets).map(([sheetName, sheet]) => ({
-        sheetName,
-        result: readTabularHierarchy({
-          source: relative,
-          sourceDigest,
-          sheetName,
-          sheet,
-          config: tabularHierarchy,
-        }),
-      }))
-    : [];
-
-  const tablesBySheet: Record<string, TableRect[]> = Object.fromEntries(
-    detected.map(({ name, regions }) => [name, regions.map((r) => ({ a1: r.a1, startRow: r.range.startRow, startCol: r.range.startCol, endRow: r.range.endRow, endCol: r.range.endCol }))]),
+  const standaloneTree = collectStandaloneTreeCandidates(
+    absolutePath,
+    relative,
+    flatTextMethods,
   );
+  if (standaloneTree) {
+    return {
+      source: relative,
+      candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
+      candidates: [...standaloneTree.candidates],
+      trees: standaloneTree.nodes.map((node) => ({
+        pointer: node.pointer,
+        format: node.format,
+        nodeType: node.nodeType,
+        childPointers: node.childPointers,
+        leafValues: node.leafValues,
+        ...(node.method ? { method: node.method } : {}),
+        ...(node.status ? { status: node.status } : {}),
+      })),
+      ...(standaloneTree.hypotheses
+        ? { treeHypotheses: [...standaloneTree.hypotheses] }
+        : {}),
+      ...(standaloneTree.ambiguous !== undefined
+        ? { treeAmbiguous: standaloneTree.ambiguous }
+        : {}),
+      images: [],
+      choiceLists: [],
+      choiceListDiagnostics: [],
+      imageDiagnostics: [],
+      sheets: [],
+    };
+  }
+
+  const workbookInventory = collectWorkbookCandidates(
+    absolutePath,
+    relative,
+    {
+      ...(tabularHierarchy ? { tabularHierarchy } : {}),
+    },
+  );
+  const {
+    workbook,
+    imageRead,
+    choiceRead,
+    tablesBySheet,
+    detected,
+    hierarchies: tabularHierarchies,
+  } = workbookInventory;
+
   return {
     source: relative,
     candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
-    candidates: [
-      ...Object.entries(workbook.sheets).flatMap(([sheetName, sheet]) => tableCandidates({ source: relative, sourceDigest, sheetName, sheet })),
-      ...imageCandidates({ source: relative, sourceDigest, images: imageRead.images, tablesBySheet }),
-      ...shapeCandidates({
-        source: relative,
-        sourceDigest,
-        shapes: imageRead.shapes,
-      }),
-      ...choiceRead.lists.map((item) => item.candidate),
-      ...tabularHierarchies.flatMap(({ result }) => result.candidates),
-    ],
+    candidates: [...workbookInventory.candidates],
     ...(tabularHierarchy
       ? {
           trees: tabularHierarchies.flatMap(({ sheetName, result }) =>
@@ -1667,11 +1528,12 @@ export function inspectSource(
       ready: Boolean(hint.range),
     })),
     imageDiagnostics: imageRead.diagnostics,
-    sheets: Object.entries(workbook.sheets).map(([name, sheet]) => ({
-      name,
-      ...(sheet.usedRange ? { usedRange: a1Of(sheet.usedRange) } : {}),
-      regions: detectTableRegions(name, sheet, { maxValueSample: 0 }).map((region) => {
-        return {
+    sheets: detected.map(({ name, regions }) => {
+      const sheet = workbook.sheets[name];
+      return {
+        name,
+        ...(sheet.usedRange ? { usedRange: a1Of(sheet.usedRange) } : {}),
+        regions: regions.map((region) => ({
           a1: region.a1,
           rows: region.range.endRow - region.range.startRow + 1,
           columns: region.range.endCol - region.range.startCol + 1,
@@ -1680,10 +1542,17 @@ export function inspectSource(
           headerConfidence: region.headerConfidence,
           notes: region.reasons,
           reference: regionReference(relative, region),
-          ...(sampleRows > 0 ? { sample: sliceRegion(sheet, region.a1).slice(region.headers ? 1 : 0, (region.headers ? 1 : 0) + sampleRows) } : {}),
-        };
-      }),
-    })),
+          ...(sampleRows > 0
+            ? {
+                sample: sliceRegion(sheet, region.a1).slice(
+                  region.headers ? 1 : 0,
+                  (region.headers ? 1 : 0) + sampleRows,
+                ),
+              }
+            : {}),
+        })),
+      };
+    }),
   };
 }
 

@@ -68,10 +68,10 @@ sidecar `mmi.region-snapshot/v1` にはsource label/digest、sheet/range、原�
 
 AutoShape・コネクタ・graphic frameを検出したとき、warningだけで終わらず、OOXML drawingのanchorをsnapshot候補として保持するようにした。意味や種類は推測しない。
 
-- `twoCellAnchor`は開始・終了セルを原本から明示的に読めるため、物理A1範囲を`snapshot hint`として`mmi inspect`へ出す。`mmi snapshot <book> --hint <番号>`で、その範囲を既存のLibreOffice描画へ渡せる。
+- `twoCellAnchor`は開始・終了セルを原本から明示的に読めるため、物理A1範囲を`snapshot hint`として`mmi inspect`へ出す。`mmi snapshot <book> --hint <番号>`で、その範囲を既存のLibreOffice描画へ渡せる。Shape Candidateのレビュー画面にも同じ安全条件を使い、「この範囲を画像化」から既存の`region-snapshot`生成を呼べる。
 - `oneCellAnchor`と`absoluteAnchor`は終端セルを安全に確定できないため、自動rangeを作らない。開始セルが分かる場合だけ表示し、利用者に明示rangeの確認を求める。
 - 一括取り込みの下書きにも同じ候補を「図形のsnapshot候補」として残す。AutoShape/connectorは個別Candidateとして観測情報を表示するため、Shapeの集約warningは重複表示しない。graphic frameのwarningは残す。
-- hint自体はCandidate採用や図形の意味付けではない。PNG生成に成功した時点で初めて、既存の`region-snapshot` Candidateとledger記録が作られる。
+- hintやShapeレビューからの画像化は、Shapeの採用や図形の意味付けではない。PNG生成に成功した時点で、別kindの`region-snapshot` Candidateとledger記録を作る。Shape Candidate自体のreview stateは変更しない。
 
 これにより「範囲の候補をどう示すか」のうち、OOXML drawingに明示されたtwo-cell anchorは製品経路へ接続できた。セルで描いた図、one-cell/absolute anchor、研究層の非表領域など、終端セルを観測できない対象は引き続き明示rangeまたは別の候補化が必要である。
 
@@ -85,4 +85,4 @@ AutoShapeと画面ダンプを含む架空の設計シートを、CIで動く方
 - LibreOffice / python3-uno / PopplerをCIへ入れる費用と、日本語フォント固定の方法。現実装はfont set digestをprovenanceへ含める。
 - COMを使う場合の補助プロセスの形（ADR-0017の補助プロセスへの追加か、別のものか）。
 - 同じLinux環境内の3回描画ではPNG digest一致を確認済み。次は固定font環境を含む別Linux runner間で一致するかを確認する。
-- snapshot範囲候補の残件: two-cell drawing anchorは`inspect`→`snapshot --hint`へ接続済み。one-cell/absolute anchor、セルで描いた図、研究層の`ambiguous_or_non_table`をどこまで安全にrange化するか。
+- snapshot範囲候補の残件: two-cell drawing anchorは`inspect`→`snapshot --hint`とShapeレビュー→`region-snapshot`へ接続済み。one-cell/absolute anchor、セルで描いた図、研究層の`ambiguous_or_non_table`をどこまで安全にrange化するか。

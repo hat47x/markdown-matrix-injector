@@ -92,7 +92,7 @@ run       deterministic       { inputDigest, config, implementationVersion }
 
 occurrence identityはDrawing partとsource-native object idから作る`locator.structuralPath`で保持し、セル位置はClaimとして分離する。同じsource object idが重複した場合はsource順のsuffixを付け、別Shapeへレビュー判断が誤って移らないようにする。content fingerprintはanchor外のDrawingML Shape要素全体のsha256を基礎とする。したがって、セル上で図形を移動しただけではcontent identityを変えない一方、塗り、線、回転等の未投影な視覚属性が変わっても再レビューできる。位置の変更はClaim basisの変化としてstale判定に反映する。
 
-Shape Candidateは`mmi inspect --json`、AI handoff、VS CodeのCandidateレビュー、一括取り込みへ接続する。レビューでは確認・却下・保留を扱い、現時点ではShape自体をExtracted資産へ変換しない。一括取り込みでは未却下・未保留のShapeを名前・テキスト・形状・位置つきの観測情報として下書きへ残し、同じanchorのsnapshot hintも有効なShape数へ絞る。graphic frameはこの契約へ含めず、種類未確定のwarningとして残す。
+Shape Candidateは`mmi inspect --json`、AI handoff、VS CodeのCandidateレビュー、一括取り込みへ接続する。レビューでは確認・却下・保留を扱う。two-cell anchorで開始・終了セルを原本から読めるShapeは、同じレビュー画面からその範囲を既存の`region-snapshot`生成へ渡せる。この操作で採用するのは別kindの`region-snapshot`であり、Shape自体のreview stateや認識論上の状態は変更しない。one-cell / absolute anchorでは終端セルを推測しない。Shape自体をExtracted資産へ変換する経路は現時点では持たない。一括取り込みでは未却下・未保留のShapeを名前・テキスト・形状・位置つきの観測情報として下書きへ残し、同じanchorのsnapshot hintも有効なShape数へ絞る。graphic frameはこの契約へ含めず、種類未確定のwarningとして残す。
 
 ## 3d. JSON TreeのSource Adapter（issue-0199）
 

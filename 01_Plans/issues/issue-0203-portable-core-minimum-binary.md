@@ -55,6 +55,20 @@ XLSX decoderについては[Portable XLSX Decoder Evaluation v1](../../02_Archit
 
 詳細な境界は[Portable Core Contract v1](../../02_Architecture/portable-core-contract-v1.md)を正とする。
 
+### Host間Candidate parityの最初の収束（2026-10-07）
+
+VS CodeのCandidateレビューは`application/candidateReviewInventory.ts`を使う一方、CLI `inspect`は同じSource AdapterをCLI側で直接組み合わせていた。この二重経路を比較したところ、画像Candidateだけ実際の意味差があった。CLIは検出済み表範囲を`imageCandidates()`へ渡して`nearby-table`のM1 Evidenceを付けていたが、レビューinventoryは表範囲を渡さず、同じXLSXでもhostによってClaim列が変わり得た。
+
+レビューinventory側でもCLIと同じ`detectTableRegions(..., { maxValueSample: 0 })`から`tablesBySheet`を作り、`imageCandidates()`へ渡すようにした。これにより画像のlocation/media/digest等のM0 Claimだけでなく、geometry由来の`nearby-table` M1 Claimとprovenance configもhost間で一致する。
+
+`test/candidateInventoryHostParity.test.ts`では同一の架空XLSXをCLI `inspectSource()`とVS Code側Application inventoryへ渡し、画像Candidate配列が完全一致すること、画面表の右側にある画像が同じ`nearby-table=A1:B3` Evidenceを持つことを固定した。
+
+これはCLI全体をVS Code実装へ依存させる変更ではない。Application/Core境界へ収束する前に、host別Candidate生成が同じidentity/provenanceを返すことを先に固定する。
+
+同じparity suiteをJSON / YAML / 汎用XML Tree、推定flat-text Tree、AutoShape / connector、range-backed Choice listへ拡張した。これらはCLI `inspectSource()`とApplication review inventoryで同じCandidate配列を生成することを契約にする。ただしhost固有の**操作可能性**まで同一化しない。例えばflat textの`abstained` CandidateはCLI `inspect`では「主張しなかった」というEvidenceとして残す一方、VS Codeレビューinventoryでは操作可能itemへしない。この差はCandidate生成後のhost policyであり、Coreのidentity/provenance差とは区別する。
+
+parity固定後、Candidate生成そのものをApplication層へ移した。JSON / YAML / 汎用XML / flat-textは`application/sourceCandidateInventory.ts`、workbook系の表・画像・Shape・Choice list・明示列階層は`application/workbookCandidateInventory.ts`を正規の生成経路とする。CLI `inspect`とVS Codeレビューは同じsnapshotを利用し、CLIの表示用metadata、sample行、ledger表示、VS CodeのQuickPickや`abstained`を操作対象にしないpolicyだけをhost側へ残す。表領域の検出もworkbook snapshotで1回だけ行い、画像の`nearby-table` EvidenceとCLI表示が同じ検出結果を参照する。 `candidateInventoryHostParity.test.ts`は、単なるCLI対VS Codeの比較ではなく、両hostのCandidate列が共通Application inventoryそのものと一致することを確認する。workbookでは表領域snapshotもCLI表示と同一であること、明示列のtabular hierarchyもCLI・レビュー・Applicationの三者で一致することを固定する。standalone Treeでは`abstained`をレビュー操作対象から外す差だけをhost policyとして明示する。
+
 ## Validation plan
 
 同一fixtureと同一JSON contractを使い、標準Go / TinyGoの出力一致を確認する。Windows/Linux native、可能ならWASMについてbinary size、cold start、peak memoryを測定する。差が出た場合はサイズ優先で仕様を変えず、toolchainまたはhost profile側の制約として記録する。
@@ -64,7 +78,7 @@ XLSX decoderについては[Portable XLSX Decoder Evaluation v1](../../02_Archit
 - 追加したTypeScript conformance corpusを依存が揃った通常開発環境で実行し、v1 baseline responseを固定する。
 - 標準GoのCSV table Candidateはshared contractで初期conformanceを確認済み。JSON Treeもshared fixtureへ実装済みなので、まず通常のGo開発環境でnative/WASMの全suiteを再実行し、追加したUnicode・pointer・fingerprint境界を実測で確認する。その後、Go 1.25以上の隔離環境でExcelize v2.11.0を固定し、XLSX decoder gateをTypeScript参照と同じcorpusで評価する。binary/WASM増分、transitive dependency、display semantics、安全性を同時に測る。
 - TinyGo native / WASMを同じcorpusで測定し、標準Go native / WASMの実測値とbinary size、startup、peak memory、互換性を比較する。現環境ではTinyGo未導入のため未測定。
-- CLI `inspect`とVS Code側Candidate列挙を段階的に同じApplication/Core APIへ収束させる。二重実装を残したままGo移行を始めない。
+- CLI `inspect`とVS Code側Candidate列挙は共通Application APIへ収束済み。parity suiteを維持し、今後Source Adapterを追加するときもCandidate生成をhost側へ複製しない。次は通常の開発環境でこのsuiteを実行し、Go/native/WASM側のconformance corpusへ同じ境界を段階的に広げる。
 - `check` / `render` / `extract`のJSON contractは、inspect v1の境界が実測で成立してから追加する。
 - Go移行そのものは本Issueの完了条件にしない。まずportable core boundaryと評価基準を固定する。
 - Hike類似技術のwatchは定期的に見直すが、成熟前にproduction dependencyへ入れない。

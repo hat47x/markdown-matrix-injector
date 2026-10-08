@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 
-import { imageCandidates, readExcelImages, readImageBytes, relationToTables, shapeCandidates, type TableRect } from '../src/adapters/excelImageAdapter.js';
+import { imageCandidates, readExcelImages, readImageBytes, relationToTables, shapeCandidates, shapeSnapshotSelection, type TableRect } from '../src/adapters/excelImageAdapter.js';
 import { candidateProblem } from '../src/core/candidate.js';
 import { readZip, ZipError } from '../src/core/zipReader.js';
 import { buildXlsxWithImages, emfOf, pngOf, screenDesignWorkbook, zipOf } from './helpers/buildXlsxWithImages.js';
@@ -432,5 +432,49 @@ test('duplicate DrawingML object ids keep distinct occurrence identities', () =>
   assert.notEqual(
     candidates[0].locator.structuralPath,
     candidates[1].locator.structuralPath,
+  );
+});
+
+
+test('shape snapshot selection is limited to observed two-cell ranges', () => {
+  const base = {
+    ordinal: 1,
+    sheet: 'Flow',
+    drawingPart: 'xl/drawings/drawing1.xml',
+    objectKind: 'shape' as const,
+    textRuns: [],
+    contentDigest: 'sha256:' + 'f'.repeat(64),
+    structuralPath: 'drawing:xl/drawings/drawing1.xml#shape:1',
+  };
+
+  assert.deepEqual(
+    shapeSnapshotSelection({
+      ...base,
+      anchor: {
+        kind: 'twoCellAnchor',
+        from: { col: 0, row: 0 },
+        to: { col: 2, row: 2 },
+      },
+      range: 'A1:B2',
+    }),
+    { sheet: 'Flow', range: 'A1:B2' },
+  );
+  assert.equal(
+    shapeSnapshotSelection({
+      ...base,
+      anchor: {
+        kind: 'oneCellAnchor',
+        from: { col: 0, row: 0 },
+      },
+      range: 'A1',
+    }),
+    undefined,
+  );
+  assert.equal(
+    shapeSnapshotSelection({
+      ...base,
+      anchor: { kind: 'absoluteAnchor' },
+    }),
+    undefined,
   );
 });

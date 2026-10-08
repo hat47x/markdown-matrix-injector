@@ -27,7 +27,7 @@ Fly/Jev類似方式やローカルLLMを実用化すると、実行コードよ�
 - [x] MMI cacheはSHA-256をkeyにし、provider / projectを跨いで同じbytesを再利用する。既存entryは利用前にsize / digestを再確認する。runtime-managed artifactはdigest一致を確認できる場合にその場で利用し、MMI cacheへ複製しない。v0では自動GCを行わない。
 - [x] `--offline`ではHTTPSへアクセスせず、verified cache / local file / digest確認済みruntime-managed artifactだけを使う。利用できない場合は認知providerを`unavailable`とし、通常検索やAuthority Planeは継続する。
 - [x] artifact version / digestをcode versionから分離した。v0はcompatible providerを`id + exact version`で照合し、schema version不一致も拒否する。Ollamaで選択したsemantic modelはruntime digestを設定へ固定し、同じtag名でもdigestが変わればsemantic laneを実行しない。
-- [ ] artifact size、download量、disk cache、cold availabilityを認知方式の評価結果へ含める。
+- [x] artifact size、download量、disk cache、cold availabilityを認知方式の評価結果へ含める。`mmi.cognitive-artifact-evaluation/v0`で`artifactBytes / downloadedBytes / cacheHit / availableWithoutNetwork`を共通化し、CPU semantic評価へ接続した。manifest未指定は`not-measured`とし、欠測を0として扱わない。
 
 
 ## Implementation checkpoint (2026-10-07)
@@ -40,7 +40,11 @@ Fly/Jev類似方式やローカルLLMを実用化すると、実行コードよ�
 
 Ollamaのモデル選択では`search.semantic.artifactDigest`へdigestを保存する。semantic laneを使う前にruntimeの現在digestを再確認し、不一致・runtime停止・確認不能なら意味検索だけを停止して通常検索へ戻る。provider-dependent機能の不調をAuthorityや通常検索へ波及させない。
 
-resolverは評価用に`artifactBytes / downloadedBytes / cacheHit / availableWithoutNetwork`を返す。各認知方式の評価reportへこの4値を組み込む接続はまだ行っていない。
+`src/evaluation/cognitiveArtifactEvaluation.ts`に`mmi.cognitive-artifact-evaluation/v0`を追加し、resolverの`artifactBytes / downloadedBytes / cacheHit / availableWithoutNetwork`を評価reportへ共通形で残せるようにした。`not-measured`を明示できるため、manifest未指定を0 byte・cache hitなしと誤解しない。
+
+CPU semantic評価（`scripts/cpu-search-eval/semantic-eval.ts`）へ最初の接続を行った。`--artifact-manifest`を指定した場合、選択中のlocal runtimeから同じmodelを再発見し、runtimeが公開する暗号学的digestがmanifest SHA-256と一致した場合だけ評価を開始する。評価reportの`artifactEvaluation`へartifact identity、provider identity、4 metrics、resolution種別を記録する。manifestを指定しない既存評価は継続できるが、`artifactEvaluation.state=not-measured`になる。
+
+semantic評価ではMMI cacheに同じbytesが存在するだけでは実行modelの証明としない。実際に使うruntime-managed modelのdigest一致を必須とするため、現状digestを取得できないLM Studio等ではmanifest指定評価をfail-closedとする。
 
 ## Validation plan
 
@@ -48,7 +52,6 @@ unit fixtureではmanifest validation、local file、HTTPS streaming、digest / 
 
 ## Remaining work
 
-- `artifactBytes / downloadedBytes / cacheHit / availableWithoutNetwork`を、認知方式の評価reportへ共通項目として接続する。
-- 小型の公開artifactと実Ollama embedding modelでintegrationを行い、cache hit / cold / offline / tag digest driftを実測する。
+- 小型の公開artifactと実Ollama embedding modelでintegrationを行い、共通`artifactEvaluation`を使ってcache hit / cold / offline / tag digest driftを実測する。CPU semantic評価ではdigest-bound runtime-managed modelを使った実reportを保存する。
 - private modelの認証方式は、実際にprivate assetが必要になった時点で別途安全境界を定める。
 - model量子化や分割downloadは、実artifactのサイズ測定後に検討する。

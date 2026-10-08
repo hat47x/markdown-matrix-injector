@@ -62,9 +62,9 @@ Candidate選択proposalはtop-levelとCandidate identityのfieldを固定し、�
 
 `src/dx/aiHandoffTransformationValidation.ts` に `mmi.ai-handoff-transformation-proposal/v1` と `mmi.ai-handoff-transformation-validation/v1` を追加した。外部AIが指定できるのはhandoffに含まれた`candidateIdentity`、希望する到達状態（`linked` / `extracted`）、rationale、未解決事項だけである。出力先、コマンド、conversion実装、MMI記法そのものを外部AIに指定させない。未知fieldを含むproposalはfail-closedで拒否する。
 
-validatorはsourceをworkspace境界内で再解決してdigestを照合し、current source bytesから表・画像CandidateをSource Adapterで再発見する。occurrence/content identityとalgorithm/runtime provenanceがhandoff時点と一致しない場合はblockedとする。source変更・Candidate消失・adapter/runtime basis変更後の古いproposalは、新しいhandoffを要求する。
+validatorはsourceをworkspace境界内で再解決してdigestを照合し、Candidateレビューと同じ目録生成器を使ってcurrent sourceからCandidateを再発見する。表・画像だけでなく、Shape、Choice list、明示Tree、フラットテキストTreeも同じ入口から再確認する。occurrence/content identityとalgorithm/runtime provenanceがhandoff時点と一致しない場合はblockedとする。source変更・Candidate消失・adapter/runtime basis変更後の古いproposalは、新しいhandoffを要求する。
 
-`linked`ではcurrent Candidateのローカル`reference`だけを使い、既存`validateAiHandoffNotationProposal`のparser、parameter schema、source allowlist、diagnostics、source identity、read-only previewを再度通す。`extracted`では、表は既存`extractTable`と同じ`gfm-table-v1`、画像は既存`extractImages`と同じ`raw-image-bytes-v1`だけをreview planとして返す。validator自身はfileを書かず、成功状態も`accepted-for-review`であり、自動適用やAuthority確定を意味しない。
+`linked`ではcurrent Candidateのローカル`reference`だけを使い、既存`validateAiHandoffNotationProposal`のparser、parameter schema、source allowlist、diagnostics、source identity、read-only previewを再度通す。`extracted`では、表は`gfm-table-v1`、画像は`raw-image-bytes-v1`、JSON/YAML/XML Treeは各`*-nested-list-v1`、フラットテキストTreeは`flat-text-nested-list-v1`の既存経路だけをreview planとして返す。ShapeやChoice list等、直接のExtracted経路を持たないCandidateは、存在を再確認したうえで未対応変換としてblockedにする。validator自身はfileを書かず、成功状態も`accepted-for-review`であり、自動適用やAuthority確定を意味しない。フラットテキストTreeが`inferred + M1`であることも変更しない。
 
 CLIには`validate-selection <proposal.json>`と`validate-transformation <proposal.json>`を追加した。handoff packageとproposal JSONはworkspace内に限定する。`validate-transformation`はreference baseとなるMarkdownもworkspace内に限定する。全検証を通過した場合だけexit 0とし、blockedはexit 1、入力不備や境界外fileはexit 2とする。
 
@@ -76,6 +76,6 @@ CLIには`validate-selection <proposal.json>`と`validate-transformation <propos
 
 ## Remaining work
 
-- `mmi handoff`、`validate-proposal`、`validate-selection`、`validate-transformation`を実装済み。残る主要作業は架空Excel設計書を使ったmanual-e2eと、必要に応じた実務データでの観測である。
+- `mmi handoff`、`validate-proposal`、`validate-selection`、`validate-transformation`を実装済み。変換検証はCandidateレビューと同じ再発見入口を使い、表・画像・JSON/YAML/XML/フラットテキストTreeの既存変換をreview planへ束縛する。残る主要作業は架空Excel設計書を使ったmanual-e2eと、必要に応じた実務データでの観測である。
 - 将来MCPを追加する場合も、このpackage契約を再利用し、MCPだけの独自判断ロジックを作らない。
 - provider固有のprompt最適化はコアに入れない。必要なら外部skill / template側で行う。
