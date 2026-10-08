@@ -31,7 +31,7 @@ ADR-0019の優先度に、既存のIssueを含めて対応付ける。上から�
 | **3 Source Adapterの一般化** | [Tree / Hierarchy、JSON/YAML/XML、フラットテキスト](issues/issue-0199-tree-structured-source-adapters.md) | **In Progress**（Tree各形式を共通ライフサイクルへ接続。Excel Choice listは別kindのまま直接範囲参照をM0解決。AutoShape/connectorもsource semanticsからM0 Candidate化） | 次: structured artifactの`hierarchy_relation`をAuthorityへ昇格させないPerception providerとして接続する |
 | 3 | Shape、その他List source | **In Progress** | AutoShape/connectorのSource Adapterとreview/import観測は実装済み。Choice listは独立kindを継続。残る主課題はShapeのExtracted変換とgraphic frame等の安全な分類 |
 | 3（研究） | structured artifact（SAI）、worksheet format、[review route](issues/issue-0190-review-route-evaluation-pipeline-regression.md) | In Progress | 新しい研究段階は、issue-0193の対応表のどの行を強くするかを示してから始める |
-| **4 Detachability** | [実体化とdetach check](issues/issue-0196-materialize-detach-check.md) | **In Progress**（表・別紙・ローカル画像のmaterialize、採用済み表・画像・JSON/YAML/XML/フラットテキスト/表形式階層Treeのfreshness preflight、artifact closureを実装） | build/unitと実務E2Eを確認し、Shape等がExtracted可能になったら同じprovenance/freshness契約へ拡張 |
+| **4 Detachability** | [実体化とdetach check](issues/issue-0196-materialize-detach-check.md) | **In Progress**（表・別紙・ローカル画像のmaterialize、採用済み表・画像・JSON/YAML/XML/フラットテキスト/表形式階層Treeのfreshness preflight、artifact closureを実装） | 表・キット・画像つき文書の手動E2Eを確認済み（2026-10-08）。残: 実在する設計書での確認、Windows/macOS。Shape等がExtracted可能になったら同じprovenance/freshness契約へ拡張 |
 | 4 | 参照台帳と影響分析 | 未起票 | issue-0195の台帳と合わせて設計 |
 | **5 組織導入** | 文書キットの追加、CI関門、執筆ベンチマーク v1（大きな表・複数シート・本文と表の矛盾） | 未起票 | 優先度2の縦切りの後 |
 | 5 | [外部の判断記録からの根拠の固定（SEI）](issues/issue-0192-sei-decision-basis-table-binding.md) | Draft | CLIの契約が固まった後 |
