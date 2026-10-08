@@ -165,7 +165,7 @@ function isMarkdownArtifact(filePath: string): boolean {
   return /\.(?:md|markdown)$/iu.test(filePath);
 }
 
-function markdownLinkTargets(line: string): string[] {
+export function markdownLinkTargets(line: string): string[] {
   const targets: string[] = [];
   const pattern = /!?\[[^\]]*\]\((?<target>[^)]+)\)/gu;
   for (const match of line.matchAll(pattern)) {
