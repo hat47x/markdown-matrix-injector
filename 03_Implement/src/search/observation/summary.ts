@@ -67,8 +67,7 @@ export function summarizeSearchObservations(
     buckets.set(bucket, { picked: 0, pickedRank1: 0 });
   }
   for (const record of records) {
-    // A near miss has its own capped fit and its own rank; it is not part of the calibration of the main list.
-    if (record.picked?.fit === undefined || record.picked.basis === 'near-miss') continue;
+    if (record.picked?.fit === undefined) continue;
     const bucket = fitBucket(record.picked.fit);
     const stats = buckets.get(bucket)!;
     stats.picked += 1;

@@ -127,7 +127,7 @@ test('a request with a near miss is never no-such-table (design section 4)', () 
   assert.equal(classifySearchObservation('在庫管理表を見せて', result).class, 'other');
 });
 
-test('the summary separates determined from undetermined, and keeps near-miss picks out of the fit calibration', () => {
+test('the summary separates determined from undetermined unresolved sessions', () => {
   const records: SearchObservationRecord[] = [
     record('no-such-table'),
     record('other'),
@@ -138,7 +138,7 @@ test('the summary separates determined from undetermined, and keeps near-miss pi
   assert.equal(summary.unresolved, 2, 'no-such-table and abbreviation are determined unresolved sessions');
   assert.equal(summary.undetermined, 1, 'other is counted separately');
   assert.equal(summary.fitCalibration.find((bin) => bin.bucket === '>=0.9')?.picked, 1);
-  assert.equal(summary.fitCalibration.find((bin) => bin.bucket === '<0.5')?.picked, 0, 'the near-miss pick is not calibrated');
+  assert.equal(summary.fitCalibration.find((bin) => bin.bucket === '<0.5')?.picked, 1, 'the near-miss pick keeps its own fit bucket (origin behaviour)');
   const markdown = renderSearchObservationSummaryMarkdown(summary);
   assert.match(markdown, new RegExp(`${MIN_UNRESOLVED_FOR_CONCLUSION}件に満たない`, 'u'));
   assert.match(markdown, /原因を判定できなかったセッション: 1/u);
