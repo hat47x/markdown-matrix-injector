@@ -1,7 +1,7 @@
 # Issue: source参照の影響範囲をread-onlyで列挙する
 
 ## Meta
-- Tracking: issue-0208（mainのissue-0207-search-demand-observationとの番号衝突を2026-10-08に解消）
+- Tracking: issue-0213（issue-0207はsearch demand observation（#473）、issue-0208はcognitive cultural explorationが使用中のため、本Issueは0213とする）
 - Type: Feature
 - Status: In Progress
 - Priority: Medium
