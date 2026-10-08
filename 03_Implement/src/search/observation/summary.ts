@@ -4,10 +4,25 @@ import type {
   SearchObservationRecord,
 } from './types.js';
 
+/** Design §7: fewer determined unresolved sessions than this do not support a conclusion. */
+export const MIN_UNRESOLVED_FOR_CONCLUSION = 100;
+
+const DETERMINED_UNRESOLVED: readonly SearchObservationClass[] = [
+  'unsupported-op',
+  'notation',
+  'abbreviation',
+  'description',
+  'no-such-table',
+];
+
 export interface SearchObservationSummary {
   records: number;
   from?: string;
   to?: string;
+  /** Sessions that found no table, with the cause determined (design §7 counts these). */
+  unresolved: number;
+  /** Sessions that found no table and whose cause could not be determined (`other`). */
+  undetermined: number;
   classOutcome: Array<{
     class: SearchObservationClass;
     outcome: SearchObservationOutcome;
@@ -52,7 +67,8 @@ export function summarizeSearchObservations(
     buckets.set(bucket, { picked: 0, pickedRank1: 0 });
   }
   for (const record of records) {
-    if (record.picked?.fit === undefined) continue;
+    // A near miss has its own capped fit and its own rank; it is not part of the calibration of the main list.
+    if (record.picked?.fit === undefined || record.picked.basis === 'near-miss') continue;
     const bucket = fitBucket(record.picked.fit);
     const stats = buckets.get(bucket)!;
     stats.picked += 1;
@@ -65,6 +81,8 @@ export function summarizeSearchObservations(
   return {
     records: records.length,
     ...(dates.length > 0 ? { from: dates[0], to: dates.at(-1) } : {}),
+    unresolved: records.filter((record) => DETERMINED_UNRESOLVED.includes(record.final.class)).length,
+    undetermined: records.filter((record) => record.final.class === 'other').length,
     classOutcome: [...cross.values()]
       .sort((a, b) => a.class.localeCompare(b.class) || a.outcome.localeCompare(b.outcome))
       .map((item) => ({
@@ -94,6 +112,11 @@ export function renderSearchObservationSummaryMarkdown(
     '',
     `- 記録件数: ${summary.records}`,
     `- 期間: ${summary.from ?? '-'} 〜 ${summary.to ?? '-'}`,
+    `- 名前で見つからず、原因を判定できたセッション: ${summary.unresolved}`,
+    `- 名前で見つからず、原因を判定できなかったセッション: ${summary.undetermined}`,
+    summary.unresolved < MIN_UNRESOLVED_FOR_CONCLUSION
+      ? `- 判定できた未発見が${MIN_UNRESOLVED_FOR_CONCLUSION}件に満たないため、割合は傾向としても断定できません。`
+      : `- 判定できた未発見が${MIN_UNRESOLVED_FOR_CONCLUSION}件以上あります。判断には、3人以上の集計を合算してください。`,
     '',
     '## 分類 × 結末',
     '',

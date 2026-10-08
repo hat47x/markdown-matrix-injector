@@ -56,6 +56,7 @@ import { clearSearchIndexes, FIND_EMBED_COMMAND_ID, scriptedSearch, searchEmbedB
 import {
   createSearchObservationHost,
   registerSearchObservationCommands,
+  registerSearchObservationTestCommands,
   showSearchObservationNoticeOnce,
 } from './dx/searchObservationHost.js';
 import { SELECT_LOCAL_SEMANTIC_MODEL_COMMAND_ID, selectLocalSemanticModel } from './dx/semanticSetupFlow.js';
@@ -273,7 +274,7 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
   );
 
   if (shouldRegisterTestCommands(context)) {
-    context.subscriptions.push(...registerTestCommands(nativePasteDropState));
+    context.subscriptions.push(...registerTestCommands(nativePasteDropState, context));
   }
 
   registerNativePasteDropProviders(context, nativePasteDropState);
@@ -844,8 +845,9 @@ function shouldRegisterTestCommands(context: vscode.ExtensionContext): boolean {
   return context.extensionMode === vscode.ExtensionMode.Test || process.env[ENABLE_TEST_COMMANDS_ENV_VAR] === '1';
 }
 
-function registerTestCommands(nativePasteDropState: NativePasteDropState): vscode.Disposable[] {
+function registerTestCommands(nativePasteDropState: NativePasteDropState, context: vscode.ExtensionContext): vscode.Disposable[] {
   return [
+    ...registerSearchObservationTestCommands(context),
     // Guided flows with scripted choices: same code path as the QuickPicks, only the choice is given.
     vscode.commands.registerCommand(
       'markdownMatrixInjector.__test.runAuthoringScripted',
@@ -860,7 +862,13 @@ function registerTestCommands(nativePasteDropState: NativePasteDropState): vscod
       async (args: { query: string; pick: number; answers: ScriptedAnswer[] }) => {
         const document = vscode.window.activeTextEditor?.document;
         if (!document) return undefined;
-        const found = await scriptedSearch(document, WORKBOOK_FILE_GLOB, args.query, args.pick);
+        const found = await scriptedSearch(
+          document,
+          WORKBOOK_FILE_GLOB,
+          args.query,
+          args.pick,
+          createSearchObservationHost(context),
+        );
         const transcript = found.parts
           ? await runScriptedAuthoringFlow(authoringDependencies(), args.answers, { parts: found.parts, step: 'confirm' })
           : [];
