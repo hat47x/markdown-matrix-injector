@@ -40,5 +40,10 @@
   "mmi.setting.reviewObservation": "Candidateレビューの利用状況をローカルに記録します。有効にすると、開始・終了時刻、所要時間、選択して確認した候補数、採用・修正採用・却下・保留などの状態変化をワークスペースの.mmi/candidate-review-observations.jsonlへ追記します。Candidateの本文やセル値は記録せず、外部にも送信しません。",
   "mmi.command.reviewCandidates": "取り込み候補を確認（表・画像・ツリー・取込状態・出典）",
   "mmi.command.reviewHierarchyCandidates": "表の列を指定して階層Candidateを確認",
-  "mmi.command.reviewTabularHierarchyCandidates": "表の階層Candidateを確認（シートと親列・階層列を明示）"
+  "mmi.command.reviewTabularHierarchyCandidates": "表の階層Candidateを確認（シートと親列・階層列を明示）",
+  "mmi.command.searchObservationSummary": "表検索の観測を集計",
+  "mmi.command.searchObservationExport": "表検索の観測集計を書き出す",
+  "mmi.command.searchObservationClear": "表検索の観測記録を消去",
+  "mmi.setting.searchObservationEnabled": "このワークスペースで、表検索の需要をローカル観測します。分類、結末、検索回数、選択順位・適合度、別名提案の結果、所要時間だけをVS Codeのワークスペース保存領域へ記録します。既定はオフです。表名・ファイル名・利用者名は保存せず、外部送信もしません。",
+  "mmi.setting.searchObservationIncludeText": "ローカルでの見直し用に、最後の検索依頼文も保存します。既定はオフです。機密を含む可能性があるため、ワークスペースの規則上保存してよい場合だけ有効にしてください。この設定で外部送信が有効になることはありません。"
 }
