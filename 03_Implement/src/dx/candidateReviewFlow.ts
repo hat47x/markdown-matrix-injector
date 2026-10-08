@@ -642,6 +642,25 @@ function quickPickItem(
     };
   }
 
+  if (source.kind === 'note') {
+    const note = source.note;
+    return {
+      label: `$(note) Note ${note.cell}`,
+      description:
+        `${stateLabel(ledgerState)} · 採用: ${reviewStateLabel(reviewState)} · ${note.sheet} ${note.cell}${note.author !== undefined ? ` · ${note.author}` : ''}`,
+      detail: [
+        epistemicDetail(source.candidate),
+        note.text || '（空のNote）',
+        providerEvidence,
+      ].join(' · '),
+      source,
+      rejected,
+      deferred,
+      reviewState,
+      ledgerState,
+    };
+  }
+
   return {
     label:
       `$(table) ${source.title ?? `${source.sheet} ${source.range}`}`,
@@ -763,6 +782,16 @@ export async function reviewCandidates(
       `MMI: 選択肢Candidateに確認事項があります: ${choiceListProblems
         .map((item) =>
           `${item.sheet ? `${item.sheet}: ` : ''}${item.message}`)
+        .join(' / ')}。読み取れたCandidateは引き続き確認できます。`,
+    );
+  }
+
+  const noteProblems = inventory.noteDiagnostics ?? [];
+  if (noteProblems.length > 0) {
+    await vscode.window.showWarningMessage(
+      `MMI: Note Candidateに確認事項があります: ${noteProblems
+        .map((item) =>
+          `${item.sheet ? `${item.sheet}${item.cell ? `!${item.cell}` : ''}: ` : ''}${item.message}`)
         .join(' / ')}。読み取れたCandidateは引き続き確認できます。`,
     );
   }
