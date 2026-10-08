@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"encoding/json"
+	"encoding/xml"
 	"errors"
 	"fmt"
 	"io"
@@ -174,11 +175,11 @@ func run(input []byte) ([]byte, error) {
 		return nil, errors.New("source.bytesBase64 must be canonical base64")
 	}
 	extension := strings.ToLower(filepath.Ext(req.Source.Name))
-	if extension != ".csv" && extension != ".json" {
-		return nil, errors.New("go-minimum currently supports CSV and JSON only")
+	if extension != ".csv" && extension != ".json" && extension != ".xml" {
+		return nil, errors.New("go-minimum currently supports CSV, JSON, and generic XML only")
 	}
 	if !utf8.Valid(bytes) {
-		return nil, errors.New("go-minimum CSV/JSON profile currently supports UTF-8 only")
+		return nil, errors.New("go-minimum CSV/JSON/XML profile currently supports UTF-8 only")
 	}
 
 	sum := sha256.Sum256(bytes)
@@ -217,6 +218,21 @@ func run(input []byte) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
+	case ".xml":
+		if isXMLSpreadsheet2003Bytes(bytes) {
+			return nil, errors.New(
+				"go-minimum does not yet implement the XML Spreadsheet 2003 table profile",
+			)
+		}
+		format = "xml"
+		candidates, err = xmlTreeCandidates(
+			bytes,
+			req.Source.Label,
+			sourceDigest,
+		)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	out := response{
@@ -234,6 +250,460 @@ func run(input []byte) ([]byte, error) {
 		Diagnostics: []diagnostic{},
 	}
 	return json.MarshalIndent(out, "", "  ")
+}
+
+type xmlAttribute struct {
+	name  string
+	value string
+}
+
+type xmlContent struct {
+	text    *string
+	element *xmlElement
+}
+
+type xmlElement struct {
+	name       string
+	attributes []xmlAttribute
+	content    []xmlContent
+}
+
+type xmlFrame struct {
+	element    xmlElement
+	namespaces map[string]string
+}
+
+func isXMLSpreadsheet2003Bytes(input []byte) bool {
+	return bytes.Contains(
+		input,
+		[]byte(`<?mso-application progid="Excel.Sheet"?>`),
+	) || bytes.Contains(
+		input,
+		[]byte("urn:schemas-microsoft-com:office:spreadsheet"),
+	)
+}
+
+func xmlTreeCandidates(
+	input []byte,
+	source string,
+	sourceDigest string,
+) ([]candidate, error) {
+	root, err := parseGenericXML(input)
+	if err != nil {
+		return nil, err
+	}
+	out := []candidate{}
+	if err := collectXMLTreeCandidates(
+		root,
+		xmlPathFor("", root.name, 1),
+		source,
+		sourceDigest,
+		&out,
+	); err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func parseGenericXML(input []byte) (*xmlElement, error) {
+	text := strings.TrimPrefix(string(input), "﻿")
+	decoder := xml.NewDecoder(strings.NewReader(text))
+	stack := []xmlFrame{}
+	var root *xmlElement
+
+	for {
+		token, err := decoder.RawToken()
+		if err == io.EOF {
+			break
+		}
+		if err != nil {
+			return nil, fmt.Errorf("invalid XML source: %w", err)
+		}
+
+		switch current := token.(type) {
+		case xml.ProcInst:
+			if strings.EqualFold(current.Target, "xml") {
+				if encoding := xmlDeclarationEncoding(string(current.Inst)); encoding != "" &&
+					!strings.EqualFold(strings.ReplaceAll(encoding, "-", ""), "utf8") {
+					return nil, fmt.Errorf(
+						"generic XML Tree sources must declare UTF-8, not %s",
+						encoding,
+					)
+				}
+			}
+		case xml.Directive:
+			return nil, errors.New(
+				"DTD/declaration syntax is not supported for deterministic XML Tree extraction",
+			)
+		case xml.StartElement:
+			parentNamespaces := map[string]string{
+				"xml": "http://www.w3.org/XML/1998/namespace",
+			}
+			if len(stack) > 0 {
+				parentNamespaces = cloneStringMap(
+					stack[len(stack)-1].namespaces,
+				)
+			}
+			attributes := make([]xmlAttribute, 0, len(current.Attr))
+			seenAttributes := map[string]bool{}
+
+			// Namespace declarations apply to the element and all attributes on
+			// the same start tag. RawToken preserves the original prefixes.
+			for _, attribute := range current.Attr {
+				name := xmlQualifiedName(attribute.Name)
+				if attribute.Name.Space == "xmlns" {
+					if attribute.Name.Local == "xmlns" {
+						return nil, errors.New(
+							"the xmlns prefix cannot be redeclared",
+						)
+					}
+					if attribute.Name.Local == "xml" &&
+						attribute.Value != "http://www.w3.org/XML/1998/namespace" {
+						return nil, errors.New(
+							"the xml prefix must use its reserved namespace URI",
+						)
+					}
+					parentNamespaces[attribute.Name.Local] = attribute.Value
+				} else if attribute.Name.Space == "" &&
+					attribute.Name.Local == "xmlns" {
+					parentNamespaces[""] = attribute.Value
+				}
+				if seenAttributes[name] {
+					return nil, fmt.Errorf(
+						"duplicate XML attribute: %s",
+						name,
+					)
+				}
+				seenAttributes[name] = true
+				attributes = append(attributes, xmlAttribute{
+					name:  name,
+					value: attribute.Value,
+				})
+			}
+
+			name := xmlQualifiedName(current.Name)
+			if current.Name.Space != "" &&
+				current.Name.Space != "xml" &&
+				parentNamespaces[current.Name.Space] == "" {
+				return nil, fmt.Errorf(
+					"undeclared XML namespace prefix: %s",
+					current.Name.Space,
+				)
+			}
+			for _, attribute := range current.Attr {
+				if attribute.Name.Space != "" &&
+					attribute.Name.Space != "xmlns" &&
+					attribute.Name.Space != "xml" &&
+					parentNamespaces[attribute.Name.Space] == "" {
+					return nil, fmt.Errorf(
+						"undeclared XML namespace prefix: %s",
+						attribute.Name.Space,
+					)
+				}
+			}
+
+			stack = append(stack, xmlFrame{
+				element: xmlElement{
+					name:       name,
+					attributes: attributes,
+					content:    []xmlContent{},
+				},
+				namespaces: parentNamespaces,
+			})
+		case xml.CharData:
+			value := string(current)
+			if value == "" {
+				continue
+			}
+			if len(stack) == 0 {
+				if strings.TrimSpace(value) != "" {
+					return nil, errors.New(
+						"text is not allowed outside the XML document element",
+					)
+				}
+				continue
+			}
+			copyValue := value
+			top := &stack[len(stack)-1]
+			top.element.content = append(
+				top.element.content,
+				xmlContent{text: &copyValue},
+			)
+		case xml.EndElement:
+			if len(stack) == 0 {
+				return nil, fmt.Errorf(
+					"unexpected XML closing tag: %s",
+					xmlQualifiedName(current.Name),
+				)
+			}
+			index := len(stack) - 1
+			frame := stack[index]
+			stack = stack[:index]
+			name := xmlQualifiedName(current.Name)
+			if frame.element.name != name {
+				return nil, fmt.Errorf(
+					"mismatched XML closing tag: %s",
+					name,
+				)
+			}
+			element := frame.element
+			if len(stack) > 0 {
+				parent := &stack[len(stack)-1]
+				parent.element.content = append(
+					parent.element.content,
+					xmlContent{element: &element},
+				)
+			} else if root == nil {
+				root = &element
+			} else {
+				return nil, errors.New(
+					"XML document contains multiple root elements",
+				)
+			}
+		}
+	}
+
+	if len(stack) != 0 {
+		return nil, errors.New("XML document contains unclosed elements")
+	}
+	if root == nil {
+		return nil, errors.New("XML document has no root element")
+	}
+	return root, nil
+}
+
+func xmlDeclarationEncoding(instruction string) string {
+	lower := strings.ToLower(instruction)
+	index := strings.Index(lower, "encoding")
+	if index < 0 {
+		return ""
+	}
+	rest := instruction[index+len("encoding"):]
+	rest = strings.TrimLeft(rest, " \t\r\n")
+	if len(rest) == 0 || rest[0] != '=' {
+		return ""
+	}
+	rest = strings.TrimLeft(rest[1:], " \t\r\n")
+	if len(rest) < 2 || (rest[0] != '"' && rest[0] != '\'') {
+		return ""
+	}
+	quote := rest[0]
+	end := strings.IndexByte(rest[1:], quote)
+	if end < 0 {
+		return ""
+	}
+	return rest[1 : end+1]
+}
+
+func xmlQualifiedName(name xml.Name) string {
+	if name.Space == "" {
+		return name.Local
+	}
+	return name.Space + ":" + name.Local
+}
+
+func cloneStringMap(input map[string]string) map[string]string {
+	out := make(map[string]string, len(input))
+	for key, value := range input {
+		out[key] = value
+	}
+	return out
+}
+
+func xmlPathFor(parent, name string, ordinal int) string {
+	return fmt.Sprintf("%s/%s[%d]", parent, name, ordinal)
+}
+
+func collectXMLTreeCandidates(
+	element *xmlElement,
+	path string,
+	source string,
+	sourceDigest string,
+	out *[]candidate,
+) error {
+	children := []*xmlElement{}
+	for _, item := range element.content {
+		if item.element != nil {
+			children = append(children, item.element)
+		}
+	}
+	siblingCounts := map[string]int{}
+	childPaths := make([]string, 0, len(children))
+	for _, child := range children {
+		siblingCounts[child.name]++
+		childPaths = append(
+			childPaths,
+			xmlPathFor(path, child.name, siblingCounts[child.name]),
+		)
+	}
+
+	attributes := append([]xmlAttribute(nil), element.attributes...)
+	sort.Slice(attributes, func(left, right int) bool {
+		return utf16Less(attributes[left].name, attributes[right].name)
+	})
+	attributeValues := make([]string, 0, len(attributes))
+	for _, attribute := range attributes {
+		rendered, err := marshalJSONNoHTML(attribute.value)
+		if err != nil {
+			return err
+		}
+		attributeValues = append(
+			attributeValues,
+			"@"+attribute.name+"="+rendered,
+		)
+	}
+
+	textValues := []string{}
+	for _, item := range element.content {
+		if item.text != nil && strings.TrimSpace(*item.text) != "" {
+			textValues = append(textValues, *item.text)
+		}
+	}
+
+	claims := []claim{
+		{
+			Aspect: "structural-path", Value: path,
+			Status: "observed", Execution: "deterministic",
+			Method: "M0", ReasonCode: "xml-element-path",
+		},
+		{
+			Aspect: "node-type", Value: "element",
+			Status: "observed", Execution: "deterministic",
+			Method: "M0", ReasonCode: "xml-element",
+		},
+		{
+			Aspect: "element-name", Value: element.name,
+			Status: "observed", Execution: "deterministic",
+			Method: "M0", ReasonCode: "xml-qualified-name",
+		},
+		{
+			Aspect: "children", Value: childPaths,
+			Status: "observed", Execution: "deterministic",
+			Method: "M0", ReasonCode: "xml-parent-child",
+		},
+	}
+	if len(attributeValues) > 0 {
+		claims = append(claims, claim{
+			Aspect: "attributes", Value: attributeValues,
+			Status: "observed", Execution: "deterministic",
+			Method: "M0", ReasonCode: "xml-attributes",
+		})
+	}
+	if len(textValues) > 0 {
+		claims = append(claims, claim{
+			Aspect: "text", Value: textValues,
+			Status: "observed", Execution: "deterministic",
+			Method: "M0", ReasonCode: "xml-text",
+		})
+	}
+
+	canonical, err := canonicalXMLElement(element)
+	if err != nil {
+		return err
+	}
+	sum := sha256.Sum256([]byte(canonical))
+	pathValue := path
+	*out = append(*out, candidate{
+		Kind: "tree",
+		Locator: locator{
+			Source:         source,
+			SourceDigest:   sourceDigest,
+			StructuralPath: &pathValue,
+		},
+		Status: "observed", Execution: "deterministic", Method: "M0",
+		Claims: claims,
+		Provenance: provenance{
+			Algorithm: "mmi.xml-tree-adapter",
+			Run: deterministicRun{
+				Execution:   "deterministic",
+				InputDigest: sourceDigest,
+				Config: map[string]any{
+					"format": "xml",
+					"path":   "qualified-name-sibling-index-v1",
+					"dtd":    "rejected",
+				},
+				ImplementationVersion: "2",
+			},
+		},
+		Fingerprint: fingerprint{
+			Algorithm:      "sha256",
+			Representation: "xml-subtree-canonical-v1",
+			Digest:         "sha256:" + hex.EncodeToString(sum[:]),
+		},
+		Scores: []any{},
+	})
+
+	for index, child := range children {
+		if err := collectXMLTreeCandidates(
+			child,
+			childPaths[index],
+			source,
+			sourceDigest,
+			out,
+		); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func canonicalXMLElement(element *xmlElement) (string, error) {
+	name, err := marshalJSONNoHTML(element.name)
+	if err != nil {
+		return "", err
+	}
+
+	attributes := append([]xmlAttribute(nil), element.attributes...)
+	sort.Slice(attributes, func(left, right int) bool {
+		return utf16Less(attributes[left].name, attributes[right].name)
+	})
+	attributeParts := make([]string, 0, len(attributes))
+	for _, attribute := range attributes {
+		key, err := marshalJSONNoHTML(attribute.name)
+		if err != nil {
+			return "", err
+		}
+		value, err := marshalJSONNoHTML(attribute.value)
+		if err != nil {
+			return "", err
+		}
+		attributeParts = append(
+			attributeParts,
+			"["+key+","+value+"]",
+		)
+	}
+
+	contentParts := make([]string, 0, len(element.content))
+	for _, item := range element.content {
+		if item.text != nil {
+			value, err := marshalJSONNoHTML(*item.text)
+			if err != nil {
+				return "", err
+			}
+			contentParts = append(
+				contentParts,
+				`["text",`+value+`]`,
+			)
+			continue
+		}
+		child, err := canonicalXMLElement(item.element)
+		if err != nil {
+			return "", err
+		}
+		value, err := marshalJSONNoHTML(child)
+		if err != nil {
+			return "", err
+		}
+		contentParts = append(
+			contentParts,
+			`["element",`+value+`]`,
+		)
+	}
+
+	return `{"name":` + name +
+		`,"attributes":[` + strings.Join(attributeParts, ",") +
+		`],"content":[` + strings.Join(contentParts, ",") +
+		`]}`, nil
 }
 
 func jsonTreeCandidates(

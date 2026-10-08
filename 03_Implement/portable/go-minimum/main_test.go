@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"math"
 	"os"
@@ -227,6 +228,97 @@ func TestJSONTreeUnicodeAndPointerConformanceCase(t *testing.T) {
 				want,
 			)
 		}
+	}
+}
+
+
+func TestXMLTreeConformanceCase(t *testing.T) {
+	actualResponse := runConformanceCase(
+		t,
+		"xml-tree.case.json",
+	)
+	if actualResponse.Source.Format != "xml" {
+		t.Fatalf(
+			"unexpected XML source format: %s",
+			actualResponse.Source.Format,
+		)
+	}
+}
+
+
+func TestNamespacedXMLTreeConformanceCase(t *testing.T) {
+	actualResponse := runConformanceCase(
+		t,
+		"xml-tree-namespace.case.json",
+	)
+	wantPaths := []string{
+		"/p:root[1]",
+		"/p:root[1]/p:item[1]",
+		"/p:root[1]/p:item[2]",
+	}
+	for index, want := range wantPaths {
+		actual := actualResponse.Candidates[index].Locator.StructuralPath
+		if actual == nil || *actual != want {
+			t.Fatalf(
+				"candidate %d structural path: got %v want %q",
+				index,
+				actual,
+				want,
+			)
+		}
+	}
+}
+
+func TestXMLTreeRejectsDTDEncodingAndUndeclaredPrefixes(t *testing.T) {
+	for _, source := range []string{
+		`<!DOCTYPE service [<!ENTITY x "value">]><service>&x;</service>`,
+		`<?xml version="1.0" encoding="Shift_JIS"?><service/>`,
+		`<p:service/>`,
+	} {
+		request := map[string]any{
+			"schema":    requestSchema,
+			"operation": "inspect",
+			"source": map[string]any{
+				"name":        "service.xml",
+				"label":       "./service.xml",
+				"bytesBase64": base64.StdEncoding.EncodeToString([]byte(source)),
+			},
+			"executionPolicy": map[string]any{
+				"allowProviderDependent": false,
+			},
+		}
+		raw, err := json.Marshal(request)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if _, err := run(raw); err == nil {
+			t.Fatalf("expected XML rejection: %s", source)
+		}
+	}
+}
+
+func TestXMLSpreadsheetDoesNotFallThroughToGenericTree(t *testing.T) {
+	source := `<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"/>`
+	request := map[string]any{
+		"schema":    requestSchema,
+		"operation": "inspect",
+		"source": map[string]any{
+			"name":        "legacy.xml",
+			"label":       "./legacy.xml",
+			"bytesBase64": base64.StdEncoding.EncodeToString([]byte(source)),
+		},
+	}
+	raw, err := json.Marshal(request)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := run(raw); err == nil ||
+		!strings.Contains(err.Error(), "XML Spreadsheet 2003") {
+		t.Fatalf(
+			"expected XML Spreadsheet 2003 profile rejection, got: %v",
+			err,
+		)
 	}
 }
 

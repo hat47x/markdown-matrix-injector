@@ -137,6 +137,10 @@ test('portable Core generic XML Tree conformance case', () => {
   assertConformanceCase(readCase('xml-tree.case.json'));
 });
 
+test('portable Core namespaced XML preserves qualified names, sibling ordinals and namespace attributes', () => {
+  assertConformanceCase(readCase('xml-tree-namespace.case.json'));
+});
+
 test('portable Core generic XML Candidates are identical to the existing adapter path', () => {
   const fixture = readCase('xml-tree.case.json');
   const request = fixture.request as {

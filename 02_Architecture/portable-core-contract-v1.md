@@ -112,10 +112,10 @@ TypeScriptの参照実装は現時点で`node:crypto`、SheetJS等を利用す�
 - CSV table Candidate
 - 先頭空レコードを含むCSV table Candidate（source coordinate保持）
 - JSON Tree Candidate
-- 汎用XML Tree Candidate
+- 汎用XML Tree Candidate（qualified name / namespace attribute / sibling ordinalを含む）
 - test内で生成するXLSX table Candidate
 
-TypeScript参照実装では、生成XLSXのCandidate列が既存`tableCandidates()`直呼びと完全一致することに加え、汎用XMLでもportable経路と`readXmlTree()`直呼びのCandidate列が一致することを確認する。XML Spreadsheet 2003は従来どおり表経路に残す。これによりportable境界を追加したこと自体でCandidate意味論が分岐しないようにする。
+TypeScript参照実装では、生成XLSXのCandidate列が既存`tableCandidates()`直呼びと完全一致することに加え、汎用XMLでもportable経路と`readXmlTree()`直呼びのCandidate列が一致することを確認する。XML corpusはClaim列・provenance version・subtree fingerprint digestまで固定し、namespace付きfixtureではprefixを含むqualified nameとnamespace declaration属性も共有契約にする。XML Spreadsheet 2003は従来どおり表経路に残す。これによりportable境界を追加したこと自体でCandidate意味論が分岐しないようにする。
 
 将来の標準Go / TinyGo / WASM実装は、同じcorpusを入力し、Candidate、locator、provenance、fingerprintを比較する。binary sizeやstartupが小さくてもconformanceが崩れる実装は採用しない。
 
@@ -136,7 +136,7 @@ Core binary sizeと認知model/profile artifact sizeは別に測る。
 ## 次の拡張順
 
 1. v1 `inspect`のTypeScript conformanceを固定する。
-2. 標準GoでCSV tableの同一responseを実装する。
+2. 標準GoでCSV tableとJSON / 汎用XML Treeの同一responseを段階的に実装する。
 3. XLSX tableのdecode境界を評価する。
 4. TinyGo native / WASMで同じcorpusを実行する。
 5. size / cold start / memory /互換性を比較する。
