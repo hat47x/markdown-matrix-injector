@@ -11,6 +11,10 @@ import type {
   ExcelChoiceList,
 } from '../adapters/excelChoiceListAdapter.js';
 import type {
+  ExcelNote,
+  NoteDiagnostic,
+} from '../adapters/excelNoteAdapter.js';
+import type {
   TabularHierarchyConfig,
 } from '../adapters/tabularHierarchyAdapter.js';
 import type { Candidate } from '../core/candidate.js';
@@ -45,6 +49,11 @@ export type CandidateReviewInventoryItem =
       shape: ExcelDrawingShape;
     }
   | {
+      kind: 'note';
+      candidate: Candidate;
+      note: ExcelNote;
+    }
+  | {
       kind: 'tree';
       candidate: Candidate;
       pointer: string;
@@ -66,6 +75,7 @@ export interface CandidateReviewInventory {
   items: CandidateReviewInventoryItem[];
   imageDiagnostics: ImageDiagnostic[];
   choiceListDiagnostics?: ChoiceListDiagnostic[];
+  noteDiagnostics?: NoteDiagnostic[];
   tabularHierarchyAbstention?: {
     reasonCode: string;
     evidence: string[];
@@ -213,6 +223,12 @@ export function buildCandidateReviewInventory(
       candidate: choiceList.candidate,
       choiceList,
     }));
+  const noteItems: CandidateReviewInventoryItem[] =
+    workbookInventory.noteCandidateList.map((candidate, index) => ({
+      kind: 'note' as const,
+      candidate,
+      note: workbookInventory.noteRead.notes[index],
+    }));
 
   return {
     items: [
@@ -220,6 +236,7 @@ export function buildCandidateReviewInventory(
       ...imageItems,
       ...shapeItems,
       ...choiceItems,
+      ...noteItems,
       ...hierarchyItems,
     ],
     imageDiagnostics: workbookInventory.isPackage
@@ -227,6 +244,7 @@ export function buildCandidateReviewInventory(
       : [],
     choiceListDiagnostics:
       workbookInventory.choiceRead.diagnostics,
+    noteDiagnostics: workbookInventory.noteRead.diagnostics,
     ...(tabularHierarchyAbstention
       ? { tabularHierarchyAbstention }
       : {}),
