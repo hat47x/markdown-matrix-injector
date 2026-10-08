@@ -29,6 +29,20 @@ Candidateを製品価値へつなぐには、検出精度だけでなく、人�
 - [ ] provider-dependent Candidateは編集を止めない非同期経路からレビューへ合流させる。host側のbackground lane・source snapshot cache・fail-closed検証は実装済み。実際のM2/M3 Candidate producerを1つ接続し、provider待ちなしでレビュー開始→次回レビューでcache反映までを実機確認して完了とする。
 - [ ] 利用者観測で、候補確認のために執筆を中断した回数、採用・修正・却下率、修正採用時の人手修正量を記録する。修正量は内容を保存せず、表本文と画像alt textを分けて文字数と変更区間文字数だけを集計する。
 
+## Provider Candidateの採用境界 checkpoint（2026-10-08）
+
+provider-dependent Candidateを実製品へ接続する前に、現在のreview → extract境界を監査した。その結果、provider Candidateにもdeterministic Candidateと同じ「取り込む」「修正して取り込む」が表示され得る一方、既存extractは現在sourceから再発見したdeterministic Candidateとのreview basis一致を要求するため、実provider接続後に「選べるのに採用できない」偽の導線になることが分かった。
+
+このため、`candidateReviewActionPolicy.ts`で次を固定した。
+
+- deterministicな表・画像・Tree Candidateは従来どおり既存extractを利用できる。
+- provider-dependent Candidateは、原本のdeterministic Candidateへ同一性を再検証する専用bindingがない限りproposal-onlyとし、確認・却下・保留だけを許可する。
+- provider-dependent Shapeからregion snapshotを作る導線も出さない。snapshotは原本からdeterministicに読めたtwo-cell anchorだけを使う。
+- UI上の非表示だけに依存せず、extract actionへ到達した場合もfail closedにする。
+- Choice list / Shape自体がreview-onlyである既存境界は維持する。
+
+既存のJev worksheet review-routeは、Candidateを生成するproviderではなく、既存候補を `inspect / routine` のhuman-review routeへ分類するbounded Judgmentである。これを「最初のprovider-dependent Candidate producer」として流用しない。次に接続するM2/M3 producerは、Candidate kind・locator・fingerprint・Claimの意味と、human review後にどのAuthority再検証へ束縛するかが明示できるものに限定する。
+
 ## Provider-dependent非同期境界 checkpoint（2026-10-08）
 
 `application/candidateReviewProviderRefresh.ts` に、provider-dependent Candidateを同期レビューから分離するhost契約を追加した。provider laneはPromiseで実行するが、レビュー側はそのPromiseを待たず、同一source snapshotで既にcache済みの結果だけをdeterministic Candidateと合わせて現在セッションへ入れる。
@@ -60,5 +74,5 @@ provider failureはmodal errorとして編集を中断せず、status barへ結�
 - ~~source / Candidate type / epistemic state / execution characteristicの明示フィルタを追加する。~~ → 実装済み。source picker＋import-state filter＋type/status/execution facetを分離し、Candidate契約上の軸を混同しない。
 - Windows実機で表・画像・JSON Treeを含むreview → extract → changed/stale表示を確認する。利用者観測では、所要時間、状態遷移、表と画像alt textの修正量を、実際に執筆を中断した回数と合わせて確認する。自動記録だけで受入条件を完了扱いにはしない。
 - AutoShape/connectorは同じUIへ接続済み。two-cell anchorでは既存のregion-snapshot生成へ進める。Shape自体のExtracted変換、graphic frame、Note、Section等は各Source Adapterと変換契約を定めた後に追加する。
-- provider-dependent host境界は非同期化済み。次は、製品Candidateとして意味が確定した最初のM2/M3 producerをこのlaneへ登録し、実機で「provider待ちなしにレビュー開始」「完了後は次回レビューへ反映」「provider失敗でも編集継続」を確認する。ローカル意味検索やJev/worksheet-format signalを、意味契約なしにCandidateへ流用しない。
+- provider-dependent host境界は非同期化済み。provider CandidateはAuthority bindingがない限りreview-onlyとする境界も固定した。次は、Candidate kind・locator・fingerprint・Claim semanticsと採用時のdeterministic再検証方法まで定義できる最初のM2/M3 producerをこのlaneへ登録し、実機で「provider待ちなしにレビュー開始」「完了後は次回レビューへ反映」「provider失敗でも編集継続」を確認する。Jev review-routeは既存候補のroute分類でありCandidate producerではないため流用しない。ローカル意味検索やworksheet-format signalも、意味契約なしにCandidateへ流用しない。
 - Candidate数が多い場合のページング・検索は連続レビューの実測後に決める。

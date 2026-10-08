@@ -5,8 +5,14 @@ import os from 'node:os';
 import path from 'node:path';
 
 import { checkDetachedDocument } from '../src/application/detachCheck.js';
+import { checkExtractedProvenanceFreshness } from '../src/application/detachFreshness.js';
 import { materializeDocument } from '../src/application/materialize.js';
+import { extractImages } from '../src/cli/extract.js';
 import { main } from '../src/cli/mmi.js';
+import {
+  pngOf,
+  screenDesignWorkbook,
+} from './helpers/buildXlsxWithImages.js';
 
 function workspace(): { root: string; source: string; doc: string; out: string } {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-detach-'));
@@ -377,4 +383,288 @@ test('materialize preflights image asset collisions before writing the detached 
   assert.deepEqual(summary.collisions, [collision.relativePath]);
   assert.equal(summary.written, false);
   assert.match(run.errors, /MMI_DETACH_NAME_COLLISION/u);
+});
+
+
+function imageDetachWorkspace(): {
+  root: string;
+  source: string;
+  doc: string;
+  out: string;
+  ledger: string;
+  extractedAssets: string;
+} {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-detach-image-'));
+  const data = path.join(root, 'data');
+  const docs = path.join(root, 'docs');
+  fs.mkdirSync(data);
+  fs.mkdirSync(docs);
+  return {
+    root,
+    source: path.join(data, 'design.xlsx'),
+    doc: path.join(docs, 'spec.md'),
+    out: path.join(root, 'detached', 'spec.md'),
+    ledger: path.join(root, 'mmi-ledger.json'),
+    extractedAssets: path.join(docs, 'assets'),
+  };
+}
+
+test('reviewed extracted image closes over detached assets after source and original asset removal', () => {
+  const fixture = imageDetachWorkspace();
+  const workbook = screenDesignWorkbook();
+  fs.writeFileSync(fixture.source, workbook.bytes);
+
+  const extracted = extractImages({
+    sourcePath: fixture.source,
+    selection: '1',
+    outDir: fixture.extractedAssets,
+    fromDocument: fixture.doc,
+    ledgerPath: fixture.ledger,
+    basis: 'detach integration fixture',
+  });
+  assert.deepEqual(extracted.problems, []);
+  assert.equal(extracted.extracted.length, 1);
+  assert.deepEqual(
+    fs.readFileSync(extracted.extracted[0].file),
+    workbook.media['image1.png'],
+  );
+
+  fs.writeFileSync(
+    fixture.doc,
+    `# Spec\n\n${extracted.extracted[0].markdown}\n`,
+  );
+
+  assert.deepEqual(
+    checkExtractedProvenanceFreshness({
+      markdownFilePath: fixture.doc,
+      workspaceRoot: fixture.root,
+      ledgerPath: fixture.ledger,
+    }),
+    { checked: 1, errors: 0, problems: [] },
+  );
+
+  const materialized = materializeDocument({
+    markdownFilePath: fixture.doc,
+    workspaceRoot: fixture.root,
+    outputDocumentPath: fixture.out,
+  });
+  assert.deepEqual(materialized.problems, []);
+  assert.equal(materialized.assets.length, 1);
+  assert.deepEqual(
+    materialized.assets[0].bytes,
+    workbook.media['image1.png'],
+  );
+  assert.match(
+    materialized.markdown,
+    /!\[ログイン画面のダンプ\]\(mmi-assets\/[0-9a-f]{12}\.png\)/u,
+  );
+
+  fs.mkdirSync(path.dirname(fixture.out), { recursive: true });
+  fs.writeFileSync(fixture.out, materialized.markdown);
+  for (const asset of materialized.assets) {
+    fs.mkdirSync(path.dirname(asset.absolutePath), { recursive: true });
+    fs.writeFileSync(asset.absolutePath, asset.bytes);
+  }
+
+  // Detached delivery must no longer depend on the workbook, extraction
+  // staging area, or review ledger.
+  fs.rmSync(path.dirname(fixture.source), { recursive: true, force: true });
+  fs.rmSync(fixture.extractedAssets, { recursive: true, force: true });
+  fs.rmSync(fixture.ledger, { force: true });
+
+  assert.equal(fs.existsSync(fixture.source), false);
+  assert.equal(fs.existsSync(fixture.extractedAssets), false);
+  assert.equal(fs.existsSync(fixture.ledger), false);
+  assert.deepEqual(
+    checkDetachedDocument({
+      markdownFilePath: fixture.out,
+      workspaceRoot: fixture.root,
+    }),
+    { errors: 0, problems: [] },
+  );
+});
+
+test('image detach freshness ignores unrelated workbook edits but blocks changed image bytes', () => {
+  const fixture = imageDetachWorkspace();
+  const original = screenDesignWorkbook();
+  fs.writeFileSync(fixture.source, original.bytes);
+
+  const extracted = extractImages({
+    sourcePath: fixture.source,
+    selection: '1',
+    outDir: fixture.extractedAssets,
+    fromDocument: fixture.doc,
+    ledgerPath: fixture.ledger,
+    basis: 'detach freshness fixture',
+  });
+  assert.deepEqual(extracted.problems, []);
+  fs.writeFileSync(
+    fixture.doc,
+    `# Spec\n\n${extracted.extracted[0].markdown}\n`,
+  );
+
+  // A change outside the reviewed image occurrence changes whole-workbook
+  // source identity but must not invalidate the local image review basis.
+  fs.writeFileSync(
+    fixture.source,
+    screenDesignWorkbook({ memoText: 'unrelated memo changed' }).bytes,
+  );
+  assert.deepEqual(
+    checkExtractedProvenanceFreshness({
+      markdownFilePath: fixture.doc,
+      workspaceRoot: fixture.root,
+      ledgerPath: fixture.ledger,
+    }),
+    { checked: 1, errors: 0, problems: [] },
+  );
+
+  // Changing the actual adopted image bytes is different: the reviewed
+  // content identity no longer matches and detachment must stop.
+  fs.writeFileSync(
+    fixture.source,
+    screenDesignWorkbook({
+      login: pngOf(8, 6, [20, 180, 80]),
+      memoText: 'unrelated memo changed',
+    }).bytes,
+  );
+  const stale = checkExtractedProvenanceFreshness({
+    markdownFilePath: fixture.doc,
+    workspaceRoot: fixture.root,
+    ledgerPath: fixture.ledger,
+  });
+  assert.equal(stale.checked, 1);
+  assert.equal(stale.errors, 1);
+  assert.equal(
+    stale.problems[0].code,
+    'MMI_DETACH_EXTRACTED_STALE',
+  );
+  assert.equal(stale.problems[0].ledgerState, 'changed');
+});
+
+
+test('CLI extract to materialize to detach-check keeps an adopted image source-independent', async () => {
+  const fixture = imageDetachWorkspace();
+  const workbook = screenDesignWorkbook();
+  fs.writeFileSync(fixture.source, workbook.bytes);
+
+  const extractedRun = await captureMain([
+    'extract',
+    fixture.source,
+    '--image',
+    '1',
+    '--out-dir',
+    fixture.extractedAssets,
+    '--from',
+    fixture.doc,
+    '--ledger',
+    fixture.ledger,
+    '--root',
+    fixture.root,
+    '--json',
+  ]);
+  assert.equal(extractedRun.code, 0);
+  const extracted = JSON.parse(extractedRun.output);
+  assert.equal(extracted.problems.length, 0);
+  assert.equal(extracted.extracted.length, 1);
+  fs.writeFileSync(
+    fixture.doc,
+    `# Spec\n\n${extracted.extracted[0].markdown}\n`,
+  );
+
+  const materializedRun = await captureMain([
+    'materialize',
+    fixture.doc,
+    '--root',
+    fixture.root,
+    '--ledger',
+    fixture.ledger,
+    '-o',
+    fixture.out,
+    '--json',
+  ]);
+  assert.equal(materializedRun.code, 0);
+  const materialized = JSON.parse(materializedRun.output);
+  assert.equal(materialized.written, true);
+  assert.equal(materialized.detachable, true);
+  assert.equal(materialized.freshness.checked, 1);
+  assert.equal(materialized.freshness.errors, 0);
+  assert.equal(materialized.assets.length, 1);
+  assert.equal(fs.existsSync(fixture.out), true);
+
+  fs.rmSync(path.dirname(fixture.source), { recursive: true, force: true });
+  fs.rmSync(fixture.extractedAssets, { recursive: true, force: true });
+  fs.rmSync(fixture.ledger, { force: true });
+
+  const detachedRun = await captureMain([
+    'detach-check',
+    fixture.out,
+    '--root',
+    fixture.root,
+    '--json',
+  ]);
+  assert.equal(detachedRun.code, 0);
+  assert.deepEqual(
+    JSON.parse(detachedRun.output),
+    { errors: 0, problems: [] },
+  );
+});
+
+test('CLI materialize refuses to write detached output after adopted image bytes change', async () => {
+  const fixture = imageDetachWorkspace();
+  fs.writeFileSync(fixture.source, screenDesignWorkbook().bytes);
+
+  const extractedRun = await captureMain([
+    'extract',
+    fixture.source,
+    '--image',
+    '1',
+    '--out-dir',
+    fixture.extractedAssets,
+    '--from',
+    fixture.doc,
+    '--ledger',
+    fixture.ledger,
+    '--root',
+    fixture.root,
+    '--json',
+  ]);
+  assert.equal(extractedRun.code, 0);
+  const extracted = JSON.parse(extractedRun.output);
+  fs.writeFileSync(
+    fixture.doc,
+    `# Spec\n\n${extracted.extracted[0].markdown}\n`,
+  );
+
+  fs.writeFileSync(
+    fixture.source,
+    screenDesignWorkbook({
+      login: pngOf(8, 6, [150, 40, 210]),
+    }).bytes,
+  );
+
+  const materializedRun = await captureMain([
+    'materialize',
+    fixture.doc,
+    '--root',
+    fixture.root,
+    '--ledger',
+    fixture.ledger,
+    '-o',
+    fixture.out,
+    '--json',
+  ]);
+  assert.equal(materializedRun.code, 1);
+  const materialized = JSON.parse(materializedRun.output);
+  assert.equal(materialized.written, false);
+  assert.equal(materialized.detachable, false);
+  assert.equal(materialized.freshness.errors, 1);
+  assert.equal(
+    materialized.freshness.problems[0].code,
+    'MMI_DETACH_EXTRACTED_STALE',
+  );
+  assert.equal(
+    materialized.freshness.problems[0].ledgerState,
+    'changed',
+  );
+  assert.equal(fs.existsSync(fixture.out), false);
 });
