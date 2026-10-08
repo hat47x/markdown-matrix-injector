@@ -12,3 +12,6 @@
 03_Implement/test/fixtures/*.xlsx binary
 # Fixtures whose bytes are hashed (cross-repo identity): keep LF on every checkout.
 03_Implement/test/fixtures/*.json text eol=lf
+# Frozen CPU-search evaluation inputs are identified by Git blob SHA: keep LF on every checkout.
+03_Implement/scripts/cpu-search-eval/queries.test*.json text eol=lf
+03_Implement/scripts/cpu-search-eval/dictionary.json text eol=lf
