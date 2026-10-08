@@ -10,6 +10,9 @@ import {
   readExcelNotes,
 } from '../src/adapters/excelNoteAdapter.js';
 import { inspectSource, main } from '../src/cli/mmi.js';
+import {
+  buildCandidateReviewInventory,
+} from '../src/application/candidateReviewInventory.js';
 import { readSourceFileIdentity } from '../src/core/sourceIdentity.js';
 import { zipOf } from './helpers/buildXlsxWithImages.js';
 
@@ -227,6 +230,17 @@ test('inspect shares Note Candidates but text mode does not disclose note bodies
   const before = readSourceFileIdentity(source).digest;
 
   const inspected = inspectSource(source, 0);
+  const review = buildCandidateReviewInventory(
+    source,
+    './design.xlsx',
+  );
+  const reviewNotes = review.items.filter((item) => item.kind === 'note');
+  assert.equal(reviewNotes.length, 3);
+  assert.deepEqual(
+    reviewNotes.map((item) => item.kind === 'note' ? item.note.cell : ''),
+    ['B2', 'C3', 'D4'],
+  );
+  assert.deepEqual(review.noteDiagnostics, []);
   assert.equal(inspected.notes.length, 3);
   assert.equal(
     inspected.candidates.filter((candidate) => candidate.kind === 'note').length,
