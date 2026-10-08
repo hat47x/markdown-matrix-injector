@@ -296,12 +296,21 @@ export async function scriptedSearch(
 ): Promise<{ items: string[]; parts?: EmbedParts }> {
   const workspaceRoot = vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath;
   if (!workspaceRoot) return { items: [] };
+  // The same observation path as the search box, so the e2e run exercises what a person's search records.
+  const recorder = beginObservedSession();
   const index = await ensureIndexed(workspaceRoot, workbookGlob);
-  if (!index) return { items: [] };
+  if (!index) {
+    await finishObservedSession(recorder, 'none');
+    return { items: [] };
+  }
   index.setAliases(readUserAliases());
   const result = await index.query(text, document.uri.fsPath, 5, readSemanticSetting());
+  recorder?.onResult(result, text);
   const items = toItems(result);
-  return { items: items.map((item) => `${item.label} | ${item.detail ?? ''}`), parts: items[pickIndex]?.parts };
+  const picked = items[pickIndex];
+  if (picked?.parts && picked.pick) recorder?.onPick(picked.pick);
+  await finishObservedSession(recorder, 'none');
+  return { items: items.map((item) => `${item.label} | ${item.detail ?? ''}`), parts: picked?.parts };
 }
 
 /** Candidates, or a reason the request cannot be expressed / matched. Always shown regardless of label filtering. */

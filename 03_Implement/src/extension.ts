@@ -55,8 +55,10 @@ import { readWorkbookCached } from './dx/sharedWorkbookCache.js';
 import { clearSearchIndexes, FIND_EMBED_COMMAND_ID, scriptedSearch, searchEmbedByDescription } from './dx/searchFlow.js';
 import {
   clearObservation,
+  clearObservationForTest,
   CLEAR_OBSERVATION_COMMAND_ID,
   initSearchObservation,
+  readObservationFileForTest,
   summarizeObservation,
   SUMMARIZE_OBSERVATION_COMMAND_ID,
 } from './dx/searchObservation.js';
@@ -854,6 +856,8 @@ function registerTestCommands(nativePasteDropState: NativePasteDropState): vscod
         return runScriptedAuthoringFlow(authoringDependencies(), args.answers);
       },
     ),
+    vscode.commands.registerCommand('markdownMatrixInjector.__test.searchObservationFile', () => readObservationFileForTest()),
+    vscode.commands.registerCommand('markdownMatrixInjector.__test.clearSearchObservation', () => clearObservationForTest()),
     vscode.commands.registerCommand(
       'markdownMatrixInjector.__test.findAndAuthorScripted',
       async (args: { query: string; pick: number; answers: ScriptedAnswer[] }) => {

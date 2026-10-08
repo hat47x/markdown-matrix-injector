@@ -6,6 +6,7 @@
  *
  * Off by default. Nothing is recorded, written or shown until the person turns the setting on.
  */
+import { readFile } from 'node:fs/promises';
 import path from 'node:path';
 import * as vscode from 'vscode';
 import { SearchSessionRecorder } from '../search/observation/record.js';
@@ -84,6 +85,22 @@ export async function summarizeObservation(): Promise<void> {
   const content = renderSummary(summarize(records));
   const document = await vscode.workspace.openTextDocument({ language: 'markdown', content });
   await vscode.window.showTextDocument(document, { preview: true });
+}
+
+/**
+ * Test-command entries (Extension Host e2e only, see extension.ts): the stored lines exactly as they
+ * sit in the file, and a clear without the confirmation dialog. Not reachable from the palette.
+ */
+export async function readObservationFileForTest(): Promise<{ lines: string[]; records: number } | undefined> {
+  const store = storeOf();
+  if (!store) return undefined;
+  const records = await store.readAll();
+  const text = (await store.exists()) ? await readFile(store.filePath, 'utf8') : '';
+  return { lines: text.split('\n').filter((line) => line.trim() !== ''), records: records.length };
+}
+
+export async function clearObservationForTest(): Promise<boolean> {
+  return (await storeOf()?.clear()) ?? false;
 }
 
 export async function clearObservation(): Promise<void> {
