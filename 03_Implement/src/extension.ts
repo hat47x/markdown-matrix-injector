@@ -63,6 +63,7 @@ import { selectContainedWorkbookFilesDetailed } from './dx/workbookCandidateOrde
 import { findUnknownProseIds, UNKNOWN_PROSE_ID_CODE } from './application/proseIdCheck.js';
 import { referencedSheets, unknownIdMessage } from './application/referencedSheets.js';
 import { readWorkbookStructure } from './importAssist/workbookStructure.js';
+import { PreviewRefresher } from './dx/previewRefresh.js';
 import { applyDiagnosticPolicy, AUTHORING_DEBOUNCE_MS, type DiagnosticPhase, type WhileTyping } from './dx/diagnosticPolicy.js';
 import { IMPORT_WORKBOOK_COMMAND_ID, importFromWorkbook } from './dx/importFlow.js';
 import {
@@ -307,6 +308,18 @@ async function renderEmbedCached(markdown: string, markdownFilePath: string, wor
 function registerTableCatalog(): vscode.Disposable[] {
   const catalog = new TableCatalogProvider(WORKBOOK_FILE_GLOB);
   const watcher = vscode.workspace.createFileSystemWatcher(WORKBOOK_FILE_GLOB);
+  // A saved workbook re-renders open previews (issue-0211 EW04); the catalog refresh is a separate matter.
+  const previewRefresher = new PreviewRefresher({
+    setTimer: (callback, delayMs) => setTimeout(callback, delayMs),
+    clearTimer: (handle) => clearTimeout(handle as ReturnType<typeof setTimeout>),
+    refreshPreview: () => vscode.commands.executeCommand('markdown.preview.refresh'),
+    openMarkdownTexts: () => vscode.workspace.textDocuments.filter((document) => document.languageId === 'markdown').map((document) => document.getText()),
+  });
+  const refreshesPreview = (): boolean => vscode.workspace.getConfiguration('markdownMatrixInjector').get<boolean>('preview.refreshOnWorkbookSave', true);
+  const onWorkbookEvent = (uri: vscode.Uri): void => {
+    catalog.refresh();
+    if (refreshesPreview()) previewRefresher.workbookChanged(uri.fsPath);
+  };
   const refresh = (): void => catalog.refresh();
   // Selected parts go to the confirm step (real rendering), never straight into the document.
   const confirm = async (parts: ReturnType<typeof partsFromResult>): Promise<void> => {
@@ -315,9 +328,10 @@ function registerTableCatalog(): vscode.Disposable[] {
   return [
     vscode.window.registerTreeDataProvider(CATALOG_VIEW_ID, catalog),
     watcher,
-    watcher.onDidChange(refresh),
-    watcher.onDidCreate(refresh),
-    watcher.onDidDelete(refresh),
+    { dispose: () => previewRefresher.dispose() },
+    watcher.onDidChange(onWorkbookEvent),
+    watcher.onDidCreate(onWorkbookEvent),
+    watcher.onDidDelete(onWorkbookEvent),
     vscode.commands.registerCommand(CATALOG_REFRESH_COMMAND_ID, refresh),
     vscode.commands.registerCommand(CATALOG_INSERT_TABLE_COMMAND_ID, async (node?: { bookPath: string; table: CatalogTable }) => {
       if (node?.table) await confirm(partsFromResult(selectForActiveDocument(node.bookPath, { table: node.table.id })));
@@ -328,6 +342,7 @@ function registerTableCatalog(): vscode.Disposable[] {
     // Extension Host e2e: the tree as labels/descriptions, walked through the real provider.
     ...(process.env[ENABLE_TEST_COMMANDS_ENV_VAR] === '1'
       ? [
+          vscode.commands.registerCommand('markdownMatrixInjector.__test.previewRefreshCount', () => previewRefresher.refreshes),
           vscode.commands.registerCommand('markdownMatrixInjector.__test.tableCatalogTree', async () => {
             const walk = async (node?: Parameters<typeof catalog.getChildren>[0], depth = 0): Promise<string[]> => {
               const lines: string[] = [];
