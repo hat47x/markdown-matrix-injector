@@ -11,7 +11,6 @@
  * the source workbook changed since the preview, the preview is rebuilt and
  * confirmed again. Nothing is inserted without that confirmation (R1).
  */
-import fs from 'node:fs';
 import * as vscode from 'vscode';
 
 import type { WorkbookData } from '../core/workbookLoader.js';
@@ -19,6 +18,7 @@ import { detectTableRegions, gridProjection } from '../importAssist/tableRegions
 import type { DetectedRegion } from '../search/regionDetector.js';
 import { EXPECTED_HEADERS_PARAM } from '../core/expectedHeaders.js';
 import { readWorkbookCached } from './sharedWorkbookCache.js';
+import { sourceContentStamp } from './sourceChangeGuard.js';
 import { analyzeCompletionContext } from './completionContext.js';
 import { rangeCandidates } from './completionCandidates.js';
 import { getParams, parseEmbedParts, serializeEmbedParts, setParam, withCurrentExpectedHeaders, type EmbedParts } from './embedEditor.js';
@@ -37,6 +37,8 @@ export const AUTHOR_EMBED_COMMAND_ID = 'markdownMatrixInjector.authorEmbed';
 export interface AuthoringDependencies {
   workbookGlob: string;
   render(markdown: string, markdownFilePath: string, workspaceRoot?: string): Promise<string>;
+  /** Force interactive workbook caches to current source bytes before confirmation. */
+  invalidateWorkbookCaches?(): void;
   /** "Find by description" entry on the first step; returns the chosen embed's parts. */
   searchByDescription?(document: vscode.TextDocument): Promise<EmbedParts | undefined>;
 }
@@ -219,13 +221,23 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
       result = await pickOptions(title, parts);
       if (result.kind === 'options') parts = result.parts;
     } else {
+      // Confirmation is an Authority boundary. Refresh every interactive
+      // workbook cache first so the preview cannot inherit a stale mtime-keyed
+      // parse, then bind the preview and final edit to source byte identity.
+      deps.invalidateWorkbookCaches?.();
+      const source = parts.filepath ? workbookOf(parts.filepath) : {};
+      const sourceBeforePreview = sourceContentStamp(source.absolute);
       // A new reference records the headers of the table being chosen, so a later column shift in the source is reported
       // (ADR-0022). An existing one is never given the key by a plain confirm (loss-free edit); one that already has it is refreshed.
-      const sourceData = parts.filepath ? workbookOf(parts.filepath).data : undefined;
+      const sourceData = source.data;
       if (sourceData && (!existing || getParams(parts, EXPECTED_HEADERS_PARAM).length > 0)) parts = withCurrentExpectedHeaders(parts, sourceData);
       const markdown = serializeEmbedParts(parts);
       const summary = await preview(deps, markdown, document.uri.fsPath, workspaceRoot);
-      const sourceStamp = stamp(workbookOf(parts.filepath).absolute);
+      const sourceAfterPreview = sourceContentStamp(source.absolute);
+      if (sourceAfterPreview !== sourceBeforePreview) {
+        void vscode.window.showWarningMessage('MMI: プレビュー中に原本が変わったため、内容を読み直します。');
+        continue;
+      }
       result = await pick(
         title,
         describePreview(summary),
@@ -244,7 +256,7 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
           void vscode.window.showWarningMessage('MMI: 操作中に文書が変わったため、挿入を中止しました（文書は変更していません）。');
           return;
         }
-        if (stamp(workbookOf(parts.filepath).absolute) !== sourceStamp) {
+        if (sourceContentStamp(source.absolute) !== sourceAfterPreview) {
           void vscode.window.showWarningMessage('MMI: 原本が変わったため、プレビューを作り直します。');
           continue;
         }
@@ -444,16 +456,6 @@ async function preview(deps: AuthoringDependencies, markdown: string, markdownFi
     return summarizeRenderedEmbed(await deps.render(markdown, markdownFilePath, workspaceRoot));
   } catch (error) {
     return { kind: 'error', message: error instanceof Error ? error.message : String(error) };
-  }
-}
-
-function stamp(absolutePath: string | undefined): string {
-  if (!absolutePath) return 'unavailable';
-  try {
-    const stat = fs.statSync(absolutePath);
-    return `${stat.mtimeMs}:${stat.size}`;
-  } catch {
-    return 'missing';
   }
 }
 
