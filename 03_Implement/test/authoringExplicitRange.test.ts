@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 
 import {
   normalizeExplicitRangeInput,
-} from '../src/dx/authoringFlow.js';
+} from '../src/dx/explicitRange.js';
 
 test('explicit range input accepts and normalizes valid A1 ranges', () => {
   assert.equal(normalizeExplicitRangeInput('a1:d20'), 'A1:D20');

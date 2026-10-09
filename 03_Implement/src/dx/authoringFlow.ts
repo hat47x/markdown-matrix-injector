@@ -15,10 +15,6 @@ import fs from 'node:fs';
 import * as vscode from 'vscode';
 
 import type { WorkbookData } from '../core/workbookLoader.js';
-import {
-  cellRangeToA1,
-  parseRangeToCellRange,
-} from '../core/tableGeometry.js';
 import { detectTableRegions, gridProjection } from '../importAssist/tableRegions.js';
 import type { DetectedRegion } from '../search/regionDetector.js';
 import { EXPECTED_HEADERS_PARAM } from '../core/expectedHeaders.js';
@@ -27,6 +23,7 @@ import { analyzeCompletionContext } from './completionContext.js';
 import { rangeCandidates } from './completionCandidates.js';
 import { getParams, parseEmbedParts, serializeEmbedParts, setParam, withCurrentExpectedHeaders, type EmbedParts } from './embedEditor.js';
 import { fileFixCandidates, sheetFixCandidates } from './embedFixes.js';
+import { normalizeExplicitRangeInput } from './explicitRange.js';
 import { parameterIssues } from './parameterDiagnostics.js';
 import { describePreview, summarizeRenderedEmbed, type PreviewSummary } from './embedPreview.js';
 import { resolveWorkbookPath, toRelativeSuggestion } from './vscodeAdapters.js';
@@ -49,8 +46,6 @@ export interface AuthoringStart {
 const SEARCH_SENTINEL = '__mmi_search__';
 const MANUAL_RANGE_SENTINEL = '__mmi_manual_range__';
 const WHOLE_BOOK = '__mmi_whole_book__';
-const EXCEL_MAX_ROWS = 1_048_576;
-const EXCEL_MAX_COLUMNS = 16_384;
 
 type Step = 'file' | 'sheet' | 'range' | 'options' | 'confirm';
 const STEPS: Step[] = ['file', 'sheet', 'range', 'options', 'confirm'];
@@ -270,29 +265,6 @@ function presetGridProjection(parts: EmbedParts, region: DetectedRegion): EmbedP
 }
 
 type StepResult = { kind: 'value'; value: string } | { kind: 'options'; parts: EmbedParts } | { kind: 'back' } | { kind: 'cancel' };
-
-export function normalizeExplicitRangeInput(
-  input: string,
-): string | undefined {
-  const trimmed = input.trim();
-  if (!trimmed) return undefined;
-  try {
-    const range = parseRangeToCellRange(trimmed);
-    if (
-      range.startRow < 0
-      || range.startCol < 0
-      || range.endRow < range.startRow
-      || range.endCol < range.startCol
-      || range.endRow >= EXCEL_MAX_ROWS
-      || range.endCol >= EXCEL_MAX_COLUMNS
-    ) {
-      return undefined;
-    }
-    return cellRangeToA1(range);
-  } catch {
-    return undefined;
-  }
-}
 
 async function inputManualRange(
   title: string,
