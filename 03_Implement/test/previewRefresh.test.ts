@@ -2,7 +2,11 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import path from 'node:path';
 
-import { markdownReferencesWorkbook } from '../src/dx/previewRefresh.js';
+import {
+  createWorkbookRefreshBatchScheduler,
+  markdownReferencesWorkbook,
+  type WorkbookRefreshClock,
+} from '../src/dx/previewRefresh.js';
 
 test('preview refresh matches a document-relative workbook reference', () => {
   const root = path.resolve('/tmp/mmi-preview-refresh');
@@ -69,4 +73,88 @@ test('preview refresh decodes local URL-escaped workbook paths', () => {
     ),
     true,
   );
+});
+
+
+class FakeRefreshClock implements WorkbookRefreshClock {
+  private nextId = 1;
+  readonly callbacks = new Map<number, () => void>();
+  readonly cleared: number[] = [];
+
+  setTimeout(callback: () => void, _delayMs: number): unknown {
+    const id = this.nextId++;
+    this.callbacks.set(id, callback);
+    return id;
+  }
+
+  clearTimeout(handle: unknown): void {
+    const id = Number(handle);
+    this.cleared.push(id);
+    this.callbacks.delete(id);
+  }
+
+  fireLatest(): void {
+    const latest = [...this.callbacks.entries()].at(-1);
+    if (!latest) throw new Error('no scheduled refresh');
+    this.callbacks.delete(latest[0]);
+    latest[1]();
+  }
+}
+
+test('preview refresh scheduler coalesces save bursts but keeps every changed workbook', () => {
+  const clock = new FakeRefreshClock();
+  const batches: string[][] = [];
+  const scheduler = createWorkbookRefreshBatchScheduler({
+    flush: (paths) => batches.push([...paths]),
+    clock,
+  });
+
+  scheduler.schedule('/tmp/project/a.xlsx');
+  scheduler.schedule('/tmp/project/a.xlsx');
+  scheduler.schedule('/tmp/project/b.xlsx');
+
+  assert.equal(clock.callbacks.size, 1);
+  assert.equal(clock.cleared.length, 2);
+
+  clock.fireLatest();
+
+  assert.equal(batches.length, 1);
+  assert.deepEqual(
+    [...batches[0]].sort(),
+    [path.resolve('/tmp/project/a.xlsx'), path.resolve('/tmp/project/b.xlsx')].sort(),
+  );
+});
+
+test('disposed preview refresh scheduler discards pending workbook events', () => {
+  const clock = new FakeRefreshClock();
+  let flushes = 0;
+  const scheduler = createWorkbookRefreshBatchScheduler({
+    flush: () => { flushes += 1; },
+    clock,
+  });
+
+  scheduler.schedule('/tmp/project/a.xlsx');
+  scheduler.dispose();
+
+  assert.equal(clock.callbacks.size, 0);
+  scheduler.schedule('/tmp/project/b.xlsx');
+  assert.equal(clock.callbacks.size, 0);
+  assert.equal(flushes, 0);
+});
+
+test('preview refresh scheduler reports asynchronous refresh failures', async () => {
+  const clock = new FakeRefreshClock();
+  const errors: unknown[] = [];
+  const scheduler = createWorkbookRefreshBatchScheduler({
+    flush: async () => { throw new Error('refresh failed'); },
+    onError: (error) => errors.push(error),
+    clock,
+  });
+
+  scheduler.schedule('/tmp/project/a.xlsx');
+  clock.fireLatest();
+  await new Promise((resolve) => setImmediate(resolve));
+
+  assert.equal(errors.length, 1);
+  assert.match(String(errors[0]), /refresh failed/u);
 });
