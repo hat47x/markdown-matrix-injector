@@ -69,9 +69,9 @@
 
 ### 参照作成のworkspace境界と往復操作の自動回帰（2026-10-09）
 
-案内付き参照作成とファイル参照の修正候補で、複数ルートworkspaceの境界判定に文字列の前方一致を使っていた箇所を修正した。たとえば `/work/app` と `/work/app-old` が同じworkspaceにあると、後者が前者の文字列prefixに一致し、現在のMarkdownが属するworkspace folderとは別のブックを候補へ混ぜる余地があった。
+案内付き参照作成とファイル参照の修正候補で、複数ルートworkspaceの境界判定に文字列の前方一致を使っていた箇所を修正した。たとえば `/work/app` と `/work/app-old` が同じworkspaceにあると、後者が前者の文字列prefixに一致し、現在のMarkdownが属するworkspace folderとは別のブックを候補へ混ぜる余地があった。さらに既存参照を案内付き編集で開く際は、候補列挙とは別に境界検査のない解決関数でブックを直接読んでおり、workspace外参照をUIが読み得る一方、rendererでは有効なworkspace-root相対参照を文書相対の第一候補で取り違える場合があった。
 
-`dx/workspaceBoundary.ts` に、path segment単位のcontainmentと既存pathのrealpath確認をまとめた。案内付き作成のブック候補と、壊れたファイル参照のCode Action候補はこの判定を共用する。兄弟folderのprefix衝突、`.. `による逸脱、workspace内symlinkから外部fileへ抜ける経路を単体回帰へ追加した。
+`dx/workspaceBoundary.ts` に、path segment単位のcontainmentと既存pathのrealpath確認をまとめた。案内付き作成のブック候補と、壊れたファイル参照のCode Action候補はこの判定を共用する。既存参照の読取りもCoreの`resolveSourcePath`と同じ規則へ揃え、文書相対の実在sourceを優先し、無ければworkspace-root相対へfallbackし、境界外やsymlink逸脱は読まない。兄弟folderのprefix衝突、`..`による逸脱、workspace内symlinkから外部fileへ抜ける経路、document-relative/workspace-root-relativeの優先順位を単体回帰へ追加した。
 
 既存のExtension Host scripted authoring flowは、登録確認だけではなく、取消、Back、実エンジンのpreview、部分編集、1回Undoまで実経路を通していた。今回、そのシナリオを「参照の前後に通常本文がある状態」へ広げ、取消・Back・編集・Undoの前後で周囲本文が保たれることを確認する。また、参照編集に使うCSVと検索支援で参照するCSVのbytesを操作前後で比較し、MMIの参照作成・編集が原本を変更しないことも同じE2Eへ固定した。
 
