@@ -12,7 +12,7 @@
 
 | 優先度 | 作業 | 状態 | 次の一手 |
 | --- | --- | --- | --- |
-| **利用者向け最優先（D0・D13）** | [既存・新規のExcel表とMarkdownの併用執筆](issues/issue-0211-vscode-excel-coauthoring-flow.md)（[見直し](vscode-excel-authoring-review.md)・[利用案内](../04_Documentation/excel-markdown-authoring.md)） | **In Progress**（参照中ブックの保存イベントからMarkdown previewをsource-awareに再描画するEW04経路を追加。実機確認は未完） | まず保存後の値変更を実VS Code＋Excelで確認し、その後、既存設計書、新規表、構造変更、取消・Undo、取得不能の六場面を一巡する |
+| **利用者向け最優先（D0・D13）** | [既存・新規のExcel表とMarkdownの併用執筆](issues/issue-0211-vscode-excel-coauthoring-flow.md)（[見直し](vscode-excel-authoring-review.md)・[利用案内](../04_Documentation/excel-markdown-authoring.md)） | **In Progress**（保存イベントをsource-awareにまとめ、cache失効・preview・診断再確認へ接続。明示再確認コマンドも追加。実機確認は未完） | 保存後の値変更とシート名変更を実VS Code＋Excelで確認し、その後、既存設計書、新規表、構造変更、取消・Undo、取得不能の六場面を一巡する |
 | **1 Coreと入口** | [Candidate・Source Adapter・provenanceの契約](issues/issue-0193-candidate-source-adapter-contract.md) | **Done**（契約 v1。表・画像・Choice list・AutoShape/connector・JSON/YAML/XML/推定Tree Candidateが利用。`mmi schema candidate`で機械可読契約を取得可能） | 次の一般化はNote / Section / graphic frame等、source semanticsを安全に読める対象へ |
 | 1 | CLI（inspect/check/render/manifest）、AI向け指示パック、基本設計書キット、[執筆ベンチマーク](../04_Documentation/benchmarks/ai-writing/README.md) | 実装済み | ベンチマーク v0は実施済み。表を大きくした v1は優先度5 |
 | 1 | [外部LLMへの作業提案と判断材料](issues/issue-0112-ai-proposal-handoff.md) | **In Progress**（local-only handoff、MMI記法・Candidate選択・変換案のfail-closed再検証を実装。変換案は共通Candidate目録で再発見し、表・画像・JSON/YAML/XML/フラットテキストTreeの既存変換へ束縛） | 次: manual-e2eでhandoff → 外部提案 → 3種類の再検証が自動適用なしで完結することを確認 |

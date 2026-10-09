@@ -33,6 +33,24 @@ test('WorkbookCache reuses workbook for identical mtime', () => {
   assert.equal(loads, 1);
 });
 
+test('WorkbookCache clear forces a reload even when filesystem mtime did not advance', () => {
+  const cache = new WorkbookCache<{ value: string }>();
+  const snapshot = { mtimeMs: 100 };
+
+  const before = cache.getOrCreate('file.xlsx', snapshot, () => ({
+    value: 'before save',
+  }));
+  cache.clear();
+  const after = cache.getOrCreate('file.xlsx', snapshot, () => ({
+    value: 'after save',
+  }));
+
+  assert.equal(before.value, 'before save');
+  assert.equal(after.value, 'after save');
+  assert.notEqual(before, after);
+});
+
+
 test('resolveSourcePath prefers markdown-relative path and falls back to workspace root', () => {
   const tempDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-path-'));
   const docsDir = path.join(tempDir, 'docs');

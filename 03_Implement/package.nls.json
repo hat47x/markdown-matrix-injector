@@ -10,6 +10,7 @@
   "mmi.command.findEmbedByDescription": "Find Table by Description (e.g. 状態遷移表のIDと操作を見せて)",
   "mmi.command.selectLocalSemanticModel": "Select Existing Local Semantic Model (Ollama / LM Studio)",
   "mmi.command.clearSearchIndex": "Clear Table Search Index",
+  "mmi.command.refreshLinkedPreviews": "Refresh Linked Table Previews",
   "mmi.command.importFromWorkbook": "Import from Workbook (draft with live table references and extracted image assets)",
   "mmi.command.catalog.refresh": "Refresh Table Catalog",
   "mmi.command.catalog.insertTable": "Insert Reference to This Table",

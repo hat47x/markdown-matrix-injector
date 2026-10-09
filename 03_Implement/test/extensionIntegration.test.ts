@@ -1021,3 +1021,60 @@ test('every localized manifest string exists in English and Japanese, and walkth
     'markdownMatrixInjector.insertEmbedByContentMatch',
   ]);
 });
+
+
+test('workbook file events refresh only linked Markdown views through a debounced host path', async () => {
+  const [{ default: fs }, packageJsonModule] = await Promise.all([
+    import('node:fs/promises'),
+    import('../package.json', { with: { type: 'json' } }),
+  ]);
+  const source = await fs.readFile(new URL('../src/extension.ts', import.meta.url), 'utf8');
+  const packageJson = packageJsonModule.default;
+
+  assert.match(
+    source,
+    /createWorkbookRefreshBatchScheduler,[\s\S]*markdownReferencesWorkbook,[\s\S]*from '\.\/dx\/previewRefresh\.js';/s,
+  );
+  assert.match(source, /\.\.\.registerTableCatalog\(diagnostics\),/);
+  assert.match(
+    source,
+    /const previewRefresh = createWorkbookRefreshBatchScheduler\(\{[\s\S]*flush: \(sourcePaths\) =>[\s\S]*refreshMarkdownViewsForWorkbooks\(sourcePaths, diagnostics\)/s,
+  );
+  assert.match(source, /watcher\.onDidChange\(workbookChanged\)/);
+  assert.match(source, /watcher\.onDidCreate\(workbookChanged\)/);
+  assert.match(source, /watcher\.onDidDelete\(workbookChanged\)/);
+  assert.match(source, /previewRefresh\.schedule\(uri\.fsPath\)/);
+  assert.match(
+    source,
+    /sourcePaths\.some\(\(sourcePath\) =>[\s\S]*markdownReferencesWorkbook\([\s\S]*sourcePath,[\s\S]*workspaceRoot,/s,
+  );
+  assert.match(source, /clearWorkbookPreviewCaches\(\);/);
+  assert.match(
+    source,
+    /refreshDiagnosticsForDocument\(document, diagnostics, 'review'\)/,
+  );
+  assert.match(
+    source,
+    /diagnostics\.delete\(document\.uri\);[\s\S]*diagnostics refresh failed/s,
+  );
+  assert.match(
+    source,
+    /vscode\.commands\.executeCommand\(MARKDOWN_PREVIEW_REFRESH_COMMAND\)/,
+  );
+
+  assert.ok(
+    packageJson.activationEvents.includes(
+      'onCommand:markdownMatrixInjector.refreshLinkedPreviews',
+    ),
+  );
+  assert.ok(
+    packageJson.contributes.commands.some(
+      (item: { command: string }) =>
+        item.command === 'markdownMatrixInjector.refreshLinkedPreviews',
+    ),
+  );
+  assert.match(
+    source,
+    /registerCommand\(\s*REFRESH_LINKED_PREVIEWS_COMMAND_ID,[\s\S]*clearWorkbookPreviewCaches\(\);[\s\S]*refreshLinkedMarkdownViews/s,
+  );
+});

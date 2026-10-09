@@ -101,6 +101,7 @@
     "onCommand:markdownMatrixInjector.findEmbedByDescription",
     "onCommand:markdownMatrixInjector.selectLocalSemanticModel",
     "onCommand:markdownMatrixInjector.clearSearchIndex",
+    "onCommand:markdownMatrixInjector.refreshLinkedPreviews",
     "onCommand:markdownMatrixInjector.searchObservation.clear",
     "onCommand:markdownMatrixInjector.searchObservation.export",
     "onCommand:markdownMatrixInjector.searchObservation.summary",
@@ -170,6 +171,11 @@
       {
         "command": "markdownMatrixInjector.clearSearchIndex",
         "title": "%mmi.command.clearSearchIndex%",
+        "category": "MMI"
+      },
+      {
+        "command": "markdownMatrixInjector.refreshLinkedPreviews",
+        "title": "%mmi.command.refreshLinkedPreviews%",
         "category": "MMI"
       },
       {
