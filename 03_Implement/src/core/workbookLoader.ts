@@ -77,14 +77,46 @@ export function loadWorkbookFromBytes(absolutePath: string, bytes: Buffer): Work
   // The production caller reads bytes explicitly because the SheetJS ESM
   // build does not bind Node's fs. This function then performs only
   // decode/parse/model construction, which is also the benchmark boundary.
-  const workbook = XLSX.read(bytes, {
-    type: 'buffer', dense: true, cellDates: true, dateNF: 'yyyy-mm-dd',
-  });
+  const isOoxml = extension === '.xlsx' || extension === '.xlsm';
+  if (isOoxml) assertOoxmlBytes(path.basename(absolutePath), bytes);
+
+  let workbook: XLSX.WorkBook;
+  try {
+    workbook = XLSX.read(bytes, {
+      type: 'buffer', dense: true, cellDates: true, dateNF: 'yyyy-mm-dd',
+    });
+  } catch (error) {
+    if (!isOoxml) throw error;
+    const reason = error instanceof Error ? error.message : String(error);
+    throw new Error(
+      `Cannot read ${path.basename(absolutePath)}: the file is damaged or still being written (${reason}). Save it again in Excel, then refresh the preview.`,
+    );
+  }
   const sheets = Object.fromEntries(
     workbook.SheetNames.map((sheetName) => [sheetName, sheetSourceFromWorksheet(workbook.Sheets[sheetName])]),
   );
 
   return { sheets };
+}
+
+const CFB_SIGNATURE = Buffer.from('d0cf11e0a1b11ae1', 'hex');
+
+/**
+ * Names the real cause of an unreadable .xlsx/.xlsm before SheetJS guesses.
+ * SheetJS parses an empty or non-workbook file as if it were text, so the
+ * reference then fails with "Sheet not found" and sends the writer to fix a
+ * sheet name that is fine. A password-protected book (a CFB container) fails
+ * as "Unsupported ZIP encryption", which does not say what to do.
+ */
+function assertOoxmlBytes(fileName: string, bytes: Buffer): void {
+  if (bytes.length === 0) {
+    throw new Error(`Cannot read ${fileName}: the file is empty. It may still be saving or syncing; wait until it finishes, then refresh the preview.`);
+  }
+  if (bytes[0] === 0x50 && bytes[1] === 0x4b) return;
+  if (bytes.length >= CFB_SIGNATURE.length && bytes.subarray(0, CFB_SIGNATURE.length).equals(CFB_SIGNATURE)) {
+    throw new Error(`Cannot read ${fileName}: the file looks password-protected. MMI reads only unprotected saved workbooks; remove the password or reference an unprotected copy.`);
+  }
+  throw new Error(`Cannot read ${fileName}: the content is not an Excel workbook. Check that it was saved as an Excel Workbook (.xlsx).`);
 }
 
 /**
