@@ -1,33 +1,33 @@
-# Markdown Matrix Injector Overview
+# MMIの概要
 
-## Publication
+## この文書の位置づけ
 - 利用者向けの入口: [チュートリアル](tutorial.md) / [利用マニュアル](user-manual.md) / [実務サンプル](samples/practical/README.md)
-- Canonical source: `04_Documentation/overview.md`
+- この文書の正本: `04_Documentation/overview.md`
 
-## Target reader
-- **導入判断者（マネージャー / テックリード）**: Word中心運用からMarkdown中心運用へ移行する投資判断を行う人
-- **PoC担当（評価・検証担当エンジニア）**: 30分以内に「埋め込み成功」を再現し、採用可否を見極める人
+## 想定読者
+- **導入を判断する人（管理職・技術責任者）**: Word中心の運用からMarkdown中心の運用へ移るかを判断する人
+- **概念実証（PoC）の担当者**: 30分以内に最初の埋め込みを再現し、採用できるか確かめる人
 - **運用担当（文書保守・納品担当）**: 正本データと納品文書の整合を日常運用で維持する人
 - **AIエージェント開発者 / 導入者**: エージェントに文書を書かせる際、正本との乖離（ドリフト）を構造的に防ぎたい人
 
-## Prerequisites
+## 読む前の前提
 - Markdownを日常的に編集していること
 - 元データとしてExcel / CSV / XMLを保持していること
 - 「文書に表を貼り付ける」のではなく「正本データを必要な文脈だけ見せたい」という課題を持っていること
 - 追加評価を行う場合、`tutorial.md` と `reference.md` を参照できること
 
-## Expected result
+## この文書から分かること
 この文書を読むと、次の3点を短時間で説明・判断できるようになります。
 1. Markdown Matrix Injectorがどの課題を解き、どの読者にどんな価値を返すか。
-2. 導入判断者・PoC担当・運用担当それぞれの「意思決定ポイント」（投資判断 / 採用可否 / 継続運用可否）。
-3. 次に読むべき文書（Tutorial / Scenario / Reference）と、導入初期に把握すべき制約。
+2. 導入判断者・概念実証の担当者・運用担当者が、それぞれ投資、採用、継続運用を判断する際の着眼点。
+3. 次に読むべきチュートリアル・利用場面・参照文書と、導入初期に把握しておく制約。
 
-## Scope fixed from issue-0016 (overview対象)
+## 対象範囲（issue-0016）
 - 本書で充足する受入条件は 「overview.mdに対象ユーザー別の価値（導入判断者 / PoC担当 / 運用担当）を明記すること」。
-- TutorialやREADMEの受入条件は別ストリーム対象として扱い、本書では導線の参照のみを提供します。
+- チュートリアルやREADMEの受入条件は別の作業で扱い、本書では関連文書への案内に限ります。
 
-## What this tool is
-Markdown Matrix Injectorは、Excel / CSV / XMLを Single Source of Truth のまま保持しつつ、テキスト文書から必要な断面だけを読み取り専用で参照するための公開規約（MMI Notation）と、その参照実装（VS Code拡張）です（決定正本: ADR-0012）。
+## MMIとは何か
+Markdown Matrix Injectorは、Excel・CSV・XMLを正本として残し、テキスト文書から必要な部分だけを読み取り専用で参照するための公開規約（MMI Notation）と、その参照実装（VS Code拡張）です（決定正本: ADR-0012）。
 
 本プロジェクトが重視するのは次の4点です。
 1. **正本を壊さないこと（恒久規範）**: 参照経路からは元データを改変できません（Read-only MUST）。エージェントが何でも編集できる時代の安全装置です。
@@ -35,8 +35,8 @@ Markdown Matrix Injectorは、Excel / CSV / XMLを Single Source of Truth のま
 3. **Markdownの弱点を補うこと**: テーブルやマトリクスが多い設計文書でも、Markdownを中心に据えたまま運用できます。
 4. **納品品質まで見据えること**: Smart Fallbackや印刷制御により、巨大表やPDF出力時の崩れを扱いやすくします（実PDFで再現実証済み）。
 
-## Reader-specific value
-本セクションは、導入判断者 / PoC担当 / 運用担当 / AIエージェント開発者の4ロールそれぞれに対し、意思決定で使える価値訴求を固定するための要約です。
+## 読者ごとの価値
+ここでは、導入判断者、概念実証の担当者、運用担当者、AIエージェントの開発者に分け、各自が何を判断できるかをまとめます。
 
 ### 導入判断者の価値
 - 正本保護（read-only）と印刷要件対応（Smart Fallback / `pageBreak` / `orientation`）を同時に評価でき、導入リスクを早期に見積もれます。
@@ -51,32 +51,32 @@ Markdown Matrix Injectorは、Excel / CSV / XMLを Single Source of Truth のま
 ### 運用担当の価値
 - 文書へ表を再貼り付けせず、正本データ参照に統一することで、改訂時の差分管理と整合確認（正本との突合）を軽量化できます。
 - 巨大表をカード化する運用により、日常編集と納品体裁（印刷）を両立できます。
-- **意思決定で得る成果**: 「運用を回し続けられるか」を、日常更新コストと納品時品質の両立可否で判断できます。
+- **判断できること**: 日常の更新にかかる手間と納品時の品質を両立できるかを確かめ、運用を続けられるか判断できます。
 
 ### AI エージェント開発者 / 導入者の価値
-- エージェントに設計書を書かせる際、表をコピーさせず参照を挿入させる規約として使えます。参照はDiagnostics（`MMI_FILE_NOT_FOUND` 等の安定コード）で機械検証でき、生成文書のリンク健全性を自動チェックに組み込めます。
-- query-evidence出力は「エージェントが書いた文書の記載が正本と一致しているか」を検証するためのground truthとして機能します。
-- 記法は宣言的な断面参照のため、巨大な正本ファイルをコンテキストウィンドウへ展開せずに扱えます（コンテキスト経済）。
-- **意思決定で得る成果**: 「agenticな文書生成を導入しても正本の完全性と文書の整合を守れるか」を、構造的read-onlyと機械検証可能性の2点で判断できます。
+- エージェントに設計書を書かせる際、表をコピーさせず参照を挿入させる規約として使えます。参照先は診断機能（`MMI_FILE_NOT_FOUND`などの安定した診断コード）で機械的に確認でき、生成文書のリンク健全性を自動チェックに組み込めます。
+- query-evidence出力は「エージェントが書いた文書の記載が正本と一致しているか」を検証する際の照合基準になります。
+- 記法は宣言的な断面参照のため、巨大な正本ファイルをコンテキストウィンドウへ展開せずに扱えます。
+- **意思決定で得る成果**: 「AIエージェントによる文書生成を導入しても正本と文書の整合を守れるか」を、読み取り専用の構造と機械的な検証の両面から判断できます。
 
-## Core capabilities at a glance
+## 主な機能
 - `![[...]]` 記法でCSV / XLSX / XML Spreadsheet 2003を埋め込む
 - `columns`, `transpose`, `grep`, `header` などで必要な範囲だけ切り出す
 - `caption`, `id`, `pageBreak`, `orientation` で印刷や相互参照を補助する
 - 巨大表やファイル全体参照はSmart Fallbackでカード表示へ縮退する
 - Autocomplete / Diagnostics / Paste & D&Dにより記法入力を支援する
 
-## Related docs
-- **Adoption fast path**: `Overview -> Tutorial -> Scenario -> Reference`
+## 関連文書
+- **導入前に読む順序**: `Overview -> Tutorial -> Scenario -> Reference`
 - 最初に試す: `04_Documentation/tutorial.md`
 - 業務シナリオを見る: `04_Documentation/scenario-sier-design-docs.md`
 - 詳細仕様を引く: `04_Documentation/reference.md`
 
-## Known limitations
-- **プレビュー描画（G1）**: HTML構造・クラス・属性は自動テスト（unit 167件）で実証済み。実VS Codeプレビューの視覚スクリーンショットはGUI環境でのmanual-e2eで確認してください（`04_Documentation/vscode-e2e-testing.md` のChecklist F参照）。
+## 現時点の制約
+- **プレビュー描画（G1）**: HTMLの構造・クラス・属性は単体テスト167件で確認済みです。VS Code上での見た目は、画面を使った手動の一連の操作で確認してください（`04_Documentation/vscode-e2e-testing.md` のChecklist F参照）。
 - **PDF/印刷（G2）**: `pageBreak` / `orientation` のPDFへの反映は生成器に依存します。今回確認した経路はMMIで展開済みのHTMLからWeasyPrint 69.0への変換です。手順は [利用マニュアル](user-manual.md#pdfを作る) を参照してください。Markdown PDF拡張からの直接出力は未検証です。
 - **XML**: XML Spreadsheet 2003のみ対応。汎用XMLはエラー表示になります。
-- 実機UIの最終確認にはhost環境やVSCodeバージョン差の影響があります。
+- 実際の画面の最終確認には、利用する環境やVS Codeのバージョンの違いが影響します。
 - 本書は `overview.md` 単体の価値訴求を優先しており、操作手順の詳細は `tutorial.md` を参照してください。
 
 ## 視覚補助素材（比較表）
@@ -89,7 +89,7 @@ Markdown Matrix Injectorは、Excel / CSV / XMLを Single Source of Truth のま
 | Scenario | 業務導入時の期待効果比較 | 導入判断者 / 運用担当 | 自組織で運用可能か |
 | Reference | 記法・制約・一次対応の参照 | 実装/運用担当 | 問題時にどこを確認するか |
 
-## FAQ（Overview）
+## よくある質問
 ### Q1. この文書だけで導入可否を決められますか？
 A1. いいえ。Overviewは「価値」と「導線」の判定入口です。最終判断はTutorialの再現性とScenarioの運用適合を確認して行います。
 
