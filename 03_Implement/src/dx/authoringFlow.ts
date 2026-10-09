@@ -27,6 +27,7 @@ import { normalizeExplicitRangeInput } from './explicitRange.js';
 import { parameterIssues } from './parameterDiagnostics.js';
 import { describePreview, summarizeRenderedEmbed, type PreviewSummary } from './embedPreview.js';
 import { resolveWorkbookPath, toRelativeSuggestion } from './vscodeAdapters.js';
+import { isWorkspaceFileCandidate } from './workspaceBoundary.js';
 
 export const AUTHOR_EMBED_COMMAND_ID = 'markdownMatrixInjector.authorEmbed';
 
@@ -103,7 +104,7 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
     if (current === 'file') {
       const files = workspaceRoot
         ? (await vscode.workspace.findFiles(deps.workbookGlob, '**/{node_modules,dist}/**'))
-            .filter((uri) => uri.fsPath.startsWith(workspaceRoot))
+            .filter((uri) => isWorkspaceFileCandidate(uri.fsPath, workspaceRoot))
             .map((uri) => toRelativeSuggestion(document.uri.fsPath, uri.fsPath))
             .sort((a, b) => a.localeCompare(b))
         : [];
@@ -519,7 +520,7 @@ export function createEmbedFixProvider(workbookGlob: string): vscode.CodeActionP
             span = new vscode.Range(document.positionAt(embedStart + at), document.positionAt(embedStart + at + embed.parts.filepath.length));
           }
           const files = (await vscode.workspace.findFiles(workbookGlob, '**/{node_modules,dist}/**'))
-            .filter((uri) => uri.fsPath.startsWith(workspaceRoot))
+            .filter((uri) => isWorkspaceFileCandidate(uri.fsPath, workspaceRoot))
             .map((uri) => toRelativeSuggestion(document.uri.fsPath, uri.fsPath));
           fixes = fileFixCandidates(embed.parts.filepath, files);
         }
