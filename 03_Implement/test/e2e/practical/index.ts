@@ -138,7 +138,11 @@ async function checkCompletionByFileType(samples: string): Promise<void> {
 }
 
 async function checkMultiRoot(samples: string, fixtures: string): Promise<void> {
-  const inside = (root: string, docDir: string, filepath: string) => path.resolve(docDir, filepath).startsWith(root);
+  const inside = (root: string, docDir: string, filepath: string) => {
+    const candidate = path.resolve(docDir, filepath);
+    const relative = path.relative(path.resolve(root), candidate);
+    return !relative.startsWith('..') && !path.isAbsolute(relative);
+  };
   // Completion of files: only the document's own folder.
   const file = path.join(fixtures, 'docs', 'zz-multiroot.md');
   fs.writeFileSync(file, '![[\n');
@@ -147,6 +151,43 @@ async function checkMultiRoot(samples: string, fixtures: string): Promise<void> 
   note('multi-root-files', { folder: 'fixtures', files });
   expect(files.length > 0, 'no file candidates in the fixtures folder');
   for (const candidate of files) expect(inside(fixtures, path.dirname(file), candidate), `fixtures doc was offered ${candidate} from another folder`);
+
+  // Guided editing must use the same source-resolution precedence as rendering:
+  // a missing document-relative path may fall back to the current workspace root,
+  // without leaking into the other root of this multi-root workspace.
+  const rootRelativeDoc = path.join(fixtures, 'docs', 'zz-root-relative-authoring.md');
+  const rootRelativeEmbed = '![[data/roles.csv#Sheet1|A1:B3?header=first]]';
+  fs.writeFileSync(rootRelativeDoc, `# Root relative\n${rootRelativeEmbed}\n`);
+  const rootRelativeOpened = await open(rootRelativeDoc);
+  const rootRelativeTranscript = await vscode.commands.executeCommand<{ title: string; placeholder: string; items: string[] }[]>(
+    'markdownMatrixInjector.__test.runAuthoringScripted',
+    {
+      line: 1,
+      character: 5,
+      answers: Array.from({ length: 8 }, () => ({ keep: true })),
+    },
+  );
+  const rangeStep = rootRelativeTranscript.find((step) => /\(3\/5\)/u.test(step.title));
+  const confirmStep = rootRelativeTranscript.at(-1);
+  note('multi-root-root-relative-authoring', {
+    embed: rootRelativeEmbed,
+    rangeItems: rangeStep?.items,
+    confirm: confirmStep?.placeholder,
+  });
+  expect(
+    Boolean(rangeStep?.items.includes('A1:B3')),
+    `workspace-root-relative guided authoring did not load roles.csv ranges: ${JSON.stringify(rootRelativeTranscript)}`,
+  );
+  expect(
+    Boolean(confirmStep && /\(5\/5\)/u.test(confirmStep.title)),
+    `workspace-root-relative guided authoring did not reach confirm: ${JSON.stringify(rootRelativeTranscript.map((step) => step.title))}`,
+  );
+  expect(
+    rootRelativeOpened.document.lineAt(1).text === rootRelativeEmbed,
+    `workspace-root-relative guided round trip changed the embed: ${rootRelativeOpened.document.lineAt(1).text}`,
+  );
+  await vscode.commands.executeCommand('workbench.action.revertAndCloseActiveEditor');
+  fs.rmSync(rootRelativeDoc, { force: true });
 
   // Search: each folder's index only returns its own books.
   for (const [root, doc, query] of [

@@ -69,6 +69,7 @@ export async function runIntegrationTests(): Promise<void> {
   await runStage('diagnostics', () => verifyDiagnosticsIntegration(workspaceRoot));
   await runStage('hover-and-authoring', () => verifyHoverAndAuthoringEntry(workspaceRoot));
   await runStage('guided-flows-scripted', () => verifyGuidedFlowsScripted(workspaceRoot));
+  await runStage('search-observation-recording', () => verifySearchObservationRecording(workspaceRoot));
   logStage('paste-drop-proof-boundary:post-autocomplete', {
     autocompleteSheetCompletionStable: autocompleteResult.sheetCompletionStable,
     autocompleteKnownUnstableReason: autocompleteResult.knownUnstableReason,
@@ -215,15 +216,27 @@ type Transcript = { title: string; placeholder: string; items: string[] }[];
  */
 async function verifyGuidedFlowsScripted(workspaceRoot: string): Promise<void> {
   const original = '![[../data/roles.csv#Sheet1|A1:B3?x-keep=1&header=first]]';
-  const document = await openMarkdownDocument(path.join(workspaceRoot, 'docs', 'guided-flows.md'), ['# Guided', original].join('\n'));
+  const proseBefore = '前の本文 ';
+  const proseAfter = ' 後ろの本文';
+  const originalLine = `${proseBefore}${original}${proseAfter}`;
+  const rolesSource = vscode.Uri.file(path.join(workspaceRoot, 'data', 'roles.csv'));
+  const rolesBefore = Buffer.from(await vscode.workspace.fs.readFile(rolesSource));
+  const document = await openMarkdownDocument(
+    path.join(workspaceRoot, 'docs', 'guided-flows.md'),
+    ['# Guided', originalLine].join('\n'),
+  );
   await vscode.window.showTextDocument(document);
   const run = (answers: unknown[]) =>
-    vscode.commands.executeCommand<Transcript>('markdownMatrixInjector.__test.runAuthoringScripted', { line: 1, character: 5, answers });
+    vscode.commands.executeCommand<Transcript>(
+      'markdownMatrixInjector.__test.runAuthoringScripted',
+      { line: 1, character: proseBefore.length + 5, answers },
+    );
 
   // Cancel at the first step: nothing changes.
   const versionBefore = document.version;
   await run([{ cancel: true }]);
   assert.equal(document.version, versionBefore, 'Cancelling must not edit the document.');
+  assert.equal(document.lineAt(1).text, originalLine, 'Cancelling must preserve surrounding prose.');
 
   // Back from the range step reaches the file step (the CSV sheet step skips itself both ways).
   const backTranscript = await run([{ keep: true }, { back: true }, { cancel: true }]);
@@ -232,16 +245,28 @@ async function verifyGuidedFlowsScripted(workspaceRoot: string): Promise<void> {
     ['1', '3', '1'],
     `Back must return to the file step. Got: ${JSON.stringify(backTranscript.map((step) => step.title))}`,
   );
+  assert.equal(document.lineAt(1).text, originalLine, 'Back/cancel must preserve surrounding prose.');
 
-  // Edit: keep file and range, add mode=card; unknown x-keep survives; preview shows a card; one Undo restores.
+  // Edit: keep file and range, add mode=card; unknown x-keep survives; surrounding prose survives; one Undo restores.
   const transcript = await run([{ keep: true }, { keep: true }, { options: ['header=first', 'mode=card'] }, 'insert']);
-  const edited = '![[../data/roles.csv#Sheet1|A1:B3?x-keep=1&header=first&mode=card]]'; // an existing reference does not gain x-headers from a plain edit
-  assert.equal(document.lineAt(1).text, edited);
+  const edited = '![[../data/roles.csv#Sheet1|A1:B3?x-keep=1&header=first&mode=card]]';
+  assert.equal(document.lineAt(1).text, `${proseBefore}${edited}${proseAfter}`);
   assert.match(transcript[transcript.length - 1].placeholder, /別紙カード/u, 'The confirm step must show what the engine renders.');
   await vscode.commands.executeCommand('undo');
-  assert.equal(document.lineAt(1).text, original, 'One Undo must restore the original reference.');
+  assert.equal(document.lineAt(1).text, originalLine, 'One Undo must restore the original reference and surrounding prose.');
+  assert.deepEqual(
+    Buffer.from(await vscode.workspace.fs.readFile(rolesSource)),
+    rolesBefore,
+    'Guided reference editing must not modify the source bytes.',
+  );
 
   // Find by description, then confirm: the search index covers the workspace workbooks.
+  const releaseGateSource = vscode.Uri.file(
+    path.join(workspaceRoot, 'data', 'sier-design', 'release-gate.csv'),
+  );
+  const releaseGateBefore = Buffer.from(
+    await vscode.workspace.fs.readFile(releaseGateSource),
+  );
   const blank = await openMarkdownDocument(path.join(workspaceRoot, 'docs', 'guided-find.md'), '# Find\n\n');
   const editor = await vscode.window.showTextDocument(blank);
   editor.selection = new vscode.Selection(2, 0, 2, 0);
@@ -251,6 +276,11 @@ async function verifyGuidedFlowsScripted(workspaceRoot: string): Promise<void> {
   );
   assert.ok(found.transcript.length > 0, `Search must yield a candidate. Items: ${found.items.join(' / ')}`);
   assert.match(blank.lineAt(2).text, /^!\[\[\.\.\/data\/sier-design\/release-gate\.csv#Sheet1\|/u);
+  assert.deepEqual(
+    Buffer.from(await vscode.workspace.fs.readFile(releaseGateSource)),
+    releaseGateBefore,
+    'Search-assisted reference insertion must not modify source bytes.',
+  );
 
   // A request the notation cannot express is refused with the reason, and nothing is inserted.
   const refused = await vscode.commands.executeCommand<{ items: string[]; transcript: Transcript }>(
@@ -259,6 +289,45 @@ async function verifyGuidedFlowsScripted(workspaceRoot: string): Promise<void> {
   );
   assert.match(refused.items[0], /MMI記法で表せません/u);
   assert.equal(refused.transcript.length, 0);
+}
+
+/**
+ * The local search-demand observation (ADR-0023, issue-0207) on the real host: with the setting on,
+ * two scripted searches are recorded, and by default no request text or table name is stored.
+ */
+async function verifySearchObservationRecording(workspaceRoot: string): Promise<void> {
+  const config = vscode.workspace.getConfiguration('markdownMatrixInjector');
+  await config.update('search.observation.enabled', true, vscode.ConfigurationTarget.Workspace);
+  try {
+    await vscode.commands.executeCommand('markdownMatrixInjector.__test.clearSearchObservations');
+    const blank = await openMarkdownDocument(path.join(workspaceRoot, 'docs', 'observation.md'), '# Observe\n\n');
+    const editor = await vscode.window.showTextDocument(blank);
+    editor.selection = new vscode.Selection(2, 0, 2, 0);
+
+    // A request that finds a table, then one the notation cannot express.
+    const found = await vscode.commands.executeCommand<{ items: string[]; transcript: Transcript }>(
+      'markdownMatrixInjector.__test.findAndAuthorScripted',
+      { query: 'release-gate', pick: 0, answers: ['insert'] },
+    );
+    assert.ok(found.transcript.length > 0, 'The first search must yield a candidate.');
+    await vscode.commands.executeCommand<{ items: string[]; transcript: Transcript }>(
+      'markdownMatrixInjector.__test.findAndAuthorScripted',
+      { query: 'release-gateをStatus別に集計', pick: 0, answers: ['insert'] },
+    );
+
+    const records = await vscode.commands.executeCommand<{ final: { class: string; text?: string }; outcome: string }[]>(
+      'markdownMatrixInjector.__test.searchObservationRecords',
+    );
+    assert.equal(records.length, 2, `Two searches must leave two records. Got ${records.length}.`);
+    assert.deepEqual(records.map((record) => record.final.class), ['found', 'unsupported-op']);
+    assert.deepEqual(records.map((record) => record.outcome), ['picked-candidate', 'cancelled']);
+    const raw = JSON.stringify(records);
+    assert.ok(!raw.includes('release-gate'), 'The request text and table names must not be stored by default.');
+    assert.ok(records.every((record) => record.final.text === undefined), 'No record may hold request text by default.');
+  } finally {
+    await config.update('search.observation.enabled', undefined, vscode.ConfigurationTarget.Workspace);
+    await vscode.commands.executeCommand('markdownMatrixInjector.__test.clearSearchObservations');
+  }
 }
 
 async function verifyHoverAndAuthoringEntry(workspaceRoot: string): Promise<void> {
@@ -789,18 +858,48 @@ async function verifyContentMatchPasteAsHostCommand(
   // The command acts on the focused editor; showTextDocument can resolve before focus has settled.
   await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
   await delay(500);
-  await vscode.commands.executeCommand('editor.action.pasteAs', {
-    preferences: [integrationState.contentMatchPasteEditKind],
-  });
 
+  const documentVersionBeforeCommand = document.version;
+  const activeEditorUriBeforeCommand = activeEditorUri();
+  const messageCapture = captureWindowMessages();
+  const commandStartedAt = Date.now();
+  let commandElapsedMs = 0;
+  let documentVersionAfterCommand = documentVersionBeforeCommand;
+  let activeEditorUriAfterCommand = activeEditorUriBeforeCommand;
+  try {
+    await vscode.commands.executeCommand('editor.action.pasteAs', {
+      preferences: [integrationState.contentMatchPasteEditKind],
+    });
+  } finally {
+    commandElapsedMs = Date.now() - commandStartedAt;
+    documentVersionAfterCommand = document.version;
+    activeEditorUriAfterCommand = activeEditorUri();
+    messageCapture.restore();
+  }
+
+  const pollStartedAt = Date.now();
   const pasteAsText = await waitForDocumentText(
     document,
     (text) => /!\[\[\.\.\/data\/roles\.csv#Sheet1\|A2:B2\]\]/u.test(text),
   );
+  const pollElapsedMs = Date.now() - pollStartedAt;
+  const pasteAsDiagnostics = {
+    documentUri: document.uri.toString(),
+    documentVersionBeforeCommand,
+    documentVersionAfterCommand,
+    documentVersionAfterPoll: document.version,
+    activeEditorUriBeforeCommand,
+    activeEditorUriAfterCommand,
+    activeEditorUriAfterPoll: activeEditorUri(),
+    commandElapsedMs,
+    pollElapsedMs,
+    capturedWindowMessages: messageCapture.messages,
+  };
+  logStage('content-match-paste-as-host-command:paste-as-diagnostics', pasteAsDiagnostics);
   assert.match(
     pasteAsText,
     /!\[\[\.\.\/data\/roles\.csv#Sheet1\|A2:B2\]\]/u,
-    `Expected editor.action.pasteAs to dispatch through the registered MMI provider and insert the unique content-match reference. Document was: ${JSON.stringify(pasteAsText)}`,
+    `Expected editor.action.pasteAs to dispatch through the registered MMI provider and insert the unique content-match reference. Document was: ${JSON.stringify(pasteAsText)} diagnostics=${JSON.stringify(pasteAsDiagnostics)}`,
   );
 
   // Registering text/plain as a provider trigger must not turn ordinary
@@ -828,6 +927,54 @@ async function verifyContentMatchPasteAsHostCommand(
     boundary:
       'Built-in Paste As dispatch is covered with text/plain TSV; real Excel HTML/Windows helper formats and visual picker interaction remain manual evidence.',
   });
+}
+
+const WINDOW_MESSAGE_APIS = ['showWarningMessage', 'showInformationMessage', 'showErrorMessage'] as const;
+type WindowMessageApi = (typeof WINDOW_MESSAGE_APIS)[number];
+type WindowMessageFn = (...args: unknown[]) => unknown;
+
+interface CapturedWindowMessage {
+  api: WindowMessageApi;
+  text: string;
+  items: string[];
+}
+
+/**
+ * Wraps the three notification APIs so that messages raised while a command runs
+ * are recorded. Each wrapper still calls the original, so VS Code behaves as it
+ * does without the diagnostic. `restore` must be called in a `finally` block.
+ */
+function captureWindowMessages(): { messages: CapturedWindowMessage[]; restore: () => void } {
+  const messages: CapturedWindowMessage[] = [];
+  const windowApi = vscode.window as unknown as Record<WindowMessageApi, WindowMessageFn>;
+  const originals: Record<WindowMessageApi, WindowMessageFn> = {
+    showWarningMessage: windowApi.showWarningMessage,
+    showInformationMessage: windowApi.showInformationMessage,
+    showErrorMessage: windowApi.showErrorMessage,
+  };
+  for (const api of WINDOW_MESSAGE_APIS) {
+    windowApi[api] = (...args: unknown[]) => {
+      const [message, ...rest] = args;
+      messages.push({
+        api,
+        text: typeof message === 'string' ? message : String(message),
+        items: rest.filter((item): item is string => typeof item === 'string'),
+      });
+      return originals[api].apply(vscode.window, args);
+    };
+  }
+  return {
+    messages,
+    restore: () => {
+      for (const api of WINDOW_MESSAGE_APIS) {
+        windowApi[api] = originals[api];
+      }
+    },
+  };
+}
+
+function activeEditorUri(): string | null {
+  return vscode.window.activeTextEditor?.document.uri.toString() ?? null;
 }
 
 async function waitForDocumentText(

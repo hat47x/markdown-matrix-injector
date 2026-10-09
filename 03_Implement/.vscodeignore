@@ -41,5 +41,8 @@ tsconfig.*.json
 # Exclude dev scripts
 scripts/**
 
+# The standalone CLI package is built separately (npm run build:cli)
+dist-cli/**
+
 # Exclude test fixtures (not needed at runtime)
 **/fixtures/**

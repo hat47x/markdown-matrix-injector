@@ -189,6 +189,9 @@ test('aggregate summarizes existing content-free review observations without sou
   assert.equal(summary.work.reviewStateTransitions, 12);
   assert.equal(summary.work.newlyImported, 7);
   assert.equal(summary.work.editingInterruptionSessions, 1);
+  // One table item (first session) + one image-alt item (second session).
+  assert.equal(summary.work.adjustments.table.modifiedItems, 1);
+  assert.equal(summary.work.adjustments.imageAlt.modifiedItems, 1);
   assert.equal(summary.work.adjustments.total.modifiedItems, 2);
   assert.equal(summary.work.adjustments.total.changedSpanCharacters, 16);
   assert.equal(summary.derived.durationMsPerSelectedCandidate, 6_000);
@@ -198,6 +201,8 @@ test('aggregate summarizes existing content-free review observations without sou
   const serialized = JSON.stringify(summary);
   assert.equal(serialized.includes('sensitive/customer/design.xlsx'), false);
   assert.equal(serialized.includes(digest), false);
+  assert.equal(serialized.includes('customer'), false);
+  assert.equal('source' in summary, false);
 });
 
 test('strict comparison promotes only a safer-or-equal condition with real work reduction', () => {

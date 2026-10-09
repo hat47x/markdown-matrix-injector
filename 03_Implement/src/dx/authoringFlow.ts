@@ -23,9 +23,14 @@ import { analyzeCompletionContext } from './completionContext.js';
 import { rangeCandidates } from './completionCandidates.js';
 import { getParams, parseEmbedParts, serializeEmbedParts, setParam, withCurrentExpectedHeaders, type EmbedParts } from './embedEditor.js';
 import { fileFixCandidates, sheetFixCandidates } from './embedFixes.js';
+import { normalizeExplicitRangeInput } from './explicitRange.js';
 import { parameterIssues } from './parameterDiagnostics.js';
 import { describePreview, summarizeRenderedEmbed, type PreviewSummary } from './embedPreview.js';
-import { resolveWorkbookPath, toRelativeSuggestion } from './vscodeAdapters.js';
+import { toRelativeSuggestion } from './vscodeAdapters.js';
+import {
+  isWorkspaceFileCandidate,
+  resolveAuthoringSourcePath,
+} from './workspaceBoundary.js';
 
 export const AUTHOR_EMBED_COMMAND_ID = 'markdownMatrixInjector.authorEmbed';
 
@@ -39,10 +44,11 @@ export interface AuthoringDependencies {
 export interface AuthoringStart {
   parts: EmbedParts;
   /** Step to open on; earlier steps stay reachable with Back. */
-  step: 'options' | 'confirm';
+  step: 'range' | 'options' | 'confirm';
 }
 
 const SEARCH_SENTINEL = '__mmi_search__';
+const MANUAL_RANGE_SENTINEL = '__mmi_manual_range__';
 const WHOLE_BOOK = '__mmi_whole_book__';
 
 type Step = 'file' | 'sheet' | 'range' | 'options' | 'confirm';
@@ -85,8 +91,13 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
   let movingBack = false;
   const initial = { filepath: parts.filepath, sheet: parts.sheet };
 
-  const workbookOf = (filepath: string): { absolute: string; data?: WorkbookData } => {
-    const absolute = resolveWorkbookPath(filepath, document.uri.fsPath, workspaceRoot);
+  const workbookOf = (filepath: string): { absolute?: string; data?: WorkbookData } => {
+    const absolute = resolveAuthoringSourcePath(
+      filepath,
+      document.uri.fsPath,
+      workspaceRoot,
+    );
+    if (!absolute) return {};
     try {
       return { absolute, data: readWorkbookCached(absolute) };
     } catch {
@@ -101,7 +112,7 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
     if (current === 'file') {
       const files = workspaceRoot
         ? (await vscode.workspace.findFiles(deps.workbookGlob, '**/{node_modules,dist}/**'))
-            .filter((uri) => uri.fsPath.startsWith(workspaceRoot))
+            .filter((uri) => isWorkspaceFileCandidate(uri.fsPath, workspaceRoot))
             .map((uri) => toRelativeSuggestion(document.uri.fsPath, uri.fsPath))
             .sort((a, b) => a.localeCompare(b))
         : [];
@@ -165,13 +176,37 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
           value: candidate.label,
           picked: candidate.label === parts.range,
         })),
+        {
+          label: '$(edit) A1範囲を入力…',
+          description: '候補にない範囲を A1 または A1:D20 の形で明示する',
+          value: MANUAL_RANGE_SENTINEL,
+          picked: false,
+        },
         { label: '範囲を指定しない', description: 'シート全体（大きい場合はカード表示）', value: '', picked: parts.range === undefined },
       ];
       // A hand-picked range that is not a detected table must stay keepable.
       if (parts.range && !items.some((item) => item.value === parts.range)) {
         items.unshift({ label: parts.range, description: '現在の範囲', value: parts.range, picked: true });
       }
-      result = await pick(title, '範囲を選ぶ（表題・見出しでも絞り込めます）', items, true);
+      result = await pick(
+        title,
+        '範囲を選ぶ。候補に無ければA1範囲を入力できます',
+        items,
+        true,
+      );
+      if (
+        result.kind === 'value'
+        && result.value === MANUAL_RANGE_SENTINEL
+      ) {
+        const manualRange = await inputManualRange(
+          title,
+          parts.range,
+        );
+        if (manualRange === undefined) {
+          continue;
+        }
+        result = { kind: 'value', value: manualRange };
+      }
       if (result.kind === 'value') {
         const chosen = result.value || undefined;
         const region = chosen && chosen !== parts.range && sheet && parts.sheet
@@ -239,6 +274,25 @@ function presetGridProjection(parts: EmbedParts, region: DetectedRegion): EmbedP
 }
 
 type StepResult = { kind: 'value'; value: string } | { kind: 'options'; parts: EmbedParts } | { kind: 'back' } | { kind: 'cancel' };
+
+async function inputManualRange(
+  title: string,
+  currentRange?: string,
+): Promise<string | undefined> {
+  const value = await vscode.window.showInputBox({
+    title,
+    prompt:
+      'ExcelのA1範囲を入力してください（例: A1 または B3:F20）',
+    value: currentRange ?? '',
+    ignoreFocusOut: true,
+    validateInput: (input) =>
+      normalizeExplicitRangeInput(input)
+        ? undefined
+        : 'A1 または A1:D20 の形で、左上から右下へ範囲を指定してください。',
+  });
+  if (value === undefined) return undefined;
+  return normalizeExplicitRangeInput(value);
+}
 
 interface PickItem extends vscode.QuickPickItem {
   value: string;
@@ -393,7 +447,8 @@ async function preview(deps: AuthoringDependencies, markdown: string, markdownFi
   }
 }
 
-function stamp(absolutePath: string): string {
+function stamp(absolutePath: string | undefined): string {
+  if (!absolutePath) return 'unavailable';
   try {
     const stat = fs.statSync(absolutePath);
     return `${stat.mtimeMs}:${stat.size}`;
@@ -439,7 +494,12 @@ export function createEmbedFixProvider(workbookGlob: string): vscode.CodeActionP
             );
           }
           try {
-            const absolute = resolveWorkbookPath(embed.parts.filepath, document.uri.fsPath, workspaceRoot);
+            const absolute = resolveAuthoringSourcePath(
+              embed.parts.filepath,
+              document.uri.fsPath,
+              workspaceRoot,
+            );
+            if (!absolute) throw new Error('Source is unavailable or outside the workspace.');
             fixes = sheetFixCandidates(embed.parts.sheet, Object.keys(readWorkbookCached(absolute).sheets));
           } catch {
             fixes = [];
@@ -454,7 +514,12 @@ export function createEmbedFixProvider(workbookGlob: string): vscode.CodeActionP
         } else if (diagnostic.code === 'MMI_HEADERS_MISMATCH') {
           // Offered only: the person decides whether the source change is intended (never auto-confirmed).
           try {
-            const absolute = resolveWorkbookPath(embed.parts.filepath, document.uri.fsPath, workspaceRoot);
+            const absolute = resolveAuthoringSourcePath(
+              embed.parts.filepath,
+              document.uri.fsPath,
+              workspaceRoot,
+            );
+            if (!absolute) throw new Error('Source is unavailable or outside the workspace.');
             const updated = withCurrentExpectedHeaders(embed.parts, readWorkbookCached(absolute));
             const value = getParams(updated, EXPECTED_HEADERS_PARAM)[0];
             const at = embedText.search(/x-headers=[^&\]]*/u);
@@ -474,7 +539,7 @@ export function createEmbedFixProvider(workbookGlob: string): vscode.CodeActionP
             span = new vscode.Range(document.positionAt(embedStart + at), document.positionAt(embedStart + at + embed.parts.filepath.length));
           }
           const files = (await vscode.workspace.findFiles(workbookGlob, '**/{node_modules,dist}/**'))
-            .filter((uri) => uri.fsPath.startsWith(workspaceRoot))
+            .filter((uri) => isWorkspaceFileCandidate(uri.fsPath, workspaceRoot))
             .map((uri) => toRelativeSuggestion(document.uri.fsPath, uri.fsPath));
           fixes = fileFixCandidates(embed.parts.filepath, files);
         }

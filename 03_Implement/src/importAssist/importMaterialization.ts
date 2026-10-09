@@ -21,7 +21,6 @@ import {
   type ExcelChoiceList,
 } from '../adapters/excelChoiceListAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
-import { detectTableRegions } from './tableRegions.js';
 import { extractImages, type ExtractProblem, type ExtractedImage } from '../cli/extract.js';
 import {
   DEFAULT_LEDGER_FILE,
@@ -57,6 +56,7 @@ import {
   type ImportDraftShapeReviewSkip,
   type ImportDraftSnapshotHint,
 } from './importDraft.js';
+import { detectTableRegions } from './tableRegions.js';
 import {
   readWorkbookStructureFromBytes,
   type WorkbookStructure,
@@ -451,25 +451,15 @@ export function materializeWorkbookImport(
 
   if (/\.(xlsx|xlsm)$/iu.test(sourcePath)) {
     const imageRead = readExcelImages(sourceBytes);
-    // Same inputs as the review inventory, so a review decision (whose claim
-    // basis includes the nearby table) matches the candidate seen here.
-    const tablesBySheet: Record<string, TableRect[]> = Object.fromEntries(
-      Object.entries(workbook.sheets).map(([name, sheet]) => [
-        name,
-        detectTableRegions(name, sheet, { maxValueSample: 0 }).map((region) => ({
-          a1: region.a1,
-          startRow: region.range.startRow,
-          startCol: region.range.startCol,
-          endRow: region.range.endRow,
-          endCol: region.range.endCol,
-        })),
-      ]),
-    );
+    // Review decisions match on the exact Claim basis. Build image Candidates
+    // with the same detected table geometry as the shared review/inspect
+    // inventory, or the nearby-table Claim is dropped and exact rejections
+    // and deferrals of images next to a table are silently ignored.
     const imageCandidateList = imageCandidates({
       source: referencePath,
       sourceDigest,
       images: imageRead.images,
-      tablesBySheet,
+      tablesBySheet: detectedTableRectsBySheet(workbook),
     });
     const shapeCandidateList = shapeCandidates({
       source: referencePath,
@@ -736,6 +726,31 @@ function assertImportPathRoles(
 
 function tableKey(sheet: string, range: string): string {
   return `${sheet}\u0000${range}`;
+}
+
+/**
+ * Same detector and options as application/workbookCandidateInventory.ts, so
+ * image Candidate identity does not depend on which host built it.
+ */
+function detectedTableRectsBySheet(
+  workbook: WorkbookData,
+): Record<string, TableRect[]> {
+  return Object.fromEntries(
+    Object.entries(workbook.sheets).map(([sheetName, sheet]) => [
+      sheetName,
+      detectTableRegions(
+        sheetName,
+        sheet,
+        { maxValueSample: 0 },
+      ).map((region) => ({
+        a1: region.a1,
+        startRow: region.range.startRow,
+        startCol: region.range.startCol,
+        endRow: region.range.endRow,
+        endCol: region.range.endCol,
+      })),
+    ]),
+  );
 }
 
 function winningReviewDecision(

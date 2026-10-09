@@ -1,9 +1,9 @@
-# Issue: Candidate生成の共通化リファクタで、製品テスト9件が食い違ったまま`origin/main`が赤い
+# Issue: Candidate生成の共通化リファクタ後の製品テスト9件を再確認する
 
 ## Meta
 - Type: Bugfix / Test drift
-- Status: Resolved（2026-10-09、Windows上のNode 24で9件合格。Node 20での再確認は未実施）
-- Priority: High（`origin/main`の全体テストが、この9件で失敗し続けている）
+- Status: In Progress / runtime verification pending
+- Priority: High（静的な食い違いは解消済み。Node 20での実行確認が残る）
 - Scope: src/application（workbookCandidateInventory / candidateReviewInventory）、src/cli、test（下記6ファイル）、package.json（コマンド一覧のテストが読む）
 - Owner: 未定。担当者の割り当てが必要（起票時点で、リファクタを行った作業者を特定できなかった）
 - Expected verification level: unit
@@ -32,6 +32,19 @@
 | 9 | `test/cognitiveArtifactCli.test.ts` | CLI artifact verifies a local file without copying or downloading it | 標準出力のバイナリをJSONとして読んで`SyntaxError` | テストが、CLIの出力形式（バイナリ/JSON）の変化に追従していない可能性 |
 
 ※ 2〜4、5、6、9は、差分の詳細をまだ読み切っていない。担当者は、Node 20で該当ファイルを単独実行し、差分を直接確かめること。
+
+## 2026-10-09 再確認
+
+最新`main`を静的に再確認した。起票時の9件は、後続コミットにより実装とテストの形が一致している。
+
+- #1: host parity testは旧`tableRegions`ではなく`application.detected`を参照する。
+- #2〜#4: 一括取り込みは共有の表検出結果を`imageCandidates()`へ渡し、近傍表Claimをレビュー時と同じbasisで再構成する。却下/保留と採用履歴は`reviewedAt`で比較し、新しい判断だけを優先する。全画像が除外された場合は`extractImages()`を呼ばない。
+- #5: Product baseline testと集計実装は`adjustments.table` / `adjustments.imageAlt` / `adjustments.total`の現行shapeで一致する。
+- #6: JSON/YAML/XML Treeの再検証は、現行の`extract-standard-asset` planとformat別nested-list conversionを返し、テスト期待と一致する。
+- #7・#8: `package.json`のactivation eventsとcontributed commandsは現行integration testの一覧と一致する。
+- #9: `mmi artifact ... --json`は人間向け表示ではなくJSONを出力し、現行testは`--json`を指定している。
+
+この再確認は実行結果ではない。この作業環境ではGitHubへのcloneがDNS制約で失敗し、Node 20 suiteを実行できなかった。したがってAcceptance criteriaは、Node 20で対象6ファイルと全体testを実行するまで完了扱いにしない。
 
 ## 再現手順
 
@@ -63,20 +76,6 @@ node --import tsx --test test/candidateInventoryHostParity.test.ts test/importMa
 
 ## Remaining work
 
-- 担当者の割り当て（利用者の判断が必要）。
-- 研究層の既知の失敗（別Issueとして扱う）。
-
-## 解決（2026-10-09）
-
-実装の不具合が3つ、テストの陳腐化が6つだった。
-
-| # | 判断 | 対応 |
-| --- | --- | --- |
-| 1 | テストが古い | `application.tableRegions`を`detected`へ変更 |
-| 2〜4 | **実装の不具合** | 一括取り込みが`tablesBySheet`なしで画像Candidateを作っていたため、レビュー画面側の判断（`nearby-table`主張を含む根拠）と一致せず、却下・保留が無視されていた。`importMaterialization.ts`で同じ入力を渡すよう修正 |
-| 5 | テストが古い | 調整合計は表1＋画像1＝2。期待値3を2へ |
-| 6 | **実装の不具合** | JSONルートのJSON Pointerは空文字列`""`で、`!structuralPath`が「位置なし」と誤判定していた。`=== undefined`へ修正 |
-| 7・8 | テストが古い | `searchObservation.*`の3コマンドを一覧へ追加（nlsキーはcamelCase） |
-| 9 | テストの捕捉方法 | テストランナーがstdoutへ書くバイナリを拾っていた。CLIの出力形式は変わっていない。文字列チャンクだけを捕捉 |
-
-残る環境依存の失敗（Windowsのパス区切り、`extensionIntegration`の2件）は本Issueの対象外。
+- Node 20で対象6ファイルを実行し、9件がすべて合格することを確認する。
+- 続けて全体testを実行し、研究層の既知の失敗以外に新しい製品テスト失敗がないことを確認する。
+- 研究層の既知の失敗は別Issueとして扱う。

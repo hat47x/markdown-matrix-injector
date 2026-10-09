@@ -29,15 +29,15 @@
 
 ## Remaining work
 
-**実装（2026-09-24）:** `src/dx/authoringFlow.ts`（案内付きコマンド`MMI: Create or Edit Embed`とCode Action）、`src/dx/embedEditor.ts`（記法の部分更新）、`src/dx/embedFixes.ts`（修正候補）、`src/dx/embedPreview.ts`（実エンジンの描画結果の要約）。単体テスト`test/embedEditor.test.ts`（7件）、Extension Host e2eでシート名のCode Actionとコマンド登録を確認。
+**実装（2026-09-24、2026-10-09回帰補強）:** `src/dx/authoringFlow.ts`（案内付きコマンド`MMI: Create or Edit Embed`とCode Action）、`src/dx/embedEditor.ts`（記法の部分更新）、`src/dx/embedFixes.ts`（修正候補）、`src/dx/embedPreview.ts`（実エンジンの描画結果の要約）。Extension Hostのscripted flowでは、取消、Back、実preview、部分編集、1回Undoを同じauthoring経路で確認する。2026-10-09に周囲本文の保持と参照元bytes不変もこのE2Eへ追加した。
 
 - ブック→シート→範囲→表示指定→確認の各段はQuickPickで、Backボタンで戻れる。Escでは文書を変えない。CSVはシート選択を省く。範囲は選んだシートの検出領域（表題・見出し付き）から選ぶ。
 - 既存の`![[...]]`の上で実行すると現在の値から始め、変えたキーの区切りだけを書き換える。未知キー（`x-*`等）、繰返しキー（`formatColumn`）、触れていない区切りの表記は1バイトも変えない。挿入は1回の編集（Undo1回）。
 - 確認段では実際の描画エンジンで描き、「本体3行×3列（見出しあり）」「該当行0件」「別紙カード」「エラー: …」を表示してから挿入させる。確認中に文書が変わったら挿入を中止し、原本が変わったらプレビューを作り直す。
-- Code Actionはシート名・ファイルパスの不一致に対し、実在するシート（ブックを読む）・ワークスペースのファイルだけを類似度順に出し、壊れた部分だけを置き換える。候補が1件のときだけ優先候補にする。解析できない記法には何もしない。
+- Code Actionはシート名・ファイルパスの不一致に対し、実在するシート（ブックを読む）・現在のMarkdownが属するworkspace folder内のファイルだけを類似度順に出し、壊れた部分だけを置き換える。複数ルートworkspaceでは文字列prefixで境界を判定せず、path segmentとrealpathで兄弟folder・symlink逸脱を除外する。案内付き編集が既存参照を読む場合もrenderer/diagnosticsと同じ`resolveSourcePath`規則を使い、workspace-root相対fallbackを保ちながら境界外sourceは読まない。候補が1件のときだけ優先候補にする。解析できない記法には何もしない。
 
 残りは次のとおりです。
 
 - 初めて使う人と熟練者の表作成・別紙作成・参照変更の実機観測と、原本ハッシュ不変の記録（criterion 5）。
-- 案内付きコマンドのQuickPick操作そのものの自動e2e（現在は登録とCode Actionのみ自動確認）。
+- 案内付きコマンドの状態遷移はExtension Hostのscripted flowで自動確認済み。multi-rootの実用E2Eではworkspace-root相対参照を既存記法として開き、実sourceからrange候補を読んでconfirmまで到達する経路も回帰対象にした。実際のQuickPick描画・キーボード操作感はmanual-e2eで確認する。
 - issue-0211のA〜Fで、既存設計書の参照、新しい表、固定範囲外の行追加、範囲内挿入、見出し・シート名変更後の参照修正を確認する。既存のチェック済み条件は今回再試験した結果ではない。

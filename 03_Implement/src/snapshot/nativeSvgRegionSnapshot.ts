@@ -11,6 +11,7 @@ import path from 'node:path';
 import XLSX from 'xlsx';
 
 import { readExcelImages, type ImageAnchor } from '../adapters/excelImageAdapter.js';
+import { attr, child, childrenNamed, descendants, parseXml } from '../adapters/sheetSnapshotXml.js';
 import type { Candidate } from '../core/candidate.js';
 import { candidateProblem } from '../core/candidate.js';
 import { entryFor, recordEntries, type Ledger } from '../core/importLedger.js';
@@ -19,7 +20,7 @@ import { readZip } from '../core/zipReader.js';
 import { RegionSnapshotError, REGION_SNAPSHOT_SCHEMA } from './libreOfficeRegionSnapshot.js';
 
 export const NATIVE_SVG_SNAPSHOT_RENDERER = 'mmi.native-svg';
-export const NATIVE_SVG_SNAPSHOT_IMPLEMENTATION_VERSION = '1';
+export const NATIVE_SVG_SNAPSHOT_IMPLEMENTATION_VERSION = '2';
 export const NATIVE_SVG_LAYOUT_VERSION = 'xlsx-cell-layout-v1';
 
 const DEFAULT_COLUMN_PX = 64;
@@ -132,6 +133,7 @@ export function renderNativeSvgRegionSnapshot(options: NativeSvgRegionSnapshotOp
     'font-rasterization-environment-dependent',
     'excel-layout-metrics-approximated',
   ]);
+  applyOoxmlBorders(sourceBytes, options.sheet, worksheet, limitations);
   const svg = buildSvg({
     worksheet, workbookBytes: sourceBytes, sheet: options.sheet,
     selection, columns, rows, limitations,
@@ -264,6 +266,50 @@ export function renderNativeSvgRegionSnapshot(options: NativeSvgRegionSnapshotOp
     : undefined;
 
   return { candidate, manifest, svgFile, manifestFile, status, reference, markdown, ...(ledger ? { ledger } : {}) };
+}
+
+/** SheetJS CE exposes fills but drops OOXML border records. Read those records directly. */
+function applyOoxmlBorders(bytes: Buffer, sheetName: string, worksheet: XLSX.WorkSheet, limitations: Set<string>): void {
+  try {
+    const zip = readZip(bytes);
+    const read = (part: string) => {
+      const entry = zip.get(part);
+      return entry ? parseXml(entry.read().toString('utf8')) : undefined;
+    };
+    const relationships = childrenNamed(read('xl/_rels/workbook.xml.rels'), 'Relationship');
+    const target = (value: string) => value.startsWith('/')
+      ? value.slice(1) : path.posix.normalize(path.posix.join('xl', value));
+    const sheet = childrenNamed(child(read('xl/workbook.xml'), 'sheets'), 'sheet')
+      .find((node) => attr(node, 'name') === sheetName);
+    const sheetRelationship = relationships.find((node) => attr(node, 'Id') === attr(sheet, 'id'));
+    const stylesRelationship = relationships.find((node) => attr(node, 'Type')?.endsWith('/styles'));
+    const styles = read(target(attr(stylesRelationship, 'Target') ?? 'styles.xml'));
+    const borders = childrenNamed(child(styles, 'borders'), 'border');
+    const formats = childrenNamed(child(styles, 'cellXfs'), 'xf');
+    const sheetTarget = attr(sheetRelationship, 'Target');
+    if (!sheetTarget || !styles) return;
+    for (const cell of descendants(read(target(sheetTarget)), 'c')) {
+      const address = attr(cell, 'r');
+      if (!address || !worksheet[address]) continue;
+      const format = formats[Number(attr(cell, 's') ?? 0)];
+      const border = borders[Number(attr(format, 'borderId') ?? 0)];
+      if (!border) continue;
+      const sides: NonNullable<NativeCellStyle['border']> = {};
+      for (const name of ['top', 'right', 'bottom', 'left'] as const) {
+        const side = child(border, name);
+        const style = attr(side, 'style');
+        const color = child(side, 'color');
+        if (style) sides[name] = { style, color: {
+          ...(attr(color, 'rgb') ? { rgb: attr(color, 'rgb') } : {}),
+          ...(attr(color, 'theme') !== undefined ? { theme: Number(attr(color, 'theme')) } : {}),
+        } };
+      }
+      const original = worksheet[address] as NativeCell;
+      original.s = { ...original.s, border: sides };
+    }
+  } catch {
+    limitations.add('ooxml-border-records-unavailable');
+  }
 }
 
 function buildSvg(options: {
@@ -509,20 +555,61 @@ function borderSvg(rect: SnapshotRect, border: NativeCellStyle['border'], limita
     const side = border?.[name];
     const style = side?.style?.toLowerCase();
     if (!style || style === 'none') return [];
-    if (!['thin', 'hair', 'medium', 'thick', 'double'].includes(style)) {
+    const color = colorHex(side?.color, '#222222', limitations);
+    if (style === 'double') {
+      limitations.add('border-double-metrics-approximated');
+      return doubleBorderSvg(name, x1, y1, x2, y2, color);
+    }
+    if (!['thin', 'hair', 'medium', 'thick'].includes(style)) {
       limitations.add('border-style-approximated:' + style);
     }
     return ['<line x1="' + round(x1) + '" y1="' + round(y1) + '" x2="' + round(x2)
-      + '" y2="' + round(y2) + '" stroke="' + colorHex(side?.color, '#222222', limitations)
+      + '" y2="' + round(y2) + '" stroke="' + color
       + '" stroke-width="' + borderWidth(style) + '"/>'];
   });
+}
+
+function doubleBorderSvg(
+  side: keyof NonNullable<NativeCellStyle['border']>,
+  x1: number,
+  y1: number,
+  x2: number,
+  y2: number,
+  color: string,
+): string[] {
+  const inset = 2;
+  let ix1 = x1;
+  let iy1 = y1;
+  let ix2 = x2;
+  let iy2 = y2;
+  if (side === 'top') {
+    iy1 += inset;
+    iy2 += inset;
+  } else if (side === 'right') {
+    ix1 -= inset;
+    ix2 -= inset;
+  } else if (side === 'bottom') {
+    iy1 -= inset;
+    iy2 -= inset;
+  } else {
+    ix1 += inset;
+    ix2 += inset;
+  }
+  const line = (ax: number, ay: number, bx: number, by: number): string =>
+    '<line class="mmi-border-double" x1="' + round(ax) + '" y1="' + round(ay)
+      + '" x2="' + round(bx) + '" y2="' + round(by) + '" stroke="' + color
+      + '" stroke-width="1"/>';
+  return [
+    line(x1, y1, x2, y2),
+    line(ix1, iy1, ix2, iy2),
+  ];
 }
 
 function borderWidth(style: string | undefined): number {
   if (!style || style === 'none') return 1;
   if (style === 'hair') return 0.5;
   if (style === 'medium') return 2;
-  if (style === 'thick' || style === 'double') return 3;
+  if (style === 'thick') return 3;
   return 1;
 }
 

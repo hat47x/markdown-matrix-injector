@@ -5,7 +5,8 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { main } from '../src/cli/mmi.js';
+import { spawn } from 'node:child_process';
+import { fileURLToPath } from 'node:url';
 import { COGNITIVE_ARTIFACT_MANIFEST_SCHEMA } from '../src/core/cognitiveArtifact.js';
 
 const sha256 = (bytes: Buffer): string =>
@@ -16,29 +17,20 @@ async function captureMain(argv: string[]): Promise<{
   stdout: string;
   stderr: string;
 }> {
-  const stdout: string[] = [];
-  const stderr: string[] = [];
-  const out = process.stdout.write.bind(process.stdout);
-  const error = console.error;
-  // The test runner writes binary event frames to the same stream while this
-  // awaits; the CLI only ever writes strings, so keep just those.
-  process.stdout.write = ((chunk: string | Uint8Array) => {
-    if (typeof chunk === 'string') stdout.push(chunk);
-    return true;
-  }) as typeof process.stdout.write;
-  console.error = (...args: unknown[]) => {
-    stderr.push(args.map(String).join(' '));
-  };
-  try {
-    return {
-      code: await main(argv),
-      stdout: stdout.join(''),
-      stderr: stderr.join('\n'),
-    };
-  } finally {
-    process.stdout.write = out;
-    console.error = error;
-  }
+  // Keep CLI stdout separate from the test runner and tsx loader transport.
+  return new Promise((resolve, reject) => {
+    const child = spawn(process.execPath, [
+      '--import', 'tsx', fileURLToPath(new URL('../src/cli/mmi.ts', import.meta.url)), ...argv,
+    ], { stdio: ['ignore', 'pipe', 'pipe'] });
+    let stdout = '';
+    let stderr = '';
+    child.stdout.setEncoding('utf8');
+    child.stderr.setEncoding('utf8');
+    child.stdout.on('data', (chunk: string) => { stdout += chunk; });
+    child.stderr.on('data', (chunk: string) => { stderr += chunk; });
+    child.on('error', reject);
+    child.on('close', (code) => resolve({ code: code ?? 1, stdout, stderr }));
+  });
 }
 
 function writeManifest(

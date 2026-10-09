@@ -424,7 +424,10 @@ function extractionPlan(
   }
 
   if (candidate.kind === 'tree') {
-    if (candidate.locator.structuralPath === undefined) {
+    // The empty string is the RFC 6901 document-root pointer that the
+    // JSON/YAML Tree adapters emit and the existing `--tree root`
+    // extraction accepts, so only a missing path is incomplete.
+    if (typeof candidate.locator.structuralPath !== 'string') {
       return {
         ok: false,
         code: 'TRANSFORMATION_TREE_LOCATOR_INCOMPLETE',
