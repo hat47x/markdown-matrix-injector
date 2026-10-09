@@ -2,7 +2,7 @@
 
 ## Meta
 - Type: Bugfix / Test drift
-- Status: Open
+- Status: Resolved（2026-10-09、Windows上のNode 24で9件合格。Node 20での再確認は未実施）
 - Priority: High（`origin/main`の全体テストが、この9件で失敗し続けている）
 - Scope: src/application（workbookCandidateInventory / candidateReviewInventory）、src/cli、test（下記6ファイル）、package.json（コマンド一覧のテストが読む）
 - Owner: 未定。担当者の割り当てが必要（起票時点で、リファクタを行った作業者を特定できなかった）
@@ -65,3 +65,18 @@ node --import tsx --test test/candidateInventoryHostParity.test.ts test/importMa
 
 - 担当者の割り当て（利用者の判断が必要）。
 - 研究層の既知の失敗（別Issueとして扱う）。
+
+## 解決（2026-10-09）
+
+実装の不具合が3つ、テストの陳腐化が6つだった。
+
+| # | 判断 | 対応 |
+| --- | --- | --- |
+| 1 | テストが古い | `application.tableRegions`を`detected`へ変更 |
+| 2〜4 | **実装の不具合** | 一括取り込みが`tablesBySheet`なしで画像Candidateを作っていたため、レビュー画面側の判断（`nearby-table`主張を含む根拠）と一致せず、却下・保留が無視されていた。`importMaterialization.ts`で同じ入力を渡すよう修正 |
+| 5 | テストが古い | 調整合計は表1＋画像1＝2。期待値3を2へ |
+| 6 | **実装の不具合** | JSONルートのJSON Pointerは空文字列`""`で、`!structuralPath`が「位置なし」と誤判定していた。`=== undefined`へ修正 |
+| 7・8 | テストが古い | `searchObservation.*`の3コマンドを一覧へ追加（nlsキーはcamelCase） |
+| 9 | テストの捕捉方法 | テストランナーがstdoutへ書くバイナリを拾っていた。CLIの出力形式は変わっていない。文字列チャンクだけを捕捉 |
+
+残る環境依存の失敗（Windowsのパス区切り、`extensionIntegration`の2件）は本Issueの対象外。

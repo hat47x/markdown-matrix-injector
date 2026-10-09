@@ -189,7 +189,7 @@ test('aggregate summarizes existing content-free review observations without sou
   assert.equal(summary.work.reviewStateTransitions, 12);
   assert.equal(summary.work.newlyImported, 7);
   assert.equal(summary.work.editingInterruptionSessions, 1);
-  assert.equal(summary.work.adjustments.total.modifiedItems, 3);
+  assert.equal(summary.work.adjustments.total.modifiedItems, 2);
   assert.equal(summary.work.adjustments.total.changedSpanCharacters, 16);
   assert.equal(summary.derived.durationMsPerSelectedCandidate, 6_000);
   assert.equal(summary.safety.passed, true);

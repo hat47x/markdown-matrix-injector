@@ -422,6 +422,9 @@ test('extension integration boundaries keep canonical native providers and compa
       'onCommand:markdownMatrixInjector.findEmbedByDescription',
       'onCommand:markdownMatrixInjector.selectLocalSemanticModel',
       'onCommand:markdownMatrixInjector.clearSearchIndex',
+      'onCommand:markdownMatrixInjector.searchObservation.clear',
+      'onCommand:markdownMatrixInjector.searchObservation.export',
+      'onCommand:markdownMatrixInjector.searchObservation.summary',
       'onCommand:markdownMatrixInjector.importFromWorkbook',
       'onCommand:markdownMatrixInjector.reviewCandidates',
       'onCommand:markdownMatrixInjector.reviewHierarchyCandidates',
@@ -443,6 +446,9 @@ test('extension integration boundaries keep canonical native providers and compa
       'markdownMatrixInjector.findEmbedByDescription',
       'markdownMatrixInjector.selectLocalSemanticModel',
       'markdownMatrixInjector.clearSearchIndex',
+      'markdownMatrixInjector.searchObservation.summary',
+      'markdownMatrixInjector.searchObservation.export',
+      'markdownMatrixInjector.searchObservation.clear',
       'markdownMatrixInjector.importFromWorkbook',
       'markdownMatrixInjector.reviewCandidates',
       'markdownMatrixInjector.reviewHierarchyCandidates',
@@ -498,6 +504,9 @@ test('native provider metadata stays API-visible without collapsing command fall
     findEmbedByDescription: 'Find Table by Description (e.g. 状態遷移表のIDと操作を見せて)',
     selectLocalSemanticModel: 'Select Existing Local Semantic Model (Ollama / LM Studio)',
     clearSearchIndex: 'Clear Table Search Index',
+    'searchObservation.summary': 'Summarize Table Search Observation',
+    'searchObservation.export': 'Export Table Search Observation Summary',
+    'searchObservation.clear': 'Clear Table Search Observation',
     importFromWorkbook: 'Import from Workbook (draft with live table references and extracted image assets)',
     reviewCandidates: 'Review Import Candidates (tables, images, trees, import state, provenance)',
     reviewHierarchyCandidates: 'Review Hierarchy Candidates from Explicit Table Columns',
@@ -508,18 +517,24 @@ test('native provider metadata stays API-visible without collapsing command fall
   };
   // Table catalog commands carry an icon for the view's title and item buttons.
   const icons: Record<string, string> = { 'catalog.refresh': '$(refresh)', 'catalog.insertTable': '$(insert)', 'catalog.selectFromTable': '$(filter)' };
+  // Dotted command ids map to camelCase nls keys for the search-observation commands.
+  const titleKeys: Record<string, string> = {
+    'searchObservation.summary': 'searchObservationSummary',
+    'searchObservation.export': 'searchObservationExport',
+    'searchObservation.clear': 'searchObservationClear',
+  };
   assert.deepEqual(
     packageJson.contributes.commands,
     Object.keys(englishTitles).map((id) => ({
       command: `markdownMatrixInjector.${id}`,
-      title: `%mmi.command.${id}%`,
+      title: `%mmi.command.${titleKeys[id] ?? id}%`,
       category: 'MMI',
       ...(icons[id] ? { icon: icons[id] } : {}),
     })),
   );
   const nlsModule = await import('../package.nls.json', { with: { type: 'json' } });
   const nls = nlsModule.default as Record<string, string>;
-  for (const [id, title] of Object.entries(englishTitles)) assert.equal(nls[`mmi.command.${id}`], title, id);
+  for (const [id, title] of Object.entries(englishTitles)) assert.equal(nls[`mmi.command.${titleKeys[id] ?? id}`], title, id);
   assert.deepEqual(
     packageJson.activationEvents.filter((event: string) => event.startsWith('onCommand:markdownMatrixInjector.insertEmbedFrom')),
     [

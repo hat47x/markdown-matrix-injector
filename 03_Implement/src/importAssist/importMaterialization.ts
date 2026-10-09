@@ -14,12 +14,14 @@ import {
   readExcelImages,
   shapeCandidates,
   type ExcelDrawingShape,
+  type TableRect,
 } from '../adapters/excelImageAdapter.js';
 import {
   readExcelChoiceLists,
   type ExcelChoiceList,
 } from '../adapters/excelChoiceListAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
+import { detectTableRegions } from './tableRegions.js';
 import { extractImages, type ExtractProblem, type ExtractedImage } from '../cli/extract.js';
 import {
   DEFAULT_LEDGER_FILE,
@@ -449,10 +451,25 @@ export function materializeWorkbookImport(
 
   if (/\.(xlsx|xlsm)$/iu.test(sourcePath)) {
     const imageRead = readExcelImages(sourceBytes);
+    // Same inputs as the review inventory, so a review decision (whose claim
+    // basis includes the nearby table) matches the candidate seen here.
+    const tablesBySheet: Record<string, TableRect[]> = Object.fromEntries(
+      Object.entries(workbook.sheets).map(([name, sheet]) => [
+        name,
+        detectTableRegions(name, sheet, { maxValueSample: 0 }).map((region) => ({
+          a1: region.a1,
+          startRow: region.range.startRow,
+          startCol: region.range.startCol,
+          endRow: region.range.endRow,
+          endCol: region.range.endCol,
+        })),
+      ]),
+    );
     const imageCandidateList = imageCandidates({
       source: referencePath,
       sourceDigest,
       images: imageRead.images,
+      tablesBySheet,
     });
     const shapeCandidateList = shapeCandidates({
       source: referencePath,

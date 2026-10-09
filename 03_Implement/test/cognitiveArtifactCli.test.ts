@@ -20,10 +20,12 @@ async function captureMain(argv: string[]): Promise<{
   const stderr: string[] = [];
   const out = process.stdout.write.bind(process.stdout);
   const error = console.error;
-  process.stdout.write = ((chunk: string) => (
-    stdout.push(String(chunk)),
-    true
-  )) as typeof process.stdout.write;
+  // The test runner writes binary event frames to the same stream while this
+  // awaits; the CLI only ever writes strings, so keep just those.
+  process.stdout.write = ((chunk: string | Uint8Array) => {
+    if (typeof chunk === 'string') stdout.push(chunk);
+    return true;
+  }) as typeof process.stdout.write;
   console.error = (...args: unknown[]) => {
     stderr.push(args.map(String).join(' '));
   };

@@ -424,7 +424,7 @@ function extractionPlan(
   }
 
   if (candidate.kind === 'tree') {
-    if (!candidate.locator.structuralPath) {
+    if (candidate.locator.structuralPath === undefined) {
       return {
         ok: false,
         code: 'TRANSFORMATION_TREE_LOCATOR_INCOMPLETE',
