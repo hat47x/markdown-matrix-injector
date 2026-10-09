@@ -1,8 +1,8 @@
-# AIエージェント向けの手引き（試作）
+# AIエージェントがMMIで設計書を書くための手引き（試作）
 
-Claude Code、GitHub Copilot、CodexなどのAIエージェントに、MMIで設計書を書かせるときの手引きです。このファイルの「エージェントへの指示」をそのまま、利用者のリポジトリの`AGENTS.md`、`.github/copilot-instructions.md`、またはスキルに貼って使えます。
+Claude Code、GitHub Copilot、CodexなどのAIエージェントが、MMIを使って設計書を書く際の手引きです。下の「エージェントへの指示」は、利用者のリポジトリにある`AGENTS.md`、`.github/copilot-instructions.md`、またはスキルにそのまま貼り付けられます。
 
-CLIはNode.js 20以上で動くnpm互換tarballとして配布する。配布CLIを導入した環境では`mmi <コマンド>`を使う。MMIリポジトリの開発checkoutで作業する場合だけ、`03_Implement`で`npm run mmi -- <コマンド>`をfallbackとして使う。
+コマンドライン版（CLI）は、Node.js 20以上で動くnpm互換の配布ファイル（tarball）として提供します。配布版を導入した環境では、`mmi <コマンド>`を使います。MMIリポジトリの開発用チェックアウトで作業する場合に限り、`03_Implement`で`npm run mmi -- <コマンド>`を代わりに使います。
 
 ## エージェントへの指示
 
@@ -56,6 +56,6 @@ docs/基本設計書.md:10:29 error MMI_SHEET_NOT_FOUND Sheet not found: 受注�
 
 ## 知っておくこと
 
-- 列は見出しで選べますが、記法には列文字が書かれます。 Excelで列を挿入すると、参照は別の列を指すようになります。見出しでの指定を記法に残すかは[ADR-0022](../01_Plans/adr/ADR-0022-semantic-selection-in-notation.md)で検討中です。
-- 非表示の行も表示されます。 Excelで非表示の行・列、フィルターで隠れた行も表示されます。`inspect`と`select`は注意として知らせます。
-- Excelの名前付き範囲とテーブルは、名前で選べます。 ただし記法にはA1範囲が書かれます。名前の定義が変わっても参照は追従しません。
+- 列は見出しから選べます。ただし、参照記法にはExcelの列文字が記録されます。Excelに列を挿入すると、参照先が別の列へ変わることがあります。見出しによる指定を参照記法へ残すかどうかは、[ADR-0022](../01_Plans/adr/ADR-0022-semantic-selection-in-notation.md)で検討中です。
+- Excelで非表示にした行や列、フィルターで隠した行も表示対象になります。`inspect`と`select`では、その点を注意事項として知らせます。
+- Excelの名前付き範囲とテーブルは、名前から選べます。ただし、参照記法にはA1形式の範囲が記録されます。元の名前の定義を変更しても、参照範囲は自動では追従しません。
