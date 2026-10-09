@@ -105,7 +105,7 @@ test('preview refresh scheduler coalesces save bursts but keeps every changed wo
   const clock = new FakeRefreshClock();
   const batches: string[][] = [];
   const scheduler = createWorkbookRefreshBatchScheduler({
-    flush: (paths) => batches.push([...paths]),
+    flush: (paths) => { batches.push([...paths]); },
     clock,
   });
 
@@ -121,7 +121,10 @@ test('preview refresh scheduler coalesces save bursts but keeps every changed wo
   assert.equal(batches.length, 1);
   assert.deepEqual(
     [...batches[0]].sort(),
-    [path.resolve('/tmp/project/a.xlsx'), path.resolve('/tmp/project/b.xlsx')].sort(),
+    // The scheduler compares paths case-insensitively on Windows, so it reports them lower-cased there.
+    [path.resolve('/tmp/project/a.xlsx'), path.resolve('/tmp/project/b.xlsx')]
+      .map((file) => (process.platform === 'win32' ? file.toLocaleLowerCase('en-US') : file))
+      .sort(),
   );
 });
 

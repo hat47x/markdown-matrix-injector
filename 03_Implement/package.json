@@ -48,6 +48,7 @@
     "test:phase9-guide-sync": "python3 ../01_Plans/tools/generate_phase9_pattern_guide.py --check",
     "test:e2e": "npm run build && bash ./scripts/run-vscode-e2e.sh",
     "test:e2e:practical": "npm run build && node --import tsx ./test/e2e/runPractical.ts",
+    "test:e2e:coauthoring": "npm run build && node --import tsx ./test/e2e/runCoauthoring.ts",
     "test:e2e:import": "npm run build && node --import tsx ./test/e2e/runImport.ts",
     "test": "npm run test:unit && npm run test:candidate-review-product-baseline && npm run test:cli-distribution && npm run test:phase9-sync && npm run test:phase9-guide-sync",
     "test:cli-distribution": "node --test ./test/cliDistribution.test.mjs",
