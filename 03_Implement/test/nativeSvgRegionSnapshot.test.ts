@@ -125,3 +125,43 @@ test('native SVG snapshot does not invent a position for absolute-anchor drawing
   assert.doesNotMatch(svg, /<image class="mmi-image"/u);
   assert.match(svg, />遷移図</u);
 });
+
+
+test('native SVG snapshot preserves an external XLSX double border as two strokes and declares metric approximation', () => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-native-svg-double-border-'));
+  const source = path.join(root, 'double-border.xlsx');
+  const fixtureText = fs.readFileSync(
+    new URL('./fixtures/native-double-border.xlsx.base64', import.meta.url),
+    'utf8',
+  );
+  const fixtureBytes = Buffer.from(fixtureText.replace(/\s/gu, ''), 'base64');
+  assert.equal(
+    sha256(fixtureBytes),
+    'sha256:9881302c8f76b9ca4b5e2d1903179b9d1e3771591b959e2306e68680229a2002',
+  );
+  fs.writeFileSync(source, fixtureBytes);
+  const before = fs.readFileSync(source);
+
+  const result = renderNativeSvgRegionSnapshot({
+    sourcePath: source,
+    sheet: 'Borders',
+    range: 'A1:B2',
+    outDir: path.join(root, 'assets'),
+  });
+
+  const svg = fs.readFileSync(result.svgFile, 'utf8');
+  const doubleStrokes = svg.match(/class="mmi-border-double"/gu) ?? [];
+  assert.equal(doubleStrokes.length, 2);
+  assert.ok(
+    result.manifest.limitations.includes(
+      'border-double-metrics-approximated',
+    ),
+  );
+  assert.equal(
+    result.manifest.limitations.includes(
+      'border-style-approximated:double',
+    ),
+    false,
+  );
+  assert.deepEqual(fs.readFileSync(source), before);
+});
