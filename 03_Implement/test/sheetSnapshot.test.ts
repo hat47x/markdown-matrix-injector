@@ -338,6 +338,10 @@ test('mmi snapshot exits 1 with diagnostics for unusable input and 2 for usage e
   assert.equal(run(['book.xlsx'], { out: 'e.svg' }).code, 2);
   assert.equal(run(['book.xlsx'], { sheet: '方眼紙' }).code, 2);
   assert.equal(run(['book.xlsx'], { sheet: '方眼紙', out: 'book.xlsx' }).code, 2);
+  const sourceBeforeAliasCheck = fs.readFileSync(path.join(dir, 'book.xlsx'));
+  fs.linkSync(path.join(dir, 'book.xlsx'), path.join(dir, 'alias.svg'));
+  assert.equal(run(['book.xlsx'], { sheet: '方眼紙', out: 'alias.svg' }).code, 2);
+  assert.deepEqual(fs.readFileSync(path.join(dir, 'book.xlsx')), sourceBeforeAliasCheck);
   const ok = run(['book.xlsx'], { sheet: '方眼紙', out: 'ok.svg' });
   assert.equal(ok.code, 0);
   assert.match(ok.out, /^snapshot: ok\.svg \(方眼紙!A1:E6, 384x120px, mmi-sheet-svg\/1\)$/u);

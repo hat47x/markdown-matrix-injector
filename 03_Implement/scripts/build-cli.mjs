@@ -26,10 +26,11 @@ if (!relativeOutput || relativeOutput === '..' || relativeOutput.startsWith(`..$
 fs.rmSync(outDir, { recursive: true, force: true });
 fs.mkdirSync(path.join(outDir, 'media'), { recursive: true });
 
-await build({
+const bundle = await build({
   entryPoints: [path.join(root, 'src/cli/mmi.ts')],
   outfile: path.join(outDir, 'mmi.mjs'),
   bundle: true,
+  metafile: true,
   platform: 'node',
   target: 'node20',
   format: 'esm',
@@ -42,11 +43,20 @@ fs.chmodSync(path.join(outDir, 'mmi.mjs'), 0o755);
 fs.copyFileSync(path.join(root, 'media/markdown-matrix.css'), path.join(outDir, 'media/markdown-matrix.css'));
 fs.copyFileSync(path.join(repoRoot, 'LICENSE'), path.join(outDir, 'LICENSE'));
 
-const notice = Object.keys(pkg.dependencies).map((name) => {
-  const dir = path.join(root, 'node_modules', name);
+const bundledPackages = new Map();
+for (const input of Object.keys(bundle.metafile.inputs)) {
+  if (!input.includes('node_modules/')) continue;
+  let dir = path.dirname(path.resolve(input));
+  while (dir !== path.dirname(dir) && !fs.existsSync(path.join(dir, 'package.json'))) dir = path.dirname(dir);
+  if (!fs.existsSync(path.join(dir, 'package.json'))) throw new Error(`Missing package identity for ${input}`);
+  const info = JSON.parse(read(dir, 'package.json'));
+  bundledPackages.set(`${info.name}@${info.version}`, dir);
+}
+const notice = [...bundledPackages].sort(([a], [b]) => a.localeCompare(b)).map(([, dir]) => {
   const info = JSON.parse(read(dir, 'package.json'));
   const license = fs.readdirSync(dir).find((file) => /^licen[sc]e/i.test(file));
-  return `## ${name} ${info.version} (${info.license})\n\n${license ? read(dir, license).trim() : '(license file not found)'}\n`;
+  const licenseText = license ? read(dir, license).trim() : `SPDX license identifier: ${info.license ?? 'SEE PACKAGE METADATA'}`;
+  return `## ${info.name} ${info.version} (${info.license ?? 'SEE PACKAGE METADATA'})\n\n${licenseText}\n`;
 });
 fs.writeFileSync(path.join(outDir, 'THIRD_PARTY_NOTICES.md'),
   `# Third-party software bundled in mmi.mjs\n\nThe MMI CLI bundles the packages below. Their licenses apply to the bundled code.\n\n${notice.join('\n')}`);

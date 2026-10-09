@@ -46,6 +46,14 @@ export function runSnapshot(args: string[], options: SnapshotCommandOptions, io:
   const sourcePath = path.resolve(io.cwd, args[0]);
   const outputPath = path.resolve(io.cwd, options.out);
   if (sourcePath === outputPath) return usage(io, 'snapshot output must differ from the source workbook');
+  if (fs.existsSync(sourcePath) && fs.existsSync(outputPath)) {
+    const sourceStat = fs.statSync(sourcePath);
+    const outputStat = fs.statSync(outputPath);
+    if (fs.realpathSync(sourcePath) === fs.realpathSync(outputPath)
+      || (sourceStat.ino !== 0 && sourceStat.dev === outputStat.dev && sourceStat.ino === outputStat.ino)) {
+      return usage(io, 'snapshot output must not alias the source workbook');
+    }
+  }
 
   const summary: SnapshotSummary = {
     source: relativeTo(io.cwd, sourcePath),
