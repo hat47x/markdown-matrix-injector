@@ -18,6 +18,8 @@ SAI-2までの評価では、候補が正解範囲へ一致したか、曖昧な
 
 正解範囲と提案範囲を、ともにone-based inclusive rectangleとして比較する。
 
+評価単位は`source_family_id`と`source_digest`へ結び付ける。別sourceや別versionの範囲を偶然同じ座標だから比較することは認めない。digestは既存の構造観測と同じ`sha256:<64 lowercase hex>`形式とする。
+
 - `boundary_edit_distance`: 上・左・下・右の4境界について、正解まで動かすセル数の合計。
 - `boundary_adjustment_count`: 変更が必要な境界数。0〜4。
 - `over_selected_cell_count`: 正解外なのに候補へ含めたセル数。
