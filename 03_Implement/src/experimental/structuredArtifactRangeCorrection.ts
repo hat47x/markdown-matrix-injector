@@ -3,8 +3,21 @@ import type { Sai2CandidateRange } from './structuredArtifactSai2CandidateSet.js
 export const STRUCTURED_ARTIFACT_RANGE_CORRECTION_SCHEMA =
   'hat47x.structured-artifact-range-correction/v0' as const;
 
+export type StructuredArtifactRangeCorrectionInput = {
+  source: {
+    source_family_id: string;
+    source_digest: string;
+  };
+  target: Sai2CandidateRange;
+  proposal: Sai2CandidateRange | null;
+};
+
 export type StructuredArtifactRangeCorrection = {
   schema: typeof STRUCTURED_ARTIFACT_RANGE_CORRECTION_SCHEMA;
+  source: {
+    source_family_id: string;
+    source_digest: string;
+  };
   proposal_state: 'proposed' | 'abstained';
   exact_match: boolean | null;
   target_cell_count: number;
@@ -49,15 +62,16 @@ export type StructuredArtifactRangeCorrectionSummary = {
 };
 
 export function measureStructuredArtifactRangeCorrection(
-  target: Sai2CandidateRange,
-  proposal: Sai2CandidateRange | null,
+  input: StructuredArtifactRangeCorrectionInput,
 ): StructuredArtifactRangeCorrection {
-  assertRange(target, 'target');
+  assertSource(input.source);
+  assertRange(input.target, 'target');
 
-  const targetCellCount = cellCount(target);
-  if (proposal === null) {
+  const targetCellCount = cellCount(input.target);
+  if (input.proposal === null) {
     return {
       schema: STRUCTURED_ARTIFACT_RANGE_CORRECTION_SCHEMA,
+      source: { ...input.source },
       proposal_state: 'abstained',
       exact_match: null,
       target_cell_count: targetCellCount,
@@ -76,23 +90,24 @@ export function measureStructuredArtifactRangeCorrection(
     };
   }
 
-  assertRange(proposal, 'proposal');
-  const proposedCellCount = cellCount(proposal);
-  const intersectionCellCount = intersectionCells(target, proposal);
+  assertRange(input.proposal, 'proposal');
+  const proposedCellCount = cellCount(input.proposal);
+  const intersectionCellCount = intersectionCells(input.target, input.proposal);
   const overSelected = proposedCellCount - intersectionCellCount;
   const underSelected = targetCellCount - intersectionCellCount;
   const unionCellCount =
     targetCellCount + proposedCellCount - intersectionCellCount;
   const boundaryDeltas = [
-    Math.abs(proposal.row_start - target.row_start),
-    Math.abs(proposal.col_start - target.col_start),
-    Math.abs(proposal.row_end - target.row_end),
-    Math.abs(proposal.col_end - target.col_end),
+    Math.abs(input.proposal.row_start - input.target.row_start),
+    Math.abs(input.proposal.col_start - input.target.col_start),
+    Math.abs(input.proposal.row_end - input.target.row_end),
+    Math.abs(input.proposal.col_end - input.target.col_end),
   ];
   const exact = boundaryDeltas.every((delta) => delta === 0);
 
   return {
     schema: STRUCTURED_ARTIFACT_RANGE_CORRECTION_SCHEMA,
+    source: { ...input.source },
     proposal_state: 'proposed',
     exact_match: exact,
     target_cell_count: targetCellCount,
@@ -161,7 +176,11 @@ function correctionBoundary(): StructuredArtifactRangeCorrection['boundary'] {
 }
 
 function cellCount(range: Sai2CandidateRange): number {
-  return range.row_count * range.col_count;
+  const count = range.row_count * range.col_count;
+  if (!Number.isSafeInteger(count) || count < 1) {
+    throw new Error('Structured-artifact range cell count exceeds safe integer bounds.');
+  }
+  return count;
 }
 
 function intersectionCells(
@@ -201,6 +220,18 @@ function meanDefined(values: Array<number | null>): number | null {
     return null;
   }
   return defined.reduce((total, value) => total + value, 0) / defined.length;
+}
+
+function assertSource(
+  source: StructuredArtifactRangeCorrectionInput['source'],
+): void {
+  if (
+    source.source_family_id.length === 0
+    || source.source_family_id.trim() !== source.source_family_id
+    || !/^sha256:[0-9a-f]{64}$/.test(source.source_digest)
+  ) {
+    throw new Error('Invalid structured-artifact source binding.');
+  }
 }
 
 function assertRange(range: Sai2CandidateRange, name: string): void {
