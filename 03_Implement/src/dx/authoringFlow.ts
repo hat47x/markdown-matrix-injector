@@ -494,7 +494,12 @@ export function createEmbedFixProvider(workbookGlob: string): vscode.CodeActionP
             );
           }
           try {
-            const absolute = resolveWorkbookPath(embed.parts.filepath, document.uri.fsPath, workspaceRoot);
+            const absolute = resolveAuthoringSourcePath(
+              embed.parts.filepath,
+              document.uri.fsPath,
+              workspaceRoot,
+            );
+            if (!absolute) throw new Error('Source is unavailable or outside the workspace.');
             fixes = sheetFixCandidates(embed.parts.sheet, Object.keys(readWorkbookCached(absolute).sheets));
           } catch {
             fixes = [];
@@ -509,7 +514,12 @@ export function createEmbedFixProvider(workbookGlob: string): vscode.CodeActionP
         } else if (diagnostic.code === 'MMI_HEADERS_MISMATCH') {
           // Offered only: the person decides whether the source change is intended (never auto-confirmed).
           try {
-            const absolute = resolveWorkbookPath(embed.parts.filepath, document.uri.fsPath, workspaceRoot);
+            const absolute = resolveAuthoringSourcePath(
+              embed.parts.filepath,
+              document.uri.fsPath,
+              workspaceRoot,
+            );
+            if (!absolute) throw new Error('Source is unavailable or outside the workspace.');
             const updated = withCurrentExpectedHeaders(embed.parts, readWorkbookCached(absolute));
             const value = getParams(updated, EXPECTED_HEADERS_PARAM)[0];
             const at = embedText.search(/x-headers=[^&\]]*/u);
