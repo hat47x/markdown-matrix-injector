@@ -216,15 +216,27 @@ type Transcript = { title: string; placeholder: string; items: string[] }[];
  */
 async function verifyGuidedFlowsScripted(workspaceRoot: string): Promise<void> {
   const original = '![[../data/roles.csv#Sheet1|A1:B3?x-keep=1&header=first]]';
-  const document = await openMarkdownDocument(path.join(workspaceRoot, 'docs', 'guided-flows.md'), ['# Guided', original].join('\n'));
+  const proseBefore = '前の本文 ';
+  const proseAfter = ' 後ろの本文';
+  const originalLine = `${proseBefore}${original}${proseAfter}`;
+  const rolesSource = vscode.Uri.file(path.join(workspaceRoot, 'data', 'roles.csv'));
+  const rolesBefore = Buffer.from(await vscode.workspace.fs.readFile(rolesSource));
+  const document = await openMarkdownDocument(
+    path.join(workspaceRoot, 'docs', 'guided-flows.md'),
+    ['# Guided', originalLine].join('\n'),
+  );
   await vscode.window.showTextDocument(document);
   const run = (answers: unknown[]) =>
-    vscode.commands.executeCommand<Transcript>('markdownMatrixInjector.__test.runAuthoringScripted', { line: 1, character: 5, answers });
+    vscode.commands.executeCommand<Transcript>(
+      'markdownMatrixInjector.__test.runAuthoringScripted',
+      { line: 1, character: proseBefore.length + 5, answers },
+    );
 
   // Cancel at the first step: nothing changes.
   const versionBefore = document.version;
   await run([{ cancel: true }]);
   assert.equal(document.version, versionBefore, 'Cancelling must not edit the document.');
+  assert.equal(document.lineAt(1).text, originalLine, 'Cancelling must preserve surrounding prose.');
 
   // Back from the range step reaches the file step (the CSV sheet step skips itself both ways).
   const backTranscript = await run([{ keep: true }, { back: true }, { cancel: true }]);
@@ -233,16 +245,28 @@ async function verifyGuidedFlowsScripted(workspaceRoot: string): Promise<void> {
     ['1', '3', '1'],
     `Back must return to the file step. Got: ${JSON.stringify(backTranscript.map((step) => step.title))}`,
   );
+  assert.equal(document.lineAt(1).text, originalLine, 'Back/cancel must preserve surrounding prose.');
 
-  // Edit: keep file and range, add mode=card; unknown x-keep survives; preview shows a card; one Undo restores.
+  // Edit: keep file and range, add mode=card; unknown x-keep survives; surrounding prose survives; one Undo restores.
   const transcript = await run([{ keep: true }, { keep: true }, { options: ['header=first', 'mode=card'] }, 'insert']);
-  const edited = '![[../data/roles.csv#Sheet1|A1:B3?x-keep=1&header=first&mode=card]]'; // an existing reference does not gain x-headers from a plain edit
-  assert.equal(document.lineAt(1).text, edited);
+  const edited = '![[../data/roles.csv#Sheet1|A1:B3?x-keep=1&header=first&mode=card]]';
+  assert.equal(document.lineAt(1).text, `${proseBefore}${edited}${proseAfter}`);
   assert.match(transcript[transcript.length - 1].placeholder, /別紙カード/u, 'The confirm step must show what the engine renders.');
   await vscode.commands.executeCommand('undo');
-  assert.equal(document.lineAt(1).text, original, 'One Undo must restore the original reference.');
+  assert.equal(document.lineAt(1).text, originalLine, 'One Undo must restore the original reference and surrounding prose.');
+  assert.deepEqual(
+    Buffer.from(await vscode.workspace.fs.readFile(rolesSource)),
+    rolesBefore,
+    'Guided reference editing must not modify the source bytes.',
+  );
 
   // Find by description, then confirm: the search index covers the workspace workbooks.
+  const releaseGateSource = vscode.Uri.file(
+    path.join(workspaceRoot, 'data', 'sier-design', 'release-gate.csv'),
+  );
+  const releaseGateBefore = Buffer.from(
+    await vscode.workspace.fs.readFile(releaseGateSource),
+  );
   const blank = await openMarkdownDocument(path.join(workspaceRoot, 'docs', 'guided-find.md'), '# Find\n\n');
   const editor = await vscode.window.showTextDocument(blank);
   editor.selection = new vscode.Selection(2, 0, 2, 0);
@@ -252,6 +276,11 @@ async function verifyGuidedFlowsScripted(workspaceRoot: string): Promise<void> {
   );
   assert.ok(found.transcript.length > 0, `Search must yield a candidate. Items: ${found.items.join(' / ')}`);
   assert.match(blank.lineAt(2).text, /^!\[\[\.\.\/data\/sier-design\/release-gate\.csv#Sheet1\|/u);
+  assert.deepEqual(
+    Buffer.from(await vscode.workspace.fs.readFile(releaseGateSource)),
+    releaseGateBefore,
+    'Search-assisted reference insertion must not modify source bytes.',
+  );
 
   // A request the notation cannot express is refused with the reason, and nothing is inserted.
   const refused = await vscode.commands.executeCommand<{ items: string[]; transcript: Transcript }>(
