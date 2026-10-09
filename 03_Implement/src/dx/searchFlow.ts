@@ -347,15 +347,40 @@ export async function scriptedSearch(
   workbookGlob: string,
   text: string,
   pickIndex: number,
+  observation?: SearchObservationHost,
 ): Promise<{ items: string[]; parts?: EmbedParts }> {
   const workspaceRoot = vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath;
   if (!workspaceRoot) return { items: [] };
   const index = await ensureIndexed(workspaceRoot, workbookGlob);
   if (!index) return { items: [] };
   index.setAliases(readUserAliases());
+  const startedAtMs = Date.now();
   const result = await index.query(text, document.uri.fsPath, 5, readSemanticSetting());
   const items = toItems(result);
-  return { items: items.map((item) => `${item.label} | ${item.detail ?? ''}`), parts: items[pickIndex]?.parts };
+  const picked = items[pickIndex];
+  // The same recording as the search box, so the e2e run exercises what a person's search records.
+  if (observation?.enabled) {
+    try {
+      const record = buildSearchObservation({
+        finalQuery: text,
+        result,
+        queries: 1,
+        outcome: picked?.parts
+          ? (picked.observation?.nearMiss ? 'picked-near-miss' : 'picked-candidate')
+          : 'cancelled',
+        ...(picked?.parts && picked.observation ? { picked: picked.observation } : {}),
+        alias: 'none',
+        startedAtMs,
+        endedAtMs: Date.now(),
+        localDate: localCalendarDate(new Date()),
+        includeText: observation.includeText,
+      });
+      void Promise.resolve(observation.record(record)).catch(() => undefined);
+    } catch {
+      // Observation is deliberately outside the search critical path.
+    }
+  }
+  return { items: items.map((item) => `${item.label} | ${item.detail ?? ''}`), parts: picked?.parts };
 }
 
 /** Candidates, or a reason the request cannot be expressed / matched. Always shown regardless of label filtering. */

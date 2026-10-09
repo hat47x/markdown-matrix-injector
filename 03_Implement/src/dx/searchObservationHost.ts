@@ -37,9 +37,12 @@ export function createSearchObservationHost(
     includeText,
     record(record) {
       if (!enabled || !context.storageUri) return;
+      // Turning includeText off also removes request text that earlier records kept.
       appendSearchObservation(
         observationPath(context.storageUri),
         record,
+        undefined,
+        { keepText: includeText },
       );
     },
   };
@@ -100,11 +103,16 @@ async function showSummary(
     );
     return;
   }
-  const store = readSearchObservationStore(
-    observationPath(context.storageUri),
-  );
+  let records;
+  try {
+    records = readSearchObservationStore(observationPath(context.storageUri)).records;
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`MMI: 検索観測の記録を読めませんでした: ${reason}`);
+    return;
+  }
   const markdown = renderSearchObservationSummaryMarkdown(
-    summarizeSearchObservations(store.records),
+    summarizeSearchObservations(records),
   );
 
   if (!exportFile) {
@@ -141,10 +149,39 @@ async function clearRecords(
     '消去',
   );
   if (answer !== '消去') return;
-  clearSearchObservations(observationPath(context.storageUri));
+  try {
+    clearSearchObservations(observationPath(context.storageUri));
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(`MMI: 検索観測の記録を消去できませんでした: ${reason}`);
+    return;
+  }
   void vscode.window.showInformationMessage(
     'MMI: 表検索の観測記録を消去しました。',
   );
+}
+
+/**
+ * Test-command entries (Extension Host e2e only, registered from activate when test commands are
+ * enabled): the stored records, and a clear without the confirmation dialog.
+ */
+export function registerSearchObservationTestCommands(
+  context: vscode.ExtensionContext,
+): vscode.Disposable[] {
+  return [
+    vscode.commands.registerCommand(
+      'markdownMatrixInjector.__test.searchObservationRecords',
+      () => (context.storageUri
+        ? readSearchObservationStore(observationPath(context.storageUri)).records
+        : []),
+    ),
+    vscode.commands.registerCommand(
+      'markdownMatrixInjector.__test.clearSearchObservations',
+      () => {
+        if (context.storageUri) clearSearchObservations(observationPath(context.storageUri));
+      },
+    ),
+  ];
 }
 
 function observationPath(storageUri: vscode.Uri): string {

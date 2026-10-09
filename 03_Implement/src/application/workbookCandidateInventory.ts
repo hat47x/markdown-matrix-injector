@@ -11,6 +11,11 @@ import {
   readExcelChoiceLists,
   type ChoiceListReadResult,
 } from '../adapters/excelChoiceListAdapter.js';
+import {
+  noteCandidates,
+  readExcelNotes,
+  type NoteReadResult,
+} from '../adapters/excelNoteAdapter.js';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import {
   readTabularHierarchy,
@@ -59,8 +64,10 @@ export interface WorkbookCandidateInventory {
   tablesBySheet: Readonly<Record<string, readonly TableRect[]>>;
   imageRead: ImageReadResult;
   choiceRead: ChoiceListReadResult;
+  noteRead: NoteReadResult;
   imageCandidateList: readonly Candidate[];
   shapeCandidateList: readonly Candidate[];
+  noteCandidateList: readonly Candidate[];
   hierarchies: readonly WorkbookHierarchyCandidates[];
   candidates: readonly Candidate[];
 }
@@ -128,8 +135,10 @@ export function collectWorkbookCandidates(
       tablesBySheet: {},
       imageRead: empty,
       choiceRead: { lists: [], diagnostics: [] },
+      noteRead: { notes: [], diagnostics: [] },
       imageCandidateList: [],
       shapeCandidateList: [],
+      noteCandidateList: [],
       hierarchies,
       candidates: hierarchies.flatMap(({ result }) => result.candidates),
     };
@@ -193,6 +202,9 @@ export function collectWorkbookCandidates(
         workbook,
       )
     : { lists: [], diagnostics: [] };
+  const noteRead = packageBytes
+    ? readExcelNotes(packageBytes)
+    : { notes: [], diagnostics: [] };
 
   const imageCandidateList = imageCandidates({
     source: sourceLabel,
@@ -205,6 +217,11 @@ export function collectWorkbookCandidates(
     sourceDigest,
     shapes: imageRead.shapes,
   });
+  const noteCandidateList = noteCandidates({
+    source: sourceLabel,
+    sourceDigest,
+    notes: noteRead.notes,
+  });
 
   return {
     sourceDigest,
@@ -215,14 +232,17 @@ export function collectWorkbookCandidates(
     tablesBySheet,
     imageRead,
     choiceRead,
+    noteRead,
     imageCandidateList,
     shapeCandidateList,
+    noteCandidateList,
     hierarchies,
     candidates: [
       ...tableItems.map((item) => item.candidate),
       ...imageCandidateList,
       ...shapeCandidateList,
       ...choiceRead.lists.map((item) => item.candidate),
+      ...noteCandidateList,
       ...hierarchies.flatMap(({ result }) => result.candidates),
     ],
   };

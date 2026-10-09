@@ -51,7 +51,7 @@ export interface DetachFreshnessOptions {
   ledgerPath: string;
 }
 
-interface ExtractedProvenance {
+export interface ExtractedProvenance {
   line: number;
   kind: 'image' | 'table-range' | 'tree';
   source: string;
@@ -186,7 +186,7 @@ export function checkExtractedProvenanceFreshness(
   return { checked, errors: problems.length, problems };
 }
 
-function extractedProvenance(markdown: string): ExtractedProvenance[] {
+export function extractedProvenance(markdown: string): ExtractedProvenance[] {
   const records: ExtractedProvenance[] = [];
   const lines = markdown.split(/\r?\n/u);
   let inFence = false;
