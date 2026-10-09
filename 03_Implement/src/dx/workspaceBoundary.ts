@@ -1,7 +1,10 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-import { isPathWithinBoundary } from '../core/pathResolver.js';
+import {
+  isPathWithinBoundary,
+  resolveSourcePath,
+} from '../core/pathResolver.js';
 
 /**
  * Candidate listing must use a path-segment boundary, not string-prefix
@@ -32,4 +35,30 @@ export function isWorkspaceFileCandidate(
   }
 
   return isPathWithinBoundary(candidate, boundary);
+}
+
+
+/**
+ * Resolves a source for guided authoring with the same precedence and
+ * containment rules as the renderer/diagnostics Authority path.
+ *
+ * - document-relative existing source first;
+ * - then workspace-root-relative existing source;
+ * - reject sources outside the workspace (including symlink escapes);
+ * - return undefined instead of reading an untrusted/unavailable source.
+ */
+export function resolveAuthoringSourcePath(
+  sourcePath: string,
+  markdownFilePath: string,
+  workspaceRoot?: string,
+): string | undefined {
+  try {
+    return resolveSourcePath({
+      markdownFilePath,
+      sourcePath,
+      workspaceRoot,
+    });
+  } catch {
+    return undefined;
+  }
 }
