@@ -79,6 +79,7 @@ import {
   reviewTabularHierarchyCandidates,
 } from './dx/candidateReviewFlow.js';
 import {
+  CATALOG_AUTHOR_SHEET_COMMAND_ID,
   CATALOG_INSERT_TABLE_COMMAND_ID,
   CATALOG_REFRESH_COMMAND_ID,
   CATALOG_SELECT_COMMAND_ID,
@@ -379,6 +380,40 @@ function registerTableCatalog(
     watcher.onDidCreate(workbookChanged),
     watcher.onDidDelete(workbookChanged),
     vscode.commands.registerCommand(CATALOG_REFRESH_COMMAND_ID, refresh),
+    vscode.commands.registerCommand(
+      CATALOG_AUTHOR_SHEET_COMMAND_ID,
+      async (node?: {
+        bookPath: string;
+        sheet: { name: string };
+      }) => {
+        const document = vscode.window.activeTextEditor?.document;
+        if (
+          !node?.sheet
+          || !document
+          || document.languageId !== 'markdown'
+          || document.uri.scheme !== 'file'
+        ) {
+          void vscode.window.showInformationMessage(
+            'MMI: Markdownを開いた状態で、表の目録のシートから実行してください。',
+          );
+          return;
+        }
+        await runAuthoringFlow(
+          authoringDependencies(),
+          {
+            parts: {
+              filepath: toRelativeSuggestion(
+                document.uri.fsPath,
+                node.bookPath,
+              ),
+              sheet: node.sheet.name,
+              segments: [],
+            },
+            step: 'range',
+          },
+        );
+      },
+    ),
     vscode.commands.registerCommand(CATALOG_INSERT_TABLE_COMMAND_ID, async (node?: { bookPath: string; table: CatalogTable }) => {
       if (node?.table) await confirm(partsFromResult(selectForActiveDocument(node.bookPath, { table: node.table.id })));
     }),

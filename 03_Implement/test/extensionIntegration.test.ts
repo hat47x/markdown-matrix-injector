@@ -432,6 +432,7 @@ test('extension integration boundaries keep canonical native providers and compa
       'onView:markdownMatrixInjector.tableCatalog',
       'onLanguage:markdown',
       'onCommand:markdownMatrixInjector.reviewTabularHierarchyCandidates',
+      'onCommand:markdownMatrixInjector.catalog.authorFromSheet',
     ],
   );
   assert.deepEqual(
@@ -456,6 +457,7 @@ test('extension integration boundaries keep canonical native providers and compa
       'markdownMatrixInjector.reviewHierarchyCandidates',
       'markdownMatrixInjector.reviewTabularHierarchyCandidates',
       'markdownMatrixInjector.catalog.refresh',
+      'markdownMatrixInjector.catalog.authorFromSheet',
       'markdownMatrixInjector.catalog.insertTable',
       'markdownMatrixInjector.catalog.selectFromTable',
     ],
@@ -504,6 +506,43 @@ test('workbook file events refresh Markdown preview only through the source-awar
   assert.match(
     source,
     /registerTableCatalog\(diagnostics\)/u,
+  );
+});
+
+test('table catalog sheets can fall back to explicit range authoring', async () => {
+  const [{ default: fs }, packageJsonModule] = await Promise.all([
+    import('node:fs/promises'),
+    import('../package.json', { with: { type: 'json' } }),
+  ]);
+  const source = await fs.readFile(
+    new URL('../src/extension.ts', import.meta.url),
+    'utf8',
+  );
+  const packageJson = packageJsonModule.default;
+
+  assert.ok(
+    packageJson.contributes.menus['view/item/context'].some(
+      (entry: { command: string; when?: string }) =>
+        entry.command
+          === 'markdownMatrixInjector.catalog.authorFromSheet'
+        && entry.when?.includes('viewItem == mmiSheet'),
+    ),
+  );
+  assert.ok(
+    packageJson.contributes.menus.commandPalette.some(
+      (entry: { command: string; when?: string }) =>
+        entry.command
+          === 'markdownMatrixInjector.catalog.authorFromSheet'
+        && entry.when === 'false',
+    ),
+  );
+  assert.match(
+    source,
+    /CATALOG_AUTHOR_SHEET_COMMAND_ID[\s\S]*step: 'range'/u,
+  );
+  assert.match(
+    source,
+    /sheet: node\.sheet\.name/u,
   );
 });
 
@@ -609,6 +648,7 @@ test('native provider metadata stays API-visible without collapsing command fall
     reviewHierarchyCandidates: 'Review Hierarchy Candidates from Explicit Table Columns',
     reviewTabularHierarchyCandidates: 'Review Tabular Hierarchy Candidates (choose sheet and explicit hierarchy columns)',
     'catalog.refresh': 'Refresh Table Catalog',
+    'catalog.authorFromSheet': 'Create Reference from This Sheet',
     'catalog.insertTable': 'Insert Reference to This Table',
     'catalog.selectFromTable': 'Choose Columns and Rows, Then Insert Reference',
   };

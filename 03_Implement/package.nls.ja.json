@@ -13,6 +13,7 @@
   "mmi.command.refreshLinkedPreviews": "参照中の表を再確認",
   "mmi.command.importFromWorkbook": "既存のExcel設計書から取り込み候補を作る（表は参照、画像はファイルとして取り込み）",
   "mmi.command.catalog.refresh": "表の目録を更新",
+  "mmi.command.catalog.authorFromSheet": "このシートから範囲を指定して参照を作成",
   "mmi.command.catalog.insertTable": "この表の参照を挿入",
   "mmi.command.catalog.selectFromTable": "列と行を選んで参照を挿入",
   "mmi.view.tableCatalog": "MMI 表の目録",

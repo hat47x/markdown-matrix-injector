@@ -40,7 +40,7 @@ export interface AuthoringDependencies {
 export interface AuthoringStart {
   parts: EmbedParts;
   /** Step to open on; earlier steps stay reachable with Back. */
-  step: 'options' | 'confirm';
+  step: 'range' | 'options' | 'confirm';
 }
 
 const SEARCH_SENTINEL = '__mmi_search__';

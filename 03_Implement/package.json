@@ -110,7 +110,8 @@
     "onCommand:markdownMatrixInjector.reviewHierarchyCandidates",
     "onView:markdownMatrixInjector.tableCatalog",
     "onLanguage:markdown",
-    "onCommand:markdownMatrixInjector.reviewTabularHierarchyCandidates"
+    "onCommand:markdownMatrixInjector.reviewTabularHierarchyCandidates",
+    "onCommand:markdownMatrixInjector.catalog.authorFromSheet"
   ],
   "contributes": {
     "markdown.markdownItPlugins": true,
@@ -220,6 +221,11 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "markdownMatrixInjector.catalog.authorFromSheet",
+        "title": "%mmi.command.catalog.authorFromSheet%",
+        "category": "MMI"
+      },
+      {
         "command": "markdownMatrixInjector.catalog.insertTable",
         "title": "%mmi.command.catalog.insertTable%",
         "category": "MMI",
@@ -250,6 +256,11 @@
       ],
       "view/item/context": [
         {
+          "command": "markdownMatrixInjector.catalog.authorFromSheet",
+          "when": "view == markdownMatrixInjector.tableCatalog && viewItem == mmiSheet",
+          "group": "navigation@1"
+        },
+        {
           "command": "markdownMatrixInjector.catalog.insertTable",
           "when": "view == markdownMatrixInjector.tableCatalog && viewItem == mmiTable",
           "group": "inline@1"
@@ -263,6 +274,10 @@
       "commandPalette": [
         {
           "command": "markdownMatrixInjector.showSourceImpact",
+          "when": "false"
+        },
+        {
+          "command": "markdownMatrixInjector.catalog.authorFromSheet",
           "when": "false"
         },
         {

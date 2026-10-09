@@ -13,6 +13,7 @@
   "mmi.command.refreshLinkedPreviews": "Refresh Linked Table Previews",
   "mmi.command.importFromWorkbook": "Import from Workbook (draft with live table references and extracted image assets)",
   "mmi.command.catalog.refresh": "Refresh Table Catalog",
+  "mmi.command.catalog.authorFromSheet": "Create Reference from This Sheet",
   "mmi.command.catalog.insertTable": "Insert Reference to This Table",
   "mmi.command.catalog.selectFromTable": "Choose Columns and Rows, Then Insert Reference",
   "mmi.view.tableCatalog": "MMI Table Catalog",
