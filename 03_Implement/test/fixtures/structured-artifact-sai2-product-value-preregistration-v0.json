@@ -1,0 +1,119 @@
+{
+  "schema": "hat47x.structured-artifact-sai2-product-value-preregistration/v0",
+  "experiment_id": "sai-2-product-value-pilot-v0",
+  "status": "preregistered_before_product_value_fixture_open",
+  "research_question": "Does provenance-bound structural range assistance reduce unsafe or costly range correction for common SIer worksheet patterns without increasing false confident proposals?",
+  "upstream": {
+    "candidate_generator_id": "sai2-occupancy-blocks-v0",
+    "frozen_rules_specification_ref": "03_Implement/test/fixtures/structured-artifact-sai2-ranker-specification-v0.json",
+    "sai2a_closeout_ref": "03_Implement/test/fixtures/structured-artifact-sai2-research-closeout-v0.json",
+    "correction_contract_ref": "02_Architecture/structured-artifact-range-correction-v0.md",
+    "existing_sai2a_final_holdout_reused": false
+  },
+  "product_value_fixture_split": {
+    "split_id": "sai-2-product-value-pilot-holdout-v0",
+    "must_be_frozen_before_scoring": true,
+    "minimum_source_family_groups": 15,
+    "minimum_groups_per_fixture_family": 3,
+    "fixture_families": [
+      "requirements-list",
+      "permission-matrix",
+      "interface-list",
+      "screen-field-list",
+      "test-case-list"
+    ],
+    "target_modes": [
+      "clear_target",
+      "abstain"
+    ],
+    "source_binding_required": [
+      "source_family_id",
+      "source_digest"
+    ],
+    "target_authority": "human-frozen-before-ranking",
+    "raw_cell_text_required": false,
+    "existing_sai2a_fit_selection_holdout_groups_forbidden": true
+  },
+  "methods": [
+    {
+      "method_id": "first-candidate-v0",
+      "family": "no-ranking-baseline",
+      "behavior": "When the candidate generator returns one or more candidates, propose candidate ordinal 1; otherwise abstain.",
+      "parameter_fit": false
+    },
+    {
+      "method_id": "rules-v0",
+      "family": "frozen-deterministic-ranker",
+      "behavior": "Use the already frozen rules-v0 score and sheet decision contract from the SAI-2A ranker specification.",
+      "parameter_fit": false,
+      "refit": false,
+      "threshold_change": false
+    }
+  ],
+  "metric_order": [
+    {
+      "metric": "false_proposal_rate_on_abstain",
+      "direction": "ascending",
+      "scope": "all abstain-target groups"
+    },
+    {
+      "metric": "abstention_rate_on_clear_targets",
+      "direction": "ascending",
+      "scope": "all clear-target groups"
+    },
+    {
+      "metric": "exact_range_recall_at_1",
+      "direction": "descending",
+      "scope": "all clear-target groups"
+    },
+    {
+      "metric": "mean_under_selected_cell_count",
+      "direction": "ascending",
+      "scope": "proposed clear-target groups"
+    },
+    {
+      "metric": "mean_boundary_edit_distance",
+      "direction": "ascending",
+      "scope": "proposed clear-target groups"
+    },
+    {
+      "metric": "mean_over_selected_cell_count",
+      "direction": "ascending",
+      "scope": "proposed clear-target groups"
+    },
+    {
+      "metric": "mean_context_expansion_ratio",
+      "direction": "ascending",
+      "scope": "proposed clear-target groups"
+    }
+  ],
+  "promotion_rule": {
+    "runtime_promotion_performed": false,
+    "research_winner_only": true,
+    "require_non_worse_false_proposal_rate_on_abstain": true,
+    "require_non_worse_abstention_rate_on_clear_targets": true,
+    "require_non_worse_exact_range_recall_at_1": true,
+    "if_all_priority_metrics_tie": "prefer first-candidate-v0 because it is the simpler method",
+    "learned_method_admission": "No learned method is added unless a separately preregistered new experiment shows a material advantage over the simpler deterministic winner."
+  },
+  "human_value_followup": {
+    "included_in_this_pilot": false,
+    "next_phase_metrics": [
+      "actual_review_actions",
+      "elapsed_time",
+      "materialized_context_bytes",
+      "materialized_context_tokens"
+    ],
+    "geometric_proxy_must_not_be_reported_as_human_time_saving": true
+  },
+  "boundary": {
+    "source_read_only": true,
+    "target_fields_visible_to_candidate_generation": false,
+    "target_fields_visible_to_ranking": false,
+    "result_changes_mmi_reference": false,
+    "product_runtime_authority": false,
+    "final_holdout_reopen": false,
+    "threshold_tuning_after_open": false,
+    "target_redesign_after_open": false
+  }
+}
