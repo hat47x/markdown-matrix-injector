@@ -89,7 +89,10 @@ import type { SelectionRequest } from './navigate/select.js';
 import { createEmbedHoverProvider } from './dx/embedHover.js';
 import { confirmedCopySource, isConfirmedSource, warmCopySource, withSource } from './dx/copySource.js';
 import { stopClipboardHelper } from './dx/windowsClipboard.js';
-import { markdownReferencesWorkbook } from './dx/previewRefresh.js';
+import {
+  createWorkbookRefreshBatchScheduler,
+  markdownReferencesWorkbook,
+} from './dx/previewRefresh.js';
 
 /** Set on activation; the clipboard reader script ships under media/clipboard. */
 let extensionRootPath = '';
@@ -253,6 +256,21 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
       clearSearchIndexes();
       void vscode.window.showInformationMessage('MMI: 表の検索索引を消去しました（メモリ上のみに保持していました）。');
     }),
+    vscode.commands.registerCommand(
+      REFRESH_LINKED_PREVIEWS_COMMAND_ID,
+      async () => {
+        clearWorkbookPreviewCaches();
+        await refreshLinkedMarkdownViews(
+          vscode.workspace.textDocuments.filter(
+            (document) =>
+              document.languageId === 'markdown'
+              && !document.isUntitled
+              && document.uri.scheme === 'file',
+          ),
+          diagnostics,
+        );
+      },
+    ),
     vscode.languages.registerCodeActionsProvider(MARKDOWN_SELECTOR, createEmbedFixProvider(WORKBOOK_FILE_GLOB), {
       providedCodeActionKinds: [vscode.CodeActionKind.QuickFix, vscode.CodeActionKind.RefactorRewrite],
     }),
@@ -295,12 +313,19 @@ export function deactivate(): void {
 }
 
 const CLEAR_SEARCH_INDEX_COMMAND_ID = 'markdownMatrixInjector.clearSearchIndex';
+const REFRESH_LINKED_PREVIEWS_COMMAND_ID =
+  'markdownMatrixInjector.refreshLinkedPreviews';
 
 /** Preview rendering for hover and the guided flow: the real engine with one mtime cache. */
 const previewRenderCache = new WorkbookCache<WorkbookData>();
 /** Shared cache for the built-in Markdown preview plugin; cleared on relevant workbook file events. */
 const markdownPreviewWorkbookCache = new WorkbookCache<WorkbookData>();
 const MARKDOWN_PREVIEW_REFRESH_COMMAND = 'markdown.preview.refresh';
+
+function clearWorkbookPreviewCaches(): void {
+  previewRenderCache.clear();
+  markdownPreviewWorkbookCache.clear();
+}
 
 async function renderEmbedCached(markdown: string, markdownFilePath: string, workspaceRoot?: string): Promise<string> {
   const md = new MarkdownIt();
@@ -315,9 +340,19 @@ function registerTableCatalog(
   const catalog = new TableCatalogProvider(WORKBOOK_FILE_GLOB);
   const watcher = vscode.workspace.createFileSystemWatcher(WORKBOOK_FILE_GLOB);
   const refresh = (): void => catalog.refresh();
+  const previewRefresh = createWorkbookRefreshBatchScheduler({
+    flush: (sourcePaths) =>
+      refreshMarkdownViewsForWorkbooks(sourcePaths, diagnostics),
+    onError: (error) => {
+      console.warn(
+        'MMI: workbook-driven Markdown refresh failed:',
+        error,
+      );
+    },
+  });
   const workbookChanged = (uri: vscode.Uri): void => {
     refresh();
-    void refreshMarkdownPreviewForWorkbook(uri, diagnostics);
+    if (uri.scheme === 'file') previewRefresh.schedule(uri.fsPath);
   };
   // Selected parts go to the confirm step (real rendering), never straight into the document.
   const confirm = async (parts: ReturnType<typeof partsFromResult>): Promise<void> => {
@@ -326,6 +361,7 @@ function registerTableCatalog(
   return [
     vscode.window.registerTreeDataProvider(CATALOG_VIEW_ID, catalog),
     watcher,
+    previewRefresh,
     watcher.onDidChange(workbookChanged),
     watcher.onDidCreate(workbookChanged),
     watcher.onDidDelete(workbookChanged),
@@ -356,11 +392,11 @@ function registerTableCatalog(
   ];
 }
 
-async function refreshMarkdownPreviewForWorkbook(
-  uri: vscode.Uri,
+async function refreshMarkdownViewsForWorkbooks(
+  sourcePaths: readonly string[],
   diagnostics: vscode.DiagnosticCollection,
 ): Promise<void> {
-  if (uri.scheme !== 'file') return;
+  if (sourcePaths.length === 0) return;
 
   const affectedDocuments = vscode.workspace.textDocuments.filter(
     (document) => {
@@ -373,41 +409,48 @@ async function refreshMarkdownPreviewForWorkbook(
       }
       const workspaceRoot =
         vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath;
-      return markdownReferencesWorkbook(
-        document.getText(),
-        document.uri.fsPath,
-        uri.fsPath,
-        workspaceRoot,
+      return sourcePaths.some((sourcePath) =>
+        markdownReferencesWorkbook(
+          document.getText(),
+          document.uri.fsPath,
+          sourcePath,
+          workspaceRoot,
+        ),
       );
     },
   );
   if (affectedDocuments.length === 0) return;
 
-  // Do not trust an old in-memory workbook after an external Excel save.
-  // This also covers rapid saves whose filesystem timestamp granularity could
-  // otherwise make a cache entry look current.
-  previewRenderCache.clear();
-  markdownPreviewWorkbookCache.clear();
+  clearWorkbookPreviewCaches();
+  await refreshLinkedMarkdownViews(affectedDocuments, diagnostics);
+}
 
-  // Workbook changes can invalidate more than the rendered values: sheet
-  // names, ranges and expected headers may have changed or disappeared.
-  await Promise.all(
-    affectedDocuments.map((document) =>
-      refreshDiagnosticsForDocument(
-        document,
-        diagnostics,
-        'review',
-      )),
-  );
+async function refreshLinkedMarkdownViews(
+  documents: readonly vscode.TextDocument[],
+  diagnostics: vscode.DiagnosticCollection,
+): Promise<void> {
+  const diagnosticRefreshes = documents.map(async (document) => {
+    try {
+      await refreshDiagnosticsForDocument(document, diagnostics, 'review');
+    } catch (error) {
+      // A workbook save can temporarily make the source unreadable. Do not
+      // leave an old success-looking diagnostic state attached to that source.
+      diagnostics.delete(document.uri);
+      console.warn(
+        `MMI: diagnostics refresh failed for ${document.uri.fsPath}:`,
+        error,
+      );
+    }
+  });
 
   try {
-    await vscode.commands.executeCommand(
-      MARKDOWN_PREVIEW_REFRESH_COMMAND,
-    );
+    await vscode.commands.executeCommand(MARKDOWN_PREVIEW_REFRESH_COMMAND);
   } catch {
-    // The built-in Markdown preview may not be active. The cleared caches and
-    // refreshed diagnostics still make the next user action re-read the source.
+    // The built-in Markdown preview may not be active. Cache invalidation and
+    // diagnostics refresh still make the next explicit render use current data.
   }
+
+  await Promise.all(diagnosticRefreshes);
 }
 
 function authoringDependencies(): AuthoringDependencies {
