@@ -94,7 +94,8 @@ function inspectMarkdownArtifact(
       });
     }
 
-    if (/^\s*>\s*別紙:/u.test(line)) {
+    // The card may be nested in blockquotes; the colon may be ASCII or full-width (U+FF1A).
+    if (/^\s*(?:>\s*)+別紙[:：]/u.test(line)) {
       problems.push({
         file,
         line: index + 1,
@@ -165,10 +166,20 @@ function isMarkdownArtifact(filePath: string): boolean {
   return /\.(?:md|markdown)$/iu.test(filePath);
 }
 
-function markdownLinkTargets(line: string): string[] {
+const INLINE_CODE_SPAN = /(`+)(?:(?!\1).)+?\1/gu;
+
+/**
+ * Blank inline code spans so that link-like text inside them is not a link.
+ * A space replaces each span, so a span between `]` and `(` still breaks the link.
+ */
+function stripInlineCode(line: string): string {
+  return line.replace(INLINE_CODE_SPAN, ' ');
+}
+
+export function markdownLinkTargets(line: string): string[] {
   const targets: string[] = [];
   const pattern = /!?\[[^\]]*\]\((?<target>[^)]+)\)/gu;
-  for (const match of line.matchAll(pattern)) {
+  for (const match of stripInlineCode(line).matchAll(pattern)) {
     const raw = match.groups?.target?.trim();
     if (!raw) continue;
     // A destination may be followed by a Markdown title. Paths containing
