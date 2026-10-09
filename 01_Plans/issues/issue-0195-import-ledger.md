@@ -42,7 +42,13 @@ lineage reconciliationは自動同一視を行わず、過去entryを候補と�
 
 人手レビュー済みCandidateの履歴は、source/content/Claim basisだけでなく**保存そのものもfail-safe**である必要がある。台帳更新は同一ディレクトリの一時ファイルへ完全なJSONを書き、`fsync`後にrenameで置換する。置換前に失敗した場合は既存`mmi-ledger.json`を維持し、一時ファイルを残さない。既存台帳を置換する場合はfile modeを引き継ぐ。
 
-これは同時更新のマージを自動化するものではなく、単一更新の途中失敗でreview historyを破損させないdurability boundaryである。複数writerの競合制御が必要になった場合は別途扱う。
+## Hardening checkpoint (2026-10-09)
+
+atomic renameだけでは、複数のMMIプロセスが同じ台帳を同時にread→merge→writeした場合のlost updateを防げない。人手レビュー結果を黙って失うことは許容できないため、`recordEntries()`は台帳と同じディレクトリの排他lockを取得してから最新台帳を読み、mergeとatomic replaceを行う。
+
+別writerがlockを保持している場合、後続writerは既存履歴を上書きせずfail-closedで終了する。lockは成功時・通常の書込失敗時に除去する。プロセス異常終了で残ったlockは、稼働中writerを誤って排除しないよう自動削除しない。利用者が他のMMI処理が動いていないことを確認したうえで扱う。
+
+この境界はレビュー判断の自動マージではない。同じoccurrenceへの競合判断を勝手に解決せず、**履歴を失わないことを優先して再実行を要求する**。
 
 ## Validation plan
 issue-0194のテスト用ブックで、画像を1件取り込んだ後に`inspect --unimported`から外れること、ブック内の別シートにある同じ画像が「完全一致」と示されること、画像を差し替えると「変更あり」と示されることを確かめる。
