@@ -69,6 +69,7 @@ export async function runIntegrationTests(): Promise<void> {
   await runStage('diagnostics', () => verifyDiagnosticsIntegration(workspaceRoot));
   await runStage('hover-and-authoring', () => verifyHoverAndAuthoringEntry(workspaceRoot));
   await runStage('guided-flows-scripted', () => verifyGuidedFlowsScripted(workspaceRoot));
+  await runStage('search-observation-recording', () => verifySearchObservationRecording(workspaceRoot));
   logStage('paste-drop-proof-boundary:post-autocomplete', {
     autocompleteSheetCompletionStable: autocompleteResult.sheetCompletionStable,
     autocompleteKnownUnstableReason: autocompleteResult.knownUnstableReason,
@@ -259,6 +260,45 @@ async function verifyGuidedFlowsScripted(workspaceRoot: string): Promise<void> {
   );
   assert.match(refused.items[0], /MMI記法で表せません/u);
   assert.equal(refused.transcript.length, 0);
+}
+
+/**
+ * The local search-demand observation (ADR-0023, issue-0207) on the real host: with the setting on,
+ * two scripted searches are recorded, and by default no request text or table name is stored.
+ */
+async function verifySearchObservationRecording(workspaceRoot: string): Promise<void> {
+  const config = vscode.workspace.getConfiguration('markdownMatrixInjector');
+  await config.update('search.observation.enabled', true, vscode.ConfigurationTarget.Workspace);
+  try {
+    await vscode.commands.executeCommand('markdownMatrixInjector.__test.clearSearchObservations');
+    const blank = await openMarkdownDocument(path.join(workspaceRoot, 'docs', 'observation.md'), '# Observe\n\n');
+    const editor = await vscode.window.showTextDocument(blank);
+    editor.selection = new vscode.Selection(2, 0, 2, 0);
+
+    // A request that finds a table, then one the notation cannot express.
+    const found = await vscode.commands.executeCommand<{ items: string[]; transcript: Transcript }>(
+      'markdownMatrixInjector.__test.findAndAuthorScripted',
+      { query: 'release-gate', pick: 0, answers: ['insert'] },
+    );
+    assert.ok(found.transcript.length > 0, 'The first search must yield a candidate.');
+    await vscode.commands.executeCommand<{ items: string[]; transcript: Transcript }>(
+      'markdownMatrixInjector.__test.findAndAuthorScripted',
+      { query: 'release-gateをStatus別に集計', pick: 0, answers: ['insert'] },
+    );
+
+    const records = await vscode.commands.executeCommand<{ final: { class: string; text?: string }; outcome: string }[]>(
+      'markdownMatrixInjector.__test.searchObservationRecords',
+    );
+    assert.equal(records.length, 2, `Two searches must leave two records. Got ${records.length}.`);
+    assert.deepEqual(records.map((record) => record.final.class), ['found', 'unsupported-op']);
+    assert.deepEqual(records.map((record) => record.outcome), ['picked-candidate', 'cancelled']);
+    const raw = JSON.stringify(records);
+    assert.ok(!raw.includes('release-gate'), 'The request text and table names must not be stored by default.');
+    assert.ok(records.every((record) => record.final.text === undefined), 'No record may hold request text by default.');
+  } finally {
+    await config.update('search.observation.enabled', undefined, vscode.ConfigurationTarget.Workspace);
+    await vscode.commands.executeCommand('markdownMatrixInjector.__test.clearSearchObservations');
+  }
 }
 
 async function verifyHoverAndAuthoringEntry(workspaceRoot: string): Promise<void> {

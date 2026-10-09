@@ -16,6 +16,8 @@ import { toRelativeSuggestion } from './vscodeAdapters.js';
 
 export const CATALOG_VIEW_ID = 'markdownMatrixInjector.tableCatalog';
 export const CATALOG_REFRESH_COMMAND_ID = 'markdownMatrixInjector.catalog.refresh';
+export const CATALOG_AUTHOR_SHEET_COMMAND_ID =
+  'markdownMatrixInjector.catalog.authorFromSheet';
 export const CATALOG_INSERT_TABLE_COMMAND_ID = 'markdownMatrixInjector.catalog.insertTable';
 export const CATALOG_SELECT_COMMAND_ID = 'markdownMatrixInjector.catalog.selectFromTable';
 

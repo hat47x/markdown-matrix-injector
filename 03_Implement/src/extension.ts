@@ -56,11 +56,16 @@ import { clearSearchIndexes, FIND_EMBED_COMMAND_ID, scriptedSearch, searchEmbedB
 import {
   createSearchObservationHost,
   registerSearchObservationCommands,
+  registerSearchObservationTestCommands,
   showSearchObservationNoticeOnce,
 } from './dx/searchObservationHost.js';
 import { SELECT_LOCAL_SEMANTIC_MODEL_COMMAND_ID, selectLocalSemanticModel } from './dx/semanticSetupFlow.js';
 import { selectContainedWorkbookFilesDetailed } from './dx/workbookCandidateOrder.js';
 import { findUnknownProseIds, UNKNOWN_PROSE_ID_CODE } from './application/proseIdCheck.js';
+import {
+  analyzeSourceImpact,
+  type SourceImpactRecord,
+} from './application/sourceImpact.js';
 import { referencedSheets, unknownIdMessage } from './application/referencedSheets.js';
 import { readWorkbookStructure } from './importAssist/workbookStructure.js';
 import { applyDiagnosticPolicy, AUTHORING_DEBOUNCE_MS, type DiagnosticPhase, type WhileTyping } from './dx/diagnosticPolicy.js';
@@ -74,6 +79,7 @@ import {
   reviewTabularHierarchyCandidates,
 } from './dx/candidateReviewFlow.js';
 import {
+  CATALOG_AUTHOR_SHEET_COMMAND_ID,
   CATALOG_INSERT_TABLE_COMMAND_ID,
   CATALOG_REFRESH_COMMAND_ID,
   CATALOG_SELECT_COMMAND_ID,
@@ -88,6 +94,10 @@ import type { SelectionRequest } from './navigate/select.js';
 import { createEmbedHoverProvider } from './dx/embedHover.js';
 import { confirmedCopySource, isConfirmedSource, warmCopySource, withSource } from './dx/copySource.js';
 import { stopClipboardHelper } from './dx/windowsClipboard.js';
+import {
+  createWorkbookRefreshBatchScheduler,
+  markdownReferencesWorkbook,
+} from './dx/previewRefresh.js';
 
 /** Set on activation; the clipboard reader script ships under media/clipboard. */
 let extensionRootPath = '';
@@ -111,6 +121,8 @@ const FALLBACK_COMMAND_IDS = [
 ] as const;
 const NATIVE_PASTE_DROP_COMMAND_NAME = 'Insert Markdown Matrix embed';
 const CONTENT_MATCH_PASTE_COMMAND_ID = 'markdownMatrixInjector.insertEmbedByContentMatch';
+const SHOW_SOURCE_IMPACT_COMMAND_ID =
+  'markdownMatrixInjector.showSourceImpact';
 /**
  * Safety cap on how many workspace files a single content-match search will
  * load, independent of `findContentMatches`'s own per-sheet `maxIndexedCells`
@@ -198,6 +210,13 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
     vscode.commands.registerCommand('markdownMatrixInjector.openSource', (sourcePath?: unknown) =>
       openEmbedSource(sourcePath),
     ),
+    vscode.commands.registerCommand(
+      SHOW_SOURCE_IMPACT_COMMAND_ID,
+      (target?: vscode.Uri) =>
+        showSourceImpact(
+          target instanceof vscode.Uri ? target : undefined,
+        ),
+    ),
     vscode.commands.registerCommand(CONTENT_MATCH_PASTE_COMMAND_ID, () => insertEmbedByContentMatch()),
     vscode.commands.registerCommand(AUTHOR_EMBED_COMMAND_ID, async (at?: { uri?: string; line?: number; character?: number }) => {
       // From a hover / code action: act on that embed, not wherever the cursor happens to be.
@@ -245,12 +264,27 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
           target instanceof vscode.Uri ? target : undefined,
         ),
     ),
-    ...registerTableCatalog(),
+    ...registerTableCatalog(diagnostics),
     ...registerSearchObservationCommands(context),
     vscode.commands.registerCommand(CLEAR_SEARCH_INDEX_COMMAND_ID, () => {
       clearSearchIndexes();
       void vscode.window.showInformationMessage('MMI: 表の検索索引を消去しました（メモリ上のみに保持していました）。');
     }),
+    vscode.commands.registerCommand(
+      REFRESH_LINKED_PREVIEWS_COMMAND_ID,
+      async () => {
+        clearWorkbookPreviewCaches();
+        await refreshLinkedMarkdownViews(
+          vscode.workspace.textDocuments.filter(
+            (document) =>
+              document.languageId === 'markdown'
+              && !document.isUntitled
+              && document.uri.scheme === 'file',
+          ),
+          diagnostics,
+        );
+      },
+    ),
     vscode.languages.registerCodeActionsProvider(MARKDOWN_SELECTOR, createEmbedFixProvider(WORKBOOK_FILE_GLOB), {
       providedCodeActionKinds: [vscode.CodeActionKind.QuickFix, vscode.CodeActionKind.RefactorRewrite],
     }),
@@ -273,7 +307,7 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
   );
 
   if (shouldRegisterTestCommands(context)) {
-    context.subscriptions.push(...registerTestCommands(nativePasteDropState));
+    context.subscriptions.push(...registerTestCommands(nativePasteDropState, context));
   }
 
   registerNativePasteDropProviders(context, nativePasteDropState);
@@ -293,9 +327,19 @@ export function deactivate(): void {
 }
 
 const CLEAR_SEARCH_INDEX_COMMAND_ID = 'markdownMatrixInjector.clearSearchIndex';
+const REFRESH_LINKED_PREVIEWS_COMMAND_ID =
+  'markdownMatrixInjector.refreshLinkedPreviews';
 
 /** Preview rendering for hover and the guided flow: the real engine with one mtime cache. */
 const previewRenderCache = new WorkbookCache<WorkbookData>();
+/** Shared cache for the built-in Markdown preview plugin; cleared on relevant workbook file events. */
+const markdownPreviewWorkbookCache = new WorkbookCache<WorkbookData>();
+const MARKDOWN_PREVIEW_REFRESH_COMMAND = 'markdown.preview.refresh';
+
+function clearWorkbookPreviewCaches(): void {
+  previewRenderCache.clear();
+  markdownPreviewWorkbookCache.clear();
+}
 
 async function renderEmbedCached(markdown: string, markdownFilePath: string, workspaceRoot?: string): Promise<string> {
   const md = new MarkdownIt();
@@ -304,10 +348,26 @@ async function renderEmbedCached(markdown: string, markdownFilePath: string, wor
 }
 
 /** The Explorer's table catalog and its actions (dx/tableCatalogView.ts). */
-function registerTableCatalog(): vscode.Disposable[] {
+function registerTableCatalog(
+  diagnostics: vscode.DiagnosticCollection,
+): vscode.Disposable[] {
   const catalog = new TableCatalogProvider(WORKBOOK_FILE_GLOB);
   const watcher = vscode.workspace.createFileSystemWatcher(WORKBOOK_FILE_GLOB);
   const refresh = (): void => catalog.refresh();
+  const previewRefresh = createWorkbookRefreshBatchScheduler({
+    flush: (sourcePaths) =>
+      refreshMarkdownViewsForWorkbooks(sourcePaths, diagnostics),
+    onError: (error) => {
+      console.warn(
+        'MMI: workbook-driven Markdown refresh failed:',
+        error,
+      );
+    },
+  });
+  const workbookChanged = (uri: vscode.Uri): void => {
+    refresh();
+    if (uri.scheme === 'file') previewRefresh.schedule(uri.fsPath);
+  };
   // Selected parts go to the confirm step (real rendering), never straight into the document.
   const confirm = async (parts: ReturnType<typeof partsFromResult>): Promise<void> => {
     if (parts) await runAuthoringFlow(authoringDependencies(), { parts, step: 'confirm' });
@@ -315,10 +375,45 @@ function registerTableCatalog(): vscode.Disposable[] {
   return [
     vscode.window.registerTreeDataProvider(CATALOG_VIEW_ID, catalog),
     watcher,
-    watcher.onDidChange(refresh),
-    watcher.onDidCreate(refresh),
-    watcher.onDidDelete(refresh),
+    previewRefresh,
+    watcher.onDidChange(workbookChanged),
+    watcher.onDidCreate(workbookChanged),
+    watcher.onDidDelete(workbookChanged),
     vscode.commands.registerCommand(CATALOG_REFRESH_COMMAND_ID, refresh),
+    vscode.commands.registerCommand(
+      CATALOG_AUTHOR_SHEET_COMMAND_ID,
+      async (node?: {
+        bookPath: string;
+        sheet: { name: string };
+      }) => {
+        const document = vscode.window.activeTextEditor?.document;
+        if (
+          !node?.sheet
+          || !document
+          || document.languageId !== 'markdown'
+          || document.uri.scheme !== 'file'
+        ) {
+          void vscode.window.showInformationMessage(
+            'MMI: Markdownを開いた状態で、表の目録のシートから実行してください。',
+          );
+          return;
+        }
+        await runAuthoringFlow(
+          authoringDependencies(),
+          {
+            parts: {
+              filepath: toRelativeSuggestion(
+                document.uri.fsPath,
+                node.bookPath,
+              ),
+              sheet: node.sheet.name,
+              segments: [],
+            },
+            step: 'range',
+          },
+        );
+      },
+    ),
     vscode.commands.registerCommand(CATALOG_INSERT_TABLE_COMMAND_ID, async (node?: { bookPath: string; table: CatalogTable }) => {
       if (node?.table) await confirm(partsFromResult(selectForActiveDocument(node.bookPath, { table: node.table.id })));
     }),
@@ -343,6 +438,67 @@ function registerTableCatalog(): vscode.Disposable[] {
         ]
       : []),
   ];
+}
+
+async function refreshMarkdownViewsForWorkbooks(
+  sourcePaths: readonly string[],
+  diagnostics: vscode.DiagnosticCollection,
+): Promise<void> {
+  if (sourcePaths.length === 0) return;
+
+  const affectedDocuments = vscode.workspace.textDocuments.filter(
+    (document) => {
+      if (
+        document.languageId !== 'markdown'
+        || document.isUntitled
+        || document.uri.scheme !== 'file'
+      ) {
+        return false;
+      }
+      const workspaceRoot =
+        vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath;
+      return sourcePaths.some((sourcePath) =>
+        markdownReferencesWorkbook(
+          document.getText(),
+          document.uri.fsPath,
+          sourcePath,
+          workspaceRoot,
+        ),
+      );
+    },
+  );
+  if (affectedDocuments.length === 0) return;
+
+  clearWorkbookPreviewCaches();
+  await refreshLinkedMarkdownViews(affectedDocuments, diagnostics);
+}
+
+async function refreshLinkedMarkdownViews(
+  documents: readonly vscode.TextDocument[],
+  diagnostics: vscode.DiagnosticCollection,
+): Promise<void> {
+  const diagnosticRefreshes = documents.map(async (document) => {
+    try {
+      await refreshDiagnosticsForDocument(document, diagnostics, 'review');
+    } catch (error) {
+      // A workbook save can temporarily make the source unreadable. Do not
+      // leave an old success-looking diagnostic state attached to that source.
+      diagnostics.delete(document.uri);
+      console.warn(
+        `MMI: diagnostics refresh failed for ${document.uri.fsPath}:`,
+        error,
+      );
+    }
+  });
+
+  try {
+    await vscode.commands.executeCommand(MARKDOWN_PREVIEW_REFRESH_COMMAND);
+  } catch {
+    // The built-in Markdown preview may not be active. Cache invalidation and
+    // diagnostics refresh still make the next explicit render use current data.
+  }
+
+  await Promise.all(diagnosticRefreshes);
 }
 
 function authoringDependencies(): AuthoringDependencies {
@@ -373,9 +529,8 @@ export async function renderEmbedForTest(args: RenderEmbedForTestArgs): Promise<
  * across preview re-renders.
  */
 export function extendMarkdownIt(md: MarkdownIt): MarkdownIt {
-  const cache = new WorkbookCache<WorkbookData>();
   return md.use(markdownMatrixPlugin, {
-    cache,
+    cache: markdownPreviewWorkbookCache,
     uriScheme: vscode.env.uriScheme,
     resolveWorkspaceRoot: (markdownFilePath: string) =>
       vscode.workspace.getWorkspaceFolder(vscode.Uri.file(markdownFilePath))?.uri.fsPath,
@@ -450,6 +605,113 @@ async function openEmbedSource(sourcePath: unknown): Promise<void> {
     const reason = error instanceof Error ? error.message : String(error);
     void vscode.window.showErrorMessage(`MMI: Failed to open ${sourcePath}: ${reason}`);
   }
+}
+
+interface SourceImpactPickItem extends vscode.QuickPickItem {
+  documentPath: string;
+  line: number;
+}
+
+async function showSourceImpact(target?: vscode.Uri): Promise<void> {
+  if (!target || target.scheme !== 'file') {
+    void vscode.window.showInformationMessage(
+      'MMI: エクスプローラーで原本ファイルを選び、「この原本を参照中のMarkdownを確認」を実行してください。',
+    );
+    return;
+  }
+
+  const workspaceFolder = vscode.workspace.getWorkspaceFolder(target);
+  if (!workspaceFolder || workspaceFolder.uri.scheme !== 'file') {
+    void vscode.window.showWarningMessage(
+      'MMI: 影響分析はローカルワークスペース内の原本ファイルを対象にします。',
+    );
+    return;
+  }
+
+  let report;
+  try {
+    report = analyzeSourceImpact({
+      sourcePath: target.fsPath,
+      workspaceRoot: workspaceFolder.uri.fsPath,
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(
+      `MMI: 参照影響を確認できませんでした: ${reason}`,
+    );
+    return;
+  }
+
+  if (report.impacts.length === 0) {
+    void vscode.window.showInformationMessage(
+      `MMI: ${path.basename(target.fsPath)} を参照するMarkdownは見つかりませんでした。`,
+    );
+    return;
+  }
+
+  const picked = await vscode.window.showQuickPick<SourceImpactPickItem>(
+    report.impacts.map((impact) =>
+      sourceImpactPickItem(
+        impact,
+        workspaceFolder.uri.fsPath,
+      )),
+    {
+      title:
+        `MMI: ${path.basename(target.fsPath)} の参照先（${report.counts.total}件）`,
+      placeHolder: '開くMarkdownと行を選択',
+      matchOnDescription: true,
+      matchOnDetail: true,
+    },
+  );
+  if (!picked) return;
+
+  const document = await vscode.workspace.openTextDocument(
+    vscode.Uri.file(picked.documentPath),
+  );
+  const editor = await vscode.window.showTextDocument(
+    document,
+    { preview: true },
+  );
+  const line = Math.min(
+    Math.max(0, picked.line - 1),
+    Math.max(0, document.lineCount - 1),
+  );
+  const range = document.lineAt(line).range;
+  editor.selection = new vscode.Selection(
+    range.start,
+    range.start,
+  );
+  editor.revealRange(
+    range,
+    vscode.TextEditorRevealType.InCenterIfOutsideViewport,
+  );
+}
+
+function sourceImpactPickItem(
+  impact: SourceImpactRecord,
+  workspaceRoot: string,
+): SourceImpactPickItem {
+  const relation = impact.relation === 'linked'
+    ? 'Linked参照'
+    : impact.relation === 'extracted'
+      ? 'Extracted'
+      : 'ローカルリンク';
+  const context = [
+    impact.sheet ? `シート: ${impact.sheet}` : '',
+    impact.place ? `位置: ${impact.place}` : '',
+    impact.resolution === 'path-only' ? '旧パス一致' : '',
+  ].filter(Boolean).join(' · ');
+
+  return {
+    label: `$(references) ${impact.document}:${impact.line}`,
+    description: relation,
+    ...(context ? { detail: context } : {}),
+    documentPath: path.resolve(
+      workspaceRoot,
+      impact.document,
+    ),
+    line: impact.line,
+  };
 }
 
 /**
@@ -844,8 +1106,9 @@ function shouldRegisterTestCommands(context: vscode.ExtensionContext): boolean {
   return context.extensionMode === vscode.ExtensionMode.Test || process.env[ENABLE_TEST_COMMANDS_ENV_VAR] === '1';
 }
 
-function registerTestCommands(nativePasteDropState: NativePasteDropState): vscode.Disposable[] {
+function registerTestCommands(nativePasteDropState: NativePasteDropState, context: vscode.ExtensionContext): vscode.Disposable[] {
   return [
+    ...registerSearchObservationTestCommands(context),
     // Guided flows with scripted choices: same code path as the QuickPicks, only the choice is given.
     vscode.commands.registerCommand(
       'markdownMatrixInjector.__test.runAuthoringScripted',
@@ -860,7 +1123,13 @@ function registerTestCommands(nativePasteDropState: NativePasteDropState): vscod
       async (args: { query: string; pick: number; answers: ScriptedAnswer[] }) => {
         const document = vscode.window.activeTextEditor?.document;
         if (!document) return undefined;
-        const found = await scriptedSearch(document, WORKBOOK_FILE_GLOB, args.query, args.pick);
+        const found = await scriptedSearch(
+          document,
+          WORKBOOK_FILE_GLOB,
+          args.query,
+          args.pick,
+          createSearchObservationHost(context),
+        );
         const transcript = found.parts
           ? await runScriptedAuthoringFlow(authoringDependencies(), args.answers, { parts: found.parts, step: 'confirm' })
           : [];

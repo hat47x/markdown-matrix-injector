@@ -365,7 +365,7 @@ test('extension integration boundaries keep canonical native providers and compa
   assert.match(source, /Compatibility path for older hosts or explicit command routing\./);
   assert.match(source, /registerTextEditorCommand\(\s*FALLBACK_COMMAND_IDS\[0\],\s*createCompatibilityPasteDropCommandHandler\(getPasteInsertText\),/s);
   assert.match(source, /registerTextEditorCommand\(\s*FALLBACK_COMMAND_IDS\[1\],\s*createCompatibilityPasteDropCommandHandler\(getDropInsertText\),/s);
-  assert.match(source, /if \(shouldRegisterTestCommands\(context\)\) \{\s*context\.subscriptions\.push\(\.\.\.registerTestCommands\(nativePasteDropState\)\);\s*\}/s);
+  assert.match(source, /if \(shouldRegisterTestCommands\(context\)\) \{\s*context\.subscriptions\.push\(\.\.\.registerTestCommands\(nativePasteDropState, context\)\);\s*\}/s);
   assert.match(
     source,
     /const ENABLE_TEST_COMMANDS_ENV_VAR = 'MMI_ENABLE_TEST_COMMANDS';/s,
@@ -374,7 +374,7 @@ test('extension integration boundaries keep canonical native providers and compa
     source,
     /function shouldRegisterTestCommands\(context: vscode\.ExtensionContext\): boolean \{\s*return context\.extensionMode === vscode\.ExtensionMode\.Test \|\| process\.env\[ENABLE_TEST_COMMANDS_ENV_VAR\] === '1';\s*\}/s,
   );
-  assert.match(source, /function registerTestCommands\(nativePasteDropState: NativePasteDropState\): vscode\.Disposable\[] \{/);
+  assert.match(source, /function registerTestCommands\(nativePasteDropState: NativePasteDropState, context: vscode\.ExtensionContext\): vscode\.Disposable\[] \{/);
   assert.match(source, /registerCommand\('markdownMatrixInjector\.__test\.insertEmbedFromPaste', \(args\?: PasteDropCommandArgs\) =>/s);
   assert.match(source, /registerCommand\('markdownMatrixInjector\.__test\.insertEmbedFromDrop', \(args\?: PasteDropCommandArgs\) =>/s);
   assert.match(source, /const DEV_EXPORT_QUERY_EVIDENCE_COMMAND_ID = 'markdownMatrixInjector\.__dev\.exportQueryEvidence';/);
@@ -415,6 +415,7 @@ test('extension integration boundaries keep canonical native providers and compa
       'onCommand:markdownMatrixInjector.renderEmbedForTest',
       'onCommand:markdownMatrixInjector.generateDeliveryManifest',
       'onCommand:markdownMatrixInjector.openSource',
+      'onCommand:markdownMatrixInjector.showSourceImpact',
       'onCommand:markdownMatrixInjector.insertEmbedFromPaste',
       'onCommand:markdownMatrixInjector.insertEmbedFromDrop',
       'onCommand:markdownMatrixInjector.insertEmbedByContentMatch',
@@ -431,6 +432,7 @@ test('extension integration boundaries keep canonical native providers and compa
       'onView:markdownMatrixInjector.tableCatalog',
       'onLanguage:markdown',
       'onCommand:markdownMatrixInjector.reviewTabularHierarchyCandidates',
+      'onCommand:markdownMatrixInjector.catalog.authorFromSheet',
     ],
   );
   assert.deepEqual(
@@ -439,6 +441,7 @@ test('extension integration boundaries keep canonical native providers and compa
       'markdownMatrixInjector.renderEmbedForTest',
       'markdownMatrixInjector.generateDeliveryManifest',
       'markdownMatrixInjector.openSource',
+      'markdownMatrixInjector.showSourceImpact',
       'markdownMatrixInjector.insertEmbedFromPaste',
       'markdownMatrixInjector.insertEmbedFromDrop',
       'markdownMatrixInjector.insertEmbedByContentMatch',
@@ -454,9 +457,141 @@ test('extension integration boundaries keep canonical native providers and compa
       'markdownMatrixInjector.reviewHierarchyCandidates',
       'markdownMatrixInjector.reviewTabularHierarchyCandidates',
       'markdownMatrixInjector.catalog.refresh',
+      'markdownMatrixInjector.catalog.authorFromSheet',
       'markdownMatrixInjector.catalog.insertTable',
       'markdownMatrixInjector.catalog.selectFromTable',
     ],
+  );
+});
+
+test('workbook file events refresh Markdown preview only through the source-aware path', async () => {
+  const { default: fs } = await import('node:fs/promises');
+  const source = await fs.readFile(
+    new URL('../src/extension.ts', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(
+    source,
+    /watcher\.onDidChange\(workbookChanged\)/u,
+  );
+  assert.match(
+    source,
+    /watcher\.onDidCreate\(workbookChanged\)/u,
+  );
+  assert.match(
+    source,
+    /watcher\.onDidDelete\(workbookChanged\)/u,
+  );
+  assert.match(
+    source,
+    /markdownReferencesWorkbook\(\s*document\.getText\(\),\s*document\.uri\.fsPath,\s*uri\.fsPath,\s*workspaceRoot,\s*\)/su,
+  );
+  assert.match(
+    source,
+    /affectedDocuments\.map\(\(document\) =>\s*refreshDiagnosticsForDocument\(\s*document,\s*diagnostics,\s*'review',\s*\)\)/su,
+  );
+  assert.match(
+    source,
+    /previewRenderCache\.clear\(\);\s*markdownPreviewWorkbookCache\.clear\(\);/su,
+  );
+  assert.match(
+    source,
+    /executeCommand\(\s*MARKDOWN_PREVIEW_REFRESH_COMMAND,\s*\)/su,
+  );
+  assert.match(
+    source,
+    /cache: markdownPreviewWorkbookCache/u,
+  );
+  assert.match(
+    source,
+    /registerTableCatalog\(diagnostics\)/u,
+  );
+});
+
+test('table catalog sheets can fall back to explicit range authoring', async () => {
+  const [{ default: fs }, packageJsonModule] = await Promise.all([
+    import('node:fs/promises'),
+    import('../package.json', { with: { type: 'json' } }),
+  ]);
+  const source = await fs.readFile(
+    new URL('../src/extension.ts', import.meta.url),
+    'utf8',
+  );
+  const packageJson = packageJsonModule.default;
+
+  assert.ok(
+    packageJson.contributes.menus['view/item/context'].some(
+      (entry: { command: string; when?: string }) =>
+        entry.command
+          === 'markdownMatrixInjector.catalog.authorFromSheet'
+        && entry.when?.includes('viewItem == mmiSheet'),
+    ),
+  );
+  assert.ok(
+    packageJson.contributes.menus.commandPalette.some(
+      (entry: { command: string; when?: string }) =>
+        entry.command
+          === 'markdownMatrixInjector.catalog.authorFromSheet'
+        && entry.when === 'false',
+    ),
+  );
+  assert.match(
+    source,
+    /CATALOG_AUTHOR_SHEET_COMMAND_ID[\s\S]*step: 'range'/u,
+  );
+  assert.match(
+    source,
+    /sheet: node\.sheet\.name/u,
+  );
+});
+
+test('source impact stays an explicit read-only Explorer action', async () => {
+  const [{ default: fs }, packageJsonModule] = await Promise.all([
+    import('node:fs/promises'),
+    import('../package.json', { with: { type: 'json' } }),
+  ]);
+  const source = await fs.readFile(
+    new URL('../src/extension.ts', import.meta.url),
+    'utf8',
+  );
+  const packageJson = packageJsonModule.default;
+
+  assert.ok(
+    packageJson.activationEvents.includes(
+      'onCommand:markdownMatrixInjector.showSourceImpact',
+    ),
+  );
+  assert.ok(
+    packageJson.contributes.commands.some(
+      (command: { command: string }) =>
+        command.command
+        === 'markdownMatrixInjector.showSourceImpact',
+    ),
+  );
+  assert.ok(
+    packageJson.contributes.menus['explorer/context'].some(
+      (entry: { command: string }) =>
+        entry.command
+        === 'markdownMatrixInjector.showSourceImpact',
+    ),
+  );
+  assert.ok(
+    packageJson.contributes.menus.commandPalette.some(
+      (entry: { command: string; when?: string }) =>
+        entry.command
+          === 'markdownMatrixInjector.showSourceImpact'
+        && entry.when === 'false',
+    ),
+  );
+  assert.match(
+    source,
+    /analyzeSourceImpact\(\{\s*sourcePath: target\.fsPath,\s*workspaceRoot: workspaceFolder\.uri\.fsPath,\s*\}\)/su,
+  );
+  assert.match(source, /showQuickPick<SourceImpactPickItem>/u);
+  assert.match(
+    source,
+    /openTextDocument\(\s*vscode\.Uri\.file\(picked\.documentPath\),\s*\)/su,
   );
 });
 
@@ -497,6 +632,7 @@ test('native provider metadata stays API-visible without collapsing command fall
     renderEmbedForTest: 'Render Embed For Test',
     generateDeliveryManifest: 'Generate Delivery Manifest',
     openSource: 'Open Embed Source',
+    showSourceImpact: 'Show Markdown References to This Source',
     insertEmbedFromPaste: 'Insert Embed From Paste',
     insertEmbedFromDrop: 'Insert Embed From Drop',
     insertEmbedByContentMatch: 'Insert Embed by Content Match (search workspace workbooks for the copied range)',
@@ -512,6 +648,7 @@ test('native provider metadata stays API-visible without collapsing command fall
     reviewHierarchyCandidates: 'Review Hierarchy Candidates from Explicit Table Columns',
     reviewTabularHierarchyCandidates: 'Review Tabular Hierarchy Candidates (choose sheet and explicit hierarchy columns)',
     'catalog.refresh': 'Refresh Table Catalog',
+    'catalog.authorFromSheet': 'Create Reference from This Sheet',
     'catalog.insertTable': 'Insert Reference to This Table',
     'catalog.selectFromTable': 'Choose Columns and Rows, Then Insert Reference',
   };
@@ -923,4 +1060,61 @@ test('every localized manifest string exists in English and Japanese, and walkth
     'markdownMatrixInjector.findEmbedByDescription',
     'markdownMatrixInjector.insertEmbedByContentMatch',
   ]);
+});
+
+
+test('workbook file events refresh only linked Markdown views through a debounced host path', async () => {
+  const [{ default: fs }, packageJsonModule] = await Promise.all([
+    import('node:fs/promises'),
+    import('../package.json', { with: { type: 'json' } }),
+  ]);
+  const source = await fs.readFile(new URL('../src/extension.ts', import.meta.url), 'utf8');
+  const packageJson = packageJsonModule.default;
+
+  assert.match(
+    source,
+    /createWorkbookRefreshBatchScheduler,[\s\S]*markdownReferencesWorkbook,[\s\S]*from '\.\/dx\/previewRefresh\.js';/s,
+  );
+  assert.match(source, /\.\.\.registerTableCatalog\(diagnostics\),/);
+  assert.match(
+    source,
+    /const previewRefresh = createWorkbookRefreshBatchScheduler\(\{[\s\S]*flush: \(sourcePaths\) =>[\s\S]*refreshMarkdownViewsForWorkbooks\(sourcePaths, diagnostics\)/s,
+  );
+  assert.match(source, /watcher\.onDidChange\(workbookChanged\)/);
+  assert.match(source, /watcher\.onDidCreate\(workbookChanged\)/);
+  assert.match(source, /watcher\.onDidDelete\(workbookChanged\)/);
+  assert.match(source, /previewRefresh\.schedule\(uri\.fsPath\)/);
+  assert.match(
+    source,
+    /sourcePaths\.some\(\(sourcePath\) =>[\s\S]*markdownReferencesWorkbook\([\s\S]*sourcePath,[\s\S]*workspaceRoot,/s,
+  );
+  assert.match(source, /clearWorkbookPreviewCaches\(\);/);
+  assert.match(
+    source,
+    /refreshDiagnosticsForDocument\(document, diagnostics, 'review'\)/,
+  );
+  assert.match(
+    source,
+    /diagnostics\.delete\(document\.uri\);[\s\S]*diagnostics refresh failed/s,
+  );
+  assert.match(
+    source,
+    /vscode\.commands\.executeCommand\(MARKDOWN_PREVIEW_REFRESH_COMMAND\)/,
+  );
+
+  assert.ok(
+    packageJson.activationEvents.includes(
+      'onCommand:markdownMatrixInjector.refreshLinkedPreviews',
+    ),
+  );
+  assert.ok(
+    packageJson.contributes.commands.some(
+      (item: { command: string }) =>
+        item.command === 'markdownMatrixInjector.refreshLinkedPreviews',
+    ),
+  );
+  assert.match(
+    source,
+    /registerCommand\(\s*REFRESH_LINKED_PREVIEWS_COMMAND_ID,[\s\S]*clearWorkbookPreviewCaches\(\);[\s\S]*refreshLinkedMarkdownViews/s,
+  );
 });

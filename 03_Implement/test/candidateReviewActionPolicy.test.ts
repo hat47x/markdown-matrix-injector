@@ -93,7 +93,7 @@ test('provider-dependent Candidates are review-only until authority binding exis
   assert.match(policy.reason ?? '', /deterministic Candidate/u);
 });
 
-test('choice-list and shape remain review-only independently of provider mode', () => {
+test('choice-list, shape and Note remain review-only independently of provider mode', () => {
   const base = candidate('deterministic');
   const choice = {
     kind: 'choice-list',
@@ -111,6 +111,31 @@ test('choice-list and shape remain review-only independently of provider mode', 
     },
     shape: {},
   } as unknown as CandidateReviewInventoryItem;
+  const note = {
+    kind: 'note',
+    candidate: {
+      ...base,
+      kind: 'note',
+      status: 'observed',
+      method: 'M0',
+      claims: [{
+        aspect: 'text',
+        value: 'review me',
+        status: 'observed',
+        execution: 'deterministic',
+        method: 'M0',
+        reasonCode: 'classic-comment-text',
+      }],
+    },
+    note: {
+      ordinal: 1,
+      sheet: 'Sheet1',
+      cell: 'A1',
+      text: 'review me',
+      commentsPart: 'xl/comments1.xml',
+      contentDigest: fingerprint,
+    },
+  } as unknown as CandidateReviewInventoryItem;
 
   assert.equal(
     candidateReviewActionPolicy(choice).extraction,
@@ -120,4 +145,7 @@ test('choice-list and shape remain review-only independently of provider mode', 
     candidateReviewActionPolicy(shape).extraction,
     'review-only',
   );
+  const notePolicy = candidateReviewActionPolicy(note);
+  assert.equal(notePolicy.extraction, 'review-only');
+  assert.match(notePolicy.reason ?? '', /自動取り込み/u);
 });

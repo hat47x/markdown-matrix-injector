@@ -93,6 +93,7 @@
     "onCommand:markdownMatrixInjector.renderEmbedForTest",
     "onCommand:markdownMatrixInjector.generateDeliveryManifest",
     "onCommand:markdownMatrixInjector.openSource",
+    "onCommand:markdownMatrixInjector.showSourceImpact",
     "onCommand:markdownMatrixInjector.insertEmbedFromPaste",
     "onCommand:markdownMatrixInjector.insertEmbedFromDrop",
     "onCommand:markdownMatrixInjector.insertEmbedByContentMatch",
@@ -100,6 +101,7 @@
     "onCommand:markdownMatrixInjector.findEmbedByDescription",
     "onCommand:markdownMatrixInjector.selectLocalSemanticModel",
     "onCommand:markdownMatrixInjector.clearSearchIndex",
+    "onCommand:markdownMatrixInjector.refreshLinkedPreviews",
     "onCommand:markdownMatrixInjector.searchObservation.clear",
     "onCommand:markdownMatrixInjector.searchObservation.export",
     "onCommand:markdownMatrixInjector.searchObservation.summary",
@@ -108,7 +110,8 @@
     "onCommand:markdownMatrixInjector.reviewHierarchyCandidates",
     "onView:markdownMatrixInjector.tableCatalog",
     "onLanguage:markdown",
-    "onCommand:markdownMatrixInjector.reviewTabularHierarchyCandidates"
+    "onCommand:markdownMatrixInjector.reviewTabularHierarchyCandidates",
+    "onCommand:markdownMatrixInjector.catalog.authorFromSheet"
   ],
   "contributes": {
     "markdown.markdownItPlugins": true,
@@ -129,6 +132,11 @@
       {
         "command": "markdownMatrixInjector.openSource",
         "title": "%mmi.command.openSource%",
+        "category": "MMI"
+      },
+      {
+        "command": "markdownMatrixInjector.showSourceImpact",
+        "title": "%mmi.command.showSourceImpact%",
         "category": "MMI"
       },
       {
@@ -164,6 +172,11 @@
       {
         "command": "markdownMatrixInjector.clearSearchIndex",
         "title": "%mmi.command.clearSearchIndex%",
+        "category": "MMI"
+      },
+      {
+        "command": "markdownMatrixInjector.refreshLinkedPreviews",
+        "title": "%mmi.command.refreshLinkedPreviews%",
         "category": "MMI"
       },
       {
@@ -208,6 +221,11 @@
         "icon": "$(refresh)"
       },
       {
+        "command": "markdownMatrixInjector.catalog.authorFromSheet",
+        "title": "%mmi.command.catalog.authorFromSheet%",
+        "category": "MMI"
+      },
+      {
         "command": "markdownMatrixInjector.catalog.insertTable",
         "title": "%mmi.command.catalog.insertTable%",
         "category": "MMI",
@@ -238,6 +256,11 @@
       ],
       "view/item/context": [
         {
+          "command": "markdownMatrixInjector.catalog.authorFromSheet",
+          "when": "view == markdownMatrixInjector.tableCatalog && viewItem == mmiSheet",
+          "group": "navigation@1"
+        },
+        {
           "command": "markdownMatrixInjector.catalog.insertTable",
           "when": "view == markdownMatrixInjector.tableCatalog && viewItem == mmiTable",
           "group": "inline@1"
@@ -250,6 +273,14 @@
       ],
       "commandPalette": [
         {
+          "command": "markdownMatrixInjector.showSourceImpact",
+          "when": "false"
+        },
+        {
+          "command": "markdownMatrixInjector.catalog.authorFromSheet",
+          "when": "false"
+        },
+        {
           "command": "markdownMatrixInjector.catalog.insertTable",
           "when": "false"
         },
@@ -259,6 +290,11 @@
         }
       ],
       "explorer/context": [
+        {
+          "command": "markdownMatrixInjector.showSourceImpact",
+          "when": "resourceExtname =~ /^\\.(xlsx|xlsm|xls|csv|xml|json|ya?ml|txt|text|log)$/i",
+          "group": "mmi@1"
+        },
         {
           "command": "markdownMatrixInjector.importFromWorkbook",
           "when": "resourceExtname =~ /^\\.(xlsx|xlsm|xls|xml)$/i",
