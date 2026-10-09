@@ -415,6 +415,7 @@ test('extension integration boundaries keep canonical native providers and compa
       'onCommand:markdownMatrixInjector.renderEmbedForTest',
       'onCommand:markdownMatrixInjector.generateDeliveryManifest',
       'onCommand:markdownMatrixInjector.openSource',
+      'onCommand:markdownMatrixInjector.showSourceImpact',
       'onCommand:markdownMatrixInjector.insertEmbedFromPaste',
       'onCommand:markdownMatrixInjector.insertEmbedFromDrop',
       'onCommand:markdownMatrixInjector.insertEmbedByContentMatch',
@@ -439,6 +440,7 @@ test('extension integration boundaries keep canonical native providers and compa
       'markdownMatrixInjector.renderEmbedForTest',
       'markdownMatrixInjector.generateDeliveryManifest',
       'markdownMatrixInjector.openSource',
+      'markdownMatrixInjector.showSourceImpact',
       'markdownMatrixInjector.insertEmbedFromPaste',
       'markdownMatrixInjector.insertEmbedFromDrop',
       'markdownMatrixInjector.insertEmbedByContentMatch',
@@ -505,6 +507,55 @@ test('workbook file events refresh Markdown preview only through the source-awar
   );
 });
 
+test('source impact stays an explicit read-only Explorer action', async () => {
+  const [{ default: fs }, packageJsonModule] = await Promise.all([
+    import('node:fs/promises'),
+    import('../package.json', { with: { type: 'json' } }),
+  ]);
+  const source = await fs.readFile(
+    new URL('../src/extension.ts', import.meta.url),
+    'utf8',
+  );
+  const packageJson = packageJsonModule.default;
+
+  assert.ok(
+    packageJson.activationEvents.includes(
+      'onCommand:markdownMatrixInjector.showSourceImpact',
+    ),
+  );
+  assert.ok(
+    packageJson.contributes.commands.some(
+      (command: { command: string }) =>
+        command.command
+        === 'markdownMatrixInjector.showSourceImpact',
+    ),
+  );
+  assert.ok(
+    packageJson.contributes.menus['explorer/context'].some(
+      (entry: { command: string }) =>
+        entry.command
+        === 'markdownMatrixInjector.showSourceImpact',
+    ),
+  );
+  assert.ok(
+    packageJson.contributes.menus.commandPalette.some(
+      (entry: { command: string; when?: string }) =>
+        entry.command
+          === 'markdownMatrixInjector.showSourceImpact'
+        && entry.when === 'false',
+    ),
+  );
+  assert.match(
+    source,
+    /analyzeSourceImpact\(\{\s*sourcePath: target\.fsPath,\s*workspaceRoot: workspaceFolder\.uri\.fsPath,\s*\}\)/su,
+  );
+  assert.match(source, /showQuickPick<SourceImpactPickItem>/u);
+  assert.match(
+    source,
+    /openTextDocument\(\s*vscode\.Uri\.file\(picked\.documentPath\),\s*\)/su,
+  );
+});
+
 test('local semantic model selector stays explicitly user-invoked and palette-visible', async () => {
   const [{ default: fs }, packageJsonModule] = await Promise.all([
     import('node:fs/promises'),
@@ -542,6 +593,7 @@ test('native provider metadata stays API-visible without collapsing command fall
     renderEmbedForTest: 'Render Embed For Test',
     generateDeliveryManifest: 'Generate Delivery Manifest',
     openSource: 'Open Embed Source',
+    showSourceImpact: 'Show Markdown References to This Source',
     insertEmbedFromPaste: 'Insert Embed From Paste',
     insertEmbedFromDrop: 'Insert Embed From Drop',
     insertEmbedByContentMatch: 'Insert Embed by Content Match (search workspace workbooks for the copied range)',

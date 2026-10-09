@@ -2,6 +2,7 @@
   "mmi.command.renderEmbedForTest": "Render Embed For Test",
   "mmi.command.generateDeliveryManifest": "Generate Delivery Manifest",
   "mmi.command.openSource": "Open Embed Source",
+  "mmi.command.showSourceImpact": "Show Markdown References to This Source",
   "mmi.command.insertEmbedFromPaste": "Insert Embed From Paste",
   "mmi.command.insertEmbedFromDrop": "Insert Embed From Drop",
   "mmi.command.insertEmbedByContentMatch": "Insert Embed by Content Match (search workspace workbooks for the copied range)",

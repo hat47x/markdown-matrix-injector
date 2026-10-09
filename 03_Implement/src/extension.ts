@@ -62,6 +62,10 @@ import {
 import { SELECT_LOCAL_SEMANTIC_MODEL_COMMAND_ID, selectLocalSemanticModel } from './dx/semanticSetupFlow.js';
 import { selectContainedWorkbookFilesDetailed } from './dx/workbookCandidateOrder.js';
 import { findUnknownProseIds, UNKNOWN_PROSE_ID_CODE } from './application/proseIdCheck.js';
+import {
+  analyzeSourceImpact,
+  type SourceImpactRecord,
+} from './application/sourceImpact.js';
 import { referencedSheets, unknownIdMessage } from './application/referencedSheets.js';
 import { readWorkbookStructure } from './importAssist/workbookStructure.js';
 import { applyDiagnosticPolicy, AUTHORING_DEBOUNCE_MS, type DiagnosticPhase, type WhileTyping } from './dx/diagnosticPolicy.js';
@@ -113,6 +117,8 @@ const FALLBACK_COMMAND_IDS = [
 ] as const;
 const NATIVE_PASTE_DROP_COMMAND_NAME = 'Insert Markdown Matrix embed';
 const CONTENT_MATCH_PASTE_COMMAND_ID = 'markdownMatrixInjector.insertEmbedByContentMatch';
+const SHOW_SOURCE_IMPACT_COMMAND_ID =
+  'markdownMatrixInjector.showSourceImpact';
 /**
  * Safety cap on how many workspace files a single content-match search will
  * load, independent of `findContentMatches`'s own per-sheet `maxIndexedCells`
@@ -199,6 +205,13 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
     ),
     vscode.commands.registerCommand('markdownMatrixInjector.openSource', (sourcePath?: unknown) =>
       openEmbedSource(sourcePath),
+    ),
+    vscode.commands.registerCommand(
+      SHOW_SOURCE_IMPACT_COMMAND_ID,
+      (target?: vscode.Uri) =>
+        showSourceImpact(
+          target instanceof vscode.Uri ? target : undefined,
+        ),
     ),
     vscode.commands.registerCommand(CONTENT_MATCH_PASTE_COMMAND_ID, () => insertEmbedByContentMatch()),
     vscode.commands.registerCommand(AUTHOR_EMBED_COMMAND_ID, async (at?: { uri?: string; line?: number; character?: number }) => {
@@ -514,6 +527,113 @@ async function openEmbedSource(sourcePath: unknown): Promise<void> {
     const reason = error instanceof Error ? error.message : String(error);
     void vscode.window.showErrorMessage(`MMI: Failed to open ${sourcePath}: ${reason}`);
   }
+}
+
+interface SourceImpactPickItem extends vscode.QuickPickItem {
+  documentPath: string;
+  line: number;
+}
+
+async function showSourceImpact(target?: vscode.Uri): Promise<void> {
+  if (!target || target.scheme !== 'file') {
+    void vscode.window.showInformationMessage(
+      'MMI: エクスプローラーで原本ファイルを選び、「この原本を参照中のMarkdownを確認」を実行してください。',
+    );
+    return;
+  }
+
+  const workspaceFolder = vscode.workspace.getWorkspaceFolder(target);
+  if (!workspaceFolder || workspaceFolder.uri.scheme !== 'file') {
+    void vscode.window.showWarningMessage(
+      'MMI: 影響分析はローカルワークスペース内の原本ファイルを対象にします。',
+    );
+    return;
+  }
+
+  let report;
+  try {
+    report = analyzeSourceImpact({
+      sourcePath: target.fsPath,
+      workspaceRoot: workspaceFolder.uri.fsPath,
+    });
+  } catch (error) {
+    const reason = error instanceof Error ? error.message : String(error);
+    void vscode.window.showErrorMessage(
+      `MMI: 参照影響を確認できませんでした: ${reason}`,
+    );
+    return;
+  }
+
+  if (report.impacts.length === 0) {
+    void vscode.window.showInformationMessage(
+      `MMI: ${path.basename(target.fsPath)} を参照するMarkdownは見つかりませんでした。`,
+    );
+    return;
+  }
+
+  const picked = await vscode.window.showQuickPick<SourceImpactPickItem>(
+    report.impacts.map((impact) =>
+      sourceImpactPickItem(
+        impact,
+        workspaceFolder.uri.fsPath,
+      )),
+    {
+      title:
+        `MMI: ${path.basename(target.fsPath)} の参照先（${report.counts.total}件）`,
+      placeHolder: '開くMarkdownと行を選択',
+      matchOnDescription: true,
+      matchOnDetail: true,
+    },
+  );
+  if (!picked) return;
+
+  const document = await vscode.workspace.openTextDocument(
+    vscode.Uri.file(picked.documentPath),
+  );
+  const editor = await vscode.window.showTextDocument(
+    document,
+    { preview: true },
+  );
+  const line = Math.min(
+    Math.max(0, picked.line - 1),
+    Math.max(0, document.lineCount - 1),
+  );
+  const range = document.lineAt(line).range;
+  editor.selection = new vscode.Selection(
+    range.start,
+    range.start,
+  );
+  editor.revealRange(
+    range,
+    vscode.TextEditorRevealType.InCenterIfOutsideViewport,
+  );
+}
+
+function sourceImpactPickItem(
+  impact: SourceImpactRecord,
+  workspaceRoot: string,
+): SourceImpactPickItem {
+  const relation = impact.relation === 'linked'
+    ? 'Linked参照'
+    : impact.relation === 'extracted'
+      ? 'Extracted'
+      : 'ローカルリンク';
+  const context = [
+    impact.sheet ? `シート: ${impact.sheet}` : '',
+    impact.place ? `位置: ${impact.place}` : '',
+    impact.resolution === 'path-only' ? '旧パス一致' : '',
+  ].filter(Boolean).join(' · ');
+
+  return {
+    label: `$(references) ${impact.document}:${impact.line}`,
+    description: relation,
+    ...(context ? { detail: context } : {}),
+    documentPath: path.resolve(
+      workspaceRoot,
+      impact.document,
+    ),
+    line: impact.line,
+  };
 }
 
 /**

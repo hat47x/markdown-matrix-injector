@@ -2,6 +2,7 @@
   "mmi.command.renderEmbedForTest": "参照をテスト描画",
   "mmi.command.generateDeliveryManifest": "納品一覧を作成",
   "mmi.command.openSource": "参照元のファイルを開く",
+  "mmi.command.showSourceImpact": "この原本を参照中のMarkdownを確認",
   "mmi.command.insertEmbedFromPaste": "貼り付けから参照を挿入（互換）",
   "mmi.command.insertEmbedFromDrop": "ドロップから参照を挿入（互換）",
   "mmi.command.insertEmbedByContentMatch": "コピーした範囲と同じ内容の表を探して参照を挿入",

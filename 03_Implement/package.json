@@ -93,6 +93,7 @@
     "onCommand:markdownMatrixInjector.renderEmbedForTest",
     "onCommand:markdownMatrixInjector.generateDeliveryManifest",
     "onCommand:markdownMatrixInjector.openSource",
+    "onCommand:markdownMatrixInjector.showSourceImpact",
     "onCommand:markdownMatrixInjector.insertEmbedFromPaste",
     "onCommand:markdownMatrixInjector.insertEmbedFromDrop",
     "onCommand:markdownMatrixInjector.insertEmbedByContentMatch",
@@ -129,6 +130,11 @@
       {
         "command": "markdownMatrixInjector.openSource",
         "title": "%mmi.command.openSource%",
+        "category": "MMI"
+      },
+      {
+        "command": "markdownMatrixInjector.showSourceImpact",
+        "title": "%mmi.command.showSourceImpact%",
         "category": "MMI"
       },
       {
@@ -250,6 +256,10 @@
       ],
       "commandPalette": [
         {
+          "command": "markdownMatrixInjector.showSourceImpact",
+          "when": "false"
+        },
+        {
           "command": "markdownMatrixInjector.catalog.insertTable",
           "when": "false"
         },
@@ -259,6 +269,11 @@
         }
       ],
       "explorer/context": [
+        {
+          "command": "markdownMatrixInjector.showSourceImpact",
+          "when": "resourceExtname =~ /^\\.(xlsx|xlsm|xls|csv|xml|json|ya?ml|txt|text|log)$/i",
+          "group": "mmi@1"
+        },
         {
           "command": "markdownMatrixInjector.importFromWorkbook",
           "when": "resourceExtname =~ /^\\.(xlsx|xlsm|xls|xml)$/i",
