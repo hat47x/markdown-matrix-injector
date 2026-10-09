@@ -51,7 +51,10 @@ import {
   type AuthoringDependencies,
   type ScriptedAnswer,
 } from './dx/authoringFlow.js';
-import { readWorkbookCached } from './dx/sharedWorkbookCache.js';
+import {
+  clearSharedWorkbookCache,
+  readWorkbookCached,
+} from './dx/sharedWorkbookCache.js';
 import { clearSearchIndexes, FIND_EMBED_COMMAND_ID, scriptedSearch, searchEmbedByDescription } from './dx/searchFlow.js';
 import {
   createSearchObservationHost,
@@ -337,8 +340,12 @@ const markdownPreviewWorkbookCache = new WorkbookCache<WorkbookData>();
 const MARKDOWN_PREVIEW_REFRESH_COMMAND = 'markdown.preview.refresh';
 
 function clearWorkbookPreviewCaches(): void {
+  // A workbook save invalidates every extension-host view of the same source:
+  // hover/guided preview, built-in Markdown preview, completion and guided
+  // authoring. Do not rely on filesystem mtime granularity alone.
   previewRenderCache.clear();
   markdownPreviewWorkbookCache.clear();
+  clearSharedWorkbookCache();
 }
 
 async function renderEmbedCached(markdown: string, markdownFilePath: string, workspaceRoot?: string): Promise<string> {
