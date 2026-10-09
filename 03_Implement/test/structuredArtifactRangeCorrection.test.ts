@@ -7,6 +7,22 @@ import {
   summarizeStructuredArtifactRangeCorrections,
 } from '../src/experimental/structuredArtifactRangeCorrection.js';
 
+const SOURCE = {
+  source_family_id: 'sai-pv-fixture-v0',
+  source_digest: 'sha256:' + 'a'.repeat(64),
+};
+
+function measure(
+  target: Sai2CandidateRange,
+  proposal: Sai2CandidateRange | null,
+) {
+  return measureStructuredArtifactRangeCorrection({
+    source: SOURCE,
+    target,
+    proposal,
+  });
+}
+
 function range(
   rowStart: number,
   colStart: number,
@@ -25,7 +41,7 @@ function range(
 }
 
 test('exact proposal has zero correction and no context expansion', () => {
-  const result = measureStructuredArtifactRangeCorrection(
+  const result = measure(
     range(2, 1, 6, 3),
     range(2, 1, 6, 3),
   );
@@ -67,7 +83,7 @@ test('exact proposal has zero correction and no context expansion', () => {
 });
 
 test('extra title row is visible as one boundary edit and three extra context cells', () => {
-  const result = measureStructuredArtifactRangeCorrection(
+  const result = measure(
     range(2, 1, 6, 3),
     range(1, 1, 6, 3),
   );
@@ -83,7 +99,7 @@ test('extra title row is visible as one boundary edit and three extra context ce
 });
 
 test('under-selection separates missed target cells from context size', () => {
-  const result = measureStructuredArtifactRangeCorrection(
+  const result = measure(
     range(1, 1, 5, 3),
     range(2, 1, 5, 3),
   );
@@ -98,7 +114,7 @@ test('under-selection separates missed target cells from context size', () => {
 });
 
 test('shifted and disjoint ranges report symmetric error without lexical content', () => {
-  const shifted = measureStructuredArtifactRangeCorrection(
+  const shifted = measure(
     range(1, 1, 2, 2),
     range(2, 2, 3, 3),
   );
@@ -110,7 +126,7 @@ test('shifted and disjoint ranges report symmetric error without lexical content
   assert.equal(shifted.intersection_over_union, 1 / 7);
   assert.equal(shifted.boundary.raw_cell_text_used, false);
 
-  const disjoint = measureStructuredArtifactRangeCorrection(
+  const disjoint = measure(
     range(1, 1, 2, 2),
     range(4, 4, 5, 5),
   );
@@ -121,7 +137,7 @@ test('shifted and disjoint ranges report symmetric error without lexical content
 });
 
 test('abstention is not misreported as zero-cost correction', () => {
-  const result = measureStructuredArtifactRangeCorrection(
+  const result = measure(
     range(1, 1, 5, 3),
     null,
   );
@@ -138,15 +154,15 @@ test('abstention is not misreported as zero-cost correction', () => {
 
 test('summary keeps abstention denominator separate from proposal correction means', () => {
   const observations = [
-    measureStructuredArtifactRangeCorrection(
+    measure(
       range(2, 1, 6, 3),
       range(2, 1, 6, 3),
     ),
-    measureStructuredArtifactRangeCorrection(
+    measure(
       range(2, 1, 6, 3),
       range(1, 1, 6, 3),
     ),
-    measureStructuredArtifactRangeCorrection(
+    measure(
       range(1, 1, 5, 3),
       null,
     ),
@@ -166,6 +182,31 @@ test('summary keeps abstention denominator separate from proposal correction mea
   assert.equal(summary.boundary.abstentions_excluded_from_proposal_means, true);
 });
 
+test('source binding rejects missing family identity and non-canonical digest', () => {
+  assert.throws(
+    () => measureStructuredArtifactRangeCorrection({
+      source: {
+        source_family_id: '',
+        source_digest: SOURCE.source_digest,
+      },
+      target: range(1, 1, 2, 2),
+      proposal: range(1, 1, 2, 2),
+    }),
+    /Invalid structured-artifact source binding/,
+  );
+  assert.throws(
+    () => measureStructuredArtifactRangeCorrection({
+      source: {
+        source_family_id: SOURCE.source_family_id,
+        source_digest: 'sha256:ABC',
+      },
+      target: range(1, 1, 2, 2),
+      proposal: range(1, 1, 2, 2),
+    }),
+    /Invalid structured-artifact source binding/,
+  );
+});
+
 test('invalid range metadata fails closed instead of silently normalizing', () => {
   const invalid: Sai2CandidateRange = {
     coordinate_system: 'one_based_inclusive',
@@ -178,7 +219,7 @@ test('invalid range metadata fails closed instead of silently normalizing', () =
   };
 
   assert.throws(
-    () => measureStructuredArtifactRangeCorrection(invalid, null),
+    () => measure(invalid, null),
     /Invalid structured-artifact target/,
   );
 });
