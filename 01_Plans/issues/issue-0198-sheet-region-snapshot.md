@@ -21,7 +21,7 @@ Excel方眼紙で、罫線・セル結合・AutoShape・画面ダンプを組み
 - [x] 採用した方式で、指定した範囲（A1形式）をPNGへ書き出せる。Linux上で同じ入力から同じ画像（同じダイジェスト）が得られることを確かめる。シート全体の自動範囲決定は次段とする。
 - [ ] CIで再現できる結果はキャッシュとして扱い、Gitに置かない。COMで作った結果だけを管理する中間生成物とし、CIでは原本のダイジェストとの照合だけを行う（ADR-0019 D14）。
 - [x] 原本は読み取り専用で開き、保存しない。処理の前後で原本のダイジェストが変わらないことを確かめる。
-- [ ] 出典（ブック、シート、範囲、原本のダイジェスト、Excelの版、描画した日時）を記録する。
+- [x] 出典（ブック、シート、範囲、原本のダイジェスト、Excelの版、描画した日時）を記録する。LibreOffice/native SVGのsidecarはいずれもsource・selection・renderer環境/版・artifact digest・初回描画時刻を保持する。OOXMLのApplication/AppVersionが読める場合は原本側の版情報も保持する。
 - [x] 生成物に描画の方式と版を記録し、別の方式で作った結果を同一とみなさない。
 - [x] 変換器が無い、ブックが開けない、範囲が不正等を専用診断として返し、snapshot以外の機能を止めない。個々の図形の描画不能を判別する診断は、方式比較と実務fixtureで追加検証する。
 - [ ] COMを使う場合は、利用者のExcelで作業中のブックを妨げない（別プロセスで開く、または開いているブックに触れない）。
@@ -75,13 +75,40 @@ AutoShape・コネクタ・graphic frameを検出したとき、warningだけで
 
 これにより「範囲の候補をどう示すか」のうち、OOXML drawingに明示されたtwo-cell anchorは製品経路へ接続できた。セルで描いた図、one-cell/absolute anchor、研究層の非表領域など、終端セルを観測できない対象は引き続き明示rangeまたは別の候補化が必要である。
 
+
+## MMI native SVG rendererと比較ハーネス（2026-10-09）
+
+LibreOffice方式と独立したCI向け候補として、`nativeSvgRegionSnapshot.ts` と `regionSnapshotComparison.ts` がmainへ入っていることを再確認した。native rendererはSheetJSで読んだセル値、行列寸法、結合、塗り、罫線、基本font/alignment、埋込画像、基本的なAutoShape/connectorをSVGへ描く。描画できない/近似する要素はmanifestの`limitations`へ出し、Excel互換を黙って主張しない。
+
+比較ハーネスは**同じsource digest・sheet・range**をnative SVGとLibreOffice+Popplerへ渡し、artifact digest、byte数、寸法、aspect ratio、renderer情報、native側limitationsを同じreportへ記録する。品質score、pass/fail threshold、renderer equivalenceは定義しない。したがって「2方式を比較できる実装」は揃ったが、この作業環境ではNodeの`xlsx@0.20.3`が無く、公式CDNへのDNSも使えないため、同一fixtureで2方式を正本実行したとはまだ扱わない。
+
+### double罫線を黙って太線へ潰さない
+
+native rendererを敵対的に見直したところ、Excelの`double`罫線を従来は単一の3px線として描きながら、limitationsには差異を出していなかった。フォーム型Excel設計書では見た目の意味を変え得るため修正した。
+
+- `double`は境界線とセル内側の線の2本としてSVGへ描く。
+- Excel/LibreOfficeと線間隔・太さが完全同一とは主張せず、`border-double-metrics-approximated`をmanifestへ残す。
+- 他のthin / hair / medium / thickの既存経路は変えない。
+- SheetJS writerのstyle再現性に依存しないよう、外部生成XLSXをbase64 fixtureとして固定する。
+
+fixtureはOpenPyXL 3.1.5で作成し、A1の下罫線をdouble、B1をthinにした。XLSX SHA-256は次のとおり。
+
+```text
+9881302c8f76b9ca4b5e2d1903179b9d1e3771591b959e2306e68680229a2002
+```
+
+ZIP内`xl/styles.xml`に`<bottom style="double">`が存在することを独立確認した。さらにLibreOffice 25.2.3.2でPDF化し、Poppler 25.06.0で150dpi PNGへ変換したところ、A1の下端は離れた2本の水平線、B1は通常のthin線として描画された。これはfixtureの意味を確認するための外部実測であり、native SVG回帰テスト自体の実行結果ではない。
+
+追加したrepository testは、この外部fixtureをnative rendererへ通し、`mmi-border-double`が2本だけ出ること、`border-double-metrics-approximated`が残ること、原本bytesを変更しないことを確認する。現在環境にはSheetJS runtimeがないため、このNode testのpassはまだ主張しない。
+
+
 ## Validation plan
 AutoShapeと画面ダンプを含む架空の設計シートを、CIで動く方式で画像化し、Excelでの見た目と比べる（目視）。同じ処理をGitHub ActionsのLinuxで実行し、手元と同じダイジェストになるかを確かめる。COMを使う場合はWindows実機で行う。原本のダイジェストを前後で比較する。Excelを開いて作業中の状態でも実行し、作業中のブックに影響が無いことを確かめる。
 
 前段の自動テストでは、コード生成したOOXML drawingにAutoShape・コネクタ・graphic frameを含める。AutoShape/connectorは画像readerからShape Candidate、`mmi inspect`、Candidateレビュー、一括取り込みへ同じ内容で伝わることを確認する。graphic frameはwarningとして残り、warningがあっても同じブックの表・埋込画像の処理は継続する。
 
 ## Remaining work
-- MMI自身の描画で、どこまでの図形（直線、矩形、矢印、テキストボックス）を扱えば実務の大半を覆えるか。LibreOffice方式と同一fixtureで比較する。
+- native SVGはセル/結合/基本style/埋込画像/基本Shapeまで実装済み。次はSheetJS runtimeを含む通常Node環境で`compare-renderers.ts`を同一fixtureへ実行し、LibreOfficeとの差をartifactごとに目視・記録する。特にfont、text wrapping、theme color、Drawing anchor offset、Shape style、graphic frameを確認する。
 - LibreOffice / python3-uno / PopplerをCIへ入れる費用と、日本語フォント固定の方法。現実装はfont set digestをprovenanceへ含める。
 - COMを使う場合の補助プロセスの形（ADR-0017の補助プロセスへの追加か、別のものか）。
 - 同じLinux環境内の3回描画ではPNG digest一致を確認済み。次は固定font環境を含む別Linux runner間で一致するかを確認する。
