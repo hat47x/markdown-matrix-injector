@@ -89,6 +89,7 @@ import type { SelectionRequest } from './navigate/select.js';
 import { createEmbedHoverProvider } from './dx/embedHover.js';
 import { confirmedCopySource, isConfirmedSource, warmCopySource, withSource } from './dx/copySource.js';
 import { stopClipboardHelper } from './dx/windowsClipboard.js';
+import { markdownReferencesWorkbook } from './dx/previewRefresh.js';
 
 /** Set on activation; the clipboard reader script ships under media/clipboard. */
 let extensionRootPath = '';
@@ -297,6 +298,9 @@ const CLEAR_SEARCH_INDEX_COMMAND_ID = 'markdownMatrixInjector.clearSearchIndex';
 
 /** Preview rendering for hover and the guided flow: the real engine with one mtime cache. */
 const previewRenderCache = new WorkbookCache<WorkbookData>();
+/** Shared cache for the built-in Markdown preview plugin; cleared on relevant workbook file events. */
+const markdownPreviewWorkbookCache = new WorkbookCache<WorkbookData>();
+const MARKDOWN_PREVIEW_REFRESH_COMMAND = 'markdown.preview.refresh';
 
 async function renderEmbedCached(markdown: string, markdownFilePath: string, workspaceRoot?: string): Promise<string> {
   const md = new MarkdownIt();
@@ -309,6 +313,10 @@ function registerTableCatalog(): vscode.Disposable[] {
   const catalog = new TableCatalogProvider(WORKBOOK_FILE_GLOB);
   const watcher = vscode.workspace.createFileSystemWatcher(WORKBOOK_FILE_GLOB);
   const refresh = (): void => catalog.refresh();
+  const workbookChanged = (uri: vscode.Uri): void => {
+    refresh();
+    void refreshMarkdownPreviewForWorkbook(uri);
+  };
   // Selected parts go to the confirm step (real rendering), never straight into the document.
   const confirm = async (parts: ReturnType<typeof partsFromResult>): Promise<void> => {
     if (parts) await runAuthoringFlow(authoringDependencies(), { parts, step: 'confirm' });
@@ -316,9 +324,9 @@ function registerTableCatalog(): vscode.Disposable[] {
   return [
     vscode.window.registerTreeDataProvider(CATALOG_VIEW_ID, catalog),
     watcher,
-    watcher.onDidChange(refresh),
-    watcher.onDidCreate(refresh),
-    watcher.onDidDelete(refresh),
+    watcher.onDidChange(workbookChanged),
+    watcher.onDidCreate(workbookChanged),
+    watcher.onDidDelete(workbookChanged),
     vscode.commands.registerCommand(CATALOG_REFRESH_COMMAND_ID, refresh),
     vscode.commands.registerCommand(CATALOG_INSERT_TABLE_COMMAND_ID, async (node?: { bookPath: string; table: CatalogTable }) => {
       if (node?.table) await confirm(partsFromResult(selectForActiveDocument(node.bookPath, { table: node.table.id })));
@@ -344,6 +352,48 @@ function registerTableCatalog(): vscode.Disposable[] {
         ]
       : []),
   ];
+}
+
+async function refreshMarkdownPreviewForWorkbook(
+  uri: vscode.Uri,
+): Promise<void> {
+  if (uri.scheme !== 'file') return;
+
+  const referencedByOpenMarkdown = vscode.workspace.textDocuments.some(
+    (document) => {
+      if (
+        document.languageId !== 'markdown'
+        || document.isUntitled
+        || document.uri.scheme !== 'file'
+      ) {
+        return false;
+      }
+      const workspaceRoot =
+        vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath;
+      return markdownReferencesWorkbook(
+        document.getText(),
+        document.uri.fsPath,
+        uri.fsPath,
+        workspaceRoot,
+      );
+    },
+  );
+  if (!referencedByOpenMarkdown) return;
+
+  // Do not trust an old in-memory workbook after an external Excel save.
+  // This also covers rapid saves whose filesystem timestamp granularity could
+  // otherwise make a cache entry look current.
+  previewRenderCache.clear();
+  markdownPreviewWorkbookCache.clear();
+
+  try {
+    await vscode.commands.executeCommand(
+      MARKDOWN_PREVIEW_REFRESH_COMMAND,
+    );
+  } catch {
+    // The built-in Markdown preview may not be active. The cleared caches still
+    // guarantee that the next preview render reloads the saved workbook.
+  }
 }
 
 function authoringDependencies(): AuthoringDependencies {
@@ -374,9 +424,8 @@ export async function renderEmbedForTest(args: RenderEmbedForTestArgs): Promise<
  * across preview re-renders.
  */
 export function extendMarkdownIt(md: MarkdownIt): MarkdownIt {
-  const cache = new WorkbookCache<WorkbookData>();
   return md.use(markdownMatrixPlugin, {
-    cache,
+    cache: markdownPreviewWorkbookCache,
     uriScheme: vscode.env.uriScheme,
     resolveWorkspaceRoot: (markdownFilePath: string) =>
       vscode.workspace.getWorkspaceFolder(vscode.Uri.file(markdownFilePath))?.uri.fsPath,

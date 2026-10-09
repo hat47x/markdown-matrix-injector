@@ -460,6 +460,43 @@ test('extension integration boundaries keep canonical native providers and compa
   );
 });
 
+test('workbook file events refresh Markdown preview only through the source-aware path', async () => {
+  const { default: fs } = await import('node:fs/promises');
+  const source = await fs.readFile(
+    new URL('../src/extension.ts', import.meta.url),
+    'utf8',
+  );
+
+  assert.match(
+    source,
+    /watcher\.onDidChange\(workbookChanged\)/u,
+  );
+  assert.match(
+    source,
+    /watcher\.onDidCreate\(workbookChanged\)/u,
+  );
+  assert.match(
+    source,
+    /watcher\.onDidDelete\(workbookChanged\)/u,
+  );
+  assert.match(
+    source,
+    /markdownReferencesWorkbook\(\s*document\.getText\(\),\s*document\.uri\.fsPath,\s*uri\.fsPath,\s*workspaceRoot,\s*\)/su,
+  );
+  assert.match(
+    source,
+    /previewRenderCache\.clear\(\);\s*markdownPreviewWorkbookCache\.clear\(\);/su,
+  );
+  assert.match(
+    source,
+    /executeCommand\(\s*MARKDOWN_PREVIEW_REFRESH_COMMAND,\s*\)/su,
+  );
+  assert.match(
+    source,
+    /cache: markdownPreviewWorkbookCache/u,
+  );
+});
+
 test('local semantic model selector stays explicitly user-invoked and palette-visible', async () => {
   const [{ default: fs }, packageJsonModule] = await Promise.all([
     import('node:fs/promises'),
