@@ -4,6 +4,7 @@
  * Source workbooks/documents are never modified. Commands that materialize,
  * extract or import write only to explicit output, asset, attachment and ledger paths.
  */
+import { runSnapshot } from './snapshot.js';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -179,6 +180,8 @@ Commands:
       --out-dir <dir>         snapshot assets folder (default: <root>/assets/snapshots)
       --from <doc.md>         write the Markdown image reference relative to this document
       --ledger <file>         import ledger (default: <root>/mmi-ledger.json)
+      -o <file.svg>          direct SVG export; --sheet required, --range optional (whole sheet)
+                            does not write a ledger; cannot combine with renderer/hint/asset options
   import <workbook>         Create a modernization draft: tables stay live references, images become assets
       --draft <file.md>       new Markdown draft to create (required; existing files are not overwritten)
       --copy-source <file>    copy a source outside --root into this workspace file before importing
@@ -638,6 +641,15 @@ export async function main(argv: string[]): Promise<number> {
       return result.problems.length > 0 ? 1 : 0;
     }
     case 'snapshot': {
+      if (values.out) {
+        if (values.hint || values.renderer || values['out-dir'] || values.dpi || values.ledger) {
+          return usageError('snapshot -o cannot be combined with --hint, --renderer, --out-dir, --dpi or --ledger');
+        }
+        if (!handoffPathWithinRoot(path.resolve(args[0] ?? '.'), root) || !handoffPathWithinRoot(path.resolve(values.out), root)) {
+          return usageError('snapshot source and output must stay within --root workspace');
+        }
+        return runSnapshot(args, values, { out: console.log, err: console.error, cwd: process.cwd() });
+      }
       if (args.length !== 1) return usageError('snapshot takes one workbook');
       if (values.hint && (values.sheet || values.range)) {
         return usageError('snapshot uses either --hint or --sheet + --range, not both');

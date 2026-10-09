@@ -1,8 +1,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
+import { FenceTracker, linkTargets, resolveLocalLink, stripInlineCode } from '../core/markdownLinks.js';
 import { extractEmbedQueries } from '../parser/embedSyntax.js';
-import { isPathWithinBoundary } from '../core/pathResolver.js';
 
 export interface DetachProblem {
   /** Markdown artifact containing the problem, relative to workspaceRoot. */
@@ -66,12 +66,12 @@ function inspectMarkdownArtifact(
   const text = fs.readFileSync(resolvedFile, 'utf8');
   const lines = text.split(/\r?\n/);
   const file = relativeArtifactPath(workspaceRoot, resolvedFile);
-  let inFence = false;
+  const fence = new FenceTracker();
 
   for (let index = 0; index < lines.length; index += 1) {
-    const line = lines[index];
-    if (/^\s*(```|~~~)/u.test(line)) inFence = !inFence;
-    if (inFence) continue;
+    const rawLine = lines[index];
+    if (fence.skips(rawLine)) continue;
+    const line = stripInlineCode(rawLine);
 
     for (const embed of extractEmbedQueries(line)) {
       problems.push({
@@ -94,7 +94,6 @@ function inspectMarkdownArtifact(
       });
     }
 
-    // The card may be nested in blockquotes; the colon may be ASCII or full-width (U+FF1A).
     if (/^\s*(?:>\s*)+別紙[:：]/u.test(line)) {
       problems.push({
         file,
@@ -104,7 +103,7 @@ function inspectMarkdownArtifact(
       });
     }
 
-    for (const target of markdownLinkTargets(line)) {
+    for (const target of linkTargets(rawLine)) {
       const resolved = resolveLocalLink(
         resolvedFile,
         workspaceRoot,
@@ -166,14 +165,12 @@ function isMarkdownArtifact(filePath: string): boolean {
   return /\.(?:md|markdown)$/iu.test(filePath);
 }
 
-const INLINE_CODE_SPAN = /(`+)(?:(?!\1).)+?\1/gu;
-
-/**
- * Blank inline code spans so that link-like text inside them is not a link.
- * A space replaces each span, so a span between `]` and `(` still breaks the link.
- */
-function stripInlineCode(line: string): string {
-  return line.replace(INLINE_CODE_SPAN, ' ');
+function canonicalExistingPath(filePath: string): string {
+  try {
+    return fs.realpathSync(filePath);
+  } catch {
+    return path.resolve(filePath);
+  }
 }
 
 export function markdownLinkTargets(line: string): string[] {
@@ -190,43 +187,4 @@ export function markdownLinkTargets(line: string): string[] {
     targets.push(target);
   }
   return targets;
-}
-
-function resolveLocalLink(
-  markdownFilePath: string,
-  workspaceRoot: string,
-  rawTarget: string,
-): { absolutePath: string; outsideRoot: boolean } | undefined {
-  if (
-    !rawTarget
-    || rawTarget.startsWith('#')
-    || /^[a-z][a-z0-9+.-]*:/iu.test(rawTarget)
-  ) {
-    return undefined;
-  }
-  let decoded = rawTarget.split('#', 1)[0];
-  try {
-    decoded = decodeURIComponent(decoded);
-  } catch {
-    // Invalid percent encoding is treated as a literal path and will fail
-    // visibly if absent.
-  }
-  const absolutePath = path.resolve(
-    path.dirname(markdownFilePath),
-    decoded,
-  );
-  const checkedRoot = canonicalExistingPath(path.resolve(workspaceRoot));
-  const checkedTarget = canonicalExistingPath(absolutePath);
-  return {
-    absolutePath,
-    outsideRoot: !isPathWithinBoundary(checkedTarget, checkedRoot),
-  };
-}
-
-function canonicalExistingPath(filePath: string): string {
-  try {
-    return fs.realpathSync(filePath);
-  } catch {
-    return path.resolve(filePath);
-  }
 }

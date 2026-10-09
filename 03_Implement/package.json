@@ -64,7 +64,9 @@
     "publish": "vsce publish",
     "eval:product-baseline": "node --import tsx scripts/product-baseline-eval/evaluate.ts",
     "eval:candidate-review-product-baseline": "node scripts/candidate-review-product-baseline.mjs",
-    "test:candidate-review-product-baseline": "node --test ./test/candidateReviewProductBaseline.test.mjs"
+    "test:candidate-review-product-baseline": "node --test ./test/candidateReviewProductBaseline.test.mjs",
+    "build:cli": "node scripts/build-cli.mjs",
+    "test:cli-bundle": "node scripts/smoke-cli-bundle.mjs"
   },
   "dependencies": {
     "markdown-it": "^14.1.0",
@@ -79,7 +81,8 @@
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.6.2",
     "tsx": "^4.20.5",
-    "typescript": "^5.9.2"
+    "typescript": "^5.9.2",
+    "esbuild": "^0.27.4"
   },
   "main": "./dist/src/extension.js",
   "bin": {
@@ -454,7 +457,9 @@
         },
         "markdownMatrixInjector.search.aliases": {
           "type": "array",
-          "items": { "type": "string" },
+          "items": {
+            "type": "string"
+          },
           "default": [],
           "scope": "resource",
           "markdownDescription": "%mmi.setting.searchAliases%"
