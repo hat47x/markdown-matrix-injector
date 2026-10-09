@@ -512,6 +512,7 @@ function authoringDependencies(): AuthoringDependencies {
   return {
     workbookGlob: WORKBOOK_FILE_GLOB,
     render: renderEmbedCached,
+    invalidateWorkbookCaches: clearWorkbookPreviewCaches,
     searchByDescription: (document) => searchEmbedByDescription(document, WORKBOOK_FILE_GLOB),
   };
 }
