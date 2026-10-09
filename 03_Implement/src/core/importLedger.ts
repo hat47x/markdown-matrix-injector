@@ -467,6 +467,86 @@ export function entryFor(
   };
 }
 
+function acquireLedgerWriteLock(ledgerPath: string): string {
+  const absoluteLedgerPath = path.resolve(ledgerPath);
+  const directory = path.dirname(absoluteLedgerPath);
+  fs.mkdirSync(directory, { recursive: true });
+  const lockPath = path.join(
+    directory,
+    `.${path.basename(absoluteLedgerPath)}.lock`,
+  );
+
+  let descriptor: number | undefined;
+  let created = false;
+  try {
+    descriptor = fs.openSync(lockPath, 'wx', 0o600);
+    created = true;
+    fs.writeFileSync(
+      descriptor,
+      `${JSON.stringify({
+        schema: 'mmi.ledger-lock/v1',
+        pid: process.pid,
+        acquiredAt: new Date().toISOString(),
+      })}\n`,
+      'utf8',
+    );
+    fs.fsyncSync(descriptor);
+    fs.closeSync(descriptor);
+    descriptor = undefined;
+    return lockPath;
+  } catch (error) {
+    if (descriptor !== undefined) {
+      try {
+        fs.closeSync(descriptor);
+      } catch {
+        // Preserve the original lock acquisition failure.
+      }
+    }
+    if (created) {
+      try {
+        fs.unlinkSync(lockPath);
+      } catch {
+        // Preserve the original lock acquisition failure.
+      }
+    }
+    if (
+      !created
+      && (error as NodeJS.ErrnoException).code === 'EEXIST'
+    ) {
+      throw new Error(
+        `Import ledger is already being updated: ${lockPath}. `
+        + 'Retry after the other MMI operation finishes. '
+        + 'If no writer is active, inspect the stale lock before removing it.',
+      );
+    }
+    throw error;
+  }
+}
+
+function withLedgerWriteLock<T>(
+  ledgerPath: string,
+  action: () => T,
+): T {
+  const lockPath = acquireLedgerWriteLock(ledgerPath);
+  let failed = false;
+  try {
+    return action();
+  } catch (error) {
+    failed = true;
+    throw error;
+  } finally {
+    try {
+      fs.unlinkSync(lockPath);
+    } catch (error) {
+      if (!failed) {
+        throw new Error(
+          `Import ledger update completed but lock cleanup failed: ${lockPath}`,
+        );
+      }
+    }
+  }
+}
+
 function writeLedgerAtomically(ledgerPath: string, ledger: Ledger): void {
   const absoluteLedgerPath = path.resolve(ledgerPath);
   const directory = path.dirname(absoluteLedgerPath);
@@ -511,18 +591,25 @@ function writeLedgerAtomically(ledgerPath: string, ledger: Ledger): void {
   }
 }
 
-/** Adds or replaces entries by occurrence, keeps file order stable, and writes the ledger. */
+/**
+ * Adds or replaces entries by occurrence, keeps file order stable, and writes
+ * the ledger while excluding concurrent writers. The read happens only after
+ * the lock is acquired so a competing process cannot silently overwrite a
+ * review decision that committed first.
+ */
 export function recordEntries(ledgerPath: string, entries: readonly LedgerEntry[]): Ledger {
-  const ledger = readLedger(ledgerPath);
-  for (const entry of entries) {
-    const index = ledger.entries.findIndex((existing) =>
-      sameOccurrence(existing, entry.kind, entry.source, entry.sheet, entry.place));
-    if (index >= 0) ledger.entries[index] = entry;
-    else ledger.entries.push(entry);
-  }
-  ledger.entries.sort((a, b) =>
-    `${a.source}\u0000${a.sheet ?? ''}\u0000${a.place}`
-      .localeCompare(`${b.source}\u0000${b.sheet ?? ''}\u0000${b.place}`));
-  writeLedgerAtomically(ledgerPath, ledger);
-  return ledger;
+  return withLedgerWriteLock(ledgerPath, () => {
+    const ledger = readLedger(ledgerPath);
+    for (const entry of entries) {
+      const index = ledger.entries.findIndex((existing) =>
+        sameOccurrence(existing, entry.kind, entry.source, entry.sheet, entry.place));
+      if (index >= 0) ledger.entries[index] = entry;
+      else ledger.entries.push(entry);
+    }
+    ledger.entries.sort((a, b) =>
+      `${a.source}\u0000${a.sheet ?? ''}\u0000${a.place}`
+        .localeCompare(`${b.source}\u0000${b.sheet ?? ''}\u0000${b.place}`));
+    writeLedgerAtomically(ledgerPath, ledger);
+    return ledger;
+  });
 }
