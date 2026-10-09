@@ -12,7 +12,7 @@
 
 | 優先度 | 作業 | 状態 | 次の一手 |
 | --- | --- | --- | --- |
-| **利用者向け最優先（D0・D13）** | [既存・新規のExcel表とMarkdownの併用執筆](issues/issue-0211-vscode-excel-coauthoring-flow.md)（[見直し](vscode-excel-authoring-review.md)・[利用案内](../04_Documentation/excel-markdown-authoring.md)） | **Open**（既存の参照作成・補完・目録を使い、一連の執筆を確認する） | 既存設計書、新規表、保存後の値変更、構造変更、取消・Undo、取得不能の六場面で不足を特定する |
+| **利用者向け最優先（D0・D13）** | [既存・新規のExcel表とMarkdownの併用執筆](issues/issue-0211-vscode-excel-coauthoring-flow.md)（[見直し](vscode-excel-authoring-review.md)・[利用案内](../04_Documentation/excel-markdown-authoring.md)） | **In Progress**（参照中ブックの保存イベントからMarkdown previewをsource-awareに再描画するEW04経路を追加。実機確認は未完） | まず保存後の値変更を実VS Code＋Excelで確認し、その後、既存設計書、新規表、構造変更、取消・Undo、取得不能の六場面を一巡する |
 | **1 Coreと入口** | [Candidate・Source Adapter・provenanceの契約](issues/issue-0193-candidate-source-adapter-contract.md) | **Done**（契約 v1。表・画像・Choice list・AutoShape/connector・JSON/YAML/XML/推定Tree Candidateが利用。`mmi schema candidate`で機械可読契約を取得可能） | 次の一般化はNote / Section / graphic frame等、source semanticsを安全に読める対象へ |
 | 1 | CLI（inspect/check/render/manifest）、AI向け指示パック、基本設計書キット、[執筆ベンチマーク](../04_Documentation/benchmarks/ai-writing/README.md) | 実装済み | ベンチマーク v0は実施済み。表を大きくした v1は優先度5 |
 | 1 | [外部LLMへの作業提案と判断材料](issues/issue-0112-ai-proposal-handoff.md) | **In Progress**（local-only handoff、MMI記法・Candidate選択・変換案のfail-closed再検証を実装。変換案は共通Candidate目録で再発見し、表・画像・JSON/YAML/XML/フラットテキストTreeの既存変換へ束縛） | 次: manual-e2eでhandoff → 外部提案 → 3種類の再検証が自動適用なしで完結することを確認 |
@@ -36,7 +36,7 @@
 | 4 | 参照台帳と影響分析 | 未起票 | issue-0195の台帳と合わせて設計 |
 | **5 組織導入** | 文書キットの追加、CI関門、執筆ベンチマーク v1（大きな表・複数シート・本文と表の矛盾） | 未起票 | 優先度2の縦切りの後 |
 | 5 | [外部の判断記録からの根拠の固定（SEI）](issues/issue-0192-sei-decision-basis-table-binding.md) | Draft | CLIの契約が固まった後 |
-| **最優先（停止中）** | [リファクタ後の製品テスト9件の食い違い（origin/mainが赤い）](issues/issue-0212-refactor-test-drift.md) | Open（担当者未定） | 担当者の割り当てと、テストと実装のどちらが正かの判断が要る |
+| 横断・実行確認 | [リファクタ後の製品テスト9件の再確認](issues/issue-0212-refactor-test-drift.md) | **In Progress**（9件の静的な実装/期待値不一致は後続変更で解消済み） | Node 20で対象6ファイルと全体testを実行し、製品テストの赤が残っていないことを確認する |
 | 横断 | [上位プロダクト名とMMI互換層の整理](issues/issue-0201-product-name-and-compatibility-layer.md) | Draft | 実装を止めずに検討。決定前はrepo/package/CLI名を変更しない |
 | 2（既存） | [表の検索で見つからなかった依頼の観測](issues/issue-0207-search-demand-observation.md)（略語・表記・言い換えの需要を、同意のもとローカルに数える。[設計](../02_Architecture/search-observation.md)） | **In Progress**（既定オフ、privacy-safe record、1,000件循環、件数集計、検索セッション接続を実装） | 次: 拡張機能ホストE2Eで選択・入力修正・キャンセル・alias結果を確認し、観測オン/オフで候補順位が不変であることを固定 |
 | 3（認知候補） | [ローカル認知runtime評価](issues/issue-0113-local-ai-feasibility.md) | Draft | M0〜M2で不足する具体的taskが定まったら、Ollama / LM Studio等の導入済みruntimeを含め比較評価 |
