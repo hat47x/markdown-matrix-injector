@@ -247,7 +247,7 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
           target instanceof vscode.Uri ? target : undefined,
         ),
     ),
-    ...registerTableCatalog(),
+    ...registerTableCatalog(diagnostics),
     ...registerSearchObservationCommands(context),
     vscode.commands.registerCommand(CLEAR_SEARCH_INDEX_COMMAND_ID, () => {
       clearSearchIndexes();
@@ -309,13 +309,15 @@ async function renderEmbedCached(markdown: string, markdownFilePath: string, wor
 }
 
 /** The Explorer's table catalog and its actions (dx/tableCatalogView.ts). */
-function registerTableCatalog(): vscode.Disposable[] {
+function registerTableCatalog(
+  diagnostics: vscode.DiagnosticCollection,
+): vscode.Disposable[] {
   const catalog = new TableCatalogProvider(WORKBOOK_FILE_GLOB);
   const watcher = vscode.workspace.createFileSystemWatcher(WORKBOOK_FILE_GLOB);
   const refresh = (): void => catalog.refresh();
   const workbookChanged = (uri: vscode.Uri): void => {
     refresh();
-    void refreshMarkdownPreviewForWorkbook(uri);
+    void refreshMarkdownPreviewForWorkbook(uri, diagnostics);
   };
   // Selected parts go to the confirm step (real rendering), never straight into the document.
   const confirm = async (parts: ReturnType<typeof partsFromResult>): Promise<void> => {
@@ -356,10 +358,11 @@ function registerTableCatalog(): vscode.Disposable[] {
 
 async function refreshMarkdownPreviewForWorkbook(
   uri: vscode.Uri,
+  diagnostics: vscode.DiagnosticCollection,
 ): Promise<void> {
   if (uri.scheme !== 'file') return;
 
-  const referencedByOpenMarkdown = vscode.workspace.textDocuments.some(
+  const affectedDocuments = vscode.workspace.textDocuments.filter(
     (document) => {
       if (
         document.languageId !== 'markdown'
@@ -378,7 +381,7 @@ async function refreshMarkdownPreviewForWorkbook(
       );
     },
   );
-  if (!referencedByOpenMarkdown) return;
+  if (affectedDocuments.length === 0) return;
 
   // Do not trust an old in-memory workbook after an external Excel save.
   // This also covers rapid saves whose filesystem timestamp granularity could
@@ -386,13 +389,24 @@ async function refreshMarkdownPreviewForWorkbook(
   previewRenderCache.clear();
   markdownPreviewWorkbookCache.clear();
 
+  // Workbook changes can invalidate more than the rendered values: sheet
+  // names, ranges and expected headers may have changed or disappeared.
+  await Promise.all(
+    affectedDocuments.map((document) =>
+      refreshDiagnosticsForDocument(
+        document,
+        diagnostics,
+        'review',
+      )),
+  );
+
   try {
     await vscode.commands.executeCommand(
       MARKDOWN_PREVIEW_REFRESH_COMMAND,
     );
   } catch {
-    // The built-in Markdown preview may not be active. The cleared caches still
-    // guarantee that the next preview render reloads the saved workbook.
+    // The built-in Markdown preview may not be active. The cleared caches and
+    // refreshed diagnostics still make the next user action re-read the source.
   }
 }
 

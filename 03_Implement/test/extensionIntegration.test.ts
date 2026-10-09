@@ -485,6 +485,10 @@ test('workbook file events refresh Markdown preview only through the source-awar
   );
   assert.match(
     source,
+    /affectedDocuments\.map\(\(document\) =>\s*refreshDiagnosticsForDocument\(\s*document,\s*diagnostics,\s*'review',\s*\)\)/su,
+  );
+  assert.match(
+    source,
     /previewRenderCache\.clear\(\);\s*markdownPreviewWorkbookCache\.clear\(\);/su,
   );
   assert.match(
@@ -494,6 +498,10 @@ test('workbook file events refresh Markdown preview only through the source-awar
   assert.match(
     source,
     /cache: markdownPreviewWorkbookCache/u,
+  );
+  assert.match(
+    source,
+    /registerTableCatalog\(diagnostics\)/u,
   );
 });
 
