@@ -19,6 +19,10 @@ import {
 } from '../application/workbookCandidateInventory.js';
 import { checkExtractedProvenanceFreshness } from '../application/detachFreshness.js';
 import { materializeDocument } from '../application/materialize.js';
+import {
+  analyzeSourceImpact,
+  type SourceImpactReport,
+} from '../application/sourceImpact.js';
 import { runPortableCoreRequest } from '../application/portableCoreProtocol.js';
 import type {
   ChoiceListDiagnostic,
@@ -195,6 +199,9 @@ Commands:
   detach-check <doc.md>     Verify a Markdown artifact has no MMI refs, unresolved cards,
                             broken local links or links outside --root
   manifest <doc.md>         List references that fall back to 別紙 cards as CSV
+  impact <source>           Find Markdown dependencies on one source across --root.
+                            Reports live MMI refs, adopted Extracted provenance and local links.
+                            The source may already be missing; this command never rewrites references.
   handoff <source>          Build a local-only evidence package/prompt for a user-chosen external LLM
       --task <text>           work to ask for (required)
       --document <doc.md>     include unresolved MMI diagnostics from this Markdown document
@@ -1001,6 +1008,25 @@ export async function main(argv: string[]): Promise<number> {
       emit(values.json ? JSON.stringify(records, null, 2) : csvText);
       return 0;
     }
+    case 'impact': {
+      if (args.length !== 1) return usageError('impact takes one source file path');
+      const sourcePath = path.resolve(args[0]);
+      let result: SourceImpactReport;
+      try {
+        result = analyzeSourceImpact({
+          sourcePath,
+          workspaceRoot: root,
+        });
+      } catch (error) {
+        return usageError(
+          error instanceof Error ? error.message : String(error),
+        );
+      }
+      emit(values.json
+        ? JSON.stringify(result, null, 2)
+        : formatSourceImpact(result));
+      return 0;
+    }
     case 'handoff': {
       if (args.length !== 1) return usageError('handoff takes one source file');
       if (!values.task?.trim()) return usageError('handoff needs --task <text>');
@@ -1184,6 +1210,25 @@ function formatReviewOnlyValidation(
     ...checks.map((check) =>
       `  ${check.check}: ${check.status} ${check.code}${check.detail ? ` - ${check.detail}` : ''}`),
   ].join('\n');
+}
+
+function formatSourceImpact(report: SourceImpactReport): string {
+  const state = report.source.exists ? 'present' : 'missing';
+  const lines = [
+    `source: ${report.source.path} (${state})`,
+    `documents scanned: ${report.documentsScanned}`,
+    `impacts: ${report.counts.total} (linked ${report.counts.linked}, extracted ${report.counts.extracted}, local-link ${report.counts.localLink})`,
+  ];
+  for (const impact of report.impacts) {
+    const target = [
+      impact.sheet ? `#${impact.sheet}` : '',
+      impact.place ? `|${impact.place}` : '',
+    ].join('');
+    lines.push(
+      `  ${impact.document}:${impact.line} ${impact.relation} ${impact.resolution}${impact.kind ? ` [${impact.kind}]` : ''} ${impact.sourceReference}${target}`,
+    );
+  }
+  return lines.join('\n');
 }
 
 function formatAiHandoffProposalValidation(
