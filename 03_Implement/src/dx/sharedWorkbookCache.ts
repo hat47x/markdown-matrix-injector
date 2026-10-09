@@ -21,3 +21,13 @@ export function tryReadWorkbookCached(absolutePath: string): WorkbookData | unde
     return undefined;
   }
 }
+
+
+/**
+ * External workbook saves invalidate completion and guided-authoring reads.
+ * Callers use this explicitly because filesystem mtime granularity is not a
+ * sufficient freshness signal on every host/filesystem.
+ */
+export function clearSharedWorkbookCache(): void {
+  cache.clear();
+}
