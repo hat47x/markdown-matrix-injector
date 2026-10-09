@@ -33,7 +33,7 @@
 | 3 | Shape、その他List source | **In Progress** | AutoShape/connectorのSource Adapterとreview/import観測は実装済み。Choice listは独立kindを継続。残る主課題はShapeのExtracted変換とgraphic frame等の安全な分類 |
 | 3（研究） | structured artifact（SAI）、worksheet format、[review route](issues/issue-0190-review-route-evaluation-pipeline-regression.md) | In Progress | 新しい研究段階は、issue-0193の対応表のどの行を強くするかを示してから始める |
 | **4 Detachability** | [実体化とdetach check](issues/issue-0196-materialize-detach-check.md) | **In Progress**（表・別紙・ローカル画像のmaterialize、採用済み表・画像・JSON/YAML/XML/フラットテキスト/表形式階層Treeのfreshness preflight、artifact closureを実装） | 表・キット・画像つき文書の手動E2Eを確認済み（2026-10-08）。残: 実在する設計書での確認、Windows/macOS。Shape等がExtracted可能になったら同じprovenance/freshness契約へ拡張 |
-| 4 | 参照台帳と影響分析 | 未起票 | issue-0195の台帳と合わせて設計 |
+| 4 | [原本参照の影響分析](issues/issue-0213-source-impact-analysis.md) | **In Progress**（Linked / Extracted / ローカルリンクをread-onlyで横断列挙。CLIに加え、エクスプローラーから影響先Markdownの該当行を開ける） | Node 20と実VS Codeで確認し、実務workspaceの変更・移動・削除判断に十分かを観測する |
 | **5 組織導入** | 文書キットの追加、CI関門、執筆ベンチマーク v1（大きな表・複数シート・本文と表の矛盾） | 未起票 | 優先度2の縦切りの後 |
 | 5 | [外部の判断記録からの根拠の固定（SEI）](issues/issue-0192-sei-decision-basis-table-binding.md) | Draft | CLIの契約が固まった後 |
 | 横断・実行確認 | [リファクタ後の製品テスト9件の再確認](issues/issue-0212-refactor-test-drift.md) | **In Progress**（9件の静的な実装/期待値不一致は後続変更で解消済み） | Node 20で対象6ファイルと全体testを実行し、製品テストの赤が残っていないことを確認する |

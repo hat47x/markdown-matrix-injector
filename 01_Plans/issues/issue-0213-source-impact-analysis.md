@@ -5,7 +5,7 @@
 - Type: Feature
 - Status: In Progress
 - Priority: Medium
-- Scope: src/application（source impact）、src/cli、docs
+- Scope: src/application（source impact）、src/cli、VS Code Explorer、docs
 - Expected verification level: unit / integration
 
 ## Traceability
@@ -30,7 +30,8 @@ Delivery ManifestはSmart Fallbackで別紙になる参照だけを対象とす�
 - [x] sourceが存在する場合はworkspace containmentとrealpathを使い、digestも返す。sourceが既に削除済みの場合も旧パスで検索でき、結果を`path-only`として明示する。
 - [x] source pathがworkspace外へ出る場合は、存在しないpathやsymlink parentを含めてfail-closedにする。
 - [x] text / JSONの両出力を提供し、文書・source・ledgerを変更しない。
-- [ ] unit / CLI integration testを通常の開発環境で実行し、結果を記録する。
+- [x] VS Codeのエクスプローラーから明示的に実行し、影響先Markdownと行を選んで開ける。解析結果から自動renameや自動書換えは行わない。
+- [ ] unit / CLI / Extension integration testを通常の開発環境で実行し、結果を記録する。
 
 ## Implementation checkpoint (2026-10-08)
 
@@ -52,6 +53,14 @@ CLIは`mmi impact <source>`とした。対象sourceが存在しなくてもexit 
 
 `test/sourceImpact.test.ts`では、同じsourceへのLinked / Extracted / local-linkを1つのreportへ束ねること、code fenceと外部URLを除外すること、source削除後も3件を`path-only`で発見すること、workspace外sourceを拒否すること、CLI実行前後でworkspace file集合が変わらないことを固定した。
 
+## VS Code入口（2026-10-09）
+
+既存の`analyzeSourceImpact()`を再利用し、エクスプローラーの原本ファイルから「この原本を参照中のMarkdownを確認」を実行できるようにした。対象なしのコマンド実行でworkspace全体を走査しないよう、コマンドパレットには出さず、原本ファイルを明示選択したときだけ解析する。
+
+結果はLinked / Extracted / ローカルリンクを同じQuick Pickへ並べる。選択すると該当Markdownを開き、記録された行へ移動する。解析はread-onlyであり、原本移動、rename、参照の書換え、review decision変更は行わない。D13に合わせ、ファイル変更時のbackground impact scanも追加していない。
+
+`package.json`のactivation / Explorer menu / localizationと、`extensionIntegration.test.ts`の静的な接続検査を更新した。ただし、この環境ではNode 20のExtension integration testを実行していない。
+
 ## Validation plan
 
 通常の開発環境で次を実行する。
@@ -68,7 +77,7 @@ npm run mmi -- impact ../04_Documentation/samples/sier-design/masters/基本設�
 
 ## Remaining work
 
-- 正本test suiteを実行し、Linux/Windowsのpath semanticsを確認する。
-- 実務workspaceで、source変更・移動・削除判断の前にimpact reportが十分かを観測する。
+- 正本test suiteを実行し、Linux/Windowsのpath semanticsとExplorer入口を確認する。
+- 実務workspaceで、source変更・移動・削除判断の前にCLI / Explorerのimpact reportが十分かを観測する。
 - 永続参照索引は、毎回走査の性能が実測で問題になった場合だけ検討する。索引を導入する場合もMarkdown/source provenanceを正本とし、stale indexをAuthorityにしない。
 - 自動rename / reference rewriteは本Issueのv1対象外。影響を示したうえで人が変更を選ぶ。
