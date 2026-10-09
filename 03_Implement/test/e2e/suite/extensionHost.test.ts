@@ -789,18 +789,48 @@ async function verifyContentMatchPasteAsHostCommand(
   // The command acts on the focused editor; showTextDocument can resolve before focus has settled.
   await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
   await delay(500);
-  await vscode.commands.executeCommand('editor.action.pasteAs', {
-    preferences: [integrationState.contentMatchPasteEditKind],
-  });
 
+  const documentVersionBeforeCommand = document.version;
+  const activeEditorUriBeforeCommand = activeEditorUri();
+  const messageCapture = captureWindowMessages();
+  const commandStartedAt = Date.now();
+  let commandElapsedMs = 0;
+  let documentVersionAfterCommand = documentVersionBeforeCommand;
+  let activeEditorUriAfterCommand = activeEditorUriBeforeCommand;
+  try {
+    await vscode.commands.executeCommand('editor.action.pasteAs', {
+      preferences: [integrationState.contentMatchPasteEditKind],
+    });
+  } finally {
+    commandElapsedMs = Date.now() - commandStartedAt;
+    documentVersionAfterCommand = document.version;
+    activeEditorUriAfterCommand = activeEditorUri();
+    messageCapture.restore();
+  }
+
+  const pollStartedAt = Date.now();
   const pasteAsText = await waitForDocumentText(
     document,
     (text) => /!\[\[\.\.\/data\/roles\.csv#Sheet1\|A2:B2\]\]/u.test(text),
   );
+  const pollElapsedMs = Date.now() - pollStartedAt;
+  const pasteAsDiagnostics = {
+    documentUri: document.uri.toString(),
+    documentVersionBeforeCommand,
+    documentVersionAfterCommand,
+    documentVersionAfterPoll: document.version,
+    activeEditorUriBeforeCommand,
+    activeEditorUriAfterCommand,
+    activeEditorUriAfterPoll: activeEditorUri(),
+    commandElapsedMs,
+    pollElapsedMs,
+    capturedWindowMessages: messageCapture.messages,
+  };
+  logStage('content-match-paste-as-host-command:paste-as-diagnostics', pasteAsDiagnostics);
   assert.match(
     pasteAsText,
     /!\[\[\.\.\/data\/roles\.csv#Sheet1\|A2:B2\]\]/u,
-    `Expected editor.action.pasteAs to dispatch through the registered MMI provider and insert the unique content-match reference. Document was: ${JSON.stringify(pasteAsText)}`,
+    `Expected editor.action.pasteAs to dispatch through the registered MMI provider and insert the unique content-match reference. Document was: ${JSON.stringify(pasteAsText)} diagnostics=${JSON.stringify(pasteAsDiagnostics)}`,
   );
 
   // Registering text/plain as a provider trigger must not turn ordinary
@@ -828,6 +858,54 @@ async function verifyContentMatchPasteAsHostCommand(
     boundary:
       'Built-in Paste As dispatch is covered with text/plain TSV; real Excel HTML/Windows helper formats and visual picker interaction remain manual evidence.',
   });
+}
+
+const WINDOW_MESSAGE_APIS = ['showWarningMessage', 'showInformationMessage', 'showErrorMessage'] as const;
+type WindowMessageApi = (typeof WINDOW_MESSAGE_APIS)[number];
+type WindowMessageFn = (...args: unknown[]) => unknown;
+
+interface CapturedWindowMessage {
+  api: WindowMessageApi;
+  text: string;
+  items: string[];
+}
+
+/**
+ * Wraps the three notification APIs so that messages raised while a command runs
+ * are recorded. Each wrapper still calls the original, so VS Code behaves as it
+ * does without the diagnostic. `restore` must be called in a `finally` block.
+ */
+function captureWindowMessages(): { messages: CapturedWindowMessage[]; restore: () => void } {
+  const messages: CapturedWindowMessage[] = [];
+  const windowApi = vscode.window as unknown as Record<WindowMessageApi, WindowMessageFn>;
+  const originals: Record<WindowMessageApi, WindowMessageFn> = {
+    showWarningMessage: windowApi.showWarningMessage,
+    showInformationMessage: windowApi.showInformationMessage,
+    showErrorMessage: windowApi.showErrorMessage,
+  };
+  for (const api of WINDOW_MESSAGE_APIS) {
+    windowApi[api] = (...args: unknown[]) => {
+      const [message, ...rest] = args;
+      messages.push({
+        api,
+        text: typeof message === 'string' ? message : String(message),
+        items: rest.filter((item): item is string => typeof item === 'string'),
+      });
+      return originals[api].apply(vscode.window, args);
+    };
+  }
+  return {
+    messages,
+    restore: () => {
+      for (const api of WINDOW_MESSAGE_APIS) {
+        windowApi[api] = originals[api];
+      }
+    },
+  };
+}
+
+function activeEditorUri(): string | null {
+  return vscode.window.activeTextEditor?.document.uri.toString() ?? null;
 }
 
 async function waitForDocumentText(
