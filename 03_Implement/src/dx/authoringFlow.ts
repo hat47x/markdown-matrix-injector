@@ -223,18 +223,33 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
     } else {
       // Confirmation is an Authority boundary. Refresh every interactive
       // workbook cache first so the preview cannot inherit a stale mtime-keyed
-      // parse, then bind the preview and final edit to source byte identity.
+      // parse, then bind parse + preview + final edit to one source identity.
       deps.invalidateWorkbookCaches?.();
-      const source = parts.filepath ? workbookOf(parts.filepath) : {};
-      const sourceBeforePreview = sourceContentStamp(source.absolute);
+      const sourceAbsolute = parts.filepath
+        ? resolveAuthoringSourcePath(parts.filepath, document.uri.fsPath, workspaceRoot)
+        : undefined;
+      const sourceBeforeRead = sourceContentStamp(sourceAbsolute);
+      let sourceData: WorkbookData | undefined;
+      if (sourceAbsolute) {
+        try {
+          sourceData = readWorkbookCached(sourceAbsolute);
+        } catch {
+          sourceData = undefined;
+        }
+      }
+      const sourceAfterRead = sourceContentStamp(sourceAbsolute);
+      if (sourceAfterRead !== sourceBeforeRead) {
+        void vscode.window.showWarningMessage('MMI: 原本の読込み中に内容が変わったため、もう一度読み直します。');
+        continue;
+      }
+
       // A new reference records the headers of the table being chosen, so a later column shift in the source is reported
       // (ADR-0022). An existing one is never given the key by a plain confirm (loss-free edit); one that already has it is refreshed.
-      const sourceData = source.data;
       if (sourceData && (!existing || getParams(parts, EXPECTED_HEADERS_PARAM).length > 0)) parts = withCurrentExpectedHeaders(parts, sourceData);
       const markdown = serializeEmbedParts(parts);
       const summary = await preview(deps, markdown, document.uri.fsPath, workspaceRoot);
-      const sourceAfterPreview = sourceContentStamp(source.absolute);
-      if (sourceAfterPreview !== sourceBeforePreview) {
+      const sourceAfterPreview = sourceContentStamp(sourceAbsolute);
+      if (sourceAfterPreview !== sourceAfterRead) {
         void vscode.window.showWarningMessage('MMI: プレビュー中に原本が変わったため、内容を読み直します。');
         continue;
       }
@@ -256,7 +271,7 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
           void vscode.window.showWarningMessage('MMI: 操作中に文書が変わったため、挿入を中止しました（文書は変更していません）。');
           return;
         }
-        if (sourceContentStamp(source.absolute) !== sourceAfterPreview) {
+        if (sourceContentStamp(sourceAbsolute) !== sourceAfterPreview) {
           void vscode.window.showWarningMessage('MMI: 原本が変わったため、プレビューを作り直します。');
           continue;
         }
