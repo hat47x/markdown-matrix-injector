@@ -26,8 +26,11 @@ import { fileFixCandidates, sheetFixCandidates } from './embedFixes.js';
 import { normalizeExplicitRangeInput } from './explicitRange.js';
 import { parameterIssues } from './parameterDiagnostics.js';
 import { describePreview, summarizeRenderedEmbed, type PreviewSummary } from './embedPreview.js';
-import { resolveWorkbookPath, toRelativeSuggestion } from './vscodeAdapters.js';
-import { isWorkspaceFileCandidate } from './workspaceBoundary.js';
+import { toRelativeSuggestion } from './vscodeAdapters.js';
+import {
+  isWorkspaceFileCandidate,
+  resolveAuthoringSourcePath,
+} from './workspaceBoundary.js';
 
 export const AUTHOR_EMBED_COMMAND_ID = 'markdownMatrixInjector.authorEmbed';
 
@@ -88,8 +91,13 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
   let movingBack = false;
   const initial = { filepath: parts.filepath, sheet: parts.sheet };
 
-  const workbookOf = (filepath: string): { absolute: string; data?: WorkbookData } => {
-    const absolute = resolveWorkbookPath(filepath, document.uri.fsPath, workspaceRoot);
+  const workbookOf = (filepath: string): { absolute?: string; data?: WorkbookData } => {
+    const absolute = resolveAuthoringSourcePath(
+      filepath,
+      document.uri.fsPath,
+      workspaceRoot,
+    );
+    if (!absolute) return {};
     try {
       return { absolute, data: readWorkbookCached(absolute) };
     } catch {
@@ -439,7 +447,8 @@ async function preview(deps: AuthoringDependencies, markdown: string, markdownFi
   }
 }
 
-function stamp(absolutePath: string): string {
+function stamp(absolutePath: string | undefined): string {
+  if (!absolutePath) return 'unavailable';
   try {
     const stat = fs.statSync(absolutePath);
     return `${stat.mtimeMs}:${stat.size}`;
@@ -485,7 +494,12 @@ export function createEmbedFixProvider(workbookGlob: string): vscode.CodeActionP
             );
           }
           try {
-            const absolute = resolveWorkbookPath(embed.parts.filepath, document.uri.fsPath, workspaceRoot);
+            const absolute = resolveAuthoringSourcePath(
+              embed.parts.filepath,
+              document.uri.fsPath,
+              workspaceRoot,
+            );
+            if (!absolute) throw new Error('Source is unavailable or outside the workspace.');
             fixes = sheetFixCandidates(embed.parts.sheet, Object.keys(readWorkbookCached(absolute).sheets));
           } catch {
             fixes = [];
@@ -500,7 +514,12 @@ export function createEmbedFixProvider(workbookGlob: string): vscode.CodeActionP
         } else if (diagnostic.code === 'MMI_HEADERS_MISMATCH') {
           // Offered only: the person decides whether the source change is intended (never auto-confirmed).
           try {
-            const absolute = resolveWorkbookPath(embed.parts.filepath, document.uri.fsPath, workspaceRoot);
+            const absolute = resolveAuthoringSourcePath(
+              embed.parts.filepath,
+              document.uri.fsPath,
+              workspaceRoot,
+            );
+            if (!absolute) throw new Error('Source is unavailable or outside the workspace.');
             const updated = withCurrentExpectedHeaders(embed.parts, readWorkbookCached(absolute));
             const value = getParams(updated, EXPECTED_HEADERS_PARAM)[0];
             const at = embedText.search(/x-headers=[^&\]]*/u);
