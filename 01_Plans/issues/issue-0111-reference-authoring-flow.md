@@ -39,5 +39,5 @@
 残りは次のとおりです。
 
 - 初めて使う人と熟練者の表作成・別紙作成・参照変更の実機観測と、原本ハッシュ不変の記録（criterion 5）。
-- 案内付きコマンドの状態遷移はExtension Hostのscripted flowで自動確認済み。実際のQuickPick描画・キーボード操作感はmanual-e2eで確認する。
+- 案内付きコマンドの状態遷移はExtension Hostのscripted flowで自動確認済み。multi-rootの実用E2Eではworkspace-root相対参照を既存記法として開き、実sourceからrange候補を読んでconfirmまで到達する経路も回帰対象にした。実際のQuickPick描画・キーボード操作感はmanual-e2eで確認する。
 - issue-0211のA〜Fで、既存設計書の参照、新しい表、固定範囲外の行追加、範囲内挿入、見出し・シート名変更後の参照修正を確認する。既存のチェック済み条件は今回再試験した結果ではない。
