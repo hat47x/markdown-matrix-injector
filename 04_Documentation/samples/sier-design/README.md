@@ -2,21 +2,20 @@
 
 > この資料は過去の検証記録です。最新の導入手順は [実務サンプル](../practical/README.md)、実機・PDFの確認範囲は [2026-09-08以降の検証記録](../../release-validation-2026-09-08.md) を参照してください。下記の経路Aは未検証であり、推奨経路とは扱いません。
 
-**目的**: ADR-0010 の公開に足る品質ゲート G2（エンタープライズ出力実証）と G4（正直な適用範囲）を  
-代表的 SIer 設計書パターンで実証するサンプルセットです。
+**目的**: 代表的なSIerの設計書を題材に、ADR-0010が定める公開品質の判定条件であるG2（企業向け出力の実証）とG4（適用範囲の正確な説明）を実証するためのサンプルです。
 
 ## ファイル構成
 
 | ファイル | 説明 |
 |---|---|
-| `design-doc-sample.md` | サンプル設計書 Markdown（全 Phase 3-4 機能を使用） |
-| `req-trace.csv` | 要件トレーサビリティ表（正本データ） |
+| `design-doc-sample.md` | Markdown形式の設計書サンプル（Phase 3～4の全機能を使用） |
+| `req-trace.csv` | 要件の追跡表（正本データ） |
 | `state-transition.csv` | 状態遷移表（正本データ） |
 | `failure-triage.csv` | 障害切り分けガイド（正本データ） |
 | `release-gate.csv` | リリース判定表（正本データ） |
-| `design-doc-sample-rendered.html` | **MMI パイプライン**生成 HTML（embeds 展開済み + CSS 埋め込み、G2 中間証跡）。`03_Implement/scripts/render-sample-html.ts` で再生成可能 |
-| `design-doc-sample.pdf` | 実 PDF（WeasyPrint、7 ページ、改ページ・横向き・別紙参照を再現。**G2 正式証跡**） |
-| `design-doc-sample.delivery-manifest.csv` | `MMI: Generate Delivery Manifest` コマンドの出力例（別紙カード 1 件を抽出。要件 Phase 4） |
+| `design-doc-sample-rendered.html` | **MMIの処理系**で生成したHTML（埋め込み参照を展開済み、CSSを埋め込み済み。G2の中間的な検証根拠）。`03_Implement/scripts/render-sample-html.ts` で再生成可能 |
+| `design-doc-sample.pdf` | 実際に生成したPDF（WeasyPrint、7ページ。改ページ、横向き、別紙への参照を再現。**G2の正式な検証根拠**） |
+| `design-doc-sample.delivery-manifest.csv` | `MMI: Generate Delivery Manifest` コマンドの出力例（別紙を指すカード1件を抽出。Phase 4の要求に対応） |
 
 ## G2: 実証した機能と確認方法
 
@@ -34,22 +33,22 @@
 
 ## G2: 実 PDF 生成（手動確認ステップ）
 
-以下は WSL2 ヘッドレス環境では実施不可のため、GUI 環境またはCI で確認してください。
+以下ではPDFを生成する経路を分けて説明します。経路Aの画面操作はWSL2のヘッドレス環境では実行できません。一方、経路Bはヘッドレス環境で実証済みです。
 
 ### 経路 A（未検証）: VS Code + Markdown PDF 拡張機能
 
-1. VS Code で `design-doc-sample.md` を開く
-2. MMI 拡張機能が有効になっていること（`![[...]]` がプレビューに展開される）
-3. コマンドパレット → `Markdown PDF: Export (pdf)`
-4. 出力 PDF で以下を確認:
+1. VS Codeで`design-doc-sample.md`を開く
+2. MMI拡張機能が有効で、`![[...]]`がプレビューで展開されることを確認する
+3. コマンドパレットから`Markdown PDF: Export (pdf)`を選ぶ
+4. 出力されたPDFで次の点を確認する。
    - 「表2: 全要件一覧（横向き）」の前で改ページが入る
    - 「表3: 文書ライフサイクル状態遷移」が横向きページで出力される
    - カード（`別紙: 障害切り分けガイド全件`）が「別紙参照:」プレフィックス付きのブロックで表示される
 
 ### 経路 B（CI/ヘッドレス、実証済み）: MMI レンダリング HTML + weasyprint
 
-> ⚠️ **重要**: PDF 化する HTML は **MMI パイプラインで `![[...]]` を展開済み**のものを使うこと。
-> Pandoc 単体で生成した HTML は embeds が未展開（生テキスト）のままで、表・横向き・カードが一切出ません。
+> **重要**: PDFへ変換するHTMLには、**MMIの処理系で`![[...]]`を展開したもの**を使うこと。
+> Pandocだけで生成したHTMLでは埋め込み参照が未展開のまま残り、表・横向き表示・カードのいずれも表示されません。
 
 ```bash
 # 1) 本サンプル同梱の rendered.html は MMI で展開済み（render-sample-html.ts 生成）。
@@ -60,7 +59,7 @@ cd 03_Implement && node --import tsx scripts/render-sample-html.ts
 weasyprint 04_Documentation/samples/sier-design/design-doc-sample-rendered.html output.pdf
 ```
 
-2026-06-03 にこの経路で実証済み（`design-doc-sample.pdf`、7 ページ）。検証ログ: `04_Documentation/samples/manual-e2e-g1-g2-result-2026-06-03.md`。
+この経路は2026年6月3日に検証済みです（`design-doc-sample.pdf`、7ページ）。検証ログ: `04_Documentation/samples/manual-e2e-g1-g2-result-2026-06-03.md`。
 
 ### 経路 C: MMI レンダリング HTML → Chromium headless print
 
@@ -73,24 +72,24 @@ chromium-browser --headless --print-to-pdf=output.pdf 04_Documentation/samples/s
 
 ### 確認済み（自動テストで担保）
 
-- `![[...]]` → HTML 構造（クラス/属性）の正しさ: **unit 167 件で実証**
+- `![[...]]` → HTML 構造（クラス/属性）の正しさ: **単体テスト167件で検証**
 - `data-page-break` / `data-orientation` 属性の付与: **unit で実証**
-- `@media print` + `page-break-before/after` + `@page landscape/portrait` の CSS 定義: **CSS coverage unit で実証**
+- `@media print` + `page-break-before/after` + `@page landscape/portrait` の CSS 定義: **CSSの対象範囲を確認する単体テストで検証**
 - 原本データの非改変（read-only）: **unit で実証**
 
 ### 視覚確認（2026-06-03 CI/ヘッドレス経路で実施済み）
 
 検証ログ: `04_Documentation/samples/manual-e2e-g1-g2-result-2026-06-03.md`
 
-- ✅ プレビュー描画（G1 Checklist F 全 6 観測点 Pass）: `screenshots/phase11-g1-preview.png`
-- ✅ PDF での改ページ再現（表2 の前で改ページ）: `screenshots/phase11-g2-page5-highlight-pagebreak.png`
-- ✅ PDF での per-page 横向き再現（p2/p3 が landscape、named `@page` 動作）: `screenshots/phase11-g2-page2-landscape.png` / `…page3-landscape-card.png`
-- ✅ カードの「別紙参照:」プレフィックス: 同上 page3 PNG
+- 確認済み：プレビューの描画（G1のチェックリストFの観測点6件すべてが合格）： `screenshots/phase11-g1-preview.png`
+- 確認済み：PDFの改ページ再現（表2の前で改ページ）： `screenshots/phase11-g2-page5-highlight-pagebreak.png`
+- 確認済み：PDFでのページごとの横向き再現（2・3ページが横向き、名前付き`@page`が動作）： `screenshots/phase11-g2-page2-landscape.png` / `…page3-landscape-card.png`
+- 確認済み：カードに付ける「別紙参照:」という表示： 同上 page3 PNG
 
 ### GUI 担当者向けに残る確認（必要時のみ）
 
-- 実 VS Code プレビュー webview の**実キャプチャ**（本確認は production パイプライン + 寄稿 CSS で同等描画を実証済みだが、webview そのものの画面取得は GUI 必須）
-- VS Code `Markdown PDF` 拡張（経路 A）での PDF 出力
+- VS Codeのプレビュー画面（WebView）の**実際の画面記録**。これまでの確認では本番用の処理系と寄稿されたCSSで同等の描画を検証しましたが、WebView自体の画面取得にはGUIが必要です。
+- VS Codeの`Markdown PDF`拡張機能（経路A）でのPDF出力
 
 ### PDF 生成器の既知制約（実測）
 
@@ -105,7 +104,7 @@ chromium-browser --headless --print-to-pdf=output.pdf 04_Documentation/samples/s
 ### 本プロダクトの責任範囲
 
 MMI は HTML と CSS の属性/クラス付与（`data-page-break`/`data-orientation`/`mmi-*`）まで担保します。  
-PDF レンダリングの最終品質は利用する PDF 生成器に依存し、本プロダクトの制御範囲外です。
+PDFの最終的な表示品質は使用するPDF生成器に依存し、MMIでは制御できません。
 
 ---
 
