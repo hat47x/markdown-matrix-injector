@@ -6,6 +6,7 @@ import type {
   SheetSource,
   SourceCell,
 } from '../src/core/sheetSource.js';
+import { sheetSourceFromMatrix } from '../src/core/sheetSource.js';
 import {
   createMmiSai2CandidateSet,
   SAI2_CANDIDATE_GENERATOR_ID,
@@ -210,6 +211,30 @@ test('MMI SAI-2 candidate cap and empty source fail to generator OOD', () => {
   assert.equal(result.status, 'generator_ood');
   assert.equal(result.candidate_count, 0);
   assert.deepEqual(result.candidates, []);
+});
+
+// Records the existing research-only status contract without treating it as
+// cross-producer parity or adopting a new shared runtime status.
+test('MMI SAI-2 blank or whitespace-only cell retains an empty ok candidate set', () => {
+  for (const value of ['', ' ']) {
+    const sheet = sheetSourceFromMatrix([[value]]);
+    assert.deepEqual(sheet.usedRange, {
+      startRow: 0,
+      startCol: 0,
+      endRow: 0,
+      endCol: 0,
+    });
+
+    const actual = createMmiSai2CandidateSet({
+      sheetName: 'Sheet1',
+      sheet,
+      sourceDigest: 'sha256:' + '2'.repeat(64),
+      sourceFamilyId: 'blank-cell-boundary',
+    });
+    assert.equal(actual.status, 'ok');
+    assert.equal(actual.candidate_count, 0);
+    assert.deepEqual(actual.candidates, []);
+  }
 });
 
 test('SAI-2 candidate capture freezes rectangles before target metrics or ranking', () => {
