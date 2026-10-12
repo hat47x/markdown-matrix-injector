@@ -241,15 +241,21 @@ test('MMI SAI-2 blank or whitespace-only cell retains an empty ok candidate set'
 // This characterizes an existing incomplete-result hazard; it does not
 // approve 'ok' as a correct status for a truncated scan.
 test('MMI SAI-2 truncated scan reason is lost at candidate output', () => {
-  // 2 x 500001 = 1000002 cells, just over the default detector budget.
-  // Sparse cellAt avoids materialising a million-cell dense matrix.
-  const lastColumn = 500_000;
+  // 101 x 10000 = 1010000 cells: beyond the default 1000000-cell budget,
+  // but still within an actual XLSX worksheet's column/row limits.
+  // Two populated opposite corners make the declared used range plausible.
+  const lastRow = 100;
+  const lastColumn = 9_999;
+  let omittedRowReads = 0;
   const sheet: SheetSource = {
-    usedRange: { startRow: 0, startCol: 0, endRow: 1, endCol: lastColumn },
+    usedRange: { startRow: 0, startCol: 0, endRow: lastRow, endCol: lastColumn },
     merges: [],
     cellAt(row, col) {
-      if (col !== 0 || (row !== 0 && row !== 1)) return undefined;
-      return { text: 'x', type: 's', value: 'x' };
+      if (row === lastRow) omittedRowReads += 1;
+      if ((row === 0 && col === 0) || (row === lastRow && col === lastColumn)) {
+        return { text: 'x', type: 's', value: 'x' };
+      }
+      return undefined;
     },
   };
 
@@ -259,6 +265,7 @@ test('MMI SAI-2 truncated scan reason is lost at candidate output', () => {
     startRow: 0, startCol: 0, endRow: 0, endCol: 0,
   });
   assert.ok(regions[0].reasons.includes('truncated-scan'));
+  assert.equal(omittedRowReads, 0);
 
   const result = createMmiSai2CandidateSet({
     sheetName: 'Sheet1',
@@ -270,6 +277,7 @@ test('MMI SAI-2 truncated scan reason is lost at candidate output', () => {
   assert.equal(result.candidate_count, 1);
   assert.equal(result.candidates[0].range.row_start, 1);
   assert.equal(result.candidates[0].range.row_end, 1);
+  assert.equal(omittedRowReads, 0); // The bottom-right value was never inspected.
 });
 
 test('SAI-2 candidate capture freezes rectangles before target metrics or ranking', () => {
