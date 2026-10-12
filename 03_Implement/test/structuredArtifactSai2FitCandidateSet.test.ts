@@ -7,6 +7,7 @@ import type {
   SourceCell,
 } from '../src/core/sheetSource.js';
 import { sheetSourceFromMatrix } from '../src/core/sheetSource.js';
+import { detectRegions } from '../src/search/regionDetector.js';
 import {
   createMmiSai2CandidateSet,
   SAI2_CANDIDATE_GENERATOR_ID,
@@ -235,6 +236,40 @@ test('MMI SAI-2 blank or whitespace-only cell retains an empty ok candidate set'
     assert.equal(actual.candidate_count, 0);
     assert.deepEqual(actual.candidates, []);
   }
+});
+
+// This characterizes an existing incomplete-result hazard; it does not
+// approve 'ok' as a correct status for a truncated scan.
+test('MMI SAI-2 truncated scan reason is lost at candidate output', () => {
+  // 2 x 500001 = 1000002 cells, just over the default detector budget.
+  // Sparse cellAt avoids materialising a million-cell dense matrix.
+  const lastColumn = 500_000;
+  const sheet: SheetSource = {
+    usedRange: { startRow: 0, startCol: 0, endRow: 1, endCol: lastColumn },
+    merges: [],
+    cellAt(row, col) {
+      if (col !== 0 || (row !== 0 && row !== 1)) return undefined;
+      return { text: 'x', type: 's', value: 'x' };
+    },
+  };
+
+  const regions = detectRegions('Sheet1', sheet);
+  assert.equal(regions.length, 1);
+  assert.deepEqual(regions[0].range, {
+    startRow: 0, startCol: 0, endRow: 0, endCol: 0,
+  });
+  assert.ok(regions[0].reasons.includes('truncated-scan'));
+
+  const result = createMmiSai2CandidateSet({
+    sheetName: 'Sheet1',
+    sheet,
+    sourceDigest: 'sha256:' + '3'.repeat(64),
+    sourceFamilyId: 'scan-truncation-boundary',
+  });
+  assert.equal(result.status, 'ok'); // Known limitation: completeness is lost.
+  assert.equal(result.candidate_count, 1);
+  assert.equal(result.candidates[0].range.row_start, 1);
+  assert.equal(result.candidates[0].range.row_end, 1);
 });
 
 test('SAI-2 candidate capture freezes rectangles before target metrics or ranking', () => {
