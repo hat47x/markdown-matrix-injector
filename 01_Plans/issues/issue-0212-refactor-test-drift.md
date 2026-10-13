@@ -2,10 +2,10 @@
 
 ## Meta
 - Type: Bugfix / Test drift
-- Status: In Progress / runtime verification pending
-- Priority: High（静的な食い違いは解消済み。Node 20での実行確認が残る）
+- Status: Done（2026-10-13にNode 20で実行確認。対象9件は合格し、全体testの失敗は研究層の36件のみ）
+- Priority: High（解消済み）
 - Scope: src/application（workbookCandidateInventory / candidateReviewInventory）、src/cli、test（下記6ファイル）、package.json（コマンド一覧のテストが読む）
-- Owner: 未定。担当者の割り当てが必要（起票時点で、リファクタを行った作業者を特定できなかった）
+- Owner: hat47x（2026-10-13に引き取り）
 - Expected verification level: unit
 
 ## Traceability
@@ -46,6 +46,33 @@
 
 この再確認は実行結果ではない。この作業環境ではGitHubへのcloneがDNS制約で失敗し、Node 20 suiteを実行できなかった。したがってAcceptance criteriaは、Node 20で対象6ファイルと全体testを実行するまで完了扱いにしない。
 
+## 2026-10-13 実行確認
+
+最新`main`（`1dc3ae9`）にこのIssueの追加修正を載せ、Node 20.20.2（WSL）で実行した。
+
+- `tsc -p tsconfig.product.json --noEmit`: エラー0件。
+- 対象6ファイルと`imageCli`・`importCli`（計8ファイル）: 95件中95件が合格。
+- 全体test: 1997件中1960件が合格、36件が失敗。失敗はすべて研究層（フィル影響、SheetJSのテーマ色、Jev、SAI、凍結ハンドオフ、Census、OPC識別）で、このIssueの9件は含まない。
+
+### 9件の原因
+
+別の作業者による静的な再確認（2026-10-09）とは独立に、Node 20で各テストの失敗を読み直した。結論は次のとおりである。
+
+| # | 正しい側 | 原因 |
+| --- | --- | --- |
+| 1 | 製品 | テストが、戻り値に存在しない`application.tableRegions`を読んでいた。名前は`detected`で、中身はCLIの`sheets`と一致する |
+| 2〜4 | テスト | 製品の退行。`994a0a5`でレビュー一覧が表範囲付きのCandidateを作るようになったが、一括取り込みは表範囲なしで作っていた。Claim basisが一致せず、画像の却下・保留が無視された |
+| 5 | 製品 | テストの期待値の誤り。固定データの修正件数は表1件と画像alt1件で合計2。集計実装はリファクタの影響を受けていない |
+| 6 | テスト | 製品の欠陥で、リファクタより前からあった。`a00095f`の検査が、JSON/YAMLのルートを表す空文字のポインターを「パス無し」と拒否していた |
+| 7・8 | 製品 | テストの一覧の更新漏れ。`2c6f8cc`（issue-0207）で`searchObservation.*`の3コマンドが追加された |
+| 9 | 製品 | テストの取り込み処理の誤り。`node --test`が標準出力へ流す内部のバイナリフレームを、`captureMain`がCLIの出力と一緒に取り込んでいた。CLIは仕様どおりJSONを出していた |
+
+### 追加で見つかった退行
+
+`src/cli/extract.ts`のレビュー時の画像取り出し（`expectedCandidate`の照合と`finalizeReviewedImageExtraction`）も、表範囲なしでCandidateを作り直していた。VS Codeのレビューで表の近くの画像を選ぶと`MMI_IMAGE_REVIEW_STALE`で拒否される。この経路は9件のテストでは検出されなかった。
+
+表範囲の検出を`importAssist/tableRegions.ts`の`detectedTableRectsBySheet()`へ共有し、一括取り込みと`extract.ts`の両方で使うように直した。`test/imageCli.test.ts`のレビュー用Candidate補助関数は、実際のVS Codeの流れに合わせて共有のレビュー一覧を通す形にし、表の近くの画像を取り出す回帰テストを1件足した。`extract.ts`の修正を戻すと、`imageCli`の4件が`MMI_IMAGE_REVIEW_STALE`で失敗する。
+
 ## 再現手順
 
 ```sh
@@ -65,10 +92,10 @@ node --import tsx --test test/candidateInventoryHostParity.test.ts test/importMa
 
 ## Acceptance criteria
 
-- [ ] 上記9件が、Node 20で全て合格する。
-- [ ] 研究層の凍結テスト（固定されたダイジェストを検証するもの）は編集しない。
-- [ ] 判断に迷ったものは、テストを緩めず、実装とテストのどちらが正かを本Issueの「決めてほしいこと」に記録する。
-- [ ] `origin/main`の全体テストで、この9件以外の新しい失敗が増えていない。
+- [x] 上記9件が、Node 20で全て合格する（2026-10-13）。
+- [x] 研究層の凍結テスト（固定されたダイジェストを検証するもの）は編集しない。
+- [x] 判断に迷ったものは、テストを緩めず、実装とテストのどちらが正かを記録する（上の「9件の原因」）。
+- [x] 全体テストで、この9件以外の新しい製品テストの失敗が増えていない（失敗36件はすべて研究層）。
 
 ## Validation plan
 
@@ -76,6 +103,5 @@ node --import tsx --test test/candidateInventoryHostParity.test.ts test/importMa
 
 ## Remaining work
 
-- Node 20で対象6ファイルを実行し、9件がすべて合格することを確認する。
-- 続けて全体testを実行し、研究層の既知の失敗以外に新しい製品テスト失敗がないことを確認する。
-- 研究層の既知の失敗は別Issueとして扱う。
+- 研究層の既知の失敗（36件）は別Issueとして扱う。
+- 標準出力を`process.stdout.write`の差し替えで取り込むCLIテストが、ほかに11ファイルある。`main()`が実際の非同期I/Oを行うと、#9と同じ不安定さが出るおそれがある。`cognitiveArtifactCli.test.ts`は文字列だけを取り込む形に直っているが、ほかは未点検である。必要になった時点で別Issueにする。
