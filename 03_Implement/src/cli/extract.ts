@@ -21,7 +21,8 @@ import { buildLogicalTable } from '../core/renderTable.js';
 import {
   createSourceIdentityFromBytes,
 } from '../core/sourceIdentity.js';
-import { loadWorkbookFromBytes } from '../core/workbookLoader.js';
+import { loadWorkbookFromBytes, type WorkbookData } from '../core/workbookLoader.js';
+import { detectedTableRectsBySheet } from '../importAssist/tableRegions.js';
 import { parseEmbedSyntax, type EmbedQuery } from '../parser/embedSyntax.js';
 
 export interface ExtractOptions {
@@ -31,6 +32,11 @@ export interface ExtractOptions {
   outDir: string;
   /** Optional frozen source snapshot shared with a larger import transaction. */
   sourceBytes?: Uint8Array;
+  /**
+   * Workbook already parsed from the same `sourceBytes` snapshot. Supplied by
+   * a larger import transaction so per-image calls do not reparse it.
+   */
+  workbook?: WorkbookData;
   /** Markdown references are written relative to this document's folder (default: current directory). */
   fromDocument?: string;
   /** Source as it should be written in provenance (default: relative to the document folder). */
@@ -279,10 +285,18 @@ export function extractImages(options: ExtractOptions): ExtractResult {
   let currentImageCandidates: Candidate[] | undefined;
   if (options.expectedCandidate || options.ledgerPath) {
     sourceDigest = createSourceIdentityFromBytes(packageBytes).digest;
+    // Same table geometry as the shared review/inspect inventory, so the
+    // nearby-table Claim of a reviewed image is reproduced, not dropped.
+    const workbook = options.workbook
+      ?? loadWorkbookFromBytes(
+        options.sourcePath,
+        Buffer.isBuffer(packageBytes) ? packageBytes : Buffer.from(packageBytes),
+      );
     currentImageCandidates = imageCandidates({
       source,
       sourceDigest,
       images: read.images,
+      tablesBySheet: detectedTableRectsBySheet(workbook),
     });
   }
   if (options.expectedCandidate) {
@@ -365,16 +379,10 @@ export function extractImages(options: ExtractOptions): ExtractResult {
     });
   }
   if (options.ledgerPath && result.extracted.length > 0) {
-    const ledgerSourceDigest =
-      sourceDigest ?? createSourceIdentityFromBytes(packageBytes).digest;
-    const ledgerCandidates = currentImageCandidates
-      ?? imageCandidates({
-        source,
-        sourceDigest: ledgerSourceDigest,
-        images: read.images,
-      });
-    sourceDigest = ledgerSourceDigest;
-    currentImageCandidates = ledgerCandidates;
+    // Built above with the shared table geometry whenever ledgerPath is set;
+    // a missing Candidate is reported as stale below rather than rebuilt here
+    // without that geometry.
+    const ledgerCandidates = currentImageCandidates ?? [];
     const entries: LedgerEntry[] = [];
     for (const item of result.extracted) {
       const image = chosen.find((candidateImage) => candidateImage.ordinal === item.ordinal)!;
@@ -477,9 +485,11 @@ export function finalizeReviewedImageExtraction(
 
   let sourceBytes: Buffer;
   let read: ReturnType<typeof readExcelImages>;
+  let workbook: WorkbookData;
   try {
     sourceBytes = fs.readFileSync(options.sourcePath);
     read = readExcelImages(sourceBytes);
+    workbook = loadWorkbookFromBytes(options.sourcePath, sourceBytes);
   } catch (error) {
     result.problems.push({
       code: 'MMI_IMAGE_REVIEW_STALE',
@@ -516,6 +526,7 @@ export function finalizeReviewedImageExtraction(
     source,
     sourceDigest,
     images: read.images,
+    tablesBySheet: detectedTableRectsBySheet(workbook),
   });
   const reviewedPlace = placeOf(options.candidate);
   const currentIndex = currentCandidates.findIndex(

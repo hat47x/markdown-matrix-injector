@@ -13,9 +13,8 @@ import {
 import { sliceRegion } from '../src/core/tableGeometry.js';
 import { loadWorkbook } from '../src/core/workbookLoader.js';
 import { inspectSource, main } from '../src/cli/mmi.js';
-import { imageCandidates, readExcelImages } from '../src/adapters/excelImageAdapter.js';
+import { buildCandidateReviewInventory } from '../src/application/candidateReviewInventory.js';
 import { readLedger } from '../src/core/importLedger.js';
-import { readSourceFileIdentity } from '../src/core/sourceIdentity.js';
 import { buildXlsxWithImages, emfOf, pngOf, screenDesignWorkbook } from './helpers/buildXlsxWithImages.js';
 
 function workspace(): { root: string; book: string; doc: string; bytes: Buffer; media: Record<string, Buffer> } {
@@ -28,17 +27,16 @@ function workspace(): { root: string; book: string; doc: string; bytes: Buffer; 
 }
 
 /**
- * Image Candidates as the review flow builds them (no `nearby-table` claim). `inspect` adds that geometry claim,
- * and finalizing a review rediscovers the Candidate the review flow's way, so a Candidate taken from `inspect`
- * would always look changed.
+ * Image Candidates exactly as the VS Code review flow shows them: through the
+ * shared review inventory, which (like `inspect`) carries the geometry-derived
+ * `nearby-table` Claim. Review-time extraction and finalization must accept
+ * these unchanged Candidates.
  */
 function reviewCandidates(book: string, doc: string) {
   const source = path.relative(path.dirname(doc), book).split(path.sep).join('/');
-  return imageCandidates({
-    source,
-    sourceDigest: readSourceFileIdentity(book).digest,
-    images: readExcelImages(fs.readFileSync(book)).images,
-  });
+  return buildCandidateReviewInventory(book, source).items.flatMap(
+    (item) => (item.kind === 'image' ? [item.candidate] : []),
+  );
 }
 
 const fileDigest = (file: string) => `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`;
@@ -193,6 +191,51 @@ test('review-time image extraction accepts the unchanged displayed Candidate', (
   assert.deepEqual(result.problems, []);
   assert.equal(result.extracted.length, 1);
   assert.equal(readLedger(ledgerPath).entries.length, 1);
+});
+
+test('an image next to a table picked in shared review is extracted and finalized, not reported stale', () => {
+  const { root, book, doc } = workspace();
+  fs.mkdirSync(path.dirname(doc), { recursive: true });
+  const ledgerPath = path.join(root, 'mmi-ledger.json');
+  const source = path.relative(path.dirname(doc), book).split(path.sep).join('/');
+  const item = buildCandidateReviewInventory(book, source).items.find(
+    (entry) => entry.kind === 'image' && entry.image.ordinal === 1,
+  );
+  assert.ok(item && item.kind === 'image');
+  // The case this guards: the shared inventory infers the neighbouring table.
+  assert.equal(
+    item.candidate.claims.find((claim) => claim.aspect === 'nearby-table')?.value,
+    'A1:B3',
+  );
+
+  const draft = extractImages({
+    sourcePath: book,
+    selection: String(item.image.ordinal),
+    outDir: path.join(root, 'docs', 'assets'),
+    fromDocument: doc,
+    sourceLabel: source,
+    expectedCandidate: item.candidate,
+  });
+  assert.deepEqual(draft.problems, []);
+  assert.equal(draft.extracted.length, 1);
+
+  const finalized = finalizeReviewedImageExtraction({
+    sourcePath: book,
+    ledgerPath,
+    extracted: draft.extracted[0],
+    candidate: item.candidate,
+    altText: draft.extracted[0].altText,
+    fromDocument: doc,
+    sourceLabel: source,
+  });
+  assert.deepEqual(finalized.problems, []);
+  assert.equal(finalized.extracted?.reviewState, 'accepted');
+  const ledger = readLedger(ledgerPath);
+  assert.equal(ledger.entries.length, 1);
+  assert.ok(
+    ledger.entries[0].claimBasis?.some((basis) => basis.aspect === 'nearby-table'),
+    'the ledger records the same nearby-table basis the reviewer saw',
+  );
 });
 
 test('review-time image extraction rejects Candidate claim changes before adoption', () => {

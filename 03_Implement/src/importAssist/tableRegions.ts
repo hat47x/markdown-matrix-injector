@@ -10,6 +10,7 @@
  * table, with its logical columns (`columnAnchors`) and the headers the
  * renderer will show. Every other sheet keeps `detectRegions` unchanged.
  */
+import type { TableRect } from '../adapters/excelImageAdapter.js';
 import type { SheetSource } from '../core/sheetSource.js';
 import { indexToColumn } from '../core/tableGeometry.js';
 import { detectRegions, type ColumnProfile, type DetectOptions, type DetectedRegion, type RegionReason } from '../search/regionDetector.js';
@@ -28,6 +29,35 @@ export function detectTableRegions(sheetName: string, sheet: SheetSource, option
   const tables = analyzeSheetForImport(sheetName, sheet, { maxScanCells: options.maxScanCells }).filter((candidate) => candidate.role === 'table');
   if (!tables.some((table) => (table.columns ?? []).some((column) => column.endCol > column.startCol))) return regions;
   return tables.map((table) => toRegion(sheetName, sheet, table, options.maxValueSample ?? DEFAULT_MAX_VALUE_SAMPLE));
+}
+
+/**
+ * Detected table rectangles per sheet, as `imageCandidates()` needs them for
+ * the inferred nearby-table Claim. This must stay identical to the
+ * `tablesBySheet` built in application/workbookCandidateInventory.ts (same
+ * detector, same options): review decisions and review-time extraction match
+ * image Candidates on their exact Claim basis, so a host that drops or
+ * changes this geometry silently stops matching the reviewed Candidate.
+ */
+export function detectedTableRectsBySheet(
+  workbook: { readonly sheets: Readonly<Record<string, SheetSource>> },
+): Record<string, TableRect[]> {
+  return Object.fromEntries(
+    Object.entries(workbook.sheets).map(([sheetName, sheet]) => [
+      sheetName,
+      detectTableRegions(
+        sheetName,
+        sheet,
+        { maxValueSample: 0 },
+      ).map((region) => ({
+        a1: region.a1,
+        startRow: region.range.startRow,
+        startCol: region.range.startCol,
+        endRow: region.range.endRow,
+        endCol: region.range.endCol,
+      })),
+    ]),
+  );
 }
 
 function toRegion(sheetName: string, sheet: SheetSource, table: ImportCandidate, maxSample: number): DetectedRegion {

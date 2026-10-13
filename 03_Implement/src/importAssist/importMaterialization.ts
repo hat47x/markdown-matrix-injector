@@ -14,7 +14,6 @@ import {
   readExcelImages,
   shapeCandidates,
   type ExcelDrawingShape,
-  type TableRect,
 } from '../adapters/excelImageAdapter.js';
 import {
   readExcelChoiceLists,
@@ -56,7 +55,7 @@ import {
   type ImportDraftShapeReviewSkip,
   type ImportDraftSnapshotHint,
 } from './importDraft.js';
-import { detectTableRegions } from './tableRegions.js';
+import { detectedTableRectsBySheet } from './tableRegions.js';
 import {
   readWorkbookStructureFromBytes,
   type WorkbookStructure,
@@ -577,6 +576,7 @@ export function materializeWorkbookImport(
           ledgerPath,
           basis: 'mmi import',
           sourceBytes,
+          workbook,
         });
         extractedImages.push(...extracted.extracted);
         extractionProblems.push(
@@ -726,31 +726,6 @@ function assertImportPathRoles(
 
 function tableKey(sheet: string, range: string): string {
   return `${sheet}\u0000${range}`;
-}
-
-/**
- * Same detector and options as application/workbookCandidateInventory.ts, so
- * image Candidate identity does not depend on which host built it.
- */
-function detectedTableRectsBySheet(
-  workbook: WorkbookData,
-): Record<string, TableRect[]> {
-  return Object.fromEntries(
-    Object.entries(workbook.sheets).map(([sheetName, sheet]) => [
-      sheetName,
-      detectTableRegions(
-        sheetName,
-        sheet,
-        { maxValueSample: 0 },
-      ).map((region) => ({
-        a1: region.a1,
-        startRow: region.range.startRow,
-        startCol: region.range.startCol,
-        endRow: region.range.endRow,
-        endCol: region.range.endCol,
-      })),
-    ]),
-  );
 }
 
 function winningReviewDecision(
