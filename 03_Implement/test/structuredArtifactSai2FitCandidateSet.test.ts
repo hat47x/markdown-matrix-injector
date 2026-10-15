@@ -6,6 +6,8 @@ import type {
   SheetSource,
   SourceCell,
 } from '../src/core/sheetSource.js';
+import { sheetSourceFromMatrix } from '../src/core/sheetSource.js';
+import { detectRegions } from '../src/search/regionDetector.js';
 import {
   createMmiSai2CandidateSet,
   SAI2_CANDIDATE_GENERATOR_ID,
@@ -210,6 +212,72 @@ test('MMI SAI-2 candidate cap and empty source fail to generator OOD', () => {
   assert.equal(result.status, 'generator_ood');
   assert.equal(result.candidate_count, 0);
   assert.deepEqual(result.candidates, []);
+});
+
+// Records the existing research-only status contract without treating it as
+// cross-producer parity or adopting a new shared runtime status.
+test('MMI SAI-2 blank or whitespace-only cell retains an empty ok candidate set', () => {
+  for (const value of ['', ' ']) {
+    const sheet = sheetSourceFromMatrix([[value]]);
+    assert.deepEqual(sheet.usedRange, {
+      startRow: 0,
+      startCol: 0,
+      endRow: 0,
+      endCol: 0,
+    });
+
+    const actual = createMmiSai2CandidateSet({
+      sheetName: 'Sheet1',
+      sheet,
+      sourceDigest: 'sha256:' + '2'.repeat(64),
+      sourceFamilyId: 'blank-cell-boundary',
+    });
+    assert.equal(actual.status, 'ok');
+    assert.equal(actual.candidate_count, 0);
+    assert.deepEqual(actual.candidates, []);
+  }
+});
+
+// This characterizes an existing incomplete-result hazard; it does not
+// approve 'ok' as a correct status for a truncated scan.
+test('MMI SAI-2 truncated scan reason is lost at candidate output', () => {
+  // 101 x 10000 = 1010000 cells: beyond the default 1000000-cell budget,
+  // but still within an actual XLSX worksheet's column/row limits.
+  // Two populated opposite corners make the declared used range plausible.
+  const lastRow = 100;
+  const lastColumn = 9_999;
+  let omittedRowReads = 0;
+  const sheet: SheetSource = {
+    usedRange: { startRow: 0, startCol: 0, endRow: lastRow, endCol: lastColumn },
+    merges: [],
+    cellAt(row, col) {
+      if (row === lastRow) omittedRowReads += 1;
+      if ((row === 0 && col === 0) || (row === lastRow && col === lastColumn)) {
+        return { text: 'x', type: 's', value: 'x' };
+      }
+      return undefined;
+    },
+  };
+
+  const regions = detectRegions('Sheet1', sheet);
+  assert.equal(regions.length, 1);
+  assert.deepEqual(regions[0].range, {
+    startRow: 0, startCol: 0, endRow: 0, endCol: 0,
+  });
+  assert.ok(regions[0].reasons.includes('truncated-scan'));
+  assert.equal(omittedRowReads, 0);
+
+  const result = createMmiSai2CandidateSet({
+    sheetName: 'Sheet1',
+    sheet,
+    sourceDigest: 'sha256:' + '3'.repeat(64),
+    sourceFamilyId: 'scan-truncation-boundary',
+  });
+  assert.equal(result.status, 'ok'); // Known limitation: completeness is lost.
+  assert.equal(result.candidate_count, 1);
+  assert.equal(result.candidates[0].range.row_start, 1);
+  assert.equal(result.candidates[0].range.row_end, 1);
+  assert.equal(omittedRowReads, 0); // The bottom-right value was never inspected.
 });
 
 test('SAI-2 candidate capture freezes rectangles before target metrics or ranking', () => {
