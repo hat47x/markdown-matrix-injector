@@ -1,5 +1,6 @@
 import path from 'node:path';
 import fs from 'node:fs';
+import { LocalizedError } from './messages/index.js';
 
 export interface ResolveSourcePathOptions {
   markdownFilePath: string;
@@ -22,11 +23,9 @@ export function isPathWithinBoundary(candidate: string, boundary: string): boole
   return !rel.startsWith('..') && !path.isAbsolute(rel);
 }
 
-export class PathContainmentError extends Error {
+export class PathContainmentError extends LocalizedError<'outsideBoundary'> {
   constructor(sourcePath: string, candidate: string, boundary: string) {
-    super(
-      `Source file is outside workspace boundary: ${sourcePath} (boundary: ${boundary})`,
-    );
+    super('outsideBoundary', { path: sourcePath, boundary });
     this.name = 'PathContainmentError';
     void candidate; // reserved for future diagnostics
   }
@@ -61,5 +60,5 @@ export function resolveSourcePath(options: ResolveSourcePathOptions): string {
     }
   }
 
-  throw new Error(`Unable to resolve source file: ${options.sourcePath}`);
+  throw new LocalizedError('sourceNotResolved', { path: options.sourcePath });
 }

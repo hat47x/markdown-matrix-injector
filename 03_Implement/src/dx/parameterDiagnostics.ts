@@ -10,6 +10,7 @@
  *
  * Offsets are relative to the start of the `![[...]]` text.
  */
+import { formatMessage, type AllowedValues } from '../core/messages/index.js';
 import { isKnownEmbedQueryParameter, MMI_KNOWN_PARAMETER_CONTRACT, validateKnownEmbedQueryParameters, type KnownEmbedQueryParameter } from '../parser/parameterContract.js';
 
 export type ParameterIssueCode = 'MMI_INVALID_PARAM_VALUE' | 'MMI_UNKNOWN_PARAM';
@@ -26,7 +27,7 @@ export interface ParameterIssue {
 
 const KNOWN_KEYS = Object.keys(MMI_KNOWN_PARAMETER_CONTRACT) as KnownEmbedQueryParameter[];
 
-export function parameterIssues(raw: string): ParameterIssue[] {
+export function parameterIssues(raw: string, locale?: string): ParameterIssue[] {
   if (!raw.startsWith('![[') || !raw.endsWith(']]')) return [];
   const body = raw.slice(3, -2);
   const pipe = body.indexOf('|');
@@ -49,7 +50,7 @@ export function parameterIssues(raw: string): ParameterIssue[] {
         issues.push({
           code: 'MMI_INVALID_PARAM_VALUE',
           severity: 'warning',
-          message: invalidValueMessage(key, value, suggestion),
+          message: invalidValueMessage(key, value, suggestion, locale),
           start: eq >= 0 ? valueStart : keyStart,
           end: eq >= 0 ? valueStart + rawValue.length : keyStart + rawKey.length,
           ...(suggestion !== undefined && eq >= 0 ? { suggestion } : {}),
@@ -61,7 +62,7 @@ export function parameterIssues(raw: string): ParameterIssue[] {
         issues.push({
           code: 'MMI_UNKNOWN_PARAM',
           severity: 'information',
-          message: `「${key}」は未知の指定のため無視されます。「${suggestion}」の誤りではありませんか？`,
+          message: formatMessage('unknownParam', { key, suggestion }, locale),
           start: keyStart,
           end: keyStart + rawKey.length,
           suggestion,
@@ -73,20 +74,19 @@ export function parameterIssues(raw: string): ParameterIssue[] {
   return issues;
 }
 
-function invalidValueMessage(key: KnownEmbedQueryParameter, value: string, suggestion?: string): string {
+function invalidValueMessage(key: KnownEmbedQueryParameter, value: string, suggestion: string | undefined, locale?: string): string {
   const constraint = MMI_KNOWN_PARAMETER_CONTRACT[key].constraint;
-  const allowed =
+  const allowed: AllowedValues =
     constraint.kind === 'enum'
-      ? constraint.values.join(' / ')
+      ? { kind: 'enum', values: constraint.values }
       : key === 'header'
-        ? 'first / none / 行番号'
+        ? { kind: 'header' }
         : key === 'columns'
-          ? '列文字のカンマ区切り（例: A,C）'
+          ? { kind: 'columns' }
           : key === 'formatColumn'
-            ? '列:形式（例: E:json）'
-            : '1文字以上';
-  const hint = suggestion !== undefined ? `「${suggestion}」の誤りではありませんか？` : '';
-  return `${key} の値「${value}」は使えません（${allowed}）。この指定は無視されます。${hint}`;
+            ? { kind: 'formatColumn' }
+            : { kind: 'nonEmpty' };
+  return formatMessage('invalidParam', { key, value, allowed, ...(suggestion !== undefined ? { suggestion } : {}) }, locale);
 }
 
 /** Closest valid value for closed vocabularies; case-only differences first. */

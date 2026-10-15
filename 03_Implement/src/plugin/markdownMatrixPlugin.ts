@@ -3,6 +3,7 @@ import { WorkbookCache } from '../cache/workbookCache.js';
 import { CooperativeTimeBudgetExceededError, type CooperativeTimeBudget } from '../core/cooperativeTimeBudget.js';
 import { evaluateEmbed } from '../core/evaluateEmbed.js';
 import { escapeHtml } from '../core/html.js';
+import { LocalizedError, localizeError } from '../core/messages/index.js';
 import { renderEmbedCard } from '../core/renderCard.js';
 import { renderEmbedFrame } from '../core/renderEmbedFrame.js';
 import { renderLogicalTable } from '../core/renderTable.js';
@@ -19,6 +20,11 @@ export interface MarkdownMatrixPluginOptions {
   workspaceRoot?: string;
   cache?: WorkbookCache<WorkbookData>;
   uriScheme?: string;
+  /**
+   * The reader's language (for example VS Code's `env.language`); error sentences follow it. Defaults to English.
+   * A function is read on every render, so a changed setting applies without reloading.
+   */
+  locale?: string | (() => string | undefined);
   /** Optional per-embed cooperative budget factory; no production default is enabled yet. */
   createTimeBudget?: () => CooperativeTimeBudget;
   /**
@@ -34,6 +40,7 @@ interface EmbedRenderContext {
   workspaceRoot?: string;
   cache?: WorkbookCache<WorkbookData>;
   uriScheme?: string;
+  locale?: string;
   createTimeBudget?: () => CooperativeTimeBudget;
 }
 
@@ -49,6 +56,7 @@ export function markdownMatrixPlugin(md: MarkdownIt, options: MarkdownMatrixPlug
       workspaceRoot,
       cache: options.cache,
       uriScheme: options.uriScheme,
+      locale: typeof options.locale === 'function' ? options.locale() : options.locale,
       createTimeBudget: options.createTimeBudget,
     };
   };
@@ -168,12 +176,14 @@ function renderEmbed(embed: ReturnType<typeof extractEmbedQueries>[number], cont
     if (outcome.kind === 'card') return renderEmbedFrame(embed, renderEmbedCard(embed, outcome.absolutePath, context.uriScheme));
     if (outcome.kind === 'table') return renderEmbedFrame(embed, renderLogicalTable(embed, outcome.logical, budget));
     const code = outcome.code ? ` data-code="${escapeHtml(outcome.code)}"` : '';
-    return `<div class="mmi-error"${code}>${escapeHtml(outcome.message)}</div>`;
+    const text = outcome.localizable ? localizeError(outcome.localizable, context.locale) : outcome.message;
+    return `<div class="mmi-error"${code}>${escapeHtml(text)}</div>`;
   } catch (error) {
     if (error instanceof CooperativeTimeBudgetExceededError) {
-      return `<div class="mmi-error" data-code="${escapeHtml(error.code)}">${escapeHtml(error.message)}</div>`;
+      return `<div class="mmi-error" data-code="${escapeHtml(error.code)}">${escapeHtml(localizeError(error, context.locale))}</div>`;
     }
-    return `<div class="mmi-error">${escapeHtml(getErrorMessage(error))}</div>`;
+    const text = error instanceof LocalizedError ? localizeError(error, context.locale) : getErrorMessage(error);
+    return `<div class="mmi-error">${escapeHtml(text)}</div>`;
   }
 }
 

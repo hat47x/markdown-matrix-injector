@@ -1,6 +1,7 @@
 import { type EmbedQuery } from '../parser/embedSyntax.js';
 import type { CooperativeTimeBudget } from './cooperativeTimeBudget.js';
 import { escapeHtml } from './html.js';
+import { LocalizedError } from './messages/index.js';
 import { columnToIndex, sliceRegion } from './tableGeometry.js';
 import { type WorkbookData } from './workbookLoader.js';
 
@@ -23,7 +24,7 @@ export function buildLogicalTable(
   const sheet = workbook.sheets[sheetName];
 
   if (!sheet) {
-    throw new Error(`Sheet not found: ${sheetName}`);
+    throw new LocalizedError('sheetNotFound', { sheet: sheetName, available: Object.keys(workbook.sheets) }, { sheet: sheetName });
   }
 
   // By the time this is called, Smart Fallback has already accepted the

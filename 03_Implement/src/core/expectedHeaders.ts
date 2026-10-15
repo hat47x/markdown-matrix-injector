@@ -11,6 +11,7 @@
  * written `\,`, and a backslash `\\`.
  */
 import type { EmbedQuery } from '../parser/embedSyntax.js';
+import { formatMessage } from './messages/index.js';
 import { buildLogicalTable } from './renderTable.js';
 import type { WorkbookData } from './workbookLoader.js';
 
@@ -93,13 +94,13 @@ export function currentExpectedHeaders(query: EmbedQuery, workbook: WorkbookData
   return headers && headers.length > 0 ? formatHeaderList(headers) : undefined;
 }
 
-/** One readable sentence for a diagnostic; at most three columns are spelled out. */
-export function describeHeaderMismatch(result: ExpectedHeadersResult): string {
-  if (result.status === 'not-checkable') {
-    return '`x-headers`は見出しの行と比べますが、この参照には見出しの行がありません。`header=first`（または行番号）を指定してください。';
-  }
-  const shown = result.mismatches.slice(0, 3).map((item) =>
-    `${item.position}列目: 期待「${item.expected ?? '（なし）'}」→ 実際「${item.actual ?? '（なし）'}」`);
-  const rest = result.mismatches.length > 3 ? ` ほか${result.mismatches.length - 3}列` : '';
-  return `見出しが、参照を書いたときと違います（${shown.join('、')}${rest}）。正本の列の挿入・削除・並べ替えで、参照が別の列を指している可能性があります。`;
+/** One readable sentence for a diagnostic in `locale` (default English); at most three columns are spelled out. */
+export function describeHeaderMismatch(result: ExpectedHeadersResult, locale?: string): string {
+  if (result.status === 'not-checkable') return formatMessage('headersNotCheckable', {}, locale);
+  const shown = result.mismatches.slice(0, 3).map((item) => ({
+    position: item.position,
+    ...(item.expected !== undefined ? { expected: item.expected } : {}),
+    ...(item.actual !== undefined ? { actual: item.actual } : {}),
+  }));
+  return formatMessage('headersMismatch', { shown, more: Math.max(0, result.mismatches.length - 3) }, locale);
 }

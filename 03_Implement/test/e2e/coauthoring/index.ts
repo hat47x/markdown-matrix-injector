@@ -66,6 +66,10 @@ export async function run(): Promise<void> {
   note('host', { vscode: vscode.version, excel: 'COM' });
   const extension = vscode.extensions.getExtension('hat47x.markdown-matrix-injector');
   await extension?.activate();
+  // Visual check in another message language (MMI_COAUTHORING_LANGUAGE=ja|en), set the way a person would.
+  if (process.env.MMI_COAUTHORING_LANGUAGE) {
+    await vscode.workspace.getConfiguration('markdownMatrixInjector').update('language', process.env.MMI_COAUTHORING_LANGUAGE, vscode.ConfigurationTarget.Global);
+  }
 
   const book = path.join(dir, '設計.xlsx');
   const doc = path.join(dir, 'doc.md');

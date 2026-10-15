@@ -1,5 +1,6 @@
 import { parseRangeToCellRange, rangeDimensions } from '../core/tableGeometry.js';
-import { MAX_CELLS_HARD_LIMIT, tableTooLargeMessage } from '../core/smartFallback.js';
+import { formatMessage } from '../core/messages/index.js';
+import { MAX_CELLS_HARD_LIMIT } from '../core/smartFallback.js';
 
 export type DiagnosticSeverity = 'error' | 'warning' | 'information';
 export type XmlMode = 'none' | 'spreadsheet2003' | 'invalid';
@@ -44,6 +45,10 @@ export interface ValidateEmbedDiagnosticsInput {
   /** false when file exists but resolves outside the workspace boundary (spec P4). */
   containmentOk?: boolean;
   range?: DiagnosticRange;
+  /** The sheets the workbook has; lets a missing-sheet message point at a renamed one. */
+  availableSheets?: readonly string[];
+  /** The reader's language (for example VS Code's `env.language`); messages follow it. Defaults to English. */
+  locale?: string;
 }
 
 const DEFAULT_RANGE: DiagnosticRange = { start: 0, end: 0 };
@@ -69,7 +74,7 @@ export function validateEmbedDiagnostics(input: ValidateEmbedDiagnosticsInput): 
     diagnostics.push(
       createDiagnostic(
         'MMI_FILE_NOT_FOUND',
-        `Embedded file not found: ${input.query.filepath}`,
+        formatMessage('fileNotFound', { path: input.query.filepath }, input.locale),
         buildSubjectRange(input.query.raw, input.query.filepath, fallbackRange),
       ),
     );
@@ -82,7 +87,7 @@ export function validateEmbedDiagnostics(input: ValidateEmbedDiagnosticsInput): 
     diagnostics.push(
       createDiagnostic(
         'MMI_PATH_OUTSIDE_BOUNDARY',
-        `Source file is outside workspace boundary: ${input.query.filepath}`,
+        formatMessage('outsideBoundary', { path: input.query.filepath }, input.locale),
         buildSubjectRange(input.query.raw, input.query.filepath, fallbackRange),
       ),
     );
@@ -92,7 +97,7 @@ export function validateEmbedDiagnostics(input: ValidateEmbedDiagnosticsInput): 
     diagnostics.push(
       createDiagnostic(
         'MMI_INVALID_XML',
-        'Invalid XML Spreadsheet: only Spreadsheet 2003 XML is supported.',
+        formatMessage('invalidXml', {}, input.locale),
         buildSubjectRange(input.query.raw, input.query.filepath, fallbackRange),
       ),
     );
@@ -102,7 +107,7 @@ export function validateEmbedDiagnostics(input: ValidateEmbedDiagnosticsInput): 
     diagnostics.push(
       createDiagnostic(
         'MMI_SHEET_NOT_FOUND',
-        `Sheet not found: ${input.query.target}`,
+        formatMessage('sheetNotFound', { sheet: input.query.target, ...(input.availableSheets ? { available: input.availableSheets } : {}) }, input.locale),
         buildSubjectRange(input.query.raw, input.query.target, fallbackRange),
       ),
     );
@@ -113,7 +118,7 @@ export function validateEmbedDiagnostics(input: ValidateEmbedDiagnosticsInput): 
     diagnostics.push(
       createDiagnostic(
         'MMI_TABLE_TOO_LARGE',
-        tableTooLargeMessage(tableSize.cellCount),
+        formatMessage('tableTooLarge', { cellCount: tableSize.cellCount, limit: MAX_CELLS_HARD_LIMIT }, input.locale),
         buildSubjectRange(input.query.raw, input.query.range ?? '', fallbackRange),
       ),
     );

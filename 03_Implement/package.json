@@ -413,6 +413,21 @@
     "configuration": {
       "title": "Markdown Matrix Injector",
       "properties": {
+        "markdownMatrixInjector.language": {
+          "type": "string",
+          "enum": [
+            "auto",
+            "ja",
+            "en"
+          ],
+          "default": "auto",
+          "markdownDescription": "%mmi.setting.language%",
+          "markdownEnumDescriptions": [
+            "%mmi.setting.language.auto%",
+            "%mmi.setting.language.ja%",
+            "%mmi.setting.language.en%"
+          ]
+        },
         "markdownMatrixInjector.diagnostics.whileTyping": {
           "type": "string",
           "enum": [

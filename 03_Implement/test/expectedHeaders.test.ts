@@ -50,7 +50,8 @@ test('a matching reference is ok and a column inserted in the source is reported
   assert.equal(result?.status, 'mismatch');
   assert.deepEqual(result?.actual, ['名前', '区分']);
   assert.deepEqual(result?.mismatches, [{ position: 2, expected: '必須', actual: '区分' }]);
-  assert.match(describeHeaderMismatch(result!), /2列目: 期待「必須」→ 実際「区分」/u);
+  assert.match(describeHeaderMismatch(result!, 'ja'), /2列目: 期待「必須」→ 実際「区分」/u);
+  assert.match(describeHeaderMismatch(result!, 'en'), /column 2: expected "必須" -> actual "区分"/u);
 });
 
 test('a reference without x-headers is not checked, and one without a header row says so', () => {

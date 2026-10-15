@@ -72,6 +72,8 @@ interface DiagnosticsDependencies {
   loadWorkbook?(filepath: string): WorkbookData;
   /** With `loadWorkbook`, `x-table` / `x-name` are checked against the workbook's declarations (ADR-0022). */
   loadStructure?(filepath: string, workbook: WorkbookData): WorkbookStructure;
+  /** The reader's language (VS Code's `env.language`); diagnostic messages follow it. Defaults to English. */
+  locale?: string;
 }
 
 export interface DocumentDiagnosticItem {
@@ -163,7 +165,8 @@ export async function createDiagnosticsForDocument(
     }
 
     const xmlMode = fileExists ? await detectXmlMode(resolvedFilepath, dependencies) : 'none';
-    const sheetExists = fileExists && match.target ? await hasSheet(resolvedFilepath, match.target, dependencies) : undefined;
+    const sheetNames = fileExists && match.target ? await readSheetNames(resolvedFilepath, dependencies) : undefined;
+    const sheetExists = sheetNames && match.target ? sheetNames.includes(match.target) : fileExists && match.target ? false : undefined;
     const parsedQuery = extractEmbedQueries(match.raw)[0];
     const embedDiagnostics = validateEmbedDiagnostics({
       query: {
@@ -178,6 +181,8 @@ export async function createDiagnosticsForDocument(
       xmlMode,
       containmentOk,
       range: { start: 0, end: Math.max(match.raw.length - 1, 0) },
+      ...(sheetNames ? { availableSheets: sheetNames } : {}),
+      locale: dependencies.locale,
     });
 
     for (const diagnostic of embedDiagnostics) {
@@ -188,7 +193,7 @@ export async function createDiagnosticsForDocument(
     }
 
     // Values the renderer would silently ignore, and likely-misspelt keys.
-    for (const issue of parameterIssues(match.raw)) {
+    for (const issue of parameterIssues(match.raw, dependencies.locale)) {
       diagnostics.push({
         diagnostic: {
           severity: issue.severity,
@@ -217,7 +222,7 @@ export async function createDiagnosticsForDocument(
               diagnostic: {
                 severity: result.status === 'mismatch' ? 'warning' : 'information',
                 code: 'MMI_HEADERS_MISMATCH',
-                message: describeHeaderMismatch(result),
+                message: describeHeaderMismatch(result, dependencies.locale),
                 range: { start, end: end - 1 },
                 source: 'markdown-matrix-injector',
                 priority: 6,
@@ -249,7 +254,7 @@ export async function createDiagnosticsForDocument(
               diagnostic: {
                 severity,
                 code: 'MMI_BINDING_MISMATCH',
-                message: describeBinding(result),
+                message: describeBinding(result, dependencies.locale),
                 range: { start, end: end - 1 },
                 source: 'markdown-matrix-injector',
                 priority: 6,
@@ -520,12 +525,12 @@ async function detectXmlMode(filepath: string, dependencies: DiagnosticsDependen
   return XML_SPREADSHEET_SIGNATURES.some((signature) => text.includes(signature)) ? 'spreadsheet2003' : 'invalid';
 }
 
-async function hasSheet(filepath: string, target: string, dependencies: DiagnosticsDependencies): Promise<boolean> {
+/** The workbook's sheet names, or undefined when they cannot be read (then the sheet is reported as missing). */
+async function readSheetNames(filepath: string, dependencies: DiagnosticsDependencies): Promise<readonly string[] | undefined> {
   try {
-    const sheetNames = await dependencies.readWorkbookSheetNames(filepath);
-    return sheetNames.includes(target);
+    return await dependencies.readWorkbookSheetNames(filepath);
   } catch {
-    return false;
+    return undefined;
   }
 }
 

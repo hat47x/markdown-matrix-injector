@@ -1,3 +1,5 @@
+import { LocalizedError } from './messages/index.js';
+
 export interface CooperativeTimeBudget {
   /** Accounts for work and checks the wall clock at the configured cadence. */
   consume(units?: number): void;
@@ -11,17 +13,14 @@ export interface CooperativeTimeBudgetOptions {
   now?: () => number;
 }
 
-export class CooperativeTimeBudgetExceededError extends Error {
+export class CooperativeTimeBudgetExceededError extends LocalizedError<'timeBudgetExceeded'> {
   readonly code = 'MMI_TABLE_TIME_BUDGET_EXCEEDED' as const;
 
   constructor(
     readonly elapsedMs: number,
     readonly limitMs: number,
   ) {
-    super(
-      'Table work exceeded its cooperative time budget (' + formatMs(elapsedMs) + 'ms > ' +
-        formatMs(limitMs) + 'ms). Reduce the range or use card mode.',
-    );
+    super('timeBudgetExceeded', { elapsed: formatMs(elapsedMs), limit: formatMs(limitMs) });
     this.name = 'CooperativeTimeBudgetExceededError';
   }
 }

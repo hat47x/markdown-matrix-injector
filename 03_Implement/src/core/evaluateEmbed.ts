@@ -8,6 +8,7 @@
 import type { WorkbookCache } from '../cache/workbookCache.js';
 import { CooperativeTimeBudgetExceededError, type CooperativeTimeBudget } from './cooperativeTimeBudget.js';
 import type { EmbedQuery } from '../parser/embedSyntax.js';
+import { LocalizedError } from './messages/index.js';
 import { resolveSourcePath } from './pathResolver.js';
 import { buildLogicalTable, type LogicalTable } from './renderTable.js';
 import { shouldRenderAsCardAfterLoad, shouldRenderAsCardImmediately, SmartFallbackLimitError } from './smartFallback.js';
@@ -23,7 +24,13 @@ export interface EmbedContext {
 export type EmbedOutcome =
   | { kind: 'card'; absolutePath: string }
   | { kind: 'table'; absolutePath: string; workbook: WorkbookData; logical: LogicalTable }
-  | { kind: 'error'; message: string; code?: 'MMI_TABLE_TOO_LARGE' | 'MMI_TABLE_TIME_BUDGET_EXCEEDED' };
+  | {
+      kind: 'error';
+      message: string;
+      code?: 'MMI_TABLE_TOO_LARGE' | 'MMI_TABLE_TIME_BUDGET_EXCEEDED';
+      /** Set when the failure has a message id, so a host can phrase it in the reader's language (`localizeError`). */
+      localizable?: LocalizedError;
+    };
 
 export function evaluateEmbed(embed: EmbedQuery, context: EmbedContext): EmbedOutcome {
   try {
@@ -38,8 +45,12 @@ export function evaluateEmbed(embed: EmbedQuery, context: EmbedContext): EmbedOu
     return { kind: 'table', absolutePath, workbook, logical: buildLogicalTable(embed, workbook, { budget: context.budget }) };
   } catch (error) {
     if (error instanceof SmartFallbackLimitError || error instanceof CooperativeTimeBudgetExceededError) {
-      return { kind: 'error', message: error.message, code: error.code };
+      return { kind: 'error', message: error.message, code: error.code, localizable: error };
     }
-    return { kind: 'error', message: error instanceof Error ? error.message : 'Unknown embed error' };
+    return {
+      kind: 'error',
+      message: error instanceof Error ? error.message : 'Unknown embed error',
+      ...(error instanceof LocalizedError ? { localizable: error } : {}),
+    };
   }
 }

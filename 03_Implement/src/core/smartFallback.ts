@@ -1,4 +1,5 @@
 import { type EmbedQuery } from '../parser/embedSyntax.js';
+import { formatMessage, LocalizedError } from './messages/index.js';
 import { measureRegion } from './tableGeometry.js';
 import { type WorkbookData } from './workbookLoader.js';
 
@@ -19,22 +20,18 @@ const MAX_CELLS_BEFORE_CARD = 500;
  */
 export const MAX_CELLS_HARD_LIMIT = 100_000;
 
-export function tableTooLargeMessage(cellCount: number, limit = MAX_CELLS_HARD_LIMIT): string {
-  return (
-    `Reference too large to render as a table (${cellCount} cells exceeds the ` +
-    `${limit}-cell limit). mode=table does not lift this limit -- narrow ` +
-    'the range or split the reference.'
-  );
+export function tableTooLargeMessage(cellCount: number, limit = MAX_CELLS_HARD_LIMIT, language?: string): string {
+  return formatMessage('tableTooLarge', { cellCount, limit }, language);
 }
 
-export class SmartFallbackLimitError extends Error {
+export class SmartFallbackLimitError extends LocalizedError<'tableTooLarge'> {
   readonly code = 'MMI_TABLE_TOO_LARGE' as const;
 
   constructor(
     readonly cellCount: number,
     readonly limit: number,
   ) {
-    super(tableTooLargeMessage(cellCount, limit));
+    super('tableTooLarge', { cellCount, limit });
     this.name = 'SmartFallbackLimitError';
   }
 }
@@ -149,7 +146,7 @@ function getWorkbookSelectionMetrics(query: EmbedQuery, workbook: WorkbookData):
 
   const sheet = workbook.sheets[query.target];
   if (!sheet) {
-    throw new Error(`Sheet not found: ${query.target}`);
+    throw new LocalizedError('sheetNotFound', { sheet: query.target, available: Object.keys(workbook.sheets) }, { sheet: query.target });
   }
 
   return measureRegion(sheet, query.range);

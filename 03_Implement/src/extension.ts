@@ -307,6 +307,12 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
     }),
     vscode.workspace.onDidSaveTextDocument((document) => refreshDiagnosticsForDocument(document, diagnostics, 'review')),
     vscode.workspace.onDidCloseTextDocument((document) => diagnostics.delete(document.uri)),
+    // The message language is a setting: re-word the Problems panel and the open previews at once.
+    vscode.workspace.onDidChangeConfiguration((event) => {
+      if (!event.affectsConfiguration('markdownMatrixInjector.language')) return;
+      const open = vscode.workspace.textDocuments.filter((document) => document.languageId === 'markdown' && !document.isUntitled);
+      void refreshLinkedMarkdownViews(open, diagnostics);
+    }),
   );
 
   if (shouldRegisterTestCommands(context)) {
@@ -480,6 +486,15 @@ async function refreshMarkdownViewsForWorkbooks(
   await refreshLinkedMarkdownViews(affectedDocuments, diagnostics);
 }
 
+/**
+ * The language of messages shown to a person: the `markdownMatrixInjector.language` setting, or, for `auto`,
+ * VS Code's own display language. Many Japanese teams run VS Code in English, hence the setting.
+ */
+function currentMessageLanguage(): string {
+  const chosen = vscode.workspace.getConfiguration('markdownMatrixInjector').get<string>('language', 'auto');
+  return chosen === 'auto' ? vscode.env.language : chosen;
+}
+
 async function refreshLinkedMarkdownViews(
   documents: readonly vscode.TextDocument[],
   diagnostics: vscode.DiagnosticCollection,
@@ -540,6 +555,7 @@ export function extendMarkdownIt(md: MarkdownIt): MarkdownIt {
   return md.use(markdownMatrixPlugin, {
     cache: markdownPreviewWorkbookCache,
     uriScheme: vscode.env.uriScheme,
+    locale: currentMessageLanguage,
     resolveWorkspaceRoot: (markdownFilePath: string) =>
       vscode.workspace.getWorkspaceFolder(vscode.Uri.file(markdownFilePath))?.uri.fsPath,
   });
@@ -1480,6 +1496,7 @@ async function refreshDiagnosticsForDocument(
     },
     loadWorkbook: (filepath) => loadWorkbook({ absolutePath: filepath, cache: previewRenderCache }),
     loadStructure: (filepath, workbook) => readWorkbookStructure(filepath, workbook),
+    locale: currentMessageLanguage(),
   });
 
   const editor = vscode.window.visibleTextEditors.find((candidate) => candidate.document === document);

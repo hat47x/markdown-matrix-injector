@@ -14,6 +14,7 @@
  */
 import type { EmbedQuery } from '../parser/embedSyntax.js';
 import type { WorkbookStructure } from '../importAssist/workbookStructure.js';
+import { formatMessage } from './messages/index.js';
 import { cellRangeToA1, parseRangeToCellRange } from './tableGeometry.js';
 import type { CellRange } from './sheetSource.js';
 
@@ -88,25 +89,15 @@ export function checkExpectedBindings(query: EmbedQuery, structure: WorkbookStru
   return results;
 }
 
-const LABEL: Record<BindingKind, string> = { table: 'Excelテーブル', name: '名前' };
-
-/** One readable sentence per binding that is not `ok`; `narrower` is informational. */
-export function describeBinding(result: BindingResult): string {
-  const label = `${LABEL[result.kind]}「${result.declared}」`;
-  switch (result.status) {
-    case 'missing':
-      return `${label}は、いま正本にありません（削除または改名された可能性があります）。参照の範囲は、これの定義から取った値のままです。`;
-    case 'not-a-range':
-      return `${label}は、範囲を指していないか、この参照の範囲と比べられません。`;
-    case 'moved':
-      return `${label}は、参照のシートとは別のシートへ移っています（現在 ${result.current}）。`;
-    case 'changed':
-      return `${label}の現在の範囲は ${result.current} で、参照の ${result.referenced} と合いません。行や列が増減した可能性があります。`;
-    case 'narrower':
-      return `${label}の現在の範囲は ${result.current} で、参照の ${result.referenced} はその一部です。意図した絞り込みでなければ、範囲を見直してください。`;
-    default:
-      return `${label}と一致しています。`;
-  }
+/** One readable sentence per binding that is not `ok` in `locale` (default English); `narrower` is informational. */
+export function describeBinding(result: BindingResult, locale?: string): string {
+  return formatMessage('binding', {
+    kind: result.kind,
+    declared: result.declared,
+    status: result.status,
+    ...(result.current !== undefined ? { current: result.current } : {}),
+    ...(result.referenced !== undefined ? { referenced: result.referenced } : {}),
+  }, locale);
 }
 
 /** Severity of one binding in a diagnostic. `ok` produces none. */
