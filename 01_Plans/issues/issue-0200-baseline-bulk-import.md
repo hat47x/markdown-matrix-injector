@@ -132,6 +132,20 @@ npm run build
 node --import tsx ./test/e2e/runImport.ts
 ```
 
+## 2026-10-13 実行結果
+
+Node 20.20.2（WSL2）で`test/sourceIntake.test.ts`、`test/importMaterialization.test.ts`、`test/importCli.test.ts`を実行し、46件すべて成功した。source intake、下書き・asset・ledgerの取引境界、レビュー判断、Choice list、Shape warningを含む自動テストの結果である。
+
+続けて`npm run build`を実行したが、Windowsマウント上のTypeScriptコンパイラが長時間I/O待ち状態となり、完了結果を得る前に中断した。ビルド成功とは扱わない。このため、既存distの状態で誤ったE2Eを起動しないよう、VS Code宿主の`runImport.ts`は実行していない。受入条件のMarkItDown実fixture評価と実在設計書での観測も残る。
+
+確認コマンド:
+
+```sh
+node --import tsx --test test/sourceIntake.test.ts test/importMaterialization.test.ts test/importCli.test.ts
+npm run build
+node --import tsx ./test/e2e/runImport.ts
+```
+
 その後、同じ表・貼付画像・複数シートを持つfixtureを外部Converterへ通し、MMI組み込み経路との情報差を記述的に比較する。
 
 ## Remaining work

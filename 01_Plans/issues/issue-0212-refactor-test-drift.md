@@ -46,6 +46,21 @@
 
 この再確認は実行結果ではない。この作業環境ではGitHubへのcloneがDNS制約で失敗し、Node 20 suiteを実行できなかった。したがってAcceptance criteriaは、Node 20で対象6ファイルと全体testを実行するまで完了扱いにしない。
 
+## 2026-10-12 実行結果
+
+Node 20.20.2（WSL2）で対象6ファイルを実行し、63件すべて成功した。起票時の9件に該当する各テストもすべて通過した。
+
+同じ環境で全体suiteも実行した。実行時の`HEAD`と`origin/main`はともに`1dc3ae9ad546e61a10e6724fcd3f17bdc4b3abd0`だった。1,996件中1,959件成功、36件失敗、1件skipとなった。失敗はJev、凍結handoff/SAI2、構造化artifact、ワークシート書式・annotation、XLSX fixtureの各研究・固定証拠suiteにあり、対象6ファイルと他の製品テストに失敗はなかった。件数は以前記録した約36件の既知研究層失敗と一致する。凍結テストと製品実装は変更していない。
+
+確認コマンド:
+
+```sh
+node --import tsx --test test/candidateInventoryHostParity.test.ts test/importMaterialization.test.ts \
+  test/candidateReviewProductBaseline.test.ts test/aiHandoffTransformationValidation.test.ts \
+  test/extensionIntegration.test.ts test/cognitiveArtifactCli.test.ts
+node --import tsx --test ./test/*.test.ts
+```
+
 ## 2026-10-13 実行確認
 
 最新`main`（`1dc3ae9`）にこのIssueの追加修正を載せ、Node 20.20.2（WSL）で実行した。
@@ -83,18 +98,20 @@ node --import tsx --test test/candidateInventoryHostParity.test.ts test/importMa
   test/extensionIntegration.test.ts test/cognitiveArtifactCli.test.ts
 ```
 
-## 決めてほしいこと
+## 判断結果
 
-1. **#1:** `application`の戻り値に`tableRegions`を戻すか、テストを`detected`へ書き換えるか。意図は「CLIのシートごとの表の範囲と、アプリケーションの範囲が一致すること」。
-2. **#2〜#4、#5、#6:** 実装の出力が正しいのか、テストの期待値が古いのか。判断の根拠は、リファクタ前（`dc83af3`の親）の出力。
-3. **#7、#8:** コマンド一覧のテストに、後から追加されたコマンドを反映するか。`package.json`を正とする。
-4. **#9:** CLIの出力形式（JSON / バイナリ）のどちらを正とするか。
+1. **#1:** Applicationの`detected`を現行の返却値とし、テストも`detected`を使う。CLIとApplicationのシート別検出範囲が一致することを比較する。
+2. **#2〜#4:** 一括取り込みは共有表検出結果から画像候補と近傍表Claimを再構成する。却下・保留は対象画像とその判断時のbasisに結び付け、同一画像の新しい判断を優先する。すべての画像を除外した場合はassetやledgerを書かない。
+3. **#5:** Candidate review集計の現行契約である`adjustments.table`、`adjustments.imageAlt`、`adjustments.total`を使う。
+4. **#6:** 既存の`extract-standard-asset` review planを返し、format別のnested-list変換を使う。
+5. **#7・#8:** コマンドとactivation eventの正本は`package.json`とし、テストはその定義に追従する。
+6. **#9:** `mmi artifact ... --json`はJSONを出力する。テストも`--json`を指定してJSONとして検証する。
 
 ## Acceptance criteria
 
 - [x] 上記9件が、Node 20で全て合格する（2026-10-13）。
 - [x] 研究層の凍結テスト（固定されたダイジェストを検証するもの）は編集しない。
-- [x] 判断に迷ったものは、テストを緩めず、実装とテストのどちらが正かを記録する（上の「9件の原因」）。
+- [x] 判断に迷ったものは、テストを緩めず、実装とテストのどちらが正かを記録する（「判断結果」と、上の「9件の原因」）。
 - [x] 全体テストで、この9件以外の新しい製品テストの失敗が増えていない（失敗36件はすべて研究層）。
 
 ## Validation plan
