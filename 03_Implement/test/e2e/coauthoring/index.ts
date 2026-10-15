@@ -21,6 +21,25 @@ const expect = (ok: boolean, message: string) => {
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const sha = (file: string) => crypto.createHash('sha256').update(fs.readFileSync(file)).digest('hex');
 
+const SHOTS = process.env.MMI_COAUTHORING_SHOTS;
+
+/**
+ * Visual check (issue-0211): with MMI_COAUTHORING_SHOTS=<dir>, saves a PNG of this VS Code window after a step,
+ * with the Markdown preview open next to the source. A failed capture is noted but never fails the run.
+ */
+async function shot(label: string): Promise<void> {
+  if (!SHOTS) return;
+  await sleep(1500);
+  const script = path.join(process.env.MMI_COAUTHORING_SCRIPTS!, 'capture-window.ps1');
+  const title = path.basename(process.env.MMI_COAUTHORING_WORKSPACE!);
+  await new Promise<void>((resolve) => {
+    execFile('powershell', ['-NoProfile', '-ExecutionPolicy', 'Bypass', '-File', script, '-TitleLike', title, '-Out', path.join(SHOTS, `${label}.png`)], { timeout: 60_000 }, (error, out, err) => {
+      note('shot', { label, ok: !error, detail: error ? (err || error.message).slice(0, 300) : out.trim() });
+      resolve();
+    });
+  });
+}
+
 function excel(book: string, op: string): Promise<void> {
   const script = path.join(process.env.MMI_COAUTHORING_SCRIPTS!, 'excel-op.ps1');
   return new Promise((resolve, reject) => {
@@ -55,6 +74,11 @@ export async function run(): Promise<void> {
     fs.writeFileSync(doc, ['# 画面', '', '![[./設計.xlsx#画面|A1:C4?header=first&x-headers=項目名,型,必須]]', ''].join('\n'));
     const document = await vscode.workspace.openTextDocument(doc);
     await vscode.window.showTextDocument(document);
+    if (SHOTS) {
+      await vscode.commands.executeCommand('markdown.showPreviewToSide');
+      await vscode.commands.executeCommand('markdownMatrixInjector.tableCatalog.focus');
+      await sleep(2000);
+    }
 
     // A. the reference shows the saved workbook; MMI-only operations leave the source untouched.
     const before = sha(book);
@@ -62,11 +86,13 @@ export async function run(): Promise<void> {
     expect(html.includes('顧客コード') && html.includes('受注日'), 'A: the first render shows the saved rows');
     await tree();
     expect(sha(book) === before, 'A: rendering and the catalog must not change the workbook');
+    await shot('A-initial');
 
     // C. Excel saves a changed value -> the preview is asked to refresh, and the render shows the saved value.
     await excel(book, 'value');
     await waitFor(async () => (html = await render(document)).includes('得意先コード'), 'C: the render shows the value saved in Excel');
     expect(!html.includes('顧客コード'), 'C: the old value is gone from the render');
+    await shot('C-value-changed');
 
     // D1. a row appended below the fixed range is not included (no auto-expansion); the catalog shows the larger table.
     await excel(book, 'append-row-outside');
@@ -76,12 +102,14 @@ export async function run(): Promise<void> {
     const lines = await tree();
     note('catalog-after-append', lines.filter((l) => l.includes('A1:')));
     expect(lines.some((l) => /A1:C5/u.test(l)), 'D1: the catalog shows the table as A1:C5 so the writer can see the range is stale');
+    await shot('D1-row-appended-outside');
 
     // D2. a row inserted inside the range: the range still resolves, and the last row falls out.
     await excel(book, 'insert-row-inside');
     await waitFor(async () => (html = await render(document)).includes('挿入した項目'), 'D2: the inserted row appears');
     expect(html.includes('挿入した項目') && !html.includes('受注日'), 'D2: the inserted row is shown and the former last row falls out of A1:C4');
     note('d2-diagnostics', diagnosticsOf(document));
+    await shot('D2-row-inserted-inside');
 
     // D3. a renamed header is reported by x-headers.
     await excel(book, 'rename-header');
@@ -92,12 +120,17 @@ export async function run(): Promise<void> {
       codes = diagnosticsOf(document);
     }
     expect(codes.includes('MMI_HEADERS_MISMATCH'), `D3: the changed header is reported (got ${codes.join(',')})`);
+    if (SHOTS) await vscode.commands.executeCommand('workbench.actions.view.problems');
+    await shot('D3-header-renamed');
 
     // B. a new sheet with a new table appears in the catalog without reloading.
     await excel(book, 'add-sheet');
     await waitFor(async () => (await tree()).some((l) => l.includes('新しい表')), 'B: the new sheet reaches the catalog');
     const after = await tree();
     expect(after.some((l) => l.includes('新しい表')) && after.some((l) => /A1:B3/u.test(l)), 'B: the new sheet and its table are in the catalog');
+    if (SHOTS) await vscode.commands.executeCommand('workbench.action.closePanel');
+    await shot('B-new-sheet');
+    if (SHOTS) await vscode.commands.executeCommand('workbench.actions.view.problems');
 
     // F1. sheet renamed: a visible error, never the old table.
     await excel(book, 'rename-sheet');
@@ -106,11 +139,13 @@ export async function run(): Promise<void> {
     await vscode.commands.executeCommand('workbench.action.files.save');
     for (let i = 0; i < 20 && !diagnosticsOf(document).includes('MMI_SHEET_NOT_FOUND'); i += 1) await sleep(250);
     expect(diagnosticsOf(document).includes('MMI_SHEET_NOT_FOUND'), 'F1: the Problems panel reports MMI_SHEET_NOT_FOUND');
+    await shot('F1-sheet-renamed');
 
     // F2. workbook deleted: error, never the last table.
     fs.unlinkSync(book);
     await waitFor(async () => (html = await render(document)).includes('mmi-error'), 'F2: the deleted workbook shows an error');
     expect(html.includes('mmi-error') && !html.includes('mmi-table'), 'F2: a deleted workbook shows an error, not the old table');
+    await shot('F2-workbook-deleted');
   } catch (error) {
     problems.push(`threw: ${error instanceof Error ? error.stack : String(error)}`);
   }
