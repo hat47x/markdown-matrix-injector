@@ -69,7 +69,9 @@ Detachedは「MMI記法が無い」だけでは不十分である。materialize�
 
 **環境の注意（再現時に必要）。** 非ログインのWSLシェルは`/usr/bin/node`（Node 18）を選び、CLIが`SyntaxError`で落ちる（[0197](issue-0197-cli-distribution.md)と同じ問題）。Node 20を`PATH`の先頭に置くか、`NODE_BIN`で指定する。tsxでTypeScriptを起動すると`/mnt/c`上では1回あたり数分かかったため、`npm run build:product`で作る`dist`を使う。最初の試行はこれらが原因で無効になったため、結果には含めない。
 
-**まだ確認していないこと。** 実在する設計書（形式・パス・画像の数が多い文書）での操作、Windows・macOSでの実行、図形（Shape）の取り込みを伴う文書。
+**Windowsでの確認（2026-10-15）。** [0197](issue-0197-cli-distribution.md)の配布tarballをWindows 11（Node 24.21.0）へ導入し、基本設計書キットを`materialize`した（終了コード0、`written=true`）。出力だけを別フォルダーへ移して`detach-check`すると、本文の`masters/基本設計.xlsx`への通常リンクが壊れているとして1件指摘し（`MMI_DETACH_BROKEN_LINK`、終了コード1）、Linuxでの測定（2026-10-06）と同じ結果になった。画像を含む文書のWindows実行は未実施である。
+
+**まだ確認していないこと。** 実在する設計書（形式・パス・画像の数が多い文書）での操作、macOSでの実行、Windowsでの画像つき文書、図形（Shape）の取り込みを伴う文書。
 
 ## origin/main全体テストの内訳（2026-10-08、`06ab712`、Node 20）
 

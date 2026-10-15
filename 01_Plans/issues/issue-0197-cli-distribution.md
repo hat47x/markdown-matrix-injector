@@ -41,6 +41,18 @@ stageではリポジトリの`package-lock.json`と通常manifestを一時的に
 - 修正の効果: product側の型・実行時の不具合を直したところ、全体テストの失敗が77件から61件に減り、16件のテスト（CLIの`inspect`/`extract`、AI手渡しの検証等）が合格に変わった。新しい失敗は0件（変更前の`origin/main`と、失敗するテスト名を比較）。
 - Node 18で実行すると、従来はSheetJSを読み込んだ後に`SyntaxError`へ落ち、必要なNode版が利用者に伝わらなかった。2026-10-07に`src/cli/bootstrap.ts`を追加し、配布`bin`をbootstrapへ変更した。bootstrapはproduct/runtime依存を静的importせず、Node 20未満なら本体を読み込む前に「Node.js 20 or newer is required」と現在versionを表示してexit 2にする。Node 20以上でのみ`mmi.js`をdynamic importする。runtime graph収集もbootstrapを起点にするため、本体moduleの同梱は維持される。
 
+## Windowsでの実測（2026-10-15）
+
+最新`main`のコード（`bc65c1d`）からWSL2（Node 20.20.2）で`npm run package:cli`を実行し、生成直後の隔離検証がすべて`passed`であることを確認した。続けて、同じtarball（約3.3MB、sha256は`.sha256`ファイルと一致）をリポジトリの外の新しいフォルダーへコピーし、Windows 11（Node 24.21.0、npm 11.19.0）で次を実行した。
+
+- 新しいprefixと空のnpm cacheへ、`npm install --offline --ignore-scripts`で導入できた。`node_modules\.bin\mmi.cmd`が作られた。
+- `mmi --version`は`0.1.0`を表示し、終了コードは0だった。
+- 基本設計書キットのコピーに対する`mmi check`は`0 error(s), 0 other problem(s)`、終了コードは0だった。
+- キットの本文に対する`mmi render`は、`masters/基本設計.xlsx`の表をGFMとして出力し、終了コードは0だった。
+- WSL2の`/usr/bin/node`（18.19.1）でbootstrapを実行すると、標準エラーに「Node.js 20 or newer is required; current runtime is 18.19.1.」を出し、終了コードは2、標準出力は空だった。
+
+この確認には限界がある。導入したのは同じPC上の別フォルダー・空のcacheであり、開発環境の無い別のマシンではない。WindowsのNodeは20ではなく24.21.0である。Windows上のNode 20とmacOSは未実施である。
+
 ## Validation plan
 
 `npm run package:cli`で配布tarballを作り、WindowsとLinuxの新規環境で次を実行する。開発用checkoutやTypeScript toolchainは置かない。
@@ -56,6 +68,6 @@ mmi render <basic-design-kit>/基本設計書.md --root <basic-design-kit>
 
 ## Remaining work
 
-- 最新bootstrapを含むtarballを生成し、Windows・Linuxの新規環境でmanual-e2eを実施する。Node 20以上で通常動作することに加え、可能ならNode 18環境で本体依存を読む前に明示的version errorへ落ちることも確認する。これが終わるまで「開発環境なしで両OS検証済み」とは扱わない。
+- 開発環境の無い別のWindowsマシンで、Node 20を使って同じmanual-e2eを繰り返す。Node 24での導入・`check`・`render`と、Node 18でのversion error（本体依存を読む前に停止）は、2026-10-15に確認した。macOSは未実施である。開発環境の無いマシンで確認するまで「開発環境なしで両OS検証済み」とは扱わない。
 - npm registryへの公開名・公開時期は、tarball配布の実測後に決める。tarball自体はregistryなしでも配布できる。
 - MCPサーバーは、CLIだけで不足すると分かってから検討する（ADR-0019 D10）。
