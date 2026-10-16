@@ -26,10 +26,10 @@ Candidateの共通契約はissue-0193で実装済みで、表・画像・JSON Tr
 | 目録 | ◐ | CLI `inspect`（表の領域・見出し・行数、Excel画像の位置・形式・ダイジェスト・近くの表、JSON object/arrayのJSON PointerとTree Candidate、`--json`のCandidate形式。`src/cli/mmi.ts`） | XML Tree、図形・注記・リンクの列挙 | 2〜3 |
 | 候補抽出 | ◐ | 共通Candidate型を実装し、表・Excel画像・JSON Treeを`mmi inspect --json`へ出力。JSONのobject / arrayは明示親子関係を`observed + deterministic + M0`として保持する。表Candidateは結合した方眼紙の表を論理列で認識し、参照に`columns=`・`mode=table`を含める。研究: 表らしさ・見出し境界、既知書式 | XML/推定Tree、Shape等のCandidate化、研究成果の製品接続 | 1〜3 |
 | 個別取り込み | ◐ | CLI `extract`でExcel画像を通常画像assetへ、検出済みTable Candidateを標準GFM Markdownへ、JSON Treeの選択subtreeをnested list Markdownへ取り込む。いずれも共通ledgerへ採用を記録する。VS Codeでは表・画像・JSON Treeを同じ条件のまま連続レビューして採用・却下・保留でき、表・画像は修正採用にも対応する。JSON Treeはレビュー時fingerprintを現在sourceで再照合し、変更済みなら採用しない | XML/推定Tree、図形・他構造化データのextract、Treeの修正採用、実機E2E | 2〜3 |
-| 一括変換 | ◐ | VS Codeの既存取り込みコマンドとCLI `mmi import`が同じmaterializerを使い、表をLinked参照、.xlsx/.xlsmの埋込画像をExtracted asset＋取り込み台帳として1回で下書き化する。非表領域と画像の問題は確認事項として残す | 実在設計書での観測、図形等の追加Candidate、外部Converterとの比較評価（[issue-0200](issues/issue-0200-baseline-bulk-import.md)） | 2 |
+| 一括変換 | ◐ | VS Codeの既存取り込みコマンドとCLI `mmi import`が同じmaterializerを使い、表をLinked参照、.xlsx/.xlsmの埋込画像をExtracted asset＋取り込み台帳として1回で下書き化する。非表領域と画像の問題は確認事項として残す | 実在設計書での観測、図形等の追加Candidate、外部Converterとの比較評価（[issue-0200](https://github.com/hat47x/markdown-matrix-injector/issues/503)） | 2 |
 | 重複回避 | ● | Candidate単位のfingerprint、`mmi.ledger/v1`、`imported/changed/stale/duplicate/unimported`、`--unimported` / `--exclude-imported`、lineage・similarity Evidence分離 | UIからの利用はissue-0202、一括変換からの登録はissue-0200 | 2 |
 | シートの画像化 | ◐ | `mmi snapshot`で.xlsx/.xlsmの指定sheet/rangeをLibreOffice Calc→PDF→Poppler PNGとして画像化し、renderer/font/DPIを含むprovenance付き`region-snapshot` Candidateとledgerへ接続。同一Linux環境でPNG digestの3回一致を確認。OOXMLのtwo-cell drawing anchorは`inspect`のsnapshot hintとして範囲提示し、`snapshot --hint`へ渡せる | Excel実機との視覚差、MMI自身の描画方式との比較、固定fontを含む別Linux runner間再現性、one-cell/absolute anchor等の安全なrange候補化 | 2 |
-| 構造化 | ◐ | JSON object / arrayをRFC 6901 JSON PointerでTree Candidate化し、nested list Projection・ledger・VS CodeレビューUI・detach freshnessまで接続 | XMLの明示ツリー、フラットテキスト・Excel/CSVからの推定ツリー（[issue-0199](issues/issue-0199-tree-structured-source-adapters.md)） | 3 |
+| 構造化 | ◐ | JSON object / arrayをRFC 6901 JSON PointerでTree Candidate化し、nested list Projection・ledger・VS CodeレビューUI・detach freshnessまで接続 | XMLの明示ツリー、フラットテキスト・Excel/CSVからの推定ツリー（[issue-0199](https://github.com/hat47x/markdown-matrix-injector/issues/502)） | 3 |
 | 変換・表示 | ● | 変換パイプライン、強調、コード表示、キャプション | 画像参照の表示 | 2 |
 | 検証 | ● | 診断コード6種、CLI `check`（JSON・終了コード） | Candidate・取り込み結果の診断 | 2 |
 | provenance | ◐ | Source Identity v1、納品物一覧（Linked）、import ledger（Extractedのsource/occurrence/fingerprint/output/conversion/review basis）。JSON Treeは`structuralPath`をoccurrence identityに使う | 他Candidate種別と一括変換への拡張、detach監査用の横断report | 2〜4 |
@@ -74,7 +74,7 @@ Candidate contractでは、由来の `observed/inferred/abstained`、採用・�
 | issue-0190の状態が独自表記（`Implementation complete; local execution pending`） | 一覧で拾えない | 規定の状態（In Progress）へ直す |
 | 優先度3のTree一般化、初回一括変換、CandidateレビューUI、上位名称の検討が未追跡だった | 価値定義はあるが着手条件が曖昧になる | issue-0199〜0202へ切り出し。既存0193〜0198への依存を明記 |
 | `xlsx`の依存がCDNのtarball | CLIをnpmで配布するときの障害になり得る | issue-0197で配布形態と合わせて判断 |
-| プロダクト名「Markdown Matrix Injector」が現在の価値範囲より狭い | 表注入ツールと誤解され、Core / Agent / detachabilityの価値が伝わりにくい | [issue-0201](issues/issue-0201-product-name-and-compatibility-layer.md)で、MMIをNotation/compatibility layerとして残す案を含めて比較。決定前は実装名を変えない |
+| プロダクト名「Markdown Matrix Injector」が現在の価値範囲より狭い | 表注入ツールと誤解され、Core / Agent / detachabilityの価値が伝わりにくい | [issue-0201](https://github.com/hat47x/markdown-matrix-injector/issues/504)で、MMIをNotation/compatibility layerとして残す案を含めて比較。決定前は実装名を変えない |
 
 ## 5. 既存の研究とCandidateの対応
 

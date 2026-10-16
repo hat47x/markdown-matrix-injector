@@ -2,7 +2,7 @@
 
 - 状態: Proposed（評価用の実装と実測あり、§7。製品UIは未実装）。FlyHashは条件付き採用（§7.5）。
 - 対象: 構造索引、限定文法の解析器、候補検索の比較評価
-- 関連: [ADR-0016](../01_Plans/adr/ADR-0016-notation-first-input-assistance.md)、[issue-0115](../01_Plans/issues/issue-0115-cpu-range-search.md)、[ソースモデル](input-assistance-source-model.md)、[クリップボード出所](input-assistance-paste-provenance.md)
+- 関連: [ADR-0016](../01_Plans/adr/ADR-0016-notation-first-input-assistance.md)、[issue-0115](https://github.com/hat47x/markdown-matrix-injector/issues/496)、[ソースモデル](input-assistance-source-model.md)、[クリップボード出所](input-assistance-paste-provenance.md)
 
 自然言語または貼り付け断片から、Excelの表領域と既存MMI記法を探す。外部推論API・GPU・ニューラル埋め込み・ローカルLLMを必須にしない。§1〜§6は設計、§7は実測の記録である。
 
@@ -172,7 +172,7 @@ Recall@5、最上位正解率、棄却率、誤った確定数、待ち時間。
 
 主経路はLLMを使わない。ただしCPU・メモリ・初期索引構築・更新のコストは残るため「費用も計算量もゼロ」とはしない。初回のExcel読込と索引構築は別に計測し、進行表示とキャンセルを必須にする。
 
-非GPU環境のローカルLLMが本用途で必ず遅いと実証したわけではない。利用者の想定と優先順位に従い、必須構成から外している（[issue-0113](../01_Plans/issues/issue-0113-local-ai-feasibility.md)は保留）。
+非GPU環境のローカルLLMが本用途で必ず遅いと実証したわけではない。利用者の想定と優先順位に従い、必須構成から外している（[issue-0113](https://github.com/hat47x/markdown-matrix-injector/issues/494)は保留）。
 
 ## 7. 実測結果（2026-09-24）
 
@@ -278,7 +278,7 @@ Intel Core i7-1365U（論理12コア）、RAM 7.6GiB（WSL2割当）、WSL2 Ubun
 
 ### 7.4b 言い換えの限界と、実験的なローカル意味検索（2026-10-06）
 
-決定論的な方式（名前の一致、同義語辞書、見出し概念の構造照合）では、未見の言い換えに届かなかった（独立作成の未見セットv5で言い換え0/22。調整に使ったv4では6/8）。失敗の本体は語彙（予行演習/リハーサル、打合せ/会議など）で、規則や辞書を足しても網羅できない。詳細は[issue-0115](../01_Plans/issues/issue-0115-cpu-range-search.md)。
+決定論的な方式（名前の一致、同義語辞書、見出し概念の構造照合）では、未見の言い換えに届かなかった（独立作成の未見セットv5で言い換え0/22。調整に使ったv4では6/8）。失敗の本体は語彙（予行演習/リハーサル、打合せ/会議など）で、規則や辞書を足しても網羅できない。詳細は[issue-0115](https://github.com/hat47x/markdown-matrix-injector/issues/496)。
 
 そこで、意味の近さを持つ認知を**実験的機能・既定オフ**で足した（ADR-0018 D4・ADR-0020のM2に当たる）。
 

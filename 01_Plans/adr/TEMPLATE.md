@@ -19,5 +19,5 @@
 - **Bad:** この決定によって生じるトレードオフ、技術的負債、制約事項。
 
 ## Traceability (関連情報)
-- Related Issues: [関連するIssue Memoのリンク]
+- Related Issues: [関連するGitHub Issueのリンク]
 - Related Docs: [関連する設計書や要件定義書のリンク]

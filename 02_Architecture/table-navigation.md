@@ -1,7 +1,7 @@
 # 表の走査と選択（Excelを開かずに）
 
 - 状態: 試作（エンジン・CLI・VS Codeの表の目録・単体テスト・拡張機能ホストでの確認まで）。画面操作の目視確認と、利用者・AIエージェントでの価値確認は未実施。
-- 関連: [ADR-0019](../01_Plans/adr/ADR-0019-ai-era-sier-document-value-and-policy.md)（経路A・B）、[ADR-0022](../01_Plans/adr/ADR-0022-semantic-selection-in-notation.md)（記法での扱い、Proposed）、[ADR-0018](../01_Plans/adr/ADR-0018-cognitive-assistance-plane.md)、[取り込み支援](import-assistance.md)、[issue-0206](../01_Plans/issues/issue-0206-table-navigation-and-agent-interface.md)
+- 関連: [ADR-0019](../01_Plans/adr/ADR-0019-ai-era-sier-document-value-and-policy.md)（経路A・B）、[ADR-0022](../01_Plans/adr/ADR-0022-semantic-selection-in-notation.md)（記法での扱い、Proposed）、[ADR-0018](../01_Plans/adr/ADR-0018-cognitive-assistance-plane.md)、[取り込み支援](import-assistance.md)、[issue-0206](https://github.com/hat47x/markdown-matrix-injector/issues/509)
 
 人もAIエージェントも、Excelを開かずにブックの表を見渡し、表を名前で、列を見出しで、行を文字列や件数で選び、描画で確かめた参照を得られるようにする。同じエンジンを、人はVS Codeの表の目録から、AIはCLIから使う。入力支援と診断も、人とAIの両方に開く。
 

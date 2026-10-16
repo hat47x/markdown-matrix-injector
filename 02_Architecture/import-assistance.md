@@ -1,7 +1,7 @@
 # 既存設計書の取り込み支援
 
 - 状態: 試作（エンジン・VS Codeコマンド・単体テスト・架空データでの評価・拡張機能ホストでの確認まで）。画面操作の目視確認と、利用者による価値確認は未実施。
-- 関連: [ADR-0019](../01_Plans/adr/ADR-0019-ai-era-sier-document-value-and-policy.md) D7優先度2、[ADR-0018](../01_Plans/adr/ADR-0018-cognitive-assistance-plane.md)（認知補助の境界）、[ADR-0017 書式補助](../01_Plans/adr/ADR-0017-fly-inspired-format-deviation-assistance.md)、[issue-0205](../01_Plans/issues/issue-0205-import-assistance-prototype.md)、[認知機能の仮説カード](../01_Plans/cognitive-hypothesis-cards.md)
+- 関連: [ADR-0019](../01_Plans/adr/ADR-0019-ai-era-sier-document-value-and-policy.md) D7優先度2、[ADR-0018](../01_Plans/adr/ADR-0018-cognitive-assistance-plane.md)（認知補助の境界）、[ADR-0017 書式補助](../01_Plans/adr/ADR-0017-fly-inspired-format-deviation-assistance.md)、[issue-0205](https://github.com/hat47x/markdown-matrix-injector/issues/508)、[認知機能の仮説カード](../01_Plans/cognitive-hypothesis-cards.md)
 
 既存のExcel設計書（方眼紙を含む）をMarkdownへ移すとき、どの表を参照にし、何を本文へ移し、何を取り込まないかを人が決める。本設計は、その判断に必要な候補を示し、表については正本どおりに描ける参照を提案する。
 
@@ -153,7 +153,7 @@ ADR-0018に従い、候補と決定を分ける。
 | issue-0115の架空業務データ（方眼紙なし）の領域検出と、全方式・全セットのRecall@5・棄却率 | 49/49 | 変化なし（同値） |
 | VS Code拡張機能ホストで、案内付きの作成で方眼紙の表を選んで挿入 | ― | `header=first&columns=A,C,I,O,R,T,V&mode=table`が入り、確認の段は「表として表示: 本体8行 × 7列（見出しあり）」 |
 
-変更前は、方眼紙の表が別紙になるか、見出しがないため列名で絞れず候補なしになった。「受注登録の画面項目」の1位は文書の見出し枠だった。変更後に残った2件は検索の順位（正しい表が2位）と文法の曖昧さ（「受注照会のイベント」を「イベント」列だけと読む。「イベントの表」と書けば表全体になる）で、[issue-0115](../01_Plans/issues/issue-0115-cpu-range-search.md)の範囲である。評価は`scripts/import-assist-eval/search.ts`。
+変更前は、方眼紙の表が別紙になるか、見出しがないため列名で絞れず候補なしになった。「受注登録の画面項目」の1位は文書の見出し枠だった。変更後に残った2件は検索の順位（正しい表が2位）と文法の曖昧さ（「受注照会のイベント」を「イベント」列だけと読む。「イベントの表」と書けば表全体になる）で、[issue-0115](https://github.com/hat47x/markdown-matrix-injector/issues/496)の範囲である。評価は`scripts/import-assist-eval/search.ts`。
 
 ## 7. 仕様・実装上の観察（本作業では変更していない）
 

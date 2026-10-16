@@ -58,7 +58,7 @@ run       deterministic       { inputDigest, config, implementationVersion }
 
 - 実行特性はすべて`deterministic`、`scores`は空。`config`は`maxScanCells`、実装版は`TABLE_ADAPTER_VERSION`（検出規則を変えて出力が変わり得るときに上げる）。
 - `reference`は既存のMMI記法（見出しが確かなときだけ`?header=first`）。`mmi inspect`の既存の`reference`と一致する。
-- アダプタは`src/adapters`に置く。領域検出が`src/search`にあるため`src/core`に置くと依存が逆になる。検出器を`core`へ移すのは[issue-0203](../01_Plans/issues/issue-0203-portable-core-minimum-binary.md)の範囲。
+- アダプタは`src/adapters`に置く。領域検出が`src/search`にあるため`src/core`に置くと依存が逆になる。検出器を`core`へ移すのは[issue-0203](https://github.com/hat47x/markdown-matrix-injector/issues/506)の範囲。
 
 ## 3b. Excel画像のSource Adapter（issue-0194）
 

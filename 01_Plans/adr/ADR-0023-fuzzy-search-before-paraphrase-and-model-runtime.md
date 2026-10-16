@@ -3,7 +3,7 @@
 - Status: Proposed（2026-10-08: Human Sponsorがmainへのマージと同梱の略語集の撤去を指示）
 - Date: 2026-10-07
 - Deciders: Human Sponsor（採否）、MMI Lead Agent（起案）
-- Scope: CPUでの範囲探索（[issue-0115](../issues/issue-0115-cpu-range-search.md)）、ローカル認知runtime（[issue-0113](../issues/issue-0113-local-ai-feasibility.md)）、仮説カードK5
+- Scope: CPUでの範囲探索（[issue-0115](https://github.com/hat47x/markdown-matrix-injector/issues/496)）、ローカル認知runtime（[issue-0113](https://github.com/hat47x/markdown-matrix-injector/issues/494)）、仮説カードK5
 - Related: [ADR-0018](ADR-0018-cognitive-assistance-plane.md)、[ADR-0020](ADR-0020-requirement-oriented-cognition-method-selection.md)、[設計](../../02_Architecture/input-assistance-cpu-search.md)
 
 ## Context

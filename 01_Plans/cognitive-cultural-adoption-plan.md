@@ -19,7 +19,7 @@ Status: Active / 2026-10-08
 | E01 | [基本設計書キット](../04_Documentation/kits/basic-design/基本設計書.md)の2.2節に、表参照と「差し戻すときはコメントを必須とする」という条件節が別々にある | 参照する表と、意味を限定する本文を一緒に扱う仕事がある | Excel内の行・列の実際の値、実画面の挙動 |
 | E02 | 前段の会話内説明例で、人が指定した条件による承認／差戻し、条件不足、同条件の相違を表示し、切替・保存・復元を確認した | 手動条件を使う比較の入出力を具体化できる | 意味の自動抽出の精度、実際の利用者の負担 |
 | E03 | [Candidate契約](../02_Architecture/candidate-contract-v1.md)と[型定義](../03_Implement/src/core/candidate.ts)は、原本位置・claim・由来・認識論・実行特性を分ける | 既存Candidateを参照し、比較と人の注釈を別の作業票にできる | 新しい意味条件が既存Candidateに自動で入ること |
-| E04 | [AI handoff](../03_Implement/src/dx/aiHandoff.ts)と[関連Issue](issues/issue-0112-ai-proposal-handoff.md)には、既定で値を含めず明示操作で含める出力境界がある | 文脈付き下書きでも、引用する材料を人が明示的に選ぶ境界を使える | 既存handoffが文脈付き下書きや意味比較を実装済みであること |
+| E04 | [AI handoff](../03_Implement/src/dx/aiHandoff.ts)と[関連Issue](https://github.com/hat47x/markdown-matrix-injector/issues/493)には、既定で値を含めず明示操作で含める出力境界がある | 文脈付き下書きでも、引用する材料を人が明示的に選ぶ境界を使える | 既存handoffが文脈付き下書きや意味比較を実装済みであること |
 | E05 | [比較の追加作例](cognitive-cultural-boundary-analysis.md#2-条件が異なる場合にも適用範囲は重なる)では「差戻し時」と「全操作」が重なる | 条件の文字列一致だけでは不足し、有限な比較対象内の重なりを扱う必要がある | 実文書に書かれていない優先関係や例外の自動決定 |
 | E06 | [review decisions](../03_Implement/src/core/candidateReviewDecisions.ts)はoccurrence・content・Claim basisに判断を結び付け、無関係なsource変更を判断失効へ直結させない | 新しい作業票も、何の変更を再確認するかを明示する必要がある | 業務上の期限・担当交代を含む判断継承機能の完成 |
 | E07 | [参照作成](../03_Implement/src/dx/authoringFlow.ts)と[表の目録](../03_Implement/src/dx/tableCatalogView.ts)に、選択から実描画確認へ進む既存経路がある | 新しい専用画面を作る前に、既存経路で併用執筆を確認できる | 初めて使う人の操作、保存後の発見、利用価値 |
@@ -31,9 +31,9 @@ E01・E03・E04・E06〜E08は現在の文書・コードを読んだ確認で�
 
 | 順序 | 計画 | 今回の採用範囲 | 状態・着手の理由 |
 | --- | --- | --- | --- |
-| 最優先 | [issue-0211 Excel・Markdown併用執筆](issues/issue-0211-vscode-excel-coauthoring-flow.md) | 既存設計書を参照して執筆し、新規表・保存後の変更・参照修正を同じ経路で扱う | Open / High。明示要求EW01〜EW07とE07・E08に基づき、既存機能の受入と不足の修正を進める |
-| 採用保留 | [issue-0210 条件節を伴う参照下書き](issues/issue-0210-explicit-context-draft.md) | 通常のMarkdown追記では繰り返し負担が残る場合の、任意の引用支援 | Draft。VS Codeの既存参照経路に組み込む価値を先に確認する |
-| 研究候補 | [issue-0209 条件付き比較と次の一問](issues/issue-0209-condition-bound-comparison-draft.md) | 手動の意味対応と操作集合を使う比較 | Draft / Low。入力の準備を上回る読解・記述の改善が必要。CLI作業票を先行しない |
+| 最優先 | [issue-0211 Excel・Markdown併用執筆](https://github.com/hat47x/markdown-matrix-injector/issues/514) | 既存設計書を参照して執筆し、新規表・保存後の変更・参照修正を同じ経路で扱う | Open / High。明示要求EW01〜EW07とE07・E08に基づき、既存機能の受入と不足の修正を進める |
+| 採用保留 | [issue-0210 条件節を伴う参照下書き](https://github.com/hat47x/markdown-matrix-injector/issues/513) | 通常のMarkdown追記では繰り返し負担が残る場合の、任意の引用支援 | Draft。VS Codeの既存参照経路に組み込む価値を先に確認する |
+| 研究候補 | [issue-0209 条件付き比較と次の一問](https://github.com/hat47x/markdown-matrix-injector/issues/512) | 手動の意味対応と操作集合を使う比較 | Draft / Low。入力の準備を上回る読解・記述の改善が必要。CLI作業票を先行しない |
 
 併用執筆を利用者向けの最優先に置くことをADR-0019 D0・D13へ反映した。Coreと共通契約を技術的な中心とする方針は維持する。issue-0211は他の二件へ依存せず進める。共通化は実際に重なる処理から行い、先に大きな汎用graphや公開schemaを作らない。
 
@@ -56,4 +56,4 @@ issue-0211では、既存設計書の参照、新規表の追加、保存済み�
 
 実務で判断する際は、具体的に書けた本文、直せた参照、迷った箇所、不要だった準備を残す。issue-0210は手動の参照＋一段落より役立つか、issue-0209は通常レビューより改善するかを確かめるまで実装を先行しない。文化的体系の効果を一般化したい場合は、同じ材料で通常分析との比較を行う。
 
-探索の[親Issue](issues/issue-0208-cognitive-cultural-exploration.md)は継続中とし、新しい計画へ移した要素と未起票の候補をこの文書で管理する。
+探索の[親Issue](https://github.com/hat47x/markdown-matrix-injector/issues/511)は継続中とし、新しい計画へ移した要素と未起票の候補をこの文書で管理する。

@@ -230,4 +230,4 @@ No dependency: MMI validators, adapters, and tests do not import SEI code or sch
 
 Evidence: design only. No cross-product run has been performed.
 
-See also: [SEI decision-semantics mapping](sei-decision-semantics-mapping.md) (Japanese) and [issue-0192](../01_Plans/issues/issue-0192-sei-decision-basis-table-binding.md).
+See also: [SEI decision-semantics mapping](sei-decision-semantics-mapping.md) (Japanese) and [issue-0192](https://github.com/hat47x/markdown-matrix-injector/issues/498).

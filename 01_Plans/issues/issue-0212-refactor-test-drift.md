@@ -10,7 +10,7 @@
 
 ## Traceability
 - Related: 2026-10-07のリファクタ系コミット（`dc83af3` application: share workbook Candidate generation、`a1c8b0b` cli: consume shared workbook Candidate snapshot、`4694b41` cli: reuse shared table detection snapshot、`761b5fc` docs: mark Candidate generation host convergence）
-- Related: [issue-0196](issue-0196-materialize-detach-check.md)の「origin/main全体テストの内訳」（この件の発見元）
+- Related: [issue-0196](https://github.com/hat47x/markdown-matrix-injector/issues/499)の「origin/main全体テストの内訳」（この件の発見元）
 - Not in scope: 研究層（フィル・SAI・Jev・凍結ブロブ等）の既知の失敗。これは別扱いで、37件前後が以前から失敗している
 
 ## 背景

@@ -66,7 +66,7 @@ APIキー、クラウド推論、GPU、ニューラル埋め込みの生成を�
 
 修正前は、正しい参照文字列を挿入しても現在の読込みでは違う位置が表示されていた。 使用範囲がC5開始で途中に空行を持つ実ブックで、`C5:F12`が3行の別内容として描画されることを計測で確認していた（原因は使用範囲の列原点の喪失と空行の除去。`blankrows`の変更だけでは解決しない）。
 
-2026-09-11、issue-0114段1でこの契約を修正・実装・自動テスト済み（`npm test`258件成功）。読込範囲をA1へ拡張する案は、原点が遠方のシートで実セル1個でも使用範囲の終端まで展開するため採らなかった。住所指定の切り出しは20万行規模でもミリ秒未満で完了する。詳細・計測値・実装内容は[ソースモデル](../02_Architecture/input-assistance-source-model.md)と[issue-0114](issues/issue-0114-excel-range-paste.md)「Bの完了内容」。
+2026-09-11、issue-0114段1でこの契約を修正・実装・自動テスト済み（`npm test`258件成功）。読込範囲をA1へ拡張する案は、原点が遠方のシートで実セル1個でも使用範囲の終端まで展開するため採らなかった。住所指定の切り出しは20万行規模でもミリ秒未満で完了する。詳細・計測値・実装内容は[ソースモデル](../02_Architecture/input-assistance-source-model.md)と[issue-0114](https://github.com/hat47x/markdown-matrix-injector/issues/495)「Bの完了内容」。
 
 ## 3. CPUでの自然言語＋Excel範囲探索
 
@@ -87,10 +87,10 @@ APIキー、クラウド推論、GPU、ニューラル埋め込みの生成を�
 
 | 順序 | タスク | 終了時の証拠 |
 | --- | --- | --- |
-| 1 | [issue-0114: Excel範囲貼り付け](issues/issue-0114-excel-range-paste.md) | 原本座標での表示、実ExcelのC5:F12コピー→参照挿入→同じ値の表示、重複/不明時の選択、Undo、原本ハッシュ |
-| 2 | [issue-0110: 補完](issues/issue-0110-contextual-input-completion.md) → [0111: 編集](issues/issue-0111-reference-authoring-flow.md) | 貼り付けた記法を値候補/選択式で修正できる |
-| 3 | [issue-0115: CPU探索](issues/issue-0115-cpu-range-search.md) | 非GPUの基準方式/FlyHash比較と自然言語→範囲→MMIの動作 |
-| 任意 | [issue-0112: 既存AI手渡し](issues/issue-0112-ai-proposal-handoff.md) | 主経路の依存にしない |
-| 保留 | [issue-0113: ローカルLLM](issues/issue-0113-local-ai-feasibility.md) | 今回の実装順から除外。再開は別判断 |
+| 1 | [issue-0114: Excel範囲貼り付け](https://github.com/hat47x/markdown-matrix-injector/issues/495) | 原本座標での表示、実ExcelのC5:F12コピー→参照挿入→同じ値の表示、重複/不明時の選択、Undo、原本ハッシュ |
+| 2 | [issue-0110: 補完](https://github.com/hat47x/markdown-matrix-injector/issues/491) → [0111: 編集](https://github.com/hat47x/markdown-matrix-injector/issues/492) | 貼り付けた記法を値候補/選択式で修正できる |
+| 3 | [issue-0115: CPU探索](https://github.com/hat47x/markdown-matrix-injector/issues/496) | 非GPUの基準方式/FlyHash比較と自然言語→範囲→MMIの動作 |
+| 任意 | [issue-0112: 既存AI手渡し](https://github.com/hat47x/markdown-matrix-injector/issues/493) | 主経路の依存にしない |
+| 保留 | [issue-0113: ローカルLLM](https://github.com/hat47x/markdown-matrix-injector/issues/494) | 今回の実装順から除外。再開は別判断 |
 
 最初にVS Codeの`DataTransfer`観測で入口の実現性を確定し、並行して原本座標の修正に着手する。その後に必要な検索とコンパイラ部品を共通化する。FlyHashの採否を待って基本の貼り付け機能を止めない。

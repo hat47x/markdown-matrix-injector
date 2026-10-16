@@ -2,7 +2,7 @@
 
 - 状態: Proposed（実装未着手）。観測日2026-09-10、2026-09-11（VS Code DataTransfer観測を追加）。§2のVS Code観測により、出所取得は層2（Windows補助プロセス）か層3（内容照合）に限られることが確定した。
 - 対象: [pasteDrop.ts](../03_Implement/src/dx/pasteDrop.ts)、[vscodeAdapters.ts](../03_Implement/src/dx/vscodeAdapters.ts)、[extension.ts](../03_Implement/src/extension.ts)
-- 関連: [ADR-0016](../01_Plans/adr/ADR-0016-notation-first-input-assistance.md)、[ADR-0017](../01_Plans/adr/ADR-0017-windows-clipboard-provenance-bridge.md)、[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)、[ソースモデル](input-assistance-source-model.md)
+- 関連: [ADR-0016](../01_Plans/adr/ADR-0016-notation-first-input-assistance.md)、[ADR-0017](../01_Plans/adr/ADR-0017-windows-clipboard-provenance-bridge.md)、[issue-0114](https://github.com/hat47x/markdown-matrix-injector/issues/495)、[ソースモデル](input-assistance-source-model.md)
 
 Excelで`C5:F12`をコピーし、Markdownへ`![[./data/設計.xlsx#状態遷移|C5:F12]]`として貼り付ける機能の設計。原本の開始位置をどこから得るか、そして得た住所をどう検証するかを定める。
 
@@ -47,7 +47,7 @@ Link Source Descriptor | Link | Format129 | ExcludeClipboardContentFromMonitorPr
 
 これはMicrosoftのHTMLクリップボード形式が使う一時的な「クリップ保管」参照であり、原本ワークブックではない。`clip_filelist.xml`は`.xml`拡張子を持つため、現行の`src/dx/pasteDrop.ts`の`extractSupportedFilepathFromHtml`はこれを誤って一致させ、`![[C:/.../msohtmlclip1/01/clip_filelist.xml|A1:D8]]`という、原本ではなく一時ステージングファイルを指す壊れた提案を生成していた。 実際に採取したペイロードを製品コードへ通して確認した（合成HTMLではなく実データでの再現）。
 
-2026-09-11に修正済み。 `<head>`内を検索対象から除外し、`msohtmlclip`を含む一致は候補から除く。修正後、この実データを与えると`suggestEmbedFromClipboardHtml`は`null`（提案なし）を返す。これは正しい退避動作である。原本パスがHTMLのどこにも存在しない以上、"提案しない"が"誤ったファイルを提案する"より安全である。詳細と回帰テストは[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)「pasteDrop.tsの修正」節。
+2026-09-11に修正済み。 `<head>`内を検索対象から除外し、`msohtmlclip`を含む一致は候補から除く。修正後、この実データを与えると`suggestEmbedFromClipboardHtml`は`null`（提案なし）を返す。これは正しい退避動作である。原本パスがHTMLのどこにも存在しない以上、"提案しない"が"誤ったファイルを提案する"より安全である。詳細と回帰テストは[issue-0114](https://github.com/hat47x/markdown-matrix-injector/issues/495)「pasteDrop.tsの修正」節。
 
 **この発見が意味すること:** `suggestEmbedFromClipboardHtml`が抽出しようとする3項目（パス・シート名・範囲）のうち、シート名（`<title>`/`data-sheet`頼み）と範囲（A1起点の仮定）はすでに不正確と分かっていたが、パスの抽出自体が実データでは機能しないどころか積極的に誤った結果を生んでいたことは今回で初めて確認した。**現行の`suggestEmbedFromClipboardHtml`は、実際のExcelコピーに対しては正しい結果を1つも生成できない設計だった。**
 
@@ -254,7 +254,7 @@ flowchart TD
 - 見出し・caption・grepを勝手に付けない。挿入するのは既存文法のみ。
 - 一般のテキスト、対象外のファイル、境界外、未信頼workspace、読み込み失敗では通常の貼り付けを妨げない。
 
-**未達のまま残る点**: 2026-10-02時点で、候補にはファイル・シート・範囲に加え、原本側の`MatchContext`（表題・見出し・候補範囲の先頭2行・直前/直後の行）を表示する。`Paste As`では全体72文字、各行は先頭3セル・1セル18文字までに制限し、改行・連続空白を正規化する。明示QuickPickでは候補範囲の先頭2行も詳細に表示する。明示コマンド経路（経路3）は実VS Code（1.138.0）でのe2e確認済み（2026-09-17）——WSLg由来の実表示によりxvfb無しでExtension Host e2eが動作した。`editor.action.pasteAs`（経路2）はplain TSVを使うExtension Host自動E2Eを2026-10-01に追加済みだが、このWeb作業環境では未実行。 これが通ればVS Code組み込みPaste As→登録provider→内容照合→挿入の宿主dispatchは自動証拠化できる。一方、実Excelの`text/html`、Windows helperが返すconfirmed provenance、Ctrl+./視覚pickerを人が選ぶ実操作は引き続きWindows実機確認が必要（[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)参照）。
+**未達のまま残る点**: 2026-10-02時点で、候補にはファイル・シート・範囲に加え、原本側の`MatchContext`（表題・見出し・候補範囲の先頭2行・直前/直後の行）を表示する。`Paste As`では全体72文字、各行は先頭3セル・1セル18文字までに制限し、改行・連続空白を正規化する。明示QuickPickでは候補範囲の先頭2行も詳細に表示する。明示コマンド経路（経路3）は実VS Code（1.138.0）でのe2e確認済み（2026-09-17）——WSLg由来の実表示によりxvfb無しでExtension Host e2eが動作した。`editor.action.pasteAs`（経路2）はplain TSVを使うExtension Host自動E2Eを2026-10-01に追加済みだが、このWeb作業環境では未実行。 これが通ればVS Code組み込みPaste As→登録provider→内容照合→挿入の宿主dispatchは自動証拠化できる。一方、実Excelの`text/html`、Windows helperが返すconfirmed provenance、Ctrl+./視覚pickerを人が選ぶ実操作は引き続きWindows実機確認が必要（[issue-0114](https://github.com/hat47x/markdown-matrix-injector/issues/495)参照）。
 
 ## 8. 未確認事項
 

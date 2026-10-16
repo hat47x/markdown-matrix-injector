@@ -136,7 +136,7 @@ Candidateは、どこに何があるかを指す単位として保つ。その�
 
 この三分類は適用条件の扱いであり、Candidateの`observed / inferred / abstained`の置き換えではない。条件が合う記載の中でも、値が一致するか、相違するか、定義が違ってまだ比べられないかは別に判断する。
 
-二つの条件を比較する場合は、条件の同一性に加えて適用範囲の重なりを扱う。「差戻し時」と「全操作」は条件が異なっていても差戻しで重なる。値が相違する場合も、一般則と例外の優先関係が未確認なら、MMIはどちらを適用するか決めない。この追加の区別は[適用範囲の分析](cognitive-cultural-boundary-analysis.md#2-条件が異なる場合にも適用範囲は重なる)と[issue-0209](issues/issue-0209-condition-bound-comparison-draft.md)へ反映した。
+二つの条件を比較する場合は、条件の同一性に加えて適用範囲の重なりを扱う。「差戻し時」と「全操作」は条件が異なっていても差戻しで重なる。値が相違する場合も、一般則と例外の優先関係が未確認なら、MMIはどちらを適用するか決めない。この追加の区別は[適用範囲の分析](cognitive-cultural-boundary-analysis.md#2-条件が異なる場合にも適用範囲は重なる)と[issue-0209](https://github.com/hat47x/markdown-matrix-injector/issues/512)へ反映した。
 
 ### 比較を設計の発想へ戻す
 
@@ -214,7 +214,7 @@ digestが同じでも年度や契約が変われば判断の適用を確かめ�
 
 ## 9. 実装へ進む際の境界と接続先
 
-2026-10-08に[Candidate契約](../02_Architecture/candidate-contract-v1.md)、[型定義](../03_Implement/src/core/candidate.ts)、[共通レビュー目録](../03_Implement/src/application/candidateReviewInventory.ts)、[レビューIssue](issues/issue-0202-candidate-review-ui.md)を読んだ。目録にはtable・image・choice-list・shape・treeの収集経路がある。近傍画像の関係は幾何に基づく候補であり、注記の意味的な依存関係ではない。
+2026-10-08に[Candidate契約](../02_Architecture/candidate-contract-v1.md)、[型定義](../03_Implement/src/core/candidate.ts)、[共通レビュー目録](../03_Implement/src/application/candidateReviewInventory.ts)、[レビューIssue](https://github.com/hat47x/markdown-matrix-injector/issues/505)を読んだ。目録にはtable・image・choice-list・shape・treeの収集経路がある。近傍画像の関係は幾何に基づく候補であり、注記の意味的な依存関係ではない。
 
 | 設計要素 | 現行の足場 | 足す必要があるもの |
 | --- | --- | --- |
@@ -236,7 +236,7 @@ digestが同じでも年度や契約が変われば判断の適用を確かめ�
 
 研究候補の対象を「同じ画面のコメント規則を二箇所で比較し、確認すべき条件を一つ示す」とする。D02を中心に、D01から必要な引用、D03から一つの問いを取り込む設計案である。入力の準備が通常の執筆より役立つかを先に確認し、D04の本格的な保存・失効機構もその必要性を見てから設計する。
 
-この単位は[条件付き比較](issues/issue-0209-condition-bound-comparison-draft.md)、条件節の引用支援は[文脈付き下書き](issues/issue-0210-explicit-context-draft.md)として切り出したが、両件とも現在はDraftである。実装の入出力を定義できたことだけで着手を優先しない。
+この単位は[条件付き比較](https://github.com/hat47x/markdown-matrix-injector/issues/512)、条件節の引用支援は[文脈付き下書き](https://github.com/hat47x/markdown-matrix-injector/issues/513)として切り出したが、両件とも現在はDraftである。実装の入出力を定義できたことだけで着手を優先しない。
 
 H02単独の比較表より一歩進め、**比較が止まった理由から、次の確認と記述へつなぐ**ところまでを小さな単位にする。意味の全自動抽出を前提にせず、利用者が記載と操作条件を対応付ける。
 

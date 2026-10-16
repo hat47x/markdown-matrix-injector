@@ -35,7 +35,7 @@ SEI側の資料は次のとおり。
 3. abstentionを別の意味に変えない: `novel`・`ambiguous`・`abstained`は、既知の候補を一つに決められなかったという結果である。SEIでは、確定した候補のないRecommendation、またはUnknownとして読み、既知の候補へ割り当て直さない（ADR-0018 D5、SEIの`Unknown != incompatible`）。`unavailable`・`unsupported`はproviderの状態であり、Capability Observationの観測条件として読む。観測がないことを`unavailable`と同じに扱わない（SEIの`not observed != unavailable`）。
 4. 参照文字列は所在である: MMIの参照文字列はファイルパスを含む。SEIはファイルパスを論理参照そのものにしないため、記録する側は表を指す識別子を別に持ち、参照文字列は所在を示す情報として添える。
 5. digestはファイル全体に対するもの: Source Identity v1は解決した正本ファイルのバイト列全体に対するもので、参照した範囲だけの同一性ではない。不一致は「範囲の内容が変わった」ではなく「判断のときと同じ内容だとは確かめられない」を意味する。範囲に限った同一性は、ADR-0019の未解決事項（確定版のダイジェストの対象）で扱う。
-6. 現行のマニフェストにdigestはない: 別紙マニフェスト（記法仕様§8.1）は出所のdigestを含まない。digestは[Source Identity Contract v1](source-identity-contract-v1.md)の規則で求める。表記はどちらも`sha256:`に続く小文字16進64桁で、同じバイト列からは同じ文字列になる。CLIの出力にdigestを含めるかは[issue-0192](../01_Plans/issues/issue-0192-sei-decision-basis-table-binding.md)で扱う候補であり、決まっていない。
+6. 現行のマニフェストにdigestはない: 別紙マニフェスト（記法仕様§8.1）は出所のdigestを含まない。digestは[Source Identity Contract v1](source-identity-contract-v1.md)の規則で求める。表記はどちらも`sha256:`に続く小文字16進64桁で、同じバイト列からは同じ文字列になる。CLIの出力にdigestを含めるかは[issue-0192](https://github.com/hat47x/markdown-matrix-injector/issues/498)で扱う候補であり、決まっていない。
 7. 診断が出ないことは判断の正しさを示さない: MMIの診断がないことは、表を参照どおりに描けることを示すだけである。本文の主張と表の整合は、ADR-0019 D4のとおり保証の外にある。
 
 ## 4. 境界
@@ -43,4 +43,4 @@ SEI側の資料は次のとおり。
 - MMIのコード、テスト、配布物は、SEIの型やスキーマを読み込まない。対応が必要になったら、SEI側のadapterがMMIの出力（参照、診断、digest）を読む。
 - MMIは読み取り専用のままである。記法に新しいパラメータを加えず、コアはネットワークから取得せず、参照はワークスペース境界の中で解決する。
 - 認知機能の外部送信は、ADR-0018 D8のとおり明示的なopt-inのままとする。この対応は、SEIへの送信を求めない。
-- 使い方は[記法仕様の付録](../04_Documentation/spec/mmi-notation-v1.md#付録-外部の判断記録で根拠を固定する非規範)、構造化資料の観測契約をv1へ上げる前の確認は[Structured Artifact Neutral Observation v0](structured-artifact-neutral-observation-v0.md)の§13、進め方は[issue-0192](../01_Plans/issues/issue-0192-sei-decision-basis-table-binding.md)を参照する。
+- 使い方は[記法仕様の付録](../04_Documentation/spec/mmi-notation-v1.md#付録-外部の判断記録で根拠を固定する非規範)、構造化資料の観測契約をv1へ上げる前の確認は[Structured Artifact Neutral Observation v0](structured-artifact-neutral-observation-v0.md)の§13、進め方は[issue-0192](https://github.com/hat47x/markdown-matrix-injector/issues/498)を参照する。

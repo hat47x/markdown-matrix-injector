@@ -84,7 +84,7 @@ OS形式の観測と拡張機能での利用を分けて記録する。情報を
 
 ### B. 貼り付けの実機検証
 
-架空ブックで30ケース以上を用意し、Excel/Windows/VS Codeの版、DataTransfer MIME、出所・住所の有無、実際の挿入結果と表示値を一行ずつ記録する。[issue-0114](issues/issue-0114-excel-range-paste.md)の受入条件を判定単位とする。
+架空ブックで30ケース以上を用意し、Excel/Windows/VS Codeの版、DataTransfer MIME、出所・住所の有無、実際の挿入結果と表示値を一行ずつ記録する。[issue-0114](https://github.com/hat47x/markdown-matrix-injector/issues/495)の受入条件を判定単位とする。
 
 ### C. CPU探索（基本貼り付けと補完の後）
 
@@ -92,7 +92,7 @@ OS形式の観測と拡張機能での利用を分けて記録する。情報を
 
 ## 6. 引継ぎ境界
 
-次の担当は、[AGENTS.md](../AGENTS.md)、[要求仕様](../00_Prompt/requirements.md)、[記法仕様](../04_Documentation/spec/mmi-notation-v1.md)、本書、[企画](input-assistance-proposal.md)、設計文書3件、[issue-0114](issues/issue-0114-excel-range-paste.md)の「Bの完了内容」を読み、issue-0114の作業C（VS CodeのDataTransfer観測）から着手する。並行して0110（補完）に着手できる。0111の順に進み、0112は任意、0113のローカルLLMは保留する。Draft/Proposedを実装済みと読み替えない。
+次の担当は、[AGENTS.md](../AGENTS.md)、[要求仕様](../00_Prompt/requirements.md)、[記法仕様](../04_Documentation/spec/mmi-notation-v1.md)、本書、[企画](input-assistance-proposal.md)、設計文書3件、[issue-0114](https://github.com/hat47x/markdown-matrix-injector/issues/495)の「Bの完了内容」を読み、issue-0114の作業C（VS CodeのDataTransfer観測）から着手する。並行して0110（補完）に着手できる。0111の順に進み、0112は任意、0113のローカルLLMは保留する。Draft/Proposedを実装済みと読み替えない。
 
 **2026-09-11に実施した事項（WSL2 Ubuntu、Node v20.20.2）:** issue-0114段1（原本座標を保持する読込み・切り出し）の実装。`npm ci`／`npm run build`／`npm test`（258件成功）／conformanceコーパスへのケース追加／実サンプルでの回帰確認／旗艦の再現ケースの実描画確認。
 

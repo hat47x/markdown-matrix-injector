@@ -2,7 +2,7 @@
 
 Status: Active / 2026-10-08
 
-既存のExcel設計書を踏襲してMarkdown文書と共存させる仕事を第一に、新しい表をExcelで作る仕事も支える。文化的体系から得た案も、VS Codeで資料や本文を書く際に何が助かるかで選び直す。判断の正本は[製品要求](../00_Prompt/requirements.md)と[ADR-0019](adr/ADR-0019-ai-era-sier-document-value-and-policy.md)、作業は[issue-0211](issues/issue-0211-vscode-excel-coauthoring-flow.md)で追う。
+既存のExcel設計書を踏襲してMarkdown文書と共存させる仕事を第一に、新しい表をExcelで作る仕事も支える。文化的体系から得た案も、VS Codeで資料や本文を書く際に何が助かるかで選び直す。判断の正本は[製品要求](../00_Prompt/requirements.md)と[ADR-0019](adr/ADR-0019-ai-era-sier-document-value-and-policy.md)、作業は[issue-0211](https://github.com/hat47x/markdown-matrix-injector/issues/514)で追う。
 
 ## 1. 選び直した理由
 
@@ -16,12 +16,12 @@ Status: Active / 2026-10-08
 
 | 仕事 | 既存の足場 | 今回まだ確認していないこと |
 | --- | --- | --- |
-| 本文へ参照を挿す・直す | [authoringFlow.ts](../03_Implement/src/dx/authoringFlow.ts)のブック→シート→範囲→表示→実描画確認、[issue-0111](issues/issue-0111-reference-authoring-flow.md) | 初めて使う人が目的の表を選び、本文の続きを書けるか |
-| 必要な指定だけ補完する | [issue-0110](issues/issue-0110-contextual-input-completion.md)の部分置換・選択シート内の範囲候補 | Excel保存後の候補、IME・Undo、遅い旧要求を含む実環境での操作 |
-| 新しい表を見つける | [tableCatalogView.ts](../03_Implement/src/dx/tableCatalogView.ts)と[extension.ts](../03_Implement/src/extension.ts)の目録・ファイル監視・明示更新、[issue-0206](issues/issue-0206-table-navigation-and-agent-interface.md) | 新規ブック・シート・領域の作成後に、書き手が見つけられるか。推定領域の妥当性 |
+| 本文へ参照を挿す・直す | [authoringFlow.ts](../03_Implement/src/dx/authoringFlow.ts)のブック→シート→範囲→表示→実描画確認、[issue-0111](https://github.com/hat47x/markdown-matrix-injector/issues/492) | 初めて使う人が目的の表を選び、本文の続きを書けるか |
+| 必要な指定だけ補完する | [issue-0110](https://github.com/hat47x/markdown-matrix-injector/issues/491)の部分置換・選択シート内の範囲候補 | Excel保存後の候補、IME・Undo、遅い旧要求を含む実環境での操作 |
+| 新しい表を見つける | [tableCatalogView.ts](../03_Implement/src/dx/tableCatalogView.ts)と[extension.ts](../03_Implement/src/extension.ts)の目録・ファイル監視・明示更新、[issue-0206](https://github.com/hat47x/markdown-matrix-injector/issues/509) | 新規ブック・シート・領域の作成後に、書き手が見つけられるか。推定領域の妥当性 |
 | 保存済みの値を表示する | [extension.ts](../03_Implement/src/extension.ts)の再描画時に使うmtimeキャッシュ | 開いたMarkdownプレビューが、Excel保存だけで再描画されるか。目録の更新だけではその証明にならない |
 | 原本を確認する | [extension.ts](../03_Implement/src/extension.ts)の原本ファイルを既定アプリで開く経路 | 原本確認後に執筆へ戻る実操作。特定セルへの自動移動は保証していない |
-| 貼り付けから候補を選ぶ | [issue-0114](issues/issue-0114-excel-range-paste.md)の出所・照合・確認の境界 | 書き手の環境でのクリップボード形式。これが使えなくても明示指定で進める必要がある |
+| 貼り付けから候補を選ぶ | [issue-0114](https://github.com/hat47x/markdown-matrix-injector/issues/495)の出所・照合・確認の境界 | 書き手の環境でのクリップボード形式。これが使えなくても明示指定で進める必要がある |
 
 ## 3. 同じ作業で確かめる六つの場面
 

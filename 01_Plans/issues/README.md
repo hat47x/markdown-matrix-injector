@@ -1,15 +1,20 @@
-# Issueの書き方
+# GitHub Issueの書き方
 
 Issueは作業を再開するためのメモです。対象、完了条件、検証、残作業を簡潔に書きます。短い修正に形式だけのIssueを増やす必要はありません。
 
-状態は`Draft`（検討中）、`Open`（着手可能）、`In Progress`（作業中）、`Done`（受入条件を検証済み）を使います。未検証事項を残したままDoneにしません。
+状態はGitHubのOpen / Closedで表します。未検証事項を残したままCloseしません。
+
+## このディレクトリの扱い
+
+`01_Plans/issues/`は、2026-10-16にGitHub Issueへ移管する前にクローズしたIssueの保管場所です。新規の起票先ではありません。内容も保守しません。移管後に起票したIssueと、移管時に未クローズだったIssueは[GitHub Issues](https://github.com/hat47x/markdown-matrix-injector/issues)にあります。
+
+## Issueに書くこと
 
 ```markdown
-# Issue: 作業の目的
+# 作業の目的
 
 ## Meta
 - Type: Feature / Bugfix / Refactor / Docs / Test
-- Status: Draft
 - Priority: High / Medium / Low
 - Scope: 変更対象
 - Expected verification level: docs-check / unit / integration / manual-e2e

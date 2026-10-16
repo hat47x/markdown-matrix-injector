@@ -4,9 +4,9 @@
 
 ## Related Issue / ADR
 
-<!-- Reference related Issue Memo or ADR -->
+<!-- Reference related GitHub Issue or ADR -->
 
-- Issue: `issue-XXXX`
+- Issue: `#XXXX`
 - ADR: `ADR-XXXX` (if applicable)
 
 ## Type of change

@@ -1,6 +1,6 @@
 # クリップボード観測ハーネス
 
-Excel範囲貼り付け（[issue-0114](../../../01_Plans/issues/issue-0114-excel-range-paste.md)）の受入条件が要求する観測を再実行するための道具です。設計の根拠は[クリップボード出所と照合](../../../02_Architecture/input-assistance-paste-provenance.md)と[ソースモデル](../../../02_Architecture/input-assistance-source-model.md)にあります。
+Excel範囲貼り付け（[issue-0114](https://github.com/hat47x/markdown-matrix-injector/issues/495)）の受入条件が要求する観測を再実行するための道具です。設計の根拠は[クリップボード出所と照合](../../../02_Architecture/input-assistance-paste-provenance.md)と[ソースモデル](../../../02_Architecture/input-assistance-source-model.md)にあります。
 
 製品コードではありません。 ビルド・テスト・配布物に含めません。[設計レビュー](../../../01_Plans/input-assistance-design-review.md)のR2/R4に従い、ここでの解析方法をそのまま製品へ移植しないでください。
 
@@ -47,7 +47,7 @@ node .\repro-coords.cjs     # 現行実装の誤った矩形、案A〜Dの比較
 node .\repro-details.cjs    # 結合範囲、dateNFの実効範囲、CSVのtrim
 ```
 
-VS Codeが受け取るMIMEの確認。2026-09-11にVS Code 1.137.0で実施済み。 結果は`text/plain`・`text/html`・`text/rtf`・`image/png`の4件のみで、出所形式は含まれない（詳細: [クリップボード出所と照合](../../../02_Architecture/input-assistance-paste-provenance.md)§2、[issue-0114](../../../01_Plans/issues/issue-0114-excel-range-paste.md)「Cの完了内容」）。最低対応版（1.96系）での再実行と実キー入力での比較は未実施のまま残る。
+VS Codeが受け取るMIMEの確認。2026-09-11にVS Code 1.137.0で実施済み。 結果は`text/plain`・`text/html`・`text/rtf`・`image/png`の4件のみで、出所形式は含まれない（詳細: [クリップボード出所と照合](../../../02_Architecture/input-assistance-paste-provenance.md)§2、[issue-0114](https://github.com/hat47x/markdown-matrix-injector/issues/495)「Cの完了内容」）。最低対応版（1.96系）での再実行と実キー入力での比較は未実施のまま残る。
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\probe-vscode.ps1

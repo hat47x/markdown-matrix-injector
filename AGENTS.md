@@ -6,7 +6,7 @@ MMIは、業務文書・構造化データを読み取り専用で扱い、人�
 
 1. [作業ルール](00_Prompt/system_prompt.md)を読む。
 2. [製品要求](00_Prompt/requirements.md)で目的と境界を確認する。
-3. [現在の作業](01_Plans/README.md)から、依頼に関係する計画と未解決事項を確認する。
+3. [現在の作業](01_Plans/README.md)から依頼に関係する計画を、[GitHub Issues](https://github.com/hat47x/markdown-matrix-injector/issues)から未解決の作業と受入条件を確認する。
 4. 作業ツリーの差分を確認し、対象のコード・仕様・テストだけを読む。
 
 ユーザーの依頼範囲を優先してください。「続けて」などの短い依頼は進行中の作業に結び付け、別の開発フェーズや定型会議を自動で開始しません。
@@ -15,6 +15,7 @@ MMIは、業務文書・構造化データを読み取り専用で扱い、人�
 
 | 知りたいこと | 参照先 |
 | --- | --- |
+| 未解決の作業と受入条件 | [GitHub Issues](https://github.com/hat47x/markdown-matrix-injector/issues) |
 | 記法とパラメータの正確な意味 | [記法仕様](04_Documentation/spec/mmi-notation-v1.md) |
 | コードの構造と処理の流れ | [設計案内](02_Architecture/README.md) |
 | ビルド・検証 | [開発環境](04_Documentation/developer-setup.md) |

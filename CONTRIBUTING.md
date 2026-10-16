@@ -27,18 +27,14 @@ npm test
 
 ### 1. Issue の起票
 
-新規開発・修正を行う前に、Issue Memoを起票してください。
+新規開発・修正を行う前に、[GitHub Issues](https://github.com/hat47x/markdown-matrix-injector/issues)へ起票してください。
 
-```bash
-cp 01_Plans/issues/TEMPLATE.md 01_Plans/issues/issue-XXXX-<slug>.md
-```
-
-テンプレートに従って `## Meta`（Type, Priority, Scope）と `## Traceability`（Related ADR/Spec）を記述します。
+テンプレートまたは既存Issueにならい、対象（Type・Priority・Scope）、関連ADR/Spec、観測して判定できる受入条件、検証方法、残作業を記述します。
 
 ### 2. ブランチ作成
 
 ```bash
-git checkout -b feature/issue-XXXX-<short-description>
+git checkout -b feature/issue-<number>-<short-description>
 ```
 
 ### 3. 実装
@@ -52,14 +48,14 @@ git checkout -b feature/issue-XXXX-<short-description>
 
 - PRテンプレート（`.github/PULL_REQUEST_TEMPLATE.md`）に従って記述してください。
 - CI（build + test + release gate + VSIX packaging）がすべてパスすることを確認してください。
-- 関連するADR / Issue MemoをPR本文で参照してください。
+- 関連するADR / GitHub IssueをPR本文で参照してください。
 
 ## 意思決定の分離
 
 MMIプロジェクトでは、決定（ADR）と実行（Issue）を分離しています。
 
 - ADR (`01_Plans/adr/`): アーキテクチャ上の意思決定。`Draft → Proposed → Accepted/Rejected` のライフサイクル。
-- Issue Memo (`01_Plans/issues/`): 実行計画。`Draft → Open → In Progress → Done` のライフサイクル。
+- [GitHub Issues](https://github.com/hat47x/markdown-matrix-injector/issues): 実行計画。GitHubのOpen / Closedで状態を表す。`01_Plans/issues/`は移管前にクローズしたIssueの保管場所であり、新規起票先ではない。
 
 詳細は [`01_Plans/README.md`](01_Plans/README.md) を参照してください。
 
@@ -69,7 +65,7 @@ MMIプロジェクトでは、決定（ADR）と実行（Issue）を分離して
 
 - AIエージェントで開発する場合は、必ず作業前に [`AGENTS.md`](AGENTS.md) を一読させてください。
 - `00_Prompt/` 配下にはAIエージェント向けの憲法・実行プロトコルが格納されています。
-- Issue Memoのテンプレートとライフサイクルは、人間・AIエージェント共通です。
+- Issueのテンプレートとライフサイクルは、人間・AIエージェント共通です。
 
 ## テスト
 

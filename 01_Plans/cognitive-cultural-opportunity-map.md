@@ -1,6 +1,6 @@
 # 認知機能と文化的体系による発想地図
 
-2026-10-08。状態は発散案。関連作業は[issue-0208](issues/issue-0208-cognitive-cultural-exploration.md)。
+2026-10-08。状態は発散案。関連作業は[issue-0208](https://github.com/hat47x/markdown-matrix-injector/issues/511)。
 
 MMIの認知支援を、候補の検出・検索から、注意の配分、問いの生成、視点の切替、関係の発見、解釈の比較、構成、継承へ広げる。24の視点から96案を出し、さらに12の交差案を作った。計108案を後の選択材料として残す。件数は探索の広さを示すもので、網羅性や効果の証明ではない。
 
@@ -373,7 +373,7 @@ MMIの認知支援を、候補の検出・検索から、注意の配分、問�
 
 H01、H02、H06は、人が意味を指定するMarkdownの作業票でも試せる。モデルの導入を先に必要としない。H03、H05、H07、H08は既存の目録や台帳へ近いが、関係・時点・比較の契約を足す必要がある。H04は探索体験としての試作が必要である。
 
-M4/M5を使う場合も、質問や章立ての提案を担う。出典や条件を生成した文章だけで補わず、引用可能なsourceと利用者の判断へ戻す。[認知資産の配布](issues/issue-0204-cognitive-artifact-distribution.md)や[外部AI handoff](issues/issue-0112-ai-proposal-handoff.md)は、その必要が具体化してから使う。
+M4/M5を使う場合も、質問や章立ての提案を担う。出典や条件を生成した文章だけで補わず、引用可能なsourceと利用者の判断へ戻す。[認知資産の配布](https://github.com/hat47x/markdown-matrix-injector/issues/507)や[外部AI handoff](https://github.com/hat47x/markdown-matrix-injector/issues/493)は、その必要が具体化してから使う。
 
 ### 認知処理としての組み立て
 

@@ -60,7 +60,7 @@ Excelの選択範囲をMMI参照として貼り付けるには、原本のパス
 
 ## Traceability
 
-- Related Issues: [issue-0114](../issues/issue-0114-excel-range-paste.md)
+- Related Issues: [issue-0114](https://github.com/hat47x/markdown-matrix-injector/issues/495)
 - Related ADR: [ADR-0016](ADR-0016-notation-first-input-assistance.md)
 - Related Docs: [クリップボード出所と照合](../../02_Architecture/input-assistance-paste-provenance.md)、[ソースモデル](../../02_Architecture/input-assistance-source-model.md)、[観測ハーネス](../../03_Implement/scripts/clipboard-probe/README.md)
 

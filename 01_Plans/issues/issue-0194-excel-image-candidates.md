@@ -38,7 +38,7 @@ SIerの設計者は、画面ダンプをExcelへ貼り、図表で設計を整�
 
 ## Follow-up
 - 画像の変更検知は[issue-0195](issue-0195-import-ledger.md)で完了した。content fingerprint変更は`changed`、同じcontentでreview basisが変わった場合は`stale`、移動候補はlineage evidenceとして提示する。
-- 図形（AutoShape）とconnector、グラフは数だけ記録している。解釈は優先度3（[issue-0199](issue-0199-tree-structured-source-adapters.md)以降）。
-- シートや範囲をそのまま画像として取り込む`Sheet / Region snapshot`は[issue-0198](issue-0198-sheet-region-snapshot.md)。
-- VS Codeで候補を採否するUIは、CLIの動作確認が済んだので[issue-0202](issue-0202-candidate-review-ui.md)で扱える。
+- 図形（AutoShape）とconnector、グラフは数だけ記録している。解釈は優先度3（[issue-0199](https://github.com/hat47x/markdown-matrix-injector/issues/502)以降）。
+- シートや範囲をそのまま画像として取り込む`Sheet / Region snapshot`は[issue-0198](https://github.com/hat47x/markdown-matrix-injector/issues/501)。
+- VS Codeで候補を採否するUIは、CLIの動作確認が済んだので[issue-0202](https://github.com/hat47x/markdown-matrix-injector/issues/505)で扱える。
 - 画像を多数含む大きなブックでの読込み時間・記憶域は未測定（ギャップ分析§2「応答性」）。

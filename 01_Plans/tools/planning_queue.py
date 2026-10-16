@@ -4,6 +4,8 @@ from __future__ import annotations
 import argparse
 import json
 import re
+import subprocess
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable
@@ -19,6 +21,7 @@ ADR_REF_RE = re.compile(r"ADR-\d{4}")
 DEFAULT_SCAN_LINES = 80
 ADR_PENDING_STATUSES = {"draft", "proposed"}
 ISSUE_PENDING_STATUSES = {"draft", "open", "in progress"}
+GITHUB_ISSUE_TIMEOUT_SEC = 20
 
 
 @dataclass
@@ -41,10 +44,20 @@ class IssueItem:
 
 
 @dataclass
+class GitHubIssue:
+    number: int
+    title: str
+    labels: list[str]
+    url: str
+
+
+@dataclass
 class QueueReport:
     pending_adrs: list[AdrItem]
     pending_issues: list[IssueItem]
     orphan_issues: list[IssueItem]
+    github_issues: list[GitHubIssue]
+    github_available: bool
     summary: dict[str, int]
 
 
@@ -100,7 +113,57 @@ def parse_issue(path: Path, repo_root: Path) -> IssueItem:
     )
 
 
-def build_report(repo_root: Path) -> QueueReport:
+def fetch_github_issues(timeout_sec: int = GITHUB_ISSUE_TIMEOUT_SEC) -> list[GitHubIssue] | None:
+    """List open GitHub issues. Returns None when `gh` is unavailable or fails."""
+    cmd = [
+        "gh",
+        "issue",
+        "list",
+        "--state",
+        "open",
+        "--limit",
+        "500",
+        "--json",
+        "number,title,labels,url",
+    ]
+    try:
+        proc = subprocess.run(
+            cmd,
+            text=True,
+            capture_output=True,
+            check=False,
+            timeout=timeout_sec,
+            encoding="utf-8",
+        )
+    except (FileNotFoundError, subprocess.TimeoutExpired, OSError):
+        return None
+    if proc.returncode != 0:
+        return None
+    try:
+        payload = json.loads(proc.stdout)
+    except json.JSONDecodeError:
+        return None
+
+    issues: list[GitHubIssue] = []
+    for item in payload:
+        try:
+            number = int(item["number"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        labels = [label.get("name", "") for label in item.get("labels", []) if isinstance(label, dict)]
+        issues.append(
+            GitHubIssue(
+                number=number,
+                title=str(item.get("title", "")),
+                labels=labels,
+                url=str(item.get("url", "")),
+            )
+        )
+    issues.sort(key=lambda issue: issue.number)
+    return issues
+
+
+def build_report(repo_root: Path, include_github: bool = False) -> QueueReport:
     adr_dir = repo_root / "01_Plans" / "adr"
     issue_dir = repo_root / "01_Plans" / "issues"
 
@@ -117,21 +180,33 @@ def build_report(repo_root: Path) -> QueueReport:
         if issue.related_adrs and any(adr_id not in known_adr_ids for adr_id in issue.related_adrs)
     ]
 
+    github_issues: list[GitHubIssue] = []
+    github_available = False
+    if include_github:
+        fetched = fetch_github_issues()
+        if fetched is not None:
+            github_issues = fetched
+            github_available = True
+
     return QueueReport(
         pending_adrs=pending_adrs,
         pending_issues=pending_issues,
         orphan_issues=orphan_issues,
+        github_issues=github_issues,
+        github_available=github_available,
         summary={
             "adr_total": len(adrs),
             "adr_pending": len(pending_adrs),
             "issue_total": len(issues),
             "issue_pending": len(pending_issues),
             "issue_orphan": len(orphan_issues),
+            "github_open": len(github_issues),
+            "github_available": 1 if github_available else 0,
         },
     )
 
 
-def print_text(report: QueueReport) -> None:
+def print_text(report: QueueReport, include_github: bool) -> None:
     print("# Planning Queue Summary")
     for key, value in report.summary.items():
         print(f"- {key}: {value}")
@@ -143,7 +218,7 @@ def print_text(report: QueueReport) -> None:
     else:
         print("- none")
 
-    print("\n## Pending Issues")
+    print("\n## Pending Local Issues")
     if report.pending_issues:
         for item in report.pending_issues:
             related = ", ".join(item.related_adrs) if item.related_adrs else "(no ADR reference)"
@@ -153,12 +228,23 @@ def print_text(report: QueueReport) -> None:
     else:
         print("- none")
 
-    print("\n## Pending Issues With Missing ADR Reference")
+    print("\n## Pending Local Issues With Missing ADR Reference")
     if report.orphan_issues:
         for item in report.orphan_issues:
             print(f"- {item.path} :: missing {', '.join(item.related_adrs)}")
     else:
         print("- none")
+
+    if include_github:
+        print("\n## Open GitHub Issues")
+        if not report.github_available:
+            print("- unavailable (gh not found, not authenticated, or offline)")
+        elif report.github_issues:
+            for issue in report.github_issues:
+                labels = ", ".join(issue.labels) if issue.labels else "(no label)"
+                print(f"- #{issue.number} [{labels}] {issue.title} :: {issue.url}")
+        else:
+            print("- none")
 
 
 def main() -> int:
@@ -167,13 +253,23 @@ def main() -> int:
     )
     parser.add_argument("--repo-root", default=".", help="Repository root path. Default: current directory")
     parser.add_argument("--format", choices=("text", "json"), default="text", help="Output format")
+    parser.add_argument(
+        "--github",
+        action="store_true",
+        help="Also list open GitHub issues via the gh CLI (unavailable environments are reported, not failed)",
+    )
     args = parser.parse_args()
 
-    report = build_report(Path(args.repo_root).resolve())
+    try:
+        sys.stdout.reconfigure(errors="replace")
+    except (AttributeError, ValueError, OSError):
+        pass
+
+    report = build_report(Path(args.repo_root).resolve(), include_github=args.github)
     if args.format == "json":
         print(json.dumps(asdict(report), ensure_ascii=False, indent=2))
     else:
-        print_text(report)
+        print_text(report, include_github=args.github)
     return 0
 
 

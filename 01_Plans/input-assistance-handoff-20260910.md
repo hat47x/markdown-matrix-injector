@@ -100,7 +100,7 @@ APIキー、クラウド推論、GPU、ニューラル埋め込みの生成を�
 
 修正前は、正しい参照文字列を挿入しても現在の読込みでは違う位置が表示されていた。 使用範囲がC5開始で途中に空行を持つ実ブックで、`C5:F12`が3行の別内容として描画されることを計測で確認していた（原因は使用範囲の列原点の喪失と空行の除去。`blankrows`の変更だけでは解決しない）。
 
-2026-09-11、issue-0114段1でこの契約を修正・実装・自動テスト済み（`npm test`258件成功）。読込範囲をA1へ拡張する案は、原点が遠方のシートで実セル1個でも使用範囲の終端まで展開するため採らなかった。住所指定の切り出しは20万行規模でもミリ秒未満で完了する。詳細・計測値・実装内容はソースモデル (`02_Architecture/input-assistance-source-model.md`)とissue-0114 (`01_Plans/issues/issue-0114-excel-range-paste.md`)「Bの完了内容」。
+2026-09-11、issue-0114段1でこの契約を修正・実装・自動テスト済み（`npm test`258件成功）。読込範囲をA1へ拡張する案は、原点が遠方のシートで実セル1個でも使用範囲の終端まで展開するため採らなかった。住所指定の切り出しは20万行規模でもミリ秒未満で完了する。詳細・計測値・実装内容はソースモデル (`02_Architecture/input-assistance-source-model.md`)とissue-0114 (`https://github.com/hat47x/markdown-matrix-injector/issues/495`)「Bの完了内容」。
 
 ## 3. CPUでの自然言語＋Excel範囲探索
 
@@ -121,11 +121,11 @@ APIキー、クラウド推論、GPU、ニューラル埋め込みの生成を�
 
 | 順序 | タスク | 終了時の証拠 |
 | --- | --- | --- |
-| 1 | issue-0114: Excel範囲貼り付け (`01_Plans/issues/issue-0114-excel-range-paste.md`) | 原本座標での表示、実ExcelのC5:F12コピー→参照挿入→同じ値の表示、重複/不明時の選択、Undo、原本ハッシュ |
-| 2 | issue-0110: 補完 (`01_Plans/issues/issue-0110-contextual-input-completion.md`) → 0111: 編集 (`01_Plans/issues/issue-0111-reference-authoring-flow.md`) | 貼り付けた記法を値候補/選択式で修正できる |
-| 3 | issue-0115: CPU探索 (`01_Plans/issues/issue-0115-cpu-range-search.md`) | 非GPUの基準方式/FlyHash比較と自然言語→範囲→MMIの動作 |
-| 任意 | issue-0112: 既存AI手渡し (`01_Plans/issues/issue-0112-ai-proposal-handoff.md`) | 主経路の依存にしない |
-| 保留 | issue-0113: ローカルLLM (`01_Plans/issues/issue-0113-local-ai-feasibility.md`) | 今回の実装順から除外。再開は別判断 |
+| 1 | issue-0114: Excel範囲貼り付け (`https://github.com/hat47x/markdown-matrix-injector/issues/495`) | 原本座標での表示、実ExcelのC5:F12コピー→参照挿入→同じ値の表示、重複/不明時の選択、Undo、原本ハッシュ |
+| 2 | issue-0110: 補完 (`https://github.com/hat47x/markdown-matrix-injector/issues/491`) → 0111: 編集 (`https://github.com/hat47x/markdown-matrix-injector/issues/492`) | 貼り付けた記法を値候補/選択式で修正できる |
+| 3 | issue-0115: CPU探索 (`https://github.com/hat47x/markdown-matrix-injector/issues/496`) | 非GPUの基準方式/FlyHash比較と自然言語→範囲→MMIの動作 |
+| 任意 | issue-0112: 既存AI手渡し (`https://github.com/hat47x/markdown-matrix-injector/issues/493`) | 主経路の依存にしない |
+| 保留 | issue-0113: ローカルLLM (`https://github.com/hat47x/markdown-matrix-injector/issues/494`) | 今回の実装順から除外。再開は別判断 |
 
 最初にVS Codeの`DataTransfer`観測で入口の実現性を確定し、並行して原本座標の修正に着手する。その後に必要な検索とコンパイラ部品を共通化する。FlyHashの採否を待って基本の貼り付け機能を止めない。
 
@@ -312,7 +312,7 @@ OS形式の観測と拡張機能での利用を分けて記録する。情報を
 
 ### B. 貼り付けの実機検証
 
-架空ブックで30ケース以上を用意し、Excel/Windows/VS Codeの版、DataTransfer MIME、出所・住所の有無、実際の挿入結果と表示値を一行ずつ記録する。issue-0114 (`01_Plans/issues/issue-0114-excel-range-paste.md`)の受入条件を判定単位とする。
+架空ブックで30ケース以上を用意し、Excel/Windows/VS Codeの版、DataTransfer MIME、出所・住所の有無、実際の挿入結果と表示値を一行ずつ記録する。issue-0114 (`https://github.com/hat47x/markdown-matrix-injector/issues/495`)の受入条件を判定単位とする。
 
 ### C. CPU探索（基本貼り付けと補完の後）
 
@@ -320,7 +320,7 @@ OS形式の観測と拡張機能での利用を分けて記録する。情報を
 
 ## 6. 引継ぎ境界
 
-次の担当は、AGENTS.md (`AGENTS.md`)、要求仕様 (`00_Prompt/requirements.md`)、記法仕様 (`04_Documentation/spec/mmi-notation-v1.md`)、本書、企画 (`01_Plans/input-assistance-proposal.md`)、設計文書3件、issue-0114 (`01_Plans/issues/issue-0114-excel-range-paste.md`)の「Bの完了内容」を読み、issue-0114の作業C（VS CodeのDataTransfer観測）から着手する。並行して0110（補完）に着手できる。0111の順に進み、0112は任意、0113のローカルLLMは保留する。Draft/Proposedを実装済みと読み替えない。
+次の担当は、AGENTS.md (`AGENTS.md`)、要求仕様 (`00_Prompt/requirements.md`)、記法仕様 (`04_Documentation/spec/mmi-notation-v1.md`)、本書、企画 (`01_Plans/input-assistance-proposal.md`)、設計文書3件、issue-0114 (`https://github.com/hat47x/markdown-matrix-injector/issues/495`)の「Bの完了内容」を読み、issue-0114の作業C（VS CodeのDataTransfer観測）から着手する。並行して0110（補完）に着手できる。0111の順に進み、0112は任意、0113のローカルLLMは保留する。Draft/Proposedを実装済みと読み替えない。
 
 **2026-09-11に実施した事項（WSL2 Ubuntu、Node v20.20.2）:** issue-0114段1（原本座標を保持する読込み・切り出し）の実装。`npm ci`／`npm run build`／`npm test`（258件成功）／conformanceコーパスへのケース追加／実サンプルでの回帰確認／旗艦の再現ケースの実描画確認。
 
@@ -335,7 +335,7 @@ OS形式の観測と拡張機能での利用を分けて記録する。情報を
 
 - 状態: 実装・自動テスト完了（2026-09-11）。 計測日2026-09-10。実装はWSL2 Ubuntu（Node v20.20.2）で行い、`npm run build`・`npm test`（258件）が成功する。VS Code実機での確認と性能計測は未実施。
 - 対象: sheetSource.ts (`03_Implement/src/core/sheetSource.ts`)（新規）、workbookLoader.ts (`03_Implement/src/core/workbookLoader.ts`)、tableGeometry.ts (`03_Implement/src/core/tableGeometry.ts`)、smartFallback.ts (`03_Implement/src/core/smartFallback.ts`)、renderTable.ts (`03_Implement/src/core/renderTable.ts`)
-- 関連: ADR-0016 (`01_Plans/adr/ADR-0016-notation-first-input-assistance.md`)、issue-0114 (`01_Plans/issues/issue-0114-excel-range-paste.md`)（実装内容は「Bの完了内容」節）、記法仕様 (`04_Documentation/spec/mmi-notation-v1.md`)
+- 関連: ADR-0016 (`01_Plans/adr/ADR-0016-notation-first-input-assistance.md`)、issue-0114 (`https://github.com/hat47x/markdown-matrix-injector/issues/495`)（実装内容は「Bの完了内容」節）、記法仕様 (`04_Documentation/spec/mmi-notation-v1.md`)
 
 貼り付け・補完・範囲探索は、いずれも「原本のA1座標」を共通の基準にする。その基準が現在の読込みで失われている。本書はその実測結果と、置き換えるモデルを定める。
 
@@ -506,7 +506,7 @@ workbookLoader.ts (`03_Implement/src/core/workbookLoader.ts`)のコメントは�
 
 workbookLoader.ts (`03_Implement/src/core/workbookLoader.ts`)の`parseCsv`はファイル全体に`trim()`を適用する。先頭の空行がn行あれば、A1原点の前提がn行ずれる（架空入力で確認）。Excelと同じ座標契約をCSVへ広げるかは別判断とし、issue-0114では影響範囲の整理までを行う。既存の空行処理・自動範囲・見出し解釈に依存するテストを先に洗い出す。
 
-調査完了（2026-09-15）。 既存テスト（`test/csvEncoding.test.ts`・`test/workbookCache.test.ts`・`test/markdownMatrixPlugin.test.ts`・`test/conformance/cases.json`）のCSVフィクスチャを全数確認したところ、先頭空行のtrim挙動に依存するものは0件だった。修正しても既存テストは壊れないが、修正するかどうかの判断自体は別途行う。現状挙動は`test/workbookCache.test.ts`にピン留めテストとして固定済み（詳細はissue-0114 (`01_Plans/issues/issue-0114-excel-range-paste.md`)「CSVの座標ずれ（trim）の影響範囲調査」節）。
+調査完了（2026-09-15）。 既存テスト（`test/csvEncoding.test.ts`・`test/workbookCache.test.ts`・`test/markdownMatrixPlugin.test.ts`・`test/conformance/cases.json`）のCSVフィクスチャを全数確認したところ、先頭空行のtrim挙動に依存するものは0件だった。修正しても既存テストは壊れないが、修正するかどうかの判断自体は別途行う。現状挙動は`test/workbookCache.test.ts`にピン留めテストとして固定済み（詳細はissue-0114 (`https://github.com/hat47x/markdown-matrix-injector/issues/495`)「CSVの座標ずれ（trim）の影響範囲調査」節）。
 
 ## 8. 再現手順
 
@@ -524,9 +524,9 @@ ELECTRON_RUN_AS_NODE=1 "<VS Codeのインストール先>/Code.exe" 03_Implement
 
 設計レビュー (`01_Plans/input-assistance-design-review.md`)のR3/R5に従い実装した。日付比較ハーネスの`w`キャッシュ再利用は修正済み（§5の表は独立オブジェクトでの再測定値）。`SourceCell.text`は`XLSX.read()`が計算する`.w`をそのまま用いており、旧`sheet_to_json({raw:false})`の出力と1件ずつ突き合わせて一致を確認した（相違点はエラーセルの表示のみで、これは意図した修正）。`w`が無いケース（`z`型のスタブセル）は「セルなし」として扱い、`sliceRegion`が空文字で埋める。
 
-`measureRegion`がセルへ一切触れずに寸法を返すことは、`cellAt`が呼ばれたら例外を投げるテスト用`SheetSource`で保証した（`test/tableGeometry.test.ts`）。詳細な変更内容とテスト一覧はissue-0114 (`01_Plans/issues/issue-0114-excel-range-paste.md`)の「Bの完了内容」節を参照。
+`measureRegion`がセルへ一切触れずに寸法を返すことは、`cellAt`が呼ばれたら例外を投げるテスト用`SheetSource`で保証した（`test/tableGeometry.test.ts`）。詳細な変更内容とテスト一覧はissue-0114 (`https://github.com/hat47x/markdown-matrix-injector/issues/495`)の「Bの完了内容」節を参照。
 
-未対応で残る点: `mode=table`強制時の時間上限（サイズ上限は2026-09-14実装済み。issue-0114 (`01_Plans/issues/issue-0114-excel-range-paste.md`)「`mode=table`強制時のサイズ上限」節）、読込み自体の性能計測、CSVの`trim()`起因の座標ずれの改修判断そのもの（影響範囲調査は2026-09-15完了、上記参照）。
+未対応で残る点: `mode=table`強制時の時間上限（サイズ上限は2026-09-14実装済み。issue-0114 (`https://github.com/hat47x/markdown-matrix-injector/issues/495`)「`mode=table`強制時のサイズ上限」節）、読込み自体の性能計測、CSVの`trim()`起因の座標ずれの改修判断そのもの（影響範囲調査は2026-09-15完了、上記参照）。
 
 
 ---
@@ -537,7 +537,7 @@ ELECTRON_RUN_AS_NODE=1 "<VS Codeのインストール先>/Code.exe" 03_Implement
 
 - 状態: Proposed（実装未着手）。観測日2026-09-10、2026-09-11（VS Code DataTransfer観測を追加）。§2のVS Code観測により、出所取得は層2（Windows補助プロセス）か層3（内容照合）に限られることが確定した。
 - 対象: pasteDrop.ts (`03_Implement/src/dx/pasteDrop.ts`)、vscodeAdapters.ts (`03_Implement/src/dx/vscodeAdapters.ts`)、extension.ts (`03_Implement/src/extension.ts`)
-- 関連: ADR-0016 (`01_Plans/adr/ADR-0016-notation-first-input-assistance.md`)、ADR-0017 (`01_Plans/adr/ADR-0017-windows-clipboard-provenance-bridge.md`)、issue-0114 (`01_Plans/issues/issue-0114-excel-range-paste.md`)、ソースモデル (`02_Architecture/input-assistance-source-model.md`)
+- 関連: ADR-0016 (`01_Plans/adr/ADR-0016-notation-first-input-assistance.md`)、ADR-0017 (`01_Plans/adr/ADR-0017-windows-clipboard-provenance-bridge.md`)、issue-0114 (`https://github.com/hat47x/markdown-matrix-injector/issues/495`)、ソースモデル (`02_Architecture/input-assistance-source-model.md`)
 
 Excelで`C5:F12`をコピーし、Markdownへ`![[./data/設計.xlsx#状態遷移|C5:F12]]`として貼り付ける機能の設計。原本の開始位置をどこから得るか、そして得た住所をどう検証するかを定める。
 
@@ -582,7 +582,7 @@ Link Source Descriptor | Link | Format129 | ExcludeClipboardContentFromMonitorPr
 
 これはMicrosoftのHTMLクリップボード形式が使う一時的な「クリップ保管」参照であり、原本ワークブックではない。`clip_filelist.xml`は`.xml`拡張子を持つため、現行の`src/dx/pasteDrop.ts`の`extractSupportedFilepathFromHtml`はこれを誤って一致させ、`![[C:/.../msohtmlclip1/01/clip_filelist.xml|A1:D8]]`という、原本ではなく一時ステージングファイルを指す壊れた提案を生成していた。 実際に採取したペイロードを製品コードへ通して確認した（合成HTMLではなく実データでの再現）。
 
-2026-09-11に修正済み。 `<head>`内を検索対象から除外し、`msohtmlclip`を含む一致は候補から除く。修正後、この実データを与えると`suggestEmbedFromClipboardHtml`は`null`（提案なし）を返す。これは正しい退避動作である。原本パスがHTMLのどこにも存在しない以上、"提案しない"が"誤ったファイルを提案する"より安全である。詳細と回帰テストはissue-0114 (`01_Plans/issues/issue-0114-excel-range-paste.md`)「pasteDrop.tsの修正」節。
+2026-09-11に修正済み。 `<head>`内を検索対象から除外し、`msohtmlclip`を含む一致は候補から除く。修正後、この実データを与えると`suggestEmbedFromClipboardHtml`は`null`（提案なし）を返す。これは正しい退避動作である。原本パスがHTMLのどこにも存在しない以上、"提案しない"が"誤ったファイルを提案する"より安全である。詳細と回帰テストはissue-0114 (`https://github.com/hat47x/markdown-matrix-injector/issues/495`)「pasteDrop.tsの修正」節。
 
 **この発見が意味すること:** `suggestEmbedFromClipboardHtml`が抽出しようとする3項目（パス・シート名・範囲）のうち、シート名（`<title>`/`data-sheet`頼み）と範囲（A1起点の仮定）はすでに不正確と分かっていたが、パスの抽出自体が実データでは機能しないどころか積極的に誤った結果を生んでいたことは今回で初めて確認した。**現行の`suggestEmbedFromClipboardHtml`は、実際のExcelコピーに対しては正しい結果を1つも生成できない設計だった。**
 
@@ -785,7 +785,7 @@ flowchart TD
 - 見出し・caption・grepを勝手に付けない。挿入するのは既存文法のみ。
 - 一般のテキスト、対象外のファイル、境界外、未信頼workspace、読み込み失敗では通常の貼り付けを妨げない。
 
-**未達のまま残る点**: 候補には現状ファイル・シート・範囲のみを表示し、先頭数行の値プレビューは表示しない(一致は常に完全一致なので根拠自体は自明だが、値を見ての確認はできない)。出所(provenance)は常に取得不能なため、「出所あり」区分は発生せず、「出所あり」と「推定」の画面上の区別も実装していない(常に内容照合による「推定」)。明示コマンド経路（経路3）は実VS Code（1.138.0）でのe2e確認済み（2026-09-17）——WSLg由来の実表示によりxvfb無しでExtension Host e2eが動作した。`editor.action.pasteAs`（経路2、Ctrl+.）のみ実機確認が未達のまま——実OSクリップボードへ`text/html`を設定する手段（xclip等）が開発環境に無く、追加インストールもsudo認証キャッシュ失効のため行えない（issue-0114 (`01_Plans/issues/issue-0114-excel-range-paste.md`)「実VS Code GUI確認」節）。
+**未達のまま残る点**: 候補には現状ファイル・シート・範囲のみを表示し、先頭数行の値プレビューは表示しない(一致は常に完全一致なので根拠自体は自明だが、値を見ての確認はできない)。出所(provenance)は常に取得不能なため、「出所あり」区分は発生せず、「出所あり」と「推定」の画面上の区別も実装していない(常に内容照合による「推定」)。明示コマンド経路（経路3）は実VS Code（1.138.0）でのe2e確認済み（2026-09-17）——WSLg由来の実表示によりxvfb無しでExtension Host e2eが動作した。`editor.action.pasteAs`（経路2、Ctrl+.）のみ実機確認が未達のまま——実OSクリップボードへ`text/html`を設定する手段（xclip等）が開発環境に無く、追加インストールもsudo認証キャッシュ失効のため行えない（issue-0114 (`https://github.com/hat47x/markdown-matrix-injector/issues/495`)「実VS Code GUI確認」節）。
 
 ## 8. 未確認事項
 
@@ -820,7 +820,7 @@ flowchart TD
 
 - 状態: Proposed（実装未着手）。性能・精度はいずれも未測定。
 - 対象: 構造索引、限定文法の解析器、候補検索の比較評価
-- 関連: ADR-0016 (`01_Plans/adr/ADR-0016-notation-first-input-assistance.md`)、issue-0115 (`01_Plans/issues/issue-0115-cpu-range-search.md`)、ソースモデル (`02_Architecture/input-assistance-source-model.md`)、クリップボード出所 (`02_Architecture/input-assistance-paste-provenance.md`)
+- 関連: ADR-0016 (`01_Plans/adr/ADR-0016-notation-first-input-assistance.md`)、issue-0115 (`https://github.com/hat47x/markdown-matrix-injector/issues/496`)、ソースモデル (`02_Architecture/input-assistance-source-model.md`)、クリップボード出所 (`02_Architecture/input-assistance-paste-provenance.md`)
 
 自然言語または貼り付け断片から、Excelの表領域と既存MMI記法を探す。外部推論API・GPU・ニューラル埋め込み・ローカルLLMを必須にしない。本書は設計案であり、達成した性能の記録ではない。
 
@@ -984,7 +984,7 @@ Recall@5、最上位正解率、棄却率、誤った確定数、待ち時間。
 
 主経路はLLMを使わない。ただしCPU・メモリ・初期索引構築・更新のコストは残るため「費用も計算量もゼロ」とはしない。初回のExcel読込と索引構築は別に計測し、進行表示とキャンセルを必須にする。
 
-非GPU環境のローカルLLMが本用途で必ず遅いと実証したわけではない。利用者の想定と優先順位に従い、必須構成から外している（issue-0113 (`01_Plans/issues/issue-0113-local-ai-feasibility.md`)は保留）。
+非GPU環境のローカルLLMが本用途で必ず遅いと実証したわけではない。利用者の想定と優先順位に従い、必須構成から外している（issue-0113 (`https://github.com/hat47x/markdown-matrix-injector/issues/494`)は保留）。
 
 
 ---
@@ -1007,7 +1007,7 @@ Excelのコピー領域を原本座標のMMI参照として貼り付ける操作
 
 設計レビュー (`01_Plans/input-assistance-design-review.md`)の修正条件を満たしてから実装へ進める。観測事実と採用判断を区別する。根拠はソースモデル (`02_Architecture/input-assistance-source-model.md`)とクリップボード出所と照合 (`02_Architecture/input-assistance-paste-provenance.md`)。
 
-原本座標を保持する読込み・切り出し（1点目の判断）は2026-09-11に実装・自動テスト済み。 それ以外（貼り付け・出所照合・CPU探索）は未実装。詳細はissue-0114 (`01_Plans/issues/issue-0114-excel-range-paste.md`)「Bの完了内容」。
+原本座標を保持する読込み・切り出し（1点目の判断）は2026-09-11に実装・自動テスト済み。 それ以外（貼り付け・出所照合・CPU探索）は未実装。詳細はissue-0114 (`https://github.com/hat47x/markdown-matrix-injector/issues/495`)「Bの完了内容」。
 
 - 読込みは原本座標を保持する疎なセルモデルとし、切り出しで初めて矩形の表示行列を作る。 現行の`blankrows: false`＋A1起点前提は、使用範囲がC5開始・途中に空行を持つ実ブックで誤った矩形を返すことを確認した。`blankrows: true`だけでは解決しない。読込範囲をA1へ拡張する案は、実セル1個でも使用範囲の終端までの全セル（観測では3,527,040セル）を実体化するため採らない。要求した矩形だけを展開する方針を採る。切出し時間の計測は入力も出力量も異なるため、案Cとの速度比として扱わない。読込みとモデル構築の費用は未計測。
 - HTMLの表サイズは形状としてのみ使う。 Excelの`HTML Format`にセル住所は含まれないことを確認した。開始位置を生成しない。
@@ -1021,7 +1021,7 @@ Excelのコピー領域を原本座標のMMI参照として貼り付ける操作
 ## 残る判断
 
 - VS Codeの`DataTransfer`が出所形式を公開するかは未確認。結果でWindows橋渡しの必要性が決まる（ADR-0017 (`01_Plans/adr/ADR-0017-windows-clipboard-provenance-bridge.md`)）。
-- 記法仕様が定めていない点を決める必要がある。 §6手順1は切り出しの結果しか述べておらず、範囲内の空行の保持、矩形の保証、エラーセルの表示、`range`省略時の対象が未定義である。仕様へ加筆するか参照実装の裁量とするかを決める。P3とP8に関わるため、conformanceコーパスへのケース追加と対で判断する（issue-0114 (`01_Plans/issues/issue-0114-excel-range-paste.md`)）。
+- 記法仕様が定めていない点を決める必要がある。 §6手順1は切り出しの結果しか述べておらず、範囲内の空行の保持、矩形の保証、エラーセルの表示、`range`省略時の対象が未定義である。仕様へ加筆するか参照実装の裁量とするかを決める。P3とP8に関わるため、conformanceコーパスへのケース追加と対で判断する（issue-0114 (`https://github.com/hat47x/markdown-matrix-injector/issues/495`)）。
 - 空行の保持とエラーセルの表示は既存文書の表示・カード判定を変え得る。ただし同梱サンプル・フィクスチャ25件とコーパス20ケースを走査した結果、出力が変わるものは0件で、実装後の実描画でも再確認した。裏を返せば元のコーパスは新しい挙動を検証できていなかったため、ケースを追加した（issue-0114）。既存文書への影響についてユーザーへの確認は未取得。
 - `mode=table`で範囲指定を強制した場合の資源上限（サイズ・時間）は未実装。極端に大きい明示範囲を強制されると`sliceRegion`が制限なく実体化する。
 
@@ -1087,7 +1087,7 @@ Excelの選択範囲をMMI参照として貼り付けるには、原本のパス
 
 ## Traceability
 
-- Related Issues: issue-0114 (`01_Plans/issues/issue-0114-excel-range-paste.md`)
+- Related Issues: issue-0114 (`https://github.com/hat47x/markdown-matrix-injector/issues/495`)
 - Related ADR: ADR-0016 (`01_Plans/adr/ADR-0016-notation-first-input-assistance.md`)
 - Related Docs: クリップボード出所と照合 (`02_Architecture/input-assistance-paste-provenance.md`)、ソースモデル (`02_Architecture/input-assistance-source-model.md`)、観測ハーネス (`03_Implement/scripts/clipboard-probe/README.md`)
 
@@ -1096,7 +1096,7 @@ Excelの選択範囲をMMI参照として貼り付けるには、原本のパス
 
 ---
 
-出典: `01_Plans/issues/issue-0110-contextual-input-completion.md`
+出典: `https://github.com/hat47x/markdown-matrix-injector/issues/491`
 
 # Issue: 文脈に沿う値補完と軽量な候補取得
 
@@ -1139,7 +1139,7 @@ issue-0114（原本座標の保持）の完了待ち。範囲候補は原本座�
 
 ---
 
-出典: `01_Plans/issues/issue-0111-reference-authoring-flow.md`
+出典: `https://github.com/hat47x/markdown-matrix-injector/issues/492`
 
 # Issue: 表参照の作成・編集と修正候補
 
@@ -1183,7 +1183,7 @@ issue-0110の完了待ち。補完の候補取得と同じ経路を使うため�
 
 ---
 
-出典: `01_Plans/issues/issue-0112-ai-proposal-handoff.md`
+出典: `https://github.com/hat47x/markdown-matrix-injector/issues/493`
 
 # Issue: 既存AIへの依頼文準備と候補のローカル検証
 
@@ -1214,7 +1214,7 @@ issue-0110の完了待ち。補完の候補取得と同じ経路を使うため�
 
 ## Remaining work
 
-主経路外の任意タスク。issue-0115 (`01_Plans/issues/issue-0115-cpu-range-search.md`)の評価後に必要性を再判断する。CPU探索で十分な精度が出れば本Issueは不要になり得る。
+主経路外の任意タスク。issue-0115 (`https://github.com/hat47x/markdown-matrix-injector/issues/496`)の評価後に必要性を再判断する。CPU探索で十分な精度が出れば本Issueは不要になり得る。
 
 着手する場合の未解決事項。
 
@@ -1224,7 +1224,7 @@ issue-0110の完了待ち。補完の候補取得と同じ経路を使うため�
 
 ---
 
-出典: `01_Plans/issues/issue-0113-local-ai-feasibility.md`
+出典: `https://github.com/hat47x/markdown-matrix-injector/issues/494`
 
 # Issue: 追加API課金を伴わないローカルAIの実現性検証
 
@@ -1263,7 +1263,7 @@ issue-0110の完了待ち。補完の候補取得と同じ経路を使うため�
 
 ---
 
-出典: `01_Plans/issues/issue-0114-excel-range-paste.md`
+出典: `https://github.com/hat47x/markdown-matrix-injector/issues/495`
 
 # Issue: Excelのコピー範囲を原本座標のMMI参照として貼り付ける
 
@@ -1653,7 +1653,7 @@ powershell -ExecutionPolicy Bypass -File .\03_Implement\scripts\clipboard-probe\
 
 ---
 
-出典: `01_Plans/issues/issue-0115-cpu-range-search.md`
+出典: `https://github.com/hat47x/markdown-matrix-injector/issues/496`
 
 # Issue: FlyHashと古典コンパイラ技術によるCPU範囲探索を評価する
 

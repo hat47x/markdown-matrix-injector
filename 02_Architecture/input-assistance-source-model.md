@@ -2,7 +2,7 @@
 
 - 状態: 実装・自動テスト完了（2026-09-11）。 計測日2026-09-10。実装はWSL2 Ubuntu（Node v20.20.2）で行い、`npm run build`・`npm test`（258件）が成功する。VS Code実機での確認と性能計測は未実施。
 - 対象: [sheetSource.ts](../03_Implement/src/core/sheetSource.ts)（新規）、[workbookLoader.ts](../03_Implement/src/core/workbookLoader.ts)、[tableGeometry.ts](../03_Implement/src/core/tableGeometry.ts)、[smartFallback.ts](../03_Implement/src/core/smartFallback.ts)、[renderTable.ts](../03_Implement/src/core/renderTable.ts)
-- 関連: [ADR-0016](../01_Plans/adr/ADR-0016-notation-first-input-assistance.md)、[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)（実装内容は「Bの完了内容」節）、[記法仕様](../04_Documentation/spec/mmi-notation-v1.md)
+- 関連: [ADR-0016](../01_Plans/adr/ADR-0016-notation-first-input-assistance.md)、[issue-0114](https://github.com/hat47x/markdown-matrix-injector/issues/495)（実装内容は「Bの完了内容」節）、[記法仕様](../04_Documentation/spec/mmi-notation-v1.md)
 
 貼り付け・補完・範囲探索は、いずれも「原本のA1座標」を共通の基準にする。その基準が現在の読込みで失われている。本書はその実測結果と、置き換えるモデルを定める。
 
@@ -195,6 +195,6 @@ ELECTRON_RUN_AS_NODE=1 "<VS Codeのインストール先>/Code.exe" 03_Implement
 
 [設計レビュー](../01_Plans/input-assistance-design-review.md)のR3/R5に従い実装した。日付比較ハーネスの`w`キャッシュ再利用は修正済み（§5の表は独立オブジェクトでの再測定値）。`SourceCell.text`は`XLSX.read()`が計算する`.w`をそのまま用いており、旧`sheet_to_json({raw:false})`の出力と1件ずつ突き合わせて一致を確認した（相違点はエラーセルの表示のみで、これは意図した修正）。`w`が無いケース（`z`型のスタブセル）は「セルなし」として扱い、`sliceRegion`が空文字で埋める。
 
-`measureRegion`がセルへ一切触れずに寸法を返すことは、`cellAt`が呼ばれたら例外を投げるテスト用`SheetSource`で保証した（`test/tableGeometry.test.ts`）。詳細な変更内容とテスト一覧は[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)の「Bの完了内容」節を参照。
+`measureRegion`がセルへ一切触れずに寸法を返すことは、`cellAt`が呼ばれたら例外を投げるテスト用`SheetSource`で保証した（`test/tableGeometry.test.ts`）。詳細な変更内容とテスト一覧は[issue-0114](https://github.com/hat47x/markdown-matrix-injector/issues/495)の「Bの完了内容」節を参照。
 
-未対応で残る点: `mode=table`の**strict wall-clock時間上限と本番既定budget値**（協調型budget基盤は2026-10-02、サイズ上限は2026-09-14に実装済み。[issue-0114](../01_Plans/issues/issue-0114-excel-range-paste.md)参照）、Windows実機でOSページキャッシュを制御したcold-read性能値、CSVの原点保持は2026-10-05に修正済み。読込みとモデル構築を分ける計測経路自体は2026-10-02に`loadWorkbookFromBytes()`と`bench:workbook-load`で用意済み。
+未対応で残る点: `mode=table`の**strict wall-clock時間上限と本番既定budget値**（協調型budget基盤は2026-10-02、サイズ上限は2026-09-14に実装済み。[issue-0114](https://github.com/hat47x/markdown-matrix-injector/issues/495)参照）、Windows実機でOSページキャッシュを制御したcold-read性能値、CSVの原点保持は2026-10-05に修正済み。読込みとモデル構築を分ける計測経路自体は2026-10-02に`loadWorkbookFromBytes()`と`bench:workbook-load`で用意済み。

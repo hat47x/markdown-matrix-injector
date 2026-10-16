@@ -1,27 +1,32 @@
 ---
 name: Feature Request
-about: Suggest an idea for MMI
+about: Suggest an idea or work item for MMI
 title: '[Feature] '
 labels: enhancement
 assignees: ''
 ---
 
-## Is your feature request related to a problem? Please describe.
+## Meta
+- Type: Feature / Refactor
+- Priority: High / Medium / Low
+- Scope: 変更対象
+- Expected verification level: docs-check / unit / integration / manual-e2e
 
-A clear and concise description of what the problem is. Ex. I'm always frustrated when [...]
+## Traceability
+- Related ADR/Spec: 関連する仕様またはADR
+- Dependency: 先に必要な作業
 
-## Describe the solution you'd like
+## 背景 / 目的
 
-A clear and concise description of what you want to happen.
+実現したいことと、それがなぜ必要かを書きます。
 
-## Describe alternatives you've considered
+## Acceptance criteria
+- [ ] 観測して判定できる完了条件
 
-A clear and concise description of any alternative solutions or features you've considered.
+## Validation plan
 
-## Use case / context
+具体的なコマンド、入力、期待結果。
 
-Describe the scenario where this feature would be useful (e.g., SIer design document workflow, CI pipeline, etc.).
+## Remaining work
 
-## Additional context
-
-Add any other context or screenshots about the feature request here.
+未解決事項と次の一手。

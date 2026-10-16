@@ -5,7 +5,7 @@
 - Accepted: 2026-10-06（選択肢Bを採用。C・Dは下記の条件で保留）
 - Deciders: Human Sponsor（試行の結果が十分に価値あると判断したときは採択する、と委任）、MMI Lead Agent（起案・採択）
 - Scope: MMI Notation v1（§3・§6・§9・§11）、参照実装の入力支援・診断
-- Related: [ADR-0012](ADR-0012-mission-redefinition-notation-as-governance-boundary.md)、[ADR-0018](ADR-0018-cognitive-assistance-plane.md)、[ADR-0019](ADR-0019-ai-era-sier-document-value-and-policy.md)、[表の走査と選択](../../02_Architecture/table-navigation.md)、[issue-0206](../issues/issue-0206-table-navigation-and-agent-interface.md)
+- Related: [ADR-0012](ADR-0012-mission-redefinition-notation-as-governance-boundary.md)、[ADR-0018](ADR-0018-cognitive-assistance-plane.md)、[ADR-0019](ADR-0019-ai-era-sier-document-value-and-policy.md)、[表の走査と選択](../../02_Architecture/table-navigation.md)、[issue-0206](https://github.com/hat47x/markdown-matrix-injector/issues/509)
 
 ## Context
 

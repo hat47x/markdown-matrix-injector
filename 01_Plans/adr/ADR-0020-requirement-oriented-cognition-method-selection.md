@@ -218,10 +218,10 @@ runtime連携は、可能な限り次の2層へ分ける。
 - Related Issues:
   - [issue-0193](../issues/issue-0193-candidate-source-adapter-contract.md)
   - [issue-0194](../issues/issue-0194-excel-image-candidates.md)
-  - [issue-0199](../issues/issue-0199-tree-structured-source-adapters.md)
-  - [issue-0202](../issues/issue-0202-candidate-review-ui.md)
-  - [issue-0203](../issues/issue-0203-portable-core-minimum-binary.md)
-  - [issue-0204](../issues/issue-0204-cognitive-artifact-distribution.md)
+  - [issue-0199](https://github.com/hat47x/markdown-matrix-injector/issues/502)
+  - [issue-0202](https://github.com/hat47x/markdown-matrix-injector/issues/505)
+  - [issue-0203](https://github.com/hat47x/markdown-matrix-injector/issues/506)
+  - [issue-0204](https://github.com/hat47x/markdown-matrix-injector/issues/507)
 - Related Docs:
   - [製品要求](../../00_Prompt/requirements.md)
   - [製品価値と現行実装のギャップ](../product-gap-analysis.md)
