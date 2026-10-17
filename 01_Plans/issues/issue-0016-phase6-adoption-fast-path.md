@@ -1,4 +1,6 @@
-# Issue: Phase 6 Adoption Fast Path（Overview/Tutorial価値最大化）
+# Issue: Phase 6で概要からチュートリアルまでの最短導線を整える
+
+この文書は、Phase 6当時の提案・完了判定・検証履歴を残したIssue記録です。検証履歴にある途中の未完了状態と、冒頭の`Status: Done`（その後の完了判定）は時点を分けて読んでください。現在の文書・実装・動作を新たに確認したものではありません。
 
 ## Meta
 - Type: Docs
@@ -11,27 +13,27 @@
 - Related Backlog/Phase: Phase 6: 公開ドキュメント体系化と価値訴求 (Public Documentation & Adoption)
 - Related ADR/Spec: `01_Plans/adr/ADR-0003-phase6-user-value-maximization-roadmap.md`, `00_Prompt/requirements.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- 初見ユーザーが30分以内に「埋め込み成功」を再現できる最短導線を明文化し、OverviewからTutorialへの遷移で迷わない構成に再設計する。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- 初めて利用する人が30分以内に「埋め込み成功」を再現するための最短の案内を明文化する。あわせて、Overview（概要）からTutorial（手順）へ迷わず進めるよう、文書の構成を見直す。
 
-### Success metric (価値指標)
+### 価値指標（Success metric）
 - Time-to-First-Success (TFS) が30分以内で再現可能な情報密度であること。
 - 導入判断者/PoC担当/運用担当の3ペルソナが、それぞれ「次に読む文書」を1クリックで辿れること。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] `overview.md` に対象ユーザー別の価値（導入判断者/PoC担当/運用担当）が明記されること。
 - [x] `tutorial.md` に「開始条件」「所要時間目安」「成功判定」「失敗時の最初の確認ポイント」が追加されること（固定済み）。
 - [x] `README.md` の導線が `Overview -> Tutorial -> Scenario -> Reference` の順で一貫すること。
 - [x] docs auditで、必須セクション（Target reader / Prerequisites / Expected result / Related docs / Known limitations）が維持されること（tutorial対象で確認済み）。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] Overviewの価値訴求を読者別に再構成する。
 - [x] Tutorialにtime-boxed handrail（30分成功導線）を追加する。
 - [x] Documentation READMEの導線を見直し、読む順序を固定する。
 - [x] docs audit実行結果をissueに記録する（tutorial対象）。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `rg -n "Overview|Tutorial|Scenario|Reference" 04_Documentation/README.md` で導線順を確認する。
 - `rg -n "30 分|30分|所要時間|成功判定|失敗時" 04_Documentation/tutorial.md 04_Documentation/overview.md` で成功導線と初動トラブルシュートを確認する。
 - `rg -n "^## Target reader|^## Prerequisites|^## Expected result|^## Related docs|^## Known limitations" 04_Documentation/overview.md 04_Documentation/tutorial.md` で必須セクションを確認する。
