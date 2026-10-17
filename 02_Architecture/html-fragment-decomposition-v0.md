@@ -105,7 +105,7 @@ AI無しでもDOMの明示構造に基づく選択・確認・抽出ができる
 | source変更／ID不在／ID重複 | fingerprint再確認や明示選択を要求し、不明のまま書き込まない |
 | 欠落資産／外部URL | ローカル閉包の不足や外部依存を明示し、成功と混同しない |
 
-**実装差分（2026-10-17、Draft PR #555）**: `parse5`を直接依存として宣言し、ローカル静的HTML5のDOMから`main / section / table / figure`を観測して既存Candidate契約へ写す最小Adapterを追加した。FigureはSVG/Mermaidを含む場合だけ`diagram`、画像を含む場合に`image`とし、未知のFigureへ種類を推定しない。原本バイトDigestとCandidateのfragment fingerprintは別に確認する。明示ID選択はAdapter関数として実装したがCLIからの抽出・保存入口ではない。`mmi inspect <file.html> --json`では値全体を出さずCandidate/位置/種別を列挙する。
+**実装差分（2026-10-17、Draft PR #555）**: `parse5`を直接依存として宣言し、ローカル静的HTML5のDOMから`main / section / table / figure`を観測して既存Candidate契約へ写す最小Adapterを追加した。FigureはSVG/Mermaidを含む場合だけ`diagram`、画像を含む場合に`image`とし、未知のFigureへ種類を推定しない。原本バイトDigestとCandidateのfragment fingerprintは別に確認する。この第1段階の時点では明示ID選択をAdapter関数に限定していたが、後述の第2段階でCLIの保存経路へ接続した。`mmi inspect <file.html> --json`では値全体を出さずCandidate/位置/種別を列挙する。
 
 **追加実装（2026-10-17、Draft PR #555 第2段階）**: `mmi extract <source.html> --html-id <id> --expected-fingerprint <sha256:...> --root <workspace> --json` で、静的HTML5の明示ID断片を、正規化した`.html`ファイルとしてcontent-addressed保存する最小Application経路を追加した。原本source digestとレビュー時のfragment fingerprintを再照合し、workspace外やsymlink経由のpathを拒否する。出力は既存ファイルを上書きせず、作成したファイルと`mmi.ledger/v1`への採用記録を結び、台帳更新失敗時はこの操作で作成した出力を回収する。scriptやinline event handlerなどの能動的な内容、移行先で未解決のローカルアンカー、未コピーのローカル資産を持つ断片は書き出さない。外部HTTP(S)リンクは通信せずURLを維持し、リンク先の内容は成果物に含まない。
 
@@ -116,9 +116,9 @@ AI無しでもDOMの明示構造に基づく選択・確認・抽出ができる
 **CLI呼び出し例（実行未確認）**:
 
 ```sh
-mmi inspect source.html --root ./project --json
+mmi inspect ./project/source.html --root ./project --json
 # 返されたCandidateのfragment fingerprintを確認したうえで
-mmi extract source.html --root ./project --html-id sequence \\
+mmi extract ./project/source.html --root ./project --html-id sequence \\
   --expected-fingerprint sha256:<inspectで確認した値> --json
 ```
 
@@ -165,3 +165,17 @@ fixtureの`#overview`にある`href="#api"`は、両方を移す提案であれ�
 `hasIdentifiedBlockers=false` は、現在実装した検査では阻害が見つからなかったことだけを示す。**書換えの適用、ファイル保存、意味的同等性、外部CSSや画像を含む閉包、出版品質についての合格とはしない**。
 
 後続で計画適用を実装する場合も、実際のファイル保存前にsource snapshot／各断片fingerprint／出力・依存関係を再確認し、複数断片を一つの操作として成立させる必要がある。今回の`html-plan`は読み取りと提案に限定されるため、既存の書き込み操作と同義にしない。
+
+## 12. 整合性ガードの再点検（2026-10-17、Draft PR #555）
+
+コードレビューによって、断片ファイルだけでなく、**元HTML全体のURL解決規則とHTMLのID参照**も、独立保存時の整合性を左右することが明確になった。
+
+- 元文書内の`<base>`要素は、選択断片の外にあっても相対リンクの意味を変える。現在はPoCの`html-plan`と個別`extract`で阻害として扱い、勝手に解釈・移設しない。
+- `href="#id"`だけでなく、`aria-labelledby`、`aria-describedby`、`aria-controls`、`aria-details`、`headers`、`for`、`list`、`form`のようなID参照は別に検証する。HTML IDREF属性は、通常のファイル間リンクへ書き換えるだけでは意味を維持できないため、複数ファイルをまたぐ場合には解決済みと扱わない。
+- 生成AIが提示する保存先はプラットフォーム間の可搬性を考慮し、パストラバーサル、制御文字、Windows予約名、同一視され得る別名を拒否する。
+- 単一断片のcontent-addressedな保存名にはSHA-256の全桁を利用し、偶発的な短縮ダイジェスト衝突による上書き混同を回避する。
+- 不正な断片を指定した場合に余分な出力ディレクトリを作らないよう、保存先ディレクトリの生成を候補と依存関係の検証後へ遅らせる。
+
+これらは「既存文書を抽出すれば自然に独立文書として成立する」という仮定を否定する根拠でもある。たとえ`hasIdentifiedBlockers=false`でも、元文書のCSS・動的描画・画像・表現上の依存を網羅的に保証するわけではない。
+
+実行試験の状況: containerのNode.js/npm環境から`npm view parse5@7.3.0`を照会したところ、`registry.npmjs.org`のDNS解決で`EAI_AGAIN`を確認。依存復元とTypeScript/CLIテストは**未完了**であり、実装コードがPASSしたとは記載しない。GitHub Actionsは明示的に起動していない。
