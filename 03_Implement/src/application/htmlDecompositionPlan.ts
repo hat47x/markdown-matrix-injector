@@ -187,6 +187,22 @@ export function planHtmlDecomposition(
     }
   }
 
+  // An ID may be duplicated elsewhere in the source outside selected roots.
+  // A local anchor is not unambiguous merely because one selected fragment
+  // happens to contain an element with that ID.
+  const sourceIdCounts = new Map<string, number>();
+  const countSourceIds = (node: HtmlNode): void => {
+    if (isElement(node)) {
+      for (const attr of node.attrs) {
+        if (attr.name === 'id') {
+          sourceIdCounts.set(attr.value, (sourceIdCounts.get(attr.value) ?? 0) + 1);
+        }
+      }
+    }
+    for (const child of childNodes(node)) countSourceIds(child);
+  };
+  countSourceIds(document.document);
+
   const anchors: HtmlPlanAnchor[] = [];
   const problems = scans.flatMap(({ scan }) => scan.problems);
   const externalLinks = scans.flatMap(({ item, scan }) =>
@@ -206,14 +222,17 @@ export function planHtmlDecomposition(
         continue;
       }
       const owners = owningFragments.get(decoded) ?? [];
-      if (owners.length !== 1) {
+      const originalOccurrences = sourceIdCounts.get(decoded) ?? 0;
+      if (owners.length !== 1 || originalOccurrences !== 1) {
         anchors.push({ sourceId: item.id, href, status: 'blocked' });
         problems.push({
-          code: owners.length === 0
-            ? 'MMI_HTML_UNRESOLVED_ANCHOR'
-            : 'MMI_HTML_AMBIGUOUS_ANCHOR',
+          code: originalOccurrences > 1 || owners.length > 1
+            ? 'MMI_HTML_AMBIGUOUS_ANCHOR'
+            : 'MMI_HTML_UNRESOLVED_ANCHOR',
           sourceId: item.id,
-          detail: `${href} is ${owners.length ? 'ambiguous' : 'outside selected fragments'}`,
+          detail: originalOccurrences > 1 || owners.length > 1
+            ? `${href} has duplicate identities in the source or selections`
+            : `${href} is outside selected fragments or absent from the source`,
         });
         continue;
       }
