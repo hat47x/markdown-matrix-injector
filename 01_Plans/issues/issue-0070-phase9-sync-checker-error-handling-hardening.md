@@ -1,4 +1,6 @@
-# Issue: Phase 9 sync checker error handling hardening
+# Issue: Phase 9の同期検査でファイル不在などのエラー原因を明示する
+
+この文書は当時の完了判断を残したIssue記録です。2026年4月5日の検証結果は当時の証跡であり、現在の動作を再検証したものではありません。
 
 ## Meta
 - Type: Docs
@@ -11,24 +13,24 @@
 - Related Backlog/Phase: Phase 9 Rule Table Interoperability & Design Assetization
 - Related ADR/Spec: `01_Plans/adr/ADR-0008-phase9-template-sync-quality-gate-hardening.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- sync checkerがファイル未存在や空CSVなど例外でクラッシュせず、`phase9 template sync: NG` と明確な原因を返すようにする。
-- unit testにCLIのmissing-file異常系を追加し、運用時の一次切り分け性を向上させる。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- 同期検査（sync checker）でファイルが存在しない場合やCSVが空の場合などに、例外で停止する代わりに、`phase9 template sync: NG`と原因を表示できるようにする。
+- 単体テストにCLIから存在しないファイルを指定する異常系を加え、運用時に原因を切り分けやすくする。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] `check_phase9_template_sync.py` がFileNotFoundError / ValueErrorを捕捉して `NG` を返す。
 - [x] `test_check_phase9_template_sync.py` にmissing file異常系が追加される。
 - [x] `04_Documentation/phase9-rule-table-template-operations.md` に「ファイル未存在」時の一次対応が追記される。
 - [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] sync checkerの例外処理を追加する。
 - [x] CLI異常系テストを追加する。
 - [x] 運用ガイドを更新する。
 - [x] planning queueを再実行する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `python3 01_Plans/tools/test_check_phase9_template_sync.py`
 - `python3 01_Plans/tools/check_phase9_template_sync.py --docs does-not-exist.csv --fixture does-not-exist.csv`
 - `python3 01_Plans/tools/planning_queue.py`
