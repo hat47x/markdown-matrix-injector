@@ -8,6 +8,7 @@ import type { SheetSource, SourceCell } from '../src/core/sheetSource.js';
 import { analyzeCompletionContext, type CompletionContext } from '../src/dx/completionContext.js';
 import {
   PARAMETER_DOCS_JA,
+  jaCompletionPhrases,
   paramKeyCandidates,
   paramValueCandidates,
   rangeCandidates,
@@ -55,15 +56,15 @@ test('context: nothing inside code or after a closed embed', () => {
 
 test('keys: used keys are hidden except repeatable formatColumn; descriptions are Japanese', () => {
   const context = at('![[a.xlsx#S|A1:B2?mode=card&formatColumn=E:json&|CURSOR|')!;
-  const labels = paramKeyCandidates(context).map((c) => c.label);
+  const labels = paramKeyCandidates(context, jaCompletionPhrases).map((c) => c.label);
   assert.ok(!labels.includes('mode'));
   assert.ok(labels.includes('formatColumn'));
   assert.ok(labels.includes('orientation'));
-  assert.match(paramKeyCandidates(at('![[a.xlsx#S|A1?gr|CURSOR|')!)[0].detail!, /部分一致/u);
+  assert.match(paramKeyCandidates(at('![[a.xlsx#S|A1?gr|CURSOR|')!, jaCompletionPhrases)[0].detail!, /部分一致/u);
 });
 
 test('values: enum vocabulary from the contract', () => {
-  const values = (fixture: string) => paramValueCandidates(at(fixture)!).map((c) => c.label);
+  const values = (fixture: string) => paramValueCandidates(at(fixture)!, undefined, jaCompletionPhrases).map((c) => c.label);
   assert.deepEqual(values('![[a.xlsx#S|A1?orientation=|CURSOR|'), ['landscape', 'portrait']);
   assert.deepEqual(values('![[a.xlsx#S|A1?header=|CURSOR|'), ['first', 'none']);
   assert.deepEqual(values('![[a.xlsx#S|A1?pageBreak=a|CURSOR|'), ['after']);
@@ -108,18 +109,18 @@ const STATES = sheet({
 });
 
 test('ranges: detected regions of the selected sheet first, explained by title and headers', () => {
-  const candidates = rangeCandidates(at('![[a.xlsx#状態遷移||CURSOR|')!, '状態遷移', STATES);
+  const candidates = rangeCandidates(at('![[a.xlsx#状態遷移||CURSOR|')!, '状態遷移', STATES, jaCompletionPhrases);
   assert.equal(candidates[0].label, 'B3:D5');
   assert.match(candidates[0].detail!, /状態遷移表 \/ ID・操作・遷移先/u);
   assert.ok(candidates.some((c) => c.label === 'B1:D5' && /使用範囲/u.test(c.detail!)));
-  assert.deepEqual(rangeCandidates(at('![[a.xlsx#状態遷移|遷移|CURSOR|')!, '状態遷移', STATES).map((c) => c.label), ['B3:D5']);
+  assert.deepEqual(rangeCandidates(at('![[a.xlsx#状態遷移|遷移|CURSOR|')!, '状態遷移', STATES, jaCompletionPhrases).map((c) => c.label), ['B3:D5']);
 });
 
 test('values: columns offer relative letters with header names and extend a list', () => {
   const region = regionForRange('状態遷移', STATES, 'B3:D5');
-  const first = paramValueCandidates(at('![[a.xlsx#状態遷移|B3:D5?columns=|CURSOR|')!, region);
+  const first = paramValueCandidates(at('![[a.xlsx#状態遷移|B3:D5?columns=|CURSOR|')!, region, jaCompletionPhrases);
   assert.deepEqual(first.map((c) => [c.label, c.detail]), [['A', 'ID'], ['B', '操作'], ['C', '遷移先']]);
-  const more = paramValueCandidates(at('![[a.xlsx#状態遷移|B3:D5?columns=A,|CURSOR|')!, region);
+  const more = paramValueCandidates(at('![[a.xlsx#状態遷移|B3:D5?columns=A,|CURSOR|')!, region, jaCompletionPhrases);
   assert.deepEqual(more.map((c) => c.label), ['A,B', 'A,C']);
 });
 

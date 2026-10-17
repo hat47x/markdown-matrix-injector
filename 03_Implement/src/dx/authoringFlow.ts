@@ -21,6 +21,7 @@ import { readWorkbookCached } from './sharedWorkbookCache.js';
 import { sourceContentStamp } from './sourceChangeGuard.js';
 import { analyzeCompletionContext } from './completionContext.js';
 import { rangeCandidates } from './completionCandidates.js';
+import { hostCompletionPhrases } from './completionHostPhrases.js';
 import { getParams, parseEmbedParts, serializeEmbedParts, setParam, withCurrentExpectedHeaders, type EmbedParts } from './embedEditor.js';
 import { fileFixCandidates, sheetFixCandidates } from './embedFixes.js';
 import { normalizeExplicitRangeInput } from './explicitRange.js';
@@ -189,7 +190,7 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
       const sheet = parts.sheet ? workbookOf(parts.filepath).data?.sheets[parts.sheet] : undefined;
       const context = { stage: 'range' as const, replaceStart: 0, replaceEnd: 0, typed: '', filepath: parts.filepath, usedParams: [] };
       const items = [
-        ...(sheet && parts.sheet ? rangeCandidates(context, parts.sheet, sheet) : []).map((candidate) => ({
+        ...(sheet && parts.sheet ? rangeCandidates(context, parts.sheet, sheet, hostCompletionPhrases) : []).map((candidate) => ({
           label: candidate.label,
           description: candidate.detail,
           value: candidate.label,

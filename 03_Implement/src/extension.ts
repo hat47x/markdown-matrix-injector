@@ -34,6 +34,7 @@ import {
   simpleCandidates,
   type CompletionCandidate,
 } from './dx/completionCandidates.js';
+import { hostCompletionPhrases } from './dx/completionHostPhrases.js';
 import {
   buildContentMatchMarkdown,
   contentMatchStillExact,
@@ -1403,15 +1404,15 @@ async function buildContextCandidates(document: vscode.TextDocument, context: Co
     return simpleCandidates(files, context.typed, 'file');
   }
   if (context.stage === 'param-key') {
-    return paramKeyCandidates(context);
+    return paramKeyCandidates(context, hostCompletionPhrases);
   }
   // Fixed vocabularies need no workbook.
   if (context.stage === 'param-value' && !['columns', 'highlightColumn', 'formatColumn'].includes(context.paramKey ?? '')) {
-    return paramValueCandidates(context);
+    return paramValueCandidates(context, undefined, hostCompletionPhrases);
   }
   const workbook = context.filepath ? readCompletionWorkbook(resolveWorkbookPath(context.filepath, document.uri.fsPath, workspaceRoot)) : undefined;
   if (!workbook) {
-    return context.stage === 'param-value' ? paramValueCandidates(context) : [];
+    return context.stage === 'param-value' ? paramValueCandidates(context, undefined, hostCompletionPhrases) : [];
   }
   const sheetNames = Object.keys(workbook.sheets);
   if (context.stage === 'sheet') {
@@ -1421,12 +1422,12 @@ async function buildContextCandidates(document: vscode.TextDocument, context: Co
   const sheetName = context.sheet ?? (sheetNames.length === 1 ? sheetNames[0] : undefined);
   const sheet = sheetName ? workbook.sheets[sheetName] : undefined;
   if (!sheetName || !sheet) {
-    return context.stage === 'param-value' ? paramValueCandidates(context) : [];
+    return context.stage === 'param-value' ? paramValueCandidates(context, undefined, hostCompletionPhrases) : [];
   }
   if (context.stage === 'range') {
-    return rangeCandidates(context, sheetName, sheet);
+    return rangeCandidates(context, sheetName, sheet, hostCompletionPhrases);
   }
-  return paramValueCandidates(context, regionForRange(sheetName, sheet, context.range));
+  return paramValueCandidates(context, regionForRange(sheetName, sheet, context.range), hostCompletionPhrases);
 }
 
 function readCompletionWorkbook(absolutePath: string): WorkbookData | undefined {
