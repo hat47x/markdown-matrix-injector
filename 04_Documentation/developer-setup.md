@@ -12,7 +12,7 @@ npm run build
 npm test
 ```
 
-`npm test`はNodeの単体テストとサンプル同期チェックを実行します。ドキュメントだけの変更では、リンク・記法・説明の整合を確認し、必要な検査に絞ります。
+`npm test`は製品の単体テスト（`npm run test:unit`）とサンプル同期チェックを実行します。研究層のテストは`npm run test:research`で別に実行します。どちらに属するかは、`src/experimental/`を読み込むか、研究系のファイル名かで決めます（`node scripts/run-test-lane.mjs product --list`で一覧できます）。ドキュメントだけの変更では、リンク・記法・説明の整合を確認し、必要な検査に絞ります。
 
 ## VS Code連携
 
