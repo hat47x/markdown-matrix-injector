@@ -1,4 +1,6 @@
-# Issue: Phase 6 Query Evidence JSON Export（監査エビデンスのJSON併記）
+# Issue: Phase 6でクエリの証跡をCSVとJSONで同時に出力する
+
+この文書は、当時のクエリ証跡JSON出力に関する提案と完了状態を残したIssue記録です。以下のチェック項目と2026年3月29日の検証結果は当時の内容であり、現在の実装や動作を新たに確認したものではありません。
 
 ## Meta
 - Type: Feature
@@ -11,21 +13,21 @@
 - Related Backlog/Phase: Phase 6 Documentation feedback loop
 - Related ADR/Spec: `01_Plans/adr/ADR-0004-phase6-product-gap-implementation-sequencing.md`, `01_Plans/issues/issue-0023-phase6-query-evidence-export-mvp.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- 開発/検証用 `__dev.exportQueryEvidence` 実行時にCSVに加えてJSONも同時出力し、監査レビューと機械処理双方で再利用可能な証跡を生成する。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- 開発・検証用の`__dev.exportQueryEvidence`を実行した際、CSVに加えてJSONも同時に出力する。監査時に人が確認する場合にも、プログラムで処理する場合にも再利用できる証跡を作る。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] `query-evidence.csv` と `query-evidence.json` の両方を出力できる。
 - [x] JSONは `collectQueryEvidenceRecords` と同一順序の配列を保持する。
 - [x] 既存テストを含む `npm test` が通過する。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] `vscodeAdapters` にJSON生成ヘルパーを追加する。
 - [x] `extension.ts` のexportコマンドをCSV + JSON同時出力に変更する。
 - [x] 単体テストを追加し、CSV/JSONの整合を確認する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `cd 03_Implement && npm test`
 - `python3 01_Plans/tools/planning_queue.py`
 
