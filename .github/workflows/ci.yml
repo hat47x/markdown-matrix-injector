@@ -36,6 +36,26 @@ jobs:
           name: mmi-dist
           path: 03_Implement/dist
 
+  # Research-layer tests (#519). Informational: known failures there must not hide product regressions.
+  research-tests:
+    if: ${{ false }}
+    runs-on: ubuntu-latest
+    continue-on-error: true
+    defaults:
+      run:
+        working-directory: 03_Implement
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: 03_Implement/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Research-lane unit tests
+        run: npm run test:research
+
   release-gate:
     if: ${{ false }}
     runs-on: ubuntu-latest
