@@ -2,11 +2,11 @@
 
 ## 1. 目的
 
-Cognitive Review Envelopeは、認知結果をreview対象として束ねるが、Authority Planeの検証完了を表現しない。
+Cognitive Review Envelope（認知結果と検証要求をレビュー用にまとめた情報）は、認知結果をreview対象として束ねるが、Authority Plane（記法や参照元などを既存の規則で検証する処理層）の検証完了を表すものではない。
 
-Envelope内のrevalidation requirementsは常に `pending` のままとする。
+Envelope内のrevalidation requirements（再検証が必要な項目）は、常に `pending`（保留中）のままとする。
 
-Authority Planeが別経路で実行したdeterministic check結果は、`AuthorityRevalidationReceiptV1` としてEnvelopeとは別に保持する。
+Authority Planeが別経路で実行したdeterministic check（同じ条件であれば同じ結果となる検証）の結果は、`AuthorityRevalidationReceiptV1`（再検証結果を記録するReceipt）としてEnvelopeとは別に保持する。
 
 ```text
 CognitiveReviewEnvelope
@@ -27,7 +27,7 @@ satisfied | blocked
 
 ## 2. Receiptは認証トークンではない
 
-TypeScriptの構造型だけで「本当にAuthority Planeが発行した」ことを証明することはできない。
+TypeScriptの構造型（必要な項目と型が揃っているかを見る仕組み）だけでは、「本当にAuthority Planeが発行した」ことまでは証明できない。
 
 v1で保証するのは:
 
@@ -37,17 +37,19 @@ v1で保証するのは:
 - scopeとstatusの組み合わせが妥当
 - evidence codeが存在する
 
-という**構造・整合性境界**である。
+という**構造・整合性境界**である。これは、記録の内容が契約に合っているかを確かめるもので、発行者の真正性を証明するものではない。
 
-production接続時は、Receipt builderをAuthority module内部へ閉じる、署名やprocess boundaryを導入する等、実行主体の真正性を別途担保する必要がある。
+production接続時は、Receipt builder（Receiptを組み立てる処理）をAuthority module内部へ閉じる、署名やprocess boundary（処理主体を分ける境界）を導入する等、実行主体の真正性を別途担保する必要がある。
 
-Cognitive providerがissuer文字列を自称できないことを、本契約だけで保証したとは扱わない。
+Cognitive provider（認知結果を提供する側）がissuer文字列（発行者を示す値）を自称できないことまで、本契約だけで保証したとは扱わない。
 
 ## 3. Scope
 
+Scopeは、Receiptが何を対象として検証したかを示す区分である。
+
 ### `review-evidence`
 
-現在のreview対象が認知evidenceそのもので、実行可能なMMI Notation proposalを適用しない場合。
+現在のreview対象が認知evidence（認知結果の根拠情報）そのものであり、実行可能なMMI Notation proposal（記法による提案）を適用しない場合。
 
 - `source-identity`: passed / failed
 - `profile-compatibility`: passed / failed
@@ -55,7 +57,7 @@ Cognitive providerがissuer文字列を自称できないことを、本契約�
 
 ### `executable-proposal`
 
-後続段階で実行可能なNotation proposalをAuthority Planeへ渡した場合。
+後続段階で実行可能なNotation proposal（MMIの参照記法による提案）をAuthority Planeへ渡した場合。
 
 - always checks: passed / failed
 - executable-proposal checks: passed / failed
@@ -63,7 +65,7 @@ Cognitive providerがissuer文字列を自称できないことを、本契約�
 
 ## 4. Check result
 
-各check resultは:
+各check result（個々の検証結果）は、次の項目を持つ。
 
 - check id
 - `passed | failed | not-applicable`
@@ -72,19 +74,19 @@ Cognitive providerがissuer文字列を自称できないことを、本契約�
 
 を持つ。
 
-ReceiptはEnvelopeに要求されたcheckを**ちょうど1回ずつ**含む。
+Receiptは、Envelopeで要求されたcheckを**ちょうど1回ずつ**含む。
 
 - missing不可
 - extra不可
 - duplicate不可
 
-check順序はReceipt側では自由だが、binding resultはEnvelope requirement順にcanonicalizeする。
+Receipt内のcheckの順序は自由だが、binding result（EnvelopeとReceiptを突き合わせた結果）はEnvelope requirement順にcanonicalize（順序を統一）する。
 
 ## 5. Binding result
 
-`bindAuthorityRevalidationReceipt` はEnvelopeを書き換えない。
+`bindAuthorityRevalidationReceipt`（EnvelopeとReceiptを照合する処理）は、Envelopeを書き換えない。
 
-返すのは別のbinding summaryのみ。
+返すのは、照合結果を要約した別のbinding summaryのみである。
 
 ```text
 status = satisfied | blocked
@@ -97,13 +99,13 @@ failedChecks
 
 1件でも `failed` があれば `blocked`。
 
-scope規則に従った `not-applicable` はfailureではない。
+scopeの規則に従った `not-applicable`（検証対象外）はfailureではない。
 
 ## 6. Evidence code
 
-evidence codeは空文字を許可しない。
+evidence code（検証結果を機械的に識別するコード）は、空文字を許可しない。
 
-v1ではdetailの自由文を許すが、evidence codeそのものはmachine-readableなstable tokenとして扱う。
+v1ではdetail（補足説明）に自由文を許すが、evidence codeそのものはmachine-readable（機械で読み取れる）なstable token（固定の識別値）として扱う。
 
 例は次のとおりです。
 
@@ -113,7 +115,7 @@ v1ではdetailの自由文を許すが、evidence codeそのものはmachine-rea
 - `CONTAINMENT_REJECTED`
 - `NO_EXECUTABLE_PROPOSAL`
 
-本Issueではcode catalog自体を標準化しない。
+このIssueでは、code catalog（evidence codeの一覧）そのものは標準化しない。
 
 ## 7. 非責務
 
@@ -126,4 +128,4 @@ v1ではdetailの自由文を許すが、evidence codeそのものはmachine-rea
 - Cognitive provider invocation
 - fill telemetry / external XLSX evaluation
 
-Authority実装との実接続は別Issueで扱う。
+Authority実装との実際の接続は、別Issueで扱う。
