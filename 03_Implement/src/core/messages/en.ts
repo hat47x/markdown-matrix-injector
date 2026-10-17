@@ -62,6 +62,17 @@ export const enMessages: MessageTable = {
   invalidParam: ({ key, value, allowed: values, suggestion }) =>
     `The value "${value}" is not valid for ${key} (${allowed(values)}). It is ignored.` +
     (suggestion !== undefined ? ` Did you mean "${suggestion}"?` : ''),
+  workbookEmpty: ({ file }) =>
+    `Cannot read ${file}: the file is empty. It may still be saving or syncing; wait until it finishes, then refresh the preview.`,
+  workbookPasswordProtected: ({ file }) =>
+    `Cannot read ${file}: the file looks password-protected. MMI reads only unprotected saved workbooks; remove the password or reference an unprotected copy.`,
+  workbookNotWorkbook: ({ file }) =>
+    `Cannot read ${file}: the content is not an Excel workbook. Check that it was saved as an Excel Workbook (.xlsx).`,
+  workbookDamaged: ({ file, reason }) =>
+    `Cannot read ${file}: the file is damaged or still being written (${reason}). Save it again in Excel, then refresh the preview.`,
+  csvUtf16: () => 'Save the CSV as UTF-8 or CP932. UTF-16 is not supported.',
+  csvInvalidUtf8: () => 'The CSV UTF-8 data is invalid.',
+  csvUnreadableEncoding: () => 'Cannot read the CSV as UTF-8 or CP932. Check the encoding of the file.',
   binding: ({ kind, declared, status, current, referenced }) => {
     const label = bindingLabel(kind, declared);
     switch (status) {

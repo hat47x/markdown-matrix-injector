@@ -57,6 +57,17 @@ export const jaMessages: MessageTable = {
   invalidParam: ({ key, value, allowed: values, suggestion }) =>
     `${key} の値「${value}」は使えません（${allowed(values)}）。この指定は無視されます。` +
     (suggestion !== undefined ? `「${suggestion}」の誤りではありませんか？` : ''),
+  workbookEmpty: ({ file }) =>
+    `${file} を読み込めません。ファイルが空です。保存や同期が終わってから、プレビューを再確認してください。`,
+  workbookPasswordProtected: ({ file }) =>
+    `${file} はパスワードで保護されている可能性があります。読み込めるのは保護されていない保存済みのブックです。パスワードを外すか、保護されていない複製を参照してください。`,
+  workbookNotWorkbook: ({ file }) =>
+    `${file} の内容はExcelブックではありません。Excelブック（.xlsx）として保存し直したか確認してください。`,
+  workbookDamaged: ({ file, reason }) =>
+    `${file} を読み込めません。ファイルが壊れているか、書き込み中の可能性があります（${reason}）。Excelでもう一度保存してから、プレビューを再確認してください。`,
+  csvUtf16: () => 'CSVはUTF-8またはCP932で保存してください。UTF-16には対応していません。',
+  csvInvalidUtf8: () => 'CSVのUTF-8データが不正です。',
+  csvUnreadableEncoding: () => 'CSVをUTF-8またはCP932として読み込めません。文字コードを確認してください。',
   binding: ({ kind, declared, status, current, referenced }) => {
     const label = bindingLabel(kind, declared);
     switch (status) {

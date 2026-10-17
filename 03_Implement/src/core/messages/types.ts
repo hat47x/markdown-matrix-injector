@@ -26,6 +26,15 @@ export interface MessageParamsMap {
   };
   unknownParam: { key: string; suggestion: string };
   invalidParam: { key: string; value: string; allowed: AllowedValues; suggestion?: string };
+  /** Workbook read failures named by `workbookLoader` before SheetJS guesses at the cause. */
+  workbookEmpty: { file: string };
+  workbookPasswordProtected: { file: string };
+  workbookNotWorkbook: { file: string };
+  workbookDamaged: { file: string; reason: string };
+  /** CSV byte-decode failures named by `workbookLoader`'s `decodeCsv`. */
+  csvUtf16: Record<string, never>;
+  csvInvalidUtf8: Record<string, never>;
+  csvUnreadableEncoding: Record<string, never>;
   binding: {
     kind: 'table' | 'name';
     declared: string;

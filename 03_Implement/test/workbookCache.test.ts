@@ -133,7 +133,7 @@ test('loadWorkbook rejects generic xml files', () => {
   const filePath = path.join(tempDir, 'matrix.xml');
   fs.writeFileSync(filePath, '<root><item>nope</item></root>');
 
-  assert.throws(() => loadWorkbook({ absolutePath: filePath }), /Unsupported XML format/);
+  assert.throws(() => loadWorkbook({ absolutePath: filePath }), /Invalid XML Spreadsheet/);
 });
 
 // ── CSV: RFC4180 quoting (correctness fix — the naive line.split(',')

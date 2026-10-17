@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import XLSX from 'xlsx';
 import { WorkbookCache, type FileSnapshot } from '../cache/workbookCache.js';
+import { LocalizedError } from './messages/index.js';
 import { sheetSourceFromMatrix, type CellRange, type SheetSource, type SourceCell, type SourceCellType } from './sheetSource.js';
 import { parseRangeToCellRange } from './tableGeometry.js';
 import { isXmlSpreadsheet2003Bytes } from './xmlFormat.js';
@@ -61,7 +62,7 @@ export function loadWorkbookFromBytes(absolutePath: string, bytes: Buffer): Work
 
   if (extension === '.xml') {
     if (!isXmlSpreadsheet2003Bytes(bytes)) {
-      throw new Error('Unsupported XML format: only XML Spreadsheet 2003 is allowed.');
+      throw new LocalizedError('invalidXml', {});
     }
   }
 
@@ -88,8 +89,9 @@ export function loadWorkbookFromBytes(absolutePath: string, bytes: Buffer): Work
   } catch (error) {
     if (!isOoxml) throw error;
     const reason = error instanceof Error ? error.message : String(error);
-    throw new Error(
-      `Cannot read ${path.basename(absolutePath)}: the file is damaged or still being written (${reason}). Save it again in Excel, then refresh the preview.`,
+    throw new LocalizedError(
+      'workbookDamaged',
+      { file: path.basename(absolutePath), reason },
     );
   }
   const sheets = Object.fromEntries(
@@ -110,13 +112,13 @@ const CFB_SIGNATURE = Buffer.from('d0cf11e0a1b11ae1', 'hex');
  */
 function assertOoxmlBytes(fileName: string, bytes: Buffer): void {
   if (bytes.length === 0) {
-    throw new Error(`Cannot read ${fileName}: the file is empty. It may still be saving or syncing; wait until it finishes, then refresh the preview.`);
+    throw new LocalizedError('workbookEmpty', { file: fileName });
   }
   if (bytes[0] === 0x50 && bytes[1] === 0x4b) return;
   if (bytes.length >= CFB_SIGNATURE.length && bytes.subarray(0, CFB_SIGNATURE.length).equals(CFB_SIGNATURE)) {
-    throw new Error(`Cannot read ${fileName}: the file looks password-protected. MMI reads only unprotected saved workbooks; remove the password or reference an unprotected copy.`);
+    throw new LocalizedError('workbookPasswordProtected', { file: fileName });
   }
-  throw new Error(`Cannot read ${fileName}: the content is not an Excel workbook. Check that it was saved as an Excel Workbook (.xlsx).`);
+  throw new LocalizedError('workbookNotWorkbook', { file: fileName });
 }
 
 /**
@@ -179,18 +181,18 @@ function toSourceCell(cell: XLSX.CellObject | undefined): SourceCell | undefined
 function decodeCsv(bytes: Uint8Array): string {
   const hasUtf8Bom = bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
   if ((bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0xfe && bytes[1] === 0xff)) {
-    throw new Error('CSVはUTF-8またはCP932で保存してください。UTF-16には対応していません。');
+    throw new LocalizedError('csvUtf16', {});
   }
   try {
     return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
   } catch {
-    if (hasUtf8Bom) throw new Error('CSVのUTF-8データが不正です。');
+    if (hasUtf8Bom) throw new LocalizedError('csvInvalidUtf8', {});
   }
   try {
     // WHATWG shift_jis includes the Windows-31J extensions used by Excel.
     return new TextDecoder('shift_jis', { fatal: true }).decode(bytes);
   } catch {
-    throw new Error('CSVをUTF-8またはCP932として読み込めません。文字コードを確認してください。');
+    throw new LocalizedError('csvUnreadableEncoding', {});
   }
 }
 

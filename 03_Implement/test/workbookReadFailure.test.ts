@@ -8,6 +8,7 @@ import XLSX from 'xlsx';
 import { WorkbookCache } from '../src/cache/workbookCache.js';
 import { markdownMatrixPlugin } from '../src/plugin/markdownMatrixPlugin.js';
 import { loadWorkbook, type WorkbookData } from '../src/core/workbookLoader.js';
+import { localizeError } from '../src/core/messages/index.js';
 
 const REFERENCE = '![[book.xlsx#Items|A1:B3?header=first]]';
 
@@ -88,4 +89,66 @@ test('an empty CSV is still a valid empty source and other extensions keep their
   const csv = path.join(root, 'empty.csv');
   fs.writeFileSync(csv, '');
   assert.doesNotThrow(() => loadWorkbook({ absolutePath: csv }));
+});
+
+test('every workbook read failure is a LocalizedError whose sentence the preview host can phrase in Japanese', () => {
+  const { bookPath, root } = workspace();
+  const capture = (): Error => {
+    try {
+      loadWorkbook({ absolutePath: bookPath });
+    } catch (error) {
+      return error as Error;
+    }
+    throw new Error('the fixture should have failed');
+  };
+
+  fs.writeFileSync(bookPath, Buffer.alloc(0));
+  assert.match(capture().message, /book\.xlsx: the file is empty/);
+  assert.match(localizeError(capture(), 'ja'), /ファイルが空/);
+
+  fs.writeFileSync(bookPath, Buffer.concat([Buffer.from('d0cf11e0a1b11ae1', 'hex'), Buffer.alloc(600)]));
+  assert.match(capture().message, /looks password-protected/);
+  assert.match(localizeError(capture(), 'ja'), /パスワードで保護/);
+
+  fs.writeFileSync(bookPath, Buffer.from('this is not a workbook'));
+  assert.match(capture().message, /the content is not an Excel workbook/);
+  assert.match(localizeError(capture(), 'ja'), /Excelブックではありません/);
+
+  fs.writeFileSync(bookPath, validWorkbookBytes().subarray(0, 40));
+  assert.match(capture().message, /damaged or still being written/);
+  assert.match(localizeError(capture(), 'ja'), /もう一度保存/);
+});
+
+test('CSV byte decode failures keep their Japanese sentence and gain an English one for other locales', () => {
+  const { root } = workspace();
+  const write = (name: string, bytes: Buffer): void => {
+    fs.writeFileSync(path.join(root, name), bytes);
+  };
+
+  write('utf16.csv', Buffer.from([0xff, 0xfe, 0x61, 0x00]));
+  let error: unknown;
+  try {
+    loadWorkbook({ absolutePath: path.join(root, 'utf16.csv') });
+  } catch (e) {
+    error = e;
+  }
+  assert.match(localizeError(error, 'ja'), /UTF-16には対応していません/);
+  assert.match(localizeError(error, 'en'), /UTF-8 or CP932/);
+
+  write('broken-utf8.csv', Buffer.concat([Buffer.from([0xef, 0xbb, 0xbf]), Buffer.from([0xff, 0x22, 0xfe])]));
+  try {
+    loadWorkbook({ absolutePath: path.join(root, 'broken-utf8.csv') });
+  } catch (e) {
+    error = e;
+  }
+  assert.match(localizeError(error, 'ja'), /UTF-8データが不正/);
+
+  write('crud.csv', Buffer.from([0x41, 0xff, 0x42]));
+  try {
+    loadWorkbook({ absolutePath: path.join(root, 'crud.csv') });
+  } catch (e) {
+    error = e;
+  }
+  assert.match(localizeError(error, 'ja'), /文字コードを確認してください/);
+  assert.match(localizeError(error, 'en'), /encoding/);
 });

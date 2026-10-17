@@ -478,7 +478,7 @@ test('markdownMatrixPlugin emits error html for unsupported xml', () => {
   const html = md.render('![[./broken.xml]]');
 
   assert.match(html, /class="mmi-error"/);
-  assert.match(html, /Unsupported XML format/);
+  assert.match(html, /Invalid XML Spreadsheet/);
 });
 
 test('markdownMatrixPlugin resolves the document path from the markdown-it env (VS Code preview contract)', () => {
