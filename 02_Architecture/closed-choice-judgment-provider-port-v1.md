@@ -20,10 +20,14 @@ provider（判断を返す処理の実装）は、次の2つを持つ。
 - immutableとして扱うdescriptor
 - async `decide(request)`
 
+descriptorはproviderの属性を記述する情報で、ここでは変更しないものとして扱う。`decide(request)`は非同期で判断を返す処理である。
+
 request（判断処理へ渡す入力）は、次の情報を含む。
 
 - Cognitive Observation
 - Closed-choice Question
+
+Cognitive Observationは認知処理に渡す観測情報、Closed-choice Questionは定められた選択肢から判断を求める質問を指す。
 
 providerはWorkbook handle（Workbookを操作するための参照）、write API（書き込み用のインターフェース）、Authority objectを受け取らない。
 
