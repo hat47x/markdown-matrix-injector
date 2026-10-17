@@ -225,13 +225,16 @@ test('blocks independently saved HTML when its accessibility IDREF points outsid
     const altered = fixture.replace(
       '<p>申請の状態については',
       '<p aria-describedby="api">申請の状態については',
+    ).replace(
+      'href="#api"',
+      'href="https://docs.invalid/api"',
     );
     fs.writeFileSync(options.sourcePath, altered);
     assert.throws(() => extractHtmlFragment({
       ...options,
       id: 'overview',
       expectedFingerprint: fingerprint(altered, 'overview'),
-    }), /MMI_HTML_UNRESOLVED_ANCHOR|MMI_HTML_UNRESOLVED_IDREF/u);
+    }), /MMI_HTML_UNRESOLVED_IDREF/u);
     assert.equal(fs.existsSync(options.ledgerPath), false);
     // Main contains both referenced IDs: no dangling IDREF.
     const result = extractHtmlFragment({
