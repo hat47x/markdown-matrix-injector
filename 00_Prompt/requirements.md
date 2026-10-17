@@ -173,15 +173,15 @@ model weight、prototype、index、embedding、Format Profile等の認知資産�
 
 ## AI / LLMとの関係
 
-MMI自体が課金を要する生成AIサービスを利用することは原則としない。Core、CLI、VS Code参照実装はAPIキー管理、課金型LLMへの自動送信、自動クラウドfallbackを標準機能に含めない。例外が必要になった場合は別ADRで判断する。
+MMI自体が課金を要する生成AIサービスを利用することは原則としない。Core、CLI、VS Code参照実装はAPIキー管理、課金先の選択、課金型LLMへの自動送信、自動クラウドfallbackを標準機能に含めない。例外が必要になった場合は、標準機能へ暗黙に追加せず、別ADRで費用、privacy、再現性、fallback、無効時の挙動を定める。
 
-MMIとLLM・認知技術の関係は次の3つを基本とする。
+MMIとLLM・認知技術の関係は次の3つを基本とする（[ADR-0019](../01_Plans/adr/ADR-0019-ai-era-sier-document-value-and-policy.md) D15、[ADR-0018](../01_Plans/adr/ADR-0018-cognitive-assistance-plane.md) D11）。
 
-1. **外部LLMから利用される:** 利用者が選んだLLM / AIエージェントがCLI、skill、将来のMCP等からMMIを呼び、inspect / check / render / extract / manifest等を利用する。外部AIの契約・課金はMMIの外側に置く。
-2. **軽量・ローカルな認知を内部で使う:** Fly-inspiredな疎表現、Jev類似技術、bounded classifier、ローカルLLM等を、Excel解析、構造候補、類似検索、限定判断へ利用できる。外部API課金を前提にしない。
-3. **外部LLM向けに作業提案と判断材料を生成する:** Candidate、source locator、provenance、診断、限定した抜粋から、利用者が外部LLMへ渡せる依頼文・prompt・evidence packageを生成する。MMI自身は送信しない。外部LLMから戻った提案はAuthority Planeで再検証する。
+1. **外部LLMから利用される:** 利用者が選んだChatGPT、Claude、Codex等のLLM / AIエージェントがCLI、skill、将来のMCP等からMMIを呼び、inspect / check / render / extract / manifest等の決定論的・機械可読な能力を利用する。外部AIの契約・課金はMMIの外側に置く。
+2. **軽量・ローカルな認知を内部で使う:** 決定論的規則を第一にし、Fly-inspiredな疎表現、Jev類似技術、bounded classifier、ローカルLLM等を、Excel解析、構造候補、類似検索、限定判断へ利用できる。外部API課金を前提にしない。
+3. **外部LLM向けに作業提案と判断材料を生成する:** 未解決診断、曖昧なCandidate、source locator、provenance、必要最小限の抜粋から、利用者が外部LLMへ渡せる依頼文・prompt・evidence packageをローカル生成する。MMI自身は送信しない。送信、LLM選択、課金は利用者側の責務とし、外部LLMから戻った提案はAuthority Planeで再検証する。
 
-特定の生成AIサービスを製品の必須依存にしない。外部LLMが存在しない環境でも、Authority Planeと主要なモダナイズ機能は成立する。
+特定の生成AIサービスを製品の必須依存にしない。外部LLMが存在しない環境でも、Authority Planeと主要なモダナイズ機能、ローカル認知は動作しなければならない。
 
 
 ## 配布サイズとランタイム
@@ -194,16 +194,6 @@ MMIは、CLI、Core、IDE連携、WASM等の各経路で、必要な機能・安
 - VS Code Web等ではWASMを選択できる構造にする。Desktopではnative binaryとWASMを実測比較し、機能要件を満たす最小経路を採用する。
 - 将来、標準Goに近い互換性を持ちながらより小さなnative/WASMを生成できるtoolchainが成熟した場合、同じ契約で評価して置換可能にする。
 - toolchainの採否はバイナリサイズだけでなく、対応標準ライブラリ、性能、メモリ、デバッグ性、保守性、ライセンス、OS/WASM対応を含めて判断する。
-
-## AI・認知技術との3経路
-
-MMI自身は、原則としてAPI課金を要する生成AIサービスを直接呼び出さない。API key管理、課金先の選択、自動クラウドfallbackを標準機能に含めない。MMIとLLM・認知技術の関係は次の3経路に整理する。
-
-1. **外部LLMからMMIを利用する:** 利用者が選んだChatGPT、Claude、Codex等の外部LLM / AIエージェントが、CLI、AI向けskill、将来のMCP等からMMIを呼び出す。MMIはinspect / check / render / extract / manifest等の決定論的・機械可読な能力を提供する。
-2. **MMI内部では軽量・ローカルな認知を利用する:** 決定論的規則を第一にし、Fly-inspired matcher、Jev類似のbounded model、必要に応じたローカルLLM等を、Excel解析、構造候補、類似検索、閉集合判断へ利用できる。外部API課金を必須条件にしない。
-3. **外部LLMへ作業提案と判断材料を渡す:** MMIは、未解決診断、曖昧なCandidate、source locator、provenance、必要最小限の抜粋から、外部LLMへ渡せるprompt / evidence packageをローカル生成できる。送信、LLM選択、課金は利用者側の責務とし、戻された提案はAuthority Planeで再検証する。
-
-外部LLMが無くても、MMIの基本機能とローカル認知は動作しなければならない。将来MMI自身から課金型生成AIサービスを直接呼ぶ必要が生じた場合は、標準機能へ暗黙に追加せず、別ADRで費用、privacy、再現性、fallback、無効時の挙動を定める。
 
 ## 認知支援
 
