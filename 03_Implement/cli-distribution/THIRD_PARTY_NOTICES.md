@@ -17,6 +17,14 @@ Licensed under the Apache License, Version 2.0.
 
 完全なApache-2.0本文とSheetJSの著作権・ライセンス表示は、同梱する`node_modules/xlsx`内の配布物を正とします。
 
+## parse5
+
+- Version: 7.3.0（package-lock.jsonで固定）
+- License: MIT
+- Purpose in MMI: HTML5 DOM解析、断片Candidate列挙、正規化HTML断片の保存。
+- Runtime dependencyとしてCLI配布tarballへ同梱する。ライセンス全文と著作権表示の正本は同梱する`node_modules/parse5`内の配布ファイルとする。
+- `parse5`に従属する`entities@6.0.1`はBSD-2-Clause。該当するライセンス本文と著作権表示も同梱パッケージ内の配布ファイルを正とする。
+
 ## markdown-it
 
 `markdown-it`はMMI CLIのruntime dependencyとして同梱します。著作権表示とライセンス本文は、同梱する`node_modules/markdown-it`内の配布物を正とします。
