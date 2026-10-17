@@ -563,7 +563,7 @@ export async function main(argv: string[]): Promise<number> {
             id: values['html-id'],
             expectedFingerprint: values['expected-fingerprint'],
             workspaceRoot: root,
-            outDir: path.resolve(values['out-dir'] ?? path.join(root, 'assets', 'html')),
+            outDir: path.resolve(root, values['out-dir'] ?? 'assets/html'),
             ledgerPath,
           });
           if (values.json) emit(JSON.stringify(extracted, null, 2));
