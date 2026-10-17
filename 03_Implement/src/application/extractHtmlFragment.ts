@@ -179,7 +179,6 @@ export function extractHtmlFragment(
   checkPath(root, sourcePath, false);
   // The asset directory may not exist yet; check and create its parents only
   // after the selected fragment passes snapshot and safety validation.
-  checkPath(root, ledgerPath, false);
   if (fs.existsSync(ledgerPath) && !fs.statSync(ledgerPath).isFile()) {
     throw new Error('MMI_HTML_LEDGER_INVALID: ledger path is not a file');
   }
