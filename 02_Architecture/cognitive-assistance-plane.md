@@ -74,7 +74,7 @@ payload（観測の内容）にはproviderごとの型を使えるが、contract
   - `external-opt-in`
 - capabilities
 
-category（分類）は信頼度ではなく責務の区分である。execution boundary（実行時の境界）はprivacy / networkの境界であり、`external-opt-in`（外部接続には明示的な許可が必要な区分）を暗黙に実行してよいという意味ではない。
+category（分類）は信頼度ではなく責務の区分である。execution boundary（実行時の境界）はprivacy / networkの境界であり、`external-opt-in`（外部実行を呼び出し側が明示的に指定する区分）を暗黙に実行してよいという意味ではない。
 
 ## 5. Signal and abstention
 
