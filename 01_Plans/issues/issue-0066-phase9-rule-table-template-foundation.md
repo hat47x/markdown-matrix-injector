@@ -1,4 +1,6 @@
-# Issue: Phase 9 rule table template foundation
+# Issue: Phase 9のルール表テンプレートと検証用データの基盤を整える
+
+この文書は、Phase 9当時のルール表テンプレート整備と完了判断を残したIssue記録です。並列実行メモと検証証跡は原文どおり保持します。証跡には実行日が明記されていないため、現行の動作を新たに確認した記録として扱いません。
 
 ## Meta
 - Type: Docs
@@ -11,19 +13,19 @@
 - Related Backlog/Phase: Phase 9 Rule Table Interoperability & Design Assetization
 - Related ADR/Spec: `01_Plans/adr/ADR-0007-phase9-rule-table-interoperability-and-design-assetization.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- Phase 9の初回イテレーションとして、Drools参照パターンを再利用可能なテンプレート群へ昇格し、文書サンプルとtest fixtureの双方向同期ルールを定義する。
-- SIer設計文書で頻出する4表（要件トレース、状態遷移、障害切り分け、リリース判定）を最小ベンチマークとして固定する。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- Phase 9の初回作業として、Droolsを参考にした表のパターンを再利用可能なテンプレート群として整備する。文書サンプルとテスト用データ（test fixture）を双方向に同期する規則も定義する。
+- SIerの設計文書でよく使われる4種類の表（要件トレース、状態遷移、障害切り分け、リリース判定）を、最小構成のベンチマークとして定める。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] `04_Documentation/` にPhase 9テンプレート運用ガイド（作成ルール・更新ルール・同期ルール）が追加される。
 - [x] docsサンプルとtest fixtureで同一列定義を共有するベンチマークCSV/XLSXセットが追加される。
 - [x] `03_Implement/test` にベンチマーク表を使った観測テスト（columns/grep/headerなど）が追加または更新される。
 - [x] template quality gate（可読性・検証性・追跡性）の判定手順が明文化される。
 - [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] Phase 9テンプレート運用ガイドを作成する。
 - [x] benchmark template data（docs/test fixture）を追加する。
 - [x] query観測テストを追加/更新する。
@@ -32,7 +34,7 @@
 ## Parallelization memo (並列実行メモ)
 - `開発を進めて` の自律フロー（Close不可時は並列実行用プロンプト作成）に従い、`01_Plans/issues/parallel-prompts-issue-0066.md` を実行入口として使用する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `cd 03_Implement && npm test`
 - `python3 01_Plans/tools/planning_queue.py`
 
