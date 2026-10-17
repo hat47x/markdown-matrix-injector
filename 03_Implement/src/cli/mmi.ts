@@ -509,7 +509,7 @@ export async function main(argv: string[]): Promise<number> {
             ...result.anchors.filter((anchor) => anchor.status === 'cross-output')
               .map((anchor) => `  ${anchor.sourceId}: ${anchor.href} -> ${anchor.proposedHref}`),
             ...result.problems.map((problem) => `  ${problem.sourceId}: ${problem.code}: ${problem.detail}`),
-          ].join('\\n'));
+          ].join('\n'));
         }
         return result.hasIdentifiedBlockers ? 1 : 0;
       } catch (error) {
