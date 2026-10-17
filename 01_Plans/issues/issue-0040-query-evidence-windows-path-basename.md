@@ -1,4 +1,6 @@
-# Issue: Query Evidence 出力で Windows 形式パスの basename を正しく解決する
+# Issue: Windows形式のパスからクエリ証跡の文書名を正しく取り出す
+
+この文書は、当時のWindows形式パスへの対応と完了判定を残したIssue記録です。POSIX環境でのWindows形式の文字列解釈と、2026年3月31日の単体テスト結果を記録したものであり、現在のWindows実機での動作を新たに確認したものではありません。
 
 ## Meta
 - Type: Bugfix
@@ -11,23 +13,23 @@
 - Related Backlog/Phase: Phase 6 Documentation feedback loop
 - Related ADR/Spec: `01_Plans/issues/issue-0032-query-evidence-output-path-helper.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- 現在のbasename抽出は実行環境依存で、POSIX実行下ではWindows形式パス文字列（`C:\...\spec.md`）を正しく分解できない。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- 当時の文書名（basename）の抽出処理は実行環境に依存しており、POSIX環境ではWindows形式のパス文字列（`C:\...\spec.md`）を正しく分解できない。この違いを吸収できるようにする。
 - パスに `\\` を含む場合は `path.win32` 系APIを使ってbasename/dirname/extnameを抽出し、出力パス構築を安定化する。
-- Windows形式入力を想定したunit testを追加する。
+- Windows形式のパス文字列を入力する単体テストを追加する。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] Windows形式パスでもbasenameが正しく抽出される。
 - [x] 既存のPOSIXパス動作は維持される。
 - [x] `npm test` が通過する。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] cross-platform basename/dirname抽出処理を追加する。
 - [x] unit testを追加する。
 - [x] `npm test` を実行する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `cd 03_Implement && npm test`
 
 ## Validation evidence (実行証跡)
