@@ -107,7 +107,22 @@ AI無しでもDOMの明示構造に基づく選択・確認・抽出ができる
 
 **実装差分（2026-10-17、Draft PR #555）**: `parse5`を直接依存として宣言し、ローカル静的HTML5のDOMから`main / section / table / figure`を観測して既存Candidate契約へ写す最小Adapterを追加した。FigureはSVG/Mermaidを含む場合だけ`diagram`、画像を含む場合に`image`とし、未知のFigureへ種類を推定しない。原本バイトDigestとCandidateのfragment fingerprintは別に確認する。明示ID選択はAdapter関数として実装したがCLIからの抽出・保存入口ではない。`mmi inspect <file.html> --json`では値全体を出さずCandidate/位置/種別を列挙する。
 
-**未実施**: テスト実行とビルド（この作業環境にはリポジトリ依存が揃わずnpm registryへ接続できない）、CLIからのHTML断片保存、除外セレクター、HTML→Markdown投影、Ledgerへの採用、リンク書換え、複数ファイル保存の整合性、Windows/VS Code E2E、PDF品質確認。HTMLの本体実装が完了したとは扱わない。
+**追加実装（2026-10-17、Draft PR #555 第2段階）**: `mmi extract <source.html> --html-id <id> --expected-fingerprint <sha256:...> --root <workspace> --json` で、静的HTML5の明示ID断片を、正規化した`.html`ファイルとしてcontent-addressed保存する最小Application経路を追加した。原本source digestとレビュー時のfragment fingerprintを再照合し、workspace外やsymlink経由のpathを拒否する。出力は既存ファイルを上書きせず、作成したファイルと`mmi.ledger/v1`への採用記録を結び、台帳更新失敗時はこの操作で作成した出力を回収する。scriptやinline event handlerなどの能動的な内容、移行先で未解決のローカルアンカー、未コピーのローカル資産を持つ断片は書き出さない。外部HTTP(S)リンクは通信せずURLを維持し、リンク先の内容は成果物に含まない。
+
+**出力の保証範囲**: `.html`はHTML5 DOM正規化後の断片であり、Markdown化、CSS込みの視覚的再現、元HTMLとのbytes一致、ブラウザーでの任意HTMLの安全な表示、納品文書としての完成を意味しない。一断片の保存＋ledger記録はcrash-atomicでも複数ファイル移行トランザクションでもない。単純なrollbackは既存の読み取り専用原則を守るための最初の安全策に限る。既存の`detach-check`がこの`.html`に対する閉包を保証するとは扱わない。
+
+**未実施**: テスト実行とビルド（この作業環境ではnpm registryがDNS失敗 `EAI_AGAIN`、依存を配置できない）、任意CSSセレクターと除外フィルター、HTML→Markdown投影、相対リンク・画像資産の移設、文書間アンカー再配置、複数断片の原子的保存、Windows/VS Code E2E、納品用PDF品質確認。機能の全面実装または実行受入完了とは扱わない。
+
+**CLI呼び出し例（実行未確認）**:
+
+```sh
+mmi inspect source.html --root ./project --json
+# 返されたCandidateのfragment fingerprintを確認したうえで
+mmi extract source.html --root ./project --html-id sequence \\
+  --expected-fingerprint sha256:<inspectで確認した値> --json
+```
+
+`sequence`は[fixture](../03_Implement/test/fixtures/html-fragment-v0/monolith.html)のMermaid図のIDであり、断片にはMermaidの定義を保存する。描画・PDFへの埋込まではしない。
 
 ## 10. 既存契約への受渡し
 
