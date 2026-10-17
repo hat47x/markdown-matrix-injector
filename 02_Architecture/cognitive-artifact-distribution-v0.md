@@ -16,7 +16,7 @@ v0では、認知資産をmanifest（資産の識別情報や取得元などを�
 
 schema id（構造定義の識別子）は `mmi.cognitive-artifact-manifest/v0`、schema version（構造定義の版）は `0` とする。
 
-必須項目は次のとおり。`schema` と `schemaVersion` も、既存のJSON Schemaで必須とされている。
+必須項目は次のとおり。
 
 - `schema`
 - `schemaVersion`
