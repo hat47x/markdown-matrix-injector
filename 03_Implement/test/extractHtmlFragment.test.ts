@@ -203,3 +203,53 @@ test('rejects source paths outside the workspace before reading them', () => {
     assert.equal(fs.existsSync(options.ledgerPath), false);
   });
 });
+
+test('blocks extraction when a document-level base changes URL resolution', () => {
+  inWorkspace((options) => {
+    const altered = fixture.replace(
+      '<title>申請システムの統合設計書（分解用fixture）</title>',
+      '<base href="https://docs.invalid/v1/"><title>申請システムの統合設計書（分解用fixture）</title>',
+    );
+    fs.writeFileSync(options.sourcePath, altered);
+    assert.throws(() => extractHtmlFragment({
+      ...options,
+      id: 'sequence',
+      expectedFingerprint: fingerprint(altered, 'sequence'),
+    }), /MMI_HTML_SOURCE_BASE_DEPENDENCY/u);
+    assert.equal(fs.existsSync(options.ledgerPath), false);
+  });
+});
+
+test('blocks independently saved HTML when its accessibility IDREF points outside', () => {
+  inWorkspace((options) => {
+    const altered = fixture.replace(
+      '<p>申請の状態については',
+      '<p aria-describedby="api">申請の状態については',
+    );
+    fs.writeFileSync(options.sourcePath, altered);
+    assert.throws(() => extractHtmlFragment({
+      ...options,
+      id: 'overview',
+      expectedFingerprint: fingerprint(altered, 'overview'),
+    }), /MMI_HTML_UNRESOLVED_ANCHOR|MMI_HTML_UNRESOLVED_IDREF/u);
+    assert.equal(fs.existsSync(options.ledgerPath), false);
+    // Main contains both referenced IDs: no dangling IDREF.
+    const result = extractHtmlFragment({
+      ...options,
+      id: 'spec',
+      expectedFingerprint: fingerprint(altered, 'spec'),
+    });
+    assert.equal(result.status, 'written');
+  });
+});
+
+test('content-addressed HTML asset name retains the full SHA-256 digest', () => {
+  inWorkspace((options) => {
+    const result = extractHtmlFragment({
+      ...options,
+      id: 'sequence',
+      expectedFingerprint: fingerprint(fixture, 'sequence'),
+    });
+    assert.equal(path.basename(result.path), `fragment-${result.outputDigest.slice(7)}.html`);
+  });
+});
