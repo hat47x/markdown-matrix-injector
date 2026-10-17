@@ -30,7 +30,7 @@ B: assisted
    A + learned ranking / proposal / other candidate assistance
 ```
 
-AとBで、import transaction（取り込み処理のまとまり）、source authority（原本に関する権限）、review decision（人による確認判断）、UI lifecycle（画面操作の流れ）を別物にはしません。
+AとBで、import transaction（取り込み処理のまとまり）、source authority（どの原本を判断のよりどころとするかという位置づけ）、review decision（人による確認判断）、UI lifecycle（画面操作の流れ）を別物にはしません。
 
 比較には、同じ`fixtureCohort`（評価対象群）、同じ`protocolId`（評価手順の識別子）、同じsession数を要求します。さらにProduct CLI（比較を実行するコマンドライン処理）は、対応する各sessionについてsource digest（原本内容の照合値）、ledger filter（台帳上の絞り込み条件）、review facet（レビュー対象の区分）が一致することを内部で確認します。cohort名の文字列が一致するだけでは、比較可能とはみなしません。
 
@@ -81,7 +81,7 @@ Product promotion（支援機能を製品へ採用する判断）に使う最初
 
 ## 5. Safety / authorityは非相殺
 
-次の安全性・権限に関する違反は、work metricの改善によって相殺しません。
+次の安全性や原本・判断の信頼境界に関する違反は、work metricの改善によって相殺しません。
 
 - source mutation
 - failed import後のdraft / asset / ledger残留
