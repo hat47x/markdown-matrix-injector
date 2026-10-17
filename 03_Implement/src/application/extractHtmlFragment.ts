@@ -65,7 +65,13 @@ function checkPath(root: string, target: string, createParents: boolean): void {
   for (let index = 0; index < segments.length; index += 1) {
     const isLeaf = index === segments.length - 1;
     cursor = path.join(cursor, segments[index]);
-    if (!fs.existsSync(cursor)) {
+    let stat: fs.Stats | undefined;
+    try {
+      stat = fs.lstatSync(cursor);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code !== 'ENOENT') throw error;
+    }
+    if (!stat) {
       if (!isLeaf && createParents) {
         fs.mkdirSync(cursor, { mode: 0o700 });
       } else if (!isLeaf) {
@@ -73,7 +79,6 @@ function checkPath(root: string, target: string, createParents: boolean): void {
       }
       continue;
     }
-    const stat = fs.lstatSync(cursor);
     if (stat.isSymbolicLink()) {
       throw new Error('MMI_HTML_SYMLINK_PATH: path includes a symbolic link');
     }
@@ -194,17 +199,30 @@ export function extractHtmlFragment(
 
   // Only make the destination after the source and fragment checks succeed.
   checkPath(root, outputPath, true);
-  if (fs.existsSync(outputPath)) {
-    const existing = fs.lstatSync(outputPath);
-    if (!existing.isFile() || sha256(fs.readFileSync(outputPath)) !== outputDigest) {
+  // Recheck the full destination (including dangling symlinks) before reusing
+  // a content-addressed asset or accepting a competing writer's EEXIST.
+  const identicalExistingAsset = (): boolean => {
+    let stat: fs.Stats;
+    try {
+      stat = fs.lstatSync(outputPath);
+    } catch (error) {
+      if ((error as NodeJS.ErrnoException).code === 'ENOENT') return false;
+      throw error;
+    }
+    if (!stat.isFile() || stat.isSymbolicLink()) {
+      throw new Error('MMI_HTML_OUTPUT_COLLISION: output is not a regular file');
+    }
+    if (sha256(fs.readFileSync(outputPath)) !== outputDigest) {
       throw new Error('MMI_HTML_OUTPUT_COLLISION: output exists with different contents');
     }
-  }
+    return true;
+  };
+  const alreadyPresent = identicalExistingAsset();
 
   let created = false;
   let temporaryFile: string | undefined;
   try {
-    if (!fs.existsSync(outputPath)) {
+    if (!alreadyPresent) {
       temporaryFile = path.join(outDir, `.mmi-html-fragment-${randomUUID()}.tmp`);
       fs.writeFileSync(temporaryFile, outputBytes, { flag: 'wx', mode: 0o600 });
       if (readSourceFileIdentity(sourcePath).digest !== originalDigest) {
@@ -215,7 +233,7 @@ export function extractHtmlFragment(
         created = true;
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'EEXIST'
-            || sha256(fs.readFileSync(outputPath)) !== outputDigest) throw error;
+            || !identicalExistingAsset()) throw error;
       }
     }
     if (readSourceFileIdentity(sourcePath).digest !== originalDigest) {
