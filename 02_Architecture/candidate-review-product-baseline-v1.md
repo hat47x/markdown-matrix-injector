@@ -95,7 +95,7 @@ Product promotion（支援機能を製品へ採用する判断）に使う最初
 
 また、countを単に0と記載するだけではProduct promotionに使いません。`evidenceRefs`（件数の根拠への参照）を最低1件要求します。
 
-`evidenceRefs`は署名やAuthority（権限を裏付けるもの）ではありません。どのtest/report/run artifact（試験・報告・実行の成果物）でcountを得たかを後から辿るためのprovenance（出典情報）です。
+`evidenceRefs`は署名やAuthorityではありません。どのtest/report/run artifact（試験・報告・実行の成果物）でcountを得たかを後から辿るためのprovenance（出典情報）です。
 
 ## 6. Missing measurementを0にしない
 
