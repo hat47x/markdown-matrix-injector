@@ -45,7 +45,7 @@ providerへ渡すObservation / Questionは、`structuredClone`（元のデータ
 
 providerが受け取ったobjectをmutate（変更）しても、caller-owned data（呼び出し側が保持するデータ）は変化しない。
 
-descriptor（providerの属性を記述したもの）も呼び出し前にclone（複製）し、そのsnapshot（その時点の複製）をOutcome provenance（結果の出典情報）に使う。
+descriptor（providerの属性を記述したもの）も呼び出し前にclone（複製）し、そのsnapshot（その時点の複製）をOutcome provenance（結果の出所や生成条件を追跡する情報）に使う。
 
 そのため、providerが呼び出し中に自身のdescriptorを変更しても、Outcome（処理結果）には影響しない。
 
