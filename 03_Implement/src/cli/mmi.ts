@@ -14,6 +14,7 @@ import { createSourceIdentityFromBytes } from '../core/sourceIdentity.js';
 import XLSX from 'xlsx';
 import { WorkbookCache } from '../cache/workbookCache.js';
 import { checkDetachedDocument } from '../application/detachCheck.js';
+import { extractHtmlFragment } from '../application/extractHtmlFragment.js';
 import {
   collectStandaloneTreeCandidates,
 } from '../application/sourceCandidateInventory.js';
@@ -170,10 +171,16 @@ Commands:
       --tree-level-columns <list>
                               tabular Tree: exact header names Level,Label
       --sheet <name>          sheet for --table or tabular --tree
-                            Exactly one of --image, --table or --tree is required
+      --html-id <id>           static HTML5 fragment with this unique DOM ID
+      --expected-fingerprint <sha256:...>
+                               required review-time fingerprint from inspect --json
+                            Exactly one of --image, --table, --tree or --html-id is required
       --out-dir <dir>         assets folder (default: assets); files are content-addressed
       --from <doc.md>         provenance/source labels are relative to this document
       --ledger <file>         import ledger (default: <root>/mmi-ledger.json)
+                            HTML output is normalized .html, not Markdown or a safe publication.
+                            HTML output dir default: <root>/assets/html. Local unresolved links
+                            and active content fail closed. --root is the workspace boundary.
   snapshot <workbook>       Render one sheet range as a deterministic visual snapshot
       --renderer <name>       libreoffice (PNG, default) or native-svg (dependency-free SVG)
       --sheet <name>          worksheet to render with --range
@@ -273,6 +280,8 @@ export async function main(argv: string[]): Promise<number> {
       from: { type: 'string' },
       image: { type: 'string' },
       tree: { type: 'string' },
+      'html-id': { type: 'string' },
+      'expected-fingerprint': { type: 'string' },
       'tree-method': { type: 'string' },
       range: { type: 'string' },
       hint: { type: 'string' },
@@ -515,10 +524,11 @@ export async function main(argv: string[]): Promise<number> {
         values.image !== undefined,
         values.table !== undefined,
         values.tree !== undefined,
+        values['html-id'] !== undefined,
       ].filter(Boolean).length;
       if (selectors !== 1) {
         return usageError(
-          'extract needs exactly one of --image <n|all>, --table <range> or --tree <pointer|root>',
+          'extract needs exactly one of --image, --table, --tree or --html-id',
         );
       }
       const sourcePath = path.resolve(args[0]);
@@ -532,6 +542,37 @@ export async function main(argv: string[]): Promise<number> {
         return usageError(
           '--tree-parent-columns/--tree-level-columns require extract --tree',
         );
+      }
+
+      if (values['html-id'] !== undefined) {
+        if (!/\.html?$/iu.test(sourcePath)) {
+          return usageError('extract --html-id requires a .html or .htm source');
+        }
+        if (!values['expected-fingerprint']) {
+          return usageError('extract --html-id requires --expected-fingerprint from inspect --json');
+        }
+        if (values.out) {
+          return usageError('extract --html-id does not support --out; use --out-dir');
+        }
+        if (values.sheet || values['tree-parent-columns'] || values['tree-level-columns']) {
+          return usageError('extract --html-id cannot use workbook/Tree selectors');
+        }
+        try {
+          const extracted = extractHtmlFragment({
+            sourcePath,
+            id: values['html-id'],
+            expectedFingerprint: values['expected-fingerprint'],
+            workspaceRoot: root,
+            outDir: path.resolve(values['out-dir'] ?? path.join(root, 'assets', 'html')),
+            ledgerPath,
+          });
+          if (values.json) emit(JSON.stringify(extracted, null, 2));
+          else emit(`HTML fragment: ${extracted.path} (${extracted.status})`);
+          return 0;
+        } catch (error) {
+          console.error(`mmi: ${error instanceof Error ? error.message : String(error)}`);
+          return 1;
+        }
       }
 
       if (values.tree !== undefined) {
