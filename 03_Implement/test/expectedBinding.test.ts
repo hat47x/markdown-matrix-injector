@@ -81,7 +81,8 @@ test('select records the Excel table it took the range from, and the reference i
   const book = analyzeBook(path.join(root, 'f.xlsx'), './f.xlsx');
   const selected = selectFromBook(book, './f.xlsx', { table: 'T_受注明細', columns: ['商品', '数量'] });
   assert.equal(selected.ok, true, JSON.stringify(selected.errors));
-  assert.match(selected.reference!, /&x-table=T_%E5%8F%97|&x-table=T_受注明細\]\]$/u);
+  assert.match(selected.reference!, /&x-table=T_(?:%E5%8F%97|受注明細)/u);
+  assert.match(selected.reference!, /&x-below=1\]\]$/u);
   const doc = path.join(root, 'doc.md');
   fs.writeFileSync(doc, `${selected.reference}\n`);
   assert.deepEqual(await checkPaths([doc], root), []);

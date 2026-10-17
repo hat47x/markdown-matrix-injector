@@ -17,12 +17,13 @@ import type { WorkbookData } from '../core/workbookLoader.js';
 import { detectTableRegions, gridProjection } from '../importAssist/tableRegions.js';
 import type { DetectedRegion } from '../search/regionDetector.js';
 import { EXPECTED_HEADERS_PARAM } from '../core/expectedHeaders.js';
+import { EXPECTED_BELOW_PARAM } from '../core/expectedBelow.js';
 import { readWorkbookCached } from './sharedWorkbookCache.js';
 import { sourceContentStamp } from './sourceChangeGuard.js';
 import { analyzeCompletionContext } from './completionContext.js';
 import { rangeCandidates } from './completionCandidates.js';
 import { hostCompletionPhrases } from './completionHostPhrases.js';
-import { getParams, parseEmbedParts, serializeEmbedParts, setParam, withCurrentExpectedHeaders, type EmbedParts } from './embedEditor.js';
+import { getParams, parseEmbedParts, serializeEmbedParts, setParam, withCurrentExpectedBelow, withCurrentExpectedHeaders, type EmbedParts } from './embedEditor.js';
 import { fileFixCandidates, sheetFixCandidates } from './embedFixes.js';
 import { normalizeExplicitRangeInput } from './explicitRange.js';
 import { parameterIssues } from './parameterDiagnostics.js';
@@ -264,6 +265,9 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
       // A new reference records the headers of the table being chosen, so a later column shift in the source is reported
       // (ADR-0022). An existing one is never given the key by a plain confirm (loss-free edit); one that already has it is refreshed.
       if (sourceData && (!existing || getParams(parts, EXPECTED_HEADERS_PARAM).length > 0)) parts = withCurrentExpectedHeaders(parts, sourceData);
+      // A new reference records how many rows continue below its range as well, so a row inserted into the range later is
+      // reported instead of silently pushing the last row out of it (ADR-0022, issue #521). Same rule for existing references.
+      if (sourceData && (!existing || getParams(parts, EXPECTED_BELOW_PARAM).length > 0)) parts = withCurrentExpectedBelow(parts, sourceData);
       const markdown = serializeEmbedParts(parts);
       const summary = await preview(deps, markdown, document.uri.fsPath, workspaceRoot);
       const sourceAfterPreview = sourceContentStamp(sourceAbsolute);
@@ -520,6 +524,7 @@ export function createEmbedFixProvider(workbookGlob: string): vscode.CodeActionP
         let fixes: { replacement: string }[] = [];
         let span: vscode.Range | undefined;
         let headerFix = false;
+        let belowFix = false;
         if (diagnostic.code === 'MMI_SHEET_NOT_FOUND' && embed.parts.sheet) {
           const at = embedText.indexOf(`#${embed.parts.sheet}`);
           if (at >= 0) {
@@ -568,6 +573,28 @@ export function createEmbedFixProvider(workbookGlob: string): vscode.CodeActionP
           } catch {
             fixes = [];
           }
+        } else if (diagnostic.code === 'MMI_BELOW_MISMATCH') {
+          // Offered only: the person decides whether the source change is intended (never auto-confirmed).
+          try {
+            const absolute = resolveAuthoringSourcePath(
+              embed.parts.filepath,
+              document.uri.fsPath,
+              workspaceRoot,
+            );
+            if (!absolute) throw new Error('Source is unavailable or outside the workspace.');
+            const updated = withCurrentExpectedBelow(embed.parts, readWorkbookCached(absolute));
+            const value = getParams(updated, EXPECTED_BELOW_PARAM)[0];
+            const at = embedText.search(/x-below=[^&\]]*/u);
+            const written = /x-below=[^&\]]*/u.exec(embedText)?.[0];
+            if (value !== undefined && at >= 0 && written) {
+              span = new vscode.Range(document.positionAt(embedStart + at), document.positionAt(embedStart + at + written.length));
+              fixes = [{ replacement: updated.segments.find((segment) => segment.startsWith(`${EXPECTED_BELOW_PARAM}=`)) ?? '' }]
+                .filter((fix) => fix.replacement !== '' && fix.replacement !== written);
+              belowFix = true;
+            }
+          } catch {
+            fixes = [];
+          }
         } else if (diagnostic.code === 'MMI_FILE_NOT_FOUND' && workspaceRoot) {
           const at = embedText.indexOf(embed.parts.filepath, 3);
           if (at >= 0) {
@@ -580,9 +607,14 @@ export function createEmbedFixProvider(workbookGlob: string): vscode.CodeActionP
         }
         if (!span) continue;
         fixes.forEach((fix, index) => {
-          const action = new vscode.CodeAction(headerFix ? uiText('MMI: Update the expected headers (x-headers) to the current table') : uiText('Replace with "{0}"', fix.replacement), vscode.CodeActionKind.QuickFix);
+          const label = headerFix
+            ? uiText('MMI: Update the expected headers (x-headers) to the current table')
+            : belowFix
+              ? uiText('MMI: Update the recorded rows below the range (x-below) to the current table')
+              : uiText('Replace with "{0}"', fix.replacement);
+          const action = new vscode.CodeAction(label, vscode.CodeActionKind.QuickFix);
           action.diagnostics = [diagnostic];
-          action.isPreferred = !headerFix && index === 0 && fixes.length === 1; // a single sure candidate only
+          action.isPreferred = !headerFix && !belowFix && index === 0 && fixes.length === 1; // a single sure candidate only
           action.edit = new vscode.WorkspaceEdit();
           action.edit.replace(document.uri, span!, fix.replacement);
           actions.push(action);

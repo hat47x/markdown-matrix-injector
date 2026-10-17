@@ -8,6 +8,7 @@
  */
 
 import { currentExpectedHeaders, EXPECTED_HEADERS_PARAM } from '../core/expectedHeaders.js';
+import { currentBelowRows, EXPECTED_BELOW_PARAM } from '../core/expectedBelow.js';
 import type { WorkbookData } from '../core/workbookLoader.js';
 import { parseEmbedSyntax } from '../parser/embedSyntax.js';
 
@@ -124,6 +125,23 @@ export function withCurrentExpectedHeaders(parts: EmbedParts, workbook: Workbook
   try {
     const value = currentExpectedHeaders(query, workbook);
     return value === undefined ? without : setParam(parts, EXPECTED_HEADERS_PARAM, value);
+  } catch {
+    return parts;
+  }
+}
+
+/**
+ * Records how many rows continued below the range now as `x-below` (ADR-0022, issue #521), so a row
+ * inserted inside the range later shows up as a warning instead of silently pushing the last row out.
+ * Dropped when the range does not resolve; unchanged when the embed cannot be rendered.
+ */
+export function withCurrentExpectedBelow(parts: EmbedParts, workbook: WorkbookData): EmbedParts {
+  const without = setParam(parts, EXPECTED_BELOW_PARAM, undefined);
+  const query = parseEmbedSyntax(serializeEmbedParts(without));
+  if (!query) return parts;
+  try {
+    const value = currentBelowRows(query, workbook);
+    return value === undefined ? without : setParam(parts, EXPECTED_BELOW_PARAM, String(value));
   } catch {
     return parts;
   }

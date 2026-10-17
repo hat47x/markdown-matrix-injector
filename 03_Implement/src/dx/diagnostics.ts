@@ -13,7 +13,8 @@ export type DiagnosticCode =
   | 'MMI_TABLE_TOO_LARGE'
   | 'MMI_UNKNOWN_PARAM'
   | 'MMI_HEADERS_MISMATCH'
-  | 'MMI_BINDING_MISMATCH';
+  | 'MMI_BINDING_MISMATCH'
+  | 'MMI_BELOW_MISMATCH';
 
 export interface DiagnosticRange {
   start: number;
@@ -64,6 +65,7 @@ const DIAGNOSTIC_PRIORITY: Record<DiagnosticCode, number> = {
   MMI_UNKNOWN_PARAM: 5,
   MMI_HEADERS_MISMATCH: 6,
   MMI_BINDING_MISMATCH: 6,
+  MMI_BELOW_MISMATCH: 6,
 };
 
 export function validateEmbedDiagnostics(input: ValidateEmbedDiagnosticsInput): EmbedDiagnostic[] {

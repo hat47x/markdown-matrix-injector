@@ -90,4 +90,12 @@ export const enMessages: MessageTable = {
         return `${label} matches.`;
     }
   },
+  belowChanged: ({ expected, actual, grew }) =>
+    grew
+      ? `${actual} row(s) with values now continue below the reference; ${expected} when the reference was written. ` +
+        'A row may have been inserted inside the range, so the last row the reference shows may no longer be the one that was chosen. ' +
+        'Review the range, then update `x-below` (or remove the key) if the change is intended.'
+      : `${actual} row(s) with values now continue below the reference; ${expected} when the reference was written. ` +
+        'Rows below the range may have been removed or moved. ' +
+        'Review the range, then update `x-below` (or remove the key) if the change is intended.',
 };

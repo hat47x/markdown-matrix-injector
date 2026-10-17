@@ -11,6 +11,7 @@
  * silently widening the selection.
  */
 import { EXPECTED_TABLE_PARAM } from '../core/expectedBinding.js';
+import { currentBelowRows, EXPECTED_BELOW_PARAM } from '../core/expectedBelow.js';
 import { encodeHeaderListForQuery, EXPECTED_HEADERS_PARAM, formatHeaderList } from '../core/expectedHeaders.js';
 import { buildLogicalTable } from '../core/renderTable.js';
 import { getSmartFallbackDecisionAfterLoad } from '../core/smartFallback.js';
@@ -192,8 +193,18 @@ export function selectFromBook(book: LoadedBook, referencePath: string, request:
   if (info.excelTable) {
     result.reference = result.reference.replace(/\]\]$/u, () => `&${EXPECTED_TABLE_PARAM}=${encodeHeaderListForQuery(info.excelTable!)}]]`);
   }
+  // ADR-0022 / issue #521: record how many rows continued below the range, so a row inserted inside the range
+  // is reported instead of silently pushing the last row out of it. Renderers ignore the key (spec P5).
+  const below = currentBelowRows(query, book.workbook);
+  if (below !== undefined) result.reference = appendQueryParam(result.reference, EXPECTED_BELOW_PARAM, String(below));
   result.ok = true;
   return result;
+}
+
+/** Adds one `key=value` to the reference's query, opening it with `?` when the reference had no parameters. */
+function appendQueryParam(reference: string, key: string, value: string): string {
+  const separator = reference.includes('?') ? '&' : '?';
+  return reference.replace(/\]\]$/u, () => `${separator}${key}=${value}]]`);
 }
 
 function withoutGrep(params: URLSearchParams): URLSearchParams {

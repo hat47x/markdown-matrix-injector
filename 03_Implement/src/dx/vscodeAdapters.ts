@@ -7,6 +7,7 @@ import { validateEmbedDiagnostics, type EmbedDiagnostic, type XmlMode } from './
 import { extractEmbedQueries, parseEmbedSyntax } from '../parser/embedSyntax.js';
 import { isPathWithinBoundary } from '../core/pathResolver.js';
 import { bindingSeverity, checkExpectedBindings, describeBinding } from '../core/expectedBinding.js';
+import { belowSeverity, checkExpectedBelow, describeBelowChange } from '../core/expectedBelow.js';
 import { checkExpectedHeaders, describeHeaderMismatch } from '../core/expectedHeaders.js';
 import type { WorkbookStructure } from '../importAssist/workbookStructure.js';
 import type { WorkbookData } from '../core/workbookLoader.js';
@@ -264,6 +265,36 @@ export async function createDiagnosticsForDocument(
           }
         } catch {
           // Structure that cannot be read is not a binding problem; file errors are reported elsewhere.
+        }
+      }
+    }
+
+    // The rows that continued below the range when the reference was written (x-below, issue #521)
+    // against the rows that continue below it now.
+    const belowSpan = /(?:^|[?&])(x-below=[^&\]]*)/u.exec(match.raw);
+    if (belowSpan && dependencies.loadWorkbook && fileExists && containmentOk !== false && xmlMode !== 'invalid' && sheetExists !== false) {
+      const query = parseEmbedSyntax(match.raw);
+      if (query) {
+        try {
+          const result = checkExpectedBelow(query, dependencies.loadWorkbook(resolvedFilepath));
+          const severity = result ? belowSeverity(result) : undefined;
+          if (result && severity) {
+            const start = (belowSpan.index ?? 0) + (belowSpan[0].length - belowSpan[1].length);
+            const end = start + belowSpan[1].length;
+            diagnostics.push({
+              diagnostic: {
+                severity,
+                code: 'MMI_BELOW_MISMATCH',
+                message: describeBelowChange(result, dependencies.locale),
+                range: { start, end: end - 1 },
+                source: 'markdown-matrix-injector',
+                priority: 6,
+              },
+              range: rangeFromOffsets(text, match.absoluteStart + start, match.absoluteStart + end),
+            });
+          }
+        } catch {
+          // The workbook could not be read for another reason; those errors are reported elsewhere.
         }
       }
     }

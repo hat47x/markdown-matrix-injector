@@ -42,6 +42,12 @@ export interface MessageParamsMap {
     current?: string;
     referenced?: string;
   };
+  /** How many rows continued below the reference when it was written, against now (`x-below`, issue #521). */
+  belowChanged: {
+    expected: number;
+    actual: number;
+    grew: boolean;
+  };
 }
 
 export type MessageId = keyof MessageParamsMap;

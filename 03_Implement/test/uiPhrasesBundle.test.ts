@@ -63,6 +63,7 @@ test('the l10n bundle carries a Japanese wording for every sentence the host put
     'Display options (Space to select, Enter to continue). Keys not listed here stay untouched',
     'MMI: Edit this reference…',
     'MMI: Update the expected headers (x-headers) to the current table',
+    'MMI: Update the recorded rows below the range (x-below) to the current table',
     'Replace with "{0}"',
     'hidden · ',
     'not shown by Excel · ',

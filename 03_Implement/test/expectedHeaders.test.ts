@@ -100,7 +100,7 @@ test('select writes x-headers, and a header with a comma, ampersand or space rou
   const book = analyzeBook(csvPath, './spec.csv');
   const selected = selectFromBook(book, './spec.csv', { table: 'A1:E2', columns: ['名前', '備考 & メモ'] });
   assert.equal(selected.ok, true, JSON.stringify(selected.errors));
-  assert.match(selected.reference!, /&x-headers=名前,備考%20%26%20メモ\]\]$/u);
+  assert.match(selected.reference!, /&x-headers=名前,備考%20%26%20メモ&x-below=0\]\]$/u);
   fs.writeFileSync(doc, `${selected.reference}\n`);
   assert.deepEqual(await checkPaths([doc], root), []);
 
@@ -109,7 +109,7 @@ test('select writes x-headers, and a header with a comma, ampersand or space rou
   const commaBook = analyzeBook(comma.csvPath, './spec.csv');
   const commaSelected = selectFromBook(commaBook, './spec.csv', { table: 'A1:C2', columns: ['a,b'] });
   assert.equal(commaSelected.ok, true, JSON.stringify(commaSelected.errors));
-  assert.match(commaSelected.reference!, /&x-headers=a\\,b\]\]$/u);
+  assert.match(commaSelected.reference!, /&x-headers=a\\,b&x-below=0\]\]$/u);
   fs.writeFileSync(comma.doc, `${commaSelected.reference}\n`);
   assert.deepEqual(await checkPaths([comma.doc], comma.root), []);
 });

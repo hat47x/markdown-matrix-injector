@@ -42,6 +42,7 @@
   "Display options (Space to select, Enter to continue). Keys not listed here stay untouched": "表示の指定（Spaceで選択、Enterで次へ）。ここに無いキーはそのまま残します",
   "MMI: Edit this reference…": "MMI: この参照を編集…",
   "MMI: Update the expected headers (x-headers) to the current table": "MMI: 見出しの期待値（x-headers）を現在の表に更新する",
+  "MMI: Update the recorded rows below the range (x-below) to the current table": "MMI: 範囲の下に続く行数の記録（x-below）を現在の表に更新する",
   "Replace with \"{0}\"": "「{0}」に置き換える",
   "hidden · ": "非表示・",
   "not shown by Excel · ": "Excelで表示不可・",

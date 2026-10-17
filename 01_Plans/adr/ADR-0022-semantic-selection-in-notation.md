@@ -73,6 +73,10 @@ Human Sponsorの指示で、選択肢Bの最初の部分（`x-headers`）を参�
 - **追加実装（2026-10-06、`x-table`・`x-name`）:** `src/core/expectedBinding.ts`。参照が取った範囲を、ブックが今持つExcelテーブル・名前の定義と比べ、診断`MMI_BINDING_MISMATCH`を出す（`mmi check`とVS Codeが同じ関数）。宣言が無い・名前が範囲でなくなった・別シートへ移った・範囲が合わない（行や列の増減）は警告、参照が定義の一部に収まる場合（行数を絞った参照）と、範囲を指さない名前は情報にとどめる。Excelテーブルの合計行は、含めても除いても一致とする。`mmi select`はExcelテーブルから取った参照へ`x-table`を付ける。名前は1つの範囲に複数付けられるため、自動では付けない。描画は変えない（P5）。テストは`test/expectedBinding.test.ts`（5件、実Excelで作ったブックを使用）。検査は構造だけを読み、値は読まない。
   - **限界:** テーブル・名前を持たないCSVとXML 2003では、`x-table`・`x-name`は付かない。表の内側で行や列が挿入され、範囲の大きさが変わらない場合の移動は、範囲の比較では見分けられない（見出しは`x-headers`が見る）。
   - **利用者による価値確認:** 未実施。
+- **追加実装（2026-10-18、`x-below`・置き場所の再判断）:** 記録の置き場所は、選択肢Bを続けて**記法の実験キー**とする（別ファイルにはしない）。固定のA1範囲は、範囲の中に行が挿入されても解決し続ける。挿入された行が表示され、元の最終行は範囲の外へ出るが、参照を見ただけでは分からない（#514の場面D2）。`x-headers`は見出しだけを、`x-table`は宣言された範囲だけを見るため、どちらもこの失敗を見ない。`src/core/expectedBelow.ts`が、参照を書いたときに範囲の直下へ何行値が続いていたか（範囲の列の中で、すべての列が空になる行の手前まで。上限1000）を`x-below`として記録し、いまの行数と比べて診断`MMI_BELOW_MISMATCH`を出す。増えたとき（範囲の中に行が入った可能性がある）は警告、減ったときは情報、同じときは何も出さない。`mmi check`とVS Codeの診断が同じ関数を使い、`mmi select`と案内付き作成が自動で付ける。修正候補（現在の表に更新する）は出すが、既定にはしない。記録が無い既存の参照には、これまでどおり何も出さない。描画は変えない（P5）。テストは`test/expectedBelow.test.ts`（13件）。
+  - **誤検出を抑える根拠:** 「範囲の直下に値が続く」こと自体を警告にしない。実務サンプル42件のうち5件は、意図した部分範囲だった。作成時の状態を記録し、状態が変わったときだけ知らせる。
+  - **限界:** 範囲の列の外だけが下へ続く場合は検出できない。範囲の下の行が入れ替わり、行数が同じときも検出できない。範囲の下にある別の表へ行を足した場合も、行数が変われば知らせる。
+  - **利用者による価値確認:** 未実施。
 - **未実装:** 行の選択（`where=`、選択肢C）。選択肢C・Dは、Bの利用で必要性が観測されてから判断する、という提案のとおり保留する。
 - **利用者による価値確認:** 未実施。`x-headers`が誤検出（意図した見出しの変更）で煩わしくないか、人が期待値を更新する手間が許容できるかは、実利用での観測が要る。
 
@@ -83,5 +87,5 @@ Human Sponsorの指示で、選択肢Bの最初の部分（`x-headers`）を参�
 
 ## Traceability
 
-- 実装: `03_Implement/src/navigate/`（目録・選択）、`03_Implement/src/importAssist/workbookStructure.ts`（名前・テーブル・非表示）、`03_Implement/src/cli/mmi.ts`
-- 検証: `test/navigate.test.ts`、`test/workbookStructure.test.ts`、`test/e2e/import/index.ts`
+- 実装: `03_Implement/src/navigate/`（目録・選択）、`03_Implement/src/importAssist/workbookStructure.ts`（名前・テーブル・非表示）、`03_Implement/src/core/expectedHeaders.ts`・`src/core/expectedBinding.ts`・`src/core/expectedBelow.ts`（期待値の記録と照合）、`03_Implement/src/cli/mmi.ts`
+- 検証: `test/navigate.test.ts`、`test/workbookStructure.test.ts`、`test/expectedHeaders.test.ts`、`test/expectedBinding.test.ts`、`test/expectedBelow.test.ts`、`test/e2e/import/index.ts`
