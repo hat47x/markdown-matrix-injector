@@ -475,7 +475,7 @@ export async function main(argv: string[]): Promise<number> {
             throw new Error('MMI_HTML_OUTSIDE_ROOT: source and plan must stay in workspace');
           }
         }
-        if (!/\\.html?$/iu.test(absoluteSource)) {
+        if (!/\.html?$/iu.test(absoluteSource)) {
           return usageError('html-plan source must end with .html or .htm');
         }
         const documentBytes = fs.readFileSync(absoluteSource);

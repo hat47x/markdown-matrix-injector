@@ -94,8 +94,9 @@ test('rejects overlap, duplicate selection and invalid outputs', () => {
   assert.throws(() => planHtmlDecomposition(doc, [
     selected(doc, 'api', '../escape.html'),
   ]), /MMI_HTML_PLAN_INVALID_OUTPUT/u);
+  // A path component ending in a dot or space is silently normalized on Windows.
   for (const invalid of ['docs/CON.html', 'docs/report?.html',
-    'docs/notes .html', 'docs/next\\\\file.html']) {
+    'docs/notes. /page.html', 'docs/next\\\\file.html']) {
     assert.throws(() => planHtmlDecomposition(doc, [
       selected(doc, 'api', invalid),
     ]), /MMI_HTML_PLAN_INVALID_OUTPUT/u);
@@ -136,7 +137,6 @@ test('a duplicate anchor outside the selected roots remains ambiguous', () => {
   const doc = read(duplicated);
   const plan = planHtmlDecomposition(doc, [
     selected(doc, 'overview', 'docs/overview.html'),
-    selected(doc, 'api', 'docs/api.html'),
   ]);
   assert.equal(plan.hasIdentifiedBlockers, true);
   assert.ok(plan.problems.some((p) => p.code === 'MMI_HTML_AMBIGUOUS_ANCHOR'));
