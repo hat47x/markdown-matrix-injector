@@ -1,8 +1,8 @@
-# HTML断片の選択・分解に関する期待一覧（未実装・レビュー用）
+# HTML断片の選択・分解に関する期待一覧（レビュー用fixtureと未実行テスト）
 
 - 対象: [monolith.html](monolith.html)
 - 対応: [設計境界 v0](../../../../02_Architecture/html-fragment-decomposition-v0.md)、[Issue #553](https://github.com/hat47x/markdown-matrix-injector/issues/553)
-- 状態: **fixture＋期待記述のみ**。このファイル自体は実行済みテストの証拠ではない。
+- 状態: **fixture＋期待記述とTypeScript回帰テストコード**。このファイル自体は実行済みテストの証拠ではない。
 
 ## 原本の構造（静的HTMLの観測）
 
@@ -48,3 +48,12 @@
 上記の期待値を機械化する際には、HTML5パーサで解釈したDOMの観測、Candidateの認識論、保存時のsource snapshot、Ledgerとprovenance、リンク再配置、原本への非書込、部分失敗時の生成物回収を別のテストで確認する。
 
 このfixtureには生のMermaid定義を含むが、**Mermaidによる図の描画結果やPDF出力が確認済みという意味ではない**。図の描画品質と出版品質は将来のE2Eで確認する。
+
+## Draft PR #555で追加した最小保存経路
+
+- `mmi inspect`へ、静的HTMLのmain/section/table/figureを構造的なCandidateとして列挙するコードを追加した。
+- `mmi extract --html-id <id> --expected-fingerprint <digest>`へ、IDとレビュー時fingerprintを照合して正規化HTML断片を個別保存し、Ledgerに採用記録を残すコードを追加した。
+- `#overview`単独の保存は`#api`への内部リンクが範囲外となるため、参照欠落として拒否する。リンク移設は未実装。
+- `#sequence`のMermaidは定義テキストを保持するが、描画済み図とは扱わない。
+- `#spec`内の外部HTTP(S)リンクはURLを保持するのみで、自動取得やDetachedの保証を行わない。
+- **コード追加は検証済みを意味しない**。HTML5パーサを用いた実行、ビルド、保存とrollbackの実測、Windows/VS Code、PDF品質は未確認。
