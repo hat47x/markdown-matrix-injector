@@ -1,8 +1,20 @@
 # Markdown Matrix Injector Reference
 
 ## この資料の使い方
-初めて使う方は [チュートリアル](tutorial.md)、操作を調べる方は [利用マニュアル](user-manual.md) を参照してください。本書は記法の詳細を扱います。
-実機で確認済みの範囲については、[検証記録](release-validation-2026-09-08.md) を正本として参照してください。
+この資料は、MMIの参照記法や表示方法について、使える指定とその制約を調べるためのリファレンスです。
+初めて使う場合は [チュートリアル](tutorial.md) から始めてください。日々の操作は [利用マニュアル](user-manual.md) で説明しています。
+
+目的に応じて、次の項目から確認できます。
+
+| 調べたいこと | 参照先 |
+| --- | --- |
+| 参照記法の書き方 | [Embed syntax](#embed-syntax) |
+| 読み込めるファイル形式 | [Supported data sources](#supported-data-sources) |
+| 表示範囲や絞り込みの指定 | [Query parameters](#query-parameters主要機能) |
+| 大きな表がカードになる条件 | [Smart Fallback](#smart-fallback) |
+| 操作や表示の制約 | [Known limitations](#known-limitations) |
+
+動作確認が済んでいる環境と未確認の範囲は、[検証記録](release-validation-2026-09-08.md) を参照してください。
 
 ## Target reader
 - 記法やクエリの仕様を正確に確認したい利用者
@@ -13,7 +25,7 @@
 - 参照元にCSV / XLSX / XML Spreadsheet 2003のファイルを使うこと
 
 ## Expected result
-この資料では、埋め込み記法、主要パラメータ、Smart Fallback、印刷制御、Diagnostics、入力支援機能を扱います。問い合わせへの一次回答に必要な「正常系挙動 / 代表的失敗ケース / 制約 / 関連正本リンク」を確認できます。
+参照記法や表示方法、印刷、エラーの確認、入力支援について、通常の動作、問題が起きる場合、制約、詳しい仕様の参照先を調べられます。問い合わせの原因を切り分けたいときにも利用できます。
 
 ## issue-0018 受入条件（reference 本文対象に限定）
 
@@ -32,7 +44,7 @@
 
 ### 制約
 - この資料は公開向けリファレンスです。実装の詳細については、コード、テスト、設計の正本を優先します。
-- UIの最終的な見た目、特に印刷結果は環境に依存します。manual-e2eによる確認を前提とします。
+- UIの最終的な見た目、特に印刷結果は環境に依存します。manual-e2eによる確認を前提とします.
 
 ### 関連正本リンク
 - 要件正本: `00_Prompt/requirements.md`
