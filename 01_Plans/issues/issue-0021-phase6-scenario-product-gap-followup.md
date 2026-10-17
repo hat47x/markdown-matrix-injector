@@ -1,4 +1,6 @@
-# Issue: Phase 6 Scenario Product Gap Follow-up（Scenario ROI運用で発見した機能ギャップの追跡）
+# Issue: Phase 6のシナリオ検証で見つかった機能ギャップを追跡する
+
+この文書は、Phase 6当時に見つかった機能ギャップ2件の検討・追跡と、その記録作業の完了を示すIssue記録です。記載されたMVPや変更候補は当時の実装案であり、`Status: Done`をそれらの機能の実装完了と読み替えるものではありません。
 
 ## Meta
 - Type: Feature
@@ -11,23 +13,23 @@
 - Related Backlog/Phase: Phase 6: 公開ドキュメント体系化と価値訴求 (Public Documentation & Adoption)
 - Related ADR/Spec: `01_Plans/adr/ADR-0003-phase6-user-value-maximization-roadmap.md`, `02_Architecture/phase6-public-documentation-architecture.md`, `01_Plans/issues/issue-0017-phase6-scenario-roi-proof.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- Scenario ROI文書で抽出されたproduct gapをfeature backlogとして独立管理し、導入可否判断で要求された再現性（手順テンプレート）と証跡性（抽出クエリ履歴）を実装計画へ接続する。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- Scenario ROI文書で見つかった機能ギャップ（product gap）を、機能開発の候補一覧（feature backlog）として独立して管理する。導入可否の判断に必要とされた再現性（手順テンプレート）と証跡性（抽出クエリ履歴）を、実装計画へ結び付ける。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] Scenario本文で抽出された2件のproduct gapを、実装対象・期待価値・非対象範囲つきで明文化する。
 - [x] 各gapについて、最小実装案（MVP）と延期条件（なぜ今すぐ実装しないか）を定義する。
 - [x] 実装着手可否を判断するための検証コマンド（docs-check / unit / manual-e2e）を列挙する。
 - [x] issue-0017から本issueへの追跡導線が成立していることを確認する。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] ギャップ1「観点別テンプレート自動挿入（スニペット）」の要件を整理する。
 - [x] ギャップ2「抽出クエリ履歴のエビデンス出力」の要件を整理する。
 - [x] 既存実装への影響範囲を `03_Implement/src` で調査し、変更候補を列挙する。
 - [x] 実装前提の検証観点（互換性・運用コスト・UI/UX）を定義する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `rg -n "ギャップ候補|スニペット|抽出クエリ履歴|エビデンス出力" 04_Documentation/scenario-sier-design-docs.md 01_Plans/issues/issue-0017-phase6-scenario-roi-proof.md 01_Plans/issues/issue-0021-phase6-scenario-product-gap-followup.md`
 - `python3 01_Plans/tools/planning_queue.py`
 
