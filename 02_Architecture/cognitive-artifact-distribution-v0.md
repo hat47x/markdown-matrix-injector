@@ -56,7 +56,7 @@ mmi artifact artifact.json \
   --provider local-embedding:ollama@1
 ```
 
-cacheにもlocal/runtime source（端末内のファイルや実行環境が管理する資産）にも無ければ `download-required` を返す。HTTPSへアクセスするのは、利用者が `--download` を明示した場合だけである。
+互換providerについて、cacheに該当資産が存在せず、local/runtime source（端末内のファイルや実行環境が管理する資産）も利用できない場合、manifestにHTTPS sourceがあり、`--offline` が指定されていなければ `download-required` を返す。HTTPSへアクセスするのは、利用者が `--download` を明示した場合だけである。
 
 ```sh
 mmi artifact artifact.json \
