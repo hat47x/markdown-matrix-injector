@@ -12,11 +12,9 @@ Related:
 
 Learned ranking（学習による候補の順位付け）や構造候補のaccuracy（正確さ）が向上しても、MMIを使う人の確認作業が減らなければ、Product path（製品で使う処理経路）へ取り入れる理由にはなりません。
 
-このcontract（比較条件を定めた契約）では、現在のCandidate review（候補を人が確認する作業）がすでに記録しているcontent-free observation（文書本文を含まない観測記録）を集計し、
+このcontract（比較条件を定めた契約）では、現在のCandidate review（候補を人が確認する作業）がすでに記録しているcontent-free observation（文書本文を含まない観測記録）を集計します。比較する観点は次のとおりです。
 
 > 現行のdeterministic product pathと比べて、支援機能が同じ仕事を少ない確認・修正で終えられたか
-
-を比較します。
 
 新しいTelemetry（利用時の観測情報）の収集系は作りません。
 
@@ -103,12 +101,10 @@ Product promotion（支援機能を製品へ採用する判断）に使う最初
 
 観測できなかった値を、「改善なし」や「コスト0」とはみなしません。
 
-Candidateが一件も選択されていない場合、
+Candidateが1件も選択されていない場合、次の値は`null`です。
 
 - duration / Candidate
 - transition / Candidate
-
-は`null`です。
 
 modified itemが0件の場合、changed-span / modified itemも`null`です。
 
