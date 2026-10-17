@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 
-import { buildContentMatchMarkdown, contentMatchStillExact, findWorkbookContentMatches, findWorkbookContentMatchesDetailed, summarizeContentMatchContext, type WorkbookSheetsSource } from '../src/dx/contentMatchSearch.js';
+import { buildContentMatchMarkdown, contentMatchStillExact, describeContentMatchDetail, describeIncompleteContentMatchSearch, findWorkbookContentMatches, findWorkbookContentMatchesDetailed, jaContentMatchContextPhrases, jaContentMatchDetailPhrases, jaContentMatchIncompletePhrases, summarizeContentMatchContext, type WorkbookSheetsSource } from '../src/dx/contentMatchSearch.js';
 import { loadWorkbook } from '../src/core/workbookLoader.js';
 import { sheetSourceFromMatrix, type SheetSource } from '../src/core/sheetSource.js';
 import type { WorkbookContentMatch } from '../src/dx/contentMatchSearch.js';
@@ -274,7 +274,7 @@ test('summarizeContentMatchContext gives Paste As a bounded one-line duplicate d
     ],
   );
   assert.equal(
-    summarizeContentMatchContext(matches[0]),
+    summarizeContentMatchContext(matches[0], 96, jaContentMatchContextPhrases),
     '表:リリース判定 / 見出し:No|確認項目|判定 / 値:2|脆弱性診断|NG / 前:1|性能試験|OK',
   );
 
@@ -294,6 +294,36 @@ test('summarizeContentMatchContext gives Paste As a bounded one-line duplicate d
   assert.ok([...long].length <= 24);
   assert.doesNotMatch(long, /[\r\n]/u);
   assert.match(long, /…$/u);
+});
+
+test('Paste As keeps its QuickPick detail wording and its why-not notice in Japanese', () => {
+  const match: WorkbookContentMatch = {
+    filepath: './release.xlsx',
+    sheet: 'Sheet1',
+    range: { startRow: 2, startCol: 0, endRow: 2, endCol: 1 },
+    context: {
+      headers: ['No', '確認項目'],
+      previewRows: [
+        ['1', '性能試験'],
+        ['2', '脆弱性診断'],
+      ],
+      rowAbove: ['1', '性能試験'],
+      rowBelow: ['ラスト1行', 'ラスト2行'],
+    },
+  };
+  assert.equal(
+    describeContentMatchDetail(match, jaContentMatchDetailPhrases),
+    '見出し: No | 確認項目　範囲内: 1 | 性能試験 ／ 2 | 脆弱性診断　直前の行: 1 | 性能試験　直後の行: ラスト1行 | ラスト2行',
+  );
+  assert.equal(
+    describeContentMatchDetail({ ...match, context: undefined }, jaContentMatchDetailPhrases),
+    '',
+  );
+  assert.equal(
+    describeIncompleteContentMatchSearch(1, 1, 1, true, 50, true, jaContentMatchIncompletePhrases),
+    '検索は完全ではありません（読めないブック 1件、索引上限を超えたシート 1件、候補上限に達したシート 1件、探索対象ブックが上限50件を超過、検索が中断されました）。',
+  );
+  assert.equal(describeIncompleteContentMatchSearch(0, 0, 0, false, 50, false), '');
 });
 
 
