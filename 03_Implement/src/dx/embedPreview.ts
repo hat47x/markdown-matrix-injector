@@ -15,6 +15,33 @@ export type PreviewSummary =
   | { kind: 'error'; message: string }
   | { kind: 'unknown' };
 
+/** The wording of a preview summary, per language (issue-0211: the UI must not mix languages). */
+export interface PreviewPhrases {
+  table(bodyRows: number, columns: number, header: boolean): string;
+  empty(columns: number): string;
+  card(): string;
+  error(message: string): string;
+  unknown(): string;
+}
+
+/** The wording a plain (no VS Code host) caller sees: the English reference. */
+export const enPreviewPhrases: PreviewPhrases = {
+  table: (bodyRows, columns, header) => `Renders as a table: ${bodyRows} body rows × ${columns} columns${header ? ' (with header)' : ''}`,
+  empty: (columns) => `Renders as a table: 0 matching rows (${columns} columns). No row matched the grep condition.`,
+  card: () => 'Renders as a card sheet (no sheet or mode=card, or too many columns or cells for a table)',
+  error: (message) => `Error: ${message}`,
+  unknown: () => 'Could not determine what this renders as',
+};
+
+/** The previous Japanese wording, kept verbatim (the reference the confirmation screen was checked against). */
+export const jaPreviewPhrases: PreviewPhrases = {
+  table: (bodyRows, columns, header) => `表として表示: 本体${bodyRows}行 × ${columns}列${header ? '（見出しあり）' : ''}`,
+  empty: (columns) => `表として表示: 該当行0件（${columns}列。grepに一致する行がありません）`,
+  card: () => '別紙カードとして表示（列数・セル数が大きい、またはシート未指定・mode=card）',
+  error: (message) => `エラー: ${message}`,
+  unknown: () => '表示を判定できませんでした',
+};
+
 export function summarizeRenderedEmbed(html: string): PreviewSummary {
   const error = /<div class="mmi-error">([\s\S]*?)<\/div>/u.exec(html);
   if (error) return { kind: 'error', message: decodeEntities(error[1]) };
@@ -30,18 +57,18 @@ export function summarizeRenderedEmbed(html: string): PreviewSummary {
   return { kind: 'table', bodyRows, columns, header: head.length > 0 };
 }
 
-export function describePreview(summary: PreviewSummary): string {
+export function describePreview(summary: PreviewSummary, phrases: PreviewPhrases = enPreviewPhrases): string {
   switch (summary.kind) {
     case 'table':
-      return `表として表示: 本体${summary.bodyRows}行 × ${summary.columns}列${summary.header ? '（見出しあり）' : ''}`;
+      return phrases.table(summary.bodyRows, summary.columns, summary.header);
     case 'empty':
-      return `表として表示: 該当行0件（${summary.columns}列。grepに一致する行がありません）`;
+      return phrases.empty(summary.columns);
     case 'card':
-      return '別紙カードとして表示（列数・セル数が大きい、またはシート未指定・mode=card）';
+      return phrases.card();
     case 'error':
-      return `エラー: ${summary.message}`;
+      return phrases.error(summary.message);
     case 'unknown':
-      return '表示を判定できませんでした';
+      return phrases.unknown();
   }
 }
 

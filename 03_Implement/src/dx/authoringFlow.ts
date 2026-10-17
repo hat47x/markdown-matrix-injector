@@ -25,7 +25,18 @@ import { getParams, parseEmbedParts, serializeEmbedParts, setParam, withCurrentE
 import { fileFixCandidates, sheetFixCandidates } from './embedFixes.js';
 import { normalizeExplicitRangeInput } from './explicitRange.js';
 import { parameterIssues } from './parameterDiagnostics.js';
-import { describePreview, summarizeRenderedEmbed, type PreviewSummary } from './embedPreview.js';
+import { describePreview, summarizeRenderedEmbed, type PreviewPhrases, type PreviewSummary } from './embedPreview.js';
+import { uiText } from './uiPhrases.js';
+
+/** The confirmation summary in the bundle's language (`l10n` keys are the English reference sentences). */
+const previewPhrases: PreviewPhrases = {
+  table: (bodyRows, columns, header) =>
+    uiText('Renders as a table: {0} body rows × {1} columns{2}', bodyRows, columns, header ? uiText(' (with header)') : ''),
+  empty: (columns) => uiText('Renders as a table: 0 matching rows ({0} columns). No row matched the grep condition.', columns),
+  card: () => uiText('Renders as a card sheet (no sheet or mode=card, or too many columns or cells for a table)'),
+  error: (message) => uiText('Error: {0}', message),
+  unknown: () => uiText('Could not determine what this renders as'),
+};
 import { toRelativeSuggestion } from './vscodeAdapters.js';
 import {
   isWorkspaceFileCandidate,
@@ -255,7 +266,7 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
       }
       result = await pick(
         title,
-        describePreview(summary),
+        describePreview(summary, previewPhrases),
         [
           { label: existing ? '$(check) 置き換える' : '$(check) 挿入する', description: markdown, value: 'insert' },
           { label: '$(arrow-left) 戻る', value: 'back' },

@@ -1,0 +1,11 @@
+{
+  " (with header)": "（見出しあり）",
+  "Renders as a table: {0} body rows × {1} columns{2}": "表として表示: 本体{0}行 × {1}列{2}",
+  "Renders as a table: 0 matching rows ({0} columns). No row matched the grep condition.": "表として表示: 該当行0件（{0}列。grepに一致する行がありません）",
+  "Renders as a card sheet (no sheet or mode=card, or too many columns or cells for a table)": "別紙カードとして表示（列数・セル数が大きい、またはシート未指定・mode=card）",
+  "Error: {0}": "エラー: {0}",
+  "Could not determine what this renders as": "表示を判定できませんでした",
+  "…and {0} more rows": "…ほか{0}行",
+  "$(edit) Edit": "$(edit) 編集",
+  "$(link-external) Open source": "$(link-external) 原本を開く"
+}
