@@ -33,7 +33,7 @@ providerはWorkbook handle（Workbookを操作するための参照）、write A
 
 ## 3. External opt-in
 
-`descriptor.executionBoundary === 'external-opt-in'` の場合、runner option（実行時の指定）に `allowExternal=true` がない限りproviderを呼ばない。`external-opt-in` は、外部接続に明示的な許可が必要な区分である。
+`descriptor.executionBoundary === 'external-opt-in'` の場合、runner option（実行時の指定）に `allowExternal=true` がない限りproviderを呼ばない。`external-opt-in` は、呼び出し側が外部実行を明示的に指定する必要がある区分である。
 
 呼び出しの拒否は、provider invocationの前に行う。
 
