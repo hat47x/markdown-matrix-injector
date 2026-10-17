@@ -9,6 +9,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { readHtmlFragments } from '../adapters/htmlFragmentAdapter.js';
+import { createSourceIdentityFromBytes } from '../core/sourceIdentity.js';
 import XLSX from 'xlsx';
 import { WorkbookCache } from '../cache/workbookCache.js';
 import { checkDetachedDocument } from '../application/detachCheck.js';
@@ -135,7 +137,7 @@ Commands:
       --download              explicitly allow HTTPS acquisition after showing manifest metadata
       --offline               forbid HTTPS access; use verified cache/local/runtime-managed sources only
                             Runtime-managed Ollama/LM Studio models are discovered only for this explicit command.
-  inspect <source>          List workbook/CSV regions or JSON/YAML/XML/flat-text Tree structure.
+  inspect <source>          List workbook/CSV regions, structured Trees, or static HTML DOM fragments.
                             --json adds Semantic Candidates with status, method, provenance and fingerprint
       --values <n>            also print the first n body rows of each region
       --from <doc.md>         write suggested references relative to this document
@@ -157,6 +159,7 @@ Commands:
                             YAML anchors/aliases/merge keys/explicit tags/non-string keys are rejected.
                             Generic .xml lists explicit element nodes; XML Spreadsheet 2003 remains a table source.
                             .txt/.text/.log use deterministic M1 hierarchy hypotheses; conflicting methods are not merged.
+                            .html/.htm list explicit main/section/table/figure Candidate fragments (no scripts/URLs fetched).
   extract <source>          Extract one reviewed Candidate as a standard asset without modifying the source
       --image <n|all>         workbook picture number shown by inspect, or all
       --table <range>         exact detected table Candidate range (requires --sheet)
@@ -477,7 +480,7 @@ export async function main(argv: string[]): Promise<number> {
         tabularHierarchy,
       );
       if (values['import-assist']) {
-        if (raw.trees !== undefined) {
+        if (raw.trees !== undefined || raw.htmlFragments !== undefined) {
           return usageError(
             'inspect --import-assist applies to workbook/grid sources, not explicit Tree sources',
           );
@@ -1403,6 +1406,14 @@ export interface InspectResult {
   treeAmbiguous?: boolean;
   /** The same structure as Semantic Candidates (issue-0193). */
   candidates: Candidate[];
+  /** Read-only static HTML5 DOM candidates; no serialized HTML in inspect output. */
+  htmlFragments?: {
+    tagName: string;
+    id?: string;
+    structuralPath: string;
+    kind: Candidate['kind'];
+    fingerprint: string;
+  }[];
   /** Embedded pictures of an .xlsx/.xlsm (empty for other sources). */
   images: InspectImage[];
   /** DrawingML AutoShape / connector objects. */
@@ -1501,6 +1512,35 @@ export function inspectSource(
   const base = fromDocument ? path.dirname(path.resolve(fromDocument)) : process.cwd();
   let relative = path.relative(base, absolutePath).split(path.sep).join('/');
   if (!relative.startsWith('.')) relative = `./${relative}`;
+
+  if (/\.html?$/iu.test(absolutePath)) {
+    const bytes = fs.readFileSync(absolutePath);
+    const text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
+    const parsed = readHtmlFragments(
+      text,
+      relative,
+      createSourceIdentityFromBytes(bytes).digest,
+    );
+    return {
+      source: relative,
+      candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
+      candidates: [...parsed.candidates],
+      htmlFragments: parsed.fragments.map((fragment) => ({
+        tagName: fragment.tagName,
+        ...(fragment.id !== undefined ? { id: fragment.id } : {}),
+        structuralPath: fragment.structuralPath,
+        kind: fragment.candidate.kind,
+        fingerprint: fragment.candidate.fingerprint.digest,
+      })),
+      images: [],
+      choiceLists: [],
+      notes: [],
+      choiceListDiagnostics: [],
+      noteDiagnostics: [],
+      imageDiagnostics: [],
+      sheets: [],
+    };
+  }
 
   const standaloneTree = collectStandaloneTreeCandidates(
     absolutePath,
@@ -1721,6 +1761,12 @@ function applyLedgerView(
       allowed.has(
         `note\u0000${item.sheet}\u0000${item.cell}`,
       )),
+    ...(result.htmlFragments
+      ? {
+          htmlFragments: result.htmlFragments.filter((fragment) =>
+            allowed.has(`${fragment.kind}\u0000\u0000path:${fragment.structuralPath}`)),
+        }
+      : {}),
     ...(result.trees
       ? {
           trees: result.trees.filter((tree) =>
@@ -1792,6 +1838,14 @@ function formatInspect(result: InspectResult): string {
     for (const hypothesis of result.treeHypotheses) {
       lines.push(
         `  ${hypothesis.method}: ${hypothesis.status} (${hypothesis.reasonCode}, ${hypothesis.nodeCount} nodes)`,
+      );
+    }
+  }
+  if (result.htmlFragments?.length) {
+    lines.push('', 'HTML fragments (observed DOM, no scripts executed):');
+    for (const fragment of result.htmlFragments) {
+      lines.push(
+        `  ${fragment.structuralPath}  ${fragment.tagName}${fragment.id === undefined ? '' : `  #${fragment.id}`}  kind: ${fragment.kind}${ledgerSuffix(fragment.kind, '', `path:${fragment.structuralPath}`)}`,
       );
     }
   }
