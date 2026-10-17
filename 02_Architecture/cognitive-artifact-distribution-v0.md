@@ -2,7 +2,7 @@
 
 ## 目的
 
-MMIの認知機能で使うmodel weight（モデルの重み）、prototype（比較に使うひな形）、index（検索用の索引）、profile等の認知資産は、CoreやVS Code拡張へ同梱しない。認知資産はコードとは別のライフサイクルで更新できる一方、実行時には「どのbytes（資産の実データ）を、どのprovider（推定処理の提供元）で使ったか」を再現できる必要がある。
+MMIの認知機能で使うmodel weight（モデルの重み）、prototype（比較の基準となる特徴表現）、index（検索用の索引）、profile等の認知資産は、CoreやVS Code拡張へ同梱しない。認知資産はコードとは別のライフサイクルで更新できる一方、実行時には「どのbytes（資産の実データ）を、どのprovider（推定処理の提供元）で使ったか」を再現できる必要がある。
 
 v0では、認知資産をmanifest（資産の識別情報や取得元などを記述する定義）、artifact bytes（資産の実データ）、providerの3つに分けて扱う。
 
