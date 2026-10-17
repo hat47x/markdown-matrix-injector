@@ -78,7 +78,7 @@ category（分類）は信頼度ではなく責務の区分である。execution
 
 ## 5. Signal and abstention
 
-成功した結果は、`CognitiveSignalOutcome`（認知側から返す信号の結果）として返す。
+成功時には、`CognitiveSignalOutcome`（認知側から返す信号の結果）として返す。
 
 signal（認知側からの情報）には、次の項目を含める。
 
