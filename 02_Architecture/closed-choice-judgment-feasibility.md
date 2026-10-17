@@ -2,7 +2,7 @@
 
 ## 1. 目的
 
-Cognitive Assistance Plane（認知的な支援を担う処理層）のJudgment層（判断を扱う部分）について、Jev等のSystem One型モデル（即時的な判断を扱うモデル）を**自由文生成ではなく、閉集合の原子的判断**へ限定して接続できるかを評価する。ここでいう閉集合とは、あらかじめ定めた選択肢だけから選ぶ方式を指す。
+Cognitive Assistance Plane（認知的な支援を担う処理層）のJudgment層（判断を扱う部分）について、Jev等のSystem One型モデル（即時的な判断を扱うモデル）を**自由文生成ではなく、閉集合の原子的判断**へ限定して接続できるかを評価する。ここでいう閉集合とは、あらかじめ定めた選択肢だけから選ぶ方式を指す。原子的判断とは、判断を一つずつの小さな単位に分けることをいう。
 
 この段階ではlive provider（実際に応答を返す外部モデルの提供元）へは接続しない。先にprovider-neutral contract（特定の提供元に依存しない契約）、評価corpus（評価用の事例集）、abstention（判断を保留すること）、calibration観測（モデルが示す確信度と実際の正しさの関係の観測）、Authority Plane（既存規則による検証を担う処理層）への再検証境界を固定する。
 
@@ -99,15 +99,13 @@ decision（選択結果）は、少なくとも次の条件を満たす。
 
 provider confidence（提供元が示す確信度）を、そのまま「正答率」とは仮定しない。
 
-evaluation harness（評価を実行する仕組み）は、decisionごとに次の情報を扱う。
+evaluation harness（評価を実行する仕組み）は、decisionごとに次の情報をcalibration sample（確信度と正答の対応を調べるための記録）として保存できるようにする。
 
 ```text
 reported confidence
 selected-choice probability
 expected choiceとの一致
 ```
-
-これらをcalibration sample（確信度と正答の対応を調べるための記録）として保存できるようにする。
 
 live providerを評価する際には、confidence帯ごとのaccuracy（正確さ）やBrier/ECE（確率予測の良さを測る指標）等を計算できる。ただし、本Issueのstub結果（実際のproviderを使わない代替処理の結果）からprovider品質を主張しない。
 
@@ -126,15 +124,13 @@ live providerを評価する際には、confidence帯ごとのaccuracy（正確�
 
 Jev等のlive providerを使う場合、`executionBoundary = external-opt-in`（利用者が明示的に外部接続を選ぶ境界）となる。
 
-本Issueでは:
+このIssueでは、次の条件を維持する。
 
 - SDK dependency追加なし
 - API keyなし
 - network callなし
 - provider account前提なし
 - 料金発生なし
-
-とする。
 
 live接続は、利用者が明示的に外部送信を承認した別Issueで扱う。
 
