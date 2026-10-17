@@ -31,7 +31,7 @@
     "retained_branch": "feature/baseline-bulk-import-0200",
     "fixture_generator": {
       "path": "03_Implement/test/helpers/buildXlsxWithImages.ts",
-      "sha": "75aca457c683b67ad8556688b877699b182b1e58",
+      "sha": "abeff4f881c78f0e0cf3d757c0aea6aa822633a7",
       "function": "screenDesignWorkbook"
     },
     "runner": {
