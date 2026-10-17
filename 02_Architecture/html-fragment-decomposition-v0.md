@@ -105,15 +105,16 @@ AI無しでもDOMの明示構造に基づく選択・確認・抽出ができる
 | source変更／ID不在／ID重複 | fingerprint再確認や明示選択を要求し、不明のまま書き込まない |
 | 欠落資産／外部URL | ローカル閉包の不足や外部依存を明示し、成功と混同しない |
 
-**実装差分（2026-10-17、Draft PR #555）**: `parse5`を直接依存として宣言し、ローカル静的HTML5のDOMから`main / section / table / figure`を観測して既存Candidate契約へ写す最小Adapterを追加した。FigureはSVG/Mermaidを含む場合だけ`diagram`、画像を含む場合に`image`とし、未知のFigureへ種類を推定しない。原本バイトDigestとCandidateのfragment fingerprintは別に確認する。この第1段階の時点では明示ID選択をAdapter関数に限定していたが、後述の第2段階でCLIの保存経路へ接続した。`mmi inspect <file.html> --json`では値全体を出さずCandidate/位置/種別を列挙する。
+**実装差分（2026-10-17、PR #555）**: `parse5`を直接依存として宣言し、ローカル静的HTML5のDOMから`main / section / table / figure`を観測して既存Candidate契約へ写す最小Adapterを追加した。FigureはSVG/Mermaidを含む場合だけ`diagram`、画像を含む場合に`image`とし、未知のFigureへ種類を推定しない。原本バイトDigestとCandidateのfragment fingerprintは別に確認する。この第1段階の時点では明示ID選択をAdapter関数に限定していたが、後述の第2段階でCLIの保存経路へ接続した。`mmi inspect <file.html> --json`では値全体を出さずCandidate/位置/種別を列挙する。
 
-**追加実装（2026-10-17、Draft PR #555 第2段階）**: `mmi extract <source.html> --html-id <id> --expected-fingerprint <sha256:...> --root <workspace> --json` で、静的HTML5の明示ID断片を、正規化した`.html`ファイルとしてcontent-addressed保存する最小Application経路を追加した。原本source digestとレビュー時のfragment fingerprintを再照合し、workspace外やsymlink経由のpathを拒否する。出力は既存ファイルを上書きせず、作成したファイルと`mmi.ledger/v1`への採用記録を結び、台帳更新失敗時はこの操作で作成した出力を回収する。scriptやinline event handlerなどの能動的な内容、移行先で未解決のローカルアンカー、未コピーのローカル資産を持つ断片は書き出さない。外部HTTP(S)リンクは通信せずURLを維持し、リンク先の内容は成果物に含まない。
+**追加実装（2026-10-17、PR #555 第2段階）**: `mmi extract <source.html> --html-id <id> --expected-fingerprint <sha256:...> --root <workspace> --json` で、静的HTML5の明示ID断片を、正規化した`.html`ファイルとしてcontent-addressed保存する最小Application経路を追加した。原本source digestとレビュー時のfragment fingerprintを再照合し、workspace外やsymlink経由のpathを拒否する。出力は既存ファイルを上書きせず、作成したファイルと`mmi.ledger/v1`への採用記録を結び、台帳更新失敗時はこの操作で作成した出力を回収する。scriptやinline event handlerなどの能動的な内容、移行先で未解決のローカルアンカー、未コピーのローカル資産を持つ断片は書き出さない。外部HTTP(S)リンクは通信せずURLを維持し、リンク先の内容は成果物に含まない。
 
 **出力の保証範囲**: `.html`はHTML5 DOM正規化後の断片であり、Markdown化、CSS込みの視覚的再現、元HTMLとのbytes一致、ブラウザーでの任意HTMLの安全な表示、納品文書としての完成を意味しない。一断片の保存＋ledger記録はcrash-atomicでも複数ファイル移行トランザクションでもない。単純なrollbackは既存の読み取り専用原則を守るための最初の安全策に限る。既存の`detach-check`がこの`.html`に対する閉包を保証するとは扱わない。
 
-**未実施**: テスト実行とビルド（この作業環境ではnpm registryがDNS失敗 `EAI_AGAIN`、依存を配置できない）、任意CSSセレクターと除外フィルター、HTML→Markdown投影、相対リンク・画像資産の移設、文書間アンカー再配置、複数断片の原子的保存、Windows/VS Code E2E、納品用PDF品質確認。機能の全面実装または実行受入完了とは扱わない。
+**実行検証（2026-10-17、Linux / Node.js 20.20.2）**: ext4上の新規cloneで`npm ci`後に`npm run build:product`（終了コード0）、`npm test`（product lane 1076件中1075件合格・1件skip、candidate-review baseline 3件、CLI配布11件、phase9同期2種、いずれも合格）、`npm run package:cli`、`node scripts/verify-cli-package.mjs artifacts/cli-package/markdown-matrix-injector-0.1.0.tgz`（空のnpm cacheを使ったoffline installで`htmlInspect` / `htmlPlan` / `htmlExtract` / `htmlLedger`を含む全項目passed）を実行し、この断片の主要経路が自動試験で通ることを確認した。全件の`npm run build`はmainと同じ17件のerrorを出す。これは今回追加したファイルではなく、研究層と既存テスト側の既知の未修正分である（errorのファイル集合はmainと一致）。初回記録の`EAI_AGAIN`はこの実行環境では再現しなかった。
+**未実施**: 任意CSSセレクターと除外フィルター、HTML→Markdown投影、相対リンク・画像資産の移設、文書間アンカー再配置、複数断片の原子的保存、Windows / VS Code E2E、実ブラウザーでの表示確認、納品用PDF品質確認。機能の全面実装または実行受入完了とは扱わない。
 
-**CLI呼び出し例（実行未確認）**:
+**CLI呼び出し例**（この形のコマンドは単体・CLIテストと配布tarballのoffline smokeで実行済み）:
 
 ```sh
 mmi inspect ./project/source.html --root ./project --json
@@ -135,9 +136,9 @@ mmi extract ./project/source.html --root ./project --html-id sequence \\
 
 後続の機能開発は#553で追跡し、文書の実装状態は機械テスト、製品接続、実環境受入と分けて記録する。
 
-## 11. 複数断片の参照計画（2026-10-17、Draft PR #555の追加PoC）
+## 11. 複数断片の参照計画（2026-10-17、PR #555の追加PoC）
 
-**対応コード**: `src/application/htmlDecompositionPlan.ts`、`test/htmlDecompositionPlan.test.ts`、`test/htmlDecompositionPlanCli.test.ts`。**コード追加のみで実行検証は未実施**。
+**対応コード**: `src/application/htmlDecompositionPlan.ts`、`test/htmlDecompositionPlan.test.ts`、`test/htmlDecompositionPlanCli.test.ts`。単体テストとCLIテストは実行済みで、合格している（§9の実行検証）。`html-plan`のsource拡張子判定の二重エスケープと、断片の重複IDを選んでいたテスト2件は、この実行で見つけて修正した。
 
 `mmi html-plan <source.html> --plan <selections.json> --root <workspace> --json` は、生成AIなどが提案した複数断片の移行先を、原本DOMと照合して**読み取り専用**で計画する。HTML本文・ledger・保存先ファイルを書き換えない。
 
@@ -166,7 +167,7 @@ fixtureの`#overview`にある`href="#api"`は、両方を移す提案であれ�
 
 後続で計画適用を実装する場合も、実際のファイル保存前にsource snapshot／各断片fingerprint／出力・依存関係を再確認し、複数断片を一つの操作として成立させる必要がある。今回の`html-plan`は読み取りと提案に限定されるため、既存の書き込み操作と同義にしない。
 
-## 12. 整合性ガードの再点検（2026-10-17、Draft PR #555）
+## 12. 整合性ガードの再点検（2026-10-17、PR #555）
 
 コードレビューによって、断片ファイルだけでなく、**元HTML全体のURL解決規則とHTMLのID参照**も、独立保存時の整合性を左右することが明確になった。
 
@@ -178,12 +179,12 @@ fixtureの`#overview`にある`href="#api"`は、両方を移す提案であれ�
 
 これらは「既存文書を抽出すれば自然に独立文書として成立する」という仮定を否定する根拠でもある。たとえ`hasIdentifiedBlockers=false`でも、元文書のCSS・動的描画・画像・表現上の依存を網羅的に保証するわけではない。
 
-実行試験の状況: containerのNode.js/npm環境から`npm view parse5@7.3.0`を照会したところ、`registry.npmjs.org`のDNS解決で`EAI_AGAIN`を確認。依存復元とTypeScript/CLIテストは**未完了**であり、実装コードがPASSしたとは記載しない。GitHub Actionsは明示的に起動していない。
+実行試験の状況（初回記録）: containerのNode.js/npm環境から`npm view parse5@7.3.0`を照会したところ、`registry.npmjs.org`のDNS解決で`EAI_AGAIN`を確認し、その時点では依存復元とTypeScript/CLIテストは**未完了**だった。その後、Linux / Node.js 20.20.2の新規cloneで`npm ci`が成功し、§9の実行検証のとおり自動試験と配布offline smokeが通った。GitHub Actionsは明示的に起動していない。
 
 ## 13. CLI配布経路への接続（2026-10-17）
 
 Source Adapterの機能追加は、開発用TypeScript実行環境だけで成立しても十分ではない。CLIを単独配布する経路は、`scripts/build-cli-package.mjs`がproduction依存を限定してbundleするため、`package.json`の直接依存に`parse5`を追加しただけでは、配布manifestから漏れる可能性がある。
 
-Draft PR #555では、必須runtime依存へ`parse5@7.3.0`を追加するとともに、`cliDistribution.test.mjs`のmanifest期待値と欠落検知テストを更新した。オフラインのCLI配布検証`verify-cli-package.mjs`にも、HTMLの`inspect`・`html-plan`・単一`extract`・Ledger記録を追加し、standalone配布でHTML5解析器が見つからない問題を検出できるようにした。ライセンスと利用者向け配布資料も更新した。
+PR #555では、必須runtime依存へ`parse5@7.3.0`を追加するとともに、`cliDistribution.test.mjs`のmanifest期待値と欠落検知テストを更新した。オフラインのCLI配布検証`verify-cli-package.mjs`にも、HTMLの`inspect`・`html-plan`・単一`extract`・Ledger記録を追加し、standalone配布でHTML5解析器が見つからない問題を検出できるようにした。ライセンスと利用者向け配布資料も更新した。
 
-**証拠状態**: GitHubのコードを用いて、配布manifestを組み立てる純粋関数の隔離実行でparse5の含有／欠落時拒否を確認した。一方、`npm run build`、`npm run test:unit`、`npm run test:cli-distribution`、`npm run package:cli`、`verify-cli-package.mjs`の実行は未確認。ターボールへ実際に同梱され、利用者がオフラインでHTMLコマンドを実行できることを受入済みとしない。
+**証拠状態**: 配布manifestを組み立てる純粋関数の隔離実行でparse5の含有と欠落時の拒否を確認し、2026-10-17のLinux実行で`npm run build:product`、`npm test`、`npm run package:cli`、`node scripts/verify-cli-package.mjs <tarball>`を実行した。`verify-cli-package`は空のnpm cacheを使ったoffline installを行い、`htmlInspect` / `htmlPlan` / `htmlExtract` / `htmlLedger`を含む全項目がpassedである。生成したtarballへparse5が同梱され、HTMLのコマンドがオフライン環境で起動・実行できることは確認できた。他OSでの実行、VS Code拡張からの利用、実データでの業務的な十分性は未確認のままとする。
