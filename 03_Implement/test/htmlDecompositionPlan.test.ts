@@ -121,3 +121,18 @@ test('reports unresolved image assets instead of claiming a complete export', ()
   assert.equal(plan.hasIdentifiedBlockers, true);
   assert.ok(plan.problems.some((p) => p.code === 'MMI_HTML_UNMATERIALIZED_ASSET'));
 });
+
+test('a duplicate anchor outside the selected roots remains ambiguous', () => {
+  const duplicated = fixture.replace(
+    '<footer id="site-footer">',
+    '<footer id="site-footer"><span id="api">duplicate</span>',
+  );
+  const doc = read(duplicated);
+  const plan = planHtmlDecomposition(doc, [
+    selected(doc, 'overview', 'docs/overview.html'),
+    selected(doc, 'api', 'docs/api.html'),
+  ]);
+  assert.equal(plan.hasIdentifiedBlockers, true);
+  assert.ok(plan.problems.some((p) => p.code === 'MMI_HTML_AMBIGUOUS_ANCHOR'));
+  assert.equal(plan.anchors[0]?.status, 'blocked');
+});
