@@ -110,6 +110,7 @@ function validateStaticFragment(fragmentHtml: string): string[] {
   const ids = new Set<string>();
   const links: string[] = [];
   const anchorTargets: string[] = [];
+  const idRefTargets: { attribute: string; target: string }[] = [];
 
   const walk = (node: HtmlNode): void => {
     if (isElement(node)) {
@@ -123,6 +124,15 @@ function validateStaticFragment(fragmentHtml: string): string[] {
         if (/^on[a-z]/u.test(key) || key === 'style' || key === 'srcdoc'
             || /url\s*\(/iu.test(value)) {
           throw new Error(`MMI_HTML_ACTIVE_CONTENT: unsupported attribute ${key}`);
+        }
+        if (['aria-labelledby', 'aria-describedby', 'aria-controls',
+          'aria-details', 'headers'].includes(key)) {
+          for (const target of value.split(/\s+/u).filter(Boolean)) {
+            idRefTargets.push({ attribute: key, target });
+          }
+        }
+        if (['for', 'list', 'form'].includes(key) && value) {
+          idRefTargets.push({ attribute: key, target: value });
         }
         if (key === 'id') {
           if (ids.has(value)) {
@@ -153,6 +163,11 @@ function validateStaticFragment(fragmentHtml: string): string[] {
   for (const target of anchorTargets) {
     if (!ids.has(target)) {
       throw new Error(`MMI_HTML_UNRESOLVED_ANCHOR: #${target} is outside selected fragment`);
+    }
+  }
+  for (const { attribute, target } of idRefTargets) {
+    if (!ids.has(target)) {
+      throw new Error(`MMI_HTML_UNRESOLVED_IDREF: ${attribute} references ${JSON.stringify(target)} outside selected fragment`);
     }
   }
   return links;
@@ -188,6 +203,14 @@ export function extractHtmlFragment(
   const sourceText = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(sourceBytes);
   const sourceRelative = path.relative(path.dirname(ledgerPath), sourcePath).split(path.sep).join('/');
   const parsed = readHtmlFragments(sourceText, sourceRelative, originalDigest);
+  // A <base> element outside the selected subtree still changes URL
+  // resolution of the source; do not lose it silently during extraction.
+  const hasDocumentBase = (node: HtmlNode): boolean =>
+    (isElement(node) && node.tagName.toLowerCase() === 'base')
+    || childrenOf(node).some(hasDocumentBase);
+  if (hasDocumentBase(parsed.document)) {
+    throw new Error('MMI_HTML_SOURCE_BASE_DEPENDENCY: source has a base element');
+  }
   const fragment = selectHtmlFragmentById(parsed, options.id, options.expectedFingerprint);
   const externalLinks = validateStaticFragment(fragment.html);
   const outputBytes = Buffer.from(fragment.html + '\n', 'utf8');
