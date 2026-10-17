@@ -16,6 +16,10 @@ import { WorkbookCache } from '../cache/workbookCache.js';
 import { checkDetachedDocument } from '../application/detachCheck.js';
 import { extractHtmlFragment } from '../application/extractHtmlFragment.js';
 import {
+  planHtmlDecomposition,
+  type HtmlPlanSelection,
+} from '../application/htmlDecompositionPlan.js';
+import {
   collectStandaloneTreeCandidates,
 } from '../application/sourceCandidateInventory.js';
 import {
@@ -161,6 +165,11 @@ Commands:
                             Generic .xml lists explicit element nodes; XML Spreadsheet 2003 remains a table source.
                             .txt/.text/.log use deterministic M1 hierarchy hypotheses; conflicting methods are not merged.
                             .html/.htm list explicit main/section/table/figure Candidate fragments (no scripts/URLs fetched).
+  html-plan <source.html>   Analyze reviewed fragment locations and cross-file links without writes
+      --plan <file.json>      workspace-local plan: {"fragments":[{"id":"...","expectedFingerprint":"sha256:...","output":"docs/page.html"}]}
+      --root <workspace>      source and plan file must be inside workspace
+      --json                  print full link proposals and unresolved dependency diagnostics
+                            Exit 1 if the plan contains identified blockers.
   extract <source>          Extract one reviewed Candidate as a standard asset without modifying the source
       --image <n|all>         workbook picture number shown by inspect, or all
       --table <range>         exact detected table Candidate range (requires --sheet)
@@ -281,6 +290,7 @@ export async function main(argv: string[]): Promise<number> {
       image: { type: 'string' },
       tree: { type: 'string' },
       'html-id': { type: 'string' },
+      plan: { type: 'string' },
       'expected-fingerprint': { type: 'string' },
       'tree-method': { type: 'string' },
       range: { type: 'string' },
@@ -443,6 +453,69 @@ export async function main(argv: string[]): Promise<number> {
         ? JSON.stringify(result, null, 2)
         : formatCognitiveArtifactResult(result));
       return resolution.status === 'unavailable' ? 1 : 0;
+    }
+    case 'html-plan': {
+      if (args.length !== 1 || !values.plan) {
+        return usageError('html-plan needs one source.html and --plan <file.json>');
+      }
+      if (values.out) {
+        return usageError('html-plan is read-only; --out is not supported');
+      }
+      const absoluteSource = path.resolve(args[0]);
+      const absolutePlan = path.resolve(values.plan);
+      try {
+        const workspaceReal = fs.realpathSync(root);
+        for (const input of [absoluteSource, absolutePlan]) {
+          if (!isPathWithinBoundary(input, root)
+              || !isPathWithinBoundary(fs.realpathSync(input), workspaceReal)) {
+            throw new Error('MMI_HTML_OUTSIDE_ROOT: source and plan must stay in workspace');
+          }
+        }
+        if (!/\\.html?$/iu.test(absoluteSource)) {
+          return usageError('html-plan source must end with .html or .htm');
+        }
+        const documentBytes = fs.readFileSync(absoluteSource);
+        const htmlText = new TextDecoder('utf-8', {
+          fatal: true, ignoreBOM: true,
+        }).decode(documentBytes);
+        const doc = readHtmlFragments(
+          htmlText,
+          path.relative(root, absoluteSource).split(path.sep).join('/'),
+          createSourceIdentityFromBytes(documentBytes).digest,
+        );
+        const manifest = JSON.parse(fs.readFileSync(absolutePlan, 'utf8')) as {
+          fragments?: unknown;
+        };
+        if (!manifest || typeof manifest !== 'object'
+            || !Array.isArray(manifest.fragments)
+            || manifest.fragments.some((item: unknown) =>
+              !item || typeof item !== 'object'
+              || typeof (item as HtmlPlanSelection).id !== 'string'
+              || typeof (item as HtmlPlanSelection).output !== 'string'
+              || typeof (item as HtmlPlanSelection).expectedFingerprint !== 'string')) {
+          throw new Error('MMI_HTML_PLAN_INVALID: expected fragments with id, output, expectedFingerprint');
+        }
+        const result = planHtmlDecomposition(
+          doc,
+          manifest.fragments as HtmlPlanSelection[],
+        );
+        if (values.json) emit(JSON.stringify(result, null, 2));
+        else {
+          emit([
+            `source: ${result.source}`,
+            `selected fragments: ${result.fragments.length}`,
+            `cross-file links: ${result.anchors.filter((anchor) => anchor.status === 'cross-output').length}`,
+            `identified blockers: ${result.problems.length}`,
+            ...result.anchors.filter((anchor) => anchor.status === 'cross-output')
+              .map((anchor) => `  ${anchor.sourceId}: ${anchor.href} -> ${anchor.proposedHref}`),
+            ...result.problems.map((problem) => `  ${problem.sourceId}: ${problem.code}: ${problem.detail}`),
+          ].join('\\n'));
+        }
+        return result.hasIdentifiedBlockers ? 1 : 0;
+      } catch (error) {
+        console.error(`mmi: ${error instanceof Error ? error.message : String(error)}`);
+        return 1;
+      }
     }
     case 'inspect': {
       if (args.length !== 1) return usageError('inspect takes one source file');
