@@ -94,6 +94,12 @@ test('rejects overlap, duplicate selection and invalid outputs', () => {
   assert.throws(() => planHtmlDecomposition(doc, [
     selected(doc, 'api', '../escape.html'),
   ]), /MMI_HTML_PLAN_INVALID_OUTPUT/u);
+  for (const invalid of ['docs/CON.html', 'docs/report?.html',
+    'docs/notes .html', 'docs/next\\\\file.html']) {
+    assert.throws(() => planHtmlDecomposition(doc, [
+      selected(doc, 'api', invalid),
+    ]), /MMI_HTML_PLAN_INVALID_OUTPUT/u);
+  }
 });
 
 test('rejects stale review fingerprints and nonunique source IDs', () => {
