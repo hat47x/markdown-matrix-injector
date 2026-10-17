@@ -32,7 +32,10 @@ export interface HtmlPlanProblem {
     | 'MMI_HTML_UNMATERIALIZED_ASSET'
     | 'MMI_HTML_UNMATERIALIZED_LINK'
     | 'MMI_HTML_ACTIVE_CONTENT'
-    | 'MMI_HTML_INVALID_ANCHOR';
+    | 'MMI_HTML_INVALID_ANCHOR'
+    | 'MMI_HTML_SOURCE_BASE_DEPENDENCY'
+    | 'MMI_HTML_UNRESOLVED_IDREF'
+    | 'MMI_HTML_CROSS_OUTPUT_IDREF';
   sourceId: string;
   detail: string;
 }
@@ -92,11 +95,14 @@ interface ScanResult {
   ids: string[];
   anchors: string[];
   external: string[];
+  idRefs: { target: string; attribute: string }[];
   problems: HtmlPlanProblem[];
 }
 
 function scanFragment(fragment: HtmlFragmentNode, id: string): ScanResult {
-  const scan: ScanResult = { ids: [], anchors: [], external: [], problems: [] };
+  const scan: ScanResult = {
+    ids: [], anchors: [], external: [], idRefs: [], problems: [],
+  };
   const problem = (code: HtmlPlanProblem['code'], detail: string): void => {
     scan.problems.push({ code, sourceId: id, detail });
   };
@@ -114,6 +120,15 @@ function scanFragment(fragment: HtmlFragmentNode, id: string): ScanResult {
         const name = attr.name.toLowerCase();
         const value = attr.value.trim();
         if (name === 'id') scan.ids.push(value);
+        if (['aria-labelledby', 'aria-describedby', 'aria-controls',
+          'aria-details', 'headers'].includes(name)) {
+          for (const target of value.split(/\s+/u).filter(Boolean)) {
+            scan.idRefs.push({ target, attribute: name });
+          }
+        }
+        if (['for', 'list', 'form'].includes(name) && value) {
+          scan.idRefs.push({ target: value, attribute: name });
+        }
         if (/^on[a-z]/u.test(name) || name === 'srcdoc' || name === 'style'
           || /url\s*\(/iu.test(value)) {
           problem('MMI_HTML_ACTIVE_CONTENT', `unsupported attribute: ${name}`);
@@ -203,11 +218,40 @@ export function planHtmlDecomposition(
   };
   countSourceIds(document.document);
 
+  const sourceUsesBase = (node: HtmlNode): boolean => {
+    if (isElement(node) && node.tagName.toLowerCase() === 'base') return true;
+    return childNodes(node).some(sourceUsesBase);
+  };
+
   const anchors: HtmlPlanAnchor[] = [];
   const problems = scans.flatMap(({ scan }) => scan.problems);
+  if (sourceUsesBase(document.document)) {
+    problems.push({
+      code: 'MMI_HTML_SOURCE_BASE_DEPENDENCY',
+      sourceId: '(document)',
+      detail: 'source contains a base element; URL resolution must be reviewed',
+    });
+  }
   const externalLinks = scans.flatMap(({ item, scan }) =>
     scan.external.map((href) => ({ sourceId: item.id, href })));
   for (const { item, scan } of scans) {
+    for (const { target, attribute } of scan.idRefs) {
+      const owners = owningFragments.get(target) ?? [];
+      const count = sourceIdCounts.get(target) ?? 0;
+      if (count !== 1 || owners.length !== 1) {
+        problems.push({
+          code: 'MMI_HTML_UNRESOLVED_IDREF',
+          sourceId: item.id,
+          detail: `${attribute} references ${JSON.stringify(target)} without one selected, unique target`,
+        });
+      } else if (owners[0].output !== item.output) {
+        problems.push({
+          code: 'MMI_HTML_CROSS_OUTPUT_IDREF',
+          sourceId: item.id,
+          detail: `${attribute} references ${JSON.stringify(target)} in another output; cannot rewrite as a normal HTML IDREF`,
+        });
+      }
+    }
     for (const href of scan.anchors) {
       let decoded: string;
       try {
