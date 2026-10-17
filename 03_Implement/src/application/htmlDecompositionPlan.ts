@@ -79,8 +79,11 @@ function childNodes(node: HtmlNode): readonly HtmlNode[] {
 function portableOutput(output: string): string {
   if (!output || output.includes('\\') || output.startsWith('/')
     || /^[a-z]:/iu.test(output)
-    || output.includes('\0')
-    || output.split('/').some((part) => part === '' || part === '.' || part === '..')
+    || /[\x00-\x1f<>:"|?*]/u.test(output)
+    || output.split('/').some((part) =>
+      part === '' || part === '.' || part === '..'
+      || /[. ]$/u.test(part)
+      || /^(con|prn|aux|nul|com[1-9]|lpt[1-9])(?:\.|$)/iu.test(part))
     || !/\.html?$/iu.test(output)) {
     throw new Error('MMI_HTML_PLAN_INVALID_OUTPUT: use a plain workspace-relative .html path');
   }
@@ -173,7 +176,7 @@ export function planHtmlDecomposition(
     }
     usedIds.add(selection.id);
     const output = portableOutput(selection.output);
-    const outputKey = output.toLowerCase();
+    const outputKey = output.normalize('NFC').toLowerCase();
     if (usedOutputs.has(outputKey)) {
       throw new Error('MMI_HTML_PLAN_DUPLICATE_OUTPUT: two fragments share an output path');
     }
