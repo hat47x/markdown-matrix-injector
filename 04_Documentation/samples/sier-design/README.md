@@ -2,6 +2,8 @@
 
 > この資料は過去の検証記録です。最新の導入手順は [実務サンプル](../practical/README.md)、実機・PDFの確認範囲は [2026-09-08以降の検証記録](../../release-validation-2026-09-08.md) を参照してください。下記の経路Aは未検証であり、推奨経路とは扱いません。
 
+`design-doc-sample.md`のG4節には、作成時点の「推奨経路A」という説明も残っています。**実際に確認したPDF生成経路は本READMEの経路B**です。サンプル本文にある古い記述だけを根拠に、VS CodeのMarkdown PDF拡張からの直接出力を検証済みと判断しないでください。
+
 **目的**: 代表的なSIerの設計書を題材に、ADR-0010が定める公開品質の判定条件であるG2（企業向け出力の実証）とG4（適用範囲の正確な説明）を実証するためのサンプルです。
 
 ## ファイル構成
@@ -33,7 +35,7 @@
 
 ## G2: 実 PDF 生成（手動確認ステップ）
 
-以下ではPDFを生成する経路を分けて説明します。経路Aの画面操作はWSL2のヘッドレス環境では実行できません。一方、経路Bはヘッドレス環境で実証済みです。
+以下ではPDFを生成する経路を分けて説明します。経路Aの画面操作はWSL2のヘッドレス環境では実行できません。一方、経路Bは**2026年6月3日のヘッドレス検証**で実証済みです。既存のWordやExcel・CSVを廃止する必要はなく、MMIは参照元の表を読み取り専用で扱います。
 
 ### 経路 A（未検証）: VS Code + Markdown PDF 拡張機能
 
@@ -50,10 +52,12 @@
 > **重要**: PDFへ変換するHTMLには、**MMIの処理系で`![[...]]`を展開したもの**を使うこと。
 > Pandocだけで生成したHTMLでは埋め込み参照が未展開のまま残り、表・横向き表示・カードのいずれも表示されません。
 
+リポジトリの**ルートディレクトリから**以下を実行する例です。先に`03_Implement`の依存関係が導入されている必要があります。`( ... )`内の移動はサブシェルに限定され、後続の`weasyprint`はリポジトリルート基準のパスで実行されます。
+
 ```bash
 # 1) 本サンプル同梱の rendered.html は MMI で展開済み（render-sample-html.ts 生成）。
 #    自分で再生成する場合:
-cd 03_Implement && node --import tsx scripts/render-sample-html.ts
+(cd 03_Implement && node --import tsx scripts/render-sample-html.ts)
 
 # 2) weasyprint で PDF 化
 weasyprint 04_Documentation/samples/sier-design/design-doc-sample-rendered.html output.pdf
@@ -61,7 +65,11 @@ weasyprint 04_Documentation/samples/sier-design/design-doc-sample-rendered.html 
 
 この経路は2026年6月3日に検証済みです（`design-doc-sample.pdf`、7ページ）。検証ログ: `04_Documentation/samples/manual-e2e-g1-g2-result-2026-06-03.md`。
 
+検証ログには、**当時の**`design-doc-sample-rendered.html`がPandoc単独で生成され、MMIの表に展開されていなかったという問題も記録されています。一方、**現在Git管理されている**同名のHTMLにはMMIで展開された表・カードの要素が含まれます（ファイル内容の静的確認）。この時点差を、新たにPDFを再生成・実機確認した証拠と混同しないでください。
+
 ### 経路 C: MMI レンダリング HTML → Chromium headless print
+
+次は選択可能な変換方法を示す例です。このコマンドによる**今回の実行結果や印刷品質の合格記録ではありません**。最終レイアウトは利用するChromiumのバージョンやCSS対応範囲によります。
 
 ```bash
 # Chromium/Chrome が必要。HTML は経路 B 同様 MMI 展開済みのものを使う
