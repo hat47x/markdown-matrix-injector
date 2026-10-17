@@ -1,4 +1,6 @@
-# Issue: Query Evidence 出力ファイル名生成を helper 化してテスト可能にする
+# Issue: クエリ証跡の出力パス生成を共通関数にまとめる
+
+この文書は、当時の出力パス生成処理の整理と完了状態を残したIssue記録です。検証計画と2026年3月29日の実行証跡は当時のものであり、現在のコード構成や動作を新たに確認したものではありません。
 
 ## Meta
 - Type: Refactor
@@ -11,24 +13,24 @@
 - Related Backlog/Phase: Phase 6 Documentation feedback loop
 - Related ADR/Spec: `01_Plans/issues/issue-0031-query-evidence-filename-scoping.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- `buildQueryEvidenceOutputPaths(markdownFilePath)` helperを `vscodeAdapters.ts` に追加し、CSV/JSON/MDのファイル名規則を集約する。
-- `extension.ts` はhelperを利用して出力パスを算出し、命名ロジックの重複を排除する。
-- `queryEvidence.test.ts` にhelperのユニットテストを追加し、basenameのみがprefixへ反映されることを固定する。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- 共通関数（helper）`buildQueryEvidenceOutputPaths(markdownFilePath)`を`vscodeAdapters.ts`に追加し、CSV・JSON・Markdownの出力ファイル名を決める規則を一か所にまとめる。
+- `extension.ts`ではこの共通関数を使って出力先のパスを計算し、同じファイル名の決定処理が複数箇所に分かれないようにする。
+- `queryEvidence.test.ts`に共通関数の単体テストを追加し、元のファイルパスのうちファイル名部分（basename）だけが出力名の接頭部分（prefix）に使われることを確認できるようにする。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] 出力パス生成ロジックがhelperに集約される。
 - [x] helperのユニットテストが追加される。
 - [x] `npm test` が通過する。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] helper実装を追加する。
 - [x] extension側でhelperを利用する。
 - [x] unit testを追加する。
 - [x] `npm test` を実行する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `cd 03_Implement && npm test`
 
 ## Validation evidence (実行証跡)
