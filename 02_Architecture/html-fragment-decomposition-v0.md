@@ -134,3 +134,34 @@ mmi extract source.html --root ./project --html-id sequence \\
 - #504 / ADR-0024（命名）: 文書の分解・再構成・統合を製品価値の評価軸に加えるが、上位名称や互換識別子の変更は行わない。
 
 後続の機能開発は#553で追跡し、文書の実装状態は機械テスト、製品接続、実環境受入と分けて記録する。
+
+## 11. 複数断片の参照計画（2026-10-17、Draft PR #555の追加PoC）
+
+**対応コード**: `src/application/htmlDecompositionPlan.ts`、`test/htmlDecompositionPlan.test.ts`、`test/htmlDecompositionPlanCli.test.ts`。**コード追加のみで実行検証は未実施**。
+
+`mmi html-plan <source.html> --plan <selections.json> --root <workspace> --json` は、生成AIなどが提案した複数断片の移行先を、原本DOMと照合して**読み取り専用**で計画する。HTML本文・ledger・保存先ファイルを書き換えない。
+
+manifestは次の形を想定する（`sha256:...`は例示であり実際にはinspect結果のfingerprintを使用する）。
+
+```json
+{
+  "fragments": [
+    {"id": "overview", "output": "docs/overview.html", "expectedFingerprint": "sha256:<inspect-result>"},
+    {"id": "api", "output": "docs/api.html", "expectedFingerprint": "sha256:<inspect-result>"}
+  ]
+}
+```
+
+fixtureの`#overview`にある`href="#api"`は、両方を移す提案であれば`api.html#api`という**書換え候補**になる。一方、overview単独では参照先が選択範囲外となるため、`MMI_HTML_UNRESOLVED_ANCHOR`を返す。
+
+このPoCが確認しようとする観点：
+
+- 選択した断片のIDとレビュー時fingerprintが一致しているか。
+- 階層的に重なる選択（`#spec`と`#overview`など）や、出力先の重複がないか。
+- 全原本DOMでアンカーIDが重複していないか。選択範囲外の重複IDも曖昧さとして検出する。
+- 同じ出力へ残るアンカーと、別出力へ移すためのリンク書換え提案を区別できるか。
+- 画像等の付帯資産、未対応相対参照、能動的コンテンツを、移行前の阻害として報告できるか。
+
+`hasIdentifiedBlockers=false` は、現在実装した検査では阻害が見つからなかったことだけを示す。**書換えの適用、ファイル保存、意味的同等性、外部CSSや画像を含む閉包、出版品質についての合格とはしない**。
+
+後続で計画適用を実装する場合も、実際のファイル保存前にsource snapshot／各断片fingerprint／出力・依存関係を再確認し、複数断片を一つの操作として成立させる必要がある。今回の`html-plan`は読み取りと提案に限定されるため、既存の書き込み操作と同義にしない。
