@@ -1,4 +1,6 @@
-# Issue: Phase 6 スクリーンショット証跡パック整備（Visual Aid 実画面の追加）
+# Issue: Phase 6で実画面のスクリーンショットと更新手順を整える
+
+この文書は、Phase 6当時の実画面スクリーンショット整備の提案・完了状態・検証履歴を残したIssue記録です。記載された画像の配置や検証結果は当時の内容であり、現在の画像資産や表示を新たに確認したものではありません。
 
 ## Meta
 - Type: Docs
@@ -11,26 +13,26 @@
 - Related Backlog/Phase: Phase 6 Public Documentation & Adoption
 - Related ADR/Spec: `00_Prompt/requirements.md` (Phase 6 Documentation quality gate), `01_Plans/issues/issue-0026-phase6-faq-and-visual-assets-coverage.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- 比較表中心で整備したvisual aidを補完するため、実画面スクリーンショットを最小3ケース（通常埋め込み / Smart Fallback / 印刷制御確認）で追加する。
-- 画像は `04_Documentation/samples/` 配下に配置し、READMEの導線表から各文書の該当節へ1ホップで到達できる構造に統一する。
-- 画像更新の運用ルール（撮影条件、VSCodeバージョン、テーマ、再撮影トリガー）を文書化し、次回docs auditの再現性を確保する。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- 比較表を中心とした視覚補助資料（visual aid）を補うため、実際の画面のスクリーンショットを少なくとも3ケース分追加する。対象は通常の埋め込み、Smart Fallback、印刷制御の確認とする。
+- 画像は`04_Documentation/samples/`配下に置き、READMEの案内表から各文書の該当箇所へ1回の移動でたどれる構成にそろえる。
+- 撮影条件、VS Codeのバージョン、表示テーマ、撮り直す条件を画像更新の運用ルールとして文書化する。次回の文書監査（docs audit）でも、同じ条件を確認できるようにする。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] `overview.md` / `tutorial.md` / `scenario-sier-design-docs.md` のうち少なくとも2文書に、実画面スクリーンショットを埋め込み表示する。
 - [x] スクリーンショットは最低3種類（通常埋め込み、Smart Fallback、印刷制御関連）を満たす。
 - [x] `04_Documentation/README.md` に画像配置先と参照節の導線を追加する。
 - [x] 画像更新運用ルールを `04_Documentation/samples/README.md` へ追記する。
 - [x] `python3 01_Plans/tools/planning_queue.py` 実行でorphan issueが0件のままである。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] 画像ケース定義（3ケース）と撮影条件を確定する。
 - [x] 画像ファイルを配置し、対象文書へ埋め込みリンクを追加する。
 - [x] README導線とsamples運用ルールを更新する。
 - [x] triageコマンドを実行してpending/orphan状態を確認する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `python3 01_Plans/tools/planning_queue.py`
 - `rg "!\[.*\]\(.*\)|スクリーンショット|Smart Fallback|印刷制御" 04_Documentation/README.md 04_Documentation/overview.md 04_Documentation/tutorial.md 04_Documentation/scenario-sier-design-docs.md 04_Documentation/samples/README.md`
 
