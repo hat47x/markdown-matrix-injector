@@ -99,7 +99,7 @@ v0では自動GC（不要な保存データの自動回収）を行わない。c
 
 `--offline`（ネットワークを使わない指定）ではHTTPSへアクセスしない。
 
-verified cache（照合済みのcache）、local file、またはdigestまで確認できるruntime-managed artifactがあれば利用できる。いずれも無い場合は該当する認知providerだけを `unavailable`（利用できない状態）とする。通常検索やAuthority Planeへfallback（代替経路への切り替え）の権限を持ち込まない。
+verified cache（照合済みのcache）、local file、またはdigestまで確認できるruntime-managed artifactがあれば利用できる。いずれも無い場合は認知資産の解決結果を `unavailable`（利用できない状態）として返し、その資産に依存する認知処理を利用できないものとして扱う。これはprovider自体の状態を変更することではない。通常検索やAuthority Planeへfallback（代替経路への切り替え）の権限を持ち込まない。
 
 ## 既存local embeddingとの接続
 
