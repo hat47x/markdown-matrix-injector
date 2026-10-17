@@ -29,7 +29,7 @@ satisfied | blocked
 
 TypeScriptの構造型（必要な項目と型が揃っているかを見る仕組み）だけでは、「本当にAuthority Planeが発行した」ことまでは証明できない。
 
-v1で保証するのは:
+v1の保証範囲は、次の事項を確認するための**構造・整合性境界**に限られる。
 
 - issuer metadataが明示される
 - source digestが一致する
@@ -37,7 +37,7 @@ v1で保証するのは:
 - scopeとstatusの組み合わせが妥当
 - evidence codeが存在する
 
-という**構造・整合性境界**である。これは、記録の内容が契約に合っているかを確かめるもので、発行者の真正性を証明するものではない。
+この境界は、記録の内容が契約に合っているかを確かめるもので、発行者の真正性を証明するものではない。
 
 production接続時は、Receipt builder（Receiptを組み立てる処理）をAuthority module内部へ閉じる、署名やprocess boundary（処理主体を分ける境界）を導入する等、実行主体の真正性を別途担保する必要がある。
 
