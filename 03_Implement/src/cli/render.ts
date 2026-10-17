@@ -15,6 +15,7 @@ import { getImmediateSmartFallbackDecision, getSmartFallbackDecisionAfterLoad } 
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
 import { extractEmbedQueries, type EmbedQuery } from '../parser/embedSyntax.js';
 import { markdownMatrixPlugin } from '../plugin/markdownMatrixPlugin.js';
+import { cliErrorText } from './messageLanguage.js';
 
 export interface RenderOptions {
   markdownFilePath: string;
@@ -63,7 +64,7 @@ export function renderDocumentMarkdown(options: RenderOptions): string {
       try {
         result = result.replace(embed.raw, () => `\n\n${expandEmbed(embed, options, cache)}\n\n`);
       } catch (error) {
-        errors.push(`${index + 1}: ${embed.raw}: ${error instanceof Error ? error.message : String(error)}`);
+        errors.push(`${index + 1}: ${embed.raw}: ${cliErrorText(error)}`);
       }
     }
     return result;

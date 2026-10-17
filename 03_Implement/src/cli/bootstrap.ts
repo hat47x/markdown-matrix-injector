@@ -10,6 +10,7 @@
 // Node built-ins only: safe to load on any supported or unsupported Node version.
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { cliErrorText } from './messageLanguage.js';
 
 export const MINIMUM_NODE_MAJOR = 20;
 
@@ -52,7 +53,7 @@ if (
     (code) => { process.exitCode = code; },
     (error) => {
       console.error(
-        `mmi: ${error instanceof Error ? error.message : String(error)}`,
+        `mmi: ${cliErrorText(error)}`,
       );
       process.exitCode = 2;
     },

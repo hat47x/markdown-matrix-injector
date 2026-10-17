@@ -22,6 +22,7 @@ import {
   createSourceIdentityFromBytes,
 } from '../core/sourceIdentity.js';
 import { loadWorkbookFromBytes, type WorkbookData } from '../core/workbookLoader.js';
+import { cliErrorText } from './messageLanguage.js';
 import { detectedTableRectsBySheet } from '../importAssist/tableRegions.js';
 import { parseEmbedSyntax, type EmbedQuery } from '../parser/embedSyntax.js';
 
@@ -493,7 +494,7 @@ export function finalizeReviewedImageExtraction(
   } catch (error) {
     result.problems.push({
       code: 'MMI_IMAGE_REVIEW_STALE',
-      message: error instanceof Error ? error.message : String(error),
+      message: cliErrorText(error),
     });
     return result;
   }
@@ -670,7 +671,7 @@ export function extractTable(options: ExtractTableOptions): ExtractTableResult {
   } catch (error) {
     result.problems.push({
       code: 'MMI_TABLE_EXTRACT_FAILED',
-      message: error instanceof Error ? error.message : String(error),
+      message: cliErrorText(error),
     });
     return result;
   }

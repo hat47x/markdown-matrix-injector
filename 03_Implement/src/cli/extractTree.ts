@@ -28,6 +28,7 @@ import {
 } from '../adapters/tabularHierarchyAdapter.js';
 import { entryFor, recordEntries } from '../core/importLedger.js';
 import { loadWorkbook } from '../core/workbookLoader.js';
+import { cliErrorText } from './messageLanguage.js';
 import { decodeJsonUtf8 } from '../core/jsonFormat.js';
 import {
   decodeGenericXmlUtf8,
@@ -191,7 +192,7 @@ export function extractJsonTree(
   } catch (error) {
     result.problems.push({
       code: 'MMI_TREE_JSON_INVALID',
-      message: error instanceof Error ? error.message : String(error),
+      message: cliErrorText(error),
     });
     return result;
   }

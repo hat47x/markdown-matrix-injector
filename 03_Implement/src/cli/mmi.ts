@@ -104,6 +104,7 @@ import {
   runtimeManagedArtifactFromEmbeddingModel,
 } from '../search/semantic/runtimeDiscovery.js';
 import { runFind, runSelect } from './navigateCommands.js';
+import { cliErrorText, cliMessageLanguage } from './messageLanguage.js';
 import { extractImages, extractTable, formatImageDiagnostics } from './extract.js';
 import {
   extractFlatTextTree,
@@ -382,7 +383,7 @@ export async function main(argv: string[]): Promise<number> {
         );
       } catch (error) {
         console.error(
-          `mmi: artifact manifest: ${error instanceof Error ? error.message : String(error)}`,
+          `mmi: artifact manifest: ${cliErrorText(error)}`,
         );
         return 1;
       }
@@ -405,7 +406,7 @@ export async function main(argv: string[]): Promise<number> {
         });
       } catch (error) {
         console.error(
-          `mmi: artifact: ${error instanceof Error ? error.message : String(error)}`,
+          `mmi: artifact: ${cliErrorText(error)}`,
         );
         return 1;
       }
@@ -732,7 +733,7 @@ export async function main(argv: string[]): Promise<number> {
             });
       } catch (error) {
         if (!(error instanceof RegionSnapshotError)) throw error;
-        console.error(`mmi: ${error.code}: ${error.message}`);
+        console.error(`mmi: ${error.code}: ${cliErrorText(error)}`);
         return 1;
       }
 
@@ -817,7 +818,7 @@ export async function main(argv: string[]): Promise<number> {
           sourceCopied = sourcePath !== inputSourcePath;
         } catch (error) {
           console.error(
-            `mmi: import source intake failed: ${error instanceof Error ? error.message : String(error)}`,
+            `mmi: import source intake failed: ${cliErrorText(error)}`,
           );
           return 1;
         }
@@ -834,7 +835,7 @@ export async function main(argv: string[]): Promise<number> {
       } catch (error) {
         if (sourceCopyCreated) fs.rmSync(sourcePath, { force: true });
         console.error(
-          `mmi: import failed: ${error instanceof Error ? error.message : String(error)}`,
+          `mmi: import failed: ${cliErrorText(error)}`,
         );
         return 1;
       }
@@ -1902,11 +1903,13 @@ export interface CheckProblem {
 
 export async function checkPaths(files: string[], root: string): Promise<CheckProblem[]> {
   const cache = new WorkbookCache<WorkbookData>();
+  const locale = cliMessageLanguage();
   const problems: CheckProblem[] = [];
   for (const file of files) {
     const absolute = path.resolve(file);
     const text = fs.readFileSync(absolute, 'utf8');
     const items = await createDiagnosticsForDocument(text, absolute, root, {
+      locale,
       fileExists: async (filepath) => fs.existsSync(filepath) && fs.statSync(filepath).isFile(),
       readFile: async (filepath) => fs.readFileSync(filepath),
       readWorkbookSheetNames: async (filepath) => Object.keys(loadWorkbook({ absolutePath: filepath, cache }).sheets),
@@ -1952,7 +1955,7 @@ function collectMarkdownFiles(target: string): string[] {
 
 if (process.argv[1] && fs.realpathSync(process.argv[1]) === fs.realpathSync(fileURLToPath(import.meta.url))) {
   main(process.argv.slice(2)).then((code) => { process.exitCode = code; }, (error) => {
-    console.error(`mmi: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`mmi: ${cliErrorText(error)}`);
     process.exitCode = 2;
   });
 }

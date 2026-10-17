@@ -54,6 +54,8 @@ docs/基本設計書.md:10:29 error MMI_SHEET_NOT_FOUND Sheet not found: 受注�
 参照 3件、エラー 1件、警告・情報 0件
 ```
 
+メッセージの言語は環境変数`MMI_LANGUAGE`で選べます（例: `set MMI_LANGUAGE=ja`）。未指定・`auto`のときは英語です。エラーコードと機械処理向けの既定出力は言語が変わっても英語のままです。
+
 ## 知っておくこと
 
 - 列は見出しから選べます。ただし、参照記法にはExcelの列文字が記録されます。Excelに列を挿入すると、参照先が別の列へ変わることがあります。見出しによる指定を参照記法へ残すかどうかは、[ADR-0022](../01_Plans/adr/ADR-0022-semantic-selection-in-notation.md)で検討中です。
