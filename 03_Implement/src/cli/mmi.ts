@@ -9,9 +9,16 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
+import { readHtmlFragments } from '../adapters/htmlFragmentAdapter.js';
+import { createSourceIdentityFromBytes } from '../core/sourceIdentity.js';
 import XLSX from 'xlsx';
 import { WorkbookCache } from '../cache/workbookCache.js';
 import { checkDetachedDocument } from '../application/detachCheck.js';
+import { extractHtmlFragment } from '../application/extractHtmlFragment.js';
+import {
+  planHtmlDecomposition,
+  type HtmlPlanSelection,
+} from '../application/htmlDecompositionPlan.js';
 import {
   collectStandaloneTreeCandidates,
 } from '../application/sourceCandidateInventory.js';
@@ -139,7 +146,7 @@ Commands:
       --download              explicitly allow HTTPS acquisition after showing manifest metadata
       --offline               forbid HTTPS access; use verified cache/local/runtime-managed sources only
                             Runtime-managed Ollama/LM Studio models are discovered only for this explicit command.
-  inspect <source>          List workbook/CSV regions or JSON/YAML/XML/flat-text Tree structure.
+  inspect <source>          List workbook/CSV regions, structured Trees, or static HTML DOM fragments.
                             --json adds Semantic Candidates with status, method, provenance and fingerprint
       --values <n>            also print the first n body rows of each region
       --from <doc.md>         write suggested references relative to this document
@@ -161,6 +168,12 @@ Commands:
                             YAML anchors/aliases/merge keys/explicit tags/non-string keys are rejected.
                             Generic .xml lists explicit element nodes; XML Spreadsheet 2003 remains a table source.
                             .txt/.text/.log use deterministic M1 hierarchy hypotheses; conflicting methods are not merged.
+                            .html/.htm list explicit main/section/table/figure Candidate fragments (no scripts/URLs fetched).
+  html-plan <source.html>   Analyze reviewed fragment locations and cross-file links without writes
+      --plan <file.json>      workspace-local plan: {"fragments":[{"id":"...","expectedFingerprint":"sha256:...","output":"docs/page.html"}]}
+      --root <workspace>      source and plan file must be inside workspace
+      --json                  print full link proposals and unresolved dependency diagnostics
+                            Exit 1 if the plan contains identified blockers.
   extract <source>          Extract one reviewed Candidate as a standard asset without modifying the source
       --image <n|all>         workbook picture number shown by inspect, or all
       --table <range>         exact detected table Candidate range (requires --sheet)
@@ -171,10 +184,16 @@ Commands:
       --tree-level-columns <list>
                               tabular Tree: exact header names Level,Label
       --sheet <name>          sheet for --table or tabular --tree
-                            Exactly one of --image, --table or --tree is required
+      --html-id <id>           static HTML5 fragment with this unique DOM ID
+      --expected-fingerprint <sha256:...>
+                               required review-time fingerprint from inspect --json
+                            Exactly one of --image, --table, --tree or --html-id is required
       --out-dir <dir>         assets folder (default: assets); files are content-addressed
       --from <doc.md>         provenance/source labels are relative to this document
       --ledger <file>         import ledger (default: <root>/mmi-ledger.json)
+                            HTML output is normalized .html, not Markdown or a safe publication.
+                            HTML output dir default: <root>/assets/html. Local unresolved links
+                            and active content fail closed. --root is the workspace boundary.
   snapshot <workbook>       Render one sheet range as a deterministic visual snapshot
       --renderer <name>       libreoffice (PNG, default) or native-svg (dependency-free SVG)
       --sheet <name>          worksheet to render with --range
@@ -274,6 +293,9 @@ export async function main(argv: string[]): Promise<number> {
       from: { type: 'string' },
       image: { type: 'string' },
       tree: { type: 'string' },
+      'html-id': { type: 'string' },
+      plan: { type: 'string' },
+      'expected-fingerprint': { type: 'string' },
       'tree-method': { type: 'string' },
       range: { type: 'string' },
       hint: { type: 'string' },
@@ -436,6 +458,69 @@ export async function main(argv: string[]): Promise<number> {
         : formatCognitiveArtifactResult(result));
       return resolution.status === 'unavailable' ? 1 : 0;
     }
+    case 'html-plan': {
+      if (args.length !== 1 || !values.plan) {
+        return usageError('html-plan needs one source.html and --plan <file.json>');
+      }
+      if (values.out) {
+        return usageError('html-plan is read-only; --out is not supported');
+      }
+      const absoluteSource = path.resolve(args[0]);
+      const absolutePlan = path.resolve(values.plan);
+      try {
+        const workspaceReal = fs.realpathSync(root);
+        for (const input of [absoluteSource, absolutePlan]) {
+          if (!isPathWithinBoundary(input, root)
+              || !isPathWithinBoundary(fs.realpathSync(input), workspaceReal)) {
+            throw new Error('MMI_HTML_OUTSIDE_ROOT: source and plan must stay in workspace');
+          }
+        }
+        if (!/\.html?$/iu.test(absoluteSource)) {
+          return usageError('html-plan source must end with .html or .htm');
+        }
+        const documentBytes = fs.readFileSync(absoluteSource);
+        const htmlText = new TextDecoder('utf-8', {
+          fatal: true, ignoreBOM: true,
+        }).decode(documentBytes);
+        const doc = readHtmlFragments(
+          htmlText,
+          path.relative(root, absoluteSource).split(path.sep).join('/'),
+          createSourceIdentityFromBytes(documentBytes).digest,
+        );
+        const manifest = JSON.parse(fs.readFileSync(absolutePlan, 'utf8')) as {
+          fragments?: unknown;
+        };
+        if (!manifest || typeof manifest !== 'object'
+            || !Array.isArray(manifest.fragments)
+            || manifest.fragments.some((item: unknown) =>
+              !item || typeof item !== 'object'
+              || typeof (item as HtmlPlanSelection).id !== 'string'
+              || typeof (item as HtmlPlanSelection).output !== 'string'
+              || typeof (item as HtmlPlanSelection).expectedFingerprint !== 'string')) {
+          throw new Error('MMI_HTML_PLAN_INVALID: expected fragments with id, output, expectedFingerprint');
+        }
+        const result = planHtmlDecomposition(
+          doc,
+          manifest.fragments as HtmlPlanSelection[],
+        );
+        if (values.json) emit(JSON.stringify(result, null, 2));
+        else {
+          emit([
+            `source: ${result.source}`,
+            `selected fragments: ${result.fragments.length}`,
+            `cross-file links: ${result.anchors.filter((anchor) => anchor.status === 'cross-output').length}`,
+            `identified blockers: ${result.problems.length}`,
+            ...result.anchors.filter((anchor) => anchor.status === 'cross-output')
+              .map((anchor) => `  ${anchor.sourceId}: ${anchor.href} -> ${anchor.proposedHref}`),
+            ...result.problems.map((problem) => `  ${problem.sourceId}: ${problem.code}: ${problem.detail}`),
+          ].join('\n'));
+        }
+        return result.hasIdentifiedBlockers ? 1 : 0;
+      } catch (error) {
+        console.error(`mmi: ${error instanceof Error ? error.message : String(error)}`);
+        return 1;
+      }
+    }
     case 'inspect': {
       if (args.length !== 1) return usageError('inspect takes one source file');
       if (values.unimported && values['exclude-imported']) {
@@ -481,9 +566,9 @@ export async function main(argv: string[]): Promise<number> {
         tabularHierarchy,
       );
       if (values['import-assist']) {
-        if (raw.trees !== undefined) {
+        if (raw.trees !== undefined || raw.htmlFragments !== undefined) {
           return usageError(
-            'inspect --import-assist applies to workbook/grid sources, not explicit Tree sources',
+            'inspect --import-assist applies only to workbook/grid sources, not Tree or HTML sources',
           );
         }
         raw.importAssistance = inspectImportAssistance(absoluteSource, values.from);
@@ -516,10 +601,11 @@ export async function main(argv: string[]): Promise<number> {
         values.image !== undefined,
         values.table !== undefined,
         values.tree !== undefined,
+        values['html-id'] !== undefined,
       ].filter(Boolean).length;
       if (selectors !== 1) {
         return usageError(
-          'extract needs exactly one of --image <n|all>, --table <range> or --tree <pointer|root>',
+          'extract needs exactly one of --image, --table, --tree or --html-id',
         );
       }
       const sourcePath = path.resolve(args[0]);
@@ -533,6 +619,37 @@ export async function main(argv: string[]): Promise<number> {
         return usageError(
           '--tree-parent-columns/--tree-level-columns require extract --tree',
         );
+      }
+
+      if (values['html-id'] !== undefined) {
+        if (!/\.html?$/iu.test(sourcePath)) {
+          return usageError('extract --html-id requires a .html or .htm source');
+        }
+        if (!values['expected-fingerprint']) {
+          return usageError('extract --html-id requires --expected-fingerprint from inspect --json');
+        }
+        if (values.out) {
+          return usageError('extract --html-id does not support --out; use --out-dir');
+        }
+        if (values.sheet || values['tree-parent-columns'] || values['tree-level-columns']) {
+          return usageError('extract --html-id cannot use workbook/Tree selectors');
+        }
+        try {
+          const extracted = extractHtmlFragment({
+            sourcePath,
+            id: values['html-id'],
+            expectedFingerprint: values['expected-fingerprint'],
+            workspaceRoot: root,
+            outDir: path.resolve(root, values['out-dir'] ?? 'assets/html'),
+            ledgerPath,
+          });
+          if (values.json) emit(JSON.stringify(extracted, null, 2));
+          else emit(`HTML fragment: ${extracted.path} (${extracted.status})`);
+          return 0;
+        } catch (error) {
+          console.error(`mmi: ${error instanceof Error ? error.message : String(error)}`);
+          return 1;
+        }
       }
 
       if (values.tree !== undefined) {
@@ -1418,6 +1535,14 @@ export interface InspectResult {
   treeAmbiguous?: boolean;
   /** The same structure as Semantic Candidates (issue-0193). */
   candidates: Candidate[];
+  /** Read-only static HTML5 DOM candidates; no serialized HTML in inspect output. */
+  htmlFragments?: {
+    tagName: string;
+    id?: string;
+    structuralPath: string;
+    kind: Candidate['kind'];
+    fingerprint: string;
+  }[];
   /** Embedded pictures of an .xlsx/.xlsm (empty for other sources). */
   images: InspectImage[];
   /** DrawingML AutoShape / connector objects. */
@@ -1520,6 +1645,35 @@ export function inspectSource(
   const base = fromDocument ? path.dirname(path.resolve(fromDocument)) : process.cwd();
   let relative = path.relative(base, absolutePath).split(path.sep).join('/');
   if (!relative.startsWith('.')) relative = `./${relative}`;
+
+  if (/\.html?$/iu.test(absolutePath)) {
+    const bytes = fs.readFileSync(absolutePath);
+    const text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
+    const parsed = readHtmlFragments(
+      text,
+      relative,
+      createSourceIdentityFromBytes(bytes).digest,
+    );
+    return {
+      source: relative,
+      candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
+      candidates: [...parsed.candidates],
+      htmlFragments: parsed.fragments.map((fragment) => ({
+        tagName: fragment.tagName,
+        ...(fragment.id !== undefined ? { id: fragment.id } : {}),
+        structuralPath: fragment.structuralPath,
+        kind: fragment.candidate.kind,
+        fingerprint: fragment.candidate.fingerprint.digest,
+      })),
+      images: [],
+      choiceLists: [],
+      notes: [],
+      choiceListDiagnostics: [],
+      noteDiagnostics: [],
+      imageDiagnostics: [],
+      sheets: [],
+    };
+  }
 
   const standaloneTree = collectStandaloneTreeCandidates(
     absolutePath,
@@ -1751,10 +1905,17 @@ function applyLedgerView(
       allowed.has(
         `note\u0000${item.sheet}\u0000${item.cell}`,
       )),
+    ...(result.htmlFragments
+      ? {
+          htmlFragments: result.htmlFragments.filter((fragment) =>
+            allowed.has(`${fragment.kind}\u0000\u0000path:${fragment.structuralPath}`)),
+        }
+      : {}),
     ...(result.links
       ? {
           links: result.links.filter((item) =>
             allowed.has(`link ${item.sheet} ${item.ref}`)),
+
         }
       : {}),
     ...(result.trees
@@ -1828,6 +1989,14 @@ function formatInspect(result: InspectResult): string {
     for (const hypothesis of result.treeHypotheses) {
       lines.push(
         `  ${hypothesis.method}: ${hypothesis.status} (${hypothesis.reasonCode}, ${hypothesis.nodeCount} nodes)`,
+      );
+    }
+  }
+  if (result.htmlFragments?.length) {
+    lines.push('', 'HTML fragments (observed DOM, no scripts executed):');
+    for (const fragment of result.htmlFragments) {
+      lines.push(
+        `  ${fragment.structuralPath}  ${fragment.tagName}${fragment.id === undefined ? '' : `  #${fragment.id}`}  kind: ${fragment.kind}${ledgerSuffix(fragment.kind, '', `path:${fragment.structuralPath}`)}`,
       );
     }
   }

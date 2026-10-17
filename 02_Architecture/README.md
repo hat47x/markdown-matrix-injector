@@ -17,5 +17,6 @@
 | Excelの機能への対応、目録、見出しによる選択、表の目録（試作） | [表の走査と選択](table-navigation.md) |
 | 取り込み候補の種類・出典・確認状況を扱う共通ルール（表の読込み機能は実装済み） | [Candidate契約 v1](candidate-contract-v1.md) |
 | 入力支援の一次資料と未確認事項 | [技術調査](../01_Plans/input-assistance-technical-research.md) |
+| 静的HTMLから断片を選ぶ・保存する・文書間リンクを計画する（試作） | [HTML断片の選択と再構成 v0](html-fragment-decomposition-v0.md) |
 
 実装は`03_Implement/src/`、テストは`03_Implement/test/`。仕様とコードが食い違う場合は、対象と影響を明示して修正する。過去の構成図を現在の設計として扱わない。

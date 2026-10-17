@@ -33,6 +33,7 @@ function fixture() {
     homepage: 'https://github.com/hat47x/markdown-matrix-injector#readme',
     dependencies: {
       'markdown-it': '^14.1.0',
+      parse5: '7.3.0',
       saxes: '6.0.0',
       xlsx: 'https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz',
       yaml: '2.9.1',
@@ -80,6 +81,7 @@ test('CLI distribution manifest contains runtime-only package contract', () => {
     repository: { type: 'git', url: 'https://example.invalid/repo' },
     dependencies: {
       'markdown-it': '^14.1.0',
+      parse5: '7.3.0',
       saxes: '6.0.0',
       xlsx: 'https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz',
       yaml: '2.9.1',
@@ -101,6 +103,7 @@ test('CLI distribution manifest contains runtime-only package contract', () => {
   ]);
   assert.deepEqual(manifest.dependencies, {
     'markdown-it': '^14.1.0',
+    parse5: '7.3.0',
     saxes: '6.0.0',
     xlsx: 'https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz',
     yaml: '2.9.1',
@@ -293,11 +296,29 @@ test('CLI manifest refuses a missing required runtime dependency', () => {
       license: 'MIT',
       dependencies: {
         'markdown-it': '^14.1.0',
+        parse5: '7.3.0',
         saxes: '6.0.0',
         xlsx: 'https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz',
       },
     }),
     /runtime dependency: yaml/u,
+  );
+});
+
+test('HTML-capable CLI distribution fails closed when parse5 is omitted', () => {
+  assert.throws(
+    () => createCliPackageManifest({
+      name: 'markdown-matrix-injector',
+      version: '0.1.0',
+      license: 'MIT',
+      dependencies: {
+        'markdown-it': '^14.1.0',
+        saxes: '6.0.0',
+        xlsx: 'https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz',
+        yaml: '2.9.1',
+      },
+    }),
+    /runtime dependency: parse5/u,
   );
 });
 

@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="ja">
+<head>
+  <meta charset="utf-8">
+  <title>申請システムの統合設計書（分解用fixture）</title>
+  <style>body { font-family: sans-serif; }</style>
+</head>
+<body>
+  <header id="site-header">
+    <h1>文書ポータル</h1>
+    <nav><a href="/docs">文書一覧</a></nav>
+  </header>
+
+  <main id="spec">
+    <section id="overview">
+      <h2>業務概要</h2>
+      <p>申請の状態については<a href="#api">API仕様</a>を参照します。</p>
+      <figure id="architecture">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 50" role="img" aria-label="構成図">
+          <rect x="1" y="1" width="80" height="40" fill="none" stroke="black"/>
+          <text x="10" y="25">Client</text>
+          <path d="M 85 20 L 115 20" stroke="black"/>
+          <rect x="120" y="1" width="79" height="40" fill="none" stroke="black"/>
+          <text x="133" y="25">API</text>
+        </svg>
+        <figcaption>図1 システム構成</figcaption>
+      </figure>
+    </section>
+
+    <section id="api">
+      <h2>API仕様</h2>
+      <table id="endpoints">
+        <caption>表1 エンドポイント</caption>
+        <thead><tr><th>操作</th><th>パス</th></tr></thead>
+        <tbody>
+          <tr><td>申請登録</td><td>/api/orders</td></tr>
+          <tr><td>状態参照</td><td>/api/orders/{id}</td></tr>
+        </tbody>
+      </table>
+      <figure id="sequence">
+        <pre class="mermaid">sequenceDiagram
+  participant Client
+  participant API
+  Client->>API: POST /api/orders
+  API-->>Client: 201
+        </pre>
+        <figcaption>図2 申請登録シーケンス</figcaption>
+      </figure>
+      <p>詳しくは<a href="https://example.invalid/external">外部資料</a>を参照してください。</p>
+    </section>
+  </main>
+
+  <footer id="site-footer">文書ポータルの共通フッター</footer>
+</body>
+</html>

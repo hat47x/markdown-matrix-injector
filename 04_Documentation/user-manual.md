@@ -230,6 +230,9 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 | `mmi extract <ブック.xlsx> --image <番号\|all>` | Excelに貼られた画像を`assets/`（`--out-dir`で変更）へ書き出し、Markdownの画像参照と出典を出力する。CLIでは同時に`<root>/mmi-ledger.json`へoccurrence・content fingerprint・出力先・変換条件・review basisを記録する（`--ledger`で変更）。同じ画像が別の場所にもある場合は別occurrenceとして残し、review stateを自動継承しない |
 | `mmi snapshot <ブック.xlsx> --sheet <シート> --range <A1:B9>` | 図形やレイアウトに意味がある範囲をLibreOfficeで描画し、PNGと`mmi.region-snapshot/v1` sidecarを生成する。`mmi inspect`で範囲確定済みのdrawing `snapshot hint`が出た場合は、`--sheet` / `--range`の代わりに`--hint <番号>`を使える。VS CodeのCandidateレビューでも、two-cell anchorのShapeから同じregion-snapshot生成を呼べる。終端セルを安全に読めないhintやShapeは自動実行せず、明示rangeを求める。原本は保存しない |
 | `mmi extract <file.json\|file.yaml> --tree <Pointer\|root>` | JSONまたは安全subset YAMLのobject / arrayから1つのTree Candidateを選び、nested listのMarkdown assetへ取り込む。`root`は文書全体、`/service/endpoints`のような値はRFC 6901 JSON Pointer。原本は変更しない。取り込み台帳にはpointer、subtree fingerprint、出力digest、Projection方式を記録する |
+| `mmi inspect <file.html>` | 静的HTML5の`main` / `section` / `table` / `figure`を、原本に明示された構造のCandidateとして一覧にする。見出しから章を推測しない。`--json`で得た断片のfingerprintは`extract --html-id`のレビュー根拠に使う。scriptの実行や外部取得はしない |
+| `mmi extract <file.html> --html-id <id> --expected-fingerprint <sha256:...>` | 明示IDで選んだ断片1つを、正規化した`.html`としてcontent-addressed保存し、`mmi-ledger.json`へ記録する。原本は変更しない。`<base>`の影響、未解決のローカルアンカーや資産、script等の能動的な内容があれば書き出さない |
+| `mmi html-plan <file.html> --plan <選択.json>` | 複数断片の移行先と、断片をまたぐリンクの書換え候補を、原本DOMと照合して読み取り専用で計画する。ファイルは書かない。阻害が見つかれば終了コード1 |
 | `mmi import <ブック> --draft <下書き.md>` | 既存ブックを1回でモダナイズ用の下書きへ整理する。表は元ブックへ追従する参照のまま残し、.xlsx / .xlsmの埋込画像はcontent-addressedな画像ファイルとして取り込む。AutoShape/コネクタは変換せず、原本から読めた名前・テキスト・形状・位置を観測情報として下書きに残す。既存の却下・保留判断があるShapeは通常表示とshape由来のsnapshot候補から外す。Excelのlist入力規則も観測情報として下書きに残す。inline値と、安全に解決できる同一ブックA1範囲参照は選択肢を表示する。それ以外の参照式は評価せず、式を確認事項として残す。ワークスペース外の原本は`--copy-source <保存先>`でproject内へ同一bytesのsourceとして取り込める。表でない領域や、取り込めない画像・図形、読み切れない選択肢は確認事項として残す。注意があっても下書き作成に成功すれば終了コードは0で、JSONの`status`は`created-with-warnings`になる。下書き・sourceコピー・assets・台帳の書込先は`--root`内に限定し、既存ファイルを異なる内容で上書きしない |
 | `mmi check <文書またはフォルダー>` | 参照の誤りを「問題」パネルと同じ診断コードで表示。誤りがあれば終了コード1 |
 | `mmi render <文書>` | 参照を展開したMarkdownを出力。`--to html`でPDF変換用のHTML |
@@ -265,6 +268,8 @@ mmi extract docs/outline.txt --tree text:heading-number:line:1 --out-dir assets
 VS Codeの「取り込み候補を確認」でも、表・画像・Choice list・JSON/YAML/XML Treeと同じ画面でフラットテキストTreeを採用・却下・保留できます。Excel / CSVの階層は「表の列を指定して階層Candidateを確認」からシートと列を明示し、同じレビュー画面で扱います。親ID方式ではID列と親ID列、必要なら表示名列を選びます。Level方式ではLevel列と表示名列を選びます。どちらも親子関係は`inferred + deterministic + M1`のままで、採用しても原本に明示された事実へ昇格しません。レビューしたsubtreeを取り込むときは、現在のsourceから同じ方式でCandidateを作り直し、fingerprintが一致した場合だけnested Markdownへ書き出します。対象subtreeが変わっていれば採用しません。対象外のrootだけが変わり、選んだsubtreeの内容と構造が同じ場合は採用を妨げません。取り込み後のdetach freshnessも同じCandidateとledgerで確認します。フラットテキストはUTF-8だけを対象とし、解釈できないbytesはエラーにします。
 
 **画像について。** Excelに画面ダンプなどを貼って設計を整理する書き方は、そのまま続けられます。`extract`は画像を取り出して参照できる形にするだけで、Excel側の画像は変わりません。Excelで画像を差し替えたり動かしたりしても、次に`inspect`を実行すれば現在の位置と内容が分かります。取り出せるのはPNG・JPEG・GIF・BMP・SVGです。EMF・WMF・TIFF、外部ファイルへのリンク、壊れた図形は、取り出さずに理由を表示します。`.xls`（旧形式）の画像は読めません。
+
+**静的HTML断片について。** `inspect`、`extract --html-id`、`html-plan`は、ローカルの静的なHTML5から明示構造の断片を読み取る試作です。設計の境界は[HTML断片の選択・保存・文書再構成 v0](../02_Architecture/html-fragment-decomposition-v0.md)にあります。`inspect`はIDや階層で選べる断片を列挙し、`extract`はレビュー済みの断片1つを正規化した`.html`として保存し、`html-plan`は複数の断片を別ファイルへ移す提案と、移した後のリンクの書換え候補を示します。いずれも原本を書き換えません。出力はHTML5として正規化した断片であり、元のHTMLとのbytes一致、Markdownへの変換、CSSを含む見た目の再現、ブラウザーでの安全性、複数断片のまとめた保存、章をまたぐリンクの移設は、まだ保証しません。
 
 配布CLIはNode.js 20以上で動くnpm互換tarballです。配布された`.tgz`を使う場合、MMIリポジトリのcheckout、TypeScript、`npm ci`、buildは不要です。Node 20未満で起動した場合は、本体依存を読み込む前に必要なNode版を表示して終了します。runtime依存もtarballへ同梱します。
 
