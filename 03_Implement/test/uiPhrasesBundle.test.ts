@@ -123,6 +123,20 @@ test('the l10n bundle carries a Japanese wording for every sentence the host put
     'MMI: Erase all observation records of table search in this workspace.',
     'MMI: Could not erase the search observation records: {0}',
     'MMI: Erased the observation records of table search.',
+    'MMI: Where to save the import draft (a new Markdown file; the source book is not changed)',
+    'MMI: Where to save the source copy (this file becomes the canonical copy for the Linked reference)',
+    'MMI: Save the source copy inside the same workspace as the draft.',
+    'MMI: Could not take the source book into the workspace: {0}',
+    'MMI: Sorting tables, images and choice lists into the import draft',
+    'MMI: The target Markdown already exists. Choose another new file name.',
+    'MMI: Could not create the import draft: {0}',
+    'images and shapes: {0}',
+    'choice lists: {0}',
+    'MMI: The draft is created. There are items to check ({0}). See the cautions section of the draft.',
+    '$(folder-opened) Choose an Excel file outside the workspace…',
+    'The chosen source book is copied into the workspace as needed and then referenced',
+    'MMI: Choose the existing Excel design document to import',
+    'Tables are imported as references and embedded images as files (the source book is not changed)',
   ];
   // Sentence shapes that are identical in English and Japanese, so echoing the key is correct.
   const languageNeutral = new Set(['MMI: {0} ({1})']);

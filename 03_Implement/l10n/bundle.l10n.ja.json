@@ -101,5 +101,19 @@
   "Erase": "消去",
   "MMI: Erase all observation records of table search in this workspace.": "MMI: このワークスペースの表検索の観測記録をすべて消去します。",
   "MMI: Could not erase the search observation records: {0}": "MMI: 検索観測の記録を消去できませんでした: {0}",
-  "MMI: Erased the observation records of table search.": "MMI: 表検索の観測記録を消去しました。"
+  "MMI: Erased the observation records of table search.": "MMI: 表検索の観測記録を消去しました。",
+  "MMI: Where to save the import draft (a new Markdown file; the source book is not changed)": "MMI: 取り込み候補の保存先（新しいMarkdownファイル。原本は変更しません）",
+  "MMI: Where to save the source copy (this file becomes the canonical copy for the Linked reference)": "MMI: 原本コピーの保存先（このファイルをLinked参照の正本にします）",
+  "MMI: Save the source copy inside the same workspace as the draft.": "MMI: 原本コピーは下書きと同じワークスペース内に保存してください。",
+  "MMI: Could not take the source book into the workspace: {0}": "MMI: 原本をワークスペースへ取り込めませんでした: {0}",
+  "MMI: Sorting tables, images and choice lists into the import draft": "MMI: 表・画像・選択肢を取り込み候補へ整理しています",
+  "MMI: The target Markdown already exists. Choose another new file name.": "MMI: 保存先のMarkdownは既に存在します。別の新しいファイル名を選んでください。",
+  "MMI: Could not create the import draft: {0}": "MMI: 取り込み候補を作成できませんでした: {0}",
+  "images and shapes: {0}": "画像・図形 {0}件",
+  "choice lists: {0}": "選択肢 {0}件",
+  "MMI: The draft is created. There are items to check ({0}). See the cautions section of the draft.": "MMI: 下書きを作成しました。確認事項があります（{0}）。下書きの注意欄を確認してください。",
+  "$(folder-opened) Choose an Excel file outside the workspace…": "$(folder-opened) ワークスペース外のExcelファイルを選ぶ…",
+  "The chosen source book is copied into the workspace as needed and then referenced": "選んだ原本は、必要に応じてワークスペース内へコピーしてから参照します",
+  "MMI: Choose the existing Excel design document to import": "MMI: 取り込む既存のExcel設計書を選ぶ",
+  "Tables are imported as references and embedded images as files (the source book is not changed)": "表は参照、埋込画像はファイルとして取り込みます（原本は変更しません）"
 }

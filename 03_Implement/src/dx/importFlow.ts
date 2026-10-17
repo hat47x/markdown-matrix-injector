@@ -19,6 +19,7 @@ import {
   intakeSourceFile,
   pathWithinBoundaryForWrite,
 } from '../importAssist/sourceIntake.js';
+import { uiText } from './uiPhrases.js';
 
 export const IMPORT_WORKBOOK_COMMAND_ID = 'markdownMatrixInjector.importFromWorkbook';
 
@@ -51,7 +52,7 @@ export async function importFromWorkbook(
     : workspaceDefault ?? path.dirname(workbook.fsPath);
 
   const draftUri = draftTarget ?? await vscode.window.showSaveDialog({
-    title: 'MMI: 取り込み候補の保存先（新しいMarkdownファイル。原本は変更しません）',
+    title: uiText('MMI: Where to save the import draft (a new Markdown file; the source book is not changed)'),
     defaultUri: vscode.Uri.file(path.join(folder, `${baseName}_取り込み候補.md`)),
     filters: { Markdown: ['md'] },
   });
@@ -77,7 +78,7 @@ export async function importFromWorkbook(
       ),
     );
     const copyUri = sourceCopyTarget ?? await vscode.window.showSaveDialog({
-      title: 'MMI: 原本コピーの保存先（このファイルをLinked参照の正本にします）',
+      title: uiText('MMI: Where to save the source copy (this file becomes the canonical copy for the Linked reference)'),
       defaultUri: suggestedCopy,
       filters: WORKBOOK_FILTERS,
     });
@@ -85,7 +86,7 @@ export async function importFromWorkbook(
 
     if (!pathWithinBoundaryForWrite(copyUri.fsPath, referenceBoundary)) {
       void vscode.window.showErrorMessage(
-        'MMI: 原本コピーは下書きと同じワークスペース内に保存してください。',
+        uiText('MMI: Save the source copy inside the same workspace as the draft.'),
       );
       return undefined;
     }
@@ -96,7 +97,7 @@ export async function importFromWorkbook(
       sourceCopyCreated = intake.created;
     } catch (error) {
       void vscode.window.showErrorMessage(
-        `MMI: 原本をワークスペースへ取り込めませんでした: ${error instanceof Error ? error.message : String(error)}`,
+        uiText('MMI: Could not take the source book into the workspace: {0}', error instanceof Error ? error.message : String(error)),
       );
       return undefined;
     }
@@ -107,7 +108,7 @@ export async function importFromWorkbook(
     materialized = await vscode.window.withProgress(
       {
         location: vscode.ProgressLocation.Notification,
-        title: 'MMI: 表・画像・選択肢を取り込み候補へ整理しています',
+        title: uiText('MMI: Sorting tables, images and choice lists into the import draft'),
       },
       async () => writeWorkbookImportDraft({
         sourcePath: effectiveWorkbook.fsPath,
@@ -120,11 +121,11 @@ export async function importFromWorkbook(
     const message = error instanceof Error ? error.message : String(error);
     if (message.startsWith('MMI_IMPORT_DRAFT_EXISTS:')) {
       void vscode.window.showErrorMessage(
-        'MMI: 保存先のMarkdownは既に存在します。別の新しいファイル名を選んでください。',
+        uiText('MMI: The target Markdown already exists. Choose another new file name.'),
       );
     } else {
       void vscode.window.showErrorMessage(
-        `MMI: 取り込み候補を作成できませんでした: ${message}`,
+        uiText('MMI: Could not create the import draft: {0}', message),
       );
     }
     return undefined;
@@ -136,14 +137,14 @@ export async function importFromWorkbook(
   ) {
     const parts = [
       ...(materialized.imageProblems.length > 0
-        ? [`画像・図形 ${materialized.imageProblems.length}件`]
+        ? [uiText('images and shapes: {0}', materialized.imageProblems.length)]
         : []),
       ...(materialized.choiceListProblems.length > 0
-        ? [`選択肢 ${materialized.choiceListProblems.length}件`]
+        ? [uiText('choice lists: {0}', materialized.choiceListProblems.length)]
         : []),
     ];
     void vscode.window.showWarningMessage(
-      `MMI: 下書きを作成しました。確認事項があります（${parts.join('、')}）。下書きの注意欄を確認してください。`,
+      uiText('MMI: The draft is created. There are items to check ({0}). See the cautions section of the draft.', parts.join(', ')),
     );
   }
 
@@ -161,8 +162,8 @@ async function pickWorkbook(workbookGlob: string): Promise<vscode.Uri | undefine
   if (files.length === 0) return browseWorkbook();
 
   const browse = {
-    label: '$(folder-opened) ワークスペース外のExcelファイルを選ぶ…',
-    description: '選んだ原本は、必要に応じてワークスペース内へコピーしてから参照します',
+    label: uiText('$(folder-opened) Choose an Excel file outside the workspace…'),
+    description: uiText('The chosen source book is copied into the workspace as needed and then referenced'),
     browse: true as const,
   };
   const picked = await vscode.window.showQuickPick(
@@ -177,8 +178,8 @@ async function pickWorkbook(workbookGlob: string): Promise<vscode.Uri | undefine
       browse,
     ],
     {
-      title: 'MMI: 取り込む既存のExcel設計書を選ぶ',
-      placeHolder: '表は参照、埋込画像はファイルとして取り込みます（原本は変更しません）',
+      title: uiText('MMI: Choose the existing Excel design document to import'),
+      placeHolder: uiText('Tables are imported as references and embedded images as files (the source book is not changed)'),
     },
   );
 
@@ -189,7 +190,7 @@ async function pickWorkbook(workbookGlob: string): Promise<vscode.Uri | undefine
 
 async function browseWorkbook(): Promise<vscode.Uri | undefined> {
   const picked = await vscode.window.showOpenDialog({
-    title: 'MMI: 取り込む既存のExcel設計書を選ぶ',
+    title: uiText('MMI: Choose the existing Excel design document to import'),
     canSelectFiles: true,
     canSelectFolders: false,
     canSelectMany: false,
