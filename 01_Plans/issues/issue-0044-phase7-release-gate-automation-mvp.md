@@ -1,4 +1,6 @@
-# Issue: Phase 7 release gate automation MVP
+# Issue: Phase 7のリリース判定G1・G2を最小限のスクリプトで自動化する
+
+この文書は、Phase 7当時のG1・G2リリース判定の最小自動化と完了判定を残したIssue記録です。検証計画と2026年3月31日の実行証跡は当時の内容であり、現在のリリース判定結果を新たに確認したものではありません。
 
 ## Meta
 - Type: Feature
@@ -11,24 +13,24 @@
 - Related Backlog/Phase: Phase 7 Release Readiness & Adoption Scale
 - Related ADR/Spec: `01_Plans/adr/ADR-0005-phase7-release-readiness-and-adoption-scale.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- Phase 7のG1/G2を手動実行から最小自動化し、release判定時の漏れを減らす。
-- `planning_queue` JSONを取り込み、orphan/pending判定と `npm test` 実行を1コマンドで行う。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- Phase 7の判定項目G1（planning）とG2（test）を、一つずつ手動で実行する方式から最小限の自動実行へ移し、リリース判定時の確認漏れを減らす。
+- `planning_queue`のJSON結果を読み取り、orphan・pendingの状態確認と`npm test`の実行を一つのコマンドにまとめる。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] `01_Plans/tools/release_gate_check.py` が追加され、G1（planning）とG2（test）を一括実行できる。
 - [x] pending issue許容の有無を `--allow-pending-issues` で切替できる。
 - [x] `04_Documentation/phase7-release-readiness.md` に自動ゲート実行手順が反映される。
 - [x] `python3 01_Plans/tools/release_gate_check.py` が成功終了する。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] release gate実行スクリプトを実装する。
 - [x] phase7ガイドへ自動実行手順を追記する。
 - [x] READMEのPhase 7導線に自動実行コマンドを追加する。
 - [x] 実行結果をValidation evidenceとして記録する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `python3 01_Plans/tools/release_gate_check.py`
 - `python3 01_Plans/tools/planning_queue.py`
 
