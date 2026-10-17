@@ -1,4 +1,6 @@
-# Issue: Phase 6 Reference Trustworthiness（詳細仕様の信頼性強化）
+# Issue: Phase 6でリファレンスを運用時の確認に使える資料へ整える
+
+この文書は、Phase 6当時の提案・完了判定・検証履歴を残したIssue記録です。検証履歴にある途中の未完了状態と、冒頭の`Status: Done`（その後の完了判定）は時点を分けて読んでください。現在の文書・実装・動作を新たに確認したものではありません。
 
 ## Meta
 - Type: Docs
@@ -11,27 +13,27 @@
 - Related Backlog/Phase: Phase 6: 公開ドキュメント体系化と価値訴求 (Public Documentation & Adoption)
 - Related ADR/Spec: `01_Plans/adr/ADR-0002-phase6-documentation-feedback-loop.md`, `01_Plans/adr/ADR-0003-phase6-user-value-maximization-roadmap.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- Referenceを「機能一覧」から「運用時の一次回答源」へ引き上げるため、各機能に制約・失敗時挙動・関連設計/テスト導線を追加する。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- Reference（詳細仕様書）を機能一覧だけで終わらせず、運用時の問い合わせに最初に答えるための資料として使えるようにする。そのため、各機能に制約、問題が起きたときの挙動、関連する設計書やテストへの参照先を追加する。
 
-### Success metric (価値指標)
+### 価値指標（Success metric）
 - 主要機能ごとに「正常系 / 失敗時 / 制約 / 関連正本」が1セットで揃うこと。
 - サポート担当が問い合わせの一次回答をReferenceへのリンクのみで返答できる粒度を満たすこと。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] 主要パラメータ群に「正常系挙動」「代表的な失敗ケース」「制約」「関連正本リンク」が記載されること。
 - [x] Smart Fallback / 印刷制御 / Diagnostics / Paste&D&Dについて制約が明文化されること。
 - [x] `reference.md` 単体で一次回答源として成立し、必要時に関連正本へ遷移できること。
 - [x] docs auditで参照リンク切れがないこと（少なくともrepo内リンク）。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] 既存Referenceを機能単位で棚卸しする。
 - [x] 各機能に制約と失敗時挙動を追記する。
 - [x] 関連設計/issue/testへのリンクを追加する。
 - [x] docs auditで相互リンクを検証する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `rg -n "失敗|制約|関連|正常系" 04_Documentation/reference.md` で追加観点を確認する。
 - `rg -n "02_Architecture|01_Plans|03_Implement/test" 04_Documentation/reference.md` で正本導線を確認する。
 - `python3 01_Plans/tools/planning_queue.py` でplanning_queueの `issue_orphan` が0であることを確認する。
