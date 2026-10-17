@@ -61,14 +61,12 @@ Receiptは必ず、issue-0143の `bindAuthorityRevalidationReceipt`（Envelope�
 
 ## 4. Overlay check
 
-各check（検証項目）については、
+各check（検証項目）について、表示用には次の項目だけを保持する。
 
 - check
 - status
 - evidenceCode
 - optional detail
-
-だけを表示用に保持する。
 
 Cognitive score（認知側の評価値）やPerception candidate（認知側で見いだした候補）は、overlayへコピーしない。
 
