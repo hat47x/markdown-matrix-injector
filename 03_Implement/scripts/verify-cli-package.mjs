@@ -92,6 +92,19 @@ export function verifyCliPackage(tarballPath) {
     ].join('\n'),
   );
 
+  // Independent HTML fixture verifies that the distributed CLI actually
+  // includes the HTML5 parser and can inspect the same source without network.
+  const htmlSource = path.join(workspace, 'design.html');
+  const originalHtml = [
+    '<!doctype html><html lang="ja"><body>',
+    '<main id="spec">',
+    '<section id="intro"><h2>Introduction</h2>',
+    '<p>See <a href="#api">API</a>.</p></section>',
+    '<section id="api"><h2>API specification</h2></section>',
+    '</main></body></html>',
+  ].join('');
+  fs.writeFileSync(htmlSource, originalHtml);
+
   const help = run(bin, ['--help'], workspace);
   const version = run(bin, ['--version'], workspace);
   const candidateSchema = run(
@@ -175,6 +188,104 @@ export function verifyCliPackage(tarballPath) {
     ],
     workspace,
   );
+
+  const htmlInspect = run(
+    bin,
+    ['inspect', 'design.html', '--root', '.', '--json'],
+    workspace,
+  );
+  let inspectedHtml;
+  try {
+    inspectedHtml = JSON.parse(htmlInspect.stdout);
+  } catch {
+    throw new Error(
+      `mmi inspect HTML returned invalid JSON:\n${htmlInspect.stderr || htmlInspect.stdout}`,
+    );
+  }
+  const inspectedApi = inspectedHtml.htmlFragments?.find(
+    (fragment) => fragment.id === 'api',
+  );
+  const inspectedIntro = inspectedHtml.htmlFragments?.find(
+    (fragment) => fragment.id === 'intro',
+  );
+  if (htmlInspect.status !== 0
+    || !inspectedApi?.fingerprint
+    || !inspectedIntro?.fingerprint
+    || !inspectedHtml.candidates?.some((candidate) => candidate.kind === 'section')) {
+    throw new Error(
+      `mmi inspect HTML failed:\n${htmlInspect.stderr || htmlInspect.stdout}`,
+    );
+  }
+
+  fs.writeFileSync(
+    path.join(workspace, 'html-plan.json'),
+    JSON.stringify({
+      fragments: [
+        {
+          id: 'intro',
+          output: 'docs/intro.html',
+          expectedFingerprint: inspectedIntro.fingerprint,
+        },
+        {
+          id: 'api',
+          output: 'docs/api.html',
+          expectedFingerprint: inspectedApi.fingerprint,
+        },
+      ],
+    }),
+  );
+  const htmlPlan = run(
+    bin,
+    ['html-plan', 'design.html', '--plan', 'html-plan.json', '--root', '.', '--json'],
+    workspace,
+  );
+  let inspectedHtmlPlan;
+  try {
+    inspectedHtmlPlan = JSON.parse(htmlPlan.stdout);
+  } catch {
+    throw new Error(
+      `mmi html-plan returned invalid JSON:\n${htmlPlan.stderr || htmlPlan.stdout}`,
+    );
+  }
+  if (htmlPlan.status !== 0
+    || inspectedHtmlPlan.hasIdentifiedBlockers
+    || !inspectedHtmlPlan.anchors?.some(
+      (anchor) => anchor.sourceId === 'intro'
+        && anchor.status === 'cross-output'
+        && anchor.proposedHref === 'api.html#api')) {
+    throw new Error(
+      `mmi html-plan failed:\n${htmlPlan.stderr || htmlPlan.stdout}`,
+    );
+  }
+
+  const htmlExtract = run(
+    bin,
+    [
+      'extract', 'design.html',
+      '--html-id', 'api',
+      '--expected-fingerprint', inspectedApi.fingerprint,
+      '--root', '.', '--json',
+    ],
+    workspace,
+  );
+  let extractedHtml;
+  try {
+    extractedHtml = JSON.parse(htmlExtract.stdout);
+  } catch {
+    throw new Error(
+      `mmi extract HTML returned invalid JSON:\n${htmlExtract.stderr || htmlExtract.stdout}`,
+    );
+  }
+  if (htmlExtract.status !== 0
+    || extractedHtml.fragmentFingerprint !== inspectedApi.fingerprint
+    || !extractedHtml.path
+    || !fs.existsSync(extractedHtml.path)
+    || !fs.readFileSync(extractedHtml.path, 'utf8').includes('id="api"')
+    || fs.readFileSync(htmlSource, 'utf8') !== originalHtml) {
+    throw new Error(
+      `mmi extract HTML failed or modified its source:\n${htmlExtract.stderr || htmlExtract.stdout}`,
+    );
+  }
 
   if (help.status !== 0 || !help.stdout.includes('Usage: mmi')) {
     throw new Error(`mmi --help failed:\n${help.stderr || help.stdout}`);
@@ -349,6 +460,14 @@ export function verifyCliPackage(tarballPath) {
   ) {
     throw new Error('mmi extract JSON Tree did not record the shared import ledger.');
   }
+  if (!ledger.entries?.some((entry) =>
+    entry.kind === 'section'
+    && entry.reviewState === 'accepted'
+    && entry.fingerprint.digest === inspectedApi.fingerprint
+    && entry.outputDigest === extractedHtml.outputDigest)) {
+    throw new Error('mmi extract HTML did not record the shared import ledger.');
+  }
+
 
     return {
       schema: 'mmi.cli-package-verification/v1',
@@ -376,6 +495,10 @@ export function verifyCliPackage(tarballPath) {
         xmlTreeExtract: 'passed',
         yamlTreeInspect: 'passed',
         yamlTreeExtract: 'passed',
+        htmlInspect: 'passed',
+        htmlPlan: 'passed',
+        htmlExtract: 'passed',
+        htmlLedger: 'passed',
       },
     };
   } finally {
