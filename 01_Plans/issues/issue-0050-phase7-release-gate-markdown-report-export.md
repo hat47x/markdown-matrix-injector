@@ -1,4 +1,6 @@
-# Issue: Phase 7 release gate markdown report export
+# Issue: Phase 7のリリース判定結果をMarkdownレポートにも出力する
+
+この文書は、Phase 7当時のリリース判定結果をMarkdownにも出力する提案と完了判断を残したIssue記録です。JSONとの二形式出力やCI成果物に関する2026年4月2日の証跡は当時の内容であり、現在のCI動作を新たに検証したものではありません。
 
 ## Meta
 - Type: Feature
@@ -11,23 +13,23 @@
 - Related Backlog/Phase: Phase 7 Release Readiness & Adoption Scale
 - Related ADR/Spec: `01_Plans/adr/ADR-0005-phase7-release-readiness-and-adoption-scale.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- JSON証跡に加えてMarkdownレポートを出力し、PRレビュー時に人間が読みやすいrelease gate結果を残す。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- JSON形式の証跡に加えて、Markdown形式のレポートも出力する。プルリクエスト（PR）のレビュー時に、リリース判定（release gate）の結果を人が読みやすい形で確認できるようにする。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] `release_gate_check.py` に `--output-markdown-file` が追加される。
 - [x] Markdown report生成ロジックのテストが追加される。
 - [x] CI artifactとして `artifacts/release-gate.md` が保存される。
 - [x] Phase 7ガイドにMarkdown出力運用が追記される。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] release gate CLIにMarkdown report生成を追加する。
 - [x] unittestを更新する。
 - [x] CI workflowのartifact収集対象を拡張する。
 - [x] ドキュメントへ運用手順を反映する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `python3 -m unittest 01_Plans/tools/test_release_gate_check.py`
 - `python3 01_Plans/tools/release_gate_check.py --format json --output-file artifacts/release-gate.json --output-markdown-file artifacts/release-gate.md`
 - `python3 01_Plans/tools/planning_queue.py`
