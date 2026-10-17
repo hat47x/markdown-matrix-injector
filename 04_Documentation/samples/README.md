@@ -65,19 +65,19 @@
 基本12本の過去の表示件数は[2026年9月9日の機械検証記録](../media/release-20260908/sample-verification.json)で確認できます。CP932の追加例はこの記録に含まれません。これらの過去の記録は、今回新たに動作確認したことを示すものではありません。
 
 ## 3. 最短利用手順（ROI Proof）
-1. [投資対効果の検証案内](./phase6-roi/README.md#roi-proof-index)を開き、観測する範囲を確認する。
-2. [利用前の状態](./phase6-roi/before-state.md#before-observation-method)で、利用前の状況を観測する。
-3. [利用後の状態](./phase6-roi/after-state.md#after-observation-method)で、利用後の状況を観測する。
-4. [観測手順](./phase6-roi/observation-protocol.md#observation-method)に従い、利用前後の差を判断する。
+1. [投資対効果の検証案内](./phase6-roi/README.md#roi-samples-index)を開き、観測する範囲を確認する。
+2. [利用前の状態](./phase6-roi/before-state.md#roi-before-procedure)で、利用前の状況を観測する。
+3. [利用後の状態](./phase6-roi/after-state.md#roi-after-procedure)で、利用後の状況を観測する。
+4. [観測手順](./phase6-roi/observation-protocol.md#roi-observation-procedure)に従い、利用前後の差を判断する。
 5. `roi-metrics-template.csv`に結果を記録し、導入判断の根拠として保管する。
 
 ## 4. 参照リンク一覧（Scenario 本文向け）
-- 投資対効果の検証案内: `samples/phase6-roi/README.md#roi-proof-index`
-- 利用前の観測: `samples/phase6-roi/before-state.md#before-observation-method`
-- 利用後の観測: `samples/phase6-roi/after-state.md#after-observation-method`
-- 観測プロトコル: `samples/phase6-roi/observation-protocol.md#observation-method`
-- 期待観測結果: `samples/phase6-roi/observation-protocol.md#expected-observation-results`
-- 制約: `samples/phase6-roi/observation-protocol.md#constraints`
+- 投資対効果の検証案内: `samples/phase6-roi/README.md#roi-samples-index`
+- 利用前の観測: `samples/phase6-roi/before-state.md#roi-before-procedure`
+- 利用後の観測: `samples/phase6-roi/after-state.md#roi-after-procedure`
+- 観測プロトコル: `samples/phase6-roi/observation-protocol.md#roi-observation-procedure`
+- 期待観測結果: `samples/phase6-roi/observation-protocol.md#roi-observation-expected-results`
+- 制約: `samples/phase6-roi/observation-protocol.md#roi-observation-constraints`
 
 
 ## Expected result
