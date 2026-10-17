@@ -1,4 +1,6 @@
-# Issue: Phase 6 Feedback Loop Operations（docs audit 定常運用化）
+# Issue: Phase 6の文書監査と改善結果の還流を定常運用する
+
+この文書は、Phase 6当時の文書監査の運用方針、完了判定、検証結果を残したIssue記録です。Gate A〜Eの順序、当時の観測数値、途中のIssue状態は原文の記録として扱い、現行の運用が同じ状態であることを新たに確認したものではありません。
 
 ## Meta
 - Type: Docs
@@ -11,30 +13,30 @@
 - Related Backlog/Phase: Phase 6: 公開ドキュメント体系化と価値訴求 (Public Documentation & Adoption)
 - Related ADR/Spec: `01_Plans/adr/ADR-0003-phase6-user-value-maximization-roadmap.md`, `00_Prompt/requirements.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- docs auditを単発作業から定常プロセスへ移行し、各イテレーションで発見事項をrequirements / architecture / test / issueへ確実に還流する運用テンプレートを整備する。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- 文書監査（docs audit）を一度きりの作業ではなく、繰り返し実施する運用へ移す。各回の監査で見つけた事項をrequirements / architecture / test / issueへ戻せるよう、手順を記録する運用テンプレートを整備する。
 - 運用順序は `Overview -> Tutorial -> Scenario -> Reference` 導線監査（Gate A）→ Reference品質監査（Gate B）→ docs audit（Gate C）→ feedback分類（Gate C）→ scorecard記録（Gate D）→ `planning_queue.py` 可視化（Gate E）で固定する。
 - 使用テンプレートは `docs-audit-feedback-loop-template.md` / `docs-feedback-classification-template.md` / `docs-audit-log-template.md` / `phase6-kpi-scorecard.md` を正本導線として明記する。
 
-### Success metric (価値指標)
+### 価値指標（Success metric）
 - docs audit結果の分類漏れ（未分類項目）が0件であること。
 - docs更新コミットごとに、上流反映先へのリンクが追跡できること。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] docs auditの実施タイミング・入力・出力・完了条件が、Gate Cとして明文化されること。
 - [x] フィードバック分類（requirements / architecture / test / product gap）が、テンプレート導線付きで運用手順に組み込まれること。
 - [x] 少なくとも1回分のaudit記録テンプレート（またはサンプル）が追加されること。
 - [x] planning_queueでorphan / pending判定が追跡可能な状態を維持し、Validation evidenceに記録できること。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] docs auditの運用フローを、`02_Architecture/phase6-public-documentation-architecture.md` と `04_Documentation/README.md` の共通導線（Overview -> Tutorial -> Scenario -> Reference）に揃える。
 - [x] 反映先ごとの分類テンプレート（`01_Plans/templates/docs-feedback-classification-template.md`）との接続を明文化する。
 - [x] audit結果の記録様式（`01_Plans/templates/docs-audit-feedback-loop-template.md` / `01_Plans/templates/docs-audit-log-template.md`）への導線を明文化する。
 - [x] triageコマンド（`python3 01_Plans/tools/planning_queue.py`）でorphan / pending可視性を維持する。
 - [x] `04_Documentation/` 配下の文書を「標準的な日本の技術書に準じた文章構成」で記述する方針をREADME / architectureに反映する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `rg -n "Overview|Tutorial|Scenario|Reference" 04_Documentation/README.md` で導線統一を確認する。
 - `rg -n "Gate A|Gate B|Gate C|Gate D|Gate E|docs audit|feedback loop|requirements|architecture|test|product gap|未分類|scorecard|planning_queue" 01_Plans/issues/issue-0019-phase6-feedback-loop-operations.md 02_Architecture/phase6-public-documentation-architecture.md 04_Documentation/README.md` で運用定義とgate接続を確認する。
 - `rg -n "日本の技術書|文章構成|英語交じり" 04_Documentation/README.md 02_Architecture/phase6-public-documentation-architecture.md` で文体方針が反映されたことを確認する。

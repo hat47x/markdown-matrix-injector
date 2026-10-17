@@ -1,4 +1,6 @@
-# Issue: Query Evidence Markdown レポートに source metadata を追加
+# Issue: クエリ証跡のMarkdownレポートに抽出元の文書名を記載する
+
+この文書は、当時のMarkdown証跡レポートに抽出元の情報を追加する提案と完了状態を残したIssue記録です。既存の呼び出しとの互換性と2026年3月31日の検証結果は当時の記録であり、現在の動作を新たに確認したものではありません。
 
 ## Meta
 - Type: Feature
@@ -11,24 +13,24 @@
 - Related Backlog/Phase: Phase 6 Documentation feedback loop
 - Related ADR/Spec: `01_Plans/issues/issue-0033-query-evidence-export-artifacts-helper.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- Markdownレポートへ `Source` 行を追加し、どのMarkdownから抽出したevidenceかを明示する。
-- `buildQueryEvidenceMarkdown` をoptions対応（`sourceName`）に拡張し、既存呼び出し互換を維持する。
-- `buildQueryEvidenceExportArtifacts` からsource basenameを渡し、生成される `.md` 出力にmetadataを含める。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- Markdownレポートに`Source`行を追加し、証跡（evidence）をどのMarkdown文書から抽出したか分かるようにする。
+- `buildQueryEvidenceMarkdown`でオプション（`sourceName`）を受け取れるようにし、オプションを指定しない従来の呼び出しもそのまま使えるようにする。
+- `buildQueryEvidenceExportArtifacts`から抽出元の文書名（source basename）を渡し、生成される`.md`ファイルにその情報（metadata）を含める。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] Markdownレポートにsource metadataを出力できる。
 - [x] options未指定時の既存出力互換が維持される。
 - [x] `npm test` が通過する。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] `buildQueryEvidenceMarkdown` をoptions対応へ更新する。
 - [x] artifact builderからsourceNameを渡す。
 - [x] unit testを更新/追加する。
 - [x] `npm test` を実行する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `cd 03_Implement && npm test`
 
 ## Validation evidence (実行証跡)

@@ -60,9 +60,9 @@ PATH/SHEET 系の障害を抽出します（`highlight` + `grep` + `caption` + `
 
 ---
 
-## G4: 適用範囲と既知の制約 {#g4-honest-scope}
+## G4: 適用範囲と既知の制約 <a id="g4-honest-scope"></a>
 
-> **実測ベースの正直な適用範囲** — 推測ではなく実測で確認した事実のみを記載します。
+> **検証範囲の説明** — 表内の単体テスト件数や未実施項目は、サンプル作成時点の記録です。2026年6月3日のヘッドレスPDF検証と、未実施のVS Code画面確認は区別します。
 
 ### 動作確認済み（実証済み）
 
@@ -86,22 +86,24 @@ PATH/SHEET 系の障害を抽出します（`highlight` + `grep` + `caption` + `
 | `orientation=landscape` の用紙向き再現 | named-page 対応エンジン | 下記「PDF 生成経路」参照 |
 | 別紙参照ブロックの印刷レイアウト | 印刷プレビュー | 未実施 |
 
-### PDF 生成経路と対応状況（実測ベース）
+### PDF 生成経路と確認範囲
 
-**推奨経路 A: VS Code + Markdown PDF 拡張機能（yzane.markdown-pdf）**
+経路Aは、このサンプルをVS CodeのMarkdown PDF拡張から直接出力する方法としては未検証です。経路Bのみ、MMIで展開したHTMLからWeasyPrintでPDFにする過去の検証記録があります。次の手順は、今回あらためて実行した結果ではありません。
+
+**経路 A（未検証）: VS Code + Markdown PDF 拡張機能（yzane.markdown-pdf）**
 
 - エンジン: Chromium/puppeteer（Chromium ヘッドレス印刷）
 - `page-break-before/after`: ✅ 対応（`break-before: page` も有効）
 - `@page named-page` per-page 用紙向き: ⚠️ Chromium の CSS Paged Media Level 3 実装依存（バージョンにより動作差あり）
 - インストール: VS Code 拡張機能マーケットプレイスから `Markdown PDF` を検索
 
-**推奨経路 B: weasyprint（CLI）**
+**経路 B（2026年6月3日にヘッドレス検証済み）: WeasyPrint（CLI）**
 
 - `pip install weasyprint`
-- `weasyprint design-doc-sample.html output.pdf`
+- `weasyprint 04_Documentation/samples/sier-design/design-doc-sample-rendered.html output.pdf`（リポジトリルートから実行）
 - `page-break-before/after`: ✅ 対応
 - `@page named-page` per-page 用紙向き: ✅ 対応（CSS Paged Media Level 3 実装）
-- 注意: Markdown を HTML に変換後に CSS を適用（`pandoc input.md -o output.html --standalone --css=../../03_Implement/media/markdown-matrix.css`、次に weasyprint）
+- 注意: `03_Implement/scripts/render-sample-html.ts`でMMI参照を展開し、CSS入りHTMLを生成してからPDF化します。Pandoc単独では埋め込み参照を展開できません。実行手順は同じフォルダーのREADMEを参照してください。
 
 **経路 C: Pandoc + LaTeX（pdflatex/xelatex）**
 

@@ -3,6 +3,8 @@
 Excel・CSV・XMLの表を参照しながら、Markdownで設計書や運用手順書を書くためのガイドです。
 初めて使う方は [チュートリアル](tutorial.md) から始めてください。ここではWindowsのデスクトップ版VS Codeを基本に説明します。
 
+普段の作業では、まず「どの表を文書に載せたいか」を考えれば十分です。ここで使う**参照**は元のExcelを読み続ける方法、**取り込み**は必要な内容をMarkdownや画像として取り出す方法、**切り離し**はMMIがなくても読める文書に仕上げる方法です。内部の状態名はそれぞれLinked・Extracted・Detachedです。細かな定義は[リファレンス](reference.md)を参照してください。
+
 ## やりたいことから探す
 
 | 目的 | 読むところ・使うサンプル |
@@ -207,12 +209,24 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 
 ## コマンドで使う
 
+ここからは、画面を使わずにMMIを操作する方向けの説明です。日常の執筆だけなら、先に紹介したVS Codeでの操作から始められます。**CI**は、文書やコードを変更したときに自動で検査する仕組みです。
+
+| やりたいこと | 主に使うコマンド | 結果 |
+| --- | --- | --- |
+| 原本にどんな表や画像があるか調べる | `mmi inspect` | 候補とその場所を一覧にする |
+| 文書の参照が正しいか確かめる | `mmi check` | 読めない参照や指定の誤りを知らせる |
+| 元のファイルから必要な内容を取り出す | `mmi extract`・`mmi import` | 表の参照や画像などを、確認できる下書き・資産として用意する |
+| MMIがなくても使える文書を作る | `mmi materialize`・`mmi detach-check` | 通常の文書へ変換し、残った参照や壊れたリンクを検査する |
+| AIから戻った提案を確認する | `mmi handoff`・`mmi validate-*` | 判断材料を渡し、戻った提案を検査する。自動採用はしない |
+
+以下は、各コマンドの**正確な動作、対象形式、制限**を調べるための一覧です。初めて読む場合は必要な行だけ参照してください。
+
 `mmi`コマンドは、VS Codeを開かずに参照の確認・展開・取り込みを行います。AIエージェントに設計書を書かせるとき、CIで参照を検証するときにも使えます。どのコマンドも元データは書き換えません。`extract`と`import`はassetsや取り込み台帳へ書き込み、`materialize`は指定した出力先へDetached用のMarkdownを書きます。
 
 | コマンド | 内容 |
 | --- | --- |
 | `mmi schema candidate` | Semantic Candidateの公開JSON Schemaを出力する。契約名は`mmi.semantic-candidate/v1`。外部AI、CI、連携ツールがCandidateのkind、status、execution、method、Claim、provenance、fingerprint等を機械的に解釈するために使う。review stateはCandidate本体に含めない |
-| `mmi inspect <正本>` | Excel / CSV等では表の範囲・見出し・行数を表示し、`.xlsx`では画像、list入力規則、AutoShape/コネクタも一覧に出す。AutoShape/コネクタは`shape` Candidateとして名前・テキスト・形状・位置を保持する。直接記述されたlistと、安全に解決できる同一ブックA1範囲参照は選択肢も表示する。AutoShape・コネクタ・graphic frameを含むdrawingでtwo-cell anchorが読める場合は、画像化に使える`snapshot hint`も表示する。one-cell/absolute anchorは終端セルを推測せず要確認とする。`.json`と安全subsetの`.yaml` / `.yml`ではobject / arrayをTree Candidateとして列挙し、RFC 6901 JSON Pointer、node type、直下child数を表示する。YAMLのanchor / alias / merge key / explicit tag / 非string key等は明示構造として解決せずエラーにする。`--json`では`candidateContract`に契約名を併記し、Candidateのstatus・method・provenance・fingerprintを確認できる。取り込み台帳がある場合は`imported / changed / stale / duplicate / unimported`を照合し、`--unimported`や`--exclude-imported`で絞り込める |
+| `mmi inspect <正本>` | Excel / CSV等では表の範囲・見出し・行数を表示し、`.xlsx`では画像、list入力規則、セルのハイパーリンク、AutoShape/コネクタも一覧に出す。ハイパーリンクは`link` Candidateとして、セル位置・宛先（URL・別ファイル・ブック内の位置）・表示文字列を原本の記述どおりに示す。宛先へは接続せず、存在も確かめない。AutoShape/コネクタは`shape` Candidateとして名前・テキスト・形状・位置を保持する。直接記述されたlistと、安全に解決できる同一ブックA1範囲参照は選択肢も表示する。AutoShape・コネクタ・graphic frameを含むdrawingでtwo-cell anchorが読める場合は、画像化に使える`snapshot hint`も表示する。one-cell/absolute anchorは終端セルを推測せず要確認とする。`.json`と安全subsetの`.yaml` / `.yml`ではobject / arrayをTree Candidateとして列挙し、RFC 6901 JSON Pointer、node type、直下child数を表示する。YAMLのanchor / alias / merge key / explicit tag / 非string key等は明示構造として解決せずエラーにする。`--json`では`candidateContract`に契約名を併記し、Candidateのstatus・method・provenance・fingerprintを確認できる。取り込み台帳がある場合は`imported / changed / stale / duplicate / unimported`を照合し、`--unimported`や`--exclude-imported`で絞り込める |
 | `mmi extract <ブック.xlsx> --image <番号\|all>` | Excelに貼られた画像を`assets/`（`--out-dir`で変更）へ書き出し、Markdownの画像参照と出典を出力する。CLIでは同時に`<root>/mmi-ledger.json`へoccurrence・content fingerprint・出力先・変換条件・review basisを記録する（`--ledger`で変更）。同じ画像が別の場所にもある場合は別occurrenceとして残し、review stateを自動継承しない |
 | `mmi snapshot <ブック.xlsx> --sheet <シート> --range <A1:B9>` | 図形やレイアウトに意味がある範囲をLibreOfficeで描画し、PNGと`mmi.region-snapshot/v1` sidecarを生成する。`mmi inspect`で範囲確定済みのdrawing `snapshot hint`が出た場合は、`--sheet` / `--range`の代わりに`--hint <番号>`を使える。VS CodeのCandidateレビューでも、two-cell anchorのShapeから同じregion-snapshot生成を呼べる。終端セルを安全に読めないhintやShapeは自動実行せず、明示rangeを求める。原本は保存しない |
 | `mmi extract <file.json\|file.yaml> --tree <Pointer\|root>` | JSONまたは安全subset YAMLのobject / arrayから1つのTree Candidateを選び、nested listのMarkdown assetへ取り込む。`root`は文書全体、`/service/endpoints`のような値はRFC 6901 JSON Pointer。原本は変更しない。取り込み台帳にはpointer、subtree fingerprint、出力digest、Projection方式を記録する |

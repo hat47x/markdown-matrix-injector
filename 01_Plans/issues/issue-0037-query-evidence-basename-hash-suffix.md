@@ -1,4 +1,6 @@
-# Issue: Query Evidence basename 切り詰め時に衝突回避ハッシュを付与
+# Issue: クエリ証跡の長い出力ファイル名に識別用ハッシュを付ける
+
+この文書は、出力ファイル名を64文字に収める際の衝突回避策について、当時の提案と完了状態を残したIssue記録です。記載されたテスト結果は2026年3月31日の実行証跡であり、現在の実装を新たに検証したものではありません。
 
 ## Meta
 - Type: Feature
@@ -11,23 +13,23 @@
 - Related Backlog/Phase: Phase 6 Documentation feedback loop
 - Related ADR/Spec: `01_Plans/issues/issue-0036-query-evidence-basename-length-cap.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- 64文字上限で単純切り詰めすると類似長文basenameが衝突する可能性があるため、切り詰め時に短いハッシュ接尾辞を付与する。
-- 方針: `sha1(normalized).slice(0,6)` をsuffixとし、`<prefix>-<hash>` 形式で64文字に収める。
-- 単純ケース（64文字以下）は既存のbasenameを維持する。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- 出力ファイル名を64文字で単純に切り詰めると、よく似た長い文書名が同じ名前になる場合がある。このため、切り詰めが必要なときは末尾に短いハッシュ値を付けて区別する。
+- 当時の方針では、`sha1(normalized).slice(0,6)`で得る値を接尾辞（suffix）とし、`<prefix>-<hash>`の形式で全体を64文字以内に収める。
+- 文書名が64文字以内の場合は、既存のbasenameをそのまま維持する。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] 切り詰めが必要なbasenameにハッシュ接尾辞が付与される。
 - [x] 64文字以下のbasenameは従来どおり保持される。
 - [x] `npm test` が通過する。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] basename正規化ロジックにハッシュ接尾辞を追加する。
 - [x] unit testを更新/追加する。
 - [x] `npm test` を実行する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `cd 03_Implement && npm test`
 
 ## Validation evidence (実行証跡)

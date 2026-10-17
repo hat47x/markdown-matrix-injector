@@ -38,6 +38,10 @@ import type {
 import type {
   NoteDiagnostic,
 } from '../adapters/excelNoteAdapter.js';
+import type {
+  LinkDiagnostic,
+  LinkTargetKind,
+} from '../adapters/excelLinkAdapter.js';
 import {
   readExcelImages,
   relationToTables,
@@ -1507,6 +1511,17 @@ export interface InspectNote {
   contentDigest: string;
 }
 
+export interface InspectLink {
+  ordinal: number;
+  sheet: string;
+  ref: string;
+  targetKind: LinkTargetKind;
+  /** Target or in-workbook location as written; the link is never followed. */
+  target: string;
+  display?: string;
+  contentDigest: string;
+}
+
 export interface InspectResult {
   source: string;
   /** Public machine-readable contract used by every item in candidates. */
@@ -1536,6 +1551,10 @@ export interface InspectResult {
   choiceLists: InspectChoiceList[];
   /** Classic Excel cell Notes. Text stays in the Semantic Candidate; this summary is content-light. */
   notes: InspectNote[];
+  /** Cell hyperlinks of an .xlsx/.xlsm. Targets are reported, never opened. */
+  links?: InspectLink[];
+  /** Hyperlinks that could not be read safely. */
+  linkDiagnostics?: LinkDiagnostic[];
   /** Choice-list validations that could not be interpreted safely. */
   choiceListDiagnostics: ChoiceListDiagnostic[];
   /** Classic Note parts that could not be interpreted safely. */
@@ -1703,6 +1722,7 @@ export function inspectSource(
     imageRead,
     choiceRead,
     noteRead,
+    linkRead,
     tablesBySheet,
     detected,
     hierarchies: tabularHierarchies,
@@ -1760,6 +1780,16 @@ export function inspectSource(
     })),
     choiceListDiagnostics: choiceRead.diagnostics,
     noteDiagnostics: noteRead.diagnostics,
+    links: linkRead.links.map((link) => ({
+      ordinal: link.ordinal,
+      sheet: link.sheet,
+      ref: link.ref,
+      targetKind: link.targetKind,
+      target: link.target,
+      ...(link.display !== undefined ? { display: link.display } : {}),
+      contentDigest: link.contentDigest,
+    })),
+    linkDiagnostics: linkRead.diagnostics,
     shapes: imageRead.shapes.map((shape) => ({
       ordinal: shape.ordinal,
       sheet: shape.sheet,
@@ -1879,6 +1909,13 @@ function applyLedgerView(
       ? {
           htmlFragments: result.htmlFragments.filter((fragment) =>
             allowed.has(`${fragment.kind}\u0000\u0000path:${fragment.structuralPath}`)),
+        }
+      : {}),
+    ...(result.links
+      ? {
+          links: result.links.filter((item) =>
+            allowed.has(`link ${item.sheet} ${item.ref}`)),
+
         }
       : {}),
     ...(result.trees
@@ -2004,6 +2041,11 @@ function formatInspect(result: InspectResult): string {
         `  note #${note.ordinal}  ${note.cell}  ${note.characters} chars  ${note.contentDigest.slice(0, 19)}…${note.author !== undefined ? `  author: ${note.author}` : ''}${ledgerSuffix('note', sheet.name, note.cell)}  (review only)`,
       );
     }
+    for (const link of (result.links ?? []).filter((item) => item.sheet === sheet.name)) {
+      lines.push(
+        `  link #${link.ordinal}  ${link.ref}  ${link.targetKind}  ${link.target}${link.display !== undefined ? `  "${link.display}"` : ''}${ledgerSuffix('link', sheet.name, link.ref)}  (not followed)`,
+      );
+    }
     for (const image of result.images.filter((item) => item.sheet === sheet.name)) {
       const near = image.nearbyTable ? `  near table ${image.nearbyTable.range} (${image.nearbyTable.relation}, gap ${image.nearbyTable.gap})` : '';
       const place = image.range ?? `name:${image.name ?? ''}`;
@@ -2051,6 +2093,16 @@ function formatInspect(result: InspectResult): string {
       '',
       'note problems:',
       ...result.noteDiagnostics.map(
+        (item) =>
+          `  ${item.code}${item.sheet ? ` ${item.sheet}` : ''}${item.cell ? `!${item.cell}` : ''}: ${item.message}`,
+      ),
+    );
+  }
+  if ((result.linkDiagnostics ?? []).length > 0) {
+    lines.push(
+      '',
+      'link problems:',
+      ...(result.linkDiagnostics ?? []).map(
         (item) =>
           `  ${item.code}${item.sheet ? ` ${item.sheet}` : ''}${item.cell ? `!${item.cell}` : ''}: ${item.message}`,
       ),

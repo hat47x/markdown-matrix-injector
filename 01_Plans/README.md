@@ -1,5 +1,11 @@
 # 現在の作業
 
+この文書はMMIの開発状況と、次に進める作業の一覧です。MMIを初めて知る方は、先に[概要](../04_Documentation/overview.md)をご覧ください。
+
+現在の基本方針は、**慣れたExcelを使い続けながら、必要な情報を文書から参照できるようにすること**です。すべてをMarkdownへ移したり、原本を廃止したりする必要はありません。取り込みや切り離しは、扱う情報ごとに人が選びます。
+
+以下の「実装済み」はコードや自動テストで確認できたことを示し、**実際の書き手が問題なく使えたことまで保証しません**。「実機確認が残る」「利用者による確認が残る」と記した作業は、完了とは区別してください。技術的な状態と根拠は、後続の一覧にそのまま残しています。
+
 ## 現況
 
 **製品方針:** [ADR-0019](adr/ADR-0019-ai-era-sier-document-value-and-policy.md)（2026-10-01採択、2026-10-08改訂）により、既存Excel設計書の書式・運用を踏襲してMarkdown文書と共存させるユースケースを最優先とする。新しい表も人がExcelで作成・保存し、VS Codeで参照・確認・修正しながら本文を書けるようにする。Excel方眼紙をレガシーとみなす見方と既存のスタイルの両方を尊重し、図形やレイアウトに意味がある範囲は画像として取り込んでよい（D0）。Linked・Extracted・Detachedは情報単位ごとに選ぶ状態で、共存する文書をDetachedへ進める必要はない。人の作業を止めないことを移行の速さより優先する（D13）。共通Core、MMI記法、Read-only、決定論的なAuthority Planeを中核とし、認知機能は執筆の具体的な不足を補う非権威的な支援として選ぶ。
@@ -60,7 +66,7 @@
 
 ## 開発環境
 
-WSL2 Ubuntu（Node v20、npm 10、Python 3.12）で`npm ci`・`npm run build`・`npm test`を実行する。VS Code実機の操作はWindows側で行う。2026-10-17の時点で、このWindows機のGit BashではNode v24.19.0とPython 3.12.10が使え、ビルド済みのCLI（`node 03_Implement/dist/src/cli/bootstrap.js`）も動いた。ただしWSLで入れた`node_modules`は、`tsc`や`esbuild`などの実行ファイルがLinux向けのため、Windowsから動かない場合がある。その場合は`node_modules`をWindows側で入れ直す。`npm test`では、研究層の26件が実装の変更と無関係に失敗する（2026-09-27時点。変更前のHEADでも同じ）。
+WSL2 Ubuntu（Node v20、npm 10、Python 3.12）で`npm ci`・`npm run build`・`npm test`を実行する。VS Code実機の操作はWindows側で行う。2026-10-17の時点で、このWindows機のGit BashではNode v24.19.0とPython 3.12.10が使え、ビルド済みのCLI（`node 03_Implement/dist/src/cli/bootstrap.js`）も動いた。ただしWSLで入れた`node_modules`は、`tsc`や`esbuild`などの実行ファイルがLinux向けのため、Windowsから動かない場合がある。その場合は`node_modules`をWindows側で入れ直す。`npm test`は製品のテストだけを実行し、研究層は`npm run test:research`で別に実行する（#519）。研究層には実装の変更と無関係な既知の失敗が残る（2026-10-13にNode 20で36件）。
 
 ## 計画の管理
 

@@ -1,4 +1,6 @@
-# Issue: Phase 6 Scenario ROI Proof（活用シナリオの意思決定証拠強化）
+# Issue: Phase 6で活用シナリオの導入判断に必要な比較材料を整える
+
+この文書は、Phase 6当時の提案・完了判定・検証履歴を残したIssue記録です。検証履歴にある途中の未完了状態と、冒頭の`Status: Done`（その後の完了判定）は時点を分けて読んでください。現在の文書・実装・動作を新たに確認したものではありません。
 
 ## Meta
 - Type: Docs
@@ -11,27 +13,27 @@
 - Related Backlog/Phase: Phase 6: 公開ドキュメント体系化と価値訴求 (Public Documentation & Adoption)
 - Related ADR/Spec: `01_Plans/adr/ADR-0003-phase6-user-value-maximization-roadmap.md`, `02_Architecture/phase6-public-documentation-architecture.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- SIer向けシナリオに、従来運用との差分（レビュー準備工数、別紙参照時の可読性、印刷制御の再現性）を観測可能な形で追加し、導入可否判断に使える証拠を整備する。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- SIer向けシナリオに、従来の運用と比べる観点として、レビュー準備の工数、別紙を参照するときの読みやすさ、印刷制御の再現性を追加する。それぞれの違いを確認できる形で示し、導入可否の判断に使う根拠を整理する。
 
-### Success metric (価値指標)
+### 価値指標（Success metric）
 - 利用前/利用後比較の評価軸が最低3つ明記され、各軸に観測方法が紐づくこと。
 - シナリオ文書単体で「適用条件」「期待効果」「適用しない方がよい条件」が判断できること。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] Scenario本文に「利用前/利用後」の比較観点が最低3項目記載されること。
 - [x] 各観点に対応する操作手順・期待結果・制約がセットで記載されること。
 - [x] 適用条件 / 非推奨条件と比較観点のみで、導入可否を本文単体で判断できること。
 - [x] 文書化で発見したproduct gapがあれば、別issueとして起票されること。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] ROI観点（時間短縮・品質・監査容易性）を選定する。
 - [x] Scenario guideに比較表と観測手順を追記する。
 - [x] Scenario本文のみで比較証拠が完結する構成へ整える。
 - [x] 発見ギャップをissue化しトレースを残す。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `rg -n "利用前|利用後|比較|ROI|工数|期待結果|適用条件" 04_Documentation/scenario-sier-design-docs.md` で比較証拠の存在を確認する。
 - `rg -n "samples/" 04_Documentation/scenario-sier-design-docs.md` でサンプル導線を確認する。
 - `python3 01_Plans/tools/planning_queue.py` で起票漏れやorphanがないことを確認する。

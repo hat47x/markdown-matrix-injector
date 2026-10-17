@@ -244,9 +244,9 @@
 <p>品質ゲートの状態を確認します（<code>highlightColumn</code> + <code>pageBreak=before</code>）。</p>
 <figure class="mmi-embed" id="tbl-release-gate" data-page-break="before"><figcaption class="mmi-embed__caption">表5: リリース判定表（要確認項目をハイライト）</figcaption><table class="mmi-table"><thead><tr><th>Gate</th><th>Check</th><th>Result</th><th>Threshold</th><th>Status</th><th>Notes</th></tr></thead><tbody><tr class="mmi-table__row"><td class="mmi-table__cell">G1</td><td class="mmi-table__cell">プレビュー描画確認</td><td class="mmi-table__cell">pass</td><td class="mmi-table__cell">全埋め込みが表またはカードで表示</td><td class="mmi-table__cell">OK</td><td class="mmi-table__cell">unit 154件 + production preview wiring 実証済み</td></tr><tr class="mmi-table__row mmi-table__row--highlight"><td class="mmi-table__cell">G2</td><td class="mmi-table__cell">PDF改ページ確認</td><td class="mmi-table__cell">pending</td><td class="mmi-table__cell">pageBreak指定箇所で改ページ再現</td><td class="mmi-table__cell">pending</td><td class="mmi-table__cell">Chromium/weasyprint系エンジンで手動確認必要</td></tr><tr class="mmi-table__row mmi-table__row--highlight"><td class="mmi-table__cell">G2</td><td class="mmi-table__cell">PDF横向き確認</td><td class="mmi-table__cell">pending</td><td class="mmi-table__cell">orientation=landscape指定ページが横向き</td><td class="mmi-table__cell">pending</td><td class="mmi-table__cell">named-page対応エンジン(weasyprint/Chrome headless)が必要</td></tr><tr class="mmi-table__row"><td class="mmi-table__cell">G3</td><td class="mmi-table__cell">データ完全性確認</td><td class="mmi-table__cell">pass</td><td class="mmi-table__cell">原本CSV/XLSXが改変されない</td><td class="mmi-table__cell">OK</td><td class="mmi-table__cell">read-onlyビューア設計確認済み</td></tr><tr class="mmi-table__row"><td class="mmi-table__cell">G4</td><td class="mmi-table__cell">適用範囲文書化</td><td class="mmi-table__cell">pass</td><td class="mmi-table__cell">非対応条件が実測ベースで明記</td><td class="mmi-table__cell">OK</td><td class="mmi-table__cell">04_Documentation/samples/sier-design/README.md参照</td></tr></tbody></table></figure><p>→ G1/G3/G4 は OK、G2 は手動確認が必要です（<a href="#g4-honest-scope">G4 制約</a> 参照）。</p>
 <hr>
-<h2>G4: 適用範囲と既知の制約 {#g4-honest-scope}</h2>
+<h2>G4: 適用範囲と既知の制約 <a id="g4-honest-scope"></a></h2>
 <blockquote>
-<p><strong>実測ベースの正直な適用範囲</strong> — 推測ではなく実測で確認した事実のみを記載します。</p>
+<p><strong>検証範囲の説明</strong> — 表内の単体テスト件数や未実施項目は、サンプル作成時点の記録です。2026年6月3日のヘッドレスPDF検証と、未実施のVS Code画面確認は区別します。</p>
 </blockquote>
 <h3>動作確認済み（実証済み）</h3>
 <table>
@@ -332,21 +332,22 @@
 </tr>
 </tbody>
 </table>
-<h3>PDF 生成経路と対応状況（実測ベース）</h3>
-<p><strong>推奨経路 A: VS Code + Markdown PDF 拡張機能（yzane.markdown-pdf）</strong></p>
+<h3>PDF 生成経路と確認範囲</h3>
+<p>経路Aは、このサンプルをVS CodeのMarkdown PDF拡張から直接出力する方法としては未検証です。経路Bのみ、MMIで展開したHTMLからWeasyPrintでPDFにする過去の検証記録があります。次の手順は、今回あらためて実行した結果ではありません。</p>
+<p><strong>経路 A（未検証）: VS Code + Markdown PDF 拡張機能（yzane.markdown-pdf）</strong></p>
 <ul>
 <li>エンジン: Chromium/puppeteer（Chromium ヘッドレス印刷）</li>
 <li><code>page-break-before/after</code>: ✅ 対応（<code>break-before: page</code> も有効）</li>
 <li><code>@page named-page</code> per-page 用紙向き: ⚠️ Chromium の CSS Paged Media Level 3 実装依存（バージョンにより動作差あり）</li>
 <li>インストール: VS Code 拡張機能マーケットプレイスから <code>Markdown PDF</code> を検索</li>
 </ul>
-<p><strong>推奨経路 B: weasyprint（CLI）</strong></p>
+<p><strong>経路 B（2026年6月3日にヘッドレス検証済み）: WeasyPrint（CLI）</strong></p>
 <ul>
 <li><code>pip install weasyprint</code></li>
-<li><code>weasyprint design-doc-sample.html output.pdf</code></li>
+<li><code>weasyprint 04_Documentation/samples/sier-design/design-doc-sample-rendered.html output.pdf</code>（リポジトリルートから実行）</li>
 <li><code>page-break-before/after</code>: ✅ 対応</li>
 <li><code>@page named-page</code> per-page 用紙向き: ✅ 対応（CSS Paged Media Level 3 実装）</li>
-<li>注意: Markdown を HTML に変換後に CSS を適用（<code>pandoc input.md -o output.html --standalone --css=../../03_Implement/media/markdown-matrix.css</code>、次に weasyprint）</li>
+<li>注意: <code>03_Implement/scripts/render-sample-html.ts</code>でMMI参照を展開し、CSS入りHTMLを生成してからPDF化します。Pandoc単独では埋め込み参照を展開できません。実行手順は同じフォルダーのREADMEを参照してください。</li>
 </ul>
 <p><strong>経路 C: Pandoc + LaTeX（pdflatex/xelatex）</strong></p>
 <ul>

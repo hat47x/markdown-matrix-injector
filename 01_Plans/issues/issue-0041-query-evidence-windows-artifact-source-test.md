@@ -1,4 +1,6 @@
-# Issue: Query Evidence artifact helper の Windows path source metadata テスト
+# Issue: Windows形式のパスでも証跡レポートに元の文書名を表示できるかテストする
+
+この文書は、当時のWindows形式パスに関する回帰防止テストの追加と完了判定を残したIssue記録です。実装コードの変更は対象とせず、2026年3月31日の検証証跡を現在の実機動作やテスト再実行の確認として扱うものではありません。
 
 ## Meta
 - Type: Test
@@ -11,20 +13,20 @@
 - Related Backlog/Phase: Phase 6 Documentation feedback loop
 - Related ADR/Spec: `01_Plans/issues/issue-0040-query-evidence-windows-path-basename.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- `buildQueryEvidenceExportArtifacts` にWindows形式パスを渡した場合、`markdownReportText` の `Source` 行がbasename（`spec`）になることをテストで固定する。
-- 実装コード変更は不要で、既存動作の回帰防止を目的にテストを追加する。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- `buildQueryEvidenceExportArtifacts`にWindows形式のパスを渡した場合、生成される`markdownReportText`の`Source`行に、元のファイル名部分（basename）である`spec`が入ることを単体テストで確認する。
+- 実装コードは変更せず、既存の動作が後の変更で失われないようにするためのテストを追加する。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] Windows形式パス入力でartifactのsource metadataがbasenameに正規化されるテストがある。
 - [x] `npm test` が通過する。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] unit testを追加する。
 - [x] `npm test` を実行する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `cd 03_Implement && npm test`
 
 ## Validation evidence (実行証跡)

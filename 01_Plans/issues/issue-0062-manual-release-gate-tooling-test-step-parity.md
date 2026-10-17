@@ -1,4 +1,6 @@
-# Issue: Manual release-gate tooling test step parity with CI
+# Issue: 手動リリース判定でもCIと同じ順序で補助ツールをテストする
+
+この文書は、Phase 7当時の手動実行ワークフローとCIの検証手順をそろえる提案と完了判断を残したIssue記録です。2026年4月2日のコマンド実行証跡と、GitHub Actions上の手動起動の観測結果は区別し、現在の動作確認として扱いません。
 
 ## Meta
 - Type: Test
@@ -11,21 +13,21 @@
 - Related Backlog/Phase: Phase 7 Release Readiness & Adoption Scale
 - Related ADR/Spec: `01_Plans/adr/ADR-0005-phase7-release-readiness-and-adoption-scale.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- manual workflowにもtooling unit test stepを追加し、CIと同じ順序（tooling test -> gate run）へ統一する。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- 手動起動するワークフローにも補助ツールの単体テスト手順を加える。CIと同じく、補助ツールのテスト（tooling test）を先に行い、その後にリリース判定（gate run）を実行する順序にそろえる。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] manual workflowに `npm run test:release-gate-tools` stepが追加される。
 - [x] 既存のmanual flag入力とartifact uploadを維持する。
 - [x] Phase 7ガイドにmanual workflowのtest stepが追記される。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] workflow step追加。
 - [x] 文書更新。
 - [x] 検証実行と証跡記録。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `cd 03_Implement && npm run test:release-gate-tools`
 - `cd 03_Implement && npm run release:gate:full`
 - `python3 01_Plans/tools/planning_queue.py`

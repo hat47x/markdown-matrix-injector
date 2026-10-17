@@ -1,4 +1,6 @@
-# Issue: Release gate test lane dedup for Phase9 sync
+# Issue: リリース判定の単体テストとPhase 9同期検査の重複をなくす
+
+この文書は当時の完了判断を残したIssue記録です。検証証跡は当時の結果であり、現在の実装やCIを再検証したものではありません。
 
 ## Meta
 - Type: Docs
@@ -11,23 +13,23 @@
 - Related Backlog/Phase: Phase 9 Rule Table Interoperability & Design Assetization
 - Related ADR/Spec: `01_Plans/adr/ADR-0008-phase9-template-sync-quality-gate-hardening.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- release gateのG2は `npm test` ではなく `npm run test:unit` を実行し、G3（Phase9Sync）と責務を分離する。
-- 同じsync checkerの二重実行を避け、gate fail時の原因特定を容易にする。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- リリース判定のG2では`npm test`ではなく`npm run test:unit`を実行し、G3（Phase9Sync）の同期検査と役割を分ける。
+- 同じ同期検査（sync checker）が重複して実行されることを避け、ゲートが失敗した際に原因を特定しやすくする。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] `release_gate_check.py` のG2が `npm run test:unit` を実行する。
 - [x] `test_release_gate_check.py` の期待メッセージが更新される。
 - [x] `python3 01_Plans/tools/test_release_gate_check.py` が成功する。
 - [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] G2実行コマンドを更新する。
 - [x] unit testを更新する。
 - [x] planning queueを再実行する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `python3 01_Plans/tools/test_release_gate_check.py`
 - `python3 01_Plans/tools/planning_queue.py`
 

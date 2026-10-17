@@ -57,7 +57,7 @@ export interface NoteReadResult {
   diagnostics: NoteDiagnostic[];
 }
 
-const decodeEntities = (value: string): string =>
+export const decodeEntities = (value: string): string =>
   value
     .replace(/&lt;/gu, '<')
     .replace(/&gt;/gu, '>')
@@ -73,7 +73,7 @@ const decodeEntities = (value: string): string =>
     )
     .replace(/&amp;/gu, '&');
 
-function attributes(tag: string): Record<string, string> {
+export function attributes(tag: string): Record<string, string> {
   const result: Record<string, string> = {};
   for (
     const match of tag.matchAll(
@@ -85,7 +85,7 @@ function attributes(tag: string): Record<string, string> {
   return result;
 }
 
-const entryText = (entry: ZipEntry): string =>
+export const entryText = (entry: ZipEntry): string =>
   entry.read().toString('utf8').replace(/^﻿/u, '');
 
 function resolveTarget(ownerPart: string, target: string): string {
@@ -98,14 +98,14 @@ function resolveTarget(ownerPart: string, target: string): string {
   return base.join('/');
 }
 
-interface Relationship {
+export interface Relationship {
   id: string;
   type: string;
   target: string;
   external: boolean;
 }
 
-function relationshipsOf(
+export function relationshipsOf(
   zip: Map<string, ZipEntry>,
   part: string,
 ): Relationship[] {
@@ -134,7 +134,7 @@ function relationshipsOf(
   });
 }
 
-function workbookSheets(
+export function workbookSheets(
   zip: Map<string, ZipEntry>,
 ): Array<{ name: string; part: string }> {
   const workbook = zip.get('xl/workbook.xml');

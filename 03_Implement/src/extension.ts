@@ -24,6 +24,7 @@ import {
   type PasteDropCommandArgs,
 } from './dx/vscodeAdapters.js';
 import { getScenarioTemplateCandidates, SCENARIO_OBSERVATION_TEMPLATE } from './dx/scenarioTemplate.js';
+import { hostScenarioTemplatePhrases } from './dx/scenarioTemplateHostPhrases.js';
 import { parseTsv } from './dx/pasteDrop.js';
 import { analyzeCompletionContext, type CompletionContext } from './dx/completionContext.js';
 import {
@@ -38,11 +39,19 @@ import { hostCompletionPhrases } from './dx/completionHostPhrases.js';
 import {
   buildContentMatchMarkdown,
   contentMatchStillExact,
+  describeContentMatchDetail,
+  describeIncompleteContentMatchSearch,
   findWorkbookContentMatchesDetailed,
   summarizeContentMatchContext,
   type WorkbookContentMatch,
   type WorkbookSheetsSource,
 } from './dx/contentMatchSearch.js';
+import {
+  hostContentMatchDetailPhrases,
+  hostContentMatchIncompletePhrases,
+  hostContentMatchContextPhrases,
+  hostPasteAsContentMatchPicker,
+} from './dx/contentMatchHostPhrases.js';
 import { markdownMatrixPlugin } from './plugin/markdownMatrixPlugin.js';
 import {
   AUTHOR_EMBED_COMMAND_ID,
@@ -806,7 +815,7 @@ async function insertEmbedByContentMatch(): Promise<void> {
     searchResult = findWorkbookContentMatchesDetailed(clipboardText, loadResult.workbooks);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    void vscode.window.showErrorMessage(`MMI: Content-match search failed: ${reason}`);
+    void vscode.window.showErrorMessage(hostPasteAsContentMatchPicker.searchFailed(reason));
     return;
   }
   const matches = withSource(source.match, searchResult.matches);
@@ -817,20 +826,21 @@ async function insertEmbedByContentMatch(): Promise<void> {
     loadResult.fileSelectionTruncated,
     loadResult.fileSelectionLimit,
     loadResult.cancelled,
+    hostContentMatchIncompletePhrases,
   );
 
   if (matches.length === 0) {
     const why = source.reason ? ` (${source.reason})` : '';
     if (incomplete) {
-      void vscode.window.showWarningMessage(`MMI: No matching range was found in the sheets that could be searched. ${incomplete}${why}`);
+      void vscode.window.showWarningMessage(hostPasteAsContentMatchPicker.noRangeWithIncomplete(`${incomplete}${why}`));
     } else {
-      void vscode.window.showInformationMessage(`MMI: No matching range found in this workspace's workbooks.${why}`);
+      void vscode.window.showInformationMessage(hostPasteAsContentMatchPicker.noRangeAtAll(why));
     }
     return;
   }
 
   if (incomplete) {
-    void vscode.window.showWarningMessage(`MMI: Some workbook data could not be searched. The candidate list may be incomplete. ${incomplete}`);
+    void vscode.window.showWarningMessage(hostPasteAsContentMatchPicker.partiallySearched(incomplete));
   }
   const picked = await pickContentMatch(matches);
   if (!picked) {
@@ -838,7 +848,7 @@ async function insertEmbedByContentMatch(): Promise<void> {
   }
 
   if (!(await contentMatchSourceStillExact(documentUri.fsPath, clipboardText, picked))) {
-    void vscode.window.showWarningMessage('MMI: The selected workbook range changed before insertion. Search again before inserting the reference.');
+    void vscode.window.showWarningMessage(hostPasteAsContentMatchPicker.sourceChangedBeforeInsert());
     return;
   }
 
@@ -900,24 +910,6 @@ async function loadWorkspaceWorkbooksForContentMatch(
     fileSelectionLimit: selection.limit,
     cancelled,
   };
-}
-
-function describeIncompleteContentMatchSearch(
-  skippedFileCount: number,
-  skippedSheetCount: number,
-  truncatedSheetCount: number,
-  fileSelectionTruncated: boolean,
-  fileSelectionLimit: number,
-  cancelled: boolean,
-): string {
-  const parts = [
-    skippedFileCount > 0 ? `読めないブック ${skippedFileCount}件` : '',
-    skippedSheetCount > 0 ? `索引上限を超えたシート ${skippedSheetCount}件` : '',
-    truncatedSheetCount > 0 ? `候補上限に達したシート ${truncatedSheetCount}件` : '',
-    fileSelectionTruncated ? `探索対象ブックが上限${fileSelectionLimit}件を超過` : '',
-    cancelled ? '検索が中断されました' : '',
-  ].filter(Boolean);
-  return parts.length > 0 ? `検索は完全ではありません（${parts.join('、')}）。` : '';
 }
 
 /**
@@ -1033,6 +1025,7 @@ async function getContentMatchPasteEdits(
     loadResult.fileSelectionTruncated,
     loadResult.fileSelectionLimit,
     false,
+    hostContentMatchIncompletePhrases,
   );
   if (matches.length === 0 && incomplete) {
     void vscode.window.showWarningMessage(`MMI: Content-match Paste As found no match in the sheets that could be searched. ${incomplete}`);
@@ -1044,10 +1037,10 @@ async function getContentMatchPasteEdits(
     // Paste As offers one compact line per edit. Reuse the source-derived
     // table/header/neighbor context so identical copies can be distinguished
     // before insertion without inventing confidence or auto-picking one.
-    const context = summarizeContentMatchContext(match, 72);
+    const context = summarizeContentMatchContext(match, 72, hostContentMatchContextPhrases);
     const where = context ? ` ${context}` : '';
-    const how = isConfirmedSource(match) ? '（コピー元を確認済み）' : '（内容から推定）';
-    const completeness = incomplete ? '（検索不完全）' : '';
+    const how = isConfirmedSource(match) ? hostPasteAsContentMatchPicker.confirmedSourceSuffix() : hostPasteAsContentMatchPicker.estimatedSourceSuffix();
+    const completeness = incomplete ? hostPasteAsContentMatchPicker.incompleteSearchSuffix() : '';
     const title = `MMI: ${match.filepath}#${match.sheet} (${cellRangeToA1(match.range)})${where}${how}${completeness}`;
     const edit = new vscode.DocumentPasteEdit(
       buildContentMatchMarkdown(match),
@@ -1069,40 +1062,20 @@ interface ContentMatchPickItem extends vscode.QuickPickItem {
   match: WorkbookContentMatch;
 }
 
-function describeMatchContext(match: WorkbookContentMatch): string {
-  const context = match.context;
-  if (!context) return '';
-  const clean = (value: string): string => value.replace(/\s+/gu, ' ').trim() || '（空）';
-  const join = (values?: readonly string[]) => values?.map(clean).join(' | ');
-  const preview = context.previewRows
-    ?.slice(0, 2)
-    .map((row) => join(row))
-    .filter((row): row is string => Boolean(row))
-    .join(' ／ ');
-  return [
-    context.headers ? `見出し: ${join(context.headers)}` : '',
-    preview ? `範囲内: ${preview}` : '',
-    context.rowAbove ? `直前の行: ${join(context.rowAbove)}` : '',
-    context.rowBelow ? `直後の行: ${join(context.rowBelow)}` : '',
-  ]
-    .filter(Boolean)
-    .join('　');
-}
-
 async function pickContentMatch(matches: readonly WorkbookContentMatch[]): Promise<WorkbookContentMatch | undefined> {
   const items: ContentMatchPickItem[] = matches.map((match) => ({
     label: isConfirmedSource(match) ? `$(verified) ${match.filepath}#${match.sheet}` : `${match.filepath}#${match.sheet}`,
-    description: [cellRangeToA1(match.range), match.context?.title, isConfirmedSource(match) ? 'コピー元を確認済み' : '内容から推定']
+    description: [cellRangeToA1(match.range), match.context?.title, isConfirmedSource(match) ? hostPasteAsContentMatchPicker.confirmedSourceLabel() : '内容から推定']
       .filter(Boolean)
       .join('  '),
-    detail: describeMatchContext(match),
+    detail: describeContentMatchDetail(match, hostContentMatchDetailPhrases),
     match,
   }));
   // A confirmed source is still a choice, not a decision (R1).
   const placeHolder =
     matches.length === 1
-      ? 'MMI: この範囲を参照として挿入しますか？（Escで中止）'
-      : `MMI: 候補が${matches.length}件あります。コピー元を確認済みのものが先頭です。周辺の見出し・前後の行で選んでください（Escで中止）`;
+      ? hostPasteAsContentMatchPicker.insertThisRangePlaceholder()
+      : `hostPasteAsContentMatchPicker.chooseFromCandidatesPlaceholder(matches.length)`;
 
   const picked = await vscode.window.showQuickPick(items, { placeHolder });
   return picked?.match;
@@ -1376,7 +1349,7 @@ function createCompletionProvider(): vscode.CompletionItemProvider {
         });
       }
 
-      const templateCandidates = getScenarioTemplateCandidates(document.getText(), linePrefix);
+      const templateCandidates = getScenarioTemplateCandidates(document.getText(), linePrefix, hostScenarioTemplatePhrases);
 
       if (templateCandidates.length === 0) {
         return undefined;

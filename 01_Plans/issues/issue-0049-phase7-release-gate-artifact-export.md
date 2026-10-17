@@ -1,4 +1,6 @@
-# Issue: Phase 7 release gate artifact export
+# Issue: Phase 7のリリース判定結果をJSONファイルとして保存する
+
+この文書は、Phase 7当時のリリース判定結果のJSONファイル出力と完了判断を残したIssue記録です。2026年4月2日の検証証跡とCIへの成果物登録は当時の記録であり、現在のCIや実行結果を新たに確認したものではありません。
 
 ## Meta
 - Type: Feature
@@ -11,23 +13,23 @@
 - Related Backlog/Phase: Phase 7 Release Readiness & Adoption Scale
 - Related ADR/Spec: `01_Plans/adr/ADR-0005-phase7-release-readiness-and-adoption-scale.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- release gate結果をJSONファイルとして保存できるようにし、CI artifactとして監査可能な証跡を残す。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- リリース判定（release gate）の結果をJSONファイルとして保存できるようにする。CIの成果物（artifact）として残し、後から判定内容を確認できるようにする。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] `release_gate_check.py` に `--output-file` が追加される。
 - [x] JSON結果のシリアライズ/保存ロジックに対するテストが追加される。
 - [x] CIが `artifacts/release-gate.json` をアップロードする。
 - [x] Phase 7ガイドにoutput-file運用が追記される。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] release gate CLIへJSON export機能を追加する。
 - [x] unittestを拡張する。
 - [x] CI workflowにartifact uploadを追加する。
 - [x] ドキュメントへ運用手順を反映する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `python3 -m unittest 01_Plans/tools/test_release_gate_check.py`
 - `python3 01_Plans/tools/release_gate_check.py --format json --output-file artifacts/release-gate.json`
 - `python3 01_Plans/tools/planning_queue.py`

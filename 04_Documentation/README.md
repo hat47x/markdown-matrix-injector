@@ -1,10 +1,15 @@
 # MMIの使い方と開発文書
 
+MMIを初めて知った方は、[概要](overview.md)で「何ができるか」を確認してから、[チュートリアル](tutorial.md)で実際に表を表示してみてください。普段の仕事で使う方は[利用マニュアル](user-manual.md)、仕組みや記法を確認したい方はリファレンスや設計文書へ進めます。
+
+下の一覧は、**やりたいことから読む文書を探すための案内**です。
+
 | 目的 | 文書 |
 | --- | --- |
 | 最初の表を表示する | [チュートリアル](tutorial.md) |
 | 既存設計書や新しいExcel表を使って本文を書く | [ExcelとMarkdownの併用執筆](excel-markdown-authoring.md) |
 | 操作を調べる | [利用マニュアル](user-manual.md) |
+| 原本とMMIを外す | [原本とMMIを外す手順](detach-guide.md) |
 | 実務に近い例を試す | [サンプル集](samples/practical/README.md) |
 | 用途と全体像を知る | [概要](overview.md) |
 | パラメータを調べる | [リファレンス](reference.md) |

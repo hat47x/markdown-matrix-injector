@@ -1,4 +1,6 @@
-# Issue: Phase 6 FAQ と視覚補助素材（スクリーンショット/比較表）カバレッジ整備
+# Issue: Phase 6の公開文書にFAQと図表への案内を整える
+
+この文書は、Phase 6当時のFAQと視覚補助資料の整備方針、完了状態、検証結果を残したIssue記録です。議事録と2026年3月29日の証跡は当時の内容であり、現在の公開文書を新たに点検したものではありません。
 
 ## Meta
 - Type: Docs
@@ -11,26 +13,26 @@
 - Related Backlog/Phase: Phase 6 Public Documentation & Adoption
 - Related ADR/Spec: `00_Prompt/requirements.md` (Phase 6 Documentation quality gate), `02_Architecture/phase6-public-documentation-architecture.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- 公開導線4文書（Overview/Tutorial/Scenario/Reference）を横断監査し、FAQ・スクリーンショット・比較表の欠落を文書ごとに棚卸しする。
-- 最小構成としてFAQセクションと視覚補助素材の参照導線（画像または表）を追加し、読者別のつまずきに対する一次回答をREADMEから辿れるように統一する。
-- docs auditログとfeedback classificationを更新し、requirements / architecture / implement testへの還流要否を明文化する。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- 公開文書の4つの入口（Overview / Tutorial / Scenario / Reference）を横断して点検し、よくある質問（FAQ）、スクリーンショット、比較表の有無を文書ごとに整理する。
+- 最小限の対応として、FAQの節と、画像または表を参照するための案内を追加する。読者がつまずきやすい点について、READMEから該当する説明へたどれる構成にそろえる。
+- 文書監査（docs audit）の記録とフィードバック分類（feedback classification）を更新し、発見事項をrequirements / architecture / implement testへ戻す必要があるかを明記する。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] 4文書すべてにFAQの有無・配置方針が明示され、欠落文書にはFAQを追加する。
 - [x] スクリーンショットまたは比較表のどちらを採用するかを文書ごとに判定し、少なくとも2文書で視覚補助素材を新規追加する。
 - [x] `04_Documentation/README.md` からFAQ / 視覚補助素材に到達できる導線を追加する。
 - [x] docs auditとfeedback loopの結果を `01_Plans/templates` の運用テンプレートに沿って記録し、必要なら派生issueを起票する。
 - [x] `python3 01_Plans/tools/planning_queue.py` 実行でorphan issueが0件のままである。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] 既存公開文書のFAQ / 視覚素材の有無を監査し、差分メモを作成する。
 - [x] 優先2文書以上にFAQと視覚補助素材を追加する。
 - [x] README導線および運用テンプレート更新を実施する。
 - [x] triageコマンドを実行してpending/orphan状態を確認する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `python3 01_Plans/tools/planning_queue.py`
 - `rg "FAQ|よくある質問|スクリーンショット|比較表" 04_Documentation/README.md 04_Documentation/overview.md 04_Documentation/tutorial.md 04_Documentation/scenario-sier-design-docs.md 04_Documentation/reference.md`
 

@@ -1,4 +1,6 @@
-# Issue: Phase 6 Query Evidence Export Hardening（未保存文書とI/O失敗の保護）
+# Issue: Phase 6のクエリ証跡出力で未保存文書と書き込み失敗に対応する
+
+この文書は、Phase 6当時のクエリ証跡出力に関する保護処理の提案と完了状態を残したIssue記録です。受入条件・検証計画と2026年3月29日の実行証跡は当時の内容であり、現在の動作を新たに確認したものではありません。
 
 ## Meta
 - Type: Feature
@@ -11,22 +13,22 @@
 - Related Backlog/Phase: Phase 6 Documentation feedback loop
 - Related ADR/Spec: `01_Plans/issues/issue-0024-phase6-query-evidence-json-export.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- `__dev.exportQueryEvidence` で未保存 (`untitled`) 文書を検知して警告し、無効パスへの書き込みを防止する。
-- ファイル書き込み失敗時にエラー通知を表示し、失敗理由をユーザーに伝達する。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- `__dev.exportQueryEvidence` の実行時に、まだ保存されていない文書（`untitled`）を検知して警告する。これにより、有効な保存先がない状態での書き込みを防ぐ。
+- ファイルへの書き込みに失敗した場合はエラーを通知し、利用者が失敗理由を把握できるようにする。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] 未保存文書ではexportを中断し、警告メッセージを表示する。
 - [x] I/O失敗時にエラーメッセージを表示する。
 - [x] 既存テストを含む `npm test` が通過する。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] `extension.ts` にguard / error handlingを追加する。
 - [x] `extensionIntegration.test.ts` にsource-level assertionを追加する。
 - [x] `npm test` で回帰確認する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `cd 03_Implement && npm test`
 - `python3 01_Plans/tools/planning_queue.py`
 

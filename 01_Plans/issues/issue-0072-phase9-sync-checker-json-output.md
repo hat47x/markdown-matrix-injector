@@ -1,4 +1,6 @@
-# Issue: Phase 9 sync checker JSON output support
+# Issue: Phase 9の同期検査結果をJSON形式でも出力できるようにする
+
+この文書は当時の完了判断を残したIssue記録です。2026年4月5日の検証結果は当時の証跡であり、現在のCIやJSON出力を再確認したものではありません。
 
 ## Meta
 - Type: Docs
@@ -11,24 +13,24 @@
 - Related Backlog/Phase: Phase 9 Rule Table Interoperability & Design Assetization
 - Related ADR/Spec: `01_Plans/adr/ADR-0008-phase9-template-sync-quality-gate-hardening.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- sync checkerの結果をCIから機械可読で扱えるよう、`--format json` を追加する。
-- text/jsonの両出力をunit testで検証し、運用ガイドにJSON利用手順を追記する。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- 同期検査の結果をCIから機械的に読み取れるように、JSON形式を指定する`--format json`を追加する。
+- テキスト形式とJSON形式の両方の出力を単体テストで確認し、運用ガイドにJSON出力の利用手順を記載する。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] `check_phase9_template_sync.py` が `--format text|json` を受け取り、json形式出力できる。
 - [x] `test_check_phase9_template_sync.py` にJSON出力の正常系/異常系テストが追加される。
 - [x] `phase9-rule-table-template-operations.md` にJSON出力手順が追記される。
 - [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] checkerにJSON出力を追加する。
 - [x] unit testを追加する。
 - [x] 運用ガイドを更新する。
 - [x] planning queueを再実行する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `python3 01_Plans/tools/test_check_phase9_template_sync.py`
 - `python3 01_Plans/tools/check_phase9_template_sync.py --format json`
 - `python3 01_Plans/tools/planning_queue.py`

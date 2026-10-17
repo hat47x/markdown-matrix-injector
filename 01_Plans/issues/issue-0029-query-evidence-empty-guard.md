@@ -1,4 +1,6 @@
-# Issue: Query Evidence Export の空結果ガード追加
+# Issue: クエリ証跡が0件のときはファイル出力を中断する
+
+この文書は、当時のクエリ証跡出力における空結果の扱いと完了状態を残したIssue記録です。ここで扱う出力コマンドの中断と、後続Issueで扱うMarkdown整形関数の0件表示は別の挙動です。以下の検証結果を現行動作の再確認として扱うものではありません。
 
 ## Meta
 - Type: Feature
@@ -11,24 +13,24 @@
 - Related Backlog/Phase: Phase 6 Documentation feedback loop
 - Related ADR/Spec: `01_Plans/issues/issue-0028-phase6-query-evidence-markdown-export.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- `__dev.exportQueryEvidence` 実行時、埋め込み記法が0件ならファイル出力を中断し、警告メッセージを表示する。
-- 空データのCSV/JSON/MDを生成しないことで、監査成果物として誤解を招く空ファイルの混入を防止する。
-- source assertionとquery evidence unit testを更新し、空結果ガードの回帰を防ぐ。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- `__dev.exportQueryEvidence`の実行時に埋め込み記法が1件も見つからなければ、ファイルの出力を中断し、警告メッセージを表示する。
+- データが空のCSV・JSON・Markdownファイルは作らず、内容のないファイルが監査用の成果物に紛れ込むことを防ぐ。
+- ソースに対する検証（source assertion）とクエリ証跡の単体テストを更新し、0件の場合に出力を止める動作が後の変更で損なわれないようにする。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] recordsが0件の場合、出力処理を中断してwarningを表示する。
 - [x] 既存のquery evidence出力（records > 0）は維持される。
 - [x] `npm test` が通過する。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] `extension.ts` に空結果ガードを追加する。
 - [x] `extensionIntegration.test.ts` のsource assertionを更新する。
 - [x] `queryEvidence.test.ts` に空文書ケースを追加する。
 - [x] `npm test` 実行で回帰確認する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `cd 03_Implement && npm test`
 
 ## Validation evidence (実行証跡)
