@@ -105,7 +105,9 @@ AI無しでもDOMの明示構造に基づく選択・確認・抽出ができる
 | source変更／ID不在／ID重複 | fingerprint再確認や明示選択を要求し、不明のまま書き込まない |
 | 欠落資産／外部URL | ローカル閉包の不足や外部依存を明示し、成功と混同しない |
 
-**未実施**: 実コードによるHTML DOM解析、Candidate生成、保存、リンク書換え、全テスト、Windows/VS Code E2E、PDF品質確認。本書とfixtureはレビュー用根拠であり実装完了の記録ではない。
+**実装差分（2026-10-17、Draft PR #555）**: `parse5`を直接依存として宣言し、ローカル静的HTML5のDOMから`main / section / table / figure`を観測して既存Candidate契約へ写す最小Adapterを追加した。FigureはSVG/Mermaidを含む場合だけ`diagram`、画像を含む場合に`image`とし、未知のFigureへ種類を推定しない。原本バイトDigestとCandidateのfragment fingerprintは別に確認する。明示ID選択はAdapter関数として実装したがCLIからの抽出・保存入口ではない。`mmi inspect <file.html> --json`では値全体を出さずCandidate/位置/種別を列挙する。
+
+**未実施**: テスト実行とビルド（この作業環境にはリポジトリ依存が揃わずnpm registryへ接続できない）、CLIからのHTML断片保存、除外セレクター、HTML→Markdown投影、Ledgerへの採用、リンク書換え、複数ファイル保存の整合性、Windows/VS Code E2E、PDF品質確認。HTMLの本体実装が完了したとは扱わない。
 
 ## 10. 既存契約への受渡し
 
