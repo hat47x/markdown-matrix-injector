@@ -136,3 +136,33 @@ test('a duplicate anchor outside the selected roots remains ambiguous', () => {
   assert.ok(plan.problems.some((p) => p.code === 'MMI_HTML_AMBIGUOUS_ANCHOR'));
   assert.equal(plan.anchors[0]?.status, 'blocked');
 });
+
+test('reports source base URL semantics before proposing a self-contained migration', () => {
+  const withBase = fixture.replace(
+    '<title>申請システムの統合設計書（分解用fixture）</title>',
+    '<base href="https://docs.invalid/v1/"><title>申請システムの統合設計書（分解用fixture）</title>',
+  );
+  const doc = read(withBase);
+  const plan = planHtmlDecomposition(doc, [
+    selected(doc, 'overview', 'docs/overview.html'),
+    selected(doc, 'api', 'docs/api.html'),
+  ]);
+  assert.equal(plan.hasIdentifiedBlockers, true);
+  assert.ok(plan.problems.some((p) => p.code === 'MMI_HTML_SOURCE_BASE_DEPENDENCY'));
+});
+
+test('reports cross-file HTML IDREF semantics separately from navigational anchor links', () => {
+  const html = fixture.replace(
+    '<p>申請の状態については',
+    '<p aria-describedby="api">申請の状態については',
+  );
+  const doc = read(html);
+  const split = planHtmlDecomposition(doc, [
+    selected(doc, 'overview', 'docs/overview.html'),
+    selected(doc, 'api', 'docs/api.html'),
+  ]);
+  assert.equal(split.hasIdentifiedBlockers, true);
+  assert.ok(split.problems.some((p) => p.code === 'MMI_HTML_CROSS_OUTPUT_IDREF'));
+  const single = planHtmlDecomposition(doc, [selected(doc, 'spec', 'docs/spec.html')]);
+  assert.equal(single.hasIdentifiedBlockers, false);
+});
