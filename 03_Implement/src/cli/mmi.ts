@@ -482,7 +482,7 @@ export async function main(argv: string[]): Promise<number> {
       if (values['import-assist']) {
         if (raw.trees !== undefined || raw.htmlFragments !== undefined) {
           return usageError(
-            'inspect --import-assist applies to workbook/grid sources, not explicit Tree sources',
+            'inspect --import-assist applies only to workbook/grid sources, not Tree or HTML sources',
           );
         }
         raw.importAssistance = inspectImportAssistance(absoluteSource, values.from);
