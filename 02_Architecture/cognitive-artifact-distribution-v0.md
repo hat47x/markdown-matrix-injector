@@ -64,7 +64,7 @@ mmi artifact artifact.json \
   --download
 ```
 
-downloadはstreaming（受信した部分から順次処理する方式）で行い、受信中に期待sizeを超えた時点で中止する。完了後にbyte sizeとSHA-256を照合し、両方が一致した場合だけcontent-addressed cache（内容の照合値を鍵として保存する領域）へ原子的に確定する（途中の状態では確定させない）。失敗した一時fileは削除する。
+downloadはstreaming（受信した部分から順次処理する方式）で行い、受信中に期待sizeを超えた時点で中止する。完了後にbyte sizeとSHA-256を照合し、両方が一致した場合だけcontent-addressed cache（内容の照合値を鍵として保存する領域）へ原子的に確定する（途中の状態では確定させない）。失敗した一時fileは削除する。取得物のsizeまたはSHA-256が一致しない場合、`unavailable` へ読み替えずエラーとし、cacheに確定させない。
 
 ### runtime-managed
 
@@ -85,7 +85,7 @@ MMIが取得したartifactはSHA-256で配置する。
       abcdef...
 ```
 
-同じdigestであれば、artifact id、project、providerが違っても同じcache entry（保存済み資産）を再利用する。modelのversion名が同じでもdigestが違えば別entryになる。既存entryは利用前にsizeとSHA-256を再確認し、破損していればfail-closed（安全側として利用を認めない扱い）とする。
+同じdigestであれば、artifact id、project、providerが違っても同じcache entry（保存済み資産）を再利用する。modelのversion名が同じでもdigestが違えば別entryになる。既存entryは利用前にsizeとSHA-256を再確認する。破損していればfail-closed（安全側として利用を認めない扱い）とし、`unavailable` を返して他の取得元へ自動的に進むのではなく、その資産の解決処理をエラーとする。
 
 既定のcache rootは次のとおり。
 
