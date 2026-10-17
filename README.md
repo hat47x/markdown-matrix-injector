@@ -6,6 +6,14 @@
 
 今後は、元文書を残したまま表・画像・階層構造などを段階的に取り込み、出典を追跡しつつ標準Markdownと通常の添付ファイルへ移せる構成に広げます。VS Code拡張だけを本体とはせず、共通処理機構（Core）、コマンドライン操作（CLI）、機械可読な契約をAIや自動検証（CI）からも利用できることを目指します。未実装の機能は、以下の「できることと対応範囲」には含めません。
 
+## 初めて読む方へ
+
+**Markdown**は、簡単な記号で見出しや表を表す文書形式です。**VS Code**は、その文書を編集するためのソフトです。MMIでは、ExcelやCSVの表を文書に直接コピーする代わりに、ファイルの場所と必要な範囲を指定して表示します。
+
+たとえば要件一覧をExcelで直した場合、表を文書へ貼り直さずに済みます。ただし、表の変更に合わせて**説明文そのものが自動で書き換わるわけではありません**。内容を確認したうえで使ってください。
+
+これから試す方は[チュートリアル](04_Documentation/tutorial.md)へ、利用できる機能と今後の計画を区別して読みたい方は[現在の作業](01_Plans/README.md)へ進んでください。
+
 ![VS CodeでCSVの要件を表示](04_Documentation/media/release-20260908/01-first-table.png)
 
 [チュートリアル](04_Documentation/tutorial.md) · [利用マニュアル](04_Documentation/user-manual.md) · [実務サンプル12本](04_Documentation/samples/practical/README.md) · [操作動画](04_Documentation/media/release-20260908/mmi-live-walkthrough.mp4)
