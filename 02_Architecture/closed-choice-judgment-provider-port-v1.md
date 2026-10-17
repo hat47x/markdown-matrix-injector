@@ -83,14 +83,13 @@ provider固有のadapterが必要な場合は、そこで明示的に `unavailab
 Noul / Scoreを同じportへ混在させない。
 primitive（判断の基本形式）ごとにconfidence semantics（確信度の意味）が異なるため、後続Issueで別contract（契約）として扱う。
 
-live Jev adapter（実際のJevとの接続部）に必要な次の事項は、
+live Jev adapter（実際のJevとの接続部）に必要な次の事項は、別Issueで追加する。
+
 - explicit external opt-in
 - API credential管理
 - state projection
 - timeout/retry
 - provider-specific response mapping
-
-別Issueで追加する。
 
 ## 8. 非責務
 
