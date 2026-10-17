@@ -8,7 +8,7 @@ MMIの決定論的なAuthority Plane（記法の解析、参照先の解決、�
 
 ## 2. Trust boundary
 
-Trust boundary（信頼の境界）は、認知側の提案とAuthority側の検証を分けるためのものとする。
+次の図は、認知側の提案とAuthority側の検証を分けるTrust boundary（信頼の境界）を示す。
 
 ```mermaid
 flowchart LR
@@ -78,7 +78,7 @@ category（分類）は信頼度ではなく責務の区分である。execution
 
 ## 5. Signal and abstention
 
-成功した場合は、`CognitiveSignalOutcome`（認知側から返す信号の結果）として返す。
+成功した結果は、`CognitiveSignalOutcome`（認知側から返す信号の結果）として返す。
 
 signal（認知側からの情報）には、次の項目を含める。
 
