@@ -2,7 +2,7 @@
 
 ## 1. 目的
 
-Authority adapter（既存のAuthority検証処理を呼び出す接続部）のpreview（読み込んだ内容の表示確認）を、任意のpreloaded WorkbookData（事前に読み込んだブックのデータ）だけでなく、**containment済みsource pathから実際にloadしたWorkbookData**へ結び付ける。ここでいうcontainmentは、参照先のパスが許可されたワークスペース内に収まっていることの確認を指す。
+Authority adapter（既存のAuthority検証処理を呼び出す接続部）のpreview（表示候補を確認する処理）を、任意のpreloaded WorkbookData（事前に読み込んだブックのデータ）だけでなく、**containment済みsource pathから実際にloadしたWorkbookData**へ結び付ける。ここでいうcontainmentは、参照先のパスが許可されたワークスペース内に収まっていることの確認を指す。
 
 production loader（既存の実運用向け読み込み処理）の実装は変更せず、experimental側（実験用の処理経路）から最小限の接続を行う。
 
