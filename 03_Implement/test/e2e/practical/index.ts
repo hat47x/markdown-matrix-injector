@@ -71,7 +71,7 @@ async function checkSampleDocuments(samples: string): Promise<void> {
       for (const match of document.lineAt(line).text.matchAll(EMBED)) {
         const at = new vscode.Position(line, (match.index ?? 0) + 3);
         const hover = await hoverText(document.uri, at);
-        const kind = /別紙カード/u.test(hover) ? 'card' : /該当行0件/u.test(hover) ? 'empty' : /表として表示/u.test(hover) ? 'table' : /エラー/u.test(hover) ? 'error' : 'none';
+        const kind = /別紙カード|as a card sheet/u.test(hover) ? 'card' : /該当行0件|0 matching rows/u.test(hover) ? 'empty' : /表として表示|as a table/u.test(hover) ? 'table' : /エラー|Error:/u.test(hover) ? 'error' : 'none';
         note('hover', { doc: name, line: line + 1, kind });
         const expectError = expected[line] !== undefined;
         expect(expectError ? kind === 'error' : kind !== 'error' && kind !== 'none', `${name}:${line + 1} hover ${kind}: ${hover.slice(0, 160)}`);
@@ -86,7 +86,7 @@ async function checkSampleDocuments(samples: string): Promise<void> {
         );
         const last = transcript?.[transcript.length - 1];
         // Guard against a vacuous pass: the flow must have reached the confirm step on this embed.
-        expect(Boolean(last && /\(5\/5\)/u.test(last.title) && /参照を編集/u.test(last.title)), `${name}:${line + 1} round trip did not reach confirm: ${JSON.stringify(transcript?.map((s) => s.title))}`);
+        expect(Boolean(last && /\(5\/5\)/u.test(last.title) && /参照を編集|Edit a reference/u.test(last.title)), `${name}:${line + 1} round trip did not reach confirm: ${JSON.stringify(transcript?.map((s) => s.title))}`);
         note('roundtrip', { doc: name, line: line + 1, steps: transcript?.length, confirm: last?.placeholder });
         const after = document.lineAt(line).text;
         expect(after === original, `${name}:${line + 1} round trip changed the reference:\n  before ${original}\n  after  ${after}`);

@@ -251,7 +251,7 @@ async function verifyGuidedFlowsScripted(workspaceRoot: string): Promise<void> {
   const transcript = await run([{ keep: true }, { keep: true }, { options: ['header=first', 'mode=card'] }, 'insert']);
   const edited = '![[../data/roles.csv#Sheet1|A1:B3?x-keep=1&header=first&mode=card]]';
   assert.equal(document.lineAt(1).text, `${proseBefore}${edited}${proseAfter}`);
-  assert.match(transcript[transcript.length - 1].placeholder, /別紙カード/u, 'The confirm step must show what the engine renders.');
+  assert.match(transcript[transcript.length - 1].placeholder, /別紙カード|as a card sheet/u, 'The confirm step must show what the engine renders.');
   await vscode.commands.executeCommand('undo');
   assert.equal(document.lineAt(1).text, originalLine, 'One Undo must restore the original reference and surrounding prose.');
   assert.deepEqual(
@@ -351,7 +351,7 @@ async function verifyHoverAndAuthoringEntry(workspaceRoot: string): Promise<void
     document.uri,
     new vscode.Range(position, position),
   );
-  assert.ok((actions ?? []).some((action) => action.title === 'MMI: この参照を編集…'), 'An embed must offer the edit action.');
+  assert.ok((actions ?? []).some((action) => /この参照を編集|Edit this reference/u.test(action.title)), 'An embed must offer the edit action.');
 
   const commands = await vscode.commands.getCommands(true);
   for (const id of ['markdownMatrixInjector.findEmbedByDescription', 'markdownMatrixInjector.clearSearchIndex']) {
@@ -387,7 +387,7 @@ async function verifyDiagnosticsIntegration(workspaceRoot: string): Promise<void
     sheetDiagnostic.range,
     vscode.CodeActionKind.QuickFix.value,
   );
-  const fix = (actions ?? []).find((action) => action.title === '「Sheet1」に置き換える');
+  const fix = (actions ?? []).find((action) => /^(「Sheet1」に置き換える|Replace with "Sheet1")$/u.test(action.title));
   assert.ok(
     fix?.edit,
     `Expected a quick fix to Sheet1, got: ${(actions ?? []).map((action) => action.title).join(', ')}; diagnostic=${JSON.stringify({
@@ -417,7 +417,7 @@ async function verifyDiagnosticsIntegration(workspaceRoot: string): Promise<void
     warning.range,
     vscode.CodeActionKind.QuickFix.value,
   );
-  const typoFix = (typoActions ?? []).find((action) => action.title === '「table」に置き換える');
+  const typoFix = (typoActions ?? []).find((action) => /^(「table」に置き換える|Replace with "table")$/u.test(action.title));
   assert.ok(typoFix?.edit, `Expected a fix to table, got: ${(typoActions ?? []).map((action) => action.title).join(', ')}`);
   assert.ok(await vscode.workspace.applyEdit(typoFix.edit));
   assert.equal(typo.lineAt(1).text, '![[../data/roles.csv#Sheet1|A1:B3?mode=table]]');

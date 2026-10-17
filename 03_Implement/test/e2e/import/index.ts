@@ -160,7 +160,7 @@ async function checkGuidedAuthoring(folder: string): Promise<void> {
   const rangeStep = transcript.find((step) => step.items.some((item) => item.startsWith('B11:AD19')));
   note('guided', { inserted, confirm, rangeItems: rangeStep?.items.slice(0, 3) });
   expect(inserted === '![[./画面定義書_受注.xlsx#受注登録|B11:AD19?header=first&columns=A,C,I,O,R,T,V&mode=table&x-headers=No,項目名,項目ID,型,桁,必須,備考]]', `guided authoring inserted: ${inserted}`);
-  expect(/^表として表示: 本体8行 × 7列（見出しあり）/u.test(confirm), `guided confirm step: ${confirm}`);
+  expect(/^(表として表示: 本体8行 × 7列（見出しあり）|Renders as a table: 8 body rows × 7 columns \(with header\))/u.test(confirm), `guided confirm step: ${confirm}`);
 }
 
 /** The Explorer's table catalog, and choosing columns by header and rows by keyword from it. */
@@ -188,7 +188,7 @@ async function checkCatalog(folder: string): Promise<void> {
   const confirm = transcript[transcript.length - 1]?.placeholder ?? '';
   note('catalog-select', { reference: result.reference, rows: result.rows, inserted, confirm });
   expect(inserted === '![[./画面定義書_受注.xlsx#受注登録|B11:AD19?columns=C,T&header=first&grep=○&mode=table&x-headers=項目名,必須]]', `catalog selection inserted: ${inserted}`);
-  expect(/^表として表示: 本体5行 × 2列（見出しあり）/u.test(confirm), `catalog selection confirm step: ${confirm}`);
+  expect(/^(表として表示: 本体5行 × 2列（見出しあり）|Renders as a table: 5 body rows × 2 columns \(with header\))/u.test(confirm), `catalog selection confirm step: ${confirm}`);
 }
 
 /** Prose IDs missing from the referenced sheet show in Problems on open/save, as information. */

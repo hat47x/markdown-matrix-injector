@@ -94,7 +94,9 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
   const existing = embedAt(document, editor.selection.active);
   // Inside an unfinished embed or inside code: do not guess a target.
   if (!existing && analyzeCompletionContext(document.getText(), document.offsetAt(editor.selection.active))) {
-    void vscode.window.showInformationMessage('MMI: 書きかけの参照の中では使えません。補完（Ctrl+Space）を使うか、参照の外で実行してください。');
+    void vscode.window.showInformationMessage(
+      uiText('MMI: This command cannot run inside an unfinished reference. Use completion (Ctrl+Space) or run it outside the reference.'),
+    );
     return;
   }
   const target = existing?.range ?? editor.selection;
@@ -120,7 +122,11 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
 
   for (;;) {
     const current = STEPS[step];
-    const title = `${existing ? 'MMI: 参照を編集' : 'MMI: 参照を作成'} (${step + 1}/${STEPS.length})`;
+    const title = uiText(
+      'MMI: {0} ({1})',
+      existing ? uiText('Edit a reference') : uiText('Create a reference'),
+      `${step + 1}/${STEPS.length}`,
+    );
     let result: StepResult;
     if (current === 'file') {
       const files = workspaceRoot
@@ -130,15 +136,15 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
             .sort((a, b) => a.localeCompare(b))
         : [];
       const searchItem = deps.searchByDescription
-        ? [{ label: '$(search) 説明から探す…', description: '例: 状態遷移表のIDと操作を見せて', value: SEARCH_SENTINEL }]
+        ? [{ label: uiText('$(search) Find by description…'), description: uiText('e.g. show the ID and actions of a state-transition table'), value: SEARCH_SENTINEL }]
         : [];
       result = await pick(
         title,
-        'ブックを選ぶ（説明から探すこともできます）',
+        uiText('Choose a workbook (finding by description is also available)'),
         [
           ...searchItem,
           // The reference's own spelling of its path stays keepable even if the list spells it differently.
-          ...(parts.filepath && !files.includes(parts.filepath) ? [{ label: parts.filepath, description: '現在のブック', value: parts.filepath, picked: true }] : []),
+          ...(parts.filepath && !files.includes(parts.filepath) ? [{ label: parts.filepath, description: uiText('Current workbook'), value: parts.filepath, picked: true }] : []),
           ...files.map((file) => ({ label: file, value: file, picked: file === parts.filepath })),
         ],
         step > 0,
@@ -162,11 +168,11 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
       } else {
         result = await pick(
           title,
-          'シートを選ぶ',
+          uiText('Choose a sheet'),
           [
             ...sheets.map((sheet) => ({ label: sheet, value: sheet, picked: sheet === parts.sheet })),
             // A whole-book reference (always a card) is valid notation; keep it reachable and keepable.
-            { label: 'シートを指定しない（ブック全体・別紙カード）', value: WHOLE_BOOK, picked: parts.sheet === undefined },
+            { label: uiText('No particular sheet (whole book, rendered as a card)'), value: WHOLE_BOOK, picked: parts.sheet === undefined },
           ],
           true,
         );
@@ -190,20 +196,20 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
           picked: candidate.label === parts.range,
         })),
         {
-          label: '$(edit) A1範囲を入力…',
-          description: '候補にない範囲を A1 または A1:D20 の形で明示する',
+          label: uiText('$(edit) Enter an A1 range…'),
+          description: uiText('State the range as A1 or A1:D20 when it is not in the candidates'),
           value: MANUAL_RANGE_SENTINEL,
           picked: false,
         },
-        { label: '範囲を指定しない', description: 'シート全体（大きい場合はカード表示）', value: '', picked: parts.range === undefined },
+        { label: uiText('Do not specify a range'), description: uiText('Whole sheet (card when it is large)'), value: '', picked: parts.range === undefined },
       ];
       // A hand-picked range that is not a detected table must stay keepable.
       if (parts.range && !items.some((item) => item.value === parts.range)) {
-        items.unshift({ label: parts.range, description: '現在の範囲', value: parts.range, picked: true });
+        items.unshift({ label: parts.range, description: uiText('Current range'), value: parts.range, picked: true });
       }
       result = await pick(
         title,
-        '範囲を選ぶ。候補に無ければA1範囲を入力できます',
+        uiText('Choose a range; if it is not in the candidates, enter an A1 range'),
         items,
         true,
       );
@@ -250,7 +256,7 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
       }
       const sourceAfterRead = sourceContentStamp(sourceAbsolute);
       if (sourceAfterRead !== sourceBeforeRead) {
-        void vscode.window.showWarningMessage('MMI: 原本の読込み中に内容が変わったため、もう一度読み直します。');
+        void vscode.window.showWarningMessage(uiText('MMI: The source changed while being read. Reading it again.'));
         continue;
       }
 
@@ -261,15 +267,15 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
       const summary = await preview(deps, markdown, document.uri.fsPath, workspaceRoot);
       const sourceAfterPreview = sourceContentStamp(sourceAbsolute);
       if (sourceAfterPreview !== sourceAfterRead) {
-        void vscode.window.showWarningMessage('MMI: プレビュー中に原本が変わったため、内容を読み直します。');
+        void vscode.window.showWarningMessage(uiText('MMI: The source changed during the preview. Reading it again.'));
         continue;
       }
       result = await pick(
         title,
         describePreview(summary, previewPhrases),
         [
-          { label: existing ? '$(check) 置き換える' : '$(check) 挿入する', description: markdown, value: 'insert' },
-          { label: '$(arrow-left) 戻る', value: 'back' },
+          { label: existing ? uiText('$(check) Replace') : uiText('$(check) Insert'), description: markdown, value: 'insert' },
+          { label: uiText('$(arrow-left) Back'), value: 'back' },
         ],
         true,
       );
@@ -279,11 +285,11 @@ export async function runAuthoringFlow(deps: AuthoringDependencies, start?: Auth
         const live = vscode.window.activeTextEditor;
         if (!live || live.document !== document || document.version !== startVersion) {
           // The target position may no longer be valid: stop without editing.
-          void vscode.window.showWarningMessage('MMI: 操作中に文書が変わったため、挿入を中止しました（文書は変更していません）。');
+          void vscode.window.showWarningMessage(uiText('MMI: Stopped without editing because the document changed during the flow (the document is unchanged).'));
           return;
         }
         if (sourceContentStamp(sourceAbsolute) !== sourceAfterPreview) {
-          void vscode.window.showWarningMessage('MMI: 原本が変わったため、プレビューを作り直します。');
+          void vscode.window.showWarningMessage(uiText('MMI: The source changed; rebuilding the preview.'));
           continue;
         }
         await live.edit((edit) => edit.replace(target, markdown)); // one edit = one Undo
@@ -320,13 +326,13 @@ async function inputManualRange(
   const value = await vscode.window.showInputBox({
     title,
     prompt:
-      'ExcelのA1範囲を入力してください（例: A1 または B3:F20）',
+      uiText('Enter the Excel A1 range (e.g. A1 or B3:F20)'),
     value: currentRange ?? '',
     ignoreFocusOut: true,
     validateInput: (input) =>
       normalizeExplicitRangeInput(input)
         ? undefined
-        : 'A1 または A1:D20 の形で、左上から右下へ範囲を指定してください。',
+        : uiText('State the range as A1 or A1:D20, reading top-left to bottom-right.'),
   });
   if (value === undefined) return undefined;
   return normalizeExplicitRangeInput(value);
@@ -408,17 +414,17 @@ function pick(title: string, placeholder: string, items: (PickItem & { picked?: 
 }
 
 const OPTIONS = [
-  { label: 'header=first', description: '先頭行を見出しにする', key: 'header', value: 'first' },
-  { label: 'mode=table', description: '大きくても表として表示する', key: 'mode', value: 'table' },
-  { label: 'mode=card', description: '別紙カードとして表示する', key: 'mode', value: 'card' },
-  { label: 'transpose=true', description: '行と列を入れ替える', key: 'transpose', value: 'true' },
+  { label: 'header=first', description: uiText('Make the first row the header'), key: 'header', value: 'first' },
+  { label: 'mode=table', description: uiText('Show as a table even when it is large'), key: 'mode', value: 'table' },
+  { label: 'mode=card', description: uiText('Show as a card sheet'), key: 'mode', value: 'card' },
+  { label: 'transpose=true', description: uiText('Transpose rows and columns'), key: 'transpose', value: 'true' },
 ];
 
 /** The parts after choosing `chosenLabels`, or a message when the choice is contradictory. */
 function applyOptions(parts: EmbedParts, chosenLabels: readonly string[]): EmbedParts | string {
   const chosen = OPTIONS.filter((option) => chosenLabels.includes(option.label));
   if (chosen.some((c) => c.label === 'mode=table') && chosen.some((c) => c.label === 'mode=card')) {
-    return 'mode=table と mode=card は同時に選べません';
+    return uiText('mode=table and mode=card cannot both be chosen');
   }
   let next = parts;
   for (const key of new Set(OPTIONS.map((option) => option.key))) {
@@ -435,7 +441,7 @@ function applyOptions(parts: EmbedParts, chosenLabels: readonly string[]): Embed
 function pickOptions(title: string, parts: EmbedParts): Promise<StepResult> {
   const options = OPTIONS;
   if (script) {
-    const placeholder = '表示の指定';
+    const placeholder = uiText('Display options');
     script.transcript.push({ title, placeholder, items: options.map((option) => option.label) });
     const answer = script.answers.shift();
     if (answer === undefined || (typeof answer === 'object' && 'cancel' in answer)) return Promise.resolve({ kind: 'cancel' });
@@ -451,7 +457,7 @@ function pickOptions(title: string, parts: EmbedParts): Promise<StepResult> {
   return new Promise((resolve) => {
     const quickPick = vscode.window.createQuickPick<(typeof options)[number]>();
     quickPick.title = title;
-    quickPick.placeholder = '表示の指定（Spaceで選択、Enterで次へ）。ここに無いキーはそのまま残します';
+    quickPick.placeholder = uiText('Display options (Space to select, Enter to continue). Keys not listed here stay untouched');
     quickPick.canSelectMany = true;
     quickPick.items = options;
     quickPick.selectedItems = options.filter((option) => getParams(parts, option.key).includes(option.value));
@@ -493,10 +499,10 @@ export function createEmbedFixProvider(workbookGlob: string): vscode.CodeActionP
       const actions: vscode.CodeAction[] = [];
       const here = embedAt(document, range.start);
       if (here) {
-        const edit = new vscode.CodeAction('MMI: この参照を編集…', vscode.CodeActionKind.RefactorRewrite);
+        const edit = new vscode.CodeAction(uiText('MMI: Edit this reference…'), vscode.CodeActionKind.RefactorRewrite);
         edit.command = {
           command: AUTHOR_EMBED_COMMAND_ID,
-          title: 'MMI: この参照を編集…',
+          title: uiText('MMI: Edit this reference…'),
           arguments: [{ uri: document.uri.toString(), line: range.start.line, character: range.start.character }],
         };
         actions.push(edit);
@@ -573,7 +579,7 @@ export function createEmbedFixProvider(workbookGlob: string): vscode.CodeActionP
         }
         if (!span) continue;
         fixes.forEach((fix, index) => {
-          const action = new vscode.CodeAction(headerFix ? 'MMI: 見出しの期待値（x-headers）を現在の表に更新する' : `「${fix.replacement}」に置き換える`, vscode.CodeActionKind.QuickFix);
+          const action = new vscode.CodeAction(headerFix ? uiText('MMI: Update the expected headers (x-headers) to the current table') : uiText('Replace with "{0}"', fix.replacement), vscode.CodeActionKind.QuickFix);
           action.diagnostics = [diagnostic];
           action.isPreferred = !headerFix && index === 0 && fixes.length === 1; // a single sure candidate only
           action.edit = new vscode.WorkspaceEdit();
