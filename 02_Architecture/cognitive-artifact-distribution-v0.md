@@ -158,7 +158,7 @@ artifact resolver（認知資産の取得先を解決する処理）は、認知
 - `cacheHit`
 - `availableWithoutNetwork`
 
-この4値は、精度・latency（処理の遅延）だけでなく、初回取得量、disk footprint（保存容量の使用量）、offlineでcold start（事前準備のない状態からの起動）ができるかを同じ評価表で確認するための最小値である。評価reportでは`mmi.cognitive-artifact-evaluation/v0`を共通形とし、artifact identity、provider identity、resolution種別とこの4値を一緒に保持する。artifactを測っていない場合は`not-measured`を明示し、欠測を0として扱わない。
+この4値は、精度・latency（処理の遅延）に加え、初回取得量、disk footprint（保存容量の使用量）、offlineでのcold start（事前準備のない状態からの起動）を同じ評価表で検討するための手掛かりとなる。ただし、これらの値だけで実際のディスク占有量やcold startの成功を測定したことにはならない。評価reportでは`mmi.cognitive-artifact-evaluation/v0`を共通形とし、artifact identity、provider identity、resolution種別とこの4値を一緒に保持する。artifactを測っていない場合は`not-measured`を明示し、欠測を0として扱わない。
 
 最初の利用箇所はCPU semantic評価（CPUを用いた意味検索の評価）である。`--artifact-manifest`を指定した評価では、MMI cacheに同じbytesがあることだけでは実行modelの証拠にせず、選択中のruntimeが公開するmodel digestをmanifest SHA-256と照合する。digest一致を確認できるruntime-managed modelだけを評価対象にし、reportへ`artifactEvaluation`を含める。runtime digestを確認できない場合は、精度・latencyだけを測ってartifact cost（資産の取得・保持に伴う負担）を推測するのではなく、manifest指定評価自体を開始しない。
 
