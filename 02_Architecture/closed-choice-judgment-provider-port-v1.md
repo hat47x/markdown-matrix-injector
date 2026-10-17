@@ -2,10 +2,10 @@
 
 ## 1. 目的
 
-Jev等の外部・ローカルのJudgment実装（判断を担う処理）をMMIへ接続する前に、provider invocation（providerを呼び出す処理）の安全境界を一か所に定める。
+Jev等の外部またはローカルのJudgment実装（判断を担う処理）をMMIへ接続する前に、provider invocation（providerを呼び出す処理）の安全境界を一か所に定める。
 
 TypeSafe AIの公開情報では、Jevはtyped decision（型が定まった判断結果）をsoftware workflow（ソフトウェア上の一連の処理）へ返す用途を掲げている。
-MMIでは、provider固有の能力をAuthorityとして扱わず、既存のclosed-choice adapter（定められた選択肢への応答を扱う接続部）を通して、必ず `proposal-only`（提案としてのみ扱う）契約に従わせる。
+MMIでは、provider固有の能力をAuthorityへ昇格させず、既存のclosed-choice adapter（定められた選択肢への応答を扱う接続部）の `proposal-only`（提案としてのみ扱う）契約に必ず従わせる。
 
 参考は次のとおりです。
 - https://typesafe.ai/blog/introducing-system-one-models-and-jev
@@ -15,12 +15,13 @@ vendor（提供企業）が示す速度・価格・calibration（確信度と正
 
 ## 2. Provider contract
 
-provider（判断を返す処理の提供元）は、次の2つを持つ。
+provider（判断を返す処理の実装）は、次の2つを持つ。
 
 - immutableとして扱うdescriptor
 - async `decide(request)`
 
 request（判断処理へ渡す入力）は、次の情報を含む。
+
 - Cognitive Observation
 - Closed-choice Question
 
@@ -30,7 +31,7 @@ providerはWorkbook handle（Workbookを操作するための参照）、write A
 
 `descriptor.executionBoundary === 'external-opt-in'` の場合、runner option（実行時の指定）に `allowExternal=true` がない限りproviderを呼ばない。`external-opt-in` は、外部接続に明示的な許可が必要な区分である。
 
-拒否する場合は、provider invocationの前に判断する。
+呼び出しの拒否は、provider invocationの前に行う。
 
 これはcloud fallback（クラウド側への自動切り替え）ではない。外部providerを使うかどうかは、caller（呼び出し側）が毎回明示する。
 
@@ -69,6 +70,7 @@ adaptClosedChoiceResponse
 providerのthrow/reject（例外の送出やPromiseの拒否）は、runner（呼び出しを管理する処理）で `unavailable` へ自動変換しない。
 
 理由は、次の異なる原因を一律に同じ意味へまとめないためである。
+
 - network unavailable
 - auth failure
 - programming bug
@@ -83,7 +85,7 @@ provider固有のadapterが必要な場合は、そこで明示的に `unavailab
 Noul / Scoreを同じportへ混在させない。
 primitive（判断の基本形式）ごとにconfidence semantics（確信度の意味）が異なるため、後続Issueで別contract（契約）として扱う。
 
-live Jev adapter（実際のJevとの接続部）に必要な次の事項は、別Issueで追加する。
+live Jev adapter（実際のJevとの接続部）は、次の事項を含めて別Issueで追加する。
 
 - explicit external opt-in
 - API credential管理
