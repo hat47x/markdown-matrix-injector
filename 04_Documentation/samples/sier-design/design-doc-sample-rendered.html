@@ -246,7 +246,7 @@
 <hr>
 <h2>G4: 適用範囲と既知の制約 {#g4-honest-scope}</h2>
 <blockquote>
-<p><strong>実測ベースの正直な適用範囲</strong> — 推測ではなく実測で確認した事実のみを記載します。</p>
+<p><strong>検証範囲の説明</strong> — 表内の単体テスト件数や未実施項目は、サンプル作成時点の記録です。2026年6月3日のヘッドレスPDF検証と、未実施のVS Code画面確認は区別します。</p>
 </blockquote>
 <h3>動作確認済み（実証済み）</h3>
 <table>
@@ -332,21 +332,22 @@
 </tr>
 </tbody>
 </table>
-<h3>PDF 生成経路と対応状況（実測ベース）</h3>
-<p><strong>推奨経路 A: VS Code + Markdown PDF 拡張機能（yzane.markdown-pdf）</strong></p>
+<h3>PDF 生成経路と確認範囲</h3>
+<p>経路Aは、このサンプルをVS CodeのMarkdown PDF拡張から直接出力する方法としては未検証です。経路Bのみ、MMIで展開したHTMLからWeasyPrintでPDFにする過去の検証記録があります。次の手順は、今回あらためて実行した結果ではありません。</p>
+<p><strong>経路 A（未検証）: VS Code + Markdown PDF 拡張機能（yzane.markdown-pdf）</strong></p>
 <ul>
 <li>エンジン: Chromium/puppeteer（Chromium ヘッドレス印刷）</li>
 <li><code>page-break-before/after</code>: ✅ 対応（<code>break-before: page</code> も有効）</li>
 <li><code>@page named-page</code> per-page 用紙向き: ⚠️ Chromium の CSS Paged Media Level 3 実装依存（バージョンにより動作差あり）</li>
 <li>インストール: VS Code 拡張機能マーケットプレイスから <code>Markdown PDF</code> を検索</li>
 </ul>
-<p><strong>推奨経路 B: weasyprint（CLI）</strong></p>
+<p><strong>経路 B（2026年6月3日にヘッドレス検証済み）: WeasyPrint（CLI）</strong></p>
 <ul>
 <li><code>pip install weasyprint</code></li>
-<li><code>weasyprint design-doc-sample.html output.pdf</code></li>
+<li><code>weasyprint 04_Documentation/samples/sier-design/design-doc-sample-rendered.html output.pdf</code>（リポジトリルートから実行）</li>
 <li><code>page-break-before/after</code>: ✅ 対応</li>
 <li><code>@page named-page</code> per-page 用紙向き: ✅ 対応（CSS Paged Media Level 3 実装）</li>
-<li>注意: Markdown を HTML に変換後に CSS を適用（<code>pandoc input.md -o output.html --standalone --css=../../03_Implement/media/markdown-matrix.css</code>、次に weasyprint）</li>
+<li>注意: <code>03_Implement/scripts/render-sample-html.ts</code>でMMI参照を展開し、CSS入りHTMLを生成してからPDF化します。Pandoc単独では埋め込み参照を展開できません。実行手順は同じフォルダーのREADMEを参照してください。</li>
 </ul>
 <p><strong>経路 C: Pandoc + LaTeX（pdflatex/xelatex）</strong></p>
 <ul>
