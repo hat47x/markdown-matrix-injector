@@ -163,3 +163,43 @@ test('does not write outside workspace even when output parent is a symlink', (t
     }
   });
 });
+
+
+test('does not overwrite an existing same-name asset with unexpected content', () => {
+  inWorkspace((options) => {
+    const expectedFingerprint = fingerprint(fixture, 'sequence');
+    const first = extractHtmlFragment({ ...options, id: 'sequence', expectedFingerprint });
+    fs.writeFileSync(first.path, 'changed outside MMI');
+    assert.throws(() => extractHtmlFragment({
+      ...options, id: 'sequence', expectedFingerprint,
+    }), /MMI_HTML_OUTPUT_COLLISION/u);
+    assert.equal(fs.readFileSync(first.path, 'utf8'), 'changed outside MMI');
+  });
+});
+
+test('rolls back an output file created by this operation if the ledger update fails', () => {
+  inWorkspace((options) => {
+    const damagedLedger = '{ not valid JSON';
+    fs.writeFileSync(options.ledgerPath, damagedLedger);
+    assert.throws(() => extractHtmlFragment({
+      ...options,
+      id: 'sequence',
+      expectedFingerprint: fingerprint(fixture, 'sequence'),
+    }));
+    assert.equal(fs.readFileSync(options.ledgerPath, 'utf8'), damagedLedger);
+    assert.equal(fs.readdirSync(options.outDir).length, 0);
+  });
+});
+
+test('rejects source paths outside the workspace before reading them', () => {
+  inWorkspace((options) => {
+    const external = path.join(os.tmpdir(), 'mmi-other-place.html');
+    assert.throws(() => extractHtmlFragment({
+      ...options,
+      sourcePath: external,
+      id: 'sequence',
+      expectedFingerprint: fingerprint(fixture, 'sequence'),
+    }), /MMI_HTML_OUTSIDE_ROOT/u);
+    assert.equal(fs.existsSync(options.ledgerPath), false);
+  });
+});
