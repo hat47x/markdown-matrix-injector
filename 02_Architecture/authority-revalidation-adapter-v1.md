@@ -69,8 +69,6 @@ Authority Revalidation Adapter
 sha256:<lowercase hex SHA-256 of resolved source file bytes>
 ```
 
-とする。
-
 Envelope（認知結果と検証要求を束ねる情報）側のdigestが別scheme（計算・表記の方式）である場合、source-identity checkはfailedとなる。
 
 source fileはworkspace containmentを通過した後に限って読み取る。
