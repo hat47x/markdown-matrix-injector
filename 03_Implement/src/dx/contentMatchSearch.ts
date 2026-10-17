@@ -224,11 +224,45 @@ function matchesForSheet(
  * Title/header/neighbor text is source-derived, whitespace-normalized and
  * bounded so a large or multiline cell cannot flood the picker label.
  */
-export function summarizeContentMatchContext(match: WorkbookContentMatch, maxLength = 96): string {
+export interface ContentMatchContextPhrases {
+  /** The wording used in the picker when a shown cell is empty. */
+  emptyValue(): string;
+  tableTitle(value: string): string;
+  headers(value: string): string;
+  values(value: string): string;
+  rowAbove(value: string): string;
+  rowBelow(value: string): string;
+}
+
+/** The wording a plain (no VS Code host) caller sees: the English reference. */
+export const enContentMatchContextPhrases: ContentMatchContextPhrases = {
+  emptyValue: () => '(empty)',
+  tableTitle: (value) => `table: ${value}`,
+  headers: (value) => `headers: ${value}`,
+  values: (value) => `values: ${value}`,
+  rowAbove: (value) => `above: ${value}`,
+  rowBelow: (value) => `below: ${value}`,
+};
+
+/** The previous Japanese wording, kept verbatim (the reference the picker was checked against). */
+export const jaContentMatchContextPhrases: ContentMatchContextPhrases = {
+  emptyValue: () => '（空）',
+  tableTitle: (value) => `表:${value}`,
+  headers: (value) => `見出し:${value}`,
+  values: (value) => `値:${value}`,
+  rowAbove: (value) => `前:${value}`,
+  rowBelow: (value) => `後:${value}`,
+};
+
+export function summarizeContentMatchContext(
+  match: WorkbookContentMatch,
+  maxLength = 96,
+  phrases: ContentMatchContextPhrases = enContentMatchContextPhrases,
+): string {
   const context = match.context;
   if (!context || maxLength <= 0) return '';
 
-  const clean = (value: string): string => value.replace(/\s+/gu, ' ').trim() || '（空）';
+  const clean = (value: string): string => value.replace(/\s+/gu, ' ').trim() || phrases.emptyValue();
   const values = (input?: readonly string[]): string | undefined => {
     if (!input || input.length === 0) return undefined;
     const shown = input.slice(0, 3).map((value) => truncate(clean(value), 18)).join('|');
@@ -243,14 +277,130 @@ export function summarizeContentMatchContext(match: WorkbookContentMatch, maxLen
   const rowAbove = values(context.rowAbove);
   const rowBelow = values(context.rowBelow);
   const parts = [
-    context.title ? `表:${clean(context.title)}` : undefined,
-    headers ? `見出し:${headers}` : undefined,
-    preview ? `値:${preview}` : undefined,
-    rowAbove ? `前:${rowAbove}` : undefined,
-    rowBelow ? `後:${rowBelow}` : undefined,
+    context.title ? phrases.tableTitle(clean(context.title)) : undefined,
+    headers ? phrases.headers(headers) : undefined,
+    preview ? phrases.values(preview) : undefined,
+    rowAbove ? phrases.rowAbove(rowAbove) : undefined,
+    rowBelow ? phrases.rowBelow(rowBelow) : undefined,
   ].filter((part): part is string => Boolean(part));
 
   return truncate(parts.join(' / '), maxLength);
+}
+
+/** The longer wording of the QuickPick detail row: the same context, read as a sentence. */
+export interface ContentMatchDetailPhrases {
+  emptyValue(): string;
+  headers(value: string): string;
+  withinTheRange(value: string): string;
+  previousRow(value: string): string;
+  nextRow(value: string): string;
+  /** Joins the two preview rows. */
+  previewSeparator(): string;
+  /** Joins the four context fields. */
+  fieldSeparator(): string;
+}
+
+export const enContentMatchDetailPhrases: ContentMatchDetailPhrases = {
+  emptyValue: () => '(empty)',
+  headers: (value) => `column headers: ${value}`,
+  withinTheRange: (value) => `within the range: ${value}`,
+  previousRow: (value) => `previous row: ${value}`,
+  nextRow: (value) => `next row: ${value}`,
+  previewSeparator: () => ' / ',
+  fieldSeparator: () => ' ',
+};
+
+/** The previous Japanese wording, kept verbatim. */
+export const jaContentMatchDetailPhrases: ContentMatchDetailPhrases = {
+  emptyValue: () => '（空）',
+  headers: (value) => `見出し: ${value}`,
+  withinTheRange: (value) => `範囲内: ${value}`,
+  previousRow: (value) => `直前の行: ${value}`,
+  nextRow: (value) => `直後の行: ${value}`,
+  previewSeparator: () => ' ／ ',
+  fieldSeparator: () => '　',
+};
+
+/** One-line detail of the Paste As QuickPick: headers, the rows inside the range, and its neighbors. */
+export function describeContentMatchDetail(
+  match: WorkbookContentMatch,
+  phrases: ContentMatchDetailPhrases = enContentMatchDetailPhrases,
+): string {
+  const context = match.context;
+  if (!context) return '';
+  const clean = (value: string): string => value.replace(/\s+/gu, ' ').trim() || phrases.emptyValue();
+  const values = (input?: readonly string[]): string | undefined => {
+    const shown = input?.map(clean).join(' | ');
+    return shown ? shown : undefined;
+  };
+  const preview = context.previewRows
+    ?.slice(0, 2)
+    .map((row) => values(row))
+    .filter((row): row is string => Boolean(row))
+    .join(phrases.previewSeparator());
+  return [
+    context.headers ? phrases.headers(values(context.headers) ?? '') : '',
+    preview ? phrases.withinTheRange(preview) : '',
+    context.rowAbove ? phrases.previousRow(values(context.rowAbove) ?? '') : '',
+    context.rowBelow ? phrases.nextRow(values(context.rowBelow) ?? '') : '',
+  ]
+    .filter(Boolean)
+    .join(phrases.fieldSeparator());
+}
+
+/**
+ * Why the Paste As search could not see every book and sheet. Shown only when
+ * nothing was found (or only the labelled edit), so the user can tell an empty
+ * result from an unchecked part of the workspace.
+ */
+export interface ContentMatchIncompletePhrases {
+  detail(parts: readonly string[]): string;
+  unreadableBooks(count: number): string;
+  sheetsPastTheIndexLimit(count: number): string;
+  sheetsAtTheCandidateCap(count: number): string;
+  booksPastTheSelectionLimit(limit: number): string;
+  cancelled(): string;
+  listSeparator(): string;
+}
+
+export const enContentMatchIncompletePhrases: ContentMatchIncompletePhrases = {
+  detail: (parts) => (parts.length > 0 ? `The search is not complete (${parts.join(', ')}).` : ''),
+  unreadableBooks: (count) => `${count} unreadable books`,
+  sheetsPastTheIndexLimit: (count) => `${count} sheets past the index limit`,
+  sheetsAtTheCandidateCap: (count) => `${count} sheets at the candidate cap`,
+  booksPastTheSelectionLimit: (limit) => `more books than the limit of ${limit} to search`,
+  cancelled: () => 'the search was cancelled',
+  listSeparator: () => ', ',
+};
+
+/** The previous Japanese wording, kept verbatim. */
+export const jaContentMatchIncompletePhrases: ContentMatchIncompletePhrases = {
+  detail: (parts) => (parts.length > 0 ? `検索は完全ではありません（${parts.join('、')}）。` : ''),
+  unreadableBooks: (count) => `読めないブック ${count}件`,
+  sheetsPastTheIndexLimit: (count) => `索引上限を超えたシート ${count}件`,
+  sheetsAtTheCandidateCap: (count) => `候補上限に達したシート ${count}件`,
+  booksPastTheSelectionLimit: (limit) => `探索対象ブックが上限${limit}件を超過`,
+  cancelled: () => '検索が中断されました',
+  listSeparator: () => '、',
+};
+
+export function describeIncompleteContentMatchSearch(
+  skippedFileCount: number,
+  skippedSheetCount: number,
+  truncatedSheetCount: number,
+  fileSelectionTruncated: boolean,
+  fileSelectionLimit: number,
+  cancelled: boolean,
+  phrases: ContentMatchIncompletePhrases = enContentMatchIncompletePhrases,
+): string {
+  const parts = [
+    skippedFileCount > 0 ? phrases.unreadableBooks(skippedFileCount) : '',
+    skippedSheetCount > 0 ? phrases.sheetsPastTheIndexLimit(skippedSheetCount) : '',
+    truncatedSheetCount > 0 ? phrases.sheetsAtTheCandidateCap(truncatedSheetCount) : '',
+    fileSelectionTruncated ? phrases.booksPastTheSelectionLimit(fileSelectionLimit) : '',
+    cancelled ? phrases.cancelled() : '',
+  ].filter(Boolean);
+  return phrases.detail(parts);
 }
 
 function truncate(value: string, maxLength: number): string {

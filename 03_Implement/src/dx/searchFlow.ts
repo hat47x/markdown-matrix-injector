@@ -25,6 +25,7 @@ import { formatAlias, parseAliasSetting, suggestAlias, type UserAlias } from '..
 import { WorkspaceSearchWorkerClient } from '../search/workspaceSearchWorkerClient.js';
 import type { SemanticSetting } from '../search/workspaceRegionIndex.js';
 import { parseEmbedParts, type EmbedParts } from './embedEditor.js';
+import { uiText } from './uiPhrases.js';
 
 /**
  * Experimental, off by default: a local embedding model for descriptions that share no word with a
@@ -85,7 +86,7 @@ async function ensureIndexed(workspaceRoot: string, workbookGlob: string): Promi
   };
   const result = first
     ? await vscode.window.withProgress(
-        { location: vscode.ProgressLocation.Notification, title: 'MMI: ワークスペースの表を索引しています', cancellable: true },
+        { location: vscode.ProgressLocation.Notification, title: uiText('MMI: Indexing the tables of the workspace'), cancellable: true },
         (progress, token) => {
           let last = 0;
           return run(token, (done, total) => {
@@ -97,7 +98,7 @@ async function ensureIndexed(workspaceRoot: string, workbookGlob: string): Promi
     : await run();
   if (result.cancelled && index.regionCount === 0) return undefined;
   if (result.capped) {
-    void vscode.window.showWarningMessage(`MMI: 表の数が上限に達したため、一部のブックは索引していません（${result.regions}表）。`);
+    void vscode.window.showWarningMessage(uiText('MMI: Some books are left unindexed because the number of tables reached the cap ({0} tables).', result.regions));
   }
   return index;
 }
@@ -128,22 +129,22 @@ function readUserAliases(): UserAlias[] {
 
 /** Offers to remember `alias` after the user picked a table the typed name did not match. Saved only on consent. */
 async function offerToRemember(alias: UserAlias): Promise<SearchObservationAlias> {
-  const remember = '覚える';
+  const remember = uiText('Remember');
   const answer = await vscode.window.showInformationMessage(
-    `MMI: 「${alias.short}」を、この表（${alias.long}）の略語として覚えますか？ 次回から「${alias.short}」でも探せます。設定 ${ALIAS_SETTING} に保存します。`,
+    uiText('MMI: Remember "{0}" as an abbreviation for this table ({1})? From the next search on, "{0}" also finds it. It is saved in the setting {2}.', alias.short, alias.long, ALIAS_SETTING),
     remember,
-    '今回だけ',
+    uiText('Only this time'),
   );
   if (answer !== remember) return 'offered-declined';
   const edited = await vscode.window.showInputBox({
-    title: `MMI: 「${alias.short}」の正式名称`,
-    prompt: '表の名前に含まれている語で登録します（確認・修正できます）',
+    title: uiText('MMI: The full name of "{0}"', alias.short),
+    prompt: uiText('Register it with words contained in the name of the table (you can check and fix it afterwards)'),
     value: alias.long,
   });
   if (edited === undefined) return 'offered-declined';
   const entry = formatAlias({ short: alias.short, long: edited });
   if (parseAliasSetting([entry]).length === 0) {
-    void vscode.window.showWarningMessage('MMI: 正式名称は2〜40文字で入力してください。登録しませんでした。');
+    void vscode.window.showWarningMessage(uiText('MMI: The full name must be 2 to 40 characters. Not registered.'));
     return 'offered-declined';
   }
   const config = vscode.workspace.getConfiguration('markdownMatrixInjector');
@@ -164,7 +165,7 @@ export async function searchEmbedByDescription(
 ): Promise<EmbedParts | undefined> {
   const workspaceRoot = vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath;
   if (!workspaceRoot) {
-    void vscode.window.showInformationMessage('MMI: 説明から探すには、文書をワークスペースのフォルダ内に置いてください。');
+    void vscode.window.showInformationMessage(uiText('MMI: Put the document inside a workspace folder to find a table by description.'));
     return undefined;
   }
   const index = await ensureIndexed(workspaceRoot, workbookGlob);
@@ -172,11 +173,11 @@ export async function searchEmbedByDescription(
 
   return new Promise((resolve) => {
     const quickPick = vscode.window.createQuickPick<ResultItem>();
-    quickPick.title = `MMI: 説明から表を探す（${index.regionCount}表を索引済み）`;
-    quickPick.placeholder = `例: ${QUERY_EXAMPLES.join(' ／ ')}`;
+    quickPick.title = uiText('MMI: Find a table by description ({0} indexed)', index.regionCount);
+    quickPick.placeholder = uiText('e.g. {0}', QUERY_EXAMPLES.join(', '));
     quickPick.matchOnDescription = false;
     const examples = (): ResultItem[] =>
-      QUERY_EXAMPLES.map((example) => ({ label: `$(lightbulb) ${example}`, description: '入力例（選ぶと入力欄に入ります）', example, alwaysShow: true }));
+      QUERY_EXAMPLES.map((example) => ({ label: `$(lightbulb) ${example}`, description: uiText('Example input (choosing one puts it into the box)'), example, alwaysShow: true }));
     quickPick.items = examples();
     let timer: ReturnType<typeof setTimeout> | undefined;
     let settled = false;
@@ -256,7 +257,7 @@ export async function searchEmbedByDescription(
               && revision === queryRevision
             ) {
               quickPick.items = [{
-                label: '$(error) 表の検索に失敗しました',
+                label: uiText('$(error) Searching the tables failed'),
                 detail: error instanceof Error ? error.message : String(error),
                 alwaysShow: true,
               }];
@@ -391,7 +392,7 @@ export function toItems(result: CompileResult): ResultItem[] {
       description: withFit(`${candidate.region.bookStem} / ${candidate.region.sheet} ${candidate.region.a1}`, candidate.fit),
       detail: [
         candidate.explanation,
-        candidate.region.headers?.length ? `見出し: ${candidate.region.headers.slice(0, 6).join('・')}` : '',
+        candidate.region.headers?.length ? uiText('Headers: {0}', candidate.region.headers.slice(0, 6).join(', ')) : '',
       ]
         .filter(Boolean)
         .join(' ｜ '),
@@ -403,13 +404,13 @@ export function toItems(result: CompileResult): ResultItem[] {
   const icon = result.status === 'unsupported' ? '$(warning)' : '$(info)';
   const head =
     result.status === 'unsupported'
-      ? 'この依頼はMMI記法で表せません'
+      ? uiText('This request cannot be expressed in MMI notation')
       : result.status === 'needs-more-input'
-        ? '表の名前をもう少し具体的に'
-        : '該当する表が見つかりません';
+        ? uiText('Be a bit more specific about the name of the table')
+        : uiText('No matching table was found');
   const near: ResultItem[] = (result.nearMisses ?? []).length > 0
     ? [
-        { label: '近いかもしれない表（名前は一致しません）', kind: vscode.QuickPickItemKind.Separator },
+        { label: uiText('Tables that may be close (their names do not match)'), kind: vscode.QuickPickItemKind.Separator },
         ...(result.nearMisses ?? []).map((candidate, index) => ({
           label: `$(question) ${candidate.region.title ?? candidate.region.sheet}`,
           description: withFit(`${candidate.region.bookStem} / ${candidate.region.sheet} ${candidate.region.a1}`, candidate.fit),
@@ -424,7 +425,7 @@ export function toItems(result: CompileResult): ResultItem[] {
   return [
     { label: `${icon} ${head}`, detail: result.reasons.join(' '), alwaysShow: true },
     ...near,
-    ...QUERY_EXAMPLES.map((example) => ({ label: `$(lightbulb) ${example}`, description: '入力例', example, alwaysShow: true })),
+    ...QUERY_EXAMPLES.map((example) => ({ label: `$(lightbulb) ${example}`, description: uiText('Example input'), example, alwaysShow: true })),
   ];
 }
 

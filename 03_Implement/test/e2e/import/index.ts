@@ -168,8 +168,8 @@ async function checkCatalog(folder: string): Promise<void> {
   const tree = await vscode.commands.executeCommand<string[]>('markdownMatrixInjector.__test.tableCatalogTree');
   note('catalog', { lines: tree.length, sample: tree.filter((line) => line.includes('画面項目')).slice(0, 2) });
   expect(tree.some((line) => line === '画面定義書_受注.xlsx | .' || line.startsWith('画面定義書_受注.xlsx')), 'catalog lists the workbook');
-  expect(tree.some((line) => /^ {4}2\. 画面項目 \| B11:AD19・8行$/u.test(line)), 'catalog lists 受注登録の画面項目 with its range and row count');
-  expect(tree.some((line) => /^ {6}必須 \| U列$/u.test(line)), 'catalog lists the 必須 column at its sheet column');
+  expect(tree.some((line) => /^ {4}2\. 画面項目 \| B11:AD19(?:・8行| · 8 rows)$/u.test(line)), 'catalog lists 受注登録の画面項目 with its range and row count');
+  expect(tree.some((line) => /^ {6}必須 \| (U列|column U)$/u.test(line)), 'catalog lists the 必須 column at its sheet column');
 
   const file = path.join(folder, 'catalog.md');
   fs.writeFileSync(file, '# 目録から\n\n');

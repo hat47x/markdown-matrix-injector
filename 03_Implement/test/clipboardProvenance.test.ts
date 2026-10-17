@@ -9,6 +9,7 @@ import {
   r1c1ToA1,
   sourcePathFromHtml,
   verifyCopySource,
+  jaClipboardRejectionPhrases,
   type RawClipboard,
 } from '../src/dx/clipboardProvenance.js';
 
@@ -98,8 +99,8 @@ test('verify: a later copy, an unsaved edit, a filtered copy or a book outside t
   assert.equal(verifyCopySource(raw({ unicodeText: unsaved }), unsaved, deps()).ok, false);
   const filtered = [ROWS[0], ROWS[2]].map((row) => row.join('\t')).join('\r\n');
   assert.equal(verifyCopySource(raw({ unicodeText: filtered }), filtered, deps()).ok, false);
-  const outside = verifyCopySource(raw(), PASTED, deps({ workspaceRoots: ['C:\\other'] }));
-  assert.deepEqual(outside, { ok: false, reason: 'コピー元のブックがワークスペースの外にあります。' });
+  const outside = verifyCopySource(raw(), PASTED, deps({ reasons: jaClipboardRejectionPhrases, workspaceRoots: ['C:\\other'] }));
+  assert.deepEqual(outside, { ok: false, reason: jaClipboardRejectionPhrases.outsideWorkspace() });
   // Case-insensitive on Windows, but a sibling folder with a shared prefix is still outside.
   assert.equal(verifyCopySource(raw(), PASTED, deps({ workspaceRoots: ['c:\\WS'] })).ok, true);
   assert.equal(verifyCopySource(raw(), PASTED, deps({ workspaceRoots: ['C:\\w'] })).ok, false);

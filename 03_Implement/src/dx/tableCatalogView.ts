@@ -13,6 +13,7 @@ import { selectFromBook, type RowSelection, type SelectionRequest, type Selectio
 import { parseEmbedParts, type EmbedParts } from './embedEditor.js';
 import { readWorkbookCached } from './sharedWorkbookCache.js';
 import { toRelativeSuggestion } from './vscodeAdapters.js';
+import { uiText } from './uiPhrases.js';
 
 export const CATALOG_VIEW_ID = 'markdownMatrixInjector.tableCatalog';
 export const CATALOG_REFRESH_COMMAND_ID = 'markdownMatrixInjector.catalog.refresh';
@@ -62,8 +63,8 @@ export class TableCatalogProvider implements vscode.TreeDataProvider<Node> {
     }
     if (node.kind === 'sheet') {
       const item = new vscode.TreeItem(node.sheet.name, node.sheet.tables.length > 0 ? vscode.TreeItemCollapsibleState.Collapsed : vscode.TreeItemCollapsibleState.None);
-      const hidden = node.sheet.visibility === 'visible' ? '' : node.sheet.visibility === 'hidden' ? '非表示・' : 'Excelで表示不可・';
-      item.description = `${hidden}表 ${node.sheet.tables.length}`;
+      const hidden = node.sheet.visibility === 'visible' ? '' : node.sheet.visibility === 'hidden' ? uiText('hidden · ') : uiText('not shown by Excel · ');
+      item.description = uiText('{0}tables: {1}', hidden, node.sheet.tables.length);
       item.iconPath = new vscode.ThemeIcon('table');
       item.contextValue = 'mmiSheet';
       return item;
@@ -71,19 +72,19 @@ export class TableCatalogProvider implements vscode.TreeDataProvider<Node> {
     if (node.kind === 'table') {
       const label = node.table.excelTable ?? node.table.title ?? node.table.range;
       const item = new vscode.TreeItem(label, vscode.TreeItemCollapsibleState.Collapsed);
-      item.description = `${node.table.range}・${node.table.bodyRows}行${node.table.cautions.length > 0 ? '・注意あり' : ''}`;
+      item.description = uiText('{0} · {1} rows{2}', node.table.range, node.table.bodyRows, node.table.cautions.length > 0 ? uiText(' · caution') : '');
       item.tooltip = [
         node.table.id,
-        node.table.source === 'excel-table' ? 'Excelテーブル（ブックで宣言された表）' : '構造から推定した表',
-        ...(node.table.names.length > 0 ? [`名前: ${node.table.names.join('、')}`] : []),
-        ...node.table.cautions.map((caution) => `注意: ${caution.message}`),
+        node.table.source === 'excel-table' ? uiText('Excel table (declared in the book)') : uiText('table inferred from the structure'),
+        ...(node.table.names.length > 0 ? [uiText('Names: {0}', node.table.names.join(', '))] : []),
+        ...node.table.cautions.map((caution) => uiText('Caution: {0}', caution.message)),
       ].join('\n');
       item.iconPath = new vscode.ThemeIcon(node.table.cautions.length > 0 ? 'warning' : 'symbol-structure');
       item.contextValue = 'mmiTable';
       return item;
     }
-    const item = new vscode.TreeItem(node.column.header || `（${node.column.sheetColumn}列・見出しなし）`, vscode.TreeItemCollapsibleState.None);
-    item.description = `${node.column.sheetColumn}列`;
+    const item = new vscode.TreeItem(node.column.header || uiText('({0}, no header)', node.column.sheetColumn), vscode.TreeItemCollapsibleState.None);
+    item.description = uiText('column {0}', node.column.sheetColumn);
     item.iconPath = new vscode.ThemeIcon('symbol-field');
     item.contextValue = 'mmiColumn';
     return item;
@@ -100,7 +101,7 @@ export class TableCatalogProvider implements vscode.TreeDataProvider<Node> {
       try {
         return this.catalogOf(node.bookPath).sheets.map((sheet) => ({ kind: 'sheet', bookPath: node.bookPath, sheet }));
       } catch (error) {
-        void vscode.window.showWarningMessage(`MMI: ${path.basename(node.bookPath)} を読めませんでした: ${(error as Error).message}`);
+        void vscode.window.showWarningMessage(uiText('MMI: Could not read {0}: {1}', path.basename(node.bookPath), (error as Error).message));
         return [];
       }
     }
@@ -129,38 +130,38 @@ export async function chooseSelection(bookPath: string, table: CatalogTable): Pr
   if (headers.length > 0) {
     const picked = await vscode.window.showQuickPick(
       headers.map((header) => ({ label: header, picked: true })),
-      { title: `MMI: ${table.excelTable ?? table.title ?? table.range} の列を選ぶ（見出しで選びます）`, canPickMany: true },
+      { title: uiText('MMI: Choose the columns of {0} (by header)', table.excelTable ?? table.title ?? table.range), canPickMany: true },
     );
     if (!picked) return undefined;
     if (picked.length === 0) {
-      void vscode.window.showInformationMessage('MMI: 列を1つ以上選んでください。');
+      void vscode.window.showInformationMessage(uiText('MMI: Choose at least one column.'));
       return undefined;
     }
     columns = picked.length === headers.length ? undefined : picked.map((item) => item.label);
   }
   const mode = await vscode.window.showQuickPick(
     [
-      { label: 'すべての行', value: 'all' as const },
-      { label: '文字列を含む行', description: 'grep（表示する列のどこかに部分一致）', value: 'contains' as const },
-      { label: '先頭から指定した行数', value: 'first' as const },
+      { label: uiText('All rows'), value: 'all' as const },
+      { label: uiText('Rows containing text'), description: uiText('grep (a partial match anywhere in the shown columns)'), value: 'contains' as const },
+      { label: uiText('The first N rows'), value: 'first' as const },
     ],
-    { title: 'MMI: 行を選ぶ' },
+    { title: uiText('MMI: Choose the rows') },
   );
   if (!mode) return undefined;
   let rows: RowSelection | undefined;
   if (mode.value === 'contains') {
-    const text = await vscode.window.showInputBox({ title: 'MMI: 含む文字列', prompt: '例: 保留、NG、要確認' });
+    const text = await vscode.window.showInputBox({ title: uiText('MMI: Containing text'), prompt: uiText('e.g. on hold, NG, to check') });
     if (!text) return undefined;
     const shown = columns ?? headers;
     const column = shown.length > 0
-      ? await vscode.window.showQuickPick([{ label: '（どの列でもよい）', value: '' }, ...shown.map((header) => ({ label: header, value: header }))], {
-          title: 'MMI: どの列に含む行ですか（違う列に含む行も表示される場合は知らせます）',
+      ? await vscode.window.showQuickPick([{ label: uiText('(any column works)'), value: '' }, ...shown.map((header) => ({ label: header, value: header }))], {
+          title: uiText('MMI: Which column contains it (rows contained in other columns are shown as well)'),
         })
       : undefined;
     if (shown.length > 0 && !column) return undefined;
     rows = { contains: text, ...(column?.value ? { column: column.value } : {}) };
   } else if (mode.value === 'first') {
-    const count = await vscode.window.showInputBox({ title: 'MMI: 行数', validateInput: (value) => (/^[1-9]\d*$/.test(value) ? undefined : '1以上の整数') });
+    const count = await vscode.window.showInputBox({ title: uiText('MMI: Number of rows'), validateInput: (value) => (/^[1-9]\d*$/.test(value) ? undefined : uiText('A whole number of 1 or more')) });
     if (!count) return undefined;
     rows = { first: Number(count) };
   }
@@ -170,11 +171,11 @@ export async function chooseSelection(bookPath: string, table: CatalogTable): Pr
 
 export function partsFromResult(result: SelectionResult | undefined): EmbedParts | undefined {
   if (!result) {
-    void vscode.window.showInformationMessage('MMI: 参照を入れるMarkdown文書を開き、カーソルを置いてから実行してください。');
+    void vscode.window.showInformationMessage(uiText('MMI: Open the Markdown document that receives the reference, place the cursor, and run again.'));
     return undefined;
   }
   if (!result.ok || !result.reference) {
-    void vscode.window.showErrorMessage(`MMI: ${result.errors.map((error) => `${error.message}${error.suggestions?.length ? `（候補: ${error.suggestions.join('、')}）` : ''}`).join(' ')}`);
+    void vscode.window.showErrorMessage(`MMI: ${result.errors.map((error) => `${error.message}${error.suggestions?.length ? uiText(' (candidates: {0})', error.suggestions.join(', ')) : ''}`).join(' ')}`);
     return undefined;
   }
   const warnings = result.warnings.filter((warning) => warning.code !== 'TABLE_CAUTION');

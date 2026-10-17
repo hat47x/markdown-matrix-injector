@@ -137,36 +137,72 @@ export interface VerifyDependencies {
   workspaceRoots: readonly string[];
   loadSheet(absolutePath: string, sheet: string): SheetSource | undefined;
   platform?: NodeJS.Platform;
+  /** Rejection wording, in the reader language. English references by default. */
+  reasons?: ClipboardRejectionPhrases;
 }
+
+/**
+ * Why a copy is not offered as a labelled source. The host phrases it through
+ * `l10n`; the plain caller sees the English reference.
+ */
+export interface ClipboardRejectionPhrases {
+  noSourceOnClipboard(): string;
+  mismatchedPaste(): string;
+  outsideWorkspace(): string;
+  unreadableSource(sheet: string): string;
+  changedContents(): string;
+}
+
+export const enClipboardRejectionPhrases: ClipboardRejectionPhrases = {
+  noSourceOnClipboard: () => 'The copied source is not on the clipboard.',
+  mismatchedPaste: () => 'The pasted content does not match the current clipboard content (it may be a different copy).',
+  outsideWorkspace: () => 'The copied workbook lies outside the workspace.',
+  unreadableSource: (sheet) => `Could not read the copied workbook or its sheet "${sheet}" (it may be unsaved).`,
+  changedContents: () => 'The saved workbook contents differ from the copy (unsaved changes, or the copy includes hidden rows or columns).',
+};
+
+/** The previous Japanese wording, kept verbatim (the reference the paste flow was checked against). */
+export const jaClipboardRejectionPhrases: ClipboardRejectionPhrases = {
+  noSourceOnClipboard: () => 'コピー元の情報がクリップボードにありません。',
+  mismatchedPaste: () => '貼り付けた内容とクリップボードの現在の内容が一致しません（別のコピーの可能性）。',
+  outsideWorkspace: () => 'コピー元のブックがワークスペースの外にあります。',
+  unreadableSource: (sheet) => `コピー元のブックまたはシート「${sheet}」を読めません（未保存の可能性）。`,
+  changedContents: () => '保存済みの原本の内容がコピーと一致しません（未保存の変更、または非表示の行・列を含むコピー）。',
+};
 
 /**
  * All three conditions (same copy, same values at the source, inside the
  * workspace), or a reason. `pastedText` is the text/plain VS Code received.
  */
-export function verifyCopySource(raw: RawClipboard, pastedText: string, deps: VerifyDependencies): ProvenanceVerdict {
+export function verifyCopySource(
+  raw: RawClipboard,
+  pastedText: string,
+  deps: VerifyDependencies,
+): ProvenanceVerdict {
+  const reasons = deps.reasons ?? enClipboardRejectionPhrases;
   const source = decodeCopySource(raw, deps.platform);
-  if (!source) return { ok: false, reason: 'コピー元の情報がクリップボードにありません。' };
+  if (!source) return { ok: false, reason: reasons.noSourceOnClipboard() };
   const normalize = (text: string) => text.replace(/\r\n/gu, '\n').replace(/\n+$/u, '');
   if (raw.unicodeText === undefined || normalize(raw.unicodeText) !== normalize(pastedText)) {
-    return { ok: false, reason: '貼り付けた内容とクリップボードの現在の内容が一致しません（別のコピーの可能性）。' };
+    return { ok: false, reason: reasons.mismatchedPaste() };
   }
   const platform = deps.platform ?? process.platform;
   const within = deps.workspaceRoots.some((root) => insideFolder(source.path, root, platform));
-  if (!within) return { ok: false, reason: 'コピー元のブックがワークスペースの外にあります。' };
+  if (!within) return { ok: false, reason: reasons.outsideWorkspace() };
   let sheet: SheetSource | undefined;
   try {
     sheet = deps.loadSheet(source.path, source.sheet);
   } catch {
     sheet = undefined;
   }
-  if (!sheet) return { ok: false, reason: `コピー元のブックまたはシート「${source.sheet}」を読めません（未保存の可能性）。` };
+  if (!sheet) return { ok: false, reason: reasons.unreadableSource(source.sheet) };
   const onDisk = sliceRegion(sheet, source.range);
   const copied = parseTsv(pastedText);
   const same =
     onDisk.length === copied.length &&
     onDisk.every((row, r) => row.length === (copied[r]?.length ?? -1) && row.every((cell, c) => cell === copied[r][c]));
   if (!same) {
-    return { ok: false, reason: '保存済みの原本の内容がコピーと一致しません（未保存の変更、または非表示の行・列を含むコピー）。' };
+    return { ok: false, reason: reasons.changedContents() };
   }
   return { ok: true, source };
 }

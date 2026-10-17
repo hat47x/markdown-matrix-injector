@@ -67,6 +67,7 @@ import {
   RegionSnapshotError,
   renderLibreOfficeRegionSnapshot,
 } from '../snapshot/libreOfficeRegionSnapshot.js';
+import { uiText } from './uiPhrases.js';
 
 export const REVIEW_CANDIDATES_COMMAND_ID =
   'markdownMatrixInjector.reviewCandidates';
@@ -82,18 +83,18 @@ const FILTERS: readonly {
 }[] = [
   {
     value: 'unimported',
-    label: '未取込のみ',
-    description: '未取込と、別の場所に同じ内容がある候補',
+    label: uiText('Not imported only'),
+    description: uiText('Not imported, and candidates whose same content was imported elsewhere'),
   },
   {
     value: 'exclude-imported',
-    label: '確認が必要',
-    description: '取込済み以外（変更・再確認・重複・未取込）',
+    label: uiText('Needs review'),
+    description: uiText('Everything except imported (changed, recheck, duplicate, not imported)'),
   },
   {
     value: 'all',
-    label: 'すべて',
-    description: '取込済みを含む全Candidate',
+    label: uiText('All'),
+    description: uiText('All Candidates, including imported ones'),
   },
 ];
 
@@ -105,32 +106,32 @@ function facetLabel(facet: CandidateReviewFacetSelection): string {
   if (facet.axis === 'kind') {
     switch (facet.value) {
       case 'table-range':
-        return '$(table) 種別: 表';
+        return uiText('$(table) Kind: table');
       case 'image':
-        return '$(file-media) 種別: 画像';
+        return uiText('$(file-media) Kind: image');
       case 'tree':
-        return '$(list-tree) 種別: ツリー';
+        return uiText('$(list-tree) Kind: tree');
       case 'choice-list':
-        return '$(list-selection) 種別: 選択肢';
+        return uiText('$(list-selection) Kind: choice list');
       case 'shape':
-        return '$(symbol-structure) 種別: 図形';
+        return uiText('$(symbol-structure) Kind: shape');
       default:
-        return `種別: ${facet.value}`;
+        return uiText('Kind: {0}', facet.value);
     }
   }
   if (facet.axis === 'status') {
     switch (facet.value) {
       case 'observed':
-        return '由来: observed（原本に明示）';
+        return uiText('Origin: observed (stated in the source)');
       case 'inferred':
-        return '由来: inferred（推定）';
+        return uiText('Origin: inferred');
       case 'abstained':
-        return '由来: abstained（主張せず）';
+        return uiText('Origin: abstained (no claim)');
     }
   }
   return facet.value === 'deterministic'
-    ? '実行: deterministic（決定論）'
-    : '実行: provider-dependent（provider依存）';
+    ? uiText('Execution: deterministic')
+    : uiText('Execution: provider-dependent');
 }
 
 function facetDescription(
@@ -138,11 +139,11 @@ function facetDescription(
 ): string {
   switch (facet.axis) {
     case 'kind':
-      return 'Candidate type';
+      return uiText('Candidate type');
     case 'status':
-      return 'origin / epistemic state';
+      return uiText('origin / epistemic state');
     case 'execution':
-      return 'execution characteristic';
+      return uiText('execution characteristic');
   }
 }
 
@@ -207,7 +208,7 @@ async function chooseSource(target?: vscode.Uri): Promise<string | undefined> {
         'log',
       ],
     },
-    title: 'MMI: Candidateを確認するsourceを選択',
+    title: uiText('MMI: Choose the source to review Candidates from'),
   });
   return picked?.[0]?.fsPath;
 }
@@ -240,8 +241,8 @@ async function chooseHierarchySource(
         : ['xlsx', 'xlsm', 'xls', 'csv'],
     },
     title: includeXml
-      ? 'MMI: 階層Candidateを確認するsourceを選択'
-      : 'MMI: 表の階層Candidateを確認するsourceを選択',
+      ? uiText('MMI: Choose the source to review hierarchy Candidates from')
+      : uiText('MMI: Choose the source to review tabular-hierarchy Candidates from'),
   });
   return picked?.[0]?.fsPath;
 }
@@ -255,6 +256,9 @@ interface HeaderRowChoice extends vscode.QuickPickItem {
 }
 
 const MAX_HIERARCHY_HEADER_ROW_CHOICES = 50;
+
+/** The title every step of the hierarchy configuration shares. */
+const AVAILABILITY_TITLE = uiText('MMI: Hierarchy Candidates');
 
 function uniqueHeaderChoices(
   sheet: ReturnType<typeof loadWorkbook>['sheets'][string],
@@ -275,7 +279,7 @@ function uniqueHeaderChoices(
     .filter((item) => counts.get(item.header) === 1)
     .map((item) => ({
       label: item.header,
-      description: `列 ${columnName(item.column)}`,
+      description: uiText('column {0}', columnName(item.column)),
       header: item.header,
     }));
 }
@@ -294,14 +298,14 @@ function hierarchyHeaderRowChoices(
     const headers = uniqueHeaderChoices(sheet, row);
     if (headers.length < 2) continue;
     rows.push({
-      label: `行 ${row + 1}`,
+      label: uiText('row {0}', row + 1),
       description: headers
         .slice(0, 5)
         .map((item) => item.header)
         .join(' · '),
       detail: headers.length > 5
-        ? `一意な見出し ${headers.length}列（先頭5列を表示）`
-        : `一意な見出し ${headers.length}列`,
+        ? uiText('{0} unique headers (the first 5 are shown)', headers.length)
+        : uiText('{0} unique headers', headers.length),
       row,
     });
   }
@@ -333,7 +337,7 @@ async function chooseHierarchyConfig(
     workbook = loadWorkbook({ absolutePath: sourcePath });
   } catch (error) {
     await vscode.window.showErrorMessage(
-      `MMI: このsourceは表形式の階層レビューに使えません: ${error instanceof Error ? error.message : String(error)}`,
+      uiText('MMI: This source cannot be used for the tabular hierarchy review: {0}', error instanceof Error ? error.message : String(error)),
     );
     return undefined;
   }
@@ -341,7 +345,7 @@ async function chooseHierarchyConfig(
   const sheetNames = Object.keys(workbook.sheets);
   if (sheetNames.length === 0) {
     await vscode.window.showInformationMessage(
-      'MMI: 階層Candidateを作れるシートがありません。',
+      uiText('MMI: No sheet can produce a hierarchy Candidate.'),
     );
     return undefined;
   }
@@ -351,8 +355,8 @@ async function chooseHierarchyConfig(
     : (await vscode.window.showQuickPick(
         sheetNames.map((name) => ({ label: name, sheet: name })),
         {
-          placeHolder: '階層として確認するシートを選択',
-          title: 'MMI: 階層Candidate',
+          placeHolder: uiText('Choose the sheet to review as a hierarchy'),
+          title: AVAILABILITY_TITLE,
         },
       ))?.sheet;
   if (!sheet) return undefined;
@@ -361,15 +365,15 @@ async function chooseHierarchyConfig(
   const headerRows = hierarchyHeaderRowChoices(sheetSource);
   if (headerRows.length === 0) {
     await vscode.window.showInformationMessage(
-      `MMI: 先頭${MAX_HIERARCHY_HEADER_ROW_CHOICES}使用行に、一意に指定できる見出しが2列以上ある行がありません。重複見出しは階層列として推測しません。`,
+      uiText('MMI: Within the first {0} used rows, no row has two or more headers that can be named uniquely. Duplicated headers are not guessed as hierarchy columns.', MAX_HIERARCHY_HEADER_ROW_CHOICES),
     );
     return undefined;
   }
   const headerRow = headerRows.length === 1
     ? headerRows[0].row
     : (await vscode.window.showQuickPick(headerRows, {
-        placeHolder: '見出し行を選択',
-        title: 'MMI: 階層Candidate',
+        placeHolder: uiText('Choose the header row'),
+        title: AVAILABILITY_TITLE,
       }))?.row;
   if (headerRow === undefined) return undefined;
 
@@ -378,34 +382,34 @@ async function chooseHierarchyConfig(
   const mode = await vscode.window.showQuickPick(
     [
       {
-        label: '親ID列で階層を指定',
-        description: 'ID列と親ID列を明示して親子関係を作る',
+        label: uiText('Build the hierarchy with a parent-ID column'),
+        description: uiText('State the ID column and the parent-ID column to make the parent-child relation'),
         mode: 'parent-id' as const,
       },
       {
-        label: 'Level列で階層を指定',
-        description: 'Level列と表示名列を明示して親子関係を作る',
+        label: uiText('Build the hierarchy with a Level column'),
+        description: uiText('State the Level column and the display-name column to make the parent-child relation'),
         mode: 'level' as const,
       },
     ],
     {
-      placeHolder: '階層の表現方法を選択',
-      title: 'MMI: 階層Candidate',
+      placeHolder: uiText('Choose how the hierarchy is expressed'),
+      title: AVAILABILITY_TITLE,
     },
   );
   if (!mode) return undefined;
 
   if (mode.mode === 'parent-id') {
     const id = await vscode.window.showQuickPick(headers, {
-      placeHolder: 'ID列を選択',
-      title: 'MMI: 階層Candidate',
+      placeHolder: uiText('Choose the ID column'),
+      title: AVAILABILITY_TITLE,
     });
     if (!id) return undefined;
     const parent = await vscode.window.showQuickPick(
       headers.filter((item) => item.header !== id.header),
       {
-        placeHolder: '親ID列を選択',
-        title: 'MMI: 階層Candidate',
+        placeHolder: uiText('Choose the parent-ID column'),
+        title: AVAILABILITY_TITLE,
       },
     );
     if (!parent) return undefined;
@@ -413,8 +417,8 @@ async function chooseHierarchyConfig(
     const label = await vscode.window.showQuickPick(
       [
         {
-          label: '(ID列を表示名として使う)',
-          description: '表示名列を別に指定しない',
+          label: uiText('(Use the ID column as the display name)'),
+          description: uiText('Do not name a separate display-name column'),
           header: undefined as string | undefined,
         },
         ...headers
@@ -429,8 +433,8 @@ async function chooseHierarchyConfig(
           })),
       ],
       {
-        placeHolder: '表示名列を選択（省略可）',
-        title: 'MMI: 階層Candidate',
+        placeHolder: uiText('Choose the display-name column (optional)'),
+        title: AVAILABILITY_TITLE,
       },
     );
     if (!label) return undefined;
@@ -448,15 +452,15 @@ async function chooseHierarchyConfig(
   }
 
   const level = await vscode.window.showQuickPick(headers, {
-    placeHolder: 'Level列を選択',
-    title: 'MMI: 階層Candidate',
+    placeHolder: uiText('Choose the Level column'),
+    title: AVAILABILITY_TITLE,
   });
   if (!level) return undefined;
   const label = await vscode.window.showQuickPick(
     headers.filter((item) => item.header !== level.header),
     {
-      placeHolder: '表示名列を選択',
-      title: 'MMI: 階層Candidate',
+      placeHolder: uiText('Choose the display-name column'),
+      title: AVAILABILITY_TITLE,
     },
   );
   if (!label) return undefined;
@@ -475,15 +479,15 @@ async function chooseHierarchyConfig(
 function stateLabel(state: string): string {
   switch (state) {
     case 'imported':
-      return '取込済み';
+      return uiText('imported');
     case 'changed':
-      return '変更あり';
+      return uiText('changed');
     case 'stale':
-      return '再確認';
+      return uiText('recheck');
     case 'duplicate':
-      return '同内容あり';
+      return uiText('duplicate exists');
     default:
-      return '未取込';
+      return uiText('not imported');
   }
 }
 
@@ -495,16 +499,25 @@ function reviewStateLabel(
 ): string {
   switch (state) {
     case 'accepted':
-      return 'accepted（採用済み）';
+      return uiText('accepted');
     case 'modified':
-      return 'modified（修正採用）';
+      return uiText('modified');
     case 'rejected':
-      return 'rejected（却下済み）';
+      return uiText('rejected');
     case 'deferred':
-      return 'deferred（保留中）';
+      return uiText('deferred');
     case 'unreviewed':
-      return 'unreviewed（未採用）';
+      return uiText('unreviewed');
   }
+}
+
+/** `state · Review: reviewState · tail` in the reader language. */
+function reviewDescription(
+  ledgerState: string,
+  reviewState: ReturnType<typeof reviewStateLabel>,
+  tail: string,
+): string {
+  return uiText('{0} · Review: {1} · {2}', ledgerState, reviewState, tail);
 }
 
 function epistemicDetail(candidate: Candidate): string {
@@ -512,15 +525,15 @@ function epistemicDetail(candidate: Candidate): string {
     (claim) => claim.status === 'inferred',
   );
   return [
-    `由来: ${candidate.status} · 実行: ${candidate.execution} · 方法: ${candidate.method}`,
+    uiText('Origin: {0} · Execution: {1} · Method: {2}', candidate.status, candidate.execution, candidate.method),
     inferred.length > 0
-      ? `推定: ${inferred
+      ? uiText('Inferred: {0}', inferred
           .map((claim) =>
             `${claim.aspect}=${Array.isArray(claim.value)
               ? claim.value.join(', ')
               : String(claim.value ?? '')}`)
-          .join(', ')}`
-      : '推定なし',
+          .join(', '))
+      : uiText('No inferences'),
   ].join(' · ');
 }
 
@@ -544,14 +557,18 @@ function quickPickItem(
         .map((score) =>
           `${score.provider}/${score.scale}=${score.value}`)
         .join(', ')}`
-    : 'provider scoreなし';
+    : uiText('no provider scores');
 
   if (source.kind === 'tree') {
-    const pointer = source.pointer || '(root)';
+    const pointer = source.pointer || uiText('(root)');
     return {
       label: `$(list-tree) ${pointer}`,
       description:
-        `${stateLabel(ledgerState)} · 採用: ${reviewStateLabel(reviewState)} · ${source.format.toUpperCase()} Tree${source.method ? ` · ${source.method}` : ''}`,
+        reviewDescription(
+          stateLabel(ledgerState),
+          reviewStateLabel(reviewState),
+          `${source.format.toUpperCase()} Tree${source.method ? ` · ${source.method}` : ''}`,
+        ),
       detail: [
         epistemicDetail(source.candidate),
         `${source.nodeType} · ${source.childCount} children · ${source.leafCount} scalar children`,
@@ -571,11 +588,13 @@ function quickPickItem(
       label:
         `$(file-media) ${image.description
           ?? image.name
-          ?? `画像 ${image.ordinal}`}`,
+          ?? uiText('Image {0}', image.ordinal)}`,
       description:
-        `${stateLabel(ledgerState)} · 採用: ${reviewStateLabel(reviewState)} · ${image.sheet}${image.range
-          ? ` ${image.range}`
-          : ''}`,
+        reviewDescription(
+          stateLabel(ledgerState),
+          reviewStateLabel(reviewState),
+          `${image.sheet}${image.range ? ` ${image.range}` : ''}`,
+        ),
       detail: [
         epistemicDetail(source.candidate),
         `${image.format.toUpperCase()} · ${image.bytes} bytes`,
@@ -593,19 +612,23 @@ function quickPickItem(
     const shape = source.shape;
     const text = shape.textRuns.length > 0
       ? shape.textRuns.join(' / ')
-      : '図形内テキストなし';
+      : uiText('no text inside the shape');
     return {
       label:
         `$(symbol-structure) ${shape.name
           ?? (shape.objectKind === 'connector'
-            ? `コネクタ ${shape.ordinal}`
-            : `図形 ${shape.ordinal}`)}`,
+            ? uiText('Connector {0}', shape.ordinal)
+            : uiText('Shape {0}', shape.ordinal))}`,
       description:
-        `${stateLabel(ledgerState)} · 採用: ${reviewStateLabel(reviewState)} · ${shape.sheet}${shape.range ? ` ${shape.range}` : ''}`,
+        reviewDescription(
+          stateLabel(ledgerState),
+          reviewStateLabel(reviewState),
+          `${shape.sheet}${shape.range ? ` ${shape.range}` : ''}`,
+        ),
       detail: [
         epistemicDetail(source.candidate),
         shape.objectKind === 'connector' ? 'connector' : 'AutoShape',
-        shape.presetGeometry ?? 'geometry未指定',
+        shape.presetGeometry ?? uiText('no geometry'),
         text,
         providerEvidence,
       ].join(' · '),
@@ -620,18 +643,22 @@ function quickPickItem(
   if (source.kind === 'choice-list') {
     const choice = source.choiceList;
     const values = choice.choices
-      ? `${choice.choices.length}件: ${choice.choices.slice(0, 6).join(', ')}${choice.choices.length > 6 ? ', …' : ''}`
+      ? uiText('{0} values: {1}', choice.choices.length, `${choice.choices.slice(0, 6).join(', ')}${choice.choices.length > 6 ? ', …' : ''}`)
       : choice.formula1
-        ? `参照式: ${choice.formula1}（値は未解決）`
-        : '参照元を読み取れません';
+        ? uiText('Formula: {0} (the values are unresolved)', choice.formula1)
+        : uiText('could not read the source');
     return {
-      label: `$(list-selection) 選択肢 ${choice.range}`,
+      label: uiText('$(list-selection) Choice list {0}', choice.range),
       description:
-        `${stateLabel(ledgerState)} · 採用: ${reviewStateLabel(reviewState)} · ${choice.sheet} ${choice.range}`,
+        reviewDescription(
+          stateLabel(ledgerState),
+          reviewStateLabel(reviewState),
+          `${choice.sheet} ${choice.range}`,
+        ),
       detail: [
         epistemicDetail(source.candidate),
         values,
-        choice.allowBlank ? '空欄可' : '空欄不可',
+        choice.allowBlank ? uiText('blank allowed') : uiText('blank not allowed'),
         providerEvidence,
       ].join(' · '),
       source,
@@ -647,10 +674,14 @@ function quickPickItem(
     return {
       label: `$(note) Note ${note.cell}`,
       description:
-        `${stateLabel(ledgerState)} · 採用: ${reviewStateLabel(reviewState)} · ${note.sheet} ${note.cell}${note.author !== undefined ? ` · ${note.author}` : ''}`,
+        reviewDescription(
+          stateLabel(ledgerState),
+          reviewStateLabel(reviewState),
+          `${note.sheet} ${note.cell}${note.author !== undefined ? ` · ${note.author}` : ''}`,
+        ),
       detail: [
         epistemicDetail(source.candidate),
-        note.text || '（空のNote）',
+        note.text || uiText('(empty note)'),
         providerEvidence,
       ].join(' · '),
       source,
@@ -665,7 +696,11 @@ function quickPickItem(
     label:
       `$(table) ${source.title ?? `${source.sheet} ${source.range}`}`,
     description:
-      `${stateLabel(ledgerState)} · 採用: ${reviewStateLabel(reviewState)} · ${source.sheet} ${source.range}`,
+      reviewDescription(
+        stateLabel(ledgerState),
+        reviewStateLabel(reviewState),
+        `${source.sheet} ${source.range}`,
+      ),
     detail: [
       epistemicDetail(source.candidate),
       providerEvidence,
@@ -743,9 +778,9 @@ export async function reviewCandidates(
     );
   } catch (error) {
     await vscode.window.showErrorMessage(
-      `MMI: Candidateを読み取れません: ${error instanceof Error
+      uiText('MMI: Could not read the Candidates: {0}', error instanceof Error
         ? error.message
-        : String(error)}`,
+        : String(error)),
     );
     return;
   }
@@ -755,7 +790,7 @@ export async function reviewCandidates(
       ? `: ${inventory.tabularHierarchyAbstention.evidence.join(' / ')}`
       : '';
     await vscode.window.showWarningMessage(
-      `MMI: 指定した階層列からTree Candidateを確定できません（${inventory.tabularHierarchyAbstention.reasonCode}）${detail}`,
+      uiText('MMI: A Tree Candidate could not be finalized from the given hierarchy columns ({0}){1}', inventory.tabularHierarchyAbstention.reasonCode, detail),
     );
     if (
       options.inventory?.hierarchyOnly
@@ -770,29 +805,29 @@ export async function reviewCandidates(
   );
   if (imageErrors.length > 0) {
     await vscode.window.showWarningMessage(
-      `MMI: 画像Candidateの一部を読み取れません: ${imageErrors
+      uiText('MMI: Some image Candidates could not be read: {0}. The other available Candidates can still be reviewed.', imageErrors
         .map((item) => item.message)
-        .join(' / ')}。利用できる他のCandidateは引き続き確認できます。`,
+        .join(' / ')),
     );
   }
 
   const choiceListProblems = inventory.choiceListDiagnostics ?? [];
   if (choiceListProblems.length > 0) {
     await vscode.window.showWarningMessage(
-      `MMI: 選択肢Candidateに確認事項があります: ${choiceListProblems
+      uiText('MMI: Choice-list Candidates need review: {0}. The Candidates that could be read can still be reviewed.', choiceListProblems
         .map((item) =>
           `${item.sheet ? `${item.sheet}: ` : ''}${item.message}`)
-        .join(' / ')}。読み取れたCandidateは引き続き確認できます。`,
+        .join(' / ')),
     );
   }
 
   const noteProblems = inventory.noteDiagnostics ?? [];
   if (noteProblems.length > 0) {
     await vscode.window.showWarningMessage(
-      `MMI: Note Candidateに確認事項があります: ${noteProblems
+      uiText('MMI: Note Candidates need review: {0}. The Candidates that could be read can still be reviewed.', noteProblems
         .map((item) =>
           `${item.sheet ? `${item.sheet}${item.cell ? `!${item.cell}` : ''}: ` : ''}${item.message}`)
-        .join(' / ')}。読み取れたCandidateは引き続き確認できます。`,
+        .join(' / ')),
     );
   }
 
@@ -815,13 +850,13 @@ export async function reviewCandidates(
     void providerRefresh.settled.then((summary) => {
       if (summary.completedProviders.length > 0) {
         void vscode.window.setStatusBarMessage(
-          `MMI: provider Candidateの準備完了（${summary.cachedItemCount}件）。次回レビューで反映します。`,
+          uiText('MMI: Provider Candidates are ready ({0}). They take effect at the next review.', summary.cachedItemCount),
           5000,
         );
       }
       if (summary.failedProviders.length > 0) {
         void vscode.window.setStatusBarMessage(
-          `MMI: provider Candidate ${summary.failedProviders.length}系統を取得できませんでした。編集は継続できます。`,
+          uiText('MMI: Could not fetch {0} provider lanes. Editing can continue.', summary.failedProviders.length),
           5000,
         );
       }
@@ -831,12 +866,12 @@ export async function reviewCandidates(
   if (reviewItems.length === 0) {
     if (providerLanes.length > 0) {
       void vscode.window.setStatusBarMessage(
-        'MMI: 即時Candidateはありません。provider Candidateをバックグラウンドで準備しています。',
+        uiText('MMI: No immediate Candidates. Provider Candidates are being prepared in the background.'),
         5000,
       );
     } else {
       await vscode.window.showInformationMessage(
-        'MMI: このsourceにはレビュー可能なCandidateがありません。',
+        uiText('MMI: This source has no Candidates to review.'),
       );
     }
     return;
@@ -852,16 +887,16 @@ export async function reviewCandidates(
     reviewDecisions = readReviewDecisions(reviewDecisionsPath);
   } catch (error) {
     await vscode.window.showErrorMessage(
-      `MMI: レビュー状態を読み取れません: ${error instanceof Error
+      uiText('MMI: Could not read the review state: {0}', error instanceof Error
         ? error.message
-        : String(error)}`,
+        : String(error)),
     );
     return;
   }
 
   const filterChoice = await vscode.window.showQuickPick(FILTERS, {
-    title: 'MMI: Candidateレビュー',
-    placeHolder: '表示するCandidateを選択',
+    title: uiText('MMI: Candidate review'),
+    placeHolder: uiText('Choose the Candidates to show'),
   });
   if (!filterChoice) return;
 
@@ -876,7 +911,7 @@ export async function reviewCandidates(
   );
   if (initialView.length === 0) {
     await vscode.window.showInformationMessage(
-      'MMI: 条件に合うCandidateはありません。',
+      uiText('MMI: No Candidates match the condition.'),
     );
     return;
   }
@@ -888,9 +923,9 @@ export async function reviewCandidates(
     facetOptions,
     {
       canPickMany: true,
-      title: 'MMI: Candidateレビュー — 絞り込み',
+      title: uiText('MMI: Candidate review — narrowing'),
       placeHolder:
-        '必要な条件だけ選択（同じ軸はOR、軸間はAND、未選択の軸はすべて）',
+        uiText('Choose only the conditions you need (OR within an axis, AND across axes, all values for an untouched axis)'),
       matchOnDescription: true,
     },
   );
@@ -923,9 +958,9 @@ export async function reviewCandidates(
       reviewDecisions = readReviewDecisions(reviewDecisionsPath);
     } catch (error) {
       await vscode.window.showErrorMessage(
-        `MMI: レビュー状態を再読み込みできません: ${error instanceof Error
+        uiText('MMI: Could not reload the review state: {0}', error instanceof Error
           ? error.message
-          : String(error)}`,
+          : String(error)),
       );
       return;
     }
@@ -947,8 +982,8 @@ export async function reviewCandidates(
     if (filteredView.length === 0) {
       await vscode.window.showInformationMessage(
         processedKeys.size > 0
-          ? 'MMI: この条件のCandidateレビューが完了しました。'
-          : 'MMI: 絞り込み条件に合うCandidateはありません。',
+          ? uiText('MMI: The review of this condition is complete.')
+          : uiText('MMI: No Candidates match the narrowing condition.'),
       );
       return;
     }
@@ -970,9 +1005,9 @@ export async function reviewCandidates(
         : [];
     }),
       {
-        title: 'MMI: Candidateレビュー',
+        title: uiText('MMI: Candidate review'),
         placeHolder:
-          `Candidateを選択（残り${filteredView.length}件。Escでレビューを終了）`,
+          uiText('Choose a Candidate ({0} remaining. Esc ends the review)', filteredView.length),
         matchOnDescription: true,
         matchOnDetail: true,
       },
@@ -988,7 +1023,7 @@ export async function reviewCandidates(
     && !picked.source.image.extractable
   ) {
     await vscode.window.showWarningMessage(
-      `MMI: ${picked.source.image.format} はMarkdownへ取り込めません。Candidateは確認のみです。`,
+      uiText('MMI: {0} cannot be taken into Markdown. The Candidate is review-only.', picked.source.image.format),
     );
     processedKeys.add(candidateReviewSessionKey(picked.source.candidate));
     continue;
@@ -1006,62 +1041,62 @@ export async function reviewCandidates(
     [
       ...(picked.source.kind === 'choice-list'
         ? [{
-            label: '確認のみで次へ',
+            label: uiText('Review only, then next'),
             value: 'next' as const,
             description:
-              'Excelの入力規則を変換せず、観測内容だけ確認して次へ進む',
+              uiText('Leaves the Excel input rule unconverted; confirms what was observed and moves on'),
           }]
         : picked.source.kind === 'shape'
           ? [
               {
-                label: '確認のみで次へ',
+                label: uiText('Review only, then next'),
                 value: 'next' as const,
                 description:
                   actionPolicy.reason
-                  ?? '図形を変換せず、原本から読めた内容だけ確認して次へ進む',
+                  ?? uiText('Leaves the shape unconverted; confirms what could be read from the source and moves on'),
               },
               ...(canSnapshotShape
                 ? [{
-                    label: 'この範囲を画像化',
+                    label: uiText('Render this range as an image'),
                     value: 'snapshot-shape' as const,
                     description:
-                      'deterministicなtwo-cell anchorの範囲をregion-snapshotとして画像化し、別Candidateとして台帳へ記録',
+                      uiText('Renders the deterministic two-cell-anchor range as a region-snapshot and records it as another Candidate in the ledger'),
                   }]
                 : []),
             ]
           : canUseDeterministicExtract
             ? [{
-                label: '取り込む',
+                label: uiText('Import'),
                 value: 'extract' as const,
-                description: '既存のdeterministic extract経路で標準資産と台帳へ記録',
+                description: uiText('Records it into the standard assets and the ledger through the existing deterministic extract path'),
               }]
             : [{
-                label: '確認のみで次へ',
+                label: uiText('Review only, then next'),
                 value: 'next' as const,
                 description:
                   actionPolicy.reason
-                  ?? 'このCandidateは現在のAuthority境界では取り込めません',
+                  ?? uiText('This Candidate cannot be imported within the current Authority boundary'),
               }]),
       ...(picked.source.kind === 'tree' && canUseDeterministicExtract
         ? [{
-            label: '確認のみで次へ',
+            label: uiText('Review only, then next'),
             value: 'next' as const,
-            description: 'Treeを取り込まず、確認だけして次へ進む',
+            description: uiText('Leaves the tree unimported; confirms it and moves on'),
           }]
         : []),
       ...(canUseDeterministicExtract && picked.source.kind === 'table'
         ? [{
-            label: '修正して取り込む',
+            label: uiText('Edit and import'),
             value: 'extract-modified' as const,
             description:
-              '抽出したMarkdown表を編集し、修正版として台帳へ記録',
+              uiText('Edits the extracted Markdown table and records the edited version in the ledger'),
           }]
         : canUseDeterministicExtract && picked.source.kind === 'image'
           ? [{
-              label: '説明を修正して取り込む',
+              label: uiText('Fix the description and import'),
               value: 'extract-modified-image' as const,
               description:
-                '画像bytesは変えず、alt textだけを人手修正して台帳へ記録',
+                uiText('Keeps the image bytes and the source untouched; records the manually fixed alt text in the ledger'),
             }]
           : []),
       ...(picked.ledgerState === 'imported'
@@ -1069,35 +1104,35 @@ export async function reviewCandidates(
         : [
             ...(picked.rejected
               ? [{
-                  label: '却下を解除',
+                  label: uiText('Lift the rejection'),
                   value: 'clear-decision' as const,
-                  description: 'このCandidateを再び通常レビューへ戻す',
+                  description: uiText('Puts this Candidate back into the normal review'),
                 }]
               : picked.deferred
                 ? [{
-                    label: '保留を解除',
+                    label: uiText('Lift the deferral'),
                     value: 'clear-decision' as const,
-                    description: 'このCandidateを再び通常レビューへ戻す',
+                    description: uiText('Puts this Candidate back into the normal review'),
                   }]
                 : [
                     {
-                      label: '却下',
+                      label: uiText('Reject'),
                       value: 'reject' as const,
                       description:
-                        '同じ内容・根拠のCandidateは変更されるまで表示しない',
+                        uiText('Candidates with the same content and basis stay hidden until the source changes'),
                     },
                     {
-                      label: '保留',
+                      label: uiText('Defer'),
                       value: 'defer' as const,
                       description:
-                        '同じ内容・根拠のCandidateを通常レビューから一時的に外す',
+                        uiText('Temporarily keeps Candidates with the same content and basis out of the normal review'),
                     },
                   ]),
           ]),
     ],
     {
-      title: 'MMI: Candidateの扱い',
-      placeHolder: '原本は変更しません',
+      title: uiText('MMI: What to do with this Candidate'),
+      placeHolder: uiText('The source book is not changed'),
     },
   );
   if (!action) continue;
@@ -1111,7 +1146,7 @@ export async function reviewCandidates(
     )
   ) {
     await vscode.window.showErrorMessage(
-      'MMI: provider依存Candidateはdeterministicなsource再検証へ束縛されていないため、この経路では取り込めません。',
+      uiText('MMI: Provider-dependent Candidates are not bound to a deterministic re-verification of the source, so this path cannot import them.'),
     );
     processedKeys.add(candidateReviewSessionKey(picked.source.candidate));
     continue;
@@ -1141,15 +1176,15 @@ export async function reviewCandidates(
       }
     } catch (error) {
       await vscode.window.showErrorMessage(
-        `MMI: ${action.value === 'reject' ? '却下' : '保留'}状態を保存できません: `
-          + (error instanceof Error ? error.message : String(error)),
+        uiText('MMI: Could not save the {0} decision: {1}', action.value === 'reject' ? uiText('reject') : uiText('defer'),
+          error instanceof Error ? error.message : String(error)),
       );
       return;
     }
     await vscode.window.showInformationMessage(
       action.value === 'reject'
-        ? 'MMI: Candidateを却下しました。内容または判断根拠が変われば再表示されます。'
-        : 'MMI: Candidateを保留しました。通常レビューから外れますが、すべて表示から解除できます。',
+        ? uiText('MMI: The Candidate is rejected. It shows again when its content or the basis of the decision changes.')
+        : uiText('MMI: The Candidate is deferred. It leaves the normal review and can be lifted from the Show all view.'),
     );
     processedKeys.add(candidateReviewSessionKey(picked.source.candidate));
     continue;
@@ -1164,13 +1199,13 @@ export async function reviewCandidates(
       );
     } catch (error) {
       await vscode.window.showErrorMessage(
-        'MMI: レビュー状態を解除できません: '
-          + (error instanceof Error ? error.message : String(error)),
+        uiText('MMI: Could not clear the review state: {0}',
+          error instanceof Error ? error.message : String(error)),
       );
       return;
     }
     await vscode.window.showInformationMessage(
-      'MMI: Candidateのレビュー状態を解除しました。',
+      uiText('MMI: The review state of the Candidate is cleared.'),
     );
     continue;
   }
@@ -1182,7 +1217,7 @@ export async function reviewCandidates(
     const selection = shapeSnapshotSelection(picked.source.shape);
     if (!selection) {
       await vscode.window.showErrorMessage(
-        'MMI: この図形は終端セルを安全に確定できないため、自動画像化できません。',
+        uiText('MMI: This shape cannot be rendered as an image automatically because its last cell cannot be determined safely.'),
       );
       continue;
     }
@@ -1212,7 +1247,7 @@ export async function reviewCandidates(
           ? error.message
           : String(error);
       await vscode.window.showErrorMessage(
-        `MMI: 図形範囲を画像化できません: ${detail}`,
+        uiText('MMI: Could not render the shape range as an image: {0}', detail),
       );
       continue;
     }
@@ -1221,19 +1256,19 @@ export async function reviewCandidates(
       const insert = await vscode.window.showQuickPick(
         [
           {
-            label: 'Markdownにも挿入',
+            label: uiText('Also insert into the Markdown'),
             value: true,
             description:
-              '現在のカーソル位置へsnapshot画像参照とprovenanceを挿入',
+              uiText('Inserts the snapshot image reference and provenance at the current cursor position'),
           },
           {
-            label: '画像化だけ',
+            label: uiText('Render only'),
             value: false,
             description:
-              'region-snapshot資産と台帳だけを作り、本文は変更しない',
+              uiText('Creates only the region-snapshot assets and the ledger; the body text is not changed'),
           },
         ],
-        { title: 'MMI: 図形範囲の画像化完了' },
+        { title: uiText('MMI: Rendering the shape range as an image is done') },
       );
       if (insert?.value) {
         const targetEditor = await vscode.window.showTextDocument(
@@ -1256,7 +1291,7 @@ export async function reviewCandidates(
     }
 
     await vscode.window.showInformationMessage(
-      `MMI: ${path.relative(root, snapshot.pngFile)} に図形範囲を画像化し、region-snapshotとしてmmi-ledger.jsonへ記録しました。Shape Candidate自体のレビュー状態は変更していません。`,
+      uiText('MMI: The shape range is rendered as an image at {0} and recorded into mmi-ledger.json as a region-snapshot. The review state of the Shape Candidate itself is not changed.', path.relative(root, snapshot.pngFile)),
     );
     processedKeys.add(
       candidateReviewSessionKey(picked.source.candidate),
@@ -1270,8 +1305,8 @@ export async function reviewCandidates(
   ) {
     await vscode.window.showErrorMessage(
       picked.source.kind === 'choice-list'
-        ? 'MMI: 選択肢CandidateはまだExtracted資産へ変換しません。確認・却下・保留のみ利用できます。'
-        : 'MMI: 図形CandidateはまだExtracted資産へ変換しません。確認・却下・保留のみ利用できます。',
+        ? uiText('MMI: Choice-list Candidates do not become Extracted assets yet. Only review, reject, and defer are available.')
+        : uiText('MMI: Shape Candidates do not become Extracted assets yet. Only review, reject, and defer are available.'),
     );
     processedKeys.add(candidateReviewSessionKey(picked.source.candidate));
     continue;
@@ -1305,20 +1340,20 @@ export async function reviewCandidates(
       || draft.extracted.length !== 1
     ) {
       await vscode.window.showErrorMessage(
-        `MMI: 修正用の画像参照を作成できません: ${draft.problems
+        uiText('MMI: Could not create the image reference for editing: {0}', draft.problems
           .map((problem) => problem.message)
-          .join(' / ') || '画像を一意に抽出できませんでした'}`,
+          .join(' / ') || uiText('could not extract the image uniquely')),
       );
       return;
     }
 
     const draftImage = draft.extracted[0];
     const editedAltText = await vscode.window.showInputBox({
-      title: 'MMI: 画像の説明を修正',
+      title: uiText('MMI: Fix the image description'),
       prompt:
-        '画像bytesと原本は変更しません。Markdownのalt textだけを編集します。',
+        uiText('The image bytes and the source book are not changed. Only the alt text in the Markdown is edited.'),
       value: draftImage.altText,
-      placeHolder: '画像の説明',
+      placeHolder: uiText('image description'),
     });
     if (editedAltText === undefined) {
       discardUnrecordedImageExtraction(draftImage);
@@ -1340,9 +1375,9 @@ export async function reviewCandidates(
     if (finalized.problems.length > 0 || !finalized.extracted) {
       discardUnrecordedImageExtraction(draftImage);
       await vscode.window.showErrorMessage(
-        `MMI: 画像の修正版を採用できません: ${finalized.problems
+        uiText('MMI: Could not adopt the fixed image: {0}', finalized.problems
           .map((problem) => problem.message)
-          .join(' / ')}`,
+          .join(' / ')),
       );
       return;
     }
@@ -1372,9 +1407,9 @@ export async function reviewCandidates(
     });
     if (draft.problems.length > 0 || !draft.extracted) {
       await vscode.window.showErrorMessage(
-        `MMI: 修正用の表を作成できません: ${draft.problems
+        uiText('MMI: Could not create the table for editing: {0}', draft.problems
           .map((problem) => problem.message)
-          .join(' / ')}`,
+          .join(' / ')),
       );
       return;
     }
@@ -1387,12 +1422,13 @@ export async function reviewCandidates(
       reviewDocument,
       { preview: false },
     );
+    const adoptButton = uiText('Adopt the fixes');
     const reviewAction = await vscode.window.showInformationMessage(
-      'MMI: 表を必要な形へ修正してください。完了後に「修正内容を採用」を選ぶと、原本を変えずに修正版とprovenanceを記録します。',
-      '修正内容を採用',
-      'キャンセル',
+      uiText('MMI: Fix the table into the shape you need. When you are done, choose "{0}" to record the fixed version and its provenance without changing the source book.', adoptButton),
+      adoptButton,
+      uiText('Cancel'),
     );
-    if (reviewAction !== '修正内容を採用') {
+    if (reviewAction !== adoptButton) {
       discardUnrecordedTableExtraction(draft.extracted);
       continue;
     }
@@ -1413,9 +1449,9 @@ export async function reviewCandidates(
     if (finalized.problems.length > 0 || !finalized.extracted) {
       discardUnrecordedTableExtraction(draft.extracted);
       await vscode.window.showErrorMessage(
-        `MMI: 修正版を採用できません: ${finalized.problems
+        uiText('MMI: Could not adopt the fixed version: {0}', finalized.problems
           .map((problem) => problem.message)
-          .join(' / ')}`,
+          .join(' / ')),
       );
       return;
     }
@@ -1445,9 +1481,9 @@ export async function reviewCandidates(
       || result.extracted.length !== 1
     ) {
       await vscode.window.showErrorMessage(
-        `MMI: 取り込みに失敗しました: ${result.problems
+        uiText('MMI: Could not import: {0}', result.problems
           .map((problem) => problem.message)
-          .join(' / ')}`,
+          .join(' / ')),
       );
       return;
     }
@@ -1481,9 +1517,9 @@ export async function reviewCandidates(
             : extractJsonTree(commonTreeOptions);
     if (result.problems.length > 0 || !result.extracted) {
       await vscode.window.showErrorMessage(
-        `MMI: 取り込みに失敗しました: ${result.problems
+        uiText('MMI: Could not import: {0}', result.problems
           .map((problem) => problem.message)
-          .join(' / ')}`,
+          .join(' / ')),
       );
       return;
     }
@@ -1504,9 +1540,9 @@ export async function reviewCandidates(
     });
     if (result.problems.length > 0 || !result.extracted) {
       await vscode.window.showErrorMessage(
-        `MMI: 取り込みに失敗しました: ${result.problems
+        uiText('MMI: Could not import: {0}', result.problems
           .map((problem) => problem.message)
-          .join(' / ')}`,
+          .join(' / ')),
       );
       return;
     }
@@ -1517,7 +1553,7 @@ export async function reviewCandidates(
     // action list never offers an extract action for them and this branch is
     // not reached. The explicit guard keeps the table-only fields narrowed.
     await vscode.window.showErrorMessage(
-      'MMI: Excel NoteはまだExtracted資産へ変換しません。確認・却下・保留のみ利用できます。',
+      uiText('MMI: Excel Notes do not become Extracted assets yet. Only review, reject, and defer are available.'),
     );
     processedKeys.add(candidateReviewSessionKey(picked.source.candidate));
     continue;
@@ -1531,34 +1567,34 @@ export async function reviewCandidates(
     );
   } catch (error) {
     await vscode.window.showWarningMessage(
-      'MMI: 取り込みは完了しましたが、旧いレビュー状態を消去できません: '
-        + (error instanceof Error ? error.message : String(error)),
+      uiText('MMI: The import is done, but the old review state could not be cleared: {0}',
+        error instanceof Error ? error.message : String(error)),
     );
   }
 
   if (active?.document.languageId === 'markdown') {
     const kindLabel =
       picked.source.kind === 'image'
-        ? '画像参照'
+        ? uiText('image reference')
         : picked.source.kind === 'tree'
-          ? 'Markdownツリー'
-          : 'Markdown表';
+          ? uiText('Markdown tree')
+          : uiText('Markdown table');
     const insert = await vscode.window.showQuickPick(
       [
         {
-          label: 'Markdownにも挿入',
+          label: uiText('Also insert into the Markdown'),
           value: true,
           description:
-            `現在のカーソル位置へ${kindLabel}とprovenanceを挿入`,
+            uiText('Inserts {0} and provenance at the current cursor position', kindLabel),
         },
         {
-          label: '標準資産への取り込みだけ',
+          label: uiText('Import into the standard assets only'),
           value: false,
-          description: '本文は変更しない',
+          description: uiText('the body text is not changed'),
         },
       ],
       {
-        title: 'MMI: 取り込み完了',
+        title: uiText('MMI: The import is done'),
       },
     );
     if (insert?.value) {
@@ -1581,7 +1617,7 @@ export async function reviewCandidates(
   }
 
   await vscode.window.showInformationMessage(
-    `MMI: ${path.relative(root, extractedFile)} に取り込み、mmi-ledger.jsonへ記録しました。`,
+    uiText('MMI: Imported into {0} and recorded into mmi-ledger.json.', path.relative(root, extractedFile)),
   );
   processedKeys.add(candidateReviewSessionKey(picked.source.candidate));
   }
@@ -1623,8 +1659,8 @@ export async function reviewCandidates(
         );
       } catch (error) {
         void vscode.window.showWarningMessage(
-          'MMI: Candidateレビューの観測記録を保存できません: '
-            + (error instanceof Error ? error.message : String(error)),
+          uiText('MMI: Could not save the observation record of the Candidate review: {0}',
+            error instanceof Error ? error.message : String(error)),
         );
       }
     }

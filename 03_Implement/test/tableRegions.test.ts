@@ -3,7 +3,8 @@ import test from 'node:test';
 import type { CellRange, SheetSource } from '../src/core/sheetSource.js';
 import { parseCellRef, parseRangeToCellRange } from '../src/core/tableGeometry.js';
 import type { WorkbookData } from '../src/core/workbookLoader.js';
-import { paramValueCandidates, rangeCandidates } from '../src/dx/completionCandidates.js';
+import { jaCompletionPhrases, paramValueCandidates, rangeCandidates } from '../src/dx/completionCandidates.js';
+
 import type { CompletionContext } from '../src/dx/completionContext.js';
 import { detectTableRegions, gridProjection } from '../src/importAssist/tableRegions.js';
 import { detectRegions } from '../src/search/regionDetector.js';
@@ -80,12 +81,12 @@ test('search on a merged grid emits the anchor columns, and a column request pic
 
 test('completion explains what a merged table needs and offers its anchor columns', () => {
   const context: CompletionContext = { stage: 'range', replaceStart: 0, replaceEnd: 0, typed: '', filepath: './画面定義書.xlsx', usedParams: [] } as CompletionContext;
-  const [range] = rangeCandidates(context, '受注登録', screenItems());
+  const [range] = rangeCandidates(context, '受注登録', screenItems(), jaCompletionPhrases);
   assert.equal(range.label, 'B2:T5');
   assert.match(range.detail ?? '', /columns=A,C,H,L&mode=table/);
 
   const [region] = detectTableRegions('受注登録', screenItems());
-  const values = paramValueCandidates({ ...context, stage: 'param-value', paramKey: 'columns', typed: '' } as CompletionContext, region);
+  const values = paramValueCandidates({ ...context, stage: 'param-value', paramKey: 'columns', typed: '' } as CompletionContext, region, jaCompletionPhrases);
   assert.deepEqual(values.map((candidate) => candidate.label), ['A,C,H,L', 'A', 'C', 'H', 'L']);
   assert.deepEqual(values.slice(1).map((candidate) => candidate.detail), ['No', '項目名', '型', '備考']);
 });

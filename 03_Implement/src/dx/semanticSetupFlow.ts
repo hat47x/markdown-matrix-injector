@@ -4,6 +4,7 @@ import {
   discoverLocalEmbeddingModels,
   type DiscoveredEmbeddingModel,
 } from '../search/semantic/runtimeDiscovery.js';
+import { uiText } from './uiPhrases.js';
 
 export const SELECT_LOCAL_SEMANTIC_MODEL_COMMAND_ID =
   'markdownMatrixInjector.selectLocalSemanticModel';
@@ -50,7 +51,7 @@ export async function selectLocalSemanticModel(): Promise<boolean> {
   const models = await vscode.window.withProgress(
     {
       location: vscode.ProgressLocation.Notification,
-      title: 'MMI: 端末内の埋め込みモデルを探しています',
+      title: uiText('MMI: Looking for on-device embedding models'),
       cancellable: true,
     },
     async (_progress, token) => {
@@ -66,7 +67,7 @@ export async function selectLocalSemanticModel(): Promise<boolean> {
   }
   if (models.length === 0) {
     await vscode.window.showInformationMessage(
-      'MMI: Ollama / LM Studioから利用可能なローカル埋め込みモデルを見つけられませんでした。runtimeとモデルはMMIから取得・起動しません。',
+      uiText('MMI: No usable local embedding model was found in Ollama / LM Studio. MMI does not fetch or start runtimes and models.'),
     );
     return false;
   }
@@ -74,9 +75,9 @@ export async function selectLocalSemanticModel(): Promise<boolean> {
   const picked = await vscode.window.showQuickPick(
     models.map(quickPickItem),
     {
-      title: 'MMI: ローカル意味検索モデルを選択',
+      title: uiText('MMI: Choose the local semantic-search model'),
       placeHolder:
-        'この端末に既にある埋め込みモデルだけを表示しています',
+        uiText('Only the embedding models already on this device are shown'),
       matchOnDescription: true,
       matchOnDetail: true,
     },
@@ -102,7 +103,11 @@ export async function selectLocalSemanticModel(): Promise<boolean> {
   ]);
 
   await vscode.window.showInformationMessage(
-    `MMI: ${picked.model.displayName} をローカル意味検索に設定しました。${picked.model.artifactDigest ? ' artifact digestも固定しました。' : ' runtimeがdigestを公開していないため、artifact同一性は名前だけでは確定しません。'} モデルの取得やloadは行っていません。`,
+    uiText('MMI: {0} is now set as the local semantic-search model. {1} No model is downloaded or loaded.',
+      picked.model.displayName,
+      picked.model.artifactDigest
+        ? uiText('the artifact digest is pinned as well.')
+        : uiText('the runtime does not expose a digest, so artifact identity cannot be confirmed by name alone.')),
   );
   return true;
 }

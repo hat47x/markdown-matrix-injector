@@ -12,6 +12,7 @@ import {
   summarizeSearchObservations,
 } from '../search/observation/summary.js';
 import type { SearchObservationHost } from './searchFlow.js';
+import { uiText } from './uiPhrases.js';
 
 export const SEARCH_OBSERVATION_SUMMARY_COMMAND_ID =
   'markdownMatrixInjector.searchObservation.summary';
@@ -63,13 +64,13 @@ export async function showSearchObservationNoticeOnce(
   const includeText =
     config.get<boolean>('search.observation.includeText', false) === true;
   const detail = includeText
-    ? '検索回数、分類、結末、順位・適合度、別名提案の結果に加え、明示設定により最終の依頼文も保存します。'
-    : '検索回数、分類、結末、順位・適合度、別名提案の結果だけを保存します。依頼文、表名、ファイル名、利用者名は保存しません。';
+    ? uiText('It saves the number of searches, the outcome, the rank and fit, the results of alias suggestion, and, only with the explicit setting, the final request text.')
+    : uiText('It saves only the number of searches, the outcome, the rank and fit, and the results of alias suggestion. It does not save request text, table names, file names, or user names.');
 
   await vscode.window.showInformationMessage(
-    `MMI: 表検索の需要観測をこのワークスペースでローカル記録します。\n${detail}\n外部送信は行いません。`,
+    uiText('MMI: It records the demand observation of table search locally in this workspace.\n{0}\nIt sends nothing outside the machine.', detail),
     { modal: true },
-    '確認',
+    uiText('Accept'),
   );
   await context.workspaceState.update(NOTICE_KEY, true);
 }
@@ -99,7 +100,7 @@ async function showSummary(
 ): Promise<void> {
   if (!context.storageUri) {
     void vscode.window.showInformationMessage(
-      'MMI: ワークスペースを開いてから検索観測を利用してください。',
+      uiText('MMI: Open a workspace before using the search observation.'),
     );
     return;
   }
@@ -108,7 +109,7 @@ async function showSummary(
     records = readSearchObservationStore(observationPath(context.storageUri)).records;
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    void vscode.window.showErrorMessage(`MMI: 検索観測の記録を読めませんでした: ${reason}`);
+    void vscode.window.showErrorMessage(uiText('MMI: Could not read the search observation records: {0}', reason));
     return;
   }
   const markdown = renderSearchObservationSummaryMarkdown(
@@ -125,9 +126,9 @@ async function showSummary(
   }
 
   const target = await vscode.window.showSaveDialog({
-    title: 'MMI: 検索観測の件数集計を書き出す',
+    title: uiText('MMI: Export the count summary of the search observation'),
     filters: { Markdown: ['md'] },
-    saveLabel: '書き出す',
+    saveLabel: uiText('Export'),
   });
   if (!target) return;
   await vscode.workspace.fs.writeFile(
@@ -135,7 +136,7 @@ async function showSummary(
     Buffer.from(markdown, 'utf8'),
   );
   void vscode.window.showInformationMessage(
-    'MMI: 検索観測の件数集計を書き出しました。依頼文は含みません。',
+    uiText('MMI: Exported the count summary of the search observation. It does not contain request text.'),
   );
 }
 
@@ -143,21 +144,22 @@ async function clearRecords(
   context: vscode.ExtensionContext,
 ): Promise<void> {
   if (!context.storageUri) return;
+  const clearLabel = uiText('Erase');
   const answer = await vscode.window.showWarningMessage(
-    'MMI: このワークスペースの表検索の観測記録をすべて消去します。',
+    uiText('MMI: Erase all observation records of table search in this workspace.'),
     { modal: true },
-    '消去',
+    clearLabel,
   );
-  if (answer !== '消去') return;
+  if (answer !== clearLabel) return;
   try {
     clearSearchObservations(observationPath(context.storageUri));
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    void vscode.window.showErrorMessage(`MMI: 検索観測の記録を消去できませんでした: ${reason}`);
+    void vscode.window.showErrorMessage(uiText('MMI: Could not erase the search observation records: {0}', reason));
     return;
   }
   void vscode.window.showInformationMessage(
-    'MMI: 表検索の観測記録を消去しました。',
+    uiText('MMI: Erased the observation records of table search.'),
   );
 }
 
