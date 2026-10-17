@@ -297,5 +297,17 @@
   "Continue typing the format (e.g. json)": "形式を続けて入力（例: json）",
   " (merged table: to show it as a table, use {0})": "（結合した表: 表として見せるには {0}）",
   "table region": "表領域",
-  "the whole used range of the sheet": "シートの使用範囲全体"
+  "the whole used range of the sheet": "シートの使用範囲全体",
+  "The copied source is not on the clipboard.": "コピー元の情報がクリップボードにありません。",
+  "The pasted content does not match the current clipboard content (it may be a different copy).": "貼り付けた内容とクリップボードの現在の内容が一致しません（別のコピーの可能性）。",
+  "The copied workbook lies outside the workspace.": "コピー元のブックがワークスペースの外にあります。",
+  "Could not read the copied workbook or its sheet \"{0}\" (it may be unsaved).": "コピー元のブックまたはシート「{0}」を読めません（未保存の可能性）。",
+  "The saved workbook contents differ from the copy (unsaved changes, or the copy includes hidden rows or columns).": "保存済みの原本の内容がコピーと一致しません（未保存の変更、または非表示の行・列を含むコピー）。",
+  "MMI: Looking for on-device embedding models": "MMI: 端末内の埋め込みモデルを探しています",
+  "MMI: No usable local embedding model was found in Ollama / LM Studio. MMI does not fetch or start runtimes and models.": "MMI: Ollama / LM Studioから利用可能なローカル埋め込みモデルを見つけられませんでした。runtimeとモデルはMMIから取得・起動しません。",
+  "MMI: Choose the local semantic-search model": "MMI: ローカル意味検索モデルを選択",
+  "Only the embedding models already on this device are shown": "この端末に既にある埋め込みモデルだけを表示しています",
+  "MMI: {0} is now set as the local semantic-search model. {1} No model is downloaded or loaded.": "MMI: {0} をローカル意味検索に設定しました。{1} モデルの取得やloadは行っていません。",
+  "the artifact digest is pinned as well.": " artifact digestも固定しました。",
+  "the runtime does not expose a digest, so artifact identity cannot be confirmed by name alone.": " runtimeがdigestを公開していないため、artifact同一性は名前だけでは確定しません。"
 }

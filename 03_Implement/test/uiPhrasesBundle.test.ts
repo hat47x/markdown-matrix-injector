@@ -315,7 +315,18 @@ test('the l10n bundle carries a Japanese wording for every sentence the host put
     "Continue typing the format (e.g. json)",
     " (merged table: to show it as a table, use {0})",
     "table region",
-    "the whole used range of the sheet",
+    "the whole used range of the sheet",    "The copied source is not on the clipboard.",
+    "The pasted content does not match the current clipboard content (it may be a different copy).",
+    "The copied workbook lies outside the workspace.",
+    "Could not read the copied workbook or its sheet \"{0}\" (it may be unsaved).",
+    "The saved workbook contents differ from the copy (unsaved changes, or the copy includes hidden rows or columns).",
+    "MMI: Looking for on-device embedding models",
+    "MMI: No usable local embedding model was found in Ollama / LM Studio. MMI does not fetch or start runtimes and models.",
+    "MMI: Choose the local semantic-search model",
+    "Only the embedding models already on this device are shown",
+    "MMI: {0} is now set as the local semantic-search model. {1} No model is downloaded or loaded.",
+    "the artifact digest is pinned as well.",
+    "the runtime does not expose a digest, so artifact identity cannot be confirmed by name alone.",
   ];
   // Sentence shapes that are identical in English and Japanese, so echoing the key is correct.
   const languageNeutral = new Set(['MMI: {0} ({1})', '(root)']);

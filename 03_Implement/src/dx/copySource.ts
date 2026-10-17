@@ -11,13 +11,23 @@
 import * as vscode from 'vscode';
 
 import { parseRangeToCellRange } from '../core/tableGeometry.js';
-import { verifyCopySource } from './clipboardProvenance.js';
+import { verifyCopySource, type ClipboardRejectionPhrases } from './clipboardProvenance.js';
 import { matchContext, type WorkbookContentMatch } from './contentMatchSearch.js';
 import { readWorkbookCached } from './sharedWorkbookCache.js';
 import { toRelativeSuggestion } from './vscodeAdapters.js';
 import { clipboardProvenanceSupported, readRawClipboard, warmClipboardHelper } from './windowsClipboard.js';
+import { uiText } from './uiPhrases.js';
 
 export const USE_CLIPBOARD_SOURCE_SETTING = 'paste.useClipboardSource';
+
+/** The rejection wording in the bundle's language; `l10n` keys are the English references. */
+const clipboardRejectionPhrases: ClipboardRejectionPhrases = {
+  noSourceOnClipboard: () => uiText('The copied source is not on the clipboard.'),
+  mismatchedPaste: () => uiText('The pasted content does not match the current clipboard content (it may be a different copy).'),
+  outsideWorkspace: () => uiText('The copied workbook lies outside the workspace.'),
+  unreadableSource: (sheet) => uiText('Could not read the copied workbook or its sheet "{0}" (it may be unsaved).', sheet),
+  changedContents: () => uiText('The saved workbook contents differ from the copy (unsaved changes, or the copy includes hidden rows or columns).'),
+};
 
 export interface SourcedMatch extends WorkbookContentMatch {
   /** The address came from the clipboard and was checked against the saved source. */
@@ -47,6 +57,7 @@ export async function confirmedCopySource(
   const verdict = verifyCopySource(raw, pastedText, {
     workspaceRoots: (vscode.workspace.workspaceFolders ?? []).filter((folder) => folder.uri.scheme === 'file').map((folder) => folder.uri.fsPath),
     loadSheet: (absolutePath, sheet) => readWorkbookCached(absolutePath).sheets[sheet],
+    reasons: clipboardRejectionPhrases,
   });
   if (!verdict.ok) return { reason: verdict.reason };
   const { source } = verdict;
