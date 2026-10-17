@@ -81,7 +81,7 @@ Product promotion（支援機能を製品へ採用する判断）に使う最初
 
 ## 5. Safety / authorityは非相殺
 
-次の安全性や原本・判断の信頼境界に関する違反は、work metricの改善によって相殺しません。
+次の安全性や、原本と判断結果の信頼境界に関する違反は、work metricの改善によって相殺しません。
 
 - source mutation
 - failed import後のdraft / asset / ledger残留
