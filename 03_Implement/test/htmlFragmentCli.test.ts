@@ -1,12 +1,13 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import { fileURLToPath } from 'node:url';
 
 import { inspectSource } from '../src/cli/mmi.js';
 import { candidateProblem } from '../src/core/candidate.js';
 
 const fixture = new URL('./fixtures/html-fragment-v0/monolith.html', import.meta.url);
-const file = decodeURIComponent(fixture.pathname);
+const file = fileURLToPath(fixture);
 
 test('CLI inspect returns HTML candidates without including unbounded serialized HTML', () => {
   const before = fs.readFileSync(fixture);
