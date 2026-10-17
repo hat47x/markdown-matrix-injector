@@ -65,14 +65,12 @@ Scopeは、Receiptが何を対象として検証したかを示す区分であ�
 
 ## 4. Check result
 
-各check result（個々の検証結果）は、次の項目を持つ。
+各check result（個々の検証結果）には、次の項目を含める。
 
 - check id
 - `passed | failed | not-applicable`
 - stable evidence code
 - optional detail
-
-を持つ。
 
 Receiptは、Envelopeで要求されたcheckを**ちょうど1回ずつ**含む。
 
