@@ -130,6 +130,8 @@ provider version
 capability
 ```
 
+この一覧のcapabilityは、provider descriptorに宣言された能力を参照する。初期contractの`CognitiveOutcome`には、個々の呼び出しで使用した能力を独立した項目として記録する欄はない。
+
 時刻や外部状態に依存する値を、contractのidentity（同一性を識別する値）には使わない。
 
 ## 8. Failure behavior
