@@ -179,7 +179,7 @@ export function extractHtmlFragment(
   checkPath(root, sourcePath, false);
   // The asset directory may not exist yet; check and create its parents only
   // after the selected fragment passes snapshot and safety validation.
-  checkPath(root, ledgerPath, true);
+  checkPath(root, ledgerPath, false);
   if (fs.existsSync(ledgerPath) && !fs.statSync(ledgerPath).isFile()) {
     throw new Error('MMI_HTML_LEDGER_INVALID: ledger path is not a file');
   }
@@ -193,12 +193,13 @@ export function extractHtmlFragment(
   const externalLinks = validateStaticFragment(fragment.html);
   const outputBytes = Buffer.from(fragment.html + '\n', 'utf8');
   const outputDigest = sha256(outputBytes);
-  const outputPath = path.join(outDir, `fragment-${outputDigest.slice(7, 23)}.html`);
+  const outputPath = path.join(outDir, `fragment-${outputDigest.slice(7)}.html`);
   if (path.resolve(sourcePath) === path.resolve(outputPath)) {
     throw new Error('MMI_HTML_SOURCE_OUTPUT_CONFLICT: output overlaps source');
   }
 
-  // Only make the destination after the source and fragment checks succeed.
+  // Only make destinations after the source and fragment checks succeed.
+  checkPath(root, ledgerPath, true);
   checkPath(root, outputPath, true);
   // Recheck the full destination (including dangling symlinks) before reusing
   // a content-addressed asset or accepting a competing writer's EEXIST.
