@@ -24,7 +24,7 @@ Candidateの共通契約はissue-0193で実装済みで、表・画像・Choice 
 | 製品要求の能力 | 状態 | 現在あるもの（証拠） | 不足 | 優先度 |
 | --- | --- | --- | --- | --- |
 | 参照 | ● | MMI Notation v1、VS Codeプレビュー、CLI `render` | 表以外のCandidateの参照 | 2〜3 |
-| 目録 | ◐ | CLI `inspect`（表の領域・見出し・行数、Excel画像の位置・形式・ダイジェスト・近くの表、list入力規則、classic Note、AutoShape/コネクタ、snapshot hint、JSON/YAML/XML/フラットテキストのTree Candidate、`--json`のCandidate形式。`src/cli/mmi.ts`） | リンクの列挙、graphic frameの分類、Word等の他形式 | 2〜3 |
+| 目録 | ◐ | CLI `inspect`（表の領域・見出し・行数、Excel画像の位置・形式・ダイジェスト・近くの表、list入力規則、classic Note、AutoShape/コネクタ、snapshot hint、JSON/YAML/XML/フラットテキストのTree Candidate、`--json`のCandidate形式。`src/cli/mmi.ts`） | graphic frameの分類、Word等の他形式、リンクのExtracted取り込み | 2〜3 |
 | 候補抽出 | ◐ | 共通Candidate型を実装し、表・Excel画像・Choice list・Note・Shape・Treeを`mmi inspect --json`へ出力。JSON/YAML/XMLの明示親子関係は`observed + deterministic + M0`、フラットテキストと表形式階層の親子関係は`inferred + deterministic + M1`として保持する。表Candidateは結合した方眼紙の表を論理列で認識し、参照に`columns=`・`mode=table`を含める。研究: 表らしさ・見出し境界、既知書式 | Diagram・Link・SectionのCandidate化、研究成果の製品接続 | 1〜3 |
 | 個別取り込み | ◐ | CLI `extract`でExcel画像を通常画像assetへ、検出済みTable Candidateを標準GFM Markdownへ、Tree（JSON/YAML/XML/フラットテキスト/表形式階層）の選択subtreeをnested list Markdownへ取り込む。いずれも共通ledgerへ採用を記録する。VS Codeでは表・画像・Treeを同じ条件のまま連続レビューして採用・却下・保留でき、表・画像は修正採用にも対応する。Treeはレビュー時fingerprintを現在sourceで再照合し、変更済みなら採用しない | Shapeのextract、Treeの修正採用、実機E2E | 2〜3 |
 | 一括変換 | ◐ | VS Codeの既存取り込みコマンドとCLI `mmi import`が同じmaterializerを使い、表をLinked参照、.xlsx/.xlsmの埋込画像をExtracted asset＋取り込み台帳として1回で下書き化する。非表領域と画像の問題は確認事項として残す | 実在設計書での観測、図形等の追加Candidate、外部Converterとの比較評価（[issue-0200](https://github.com/hat47x/markdown-matrix-injector/issues/503)） | 2 |

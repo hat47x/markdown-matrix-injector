@@ -12,6 +12,11 @@ import {
   type ChoiceListReadResult,
 } from '../adapters/excelChoiceListAdapter.js';
 import {
+  linkCandidates,
+  readExcelLinks,
+  type LinkReadResult,
+} from '../adapters/excelLinkAdapter.js';
+import {
   noteCandidates,
   readExcelNotes,
   type NoteReadResult,
@@ -65,9 +70,11 @@ export interface WorkbookCandidateInventory {
   imageRead: ImageReadResult;
   choiceRead: ChoiceListReadResult;
   noteRead: NoteReadResult;
+  linkRead: LinkReadResult;
   imageCandidateList: readonly Candidate[];
   shapeCandidateList: readonly Candidate[];
   noteCandidateList: readonly Candidate[];
+  linkCandidateList: readonly Candidate[];
   hierarchies: readonly WorkbookHierarchyCandidates[];
   candidates: readonly Candidate[];
 }
@@ -136,9 +143,11 @@ export function collectWorkbookCandidates(
       imageRead: empty,
       choiceRead: { lists: [], diagnostics: [] },
       noteRead: { notes: [], diagnostics: [] },
+      linkRead: { links: [], diagnostics: [] },
       imageCandidateList: [],
       shapeCandidateList: [],
       noteCandidateList: [],
+      linkCandidateList: [],
       hierarchies,
       candidates: hierarchies.flatMap(({ result }) => result.candidates),
     };
@@ -205,6 +214,9 @@ export function collectWorkbookCandidates(
   const noteRead = packageBytes
     ? readExcelNotes(packageBytes)
     : { notes: [], diagnostics: [] };
+  const linkRead: LinkReadResult = packageBytes
+    ? readExcelLinks(packageBytes)
+    : { links: [], diagnostics: [] };
 
   const imageCandidateList = imageCandidates({
     source: sourceLabel,
@@ -222,6 +234,11 @@ export function collectWorkbookCandidates(
     sourceDigest,
     notes: noteRead.notes,
   });
+  const linkCandidateList = linkCandidates({
+    source: sourceLabel,
+    sourceDigest,
+    links: linkRead.links,
+  });
 
   return {
     sourceDigest,
@@ -233,9 +250,11 @@ export function collectWorkbookCandidates(
     imageRead,
     choiceRead,
     noteRead,
+    linkRead,
     imageCandidateList,
     shapeCandidateList,
     noteCandidateList,
+    linkCandidateList,
     hierarchies,
     candidates: [
       ...tableItems.map((item) => item.candidate),
@@ -243,6 +262,7 @@ export function collectWorkbookCandidates(
       ...shapeCandidateList,
       ...choiceRead.lists.map((item) => item.candidate),
       ...noteCandidateList,
+      ...linkCandidateList,
       ...hierarchies.flatMap(({ result }) => result.candidates),
     ],
   };
