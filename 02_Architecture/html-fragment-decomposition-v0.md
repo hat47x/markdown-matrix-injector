@@ -179,3 +179,11 @@ fixtureの`#overview`にある`href="#api"`は、両方を移す提案であれ�
 これらは「既存文書を抽出すれば自然に独立文書として成立する」という仮定を否定する根拠でもある。たとえ`hasIdentifiedBlockers=false`でも、元文書のCSS・動的描画・画像・表現上の依存を網羅的に保証するわけではない。
 
 実行試験の状況: containerのNode.js/npm環境から`npm view parse5@7.3.0`を照会したところ、`registry.npmjs.org`のDNS解決で`EAI_AGAIN`を確認。依存復元とTypeScript/CLIテストは**未完了**であり、実装コードがPASSしたとは記載しない。GitHub Actionsは明示的に起動していない。
+
+## 13. CLI配布経路への接続（2026-10-17）
+
+Source Adapterの機能追加は、開発用TypeScript実行環境だけで成立しても十分ではない。CLIを単独配布する経路は、`scripts/build-cli-package.mjs`がproduction依存を限定してbundleするため、`package.json`の直接依存に`parse5`を追加しただけでは、配布manifestから漏れる可能性がある。
+
+Draft PR #555では、必須runtime依存へ`parse5@7.3.0`を追加するとともに、`cliDistribution.test.mjs`のmanifest期待値と欠落検知テストを更新した。オフラインのCLI配布検証`verify-cli-package.mjs`にも、HTMLの`inspect`・`html-plan`・単一`extract`・Ledger記録を追加し、standalone配布でHTML5解析器が見つからない問題を検出できるようにした。ライセンスと利用者向け配布資料も更新した。
+
+**証拠状態**: GitHubのコードを用いて、配布manifestを組み立てる純粋関数の隔離実行でparse5の含有／欠落時拒否を確認した。一方、`npm run build`、`npm run test:unit`、`npm run test:cli-distribution`、`npm run package:cli`、`verify-cli-package.mjs`の実行は未確認。ターボールへ実際に同梱され、利用者がオフラインでHTMLコマンドを実行できることを受入済みとしない。
