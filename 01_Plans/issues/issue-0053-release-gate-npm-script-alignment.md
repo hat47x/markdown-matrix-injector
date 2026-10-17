@@ -1,4 +1,6 @@
-# Issue: Release gate npm script alignment for local and CI execution
+# Issue: ローカルとCIのリリース判定コマンドをnpm scriptsにそろえる
+
+この文書は、Phase 7当時のリリース判定の実行方法を統一する提案と完了判断を残したIssue記録です。2026年4月2日の検証結果は当時の内容であり、現在のpackage scriptsやCIの動作を新たに確認したものではありません。
 
 ## Meta
 - Type: Feature
@@ -11,22 +13,22 @@
 - Related Backlog/Phase: Phase 7 Release Readiness & Adoption Scale
 - Related ADR/Spec: `01_Plans/adr/ADR-0005-phase7-release-readiness-and-adoption-scale.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- release gate実行コマンドを `03_Implement/package.json` scriptsに集約し、ローカル実行とCI実行の乖離をなくす。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- リリース判定（release gate）の実行コマンドを`03_Implement/package.json`のscriptsにまとめる。ローカルで実行する場合もCIから実行する場合も、同じコマンドの定義を参照できるようにする。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] `03_Implement/package.json` に `release:gate` と `release:gate:artifacts` が追加される。
 - [x] CI `release-gate` jobがnpm script経由で実行される。
 - [x] Phase 7ガイドにnpm script導線が追記される。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] package scriptsを追加する。
 - [x] CI workflowの実行コマンドを差し替える。
 - [x] ガイド文書を更新する。
 - [x] 実行結果をValidation evidenceへ記録する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `cd 03_Implement && npm run release:gate:artifacts`
 - `python3 -m unittest 01_Plans/tools/test_release_gate_check.py`
 - `python3 01_Plans/tools/planning_queue.py`
