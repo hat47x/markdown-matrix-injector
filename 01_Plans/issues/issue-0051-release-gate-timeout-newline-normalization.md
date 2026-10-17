@@ -1,4 +1,6 @@
-# Issue: Release gate timeout test and newline normalization
+# Issue: リリース判定のタイムアウト処理をテストし出力末尾の改行を整える
+
+この文書は、当時のタイムアウト分岐の単体テストと、成果物ファイルの末尾改行の正規化を扱ったIssue記録です。2026年4月2日の検証証跡は当時の実行結果であり、現在のスクリプト動作を新たに確認したものではありません。
 
 ## Meta
 - Type: Test
@@ -11,21 +13,21 @@
 - Related Backlog/Phase: Phase 7 Release Readiness & Adoption Scale
 - Related ADR/Spec: `01_Plans/adr/ADR-0005-phase7-release-readiness-and-adoption-scale.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- release gate helperの細部品質を向上させるため、timeout分岐をunittestで固定し、artifact出力時の改行を1回に正規化する。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- リリース判定の補助処理（helper）について、タイムアウト時の分岐を単体テスト（unittest）で確認する。あわせて、成果物（artifact）をファイルに書き出す際は末尾の改行を1回にそろえる。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] `run_command` のtimeout分岐がunittestで検証される。
 - [x] `write_output_file` が末尾改行を重複させない。
 - [x] 追加テストを含め `python3 -m unittest 01_Plans/tools/test_release_gate_check.py` が成功する。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] newline正規化ヘルパーを追加する。
 - [x] timeout/改行正規化のunittestを追加する。
 - [x] 実行結果をValidation evidenceに記録する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `python3 -m unittest 01_Plans/tools/test_release_gate_check.py`
 - `python3 01_Plans/tools/release_gate_check.py --format json --output-file artifacts/release-gate.json --output-markdown-file artifacts/release-gate.md`
 - `python3 01_Plans/tools/planning_queue.py`
