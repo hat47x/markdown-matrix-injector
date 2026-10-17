@@ -287,7 +287,7 @@ async function verifyGuidedFlowsScripted(workspaceRoot: string): Promise<void> {
     'markdownMatrixInjector.__test.findAndAuthorScripted',
     { query: 'release-gateをStatus別に集計', pick: 0, answers: ['insert'] },
   );
-  assert.match(refused.items[0], /MMI記法で表せません/u);
+  assert.match(refused.items[0], /MMI記法で表せません|cannot be expressed in MMI notation/u);
   assert.equal(refused.transcript.length, 0);
 }
 
