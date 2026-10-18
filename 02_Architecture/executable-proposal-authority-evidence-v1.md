@@ -2,11 +2,11 @@
 
 ## 1. 目的
 
-Authority Receiptは「sourceに対してどのdeterministic checksが通ったか」を表す。
+Authority Receipt（決定論的な再検証の記録）は、source（参照元）に対してどのdeterministic checks（規則に基づく確認）が通ったかを表す。
 
-しかし同一sourceに複数のMMI Notation proposalが存在する場合、source digestだけではReceiptとproposalの対応を一意にできない。
+しかし、同じsourceに複数のMMI Notation proposal（記法による適用提案）がある場合、source digest（参照元の内容を照合する値）だけではReceiptとproposalの対応を一意に定められない。
 
-本Evidence wrapperは、issue-0145のAuthority adapter実行と同時にproposal identityを生成し:
+本Evidence wrapper（証拠をまとめる構造）は、issue-0145のAuthority adapter（再検証処理への接続部）を実行する際にproposal identity（提案の識別情報）を生成し、次の情報を
 
 ```text
 source digest
@@ -14,17 +14,17 @@ proposal digest
 Authority Receipt
 ```
 
-を一つのevidence unitとして扱う。
+一つのevidence unit（証拠のまとまり）として扱う。
 
 ## 2. Proposal identity
 
-representation:
+representation（識別値を求める対象の表現形式）は次のとおり。
 
 ```text
 mmi-notation-trimmed-utf8-v1
 ```
 
-計算は次のとおりです。
+識別値は次の手順で求める。
 
 ```text
 trim leading/trailing whitespace
@@ -39,51 +39,49 @@ SHA-256
 sha256:<lowercase hex>
 ```
 
-parserが入力全体の前後空白を無視するため、identityも同じ境界へ合わせる。
+parser（記法の解析処理）が入力全体の前後の空白を無視するため、identity（識別値）も同じ扱いに合わせる。
 
-一方、内部表現はcanonicalizeしない。
+一方、内部の文字列はcanonicalize（表現を一定の形へ正規化）しない。
 
-次は別identityとなる。
+そのため、次の違いは別のidentityとして扱う。
 
 - query parameter順序差
 - `mode=table` と `mode=card`
 - grep/caption等の値差
 - range / target差
 
-これは「意味的同値判定」ではなく、**検証した具体的proposal文字列の取り違え防止**を目的とするためである。
+目的は「意味が同じ提案か」を判定することではなく、**検証した具体的なproposal文字列を取り違えないこと**にある。
 
 ## 3. Raw Notationを保存しない
 
-Evidenceにはproposal本文を保持しない。
+Evidenceにはproposalの本文を保持しない。
 
-保持するのはは次のとおりです。
+保持する項目は次のとおり。
 
 - representation id
 - algorithm
 - digest
 
-のみ。
+これらに限定する。
 
-これによりgrep/caption等に含まれうる内容をEvidence artifactへ複製しない。
+これにより、grep/caption等に含まれる可能性がある内容を、Evidence artifact（証拠として残すデータ）へ複製しない。
 
 ## 4. Evidence generation
 
-`runExecutableProposalAuthorityEvidence` は:
+`runExecutableProposalAuthorityEvidence`（proposalとAuthorityの証拠を生成する処理）は、次の順序で実行する。
 
 1. issue-0145 `runExecutableProposalAuthorityRevalidation` を同じinputで実行
 2. 同じ `rawNotation` からproposal digestを計算
 3. Receiptをcopy
 4. source digestとproposal identityをEvidenceへ固定
 
-する。
+これらを一連の処理として行う。任意の既存Receiptと任意のproposalを後から組み合わせてEvidenceを作るpublic constructor（外部公開の生成手段）は提供しない。
 
-任意の既存Receiptと任意proposalを後から組み合わせてEvidenceを作るpublic constructorは提供しない。
-
-TypeScript objectを外部から偽造できないという意味ではなく、正規API経路で取り違えを起こさないための構造である。
+これは、TypeScript object（オブジェクト）の外部からの偽造を防ぐ保証ではなく、正規のAPI（呼び出し口）を使う際の取り違えを防ぐための構造である。
 
 ## 5. Binding
 
-`bindExecutableProposalAuthorityEvidence` は:
+`bindExecutableProposalAuthorityEvidence`（Evidenceを現在の提案へ結び付ける処理）は、次の項目を
 
 - Evidence schema version
 - proposal representation / algorithm
@@ -93,9 +91,9 @@ TypeScript objectを外部から偽造できないという意味ではなく、
 - Receipt scope=`executable-proposal`
 - 現在のrawNotation digest
 
-を照合した後、issue-0143 `bindAuthorityRevalidationReceipt` を再利用する。
+照合した後、issue-0143の `bindAuthorityRevalidationReceipt`（Receiptの検証・関連付け処理）を再利用する。
 
-返却は次のとおりです。
+返却する情報は次のとおり。
 
 ```text
 proposal identity
@@ -104,15 +102,15 @@ authority status = satisfied | blocked
 authority binding
 ```
 
-blocked ReceiptもEvidenceとして有効である。
+blocked（検証で認められなかった状態）のReceiptも、Evidenceとして保持できる。
 
-「このproposalはAuthorityによって拒否された」という証拠も、proposal identityへ結び付けて保持できる。
+「このproposalはAuthorityによって拒否された」という結果も、proposal identityに結び付けた証拠として保持できる。
 
 ## 6. 保証しないこと
 
-本Evidenceはintegrity bindingであり、issuer authenticationではない。
+本Evidenceが行うのはintegrity binding（情報同士の対応と完全性の照合）であり、issuer authentication（記録の発行元が正当かどうかの認証）ではない。
 
-保証しないは次のとおりです。
+次の事項は保証しない。
 
 - Receipt issuerが本当にtrusted processであること
 - semantic-equivalent Notationの同一視
@@ -121,7 +119,7 @@ blocked ReceiptもEvidenceとして有効である。
 - automatic apply
 - cryptographic signature / MAC
 
-issuer真正性はissue-0143記載どおり、production boundaryで別途扱う。
+issuer（発行元）の真正性はissue-0143の記載どおり、production boundary（製品の運用・実行境界）で別途扱う。
 
 ## 7. 非責務
 
