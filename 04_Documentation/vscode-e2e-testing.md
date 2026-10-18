@@ -184,6 +184,8 @@ Interpretation rule
 - `markdownMatrixInjector.insertEmbedFromPaste` / `markdownMatrixInjector.insertEmbedFromDrop` が、native provider非対応hostでも利用できる command fallback としてembed記法を挿入できる。
 - `markdownMatrixInjector.__test.getPasteInsertTextFromDataTransfer` / `markdownMatrixInjector.__test.getDropInsertTextFromDataTransfer` が、native providerと同じDataTransfer解析結果を返す。
 - 実行中hostが `registerDocumentPasteEditProvider` / `registerDocumentDropEditProvider` を公開している場合、そのAPI surfaceが存在することを確認する。
+- `test:e2e:coauthoring`（実Excel＋実VS Code）で、Excelが保存したブックに対する `x-below` の判定をDiagnosticsとして確認する。記録と現在の状態が一致していれば無言、範囲の中に行を挿入して記録より増えれば警告、記録の無い参照は無言、範囲の下の行が減れば情報（警告にしない）。Excelの操作はCOM（非表示）で行い、人が保存した状態と同じ経路を通す。
+- `test:e2e:import` で、取り込みが作る参照のテキスト（`&x-below=0` を含む）を確認する。
 
 ### What automation does not prove
 自動E2Eが直接保証しない事項は、次のとおりです。
@@ -203,7 +205,7 @@ Interpretation rule
 - プレビューのCSSと、Obsidian系の埋め込み記法を独自に解釈する他のプレビュー拡張との競合
 - 貼り付け / ドラッグ&ドロップのOS経路、レビューUI
 
-新しい振る舞いを足すときは、先にCLIで観測できる形か、純関数のヘッドレステストを用意し、実機で見る項目を提示層に限ってからmanual確認へ進みます。
+新しい振る舞いを足すときは、先にCLIで観測できる形か、純関数のヘッドレステストを用意し、実機で見る項目を提示層に限ってからmanual確認へ進みます。この一覧を、項目ごとに「CLI」「自動E2E（レーン名）」「人の実機」へ割り当てる棚卸しは #580 で行います。
 
 ## Native provider and fallback policy
 この節が、issue-0010に対する文書上の正本です。Paste / D&Dの責務を native path と fallback path に分けて解釈してください。
