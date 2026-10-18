@@ -165,6 +165,19 @@ test('check reports the change with the span of the key, and does not fail the r
   assert.equal(problems[0].column, '![[./spec.csv#Sheet1|A1:B3?header=first&'.length + 1);
 });
 
+test('check reports a shrank state as information, and does not fail the run', async () => {
+  const { root, doc } = project('ID,名前\nA-1,甲\nA-2,乙\nA-3,丙\n');
+  fs.writeFileSync(doc, '![[./spec.csv#Sheet1|A1:B2?header=first&x-below=2]]\n');
+  assert.deepEqual(await checkPaths([doc], root), []);
+
+  // Rows below the range are removed in Excel: the rows that used to continue below it are gone.
+  fs.writeFileSync(path.join(root, 'spec.csv'), 'ID,名前\nA-1,甲\nA-2,乙\n');
+  const problems = await checkPaths([doc], root);
+  assert.deepEqual(problems.map((p) => [p.code, p.severity, p.line]), [['MMI_BELOW_MISMATCH', 'information', 1]]);
+  // Only `error` fails the run, so an informational change leaves `mmi check` successful.
+  assert.equal(problems.filter((p) => p.severity === 'error').length, 0);
+});
+
 test('select records how many rows continue below the range', () => {
   const { csvPath } = project('ID,名前\nA-1,甲\nA-2,乙\nA-3,丙備考\n');
   const book = analyzeBook(csvPath, './spec.csv');
