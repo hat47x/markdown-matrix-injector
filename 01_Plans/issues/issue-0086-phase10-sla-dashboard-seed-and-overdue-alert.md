@@ -1,4 +1,6 @@
-# Issue: Phase 10 SLA dashboard seed and overdue alert
+# Issue: Phase 10でSLA期限を評価し、超過状況を一覧化する
+
+この文書は、Phase 10のSLA期限超過を可視化するための当時の方針と完了判断を残したIssue記録です。Execution Evidenceには検証コマンドが記載されていますが、実行日時や成否の出力はありません。現行のSLA判定やレポート出力を新たに確認したものではありません。
 
 ## Meta
 - Type: Feature
@@ -11,11 +13,11 @@
 - Related Backlog/Phase: Phase 10 Adoption Operations Governance Automation
 - Related ADR/Spec: `01_Plans/adr/ADR-0009-phase10-adoption-operations-governance-automation.md`
 
-## Execution Plan
+## 当時の実行計画
 ### Proposed solution (解決策の概要)
-- issue-0085で収集したevidence artifactを入力として、SLA期限（triage 24h / workaround 72h / permanent fix 7d）を評価するdashboard seed CLIを追加する。
-- 期限を超過した項目を機械可読JSONとMarkdown要約の両方で出力し、週次governance reportへ取り込み可能な最小契約を固定する。
-- 影響読者（author/reviewer/delivery）と失敗分類（path/sheet/query/render/print/unknown）をそのまま保持し、優先度判断の追跡性を担保する。
+- Issue 0085で収集した検証証跡の成果物（evidence artifact）を入力として、SLAの各期限（triage 24h／workaround 72h／permanent fix 7d）を評価する初期ダッシュボード用CLIを追加する。
+- 期限超過の項目を、機械処理できるJSONと人が読めるMarkdown要約の両方で出力する。週次ガバナンスレポートへ取り込むための最小限の契約を定める。
+- 影響を受ける読者（author/reviewer/delivery）と失敗分類（path/sheet/query/render/print/unknown）を引き継ぎ、優先度判断の根拠を追跡できるようにする。
 
 ### Acceptance criteria (受入条件)
 - [x] `python3 01_Plans/tools/phase10_sla_dashboard.py --input <evidence.json> --output <dashboard.json>` でSLA評価結果を生成できる。
@@ -25,14 +27,14 @@
 - [x] `python3 -m unittest 01_Plans.tools.test_phase10_sla_dashboard` が成功する。
 - [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] SLA評価入力契約（evidence -> dashboard）を仕様化する。
 - [x] SLA dashboard seed CLIを実装する。
 - [x] overdue検知を含む単体テストを追加する。
 - [x] 週次レポート連携用のMarkdown要約出力を実装する。
 - [x] 検証コマンドを実行し、Issueへ証跡を追記する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `python3 -m unittest 01_Plans.tools.test_phase10_sla_dashboard`
 - `python3 -m unittest 01_Plans.tools.test_phase10_governance_report`
 - `python3 01_Plans/tools/planning_queue.py`
