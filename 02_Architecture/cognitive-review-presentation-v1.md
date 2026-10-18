@@ -2,13 +2,13 @@
 
 ## 1. 目的
 
-`CognitiveReviewEnvelope` を人間向けreview surfaceへ渡す前に、Authority PlaneとCognitive Assistance Planeの意味を混ぜないUI-neutralなprojectionへ変換する。
+`CognitiveReviewEnvelope`（認知結果と確認事項をまとめたデータ）を人間向けのreview surface（確認画面）へ渡す前に、Authority Plane（決定論的な検証を担う層）とCognitive Assistance Plane（認知による提案を担う層）の意味を混同しない、UI-neutralなprojection（画面実装に依存しない表示用データ）へ変換する。
 
-この層はHTML、VS Code Webview、CSS、command registrationを知らない。review UIが認知結果を確定事実のように表示しないための**表示契約**である。
+この層はHTML、VS Code Webview、CSS、command registration（コマンド登録処理）に依存しない。review UIが認知結果を確定事実のように表示しないための**表示契約**である。
 
 ## 2. Section separation
 
-presentationは4 sectionを持つ。
+presentation（表示用データ）は、次の4つのsection（区分）を持つ。
 
 ### Authority boundary
 
@@ -18,7 +18,7 @@ presentationは4 sectionを持つ。
 - Authority revalidation requirement
 - 全requirementのstateは `pending`
 
-ここだけが「適用前に満たすべき権威境界」を表す。
+Authority boundaryのsectionだけが、「適用前に満たすべき権威境界」を表す。
 
 ### Perception
 
@@ -30,7 +30,7 @@ presentationは4 sectionを持つ。
 - novelty score
 - Fly provider固有metrics
 
-候補順位やscoreをpresentation側で再計算しない。
+候補順位やscore（評価値）をpresentation側で再計算しない。
 
 ### Judgment
 
@@ -38,9 +38,9 @@ presentationは4 sectionを持つ。
 - proposal-only decision
 - abstained / unsupported / unavailable
 
-のいずれか。
+のいずれかの状態を示す。
 
-decisionを「承認」「確定」「適用可能」と表示する状態は持たない。
+decision（判断結果）を「承認」「確定」「適用可能」と表示する状態は持たない。
 
 ### Provenance
 
@@ -55,7 +55,7 @@ decisionを「承認」「確定」「適用可能」と表示する状態は持
 
 ## 3. Metric isolation
 
-metricはsectionごとに保持する。
+metric（評価指標）は、意味や尺度を混ぜないようsectionごとに保持する。
 
 ```text
 Perception metrics
@@ -65,7 +65,7 @@ Judgment metrics
   namespace = judgment provider id
 ```
 
-presentationに以下を作らない。
+presentationには次の指標を作らない。
 
 - combined score
 - overall score
@@ -73,13 +73,13 @@ presentationに以下を作らない。
 - cross-provider normalized score
 - cross-provider threshold
 
-同じ `0.8` でも意味が異なる可能性を保持する。
+値が同じ `0.8` でも、Providerによって意味が異なる可能性を保持する。
 
 ## 4. Candidate / Profile binding
 
-Perception visible candidateとEnvelope profile refは1:1かつ同順序でなければならない。
+Perceptionのvisible candidate（表示対象の候補）とEnvelopeのprofile ref（プロファイルへの参照）は、一対一で対応し、並び順も一致していなければならない。
 
-presentation row:
+presentationの各row（行）に含める項目は次のとおり。
 
 ```text
 rank
@@ -92,11 +92,11 @@ sparseSimilarity
 featureSimilarity
 ```
 
-未承認Profileやmissing ProfileをUI側で補完しない。
+未承認Profileやmissing Profile（対応するプロファイルが見つからない状態）をUI側で補完しない。
 
 ## 5. Raw data exclusion
 
-presentationは次を含めない。
+presentationには次の原本データや操作用参照を含めない。
 
 - worksheet cells
 - cell text
@@ -104,11 +104,11 @@ presentationは次を含めない。
 - source file bytes
 - write handles
 
-source identityはdigestで扱う。
+source identity（参照元の同一性）はdigest（内容の照合値）で扱う。
 
 ## 6. Tamper detection
 
-projection前に最低限以下を再確認する。
+projection（表示用データへの変換）の前に、最低限次の項目を再確認する。
 
 - envelope schema version
 - `review-only`
@@ -119,7 +119,7 @@ projection前に最低限以下を再確認する。
 - Judgment source digest一致
 - Judgment signalがproposal-only
 
-Envelopeが型キャスト等で改変されていても、誤った表示へ進めずfail-closedする。
+Envelopeが型キャスト等で改変されていても、誤った表示へ進めずfail-closed（不正な状態を受け入れない扱い）とする。
 
 ## 7. 非責務
 
@@ -133,4 +133,4 @@ Envelopeが型キャスト等で改変されていても、誤った表示へ進
 - provider invocation
 - external XLSX / fill telemetry評価
 
-production UIへの接続は、このpresentation contractが安定してから別Issueで扱う。
+production UI（製品の画面）への接続は、このpresentation contract（表示契約）が安定してから別Issueで扱う。
