@@ -195,6 +195,16 @@ Interpretation rule
 - hostごとにnative pathが本当に選択されたかどうかのUXレベルの観察結果。
 - PDF/印刷での改ページ・用紙向き・別紙参照の最終視覚確認（Checklist F / G2参照）。
 
+### MMI固有のmanual確認は提示層だけ
+`mmi check` / `mmi render` / `mmi select` は、VS Codeと**同じ共通Core**を通ります（Diagnosticsの生成、プレビューのmarkdown-itプラグイン、参照の作成）。したがって、診断の内容、プレビューのHTML、参照に記録される値は、実機の前にCLIで確認できます。実機のmanual E2Eに残すのは提示層だけです。
+
+- Problemsパネルの見え方、クリック遷移
+- ホバーの見え方と、電球メニューに修正候補が出るかどうか（カーソル行では控えめにするため、その行には出ない）
+- プレビューのCSSと、Obsidian系の埋め込み記法を独自に解釈する他のプレビュー拡張との競合
+- 貼り付け / ドラッグ&ドロップのOS経路、レビューUI
+
+新しい振る舞いを足すときは、先にCLIで観測できる形か、純関数のヘッドレステストを用意し、実機で見る項目を提示層に限ってからmanual確認へ進みます。
+
 ## Native provider and fallback policy
 この節が、issue-0010に対する文書上の正本です。Paste / D&Dの責務を native path と fallback path に分けて解釈してください。
 
@@ -825,7 +835,7 @@ rg -n "native|fallback|manual|xvfb|autocomplete" 04_Documentation/vscode-e2e-tes
 ### Observation points
 | 確認項目 | 期待する状態 | 失敗ヒント |
 |---|---|---|
-| テーブルが描画される | 2 列の `<table>` が見える（空白や `![[...]]` 生テキストではない） | 拡張が有効化されているか確認 |
+| テーブルが描画される | 2 列の `<table>` が見える（空白や `![[...]]` 生テキストではない） | 拡張が有効化されているか確認。Obsidian系の埋め込み記法を独自に解釈するプレビュー拡張（Markdown Preview Enhanced 等。`enableWikiLinkSyntax`）で開いていないか確認し、標準の `Markdown: Open Preview to the Side` を使う |
 | caption が表示される | 「ロール一覧」が表の上に表示される | `mmi-embed__caption` CSS が適用されているか確認 |
 | ハイライト行がある | Admin 行が他行より目立つ背景色になっている | `mmi-table__row--highlight` CSS が適用されているか確認 |
 | カードが描画される | `wide.csv` がリンクカード UI として表示される（wide なため自動縮退） | smart fallback 条件を確認 |
