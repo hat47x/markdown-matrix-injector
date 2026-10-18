@@ -20,7 +20,7 @@ npm test
 4. `npm run test:phase9-sync`：Phase 9テンプレート同期チェック。
 5. `npm run test:phase9-guide-sync`：Phase 9ガイド同期チェック。
 
-各スクリプトは`&&`でつながっており、途中で失敗した場合は後続を実行しません。研究層のテストは別の`npm run test:research`で実行します。テストの区分は、`src/experimental/`を読み込むか、研究系のファイル名かによって決まります。対象一覧は`node scripts/run-test-lane.mjs product --list`で確認できます.
+各スクリプトは`&&`でつながっており、途中で失敗した場合は後続を実行しません。研究層のテストは別の`npm run test:research`で実行します。テストの区分は、`src/experimental/`を読み込むか、研究系のファイル名かによって決まります。対象一覧は`node scripts/run-test-lane.mjs product --list`で確認できます。
 
 ドキュメントのみを変更する場合は、リンク・記法・説明の整合を確認し、変更内容に必要な検査に絞ります。
 
