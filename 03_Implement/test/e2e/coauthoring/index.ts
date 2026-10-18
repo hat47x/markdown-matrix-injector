@@ -1,6 +1,6 @@
 /**
  * Excel + Markdown coauthoring in real VS Code with real Excel
- * (issue-0211 scenarios A, B, C, D, F). Excel (COM, hidden) creates and saves
+ * (issue-0211 scenarios A, B, C, D, F, and the x-below record of #521). Excel (COM, hidden) creates and saves
  * the workbook between steps, exactly as a person saving in Excel would; this
  * suite then looks at what VS Code shows: the render the preview uses, the
  * diagnostics, the table catalog and whether open previews were asked to
@@ -60,6 +60,10 @@ async function waitFor(condition: () => Promise<boolean> | boolean, label: strin
 const render = async (document: vscode.TextDocument) => vscode.commands.executeCommand<string>('markdown.api.render', document);
 const tree = () => vscode.commands.executeCommand<string[]>('markdownMatrixInjector.__test.tableCatalogTree');
 const diagnosticsOf = (document: vscode.TextDocument) => vscode.languages.getDiagnostics(document.uri).map((d) => String(d.code));
+/** The diagnostics that start on this 0-based line (each reference sits on its own line in this fixture). */
+const diagnosticsAt = (document: vscode.TextDocument, line: number) =>
+  vscode.languages.getDiagnostics(document.uri).filter((d) => d.range.start.line === line);
+const codesAt = (document: vscode.TextDocument, line: number) => diagnosticsAt(document, line).map((d) => String(d.code));
 
 export async function run(): Promise<void> {
   const dir = process.env.MMI_COAUTHORING_WORKSPACE!;
@@ -75,7 +79,14 @@ export async function run(): Promise<void> {
   const doc = path.join(dir, 'doc.md');
   try {
     await excel(book, 'create');
-    fs.writeFileSync(doc, ['# 画面', '', '![[./設計.xlsx#画面|A1:C4?header=first&x-headers=項目名,型,必須]]', ''].join('\n'));
+    fs.writeFileSync(doc, [
+      '# 画面',
+      '',
+      '![[./設計.xlsx#画面|A1:C4?header=first&x-headers=項目名,型,必須&x-below=0]]', // line 3: written with a record
+      '',
+      '![[./設計.xlsx#画面|A1:C4?header=first]]', // line 5: written without one
+      '',
+    ].join('\n'));
     const document = await vscode.workspace.openTextDocument(doc);
     await vscode.window.showTextDocument(document);
     if (SHOTS) {
@@ -90,6 +101,8 @@ export async function run(): Promise<void> {
     expect(html.includes('顧客コード') && html.includes('受注日'), 'A: the first render shows the saved rows');
     await tree();
     expect(sha(book) === before, 'A: rendering and the catalog must not change the workbook');
+    await sleep(500);
+    expect(codesAt(document, 2).length === 0, `A: a reference written with a matching record is quiet (got ${codesAt(document, 2).join(',')})`);
     await shot('A-initial');
 
     // C. Excel saves a changed value -> the preview is asked to refresh, and the render shows the saved value.
@@ -113,6 +126,13 @@ export async function run(): Promise<void> {
     await waitFor(async () => (html = await render(document)).includes('挿入した項目'), 'D2: the inserted row appears');
     expect(html.includes('挿入した項目') && !html.includes('受注日'), 'D2: the inserted row is shown and the former last row falls out of A1:C4');
     note('d2-diagnostics', diagnosticsOf(document));
+    await waitFor(() => codesAt(document, 2).includes('MMI_BELOW_MISMATCH'), 'D2: the rows below the range grew since the record, and the writer is told');
+    const grew = diagnosticsAt(document, 2).filter((d) => String(d.code) === 'MMI_BELOW_MISMATCH');
+    expect(
+      grew.length === 1 && grew[0].severity === vscode.DiagnosticSeverity.Warning,
+      `D2: a grown table below the fixed range is a warning (got ${JSON.stringify(grew.map((d) => [String(d.code), d.severity]))})`,
+    );
+    expect(codesAt(document, 4).length === 0, `D2: a reference without a record stays quiet (got ${codesAt(document, 4).join(',')})`);
     await shot('D2-row-inserted-inside');
 
     // D3. a renamed header is reported by x-headers.
@@ -126,6 +146,27 @@ export async function run(): Promise<void> {
     expect(codes.includes('MMI_HEADERS_MISMATCH'), `D3: the changed header is reported (got ${codes.join(',')})`);
     if (SHOTS) await vscode.commands.executeCommand('workbench.actions.view.problems');
     await shot('D3-header-renamed');
+
+    // E. the other direction (#521): the record is taken at the present state, then a row below the
+    // range disappears. After D1 and D2, row 5 受注日 and row 6 追記した項目 continue below A1:C4, so
+    // x-below=2 matches now; removing one of them is informational, never a warning that fails a run.
+    const belowDoc = path.join(dir, 'below.md');
+    fs.writeFileSync(belowDoc, ['# 下の行が減った場合', '', '![[./設計.xlsx#画面|A1:C4?header=first&x-below=2]]', ''].join('\n'));
+    const belowDocument = await vscode.workspace.openTextDocument(belowDoc);
+    await vscode.window.showTextDocument(belowDocument);
+    const belowHtml = await render(belowDocument);
+    expect(belowHtml.includes('mmi-table'), 'E: the reference renders before the row below is removed');
+    await sleep(500);
+    expect(codesAt(belowDocument, 2).length === 0, `E: the record matches the rows below the range (got ${codesAt(belowDocument, 2).join(',')})`);
+    await excel(book, 'delete-row-below');
+    await waitFor(() => codesAt(belowDocument, 2).includes('MMI_BELOW_MISMATCH'), 'E: removing the row below the range is reported');
+    const shrank = diagnosticsAt(belowDocument, 2).filter((d) => String(d.code) === 'MMI_BELOW_MISMATCH');
+    expect(
+      shrank.length === 1 && shrank[0].severity === vscode.DiagnosticSeverity.Information,
+      `E: fewer rows below the range is information, not a warning (got ${JSON.stringify(shrank.map((d) => [String(d.code), d.severity]))})`,
+    );
+    await shot('E-row-below-removed');
+    await vscode.window.showTextDocument(document);
 
     // B. a new sheet with a new table appears in the catalog without reloading.
     await excel(book, 'add-sheet');
