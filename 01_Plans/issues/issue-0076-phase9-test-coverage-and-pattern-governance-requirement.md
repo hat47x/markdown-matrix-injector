@@ -1,4 +1,6 @@
-# Issue: Phase 9 test coverage and pattern governance requirement update
+# Issue: Phase 9のテストカバレッジとパターン管理に関する要件を明確化する
+
+この文書は、Phase 9のテストカバレッジとテストパターンに関する要件を整理した当時のIssue記録です。2026年4月6日の検証証跡は当時の結果であり、現行の要件・ADRや実装を新たに検証したものではありません。
 
 ## Meta
 - Type: Docs
@@ -11,22 +13,22 @@
 - Related Backlog/Phase: Phase 9 Rule Table Interoperability & Design Assetization
 - Related ADR/Spec: `01_Plans/adr/ADR-0008-phase9-template-sync-quality-gate-hardening.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- ユーザー要望に従い、Phase 9要件へ「テストカバレッジ向上」と「テストパターン拡充」を明示的に追加する。
-- 併せてADR-0008にcoverage/pattern governanceを追記し、決定と要件の整合性を確保する。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- ユーザー要望を踏まえ、Phase 9の要件に「テストカバレッジの向上」と「テストパターンの拡充」を明記する。
+- あわせてADR-0008にカバレッジとテストパターンの管理方針（coverage/pattern governance）を追記し、要件とADRの記述を整合させる。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] `00_Prompt/requirements.md` のPhase 9にcoverage upliftとpattern expansionの要件が追加される。
 - [x] `ADR-0008` にcoverage/pattern governanceの決定が反映される。
 - [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] requirementsを更新する。
 - [x] ADRを更新する。
 - [x] planning queueを再実行する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `python3 01_Plans/tools/planning_queue.py`
 
 ## Validation evidence (実行証跡)
