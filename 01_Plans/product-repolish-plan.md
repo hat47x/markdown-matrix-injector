@@ -224,13 +224,15 @@ VS Codeのコマンドと設定を`mmi.*`へ移す場合は、旧キー（`markd
 
 2026-10-18に実装した。置き場所は[ADR-0022](adr/ADR-0022-semantic-selection-in-notation.md)の再判断で**記法の実験キー`x-below`**と決めた。参照を書いたときに範囲の直下へ値が続く行数（範囲の列で、すべての列が空になる行の手前まで。上限1000）を記録し、いまの行数と比べる。増えたときは警告`MMI_BELOW_MISMATCH`、減ったときは情報、同じときと`x-below`の無い参照には何も出さない。記録するのは行数だけで、セルの値は写さない。`mmi select`と案内付き作成が参照に記録し、実装と限界は[記法仕様](../04_Documentation/spec/mmi-notation-v1.md)の付録と[利用マニュアル](../04_Documentation/user-manual.md)に書いた。この規則は、「範囲の直下に値が続く」こと自体を警告にしない（42件の意図した部分範囲を静かに保つ）。
 
-検証は、WSL2 Linux（node 20.20.2、ext4の新規clone、`npm ci`、2026-10-18）で行った。`npm run build:product`は終了コード0、`npm test`は1089件中1088件合格・1件skip・0件失敗。リポジトリ内の文書（サンプル、基本設計書キット、設計案内、計画、要求）を`mmi check`で一巡し、mainと実装後で出力を比べると、診断は同じ99件（違いは`user-manual.md`の行番号が1つずれたことだけ）で、`MMI_BELOW_MISMATCH`は0件だった。既存の参照に新しい警告は出ない。D2の再現（範囲の中に行を挿入すると警告、意図した部分範囲では出ない）は`test/expectedBelow.test.ts`（13件）が確認している。
+検証は、WSL2 Linux（node 20.20.2、ext4の新規clone、`npm ci`、2026-10-18）で行った。`npm run build:product`は終了コード0、`npm test`は1089件中1088件合格・1件skip・0件失敗。リポジトリ内の文書（サンプル、基本設計書キット、設計案内、計画、要求）を`mmi check`で一巡し、mainと実装後で出力を比べると、診断は同じ99件（違いは`user-manual.md`の行番号が1つずれたことだけ）で、`MMI_BELOW_MISMATCH`は0件だった。既存の参照に新しい警告は出ない。D2の再現（範囲の中に行を挿入すると警告、意図した部分範囲では出ない）は`test/expectedBelow.test.ts`（14件。範囲の下の行が減ったときに`mmi check`が情報として返し、終了コード0のままであることも含む）が確認している。
 
 人が操作するD2の再現（実Excelと実VS Code）は、2026-10-18に画面操作を任せた観測で一巡した。範囲の中に行を挿入すると、`x-below=0`の参照に「値のある行が1行続いています（参照を書いたときは0行）」、`A1:C3?x-below=1`の参照に「2行続いています（参照を書いたときは1行）」の警告が出た。挿入した行はどちらの範囲の内側にもあるため、後者の警告も正しい。`x-below`の無い参照は無言のままで、参照のテキストは自動では変わらなかった。警告の出ている行にカーソルを置くとその警告は問題パネルから消え、修正候補を適用すると警告が消えて記録が現在の行数になった。`mmi check`は警告だけなら終了コード0を返した。
 
-限界も記録する。Excelの画面操作は観測側から届かず、COMで保存した（人がExcelで保存した状態と等価）。プレビューは、環境にある`shd101wyy.markdown-preview-enhanced`がObsidian系の埋め込み記法を独自に解釈するため、xlsxの中身が文字として現れた（[記法仕様](../04_Documentation/spec/mmi-notation-v1.md)§10のD1「別解釈」）。これはMMIの描画経路ではなく、標準プレビューでは起きない。行を削除したときの情報表示は`mmi check`経由では未確認である。
+限界も記録する。Excelの画面操作は観測側から届かず、COMで保存した（人がExcelで保存した状態と等価）。プレビューは、環境にある`shd101wyy.markdown-preview-enhanced`がObsidian系の埋め込み記法を独自に解釈するため、xlsxの中身が文字として現れた（[記法仕様](../04_Documentation/spec/mmi-notation-v1.md)§10のD1「別解釈」）。これはMMIの描画経路ではなく、標準プレビューでは起きない。行を削除したときの情報表示は、この実機の回では確かめていない。
 
-実機で見つかった2つの摩擦のうち、プレビューの競合はMMIの外、修正候補がカーソル行の電球メニューに出ないことは提示層である。どちらも共通Coreの計算としては確かめられないため、実機に残す確認を提示層に限る方針を[E2E手引き](../04_Documentation/vscode-e2e-testing.md)に書いた。書き手による価値確認は未実施である。このため[#521](https://github.com/hat47x/markdown-matrix-injector/issues/521)は開いたままとする。
+同日、人に頼む確認を減らすため、自動E2E（`test:e2e:coauthoring`、実Excel＋実VS Code。Excelが保存したブックに対して動く）で次を確かめるようにした。記録と現在の状態が一致していれば無言、範囲の中に行を挿入して記録より増えれば警告（`MMI_BELOW_MISMATCH`、重要度warning）、記録の無い参照は無言、範囲の下の行を削除すれば情報（重要度information。警告にしない）の4点である。`test:e2e:import`では、案内付き作成と目録からの選択が作る参照のテキストが`&x-below=0`で終わることを確かめる。どちらも2026-10-18の実行で問題0件だった。この経路はWindowsとExcelを要するため、正準LinuxのCIでは回らない。
+
+実機で見つかった2つの摩擦のうち、プレビューの競合はMMIの外、修正候補がカーソル行の電球メニューに出ないことは提示層である（後者は[#579](https://github.com/hat47x/markdown-matrix-injector/issues/579)で扱う）。どちらも共通Coreの計算としては確かめられないため、実機に残す確認を提示層に限る方針を[E2E手引き](../04_Documentation/vscode-e2e-testing.md)に書いた。提示層の項目を、CLI・自動E2E・人の実機へ割り当てる棚卸しは[#580](https://github.com/hat47x/markdown-matrix-injector/issues/580)で行う。書き手による価値確認は未実施である。このため[#521](https://github.com/hat47x/markdown-matrix-injector/issues/521)は開いたままとする。
 
 #### (3) 原本を更新した後、参照の周りの本文が古いまま残る（段階2、#522）
 
