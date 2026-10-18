@@ -1,10 +1,10 @@
 # Phase 10 Governance Reporting Foundation
 
-Phase 10の初回実装として、週次ガバナンスレポート生成のための **入力契約** と **最小CLI導線** を定義する。
+Phase 10の初回実装として、週次ガバナンスレポートを生成するための **入力契約** と **最小CLIの実行手順** を説明します。CLIは渡されたJSONを検証してMarkdownレポートを出力するもので、KPIを自動計測するものではありません。
 
 ## 1. KPI/SLA Input Contract (JSON)
 
-入力はJSONオブジェクトで、以下の必須キーを持つ（`schemaVersion: phase10-governance-report/v2`）。
+入力はJSONオブジェクトです。`schemaVersion: phase10-governance-report/v2`を指定し、次の必須キーを含めます。
 
 - `schemaVersion` (string): 契約バージョン。`phase10-governance-report/v2` 固定。
 - `generatedAt` (string): レポート生成時刻（ISO 8601）
@@ -36,7 +36,7 @@ Phase 10の初回実装として、週次ガバナンスレポート生成のた
 
 ## 2. Weekly Report Markdown Template
 
-`01_Plans/tools/phase10_governance_report.py` は入力契約を検証し、以下セクションを含むMarkdownを出力する。
+`01_Plans/tools/phase10_governance_report.py` は入力契約を検証し、次のセクションを含むMarkdownを出力します。
 
 1. `Weekly Governance Report` ヘッダ（生成時刻・対象週）
 2. `KPI Summary`（3 KPIの表形式要約）
@@ -46,17 +46,21 @@ Phase 10の初回実装として、週次ガバナンスレポート生成のた
 ## 2.1 Migration from v1 (ADR-0012 D6)
 
 v1（`adoptionLeadTimeHours` / `linkIntegrityDetectionRate` / `printReproducibilityRate` / `selfResolutionRate`）から
-v2への移行は破壊的変更である。旧フィールド名が `kpis` に含まれる入力は明示的な `ValidationError`（`legacy field(s) ...`）
-で拒否される。移行手順:
+v2への移行は破壊的変更です。旧フィールド名が`kpis`に含まれる入力は、明示的な`ValidationError`（`legacy field(s) ...`）
+で拒否されます。移行時は次の順に確認します。
 
 1. `schemaVersion` を `phase10-governance-report/v2` に更新する。
 2. `kpis` を新3フィールドへ置き換える。
 3. 実測値が未計測の週は `0` / `0.0` を入れ、後述の `--manual-kpis-file`（`phase10_evidence_harvest.py`）経由で
    `kpisProvenance` に `unmeasured-default` として記録する運用に切り替える。
 
-詳細な決定根拠は `01_Plans/adr/ADR-0012-mission-redefinition-notation-as-governance-boundary.md` D6を参照。
+`unmeasured-default`は未計測を示す来歴情報であり、実測のゼロとは区別します。`phase10_evidence_harvest.py`で作る入力データにはこの来歴が付与されますが、レポート生成CLI自体が値を測定するわけではありません。
+
+詳細な決定根拠は`01_Plans/adr/ADR-0012-mission-redefinition-notation-as-governance-boundary.md` D6を参照してください。
 
 ## 3. Minimal CLI
+
+リポジトリのルートディレクトリで、次のコマンドを実行する例です。指定したJSON入力から週次のMarkdownレポートを生成します。
 
 ```bash
 python3 01_Plans/tools/phase10_governance_report.py \
@@ -64,13 +68,13 @@ python3 01_Plans/tools/phase10_governance_report.py \
   --output artifacts/phase10-weekly-governance-report.md
 ```
 
-期待結果は次のとおりです。
+以下はコマンドの期待動作です。今回の文章修正で新たにCLIを実行した結果ではありません。
 - 正常入力: `OK: wrote governance report -> ...` と表示して終了コード `0`
 - 必須キー不足/型不正: `NG: ...` と表示して終了コード `1`
 
 ## 4. Minimal Test Contract
 
-`01_Plans/tools/test_phase10_governance_report.py` で以下を検証する。
+`01_Plans/tools/test_phase10_governance_report.py`では、次の項目を検証対象とします。今回の文章修正では、このテストを再実行していません。
 
 - 必須キー不足時に `ValidationError` またはCLI終了コード `1` になる。
 - 正常入力時にMarkdownレポート生成が成功する。
