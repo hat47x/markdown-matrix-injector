@@ -1,4 +1,6 @@
-# Issue: Phase 10 evidence auto-harvest MVP
+# Issue: Phase 10の検証結果を自動収集し、週次レポートへ再利用する
+
+この文書は、Phase 10の検証結果自動収集について、当時の方針と完了判断を残したIssue記録です。Execution Evidenceには検証コマンドが記載されていますが、実行日時や成否の出力はありません。現行のCLIや週次レポート連携を新たに確認したものではありません。
 
 ## Meta
 - Type: Feature
@@ -11,11 +13,11 @@
 - Related Backlog/Phase: Phase 10 Adoption Operations Governance Automation
 - Related ADR/Spec: `01_Plans/adr/ADR-0009-phase10-adoption-operations-governance-automation.md`
 
-## Execution Plan
+## 当時の実行計画
 ### Proposed solution (解決策の概要)
-- `docs-check` / `unit` / `integration` / `phase9-sync` の実行結果JSONを1つの収集形式へ正規化し、週次レポート入力へ再利用できる最小ハーベストCLIを追加する。
-- 失敗分類（path/sheet/query/render/print）と影響読者（author/reviewer/delivery）を明示的に保持できるスキーマを定義し、未分類時の既定値を固定する。
-- 収集結果を `query-evidence` 配下へ保存し、後続IssueでSLA警告・自動起票へ接続できる基盤を整える。
+- `docs-check`、`unit`、`integration`、`phase9-sync`の実行結果JSONを共通の形式にそろえ、週次レポートの入力として再利用できる最小限の収集CLI（ハーベストCLI）を追加する。
+- 失敗分類（path/sheet/query/render/print）と影響を受ける読者（author/reviewer/delivery）を保持するスキーマを定義し、値が指定されない場合の既定値を定める。
+- 収集結果を`query-evidence`配下に保存し、後続IssueでSLA警告や自動起票へ連携するための基盤とする。
 
 ### Acceptance criteria (受入条件)
 - [x] ハーベストCLI入力としてgate実行結果JSON（複数ファイル）を受け取り、正規化済みartifact JSONを生成できる。
@@ -26,13 +28,13 @@
 - [x] `python3 -m unittest 01_Plans.tools.test_phase10_evidence_harvest` が成功する。
 - [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] ハーベスト入力契約と正規化ルールを仕様化する。
 - [x] evidence auto-harvest CLIを実装する。
 - [x] 単体テストと最小統合テストを追加する。
 - [x] 検証コマンドを実行し、Issueへ証跡を追記する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `python3 -m unittest 01_Plans.tools.test_phase10_evidence_harvest`
 - `python3 -m unittest 01_Plans.tools.test_phase10_governance_report`
 - `python3 01_Plans/tools/planning_queue.py`
