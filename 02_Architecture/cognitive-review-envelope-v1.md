@@ -2,14 +2,14 @@
 
 ## 1. 目的
 
-Cognitive Assistance Planeで個別に成立した次の成果を、**適用権限を持たないreview-only evidence**として一つに束ねる。
+Cognitive Assistance Plane（認知による候補や判断を支援する層）で得られた次の成果を、**適用権限を持たないreview-only evidence（人が確認するための根拠情報）**として一つにまとめる。
 
 1. Fly-inspired Perception outcome
 2. approved Format Profile
 3. optional closed-choice Judgment outcome
 4. Authority Planeで後続確認すべきrevalidation requirements
 
-本Envelopeはproduction runtimeではなく、ADR-0018の「認知は助言し、Authorityが権威を持つ」を統合レベルで検証する実験境界である。
+本Envelope（認知結果と確認事項をまとめるデータ）はproduction runtime（製品の実行時処理）ではなく、ADR-0018で定めた「認知は助言し、Authorityが権威を持つ」という境界を、結果の統合時にも守れるか確認するための実験上の仕組みである。
 
 ## 2. データフロー
 
@@ -36,21 +36,21 @@ review state / intent ------> optional Judgment outcome
                     separate apply path
 ```
 
-Envelopeからapply pathへ直接進むAPIは提供しない。
+Envelopeからapply path（実際の適用処理の経路）へ直接進むAPI（呼び出し口）は提供しない。
 
 ## 3. source identity
 
-Envelopeのsource identityはPerception outcomeの `observation.sourceDigest` とする。
+Envelopeのsource identity（参照元の同一性）には、Perception outcome（認知による候補抽出の結果）が持つ `observation.sourceDigest` を用いる。
 
-Judgment outcomeを同じEnvelopeへ含める場合、Judgmentの `observation.sourceDigest` も同一でなければならない。
+Judgment outcome（閉集合判断の結果）を同じEnvelopeへ含める場合は、Judgment側の `observation.sourceDigest` も同じ値でなければならない。
 
-observation id / schema versionはPerceptionとJudgmentで異なってよい。両者が同じ正本・同じsource-derived stateに由来することをdigestで固定する。
+observation id（観測の識別子）とschema version（構造定義の版）は、PerceptionとJudgmentで異なってよい。両者が同じ正本・同じsource-derived state（参照元から作られた状態）に由来することをdigestで固定する。
 
 ## 4. Format Profile binding
 
-Perceptionのvisible candidateは、すべてapproved Format Profileへ結び付かなければならない。
+Perceptionが提示するvisible candidate（表示対象の候補）は、すべてapproved Format Profile（人が承認した書式プロファイル）に結び付かなければならない。
 
-検証するもの。
+照合する項目は次のとおり。
 
 - profile status = `approved`
 - explicit human approval metadata
@@ -59,15 +59,15 @@ Perceptionのvisible candidateは、すべてapproved Format Profileへ結び付
 - source evidence contract
 - candidate id -> profile id対応
 
-callerがvisible candidate以外のapproved profile poolを渡しても、Envelopeにはvisible candidate分だけを収録する。
+caller（呼び出し側）がvisible candidate以外も含むapproved profile pool（承認済みプロファイルの集合）を渡しても、Envelopeに収録するのはvisible candidateに対応する分だけとする。
 
-Perceptionが `novel` かつcandidateを1件も返さない場合、profile refは空でよい。
+Perceptionの結果が `novel`（既知の書式候補に当てはまらない）で、candidateを1件も返さない場合は、profile ref（プロファイルへの参照）が空でもよい。
 
 ## 5. Judgment binding
 
-Judgmentはoptional。
+Judgment（閉集合に対する判断結果）の追加はoptional（任意）である。
 
-含める場合。
+含める場合は次を確認する。
 
 - provider category = `judgment`
 - source digest = Perception source digest
@@ -75,18 +75,18 @@ Judgmentはoptional。
 - signal payload disposition = `proposal-only`
 - `abstained / unsupported / unavailable` は正常なnon-decisionとして保持
 
-Judgment結果をProfile承認やNotation適用へ変換しない。
+Judgment結果をProfileの承認やNotationの適用へ変換しない。
 
 ## 6. Authority revalidation requirements
 
-Envelopeはrevalidationを完了したとは主張しない。v1では全requirementsを `pending` で保持する。
+Envelopeはrevalidation（Authority側での再検証）が完了したとは主張しない。v1では、すべてのrequirements（必要な確認項目）を `pending`（未完了）として保持する。
 
-常時必要は次のとおりです。
+常に必要な確認項目は次のとおり。
 
 - `source-identity`
 - `profile-compatibility`
 
-実行可能なNotation proposal等が存在する場合に必要:
+実行可能なNotation proposal（記法の変更提案）などがある場合に必要な確認項目は次のとおり。
 
 - `parser`
 - `parameter-schema`
@@ -95,20 +95,20 @@ Envelopeはrevalidationを完了したとは主張しない。v1では全require
 - `source-existence`
 - `preview`
 
-このmoduleにはrequirementを `completed` に更新する関数を置かない。完了判定はAuthority Plane側の別経路で行う。
+このmodule（実装単位）には、requirementを `completed`（完了）に更新する関数を置かない。完了判定はAuthority Plane側の別経路で行う。
 
 ## 7. 明示的な非権限
 
-Envelopeは常に:
+Envelopeには常に次の値を設定する。
 
 ```text
 disposition = review-only
 writeAuthority = none
 ```
 
-とする。
+これらは、人による確認と実際の適用を分離するための設定である。
 
-以下のAPIを持たない。
+次のAPIは持たない。
 
 - source-of-truth write
 - Markdown mutation
@@ -119,9 +119,9 @@ writeAuthority = none
 
 ## 8. 並列レーンとの境界
 
-issue-0139以降のfill telemetry / external XLSX評価は別レーンとする。
+issue-0139以降のfill telemetry（塗りつぶし情報の観測記録）とexternal XLSX評価（外部のExcelファイルを使う評価）は、本件とは別の作業経路で扱う。
 
-本Issueは以下へ触れない。
+本Issueでは次の実装や資料を変更しない。
 
 - `xlsxFormatSnapshot*`
 - `worksheetFormatFillReviewTelemetry*`
