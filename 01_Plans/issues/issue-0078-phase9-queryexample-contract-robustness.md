@@ -1,4 +1,6 @@
-# Issue: Phase 9 QueryExample contract robustness
+# Issue: Phase 9のQueryExample契約テストで入力検査とRuleId照合を強化する
+
+この文書は、Phase 9のQueryExample契約テストを堅牢化する方針と当時の完了判断を残したIssue記録です。2026年4月6日の検証証跡は当時の結果であり、現行実装や将来のID命名規則を新たに確認・確定したものではありません。
 
 ## Meta
 - Type: Docs
@@ -11,22 +13,22 @@
 - Related Backlog/Phase: Phase 9 Rule Table Interoperability & Design Assetization
 - Related ADR/Spec: `01_Plans/adr/ADR-0008-phase9-template-sync-quality-gate-hardening.md`
 
-## Execution Plan
-### Proposed solution (解決策の概要)
-- QueryExample contract testの入力前提（RuleId/QueryExample非空）を明示チェックし、テスト失敗時の診断を改善する。
-- RuleIdマッチは正規表現エスケープを適用し、将来のID命名で記号が含まれても誤判定しないようにする。
+## 当時の実行計画
+### 解決方針（当時の提案）
+- `QueryExample`を使う契約テストで、`RuleId`と`QueryExample`が空でないことを明示的に確認する。入力条件を満たさない場合の原因を分かりやすくする。
+- `RuleId`の照合では正規表現の特殊文字をエスケープし、将来IDに記号が含まれる場合にも誤判定しないようにする。
 
-### Acceptance criteria (受入条件)
+### 受入条件（Acceptance criteria）
 - [x] `markdownMatrixPlugin.test.ts` がRuleId/QueryExample空値を明示検知する。
 - [x] RuleIdマッチ判定が正規表現エスケープ付きになる。
 - [x] `cd 03_Implement && npm test` が成功する。
 - [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] contract testを堅牢化する。
 - [x] npm testとplanning queueを実行する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `cd 03_Implement && npm test`
 - `python3 01_Plans/tools/planning_queue.py`
 
