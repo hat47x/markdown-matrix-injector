@@ -1,4 +1,6 @@
-# Issue: Phase 10 backlog auto-escalation rule
+# Issue: Phase 10でKPI・SLAの逸脱から起票候補を抽出する
+
+この文書は、Phase 10の起票候補抽出について当時の方針と完了判断を残したIssue記録です。下部のsuperseded注記のとおり、当時列挙した指標の一部はADR-0012 D6で置き換えられており、現行の閾値・シグナル定義はIssue 0103を参照します。Execution Evidenceにはコマンドのみが記載され、実行日時や成否の出力はありません。
 
 ## Meta
 - Type: Feature
@@ -11,11 +13,11 @@
 - Related Backlog/Phase: Phase 10 Adoption Operations Governance Automation
 - Related ADR/Spec: `01_Plans/adr/ADR-0009-phase10-adoption-operations-governance-automation.md`
 
-## Execution Plan
+## 当時の実行計画
 ### Proposed solution (解決策の概要)
-- governance input JSONを再利用し、KPI/SLAの閾値逸脱から起票候補（escalation candidates）を抽出するCLIを追加する。
-- 出力はJSON（機械可読）とMarkdown（週次運用貼り付け）を同時生成する。
-- 閾値比較はadoption lead time / link integrity / print reproducibility / self resolution / SLA breach countを対象にする。
+- 既存のガバナンス入力JSONを再利用し、KPIやSLAが閾値を超えた場合に、起票候補（escalation candidates）を抽出するCLIを追加する。
+- 抽出結果は、機械処理用のJSONと週次運用の記録に貼り付けるMarkdownを同時に生成する。
+- 当時の閾値比較では、adoption lead time／link integrity／print reproducibility／self resolution／SLA breach countを対象とする。後に置き換えられた指標については末尾のsuperseded注記を参照する。
 
 ### Acceptance criteria (受入条件)
 - [x] `python3 01_Plans/tools/phase10_backlog_escalation.py --input <governance.json> --output <candidates.json>` で候補JSONを生成できる。
@@ -25,13 +27,13 @@
 - [x] `python3 -m unittest 01_Plans.tools.test_phase10_backlog_escalation` が成功する。
 - [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] 閾値契約を定義する。
 - [x] auto-escalation CLIを実装する。
 - [x] CLIと候補抽出ロジックの単体テストを追加する。
 - [x] 検証コマンドを実行し、Issueへ証跡を追記する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `python3 -m unittest 01_Plans.tools.test_phase10_backlog_escalation`
 - `python3 -m unittest 01_Plans.tools.test_phase10_governance_report`
 - `python3 01_Plans/tools/planning_queue.py`
