@@ -1,4 +1,6 @@
-# Issue: Phase 10 pipeline private API hardening
+# Issue: Phase 10のパイプラインから他モジュールのprivate API依存をなくす
+
+この文書は、Phase 10のパイプライン内部の依存関係を見直した当時の方針と完了判断を残すIssue記録です。Execution Evidenceは検証コマンドの記載であり、実行日時や成否の出力はありません。現行実装を新たに確認したものではありません。
 
 ## Meta
 - Type: Refactor
@@ -11,10 +13,10 @@
 - Related Backlog/Phase: Phase 10 Adoption Operations Governance Automation
 - Related ADR/Spec: `01_Plans/adr/ADR-0009-phase10-adoption-operations-governance-automation.md`
 
-## Execution Plan
+## 当時の実行計画
 ### Proposed solution (解決策の概要)
-- governance pipelineが `phase10_evidence_harvest` の私有ヘルパー `_now_iso` に依存している箇所を除去する。
-- pipeline内で独自に時刻生成を持つことでモジュール間のprivate API依存を解消し、保守性を高める。
+- ガバナンスパイプラインが、`phase10_evidence_harvest`の非公開ヘルパー`_now_iso`を呼び出す依存関係を解消する。
+- パイプライン内に時刻生成の処理を持たせ、モジュール間のprivate APIへの依存を避けることで、将来の変更に伴う影響を抑え、保守しやすくする。
 
 ### Acceptance criteria (受入条件)
 - [x] `phase10_governance_pipeline.py` が `harvest._now_iso` を参照しない。
@@ -22,12 +24,12 @@
 - [x] `python3 -m unittest 01_Plans.tools.test_phase10_governance_pipeline` が成功する。
 - [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] pipelineの時刻生成ヘルパーを内部実装する。
 - [x] 既存依存を置換する。
 - [x] 回帰テストを実行する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `python3 -m unittest 01_Plans.tools.test_phase10_governance_pipeline`
 - `python3 -m unittest 01_Plans.tools.test_phase10_artifact_manifest`
 - `python3 01_Plans/tools/planning_queue.py`
