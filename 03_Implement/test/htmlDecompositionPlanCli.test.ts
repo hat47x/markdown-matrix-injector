@@ -16,6 +16,7 @@ const fixture = fs.readFileSync(
 async function inWorkspace(
   ids: string[],
   exercise: (report: any, root: string, source: string) => void,
+  preview = false,
 ): Promise<number> {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-html-plan-'));
   const source = path.join(root, 'source.html');
@@ -39,7 +40,7 @@ async function inWorkspace(
     }) as typeof process.stdout.write;
     let code: number;
     try {
-      code = await main(['html-plan', source, '--plan', plan, '--root', root, '--json']);
+      code = await main(['html-plan', source, '--plan', plan, '--root', root, '--json', ...(preview ? ['--preview'] : [])]);
     } finally {
       process.stdout.write = original;
     }
@@ -66,5 +67,28 @@ test('CLI html-plan returns nonzero when a referenced section was not selected',
     assert.equal(report.hasIdentifiedBlockers, true);
     assert.equal(report.problems[0].code, 'MMI_HTML_UNRESOLVED_ANCHOR');
   });
+  assert.equal(exit, 1);
+});
+
+test('CLI html-plan --preview returns only in-memory outputs and leaves workspace untouched', async () => {
+  const exit = await inWorkspace(['overview', 'api'], (report, root, source) => {
+    assert.equal(report.readyForReview, true);
+    assert.equal(report.files.length, 2);
+    assert.equal(report.files[0].appliedAnchorRewrites, 1);
+    assert.match(report.files[0].html, /href="api\.html#api"/u);
+    assert.equal(report.plan.hasIdentifiedBlockers, false);
+    assert.deepEqual(fs.readdirSync(root).sort(), ['plan.json', 'source.html']);
+    assert.equal(fs.readFileSync(source, 'utf8'), fixture);
+  }, true);
+  assert.equal(exit, 0);
+});
+
+test('CLI html-plan --preview produces no files when the plan is blocked', async () => {
+  const exit = await inWorkspace(['overview'], (report, root) => {
+    assert.equal(report.readyForReview, false);
+    assert.equal(report.files.length, 0);
+    assert.equal(report.plan.hasIdentifiedBlockers, true);
+    assert.deepEqual(fs.readdirSync(root).sort(), ['plan.json', 'source.html']);
+  }, true);
   assert.equal(exit, 1);
 });

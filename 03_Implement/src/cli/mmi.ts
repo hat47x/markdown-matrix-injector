@@ -15,6 +15,7 @@ import XLSX from 'xlsx';
 import { WorkbookCache } from '../cache/workbookCache.js';
 import { checkDetachedDocument } from '../application/detachCheck.js';
 import { extractHtmlFragment } from '../application/extractHtmlFragment.js';
+import { previewHtmlDecomposition } from '../application/htmlDecompositionPreview.js';
 import {
   planHtmlDecomposition,
   type HtmlPlanSelection,
@@ -170,6 +171,7 @@ Commands:
                             .txt/.text/.log use deterministic M1 hierarchy hypotheses; conflicting methods are not merged.
                             .html/.htm list explicit main/section/table/figure Candidate fragments (no scripts/URLs fetched).
   html-plan <source.html>   Analyze reviewed fragment locations and cross-file links without writes
+      --preview               include normalized, in-memory HTML for reviewed fragments (requires --json)
       --plan <file.json>      workspace-local plan: {"fragments":[{"id":"...","expectedFingerprint":"sha256:...","output":"docs/page.html"}]}
       --root <workspace>      source and plan file must be inside workspace
       --json                  print full link proposals and unresolved dependency diagnostics
@@ -295,6 +297,7 @@ export async function main(argv: string[]): Promise<number> {
       tree: { type: 'string' },
       'html-id': { type: 'string' },
       plan: { type: 'string' },
+      preview: { type: 'boolean', default: false },
       'expected-fingerprint': { type: 'string' },
       'tree-method': { type: 'string' },
       range: { type: 'string' },
@@ -340,6 +343,9 @@ export async function main(argv: string[]): Promise<number> {
   if (values.help || !command) {
     console.log(USAGE);
     return command || values.help ? 0 : 2;
+  }
+  if (values.preview && command !== 'html-plan') {
+    return usageError('--preview is supported only by html-plan --json');
   }
   const root = path.resolve(values.root ?? process.cwd());
   const emit = (text: string) => (values.out ? fs.writeFileSync(values.out, text) : process.stdout.write(text.endsWith('\n') ? text : `${text}\n`));
@@ -459,6 +465,9 @@ export async function main(argv: string[]): Promise<number> {
       return resolution.status === 'unavailable' ? 1 : 0;
     }
     case 'html-plan': {
+      if (values.preview && !values.json) {
+        return usageError('html-plan --preview requires --json; preview never writes files');
+      }
       if (args.length !== 1 || !values.plan) {
         return usageError('html-plan needs one source.html and --plan <file.json>');
       }
@@ -503,7 +512,12 @@ export async function main(argv: string[]): Promise<number> {
           doc,
           manifest.fragments as HtmlPlanSelection[],
         );
-        if (values.json) emit(JSON.stringify(result, null, 2));
+        if (values.json) emit(JSON.stringify(
+          values.preview
+            ? previewHtmlDecomposition(doc, manifest.fragments as HtmlPlanSelection[])
+            : result,
+          null, 2,
+        ));
         else {
           emit([
             `source: ${result.source}`,
