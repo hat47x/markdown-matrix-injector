@@ -1,4 +1,6 @@
-# Issue: VS Code Markdown プレビューへの注入結線 (extendMarkdownIt)
+# Issue: VS CodeのMarkdownプレビューへ動的表示を接続する（extendMarkdownIt）
+
+この文書は、Markdownプレビューへの接続に関する当時の問題認識と完了判断を残すIssue記録です。単体テストやビルドについての記載と、未チェックの実VS Code manual E2Eを区別してください。現行のVS Code上での描画を新たに確認したものではありません。
 
 ## Meta
 - Type: Feature
@@ -19,14 +21,14 @@ VS Code Markdownプレビューへの結線（`extendMarkdownIt` のexportと `c
 そのため、利用者が拡張機能をインストールしてプレビューを開いても `![[...]]` は注入されない。
 チュートリアル（`04_Documentation/tutorial.md`）が約束する中核挙動が実ユーザーに届かない状態であり、採用以前の最優先欠落である。
 
-## Execution Plan
+## 当時の実行計画
 ### Proposed solution (解決策の概要)
-1. `markdownMatrixPlugin` を「描画時のenvから文書パスを解決する」よう後方互換で拡張する。
+1. `markdownMatrixPlugin`を拡張し、描画時のenvから文書パスを解決できるようにする。既存経路との後方互換性は維持する。
    - markdown-itのcoreルールは `state.env.currentDocument.fsPath`（VS Codeが渡す `vscode.Uri`）からMarkdownファイルパスを取得できる。
    - envに文書情報が無い場合（既存の `renderEmbedForTest` / 単体テスト経路）は従来どおり `options.markdownFilePath` にフォールバックする。
    - プラグインは `vscode` をimportせず、envはduck-typingで参照してテスト可能性を維持する。
-2. `extension.ts` に `export function extendMarkdownIt(md): MarkdownIt` を追加し、拡張ライフサイクルで単一の `WorkbookCache` を共有してプレビュー横断のmtimeキャッシュを成立させる。workspaceRootは描画時に `vscode.workspace.getWorkspaceFolder` から解決する。
-3. `package.json` の `contributes` に `"markdown.markdownItPlugins": true` を追加する。
+2. `extension.ts`に`export function extendMarkdownIt(md): MarkdownIt`を追加する。拡張機能のライフサイクル内で単一の`WorkbookCache`を共有してプレビュー間のmtimeキャッシュを利用し、workspaceRootは描画時に`vscode.workspace.getWorkspaceFolder`から解決する。
+3. `package.json`の`contributes`に`"markdown.markdownItPlugins": true`を追加し、Markdownプレビューへのプラグイン登録を明示する。
 
 ### Acceptance criteria (受入条件)
 - [x] `markdownMatrixPlugin` が `md.render(src, { currentDocument: { fsPath } })` のenvから文書パスを解決し、`![[...]]` を表として注入する（単体テストで検証）。
@@ -35,14 +37,14 @@ VS Code Markdownプレビューへの結線（`extendMarkdownIt` のexportと `c
 - [x] `npm run build`（tsc）と `npm test`（unit + phase9-sync）がpassする。
 - [ ] (manual-e2e / delegated) 実VS Code上でプレビューを開くと `![[...]]` がテーブル/カードとして描画される。スタイル適用はissue-0094で扱う。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] `markdownMatrixPlugin.ts`: envからの文書パス解決と `EmbedRenderContext` への切り出し。
 - [x] `extension.ts`: `extendMarkdownIt` 追加（共有キャッシュ + workspaceRoot解決）。
 - [x] `package.json`: `markdown.markdownItPlugins` contribution追加。
 - [x] `markdownMatrixPlugin.test.ts`: env経由解決の正常系・文書情報欠如時の非注入を追加。
 - [x] `npm run build` / `npm test` で検証。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `npm run build` がexit 0。
 - `npm test` がexit 0、追加テストを含め全pass。
 - env契約はVS Code (`markdown-language-features/src/markdownEngine.ts`) の `RenderEnv` 定義に準拠していることを根拠とする。
