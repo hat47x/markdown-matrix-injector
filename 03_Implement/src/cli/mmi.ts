@@ -344,6 +344,9 @@ export async function main(argv: string[]): Promise<number> {
     console.log(USAGE);
     return command || values.help ? 0 : 2;
   }
+  if (values.preview && command !== 'html-plan') {
+    return usageError('--preview is supported only by html-plan --json');
+  }
   const root = path.resolve(values.root ?? process.cwd());
   const emit = (text: string) => (values.out ? fs.writeFileSync(values.out, text) : process.stdout.write(text.endsWith('\n') ? text : `${text}\n`));
 
