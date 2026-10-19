@@ -2,9 +2,9 @@
 
 ## 1. 目的
 
-Format Profileは、worksheet-format認識で使う既知書式を、隠れた学習状態ではなく**明示的・レビュー可能・version control可能な設計資産**として扱うための境界である。
+Format Profile（書式プロファイル）は、worksheet-format認識（ワークシートの書式の識別）で使う既知書式を、隠れた学習状態ではなく**明示的・レビュー可能・version control（版管理）可能な設計資産**として扱うための境界である。
 
-MMI Notation v1の仕様正本ではない。Notationが「どの表をどう参照するか」を定義するのに対し、Format Profileは「組織内の既知worksheet書式をどう識別するか」の補助資産である。
+Format ProfileはMMI Notation v1の仕様正本ではない。Notationが「どの表をどう参照するか」を定義するのに対し、Format Profileは「組織内の既知のworksheet（ワークシート）書式をどう識別するか」を扱う補助資産である。
 
 ## 2. ライフサイクル
 
@@ -19,11 +19,11 @@ read-only baseline snapshot
   -> compatible WorksheetFormatPrototype
 ```
 
-認知providerはcandidate作成を補助できるが、承認済みprofileへ自動昇格できない。
+認知provider（認知処理の提供元）はcandidate（承認前の候補）の作成を補助できるが、承認済みprofileへ自動的に昇格させることはできない。
 
 ## 3. v1データ
 
-`FormatProfileV1`は次を保持する。
+`FormatProfileV1`（Profileのデータ構造）は次の項目を保持する。
 
 - `schemaVersion`: `mmi-format-profile-v1`
 - stable `id`
@@ -45,43 +45,43 @@ read-only baseline snapshot
 
 ## 4. canonical feature representation
 
-profileのfeaturesは、手書きの都合のよい抜粋を作る入口ではない。
+profileのfeatures（書式の特徴を表す値の集合）は、都合のよい項目だけを手作業で抜き出すためのものではない。
 
-candidateは既存`WorksheetFormatPrototype`から生成する。元prototypeは既存契約どおり、baseline snapshotを観測時と同じ`extractWorksheetFormatFeatures`経路へ通して生成する。
+candidateは既存の`WorksheetFormatPrototype`（照合用の書式特徴）から生成する。元になるprototypeは、既存契約どおりbaseline snapshot（基準となる読み取り結果）を観測時と同じ`extractWorksheetFormatFeatures`経路へ通して生成する。
 
-保存時のfeaturesは正規化・重複除去・sort済みでなければvalidとしない。
+保存するfeaturesは、正規化・重複除去・sort（並べ替え）済みでなければvalid（有効）としない。
 
 ## 5. approval boundary
 
-`candidate`にはapproval metadataを持たせない。
+`candidate`にはapproval metadata（承認に関する記録）を持たせない。
 
-`approved`は必ずは次のとおりです。
+`approved`（承認済み）には、必ず次の項目を持たせる。
 
 - `kind: human`
 - non-empty `approvedBy`
 - non-empty `approvalReference`
 
-を持つ。
+これらが必要となる。
 
-`formatProfileToWorksheetPrototype`はapproved profileだけを受け入れる。candidateをmatcherへ直接投入する経路は提供しない。
+`formatProfileToWorksheetPrototype`（Profileを照合用prototypeへ戻す処理）はapproved profileだけを受け入れる。candidateをmatcher（書式の照合処理）へ直接投入する経路は提供しない。
 
-これは「人間らしさ」を技術的に証明する仕組みではなく、version control上で自動昇格と人間承認を区別できる**契約上の境界**である。
+これは承認者が人間であることを技術的に証明する仕組みではなく、version control上で自動昇格と人間承認を区別するための**契約上の境界**である。
 
 ## 6. compatibility
 
-approved profileでも、次が現在のruntimeと一致しなければprototypeへ戻さない。
+approved profileでも、次の条件が現在のruntime（実行時環境）と一致しなければprototypeへ戻さない。
 
 - `featureVersion === WORKSHEET_FORMAT_FEATURE_VERSION`
 - `sourceProfileId`
 - `sourceEvidence`
 
-不一致はmigrationを暗黙実行せずfail-closedする。
+不一致の場合はmigration（互換性のための移行処理）を暗黙に実行せず、fail-closed（安全側として拒否）する。
 
 ## 7. 更新
 
-profile更新は既存ファイルを学習状態として上書きするのではなく、新しいcandidate差分として扱う。
+profileを更新する場合は、既存ファイルを学習状態として上書きせず、新しいcandidateの差分として扱う。
 
-推奨手順は次のとおりです。
+推奨する手順は次のとおり。
 
 1. 新baselineからcandidateを再生成。
 2. 既存approved profileとの差分を表示。
@@ -89,7 +89,7 @@ profile更新は既存ファイルを学習状態として上書きするので�
 4. 人間が承認。
 5. repository commitとして保存。
 
-自動的な自己学習・実行時のprofile変異・認知providerによる承認は行わない。
+自動的な自己学習、実行時のprofileの変更、認知providerによる承認は行わない。
 
 ## 8. 非責務
 
@@ -104,4 +104,4 @@ v1では以下を行わない。
 - production runtime接続
 - AI providerによるapproval
 
-保存ディレクトリや公開形式の最終配置は、実利用導線を確認した後に決める。今回の実装はschema/lifecycle/compatibility境界をpure TypeScriptとして固定する。
+保存ディレクトリや公開形式の最終配置は、実際の利用経路を確認した後に決める。今回の実装ではschema（データ構造）・lifecycle（状態遷移）・compatibility（互換性）の境界を、pure TypeScript（外部I/Oを前提としない型と処理）として固定する。

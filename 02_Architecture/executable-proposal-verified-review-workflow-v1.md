@@ -2,9 +2,9 @@
 
 ## 1. 目的
 
-Cognitive ReviewからAuthority検証済みreview surfaceまでの安全な組立を、呼出側から隠蔽する。
+Cognitive Review（認知による確認結果）からAuthority検証済みのreview surface（人に提示する確認用データ）まで、安全な組み立て順序をworkflow（処理の流れ）の内部にまとめ、呼び出し側から隠蔽する。
 
-従来の個別API:
+従来の個別API（呼び出し口）の構成は次のとおり。
 
 ```text
 Envelope
@@ -13,7 +13,7 @@ Envelope
  -> Verified Review Surface
 ```
 
-をUI側が自由に組み替えるのではなく、workflow内で固定順序にする。
+これらをUI側が自由に組み替えず、workflow内で順序を固定する。
 
 ## 2. Safe entrypoint
 
@@ -21,7 +21,7 @@ Envelope
 prepareExecutableProposalVerifiedReviewWithLoader(input, loader)
 ```
 
-inputが含むのは:
+input（呼び出し時に渡す情報）に含める項目は次のとおり。
 
 - envelope
 - rawNotation
@@ -30,9 +30,9 @@ inputが含むのは:
 - issuer
 - uriScheme
 
-のみ。
+これらに限る。
 
-含まないは次のとおりです。
+次の情報はinputに含めない。
 
 - presentation
 - receipt
@@ -48,32 +48,32 @@ inputが含むのは:
 4. Authority overlayを生成
 5. verified review surfaceを返却
 
-各下位moduleの検証をworkflow側で再実装しない。
+Envelope（認知結果を束ねたデータ）、Authority Evidence（決定論的な検証の根拠情報）、proposal identity（提案文字列の識別情報）、overlay（検証結果を示す別領域）の生成・照合は上記の順序に従う。各下位module（実装単位）の検証をworkflow側で再実装しない。
 
 ## 4. Default loader
 
-async版:
+async版（非同期の呼び出し口）は次のとおり。
 
 ```ts
 prepareExecutableProposalVerifiedReviewWithDefaultLoader(input)
 ```
 
-はissue-0149のdefault-loader workflowを再利用する。
+この関数はissue-0149のdefault-loader workflow（既定の読み込み処理を用いる経路）を再利用する。
 
-production `loadWorkbook` のimportや呼び出しは0149に集約し、本workflowで重複させない。
+production（製品実行時）の `loadWorkbook` のimport（モジュールの読み込み）や呼び出しはissue-0149に集約し、本workflowでは重複させない。
 
 ## 5. 結果
 
-Authorityが:
+Authority（決定論的な検証）が次のいずれの状態でも、
 
 - satisfied
 - blocked
 
-どちらでもsurfaceは返せる。
+surfaceを返せる。
 
-blockedは例外ではなく、人間が「どのcheckで止まったか」をreviewできる正常なreview結果である。
+blocked（検証で止まった状態）は例外ではない。人が「どのcheck（確認項目）で止まったか」をreviewできる、通常の確認結果として扱う。
 
-一方、schema/source/proposal integrity違反など、surface自体を安全に組めない場合はfail-closedで例外とする。
+一方、schema（データ構造）・source（参照元）・proposal integrity（提案と証拠の対応の完全性）に違反し、surface自体を安全に組み立てられない場合は、fail-closed（安全側として拒否）して例外とする。
 
 ## 6. 非責務
 
@@ -85,4 +85,4 @@ blockedは例外ではなく、人間が「どのcheckで止まったか」をre
 - production extension command
 - fill telemetry
 
-次段階のUI integrationは、このworkflowだけを呼ぶ構造を推奨する。
+次段階のUI integration（画面との接続）では、このworkflowだけを呼び出す構造を推奨する。
