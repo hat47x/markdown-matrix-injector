@@ -75,7 +75,7 @@ test('CLI html-plan --preview returns only in-memory outputs and leaves workspac
     assert.equal(report.readyForReview, true);
     assert.equal(report.files.length, 2);
     assert.equal(report.files[0].appliedAnchorRewrites, 1);
-    assert.match(report.files[0].html, /href="api\\.html#api"/u);
+    assert.match(report.files[0].html, /href="api\.html#api"/u);
     assert.equal(report.plan.hasIdentifiedBlockers, false);
     assert.deepEqual(fs.readdirSync(root).sort(), ['plan.json', 'source.html']);
     assert.equal(fs.readFileSync(source, 'utf8'), fixture);
