@@ -34,7 +34,7 @@
 VS Codeで `Ctrl+Shift+P` → `Extensions: Install from VSIX...` を選び、MMIのVSIXを指定します。
 更新後はウィンドウを再読み込みします。拡張を使うだけならNode.jsの導入は不要です。
 
-最低対応バージョンはVS Code 1.96.0です。今回の実機検証はWindowsのVS Code 1.136.1で行っています。
+最低対応バージョンはVS Code 1.100.0です。今回の実機検証はWindowsのVS Code 1.136.1で行っています。
 VS Code MarketplaceやGitHub Releasesでの公開は、この手順の前提ではありません。
 
 ## まず4件の要件を表示する
@@ -117,6 +117,8 @@ npm run build
 npm test
 npm run test:e2e
 ```
+
+配る成果物（VSIXとCLI）は`npm run release:candidate`で作ります。検査結果と成果物のSHA-256が`artifacts/release/<version>/`に残ります。
 
 [CONTRIBUTING.md](CONTRIBUTING.md) と [AGENTS.md](AGENTS.md) を参照してください。
 要件は [00_Prompt/requirements.md](00_Prompt/requirements.md)、方針と実行計画は [01_Plans](01_Plans/README.md) にあります。

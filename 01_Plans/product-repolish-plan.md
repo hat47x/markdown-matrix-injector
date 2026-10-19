@@ -102,7 +102,7 @@ MMIの製品定義は、2026年3月の初版から7か月で3回書き換えら�
 | package.jsonの`displayName` | Markdown Matrix Injector (MMI) | 初版 | 命名の決定に従う |
 | VS Codeの導入手順（walkthrough） | Excel・CSVの表を、写さずにMarkdownから参照する | ADR-0012 | 取り込み・確認・切り離しの手順を加える |
 | [利用マニュアル](../04_Documentation/user-manual.md) | 原本を保存したあとは、プレビューを開き直して確認する | 2026-10-09より前の動作 | 保存後の再描画と`MMI: 参照中の表を再確認`に合わせる。[併用執筆の案内](../04_Documentation/excel-markdown-authoring.md)は更新済み |
-| [CHANGELOG](../CHANGELOG.md)と版 | 最後の版は0.1.0（2026-07-15）。CLI、Candidate、取り込み、切り離しの記録が無い | 初版〜ADR-0012 | 初回公開の前に版を上げ、変更を記す |
+| [CHANGELOG](../CHANGELOG.md)と版 | 0.2.0（2026-10-20）でCLI、Candidate、取り込み、切り離しを記した | ADR-0025 | 公開版の前に、識別子の移行（#517）を記す |
 
 記法仕様の冒頭はADR-0012を決定正本としている。記法の範囲ではこれが正しいため、変えない。
 
@@ -278,9 +278,9 @@ OOXMLから表・見出し・画像・コメントを読み取り専用で観測
 
 #### (9) 公開していない（段階3、#500・#517・#518）
 
-VS Code拡張は、受け取ったVSIXから入れる検証版である。VS Code Marketplace、Open VSX、npm、GitHub Releasesのいずれにも公開していない（2026-10-17に確認）。CLIのtarballはWindows（Node 24）で確かめたが、別のマシン、Node 20、macOSは未確認である（[#500](https://github.com/hat47x/markdown-matrix-injector/issues/500)）。版は0.1.0のままで、CHANGELOGには2026-07-15以降のCLI・Candidate・取り込み・切り離しの記録が無い。
+VS Code拡張は、受け取ったVSIXから入れる検証版である。VS Code Marketplace、Open VSX、npm、GitHub Releasesのいずれにも公開していない（2026-10-17に確認）。CLIのtarballはWindows（Node 24）で確かめたが、別のマシン、Node 20、macOSは未確認である（[#500](https://github.com/hat47x/markdown-matrix-injector/issues/500)）。版は2026-10-20に0.2.0へ上げ、CHANGELOGに2026-07-15以降のCLI・Candidate・取り込み・切り離しを記した。配る成果物は`npm run release:candidate`で一つのコミットから作り、証拠を添える（[ADR-0025](adr/ADR-0025-release-candidate-evidence-and-channels.md)）。
 
-命名と識別子の決定（段階1）の後に版を上げ、変更履歴を書き、公開先を決める。利用者に届かない限り、価値の観測（5.5(19)）も進まない。リリースの判定は、作業ルールのとおり、対象の版と成果物に結び付ける。
+検証版は、識別子を変えないまま証拠付きで配れる。Marketplace・npm registryへの公開版は、命名と識別子の決定（段階1）の後に公開先を決める（ADR-0025 D3）。利用者に届かない限り、価値の観測（5.5(19)）も進まない。リリースの判定は、作業ルールのとおり、対象の版と成果物に結び付ける。
 
 #### (10) MCPの入口が無い（段階3、#527）
 

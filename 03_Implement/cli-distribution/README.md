@@ -23,7 +23,7 @@ npm run package:cli
 ローカルまたは社内配布されたtarballはnpmで直接インストールできます。
 
 ```sh
-npm install -g ./markdown-matrix-injector-0.1.0.tgz
+npm install -g ./markdown-matrix-injector-0.2.0.tgz
 mmi --help
 mmi --version
 mmi check docs/ --root .
@@ -32,7 +32,7 @@ mmi check docs/ --root .
 一時利用ではnpm package specとしてtarballを指定できます。
 
 ```sh
-npm exec --yes --package ./markdown-matrix-injector-0.1.0.tgz -- \
+npm exec --yes --package ./markdown-matrix-injector-0.2.0.tgz -- \
   mmi check docs/ --root .
 ```
 

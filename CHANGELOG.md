@@ -7,17 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-20
+
+Verification release (ADR-0025): distributed as a VSIX and a self-contained CLI tarball with release evidence. Extension and package identifiers are unchanged and may still move before the first Marketplace / npm registry release (#504, #517). The notation (MMI Notation v1, Draft), `MMI_*` diagnostic codes and `mmi.*` contract names are unchanged.
+
+### Added
+- **CLI** (`mmi`): `inspect`, `extract`, `import`, `select` / `find`, `check`, `render`, `snapshot`, `materialize`, `detach-check`, `manifest`, `impact`, `schema`, static HTML fragments (`html-plan`) and local AI handoff / re-validation (`handoff`, `validate-*`). Ships as a self-contained npm tarball (Node.js 20+) that installs offline (#500).
+- **Candidate contract** `mmi.semantic-candidate/v1` and the import ledger `mmi.ledger/v1`: tables, Excel embedded images, choice lists, AutoShapes / connectors (observed, not yet extracted), and Tree Candidates from JSON, safe-subset YAML, generic XML, flat text and explicit Excel / CSV hierarchy columns, all with provenance and change detection.
+- **Extracted state**: selected tables and images are taken into standard Markdown or image assets and tracked in the ledger; stale sources are reported before detach.
+- **Detached state** (minimum slice): `materialize` turns MMI references into standard Markdown; `detach-check` reports remaining references, unmaterialized markers and broken or out-of-root links (#499).
+- **VS Code**: workbook import (tables stay Linked, .xlsx/.xlsm images become Extracted assets), Candidate review with accept / reject / defer, guided reference authoring and editing, search by description, hover preview, source impact listing, re-check after the source is saved, and quick fixes for sheet, file, parameter, `x-headers` and `x-below` drift.
+- Experimental notation keys for semantic selection `x-headers`, `x-table`, `x-name` (ADR-0022) and recorded expectations `x-below`, `x-binding`.
+- Japanese command names, walkthrough and l10n; basic design document kit; AI instruction pack (`skills/mmi`); AI writing benchmark v0.
+- Twelve Japanese practical examples with 172 CSV records, a three-sheet Excel workbook, SpreadsheetML and TSV data.
+- Japanese tutorial, user manual, real preview captures and a three-page PDF sample; source-integrity and sample-row verification.
+- `npm run release:candidate`: builds a candidate from one commit (version consistency, full type check, product tests, VSIX audit including the runtime module closure, offline CLI install check, optional Extension Host E2E) and writes `release-evidence.json`, `SHA256SUMS` and release notes bound to the commit and artifact hashes (ADR-0025).
+
 ### Fixed
+- Quick fixes on the line being typed are offered from the light bulb again: diagnostics held back from the Problems panel while typing (ADR-0019 D13) still feed code actions (#579).
+- Path containment: a file whose name starts with `..` (e.g. `..notes.csv`) inside the workspace is no longer rejected, and a workspace reached through a symlinked or junctioned directory is compared by its real path.
+- The documented minimum VS Code version is 1.100.0, matching `engines.vscode` (ESM extension); README and tutorial said 1.96.0.
+- Windows development: `npm test` and the release-gate tools no longer depend on a working `python3` command (the Microsoft Store stub), test path expectations are separator-independent, symlink tests skip when the OS refuses symlinks, and the type check of the whole project (`npm run build`) passes again.
 - Return the preview API from activation and resolve source paths during rendering, matching VS Code's separate parse/render lifecycle.
 - Exclude query parameters from file/sheet names in diagnostics for card and whole-sheet references.
 - Replace the non-working Markdown command link with a workspace-validated extension URI for external opening (ADR-0015; see the release validation record for GUI status).
 - Updated Markdown parsing dependencies and moved SheetJS to the official 0.20.3 distribution.
 - Read workbook bytes explicitly for SheetJS ESM compatibility while keeping source access read-only.
 - Enforced LF for shell scripts used from Windows checkouts in WSL.
-
-### Added
-- Twelve Japanese practical examples with 172 CSV records, a three-sheet Excel workbook, SpreadsheetML and TSV data.
-- Japanese tutorial, user manual, real preview captures and a three-page PDF sample; source-integrity and sample-row verification.
 
 ## [0.1.0] - 2026-07-15
 
