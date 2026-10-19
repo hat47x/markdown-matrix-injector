@@ -1,6 +1,6 @@
 # Issue: VS CodeのMarkdownプレビューへ動的表示を接続する（extendMarkdownIt）
 
-この文書は、Markdownプレビューへの接続に関する当時の問題認識と完了判断を残すIssue記録です。単体テストやビルドについての記載と、未チェックの実VS Code manual E2Eを区別してください。現行のVS Code上での描画を新たに確認したものではありません。
+この文書は、Markdownプレビューへの接続に関する当時の問題認識と完了判断を残すIssue記録です。単体テストやビルドについての記載と、未チェックの実VS Code manual E2Eは区別して扱います。現行のVS Code上での描画を新たに確認したものではありません。
 
 ## Meta
 - Type: Feature
