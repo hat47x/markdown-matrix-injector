@@ -14,6 +14,7 @@ import {
   readSourceFileIdentity,
   resolveContainedSourceIdentity,
 } from '../src/core/sourceIdentity.js';
+import { symlinkOrSkip } from './helpers/symlink.js';
 
 test('creates deterministic SHA-256 identity from raw bytes', () => {
   const bytes = Buffer.from('ID,State\n1,ready\n', 'utf8');
@@ -82,14 +83,14 @@ test('rejects traversal beyond the workspace boundary', () => {
   );
 });
 
-test('rejects a symlink whose real target is outside the workspace', () => {
+test('rejects a symlink whose real target is outside the workspace', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-source-id-'));
   const workspace = path.join(root, 'workspace');
   fs.mkdirSync(workspace, { recursive: true });
   const outside = path.join(root, 'outside.csv');
   fs.writeFileSync(outside, 'secret');
   const link = path.join(workspace, 'link.csv');
-  fs.symlinkSync(outside, link);
+  if (!symlinkOrSkip(t, outside, link)) return;
 
   assert.throws(
     () => resolveContainedSourceIdentity({

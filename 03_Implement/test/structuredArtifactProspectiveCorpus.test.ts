@@ -72,7 +72,7 @@ test('every target is bound to exact preregistered source bytes and negative cas
       source.workbook_or_document,
     );
 
-    if (target.labels['region.table_like'].value === false) {
+    if (target.labels['region.table_like']!.value === false) {
       assert.equal(
         Object.prototype.hasOwnProperty.call(
           target.labels,

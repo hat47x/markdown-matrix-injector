@@ -20,7 +20,17 @@ export function isPathWithinBoundary(candidate: string, boundary: string): boole
   // Allow: non-empty relative path that does NOT escape the boundary
   // (no ".." segments, not absolute — different-drive paths on Windows
   // come back as absolute).
-  return !rel.startsWith('..') && !path.isAbsolute(rel);
+  // A name such as "..notes.csv" is inside; only a whole ".." segment escapes.
+  return rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel);
+}
+
+function realpathOrSelf(filePath: string): string {
+  try {
+    return fs.realpathSync(filePath);
+  } catch {
+    // realpathSync can fail on broken symlinks etc. — best-effort.
+    return filePath;
+  }
 }
 
 export class PathContainmentError extends LocalizedError<'outsideBoundary'> {
@@ -44,16 +54,15 @@ export function resolveSourcePath(options: ResolveSourcePathOptions): string {
     ? path.resolve(options.workspaceRoot)
     : path.resolve(path.dirname(options.markdownFilePath));
 
+  // The workspace itself may sit behind a symlink (macOS /tmp → /private/tmp),
+  // so compare real paths with the real boundary.
+  const realBoundary = realpathOrSelf(boundary);
+
   for (const candidate of candidates) {
     if (fs.existsSync(candidate)) {
       // Defeat symlink bypass: resolve to real path before containment check
-      let checkPath = candidate;
-      try {
-        checkPath = fs.realpathSync(candidate);
-      } catch {
-        // realpathSync can fail on broken symlinks etc. — best-effort.
-      }
-      if (!isPathWithinBoundary(checkPath, boundary)) {
+      const checkPath = realpathOrSelf(candidate);
+      if (!isPathWithinBoundary(checkPath, realBoundary)) {
         throw new PathContainmentError(options.sourcePath, checkPath, boundary);
       }
       return candidate; // Return the original (non-realpath) path for file access

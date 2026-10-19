@@ -13,6 +13,7 @@ import {
   SourceChangedDuringCognitiveObservationError,
   createContainedCognitiveObservation,
 } from '../src/experimental/cognitiveSourceObservation.js';
+import { symlinkOrSkip } from './helpers/symlink.js';
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-cognitive-observation-'));
@@ -116,12 +117,12 @@ test('does not call the reader when traversal escapes the workspace', () => {
   assert.equal(calls, 0);
 });
 
-test('does not call the reader for a symlink whose target is outside the workspace', () => {
+test('does not call the reader for a symlink whose target is outside the workspace', (t) => {
   const f = fixture();
   const outside = path.join(path.dirname(f.root), 'outside-link-target.csv');
   fs.writeFileSync(outside, 'secret');
   const link = path.join(f.root, 'outside-link.csv');
-  fs.symlinkSync(outside, link);
+  if (!symlinkOrSkip(t, outside, link)) return;
   let calls = 0;
 
   assert.throws(

@@ -85,8 +85,10 @@ function assertConformanceCase(fixture: ConformanceCase): void {
       expected.provenanceAlgorithm,
     );
     if (expected.provenanceVersion !== undefined) {
+      const run = candidate.provenance.run;
+      assert.ok(run.execution === 'deterministic');
       assert.equal(
-        candidate.provenance.run.implementationVersion,
+        run.implementationVersion,
         expected.provenanceVersion,
       );
     }

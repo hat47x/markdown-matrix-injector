@@ -172,7 +172,9 @@ export function assertWorksheetReviewRouteEvaluationPlan(
   assertEvaluationPolicy(plan.readinessPolicy);
 
   const canonicalProvider =
-    canonicalizeProvider(plan.provider);
+    canonicalizeProvider(
+      plan.provider as CognitiveProviderDescriptor,
+    );
   assertEvaluationProvider(canonicalProvider);
   if (
     !sameStrings(

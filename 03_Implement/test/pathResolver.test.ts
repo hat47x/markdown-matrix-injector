@@ -5,6 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 
 import { resolveSourcePath, PathContainmentError } from '../src/core/pathResolver.js';
+import { symlinkOrSkip } from './helpers/symlink.js';
 
 // ── Normal resolution (no containment violation) ──────────────────────────
 
@@ -86,17 +87,20 @@ test('resolveSourcePath: rejects ../ traversal beyond workspace root', () => {
 });
 
 test('resolveSourcePath: rejects deep ../ traversal to system paths', () => {
-  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-contain-'));
+  const outer = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-contain-'));
+  const tmp = path.join(outer, 'a', 'b', 'workspace');
   const docsDir = path.join(tmp, 'docs');
   fs.mkdirSync(docsDir, { recursive: true });
+  // A real file several levels above the workspace, so the case does not
+  // depend on /etc/hosts existing (it does not on Windows).
+  fs.writeFileSync(path.join(outer, 'hosts'), '127.0.0.1 localhost');
 
-  // ../../../../etc/hosts would resolve outside on any system with /etc/hosts
   // Use tmp as workspace — traversal beyond tmp is rejected
   assert.throws(
     () =>
       resolveSourcePath({
         markdownFilePath: path.join(docsDir, 'spec.md'),
-        sourcePath: '../../../../../../../etc/hosts',
+        sourcePath: '../../../../hosts',
         workspaceRoot: tmp,
       }),
     (err: unknown) => {
@@ -159,7 +163,7 @@ test('resolveSourcePath: without workspaceRoot, subdirectory file is allowed', (
 
 // ── Symlink bypass ────────────────────────────────────────────────────────
 
-test('resolveSourcePath: symlink pointing outside boundary is rejected', () => {
+test('resolveSourcePath: symlink pointing outside boundary is rejected', (t) => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-link-'));
   const workspaceDir = path.join(tmp, 'workspace');
   const docsDir = path.join(workspaceDir, 'docs');
@@ -171,7 +175,7 @@ test('resolveSourcePath: symlink pointing outside boundary is rejected', () => {
 
   // Symlink inside workspace pointing outside
   const linkPath = path.join(workspaceDir, 'link-to-outside.csv');
-  fs.symlinkSync(outsideFile, linkPath);
+  if (!symlinkOrSkip(t, outsideFile, linkPath)) return;
 
   assert.throws(
     () =>
@@ -187,7 +191,7 @@ test('resolveSourcePath: symlink pointing outside boundary is rejected', () => {
   );
 });
 
-test('resolveSourcePath: symlink within boundary is allowed', () => {
+test('resolveSourcePath: symlink within boundary is allowed', (t) => {
   const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-link-'));
   const workspaceDir = path.join(tmp, 'workspace');
   const dataDir = path.join(workspaceDir, 'data');
@@ -199,7 +203,7 @@ test('resolveSourcePath: symlink within boundary is allowed', () => {
 
   // Symlink also inside workspace
   const linkPath = path.join(workspaceDir, 'roles-link.csv');
-  fs.symlinkSync(targetFile, linkPath);
+  if (!symlinkOrSkip(t, targetFile, linkPath)) return;
 
   const resolved = resolveSourcePath({
     markdownFilePath: path.join(workspaceDir, 'spec.md'),
@@ -209,4 +213,34 @@ test('resolveSourcePath: symlink within boundary is allowed', () => {
 
   // Should resolve to the symlink path (not the real path) for file access
   assert.ok(fs.existsSync(resolved));
+});
+
+test('resolveSourcePath: a file name that starts with ".." stays inside the boundary', () => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-dots-'));
+  fs.writeFileSync(path.join(tmp, '..notes.csv'), 'a,b\n1,2');
+
+  const resolved = resolveSourcePath({
+    markdownFilePath: path.join(tmp, 'spec.md'),
+    sourcePath: '..notes.csv',
+    workspaceRoot: tmp,
+  });
+
+  assert.equal(resolved, path.join(tmp, '..notes.csv'));
+});
+
+test('resolveSourcePath: a workspace reached through a symlinked directory is still inside', (t) => {
+  const tmp = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-realroot-'));
+  const realWorkspace = path.join(tmp, 'real');
+  fs.mkdirSync(realWorkspace, { recursive: true });
+  fs.writeFileSync(path.join(realWorkspace, 'roles.csv'), 'Name,Role\nAlice,Admin');
+  const linkedWorkspace = path.join(tmp, 'linked');
+  if (!symlinkOrSkip(t, realWorkspace, linkedWorkspace, process.platform === 'win32' ? 'junction' : 'dir')) return;
+
+  const resolved = resolveSourcePath({
+    markdownFilePath: path.join(linkedWorkspace, 'spec.md'),
+    sourcePath: 'roles.csv',
+    workspaceRoot: linkedWorkspace,
+  });
+
+  assert.equal(resolved, path.join(linkedWorkspace, 'roles.csv'));
 });

@@ -31,5 +31,16 @@ export function applyDiagnosticPolicy(items: readonly DocumentDiagnosticItem[], 
   return items.filter((item) => !(item.range.start.line <= line && line <= item.range.end.line));
 }
 
+/**
+ * The diagnostics `applyDiagnosticPolicy` held back from the Problems panel.
+ * They still feed the quick fixes of the cursor line: holding back is about
+ * not interrupting the person who types, and the person who opens the light
+ * bulb on that line has asked for the fixes (#579).
+ */
+export function heldBackDiagnostics(items: readonly DocumentDiagnosticItem[], input: DiagnosticPolicyInput): DocumentDiagnosticItem[] {
+  const shown = new Set(applyDiagnosticPolicy(items, input));
+  return items.filter((item) => !shown.has(item));
+}
+
 /** How long typing must pause before the document is checked again. */
 export const AUTHORING_DEBOUNCE_MS = 400;

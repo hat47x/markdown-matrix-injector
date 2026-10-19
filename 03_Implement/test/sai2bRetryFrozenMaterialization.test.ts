@@ -422,7 +422,7 @@ test('retry uses the exact frozen URL and records a successful binary hash', asy
     now: () => '2026-09-28T00:00:00.000Z',
     fetchImpl: async (url) => {
       seen.push(url);
-      return new Response(xlsxFrame(), {
+      return new Response(new Uint8Array(xlsxFrame()), {
         status: 200,
         headers: {
           'content-type':
@@ -508,7 +508,7 @@ test('successful retry opens only the next fixed Stage-A ordinal', async () => {
   const outcome = await retryFrozenMaterialization({
     entry: entry(),
     fetchImpl: async () =>
-      new Response(xlsxFrame(), {
+      new Response(new Uint8Array(xlsxFrame()), {
         status: 200,
         headers: {
           'content-type':
@@ -943,7 +943,7 @@ test('direct retry rejects an unaccepted 2xx content type before payload success
   const outcome = await retryFrozenMaterialization({
     entry: entry(),
     fetchImpl: async () =>
-      new Response(xlsxFrame(), {
+      new Response(new Uint8Array(xlsxFrame()), {
         status: 200,
         headers: { 'content-type': 'text/plain; charset=utf-8' },
       }),
@@ -994,7 +994,7 @@ test('direct retry rejects normalized content types outside the frozen spelling'
     const outcome = await retryFrozenMaterialization({
       entry: entry(),
       fetchImpl: async () =>
-        new Response(xlsxFrame(), {
+        new Response(new Uint8Array(xlsxFrame()), {
           status: 200,
           headers: { 'content-type': contentType },
         }),
@@ -1037,7 +1037,7 @@ test('direct retry rejects a generated timestamp outside the frozen schema', asy
       entry: entry(),
       now: () => '2026-09-28 03:00:00Z',
       fetchImpl: async () =>
-        new Response(xlsxFrame(), {
+        new Response(new Uint8Array(xlsxFrame()), {
           status: 200,
           headers: {
             'content-type':

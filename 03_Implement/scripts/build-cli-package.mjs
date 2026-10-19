@@ -7,6 +7,7 @@ import { fileURLToPath } from 'node:url';
 import ts from 'typescript';
 
 import { verifyCliPackage } from './verify-cli-package.mjs';
+import { spawnPlan } from './npm-spawn.mjs';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_PROJECT_ROOT = path.resolve(SCRIPT_DIR, '..');
@@ -239,8 +240,9 @@ export function collectRuntimeModuleGraph(entryPath, rootDirectory) {
     }
   }
 
+  // '/'-separated on every OS, so the list compares with package and zip entries.
   return [...seen]
-    .map((absolute) => path.relative(root, absolute))
+    .map((absolute) => path.relative(root, absolute).split(path.sep).join('/'))
     .sort();
 }
 
@@ -354,11 +356,12 @@ function copyRequired(source, destination, label) {
 }
 
 function runNpm(args, cwd) {
-  const executable = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-  const result = spawnSync(executable, args, {
+  const plan = spawnPlan('npm', args);
+  const result = spawnSync(plan.file, plan.args, {
     cwd,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
+    shell: plan.shell,
   });
   if (result.error) throw result.error;
   if (result.status !== 0) {

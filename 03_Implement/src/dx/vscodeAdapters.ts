@@ -140,6 +140,9 @@ export async function createDiagnosticsForDocument(
   const diagnostics: DocumentDiagnosticItem[] = [];
 
   for (const match of matches) {
+    const boundary = workspaceRoot
+      ? path.resolve(workspaceRoot)
+      : path.resolve(path.dirname(markdownFilePath));
     const resolvedCandidates = resolveWorkbookPathCandidates(match.filepath, markdownFilePath, workspaceRoot);
     let resolvedFilepath = resolvedCandidates[0] ?? match.filepath;
     let fileExists = false;
@@ -157,12 +160,11 @@ export async function createDiagnosticsForDocument(
     // the Problems panel so the user sees it before opening the preview.
     let containmentOk: boolean | undefined;
     if (fileExists) {
-      const boundary = workspaceRoot
-        ? path.resolve(workspaceRoot)
-        : path.resolve(path.dirname(markdownFilePath));
       let checkPath = resolvedFilepath;
+      let realBoundary = boundary;
       try { checkPath = fs.realpathSync(resolvedFilepath); } catch { /* best-effort */ }
-      containmentOk = isPathWithinBoundary(checkPath, boundary);
+      try { realBoundary = fs.realpathSync(boundary); } catch { /* best-effort */ }
+      containmentOk = isPathWithinBoundary(checkPath, realBoundary);
     }
 
     const xmlMode = fileExists ? await detectXmlMode(resolvedFilepath, dependencies) : 'none';
@@ -457,7 +459,7 @@ export function buildQueryEvidenceOutputPaths(markdownFilePath: string): {
   markdownOutputPath: string;
 } {
   const useWindowsPath = markdownFilePath.includes('\\');
-  const pathApi = useWindowsPath ? path.win32 : path;
+  const pathApi = useWindowsPath ? path.win32 : path.posix;
   const outputDirectory = getQueryEvidenceOutputDirectory(markdownFilePath);
   const sourceBasename = getQueryEvidenceSourceBasename(markdownFilePath);
   const safeBasename = normalizeQueryEvidenceBasename(sourceBasename);
@@ -518,11 +520,11 @@ export function buildQueryEvidenceExportArtifacts(markdownText: string, markdown
 function getQueryEvidenceSourceBasename(markdownFilePath: string): string {
   return markdownFilePath.includes('\\')
     ? path.win32.basename(markdownFilePath, path.win32.extname(markdownFilePath))
-    : path.basename(markdownFilePath, path.extname(markdownFilePath));
+    : path.posix.basename(markdownFilePath, path.posix.extname(markdownFilePath));
 }
 
 function getQueryEvidenceOutputDirectory(markdownFilePath: string): string {
-  return markdownFilePath.includes('\\') ? path.win32.dirname(markdownFilePath) : path.dirname(markdownFilePath);
+  return markdownFilePath.includes('\\') ? path.win32.dirname(markdownFilePath) : path.posix.dirname(markdownFilePath);
 }
 
 function* findEmbedMatches(text: string): Iterable<EmbedMatch> {

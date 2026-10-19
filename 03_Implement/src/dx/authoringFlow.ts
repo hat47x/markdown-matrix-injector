@@ -498,7 +498,15 @@ async function preview(deps: AuthoringDependencies, markdown: string, markdownFi
 
 // --- quick fixes ---------------------------------------------------------------
 
-export function createEmbedFixProvider(workbookGlob: string): vscode.CodeActionProvider {
+/**
+ * `heldBack` returns the diagnostics of `range` that the authoring policy kept
+ * out of the Problems panel (ADR-0019 D13), so their fixes stay reachable
+ * from the light bulb on the line being edited (#579).
+ */
+export function createEmbedFixProvider(
+  workbookGlob: string,
+  heldBack: (document: vscode.TextDocument, range: vscode.Range) => readonly vscode.Diagnostic[] = () => [],
+): vscode.CodeActionProvider {
   return {
     async provideCodeActions(document, range, context) {
       const actions: vscode.CodeAction[] = [];
@@ -513,7 +521,7 @@ export function createEmbedFixProvider(workbookGlob: string): vscode.CodeActionP
         actions.push(edit);
       }
       const workspaceRoot = vscode.workspace.getWorkspaceFolder(document.uri)?.uri.fsPath;
-      for (const diagnostic of context.diagnostics) {
+      for (const diagnostic of [...context.diagnostics, ...heldBack(document, range)]) {
         if (diagnostic.source !== 'markdown-matrix-injector') continue;
         const embed = embedAt(document, diagnostic.range.start);
         if (!embed) continue; // never rewrite text we could not parse

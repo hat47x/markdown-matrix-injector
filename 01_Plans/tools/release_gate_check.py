@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import json
 import subprocess
+import sys
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
@@ -49,7 +50,7 @@ def evaluate_planning_summary(summary: dict[str, Any], allow_pending_issues: boo
 
 def evaluate_planning_gate(repo_root: Path, allow_pending_issues: bool, timeout_sec: int) -> GateResult:
     proc = run_command(
-        ["python3", "01_Plans/tools/planning_queue.py", "--format", "json"],
+        [sys.executable, "01_Plans/tools/planning_queue.py", "--format", "json"],
         cwd=repo_root,
         timeout_sec=timeout_sec,
     )
@@ -92,7 +93,7 @@ def evaluate_phase9_sync_gate(
             detail += " (ignore-row-order not evaluated)"
         return GateResult("G3:Phase9Sync", True, detail)
 
-    command = ["python3", "01_Plans/tools/check_phase9_template_sync.py", "--format", "json"]
+    command = [sys.executable, "01_Plans/tools/check_phase9_template_sync.py", "--format", "json"]
     if ignore_row_order:
         command.append("--ignore-row-order")
 
@@ -128,7 +129,7 @@ def evaluate_phase9_guide_sync_gate(
     if skip_tests:
         return GateResult("G4:Phase9GuideSync", True, "skipped by --skip-tests")
 
-    command = ["python3", "01_Plans/tools/generate_phase9_pattern_guide.py", "--check"]
+    command = [sys.executable, "01_Plans/tools/generate_phase9_pattern_guide.py", "--check"]
     proc = run_command(command, cwd=repo_root, timeout_sec=timeout_sec)
     if proc.returncode != 0:
         detail = (proc.stdout + "\n" + proc.stderr).strip().replace("\n", " | ")

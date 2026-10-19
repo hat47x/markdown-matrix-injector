@@ -24,7 +24,9 @@ function sha256(bytes: Buffer): string {
 }
 
 function gitBlobSha(filePath: string): string {
-  const bytes = fs.readFileSync(filePath);
+  // Hash the bytes Git stores: a core.autocrlf=true checkout has CRLF on disk but LF in the blob.
+  const raw = fs.readFileSync(filePath);
+  const bytes = raw.includes(0) ? raw : Buffer.from(raw.toString('latin1').replace(/\r\n/g, '\n'), 'latin1');
   const header = Buffer.from(`blob ${bytes.byteLength}\0`, 'utf8');
   return createHash('sha1').update(header).update(bytes).digest('hex');
 }

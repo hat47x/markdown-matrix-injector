@@ -21,6 +21,7 @@ import {
   getTextBeforePosition,
   resolveWorkbookPath,
   toRelativeSuggestion,
+  type DocumentDiagnosticItem,
   type PasteDropCommandArgs,
 } from './dx/vscodeAdapters.js';
 import { getScenarioTemplateCandidates, SCENARIO_OBSERVATION_TEMPLATE } from './dx/scenarioTemplate.js';
@@ -81,7 +82,7 @@ import {
 } from './application/sourceImpact.js';
 import { referencedSheets, unknownIdMessage } from './application/referencedSheets.js';
 import { readWorkbookStructure } from './importAssist/workbookStructure.js';
-import { applyDiagnosticPolicy, AUTHORING_DEBOUNCE_MS, type DiagnosticPhase, type WhileTyping } from './dx/diagnosticPolicy.js';
+import { applyDiagnosticPolicy, AUTHORING_DEBOUNCE_MS, heldBackDiagnostics, type DiagnosticPhase, type WhileTyping } from './dx/diagnosticPolicy.js';
 import { IMPORT_WORKBOOK_COMMAND_ID, importFromWorkbook } from './dx/importFlow.js';
 import {
   REVIEW_CANDIDATES_COMMAND_ID,
@@ -298,7 +299,7 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
         );
       },
     ),
-    vscode.languages.registerCodeActionsProvider(MARKDOWN_SELECTOR, createEmbedFixProvider(WORKBOOK_FILE_GLOB), {
+    vscode.languages.registerCodeActionsProvider(MARKDOWN_SELECTOR, createEmbedFixProvider(WORKBOOK_FILE_GLOB, heldBackOnLines), {
       providedCodeActionKinds: [vscode.CodeActionKind.QuickFix, vscode.CodeActionKind.RefactorRewrite],
     }),
     ...registerCompatibilityPasteDropCommands(),
@@ -316,7 +317,10 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
       if (line !== undefined && lastCursorLine.get(event.textEditor.document.uri.toString()) !== line) scheduleAuthoringDiagnostics(event.textEditor.document, diagnostics);
     }),
     vscode.workspace.onDidSaveTextDocument((document) => refreshDiagnosticsForDocument(document, diagnostics, 'review')),
-    vscode.workspace.onDidCloseTextDocument((document) => diagnostics.delete(document.uri)),
+    vscode.workspace.onDidCloseTextDocument((document) => {
+      diagnostics.delete(document.uri);
+      heldBackByDocument.delete(document.uri.toString());
+    }),
     // The message language is a setting: re-word the Problems panel and the open previews at once.
     vscode.workspace.onDidChangeConfiguration((event) => {
       if (!event.affectsConfiguration('markdownMatrixInjector.language')) return;
@@ -1427,6 +1431,28 @@ function toContextCompletionKind(kind: CompletionCandidate['kind']): vscode.Comp
 }
 
 const lastCursorLine = new Map<string, number>();
+/** Diagnostics kept out of the Problems panel while typing; still offered as quick fixes (#579). */
+const heldBackByDocument = new Map<string, vscode.Diagnostic[]>();
+
+function heldBackOnLines(document: vscode.TextDocument, range: vscode.Range): vscode.Diagnostic[] {
+  return (heldBackByDocument.get(document.uri.toString()) ?? [])
+    .filter((diagnostic) => diagnostic.range.start.line <= range.end.line && range.start.line <= diagnostic.range.end.line);
+}
+
+function toVsCodeDiagnostic({ diagnostic, range }: DocumentDiagnosticItem): vscode.Diagnostic {
+  const vsCodeDiagnostic = new vscode.Diagnostic(
+    new vscode.Range(range.start.line, range.start.character, range.end.line, range.end.character),
+    diagnostic.message,
+    diagnostic.severity === 'warning'
+      ? vscode.DiagnosticSeverity.Warning
+      : diagnostic.severity === 'information'
+        ? vscode.DiagnosticSeverity.Information
+        : vscode.DiagnosticSeverity.Error,
+  );
+  vsCodeDiagnostic.source = diagnostic.source;
+  vsCodeDiagnostic.code = diagnostic.code;
+  return vsCodeDiagnostic;
+}
 const diagnosticTimers = new Map<string, ReturnType<typeof setTimeout>>();
 
 function scheduleAuthoringDiagnostics(document: vscode.TextDocument, diagnostics: vscode.DiagnosticCollection): void {
@@ -1449,6 +1475,7 @@ async function refreshDiagnosticsForDocument(
 ): Promise<void> {
   if (document.languageId !== 'markdown') {
     diagnostics.delete(document.uri);
+    heldBackByDocument.delete(document.uri.toString());
     return;
   }
 
@@ -1479,22 +1506,11 @@ async function refreshDiagnosticsForDocument(
   const whileTyping = vscode.workspace.getConfiguration('markdownMatrixInjector').get<WhileTyping>('diagnostics.whileTyping', 'quiet');
   // Prose IDs missing from the referenced sheets: shown on open/save, never while typing (ADR-0019 D13).
   const proseItems = phase === 'review' ? proseIdDiagnostics(document, workspaceRoot) : [];
+  const policy = { phase, cursorLine, whileTyping };
+  heldBackByDocument.set(document.uri.toString(), heldBackDiagnostics(items, policy).map(toVsCodeDiagnostic));
   diagnostics.set(
     document.uri,
-    [...applyDiagnosticPolicy(items, { phase, cursorLine, whileTyping }).map(({ diagnostic, range }) => {
-      const vsCodeDiagnostic = new vscode.Diagnostic(
-        new vscode.Range(range.start.line, range.start.character, range.end.line, range.end.character),
-        diagnostic.message,
-        diagnostic.severity === 'warning'
-          ? vscode.DiagnosticSeverity.Warning
-          : diagnostic.severity === 'information'
-            ? vscode.DiagnosticSeverity.Information
-            : vscode.DiagnosticSeverity.Error,
-      );
-      vsCodeDiagnostic.source = diagnostic.source;
-      vsCodeDiagnostic.code = diagnostic.code;
-      return vsCodeDiagnostic;
-    }), ...proseItems],
+    [...applyDiagnosticPolicy(items, policy).map(toVsCodeDiagnostic), ...proseItems],
   );
 }
 

@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { spawnPlan } from './npm-spawn.mjs';
 
 export function verifyCliPackage(tarballPath) {
   if (!fs.existsSync(tarballPath)) {
@@ -507,11 +508,12 @@ export function verifyCliPackage(tarballPath) {
 }
 
 function runNpm(args, cwd) {
-  const executable = process.platform === 'win32' ? 'npm.cmd' : 'npm';
-  const result = spawnSync(executable, args, {
+  const plan = spawnPlan('npm', args);
+  const result = spawnSync(plan.file, plan.args, {
     cwd,
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
+    shell: plan.shell,
   });
   if (result.error) throw result.error;
   if (result.status !== 0) {

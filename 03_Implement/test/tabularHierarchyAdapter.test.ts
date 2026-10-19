@@ -274,8 +274,10 @@ test('explicit header row supports title and note rows above a hierarchy table',
       ['A-1', 'A'],
     ],
   );
+  const firstRun = result.nodes[0].candidate.provenance.run;
+  assert.ok(firstRun.execution === 'deterministic');
   assert.equal(
-    result.nodes[0].candidate.provenance.run.config.headerRow,
+    firstRun.config.headerRow,
     2,
   );
   assert.equal(

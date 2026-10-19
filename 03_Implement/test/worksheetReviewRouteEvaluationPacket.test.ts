@@ -298,7 +298,7 @@ test('strict packet validation recomputes case and packet digests and requires c
   );
 
   const stateTamper = structuredClone(packet);
-  stateTamper.cases[0]!.state.noveltyScore = 0.99;
+  (stateTamper.cases[0]!.state as { noveltyScore: number }).noveltyScore = 0.99;
   assert.throws(
     () => assertWorksheetReviewRouteEvaluationPacket(
       stateTamper,
