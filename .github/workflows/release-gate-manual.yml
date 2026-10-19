@@ -1,7 +1,7 @@
 name: Release Gate Manual
 
 # 2026-09-23: GitHub Actions monthly usage is exhausted.
-# Preserve manual inputs, but disable the job until Actions use is explicitly resumed.
+# Gated on the repository variable MMI_ACTIONS_ENABLED (ADR-0025 D4).
 on:
   workflow_dispatch:
     inputs:
@@ -41,7 +41,7 @@ concurrency:
 
 jobs:
   release-gate-manual:
-    if: ${{ false }}
+    if: ${{ vars.MMI_ACTIONS_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

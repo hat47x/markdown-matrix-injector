@@ -13,6 +13,13 @@ artifacts/**
 dist/test/**
 # Experimental research code is compiled/tested but is not shipped until an adoption gate approves it.
 dist/src/experimental/**
+# Compiled dev/research scripts and type declarations are not loaded at runtime (ADR-0025 VSIX audit).
+dist/scripts/**
+dist/**/*.d.ts
+# Go portable-core experiments and their evidence
+portable/**
+# CLI packaging notes; THIRD_PARTY_NOTICES.md stays (SheetJS CE attribution)
+cli-distribution/README.md
 
 # Exclude CI/planning infrastructure
 .github/**

@@ -1,8 +1,14 @@
 name: CI
 
-# 2026-09-23: GitHub Actions monthly usage is exhausted.
-# Keep this workflow manual-only and all jobs disabled until Actions use is explicitly resumed.
+# 2026-09-23: GitHub Actions monthly usage was exhausted, so every job is gated
+# on the repository variable MMI_ACTIONS_ENABLED (ADR-0025 D4). With the
+# variable unset the jobs are skipped and use no minutes; set it to 'true'
+# (Settings > Secrets and variables > Actions > Variables) to resume CI
+# without editing this file. The jobs call the same commands as a local run.
 on:
+  push:
+    branches: [main]
+  pull_request:
   workflow_dispatch:
 
 permissions:
@@ -13,14 +19,22 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build:
-    if: ${{ false }}
-    runs-on: ubuntu-latest
+  # Product tests on Linux and on Windows, where most writers run VS Code.
+  test:
+    if: ${{ vars.MMI_ACTIONS_ENABLED == 'true' }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
     defaults:
       run:
         working-directory: 03_Implement
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -28,17 +42,16 @@ jobs:
           cache-dependency-path: 03_Implement/package-lock.json
       - name: Install dependencies
         run: npm ci
-      - name: TypeScript build
+      - name: Type check and build (whole project)
         run: npm run build
-      - name: Upload build artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: mmi-dist
-          path: 03_Implement/dist
+      - name: Product tests
+        run: npm test
+      - name: Release-gate tool tests
+        run: npm run test:release-gate-tools
 
   # Research-layer tests (#519). Informational: known failures there must not hide product regressions.
   research-tests:
-    if: ${{ false }}
+    if: ${{ vars.MMI_ACTIONS_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     continue-on-error: true
     defaults:
@@ -56,10 +69,15 @@ jobs:
       - name: Research-lane unit tests
         run: npm run test:research
 
-  release-gate:
-    if: ${{ false }}
+  # One release candidate per commit on main: VSIX, CLI tarball and the
+  # evidence that binds them to this commit (ADR-0025 D1). Nothing is published.
+  release-candidate:
+    if: ${{ vars.MMI_ACTIONS_ENABLED == 'true' && github.event_name != 'pull_request' }}
     runs-on: ubuntu-latest
-    needs: build
+    needs: test
+    defaults:
+      run:
+        working-directory: 03_Implement
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -71,59 +89,13 @@ jobs:
           cache: npm
           cache-dependency-path: 03_Implement/package-lock.json
       - name: Install dependencies
-        working-directory: 03_Implement
         run: npm ci
-      - name: Run release-gate tool unit tests
-        working-directory: 03_Implement
-        run: npm run test:release-gate-tools
-      - name: Run release gate check
-        working-directory: 03_Implement
-        run: |
-          npm run release:gate:clean
-          python3 ../01_Plans/tools/release_gate_check.py \
-            --repo-root .. \
-            --format json \
-            --output-file artifacts/release-gate.json \
-            --output-markdown-file artifacts/release-gate.md \
-            --allow-pending-issues
-          python3 ../01_Plans/tools/release_gate_metrics.py \
-            --input-file ../artifacts/release-gate.json \
-            --output-file ../artifacts/release-gate-metrics.csv
-          npm run docs:phase7-rollup
-          npm run release:gate:assert
-      - name: Upload release gate artifact
+      - name: Build release candidate
+        run: npm run release:candidate
+      - name: Upload release candidate
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: release-gate-report
-          path: |
-            artifacts/release-gate.json
-            artifacts/release-gate.md
-            artifacts/release-gate-metrics.csv
-            artifacts/phase7-issue-rollup.md
-
-  package:
-    if: ${{ false }}
-    runs-on: ubuntu-latest
-    needs: release-gate
-    defaults:
-      run:
-        working-directory: 03_Implement
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: 03_Implement/package-lock.json
-      - name: Install dependencies
-        run: npm ci
-      - name: Build
-        run: npm run build
-      - name: Package VSIX
-        run: npx vsce package
-      - name: Upload VSIX artifact
-        uses: actions/upload-artifact@v4
-        with:
-          name: mmi-vsix
-          path: 03_Implement/*.vsix
+          name: release-candidate
+          path: artifacts/release/
           if-no-files-found: error

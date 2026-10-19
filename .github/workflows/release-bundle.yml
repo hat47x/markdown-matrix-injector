@@ -1,19 +1,27 @@
-name: Release Bundle
+name: Release Candidate
 
-# 2026-09-23: GitHub Actions monthly usage is exhausted.
-# Keep this workflow manual-only and disabled until Actions use is explicitly resumed.
+# Builds a release candidate on demand, including the Extension Host E2E
+# (ADR-0025 D1). It uploads the candidate as a workflow artifact and publishes
+# nothing: creating a tag, a GitHub Release or a Marketplace entry stays a
+# human step (ADR-0025 D3). Gated on MMI_ACTIONS_ENABLED like CI (D4).
 on:
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
-  bundle:
-    if: ${{ false }}
+  candidate:
+    if: ${{ vars.MMI_ACTIONS_ENABLED == 'true' }}
     runs-on: ubuntu-latest
     defaults:
       run:
         working-directory: 03_Implement
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
       - uses: actions/setup-node@v4
         with:
           node-version: 22
@@ -21,20 +29,14 @@ jobs:
           cache-dependency-path: 03_Implement/package-lock.json
       - name: Install dependencies
         run: npm ci
-      - name: Build extension
-        run: npm run build
-      - name: Run unit tests
-        run: npm test
-      - name: Create release bundle
-        run: |
-          mkdir -p artifacts
-          tar -czf artifacts/markdown-matrix-injector-${GITHUB_REF_NAME:-manual}.tar.gz \
-            03_Implement/dist \
-            03_Implement/package.json \
-            03_Implement/media \
-            README.md
-      - name: Upload release bundle
+      - name: Install Extension Host E2E prerequisites
+        run: sudo apt-get update && sudo apt-get install -y xvfb
+      - name: Build release candidate with Extension Host E2E
+        run: npm run release:candidate -- --e2e
+      - name: Upload release candidate
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: markdown-matrix-injector-${{ github.ref_name }}
-          path: artifacts/*.tar.gz
+          name: release-candidate-${{ github.sha }}
+          path: artifacts/release/
+          if-no-files-found: error
