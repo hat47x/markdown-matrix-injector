@@ -6,13 +6,13 @@
 > [`samples/phase9-rule-table-pattern-guide.md`](../samples/phase9-rule-table-pattern-guide.md) を参照してください。
 
 ## 目的
-システム設計文書で使う表形式を、Droolsのspreadsheet decision tableで確立された構造を参照しながら、**文書パターン**と**テストデータパターン**として網羅的に整理する。
+システム設計文書で使う表形式について、Droolsのspreadsheet decision tableの構造を参考に、**文書パターン**と**テストデータパターン**を整理します。ここでの適用対象はMMI内部機能を題材にしたケーススタディであり、汎用的な設計書ひな形の採用を示すものではありません。
 
 ## 参照元（一次情報）
 - Drools Rule Language Reference（Spreadsheet decision tables）  
   https://kie.apache.org/docs/10.0.x/drools/drools/language-reference/index.html
 
-上記で示される次の構造を抽出軸として採用する。
+次のDroolsの構造を、表パターンを整理する際の比較軸として使います。
 - `RuleSet` 領域（パッケージ全体に効く定義）
 - `RuleTable` 領域（行がルール、列が条件/アクション/属性）
 - `NAME` による規則名の上書き
@@ -21,6 +21,8 @@
 ---
 
 ## 1. システム設計文書向けパターン分類
+
+MMI内部機能を文書化する際の観点を、P01〜P08に分けて示します。
 
 | Pattern ID | Drools 参照構造 | 設計文書での用途 | 必須列（最小） | 任意列（拡張） |
 |---|---|---|---|---|
@@ -37,6 +39,8 @@
 
 ## 2. テストデータ（CSV/XLSX）向けパターン分類
 
+以下は、各パターンに対応する試験データで確認したい観点です。検証が今回実行されたという意味ではありません。
+
 | Test Pattern | 主目的 | 最小列 | 期待する検証観点（MMI） |
 |---|---|---|---|
 | T01: 条件抽出 | 条件列のフィルタ再現 | `RuleName`, `ConditionExpr`, `Priority` | `grep` と `columns` で対象条件のみ抽出できる |
@@ -48,6 +52,8 @@
 ---
 
 ## 3. MMI での利用方法（実運用）
+以下の手順は、本カタログを使って文書・試験データを整理する際の運用ルールです。
+
 1. 文書化時はP01〜P08のどれに該当する表かを宣言してから作表する。
 2. 試験データ作成時はT01〜T05を最低1ケースずつ含める。
 3. 埋め込み検証は次を標準テンプレートとする。
@@ -60,7 +66,7 @@
 ![[../samples/phase8-drools-inspired-system-design-patterns.csv#Sheet1|A1:J9?header=first&columns=A,C,D,F&grep=print&mode=table]]
 ```
 
-4. 監査で不足パターンが見つかった場合は、以下を同時に実施する。
+4. 監査で不足パターンが見つかった場合は、次の作業を併せて実施する。
    - 本カタログへパターン追記
    - `03_Implement/test` へ該当観点の検証追加
    - 必要に応じて `requirements` / `issue` へ還流
@@ -71,4 +77,4 @@
 - 文書用サンプル: `04_Documentation/samples/phase8-drools-inspired-system-design-patterns.csv`
 - テスト用fixture（同等構造）: `03_Implement/test/fixtures/workspace/data/drools-inspired-system-design-patterns.csv`
 
-この2つを同期させることで、「公開文書で説明したパターン」と「テストで検証しているパターン」の乖離を最小化する。
+この2つの対応を維持し、公開文書で説明するパターンとテストで扱うパターンの乖離を抑えます。
