@@ -1,9 +1,11 @@
 # Phase 8 運用信頼性・サポート品質ガイド
 
+Phase 8で定めた障害一次対応、サポート記録、文書監査、要件・設計・テストへの改善還流の手順をまとめます。以下の期待結果は運用上の目標であり、今回の文書修正による達成実績ではありません。
+
 ## 対象読者
-- 障害一次対応を担当するMaintainer / Support担当
-- docs auditとrunbook更新を行うDocumentation担当
-- 再発防止のtest戦略を管理するQA / Delivery担当
+- 障害の一次対応を担当するMaintainer / Support担当
+- docs auditとrunbookの更新を担当するDocumentation担当
+- 再発防止のテスト方針を管理するQA / Delivery担当
 
 ## 前提条件
 - `00_Prompt/requirements.md` にPhase 8が定義されていること。
@@ -24,12 +26,14 @@
 - `01_Plans/tools/planning_queue.py`（orphan/pending可視化）
 
 ## 既知の制約
-- 現時点ではtriage自動分類は運用ルール主体であり、すべての問い合わせが自動タグ付けされるわけではない。
+- 本ガイドの記載時点ではtriageの分類は運用ルールが中心であり、すべての問い合わせが自動でタグ付けされるわけではない。
 - 問い合わせログの粒度が不足すると、contract testへの還流候補を十分に抽出できない。
 
 ---
 
 ## 1. インシデント一次対応の固定導線（最短経路）
+現象を再現可能な形で記録し、一次回避から恒久対応へつなぐための手順です。
+
 1. `python3 01_Plans/tools/planning_queue.py` を実行し、関連issue / orphanの有無を確認する。
 2. 対象現象を `path / sheet / query / render / print` のいずれかに分類する。
 3. issueに「入力・期待値・実際値・再現手順」を記録する。
@@ -39,7 +43,7 @@
 ---
 
 ## 2. サポート runbook 記録テンプレート（必須項目）
-サポート記録には、最低限次の8項目を残す。
+サポート記録には、最低限次の8項目を残します。
 
 1. 問い合わせID / 発生日
 2. 失敗分類（path/sheet/query/render/print）
@@ -53,6 +57,8 @@
 ---
 
 ## 3. 文書利便性・網羅性の監査（Documentation quality gate）
+
+利用者が必要な説明を探せるか、障害を再現する情報が揃っているかを、別々の観点で確認します。
 
 ### 3.1 利便性（Usability）チェック
 - 最短導線: 障害タイプごとに「最初に開くべき文書」が1ステップで辿れるか。
@@ -70,7 +76,7 @@
 1. 週次でサポート記録を分類し、再発頻度の高い失敗パターンを抽出する。
 2. 抽出結果を以下に振り分ける。
    - 要件変更が必要: `00_Prompt/requirements.md`
-   - 方針決定が必要: `01_Plans/adr/`は次のとおりです。
+   - 方針決定が必要: `01_Plans/adr/`
    - 実行タスク化が必要: `01_Plans/issues/`
    - 回帰防止が必要: `03_Implement/test`
 3. 反映後、`python3 01_Plans/tools/planning_queue.py` を再実行しorphan issueが0であることを確認する。
@@ -79,6 +85,8 @@
 ---
 
 ## 5. Drools 由来テーブル書式の適用方針（設計文書・テストデータ）
+ここではMMI内部機能を題材としたパターンカタログを参照します。汎用SIer設計書テンプレートとしての受入を示すものではありません。
+
 Phase 8では、OSS BRMSのDroolsが公開しているspreadsheet decision tableの構造（`RuleSet` 領域 + `RuleTable` 領域、行=ルール、列=条件/アクション/属性）を、システム設計文書で必要な表パターン抽出の参照モデルとして利用する。
 
 運用ルールは以下で固定する。
