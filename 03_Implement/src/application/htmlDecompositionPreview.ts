@@ -102,7 +102,9 @@ export function previewHtmlDecomposition(
           const replacement = replacements.get(attribute.value);
           if (!replacement) continue;
           // Do not silently treat SVG or other namespaced references as links.
-          if (node.tagName.toLowerCase() !== 'a' || attribute.name !== 'href') {
+          if (node.tagName.toLowerCase() !== 'a'
+              || node.namespaceURI !== 'http://www.w3.org/1999/xhtml'
+              || attribute.name !== 'href') {
             throw new Error('MMI_HTML_PREVIEW_UNSUPPORTED_LINK_KIND: cannot rewrite non-HTML anchor');
           }
           attribute.value = replacement;
