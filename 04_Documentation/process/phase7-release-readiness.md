@@ -1,9 +1,11 @@
 # Phase 7 リリース運用品質ガイド
 
+Phase 7で定めたリリース判定、導入KPIの記録、文書監査からの改善手順を説明します。後続のADR-0012 D6で再定義されたKPIと、Phase 7当時の指標は区別して参照してください。
+
 ## 対象読者
-- リリース判定を行うMaintainer
-- docs audit / feedback loopを運用するDocumentation担当
-- query-evidence artifactを用いて導入評価を行うProduct / QA担当
+- リリース可否を判定するMaintainer
+- docs auditと改善へのフィードバックを運用するDocumentation担当
+- query-evidence artifactを根拠に導入状況を評価するProduct / QA担当
 
 ## 前提条件
 - `00_Prompt/requirements.md` にPhase 7が定義されていること。
@@ -29,12 +31,14 @@
 - `04_Documentation/README.md`（公開導線と運用導線）
 
 ## 既知の制約
-- 現時点で `npm run lint` は未定義のため、release gateは `release_gate_check.py`（G1/G2/G3:Phase9Sync）とドキュメント導線レビューを組み合わせて運用する。
+- 本ガイドの記載時点では `npm run lint` が未定義のため、release gateは `release_gate_check.py`（G1/G2/G3:Phase9Sync）とドキュメント導線レビューを組み合わせて運用する。
 - 導入KPIの母集団はquery-evidence exportを実施した案件に限定される。
 
 ---
 
 ## 1. Release gate checklist（固定）
+
+次のG1〜G6を共通の判定表として使用します。G1〜G3の自動判定とG4〜G6の人手レビューを、後述の順序で実施する運用手順です。
 
 | Gate | 必須チェック | 実行コマンド/証跡 | 合格条件 |
 |---|---|---|---|
@@ -46,6 +50,8 @@
 | G6: Decision Integrity | ADR/issue の責務分離 | ADR/issue 差分レビュー | 方針=ADR、実行=issue を維持 |
 
 ### 判定フロー
+以下は判定時に実施する手順です。今回の文書修正でコマンドを実行した記録ではありません。
+
 1. まず `python3 01_Plans/tools/release_gate_check.py` を実行し、G1/G2/G3（Phase9Sync）を自動判定する。
    - `03_Implement` 配下では `npm run release:gate`（証跡保存時は `npm run release:gate:artifacts`、CSVまで含む場合は `npm run release:gate:full`）を利用できる。
    - release-gate toolingのunit testは `npm run test:release-gate-tools` で実行する。
@@ -91,7 +97,7 @@
    - 定義: `レビュー前に検知できたリンク不整合件数 / 総リンク不整合件数`
    - 根拠: diagnostics / query-evidenceの検出ログ。
 3. 印刷再現性
-   - 定義: `再現成功件数 / 印刷検証総件数`は次のとおりです。
+   - 定義: `再現成功件数 / 印刷検証総件数`。
    - 成功条件: pageBreak / orientation / fallback表示が期待通り。
 
 ### 2.4 記録テンプレート（最小項目）
@@ -103,6 +109,8 @@
 - 次アクション（issue起票先）
 
 ### 2.5 KPI redefinition (ADR-0012 D6)
+
+この節は、Phase 7の従来指標を後続の週次運用にそのまま適用しないための区別です。
 
 > **注記**: 上記 2.1〜2.4 は Phase 7 時点の計測アプローチの歴史的記録として残す（書き換えない）。
 > Phase 10 の週次ガバナンスレポート運用は、以降 ADR-0012 D6 で再定義された 3 KPI
@@ -120,6 +128,8 @@
 ---
 
 ## 3. docs audit -> 上流還流 SLA
+
+文書監査で判明した課題は、修正先の責任に応じて次の期限と担当へ振り分けます。
 
 | 区分 | 期限 (SLA) | 責任 | 還流先 |
 |---|---|---|---|
