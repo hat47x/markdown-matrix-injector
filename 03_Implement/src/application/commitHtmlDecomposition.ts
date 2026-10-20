@@ -175,7 +175,7 @@ export function commitHtmlDecomposition(
   readLedger(ledgerPath); // verify existing ledger before any writes
   verifySource(sourcePath, sourceDigest);
 
-  const created: string[] = [];
+  const created: { path: string; digest: string }[] = [];
   const temporary: string[] = [];
   const statuses = new Map<string, 'written' | 'unchanged'>();
   try {
@@ -194,7 +194,7 @@ export function commitHtmlDecomposition(
       verifySource(sourcePath, sourceDigest);
       try {
         fs.linkSync(temporaryPath, file.absolute); // create-if-absent, no overwrite
-        created.push(file.absolute);
+        created.push({ path: file.absolute, digest: file.digest });
         statuses.set(file.output, 'written');
       } catch (error) {
         if ((error as NodeJS.ErrnoException).code !== 'EEXIST'
@@ -243,7 +243,11 @@ export function commitHtmlDecomposition(
     // If the process crashes, a partially published batch may remain.
     // Do not remove pre-existing outputs, and do not claim crash-atomicity.
     for (const file of created.reverse()) {
-      try { fs.unlinkSync(file); } catch { /* retain original error */ }
+      try {
+        // Another process may have changed the name after publication.
+        // Never unlink a replaced file with unexpected contents.
+        if (existingOutput(file.path, file.digest)) fs.unlinkSync(file.path);
+      } catch { /* Preserve original failure and any nonmatching output. */ }
     }
     throw error;
   } finally {
