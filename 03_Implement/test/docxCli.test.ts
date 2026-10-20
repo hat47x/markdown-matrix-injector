@@ -6,6 +6,7 @@ import path from 'node:path';
 
 import { inspectSource } from '../src/cli/mmi.js';
 import { extractDocxImage, extractDocxTable } from '../src/application/extractDocx.js';
+import { checkExtractedProvenanceFreshness } from '../src/application/detachFreshness.js';
 import { readLedger } from '../src/core/importLedger.js';
 import { candidateProblem } from '../src/core/candidate.js';
 import { pngOf } from './helpers/buildXlsxWithImages.js';
@@ -166,5 +167,68 @@ test('outputs outside the workspace are rejected before writing', () => {
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
     fs.rmSync(outside, { recursive: true, force: true });
+  }
+});
+
+test('Word extracted tables and pictures participate in detach freshness checks', () => {
+  const root = workspace();
+  try {
+    const source = path.join(root, 'design.docx');
+    const document = path.join(root, 'doc.md');
+    const ledger = path.join(root, 'mmi-ledger.json');
+    const make = (value: string) => buildDocx({
+      relationships: [relationship({ id: 'rId1', target: 'media/image1.png' })],
+      media: { 'image1.png': PNG },
+      body: tableWithHeaderRow(['項目'], [[value]]) + drawing({ relationshipId: 'rId1', name: '図' }),
+    });
+    fs.writeFileSync(source, make('当初'));
+    const inspected = inspectSource(source, 0, document);
+    const table = inspected.docx?.tables[0];
+    const imageCandidate = inspected.candidates.find((candidate) => candidate.kind === 'image');
+    assert.ok(table && imageCandidate);
+    const tableResult = extractDocxTable({
+      sourcePath: source,
+      ordinal: 1,
+      expectedFingerprint: table.fingerprint,
+      workspaceRoot: root,
+      outDir: path.join(root, 'assets'),
+      ledgerPath: ledger,
+      fromDocument: document,
+    });
+    const imageResult = extractDocxImage({
+      sourcePath: source,
+      ordinal: 1,
+      expectedFingerprint: imageCandidate.fingerprint.digest,
+      workspaceRoot: root,
+      outDir: path.join(root, 'assets'),
+      ledgerPath: ledger,
+      fromDocument: document,
+    });
+    assert.deepEqual([...tableResult.problems, ...imageResult.problems], []);
+    assert.ok(tableResult.extracted && imageResult.extracted);
+    fs.writeFileSync(
+      document,
+      `${tableResult.extracted.markdown}\n\n${imageResult.extracted.markdown}\n`,
+    );
+    const fresh = checkExtractedProvenanceFreshness({
+      markdownFilePath: document,
+      workspaceRoot: root,
+      ledgerPath: ledger,
+    });
+    assert.deepEqual([fresh.checked, fresh.errors], [2, 0]);
+
+    fs.writeFileSync(source, make('変更後'));
+    const stale = checkExtractedProvenanceFreshness({
+      markdownFilePath: document,
+      workspaceRoot: root,
+      ledgerPath: ledger,
+    });
+    assert.ok(stale.errors > 0);
+    assert.equal(stale.checked, 2);
+    assert.equal(stale.problems.length, 1, 'the unchanged picture remains fresh');
+    assert.equal(stale.problems[0].code, 'MMI_DETACH_EXTRACTED_STALE');
+    assert.equal(stale.problems[0].place, 'path:/body/tbl[1]');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
   }
 });
