@@ -8,7 +8,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Per-document provenance report** (`mmi provenance`, `mmi.provenance-report/v1`, ADR-0028, #525): one read-only, content-light report per Markdown document with Linked references and current source digests, adopted Extracted assets with ledger conversion/review metadata and detach freshness, `mmi check` diagnostics, and an explicit `not-configured` review-basis status until #522 lands. The public schema is available through `mmi schema provenance-report`.
+- **Per-document provenance report** (`mmi provenance`, `mmi.provenance-report/v1`, ADR-0028, #525): one read-only, content-light report per Markdown document with Linked references and current source digests, adopted Extracted assets with ledger conversion/review metadata and detach freshness, `mmi check` diagnostics, and the review state of each Linked reference.
+- **Review basis** (`mmi review-basis`, `mmi.review-basis/v1`, #522): an explicit sidecar (`mmi-review-basis.json`) records the canonical logical-table digest of each reviewed Linked reference. `mmi provenance` reports `fresh` / `stale` / `unrecorded` / `unverifiable`, so a change outside the referenced range does not mark the prose as stale. Recording never happens automatically; an unreadable reference leaves the file unchanged.
 
 ## [0.2.0] - 2026-10-20
 

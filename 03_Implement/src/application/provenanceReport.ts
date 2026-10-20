@@ -30,6 +30,10 @@ import {
   type DetachFreshnessProblem,
   type ExtractedProvenance,
 } from './detachFreshness.js';
+import {
+  evaluateReviewBasis,
+  type ReviewEvaluation,
+} from './reviewBasis.js';
 
 export type ProvenanceLinkedStatus = 'resolved' | 'missing' | 'outside-root';
 export type ProvenanceFreshness = 'fresh' | 'stale' | 'missing' | 'untracked' | 'unknown';
@@ -80,13 +84,14 @@ export interface ProvenanceReport {
     diagnostics: number;
     stale: number;
     missingSources: number;
+    reviewStale: number;
+    reviewUnrecorded: number;
   };
   linked: ProvenanceLinkedRecord[];
   extracted: ProvenanceExtractedRecord[];
-  review: {
-    status: 'not-configured';
-    reasonCode: string;
-    message: string;
+  review: ReviewEvaluation & {
+    reasonCode?: string;
+    message?: string;
     trackingIssue?: string;
   };
   diagnostics: ProvenanceDiagnostic[];
@@ -96,6 +101,8 @@ export interface BuildProvenanceReportOptions {
   markdownFilePath: string;
   workspaceRoot: string;
   ledgerPath: string;
+  /** Defaults to `<workspaceRoot>/mmi-review-basis.json`. */
+  reviewBasisPath?: string;
   /** Reuse the caller's `mmi check` result so CLI and report agree. */
   diagnostics?: readonly ProvenanceDiagnostic[];
 }
@@ -307,6 +314,17 @@ export function buildProvenanceReport(
   const diagnostics = [...(options.diagnostics ?? [])];
   const missingSources = linked.filter((item) => item.status !== 'resolved').length
     + extracted.missing;
+  const review = evaluateReviewBasis({
+    markdownFilePath,
+    workspaceRoot,
+    sidecarPath: path.resolve(
+      options.reviewBasisPath ?? path.join(workspaceRoot, 'mmi-review-basis.json'),
+    ),
+    references: linked.map((item) => ({
+      reference: item.reference,
+      source: item.source,
+    })),
+  });
   return {
     schema: PROVENANCE_REPORT_SCHEMA,
     document: {
@@ -319,15 +337,21 @@ export function buildProvenanceReport(
       diagnostics: diagnostics.length,
       stale: extracted.stale,
       missingSources,
+      reviewStale: review.stale,
+      reviewUnrecorded: review.unrecorded,
     },
     linked,
     extracted: extracted.records,
     review: {
-      status: 'not-configured',
-      reasonCode: 'MMI_REVIEW_BASIS_NOT_RECORDED',
-      message:
-        'Linked references do not yet record the reviewed logical-table digest (#522); this report does not claim that prose was reviewed.',
-      trackingIssue: '#522',
+      ...review,
+      ...(review.status === 'not-configured'
+        ? {
+            reasonCode: 'MMI_REVIEW_BASIS_NOT_RECORDED',
+            message:
+              'no review-basis file exists; use `mmi review-basis <doc.md> --write` after reviewing the referenced tables.',
+            trackingIssue: '#522',
+          }
+        : {}),
     },
     diagnostics,
   };
@@ -376,8 +400,15 @@ export function formatProvenanceReport(report: ProvenanceReport): string {
   lines.push('');
   lines.push('## 見直し記録');
   lines.push(
-    `未設定（${report.review.reasonCode}）。${report.review.message}`,
+    `- status: ${report.review.status}  file: ${report.review.file}`,
   );
+  for (const item of report.review.references) {
+    const reason = item.reasonCode ? `  ${item.reasonCode}` : '';
+    lines.push(`- ${item.reference}  [${item.status}]${reason}`);
+  }
+  if (report.review.reasonCode) {
+    lines.push(`${report.review.reasonCode}: ${report.review.message ?? ''}`);
+  }
   lines.push('');
   lines.push('## 診断');
   if (report.diagnostics.length === 0) {
