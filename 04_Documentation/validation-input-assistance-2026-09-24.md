@@ -1,8 +1,10 @@
 # 入力支援機能の検証記録（2026-09-24）
 
+この文書は2026年9月24日の確認結果と、実機で未確認の操作を記録したものです。後日実施する検証の完了状況を示すものではありません。
+
 ## 判定
 
-補完、案内に沿った参照作成、自然言語による表検索、内容照合、ホバー表示、修正候補などの追加実装を確認した。関連する単体テスト53件は通過した。**現行ソースからの全体ビルドと、VS Code画面での操作確認は完了していない。** この記録は正式リリースの実機検証完了証明ではない。
+補完、案内に沿った参照作成、自然言語による表検索、内容照合、ホバー表示、修正候補などの追加実装を確認しました。関連する単体テスト53件は通過しています。ただし、**この記録時点では全体ビルドとVS Code画面での操作確認は完了していません。** 正式リリースの実機検証完了を示す記録ではありません。
 
 今回のタスクではComputer Useによる操作を試みたが、このセッションにはスキルが指定する `mcp__node_repl__js` が公開されていなかった。そのため、新機能のスクリーンショットと動画は採取していない。過去の[画像・動画](media/release-20260908/README.md)は2026-09-08時点の基本機能の記録であり、今回の追加機能の動作証拠として扱わない。
 
@@ -24,11 +26,13 @@ cd 03_Implement
 node --import tsx --test test/completionContext.test.ts test/parameterDiagnostics.test.ts test/cpuSearch.test.ts test/contentMatchSearch.test.ts
 ```
 
-結果は **53件成功、0件失敗**。Windows側の `node_modules` はLinux用 `esbuild` を含むため、Windows Node.js v24.19.0での同コマンドは起動前に失敗した。テスト結果はWSLで得たものだけを採用した。
+結果は **53件成功、0件失敗** です。Windows側の `node_modules` はLinux用 `esbuild` を含むため、Windows Node.js v24.19.0での同コマンドは起動前に失敗しました。そのため、採用したテスト結果はWSLで得られたものだけです。
 
 `npm run build` は5件のTypeScriptエラーで停止した。該当箇所は `src/experimental/worksheetReviewRouteEvaluationPlan.ts`、`test/unifiedHumanReviewViewModel.test.ts`、`test/worksheetFormatFillReviewTelemetryExternalXlsx.test.ts`、`test/worksheetReviewRouteEvaluationPacket.test.ts`、`test/worksheetReviewRouteEvaluationRecordComparison.test.ts`。ビルドが通らないため、現行ソースのVSIXを用いた追加機能のE2E実行には進めていない。これらを修正した後に、全体ビルドと `npm run test:e2e:practical` を再実行する必要がある。
 
 ## VS Codeで残る操作確認と撮影項目
+
+以下は当時未実施だった実機確認と撮影の手順です。手順を記載したことは、画面操作や撮影が完了したことを意味しません。
 
 操作にはリポジトリ内の[実務サンプル](samples/practical/README.md)を使い、起動した拡張機能のビルド元コミットとVS Codeのバージョンを記録する。各操作で、参照記法だけでなくMarkdownプレビューの表示と原本が変更されないことも確かめる。
 
@@ -39,4 +43,4 @@ node --import tsx --test test/completionContext.test.ts test/parameterDiagnostic
 5. 正しい参照にホバーして表のプレビューと編集リンクを撮影する。`mode=tabel` と `heder=first` を入力し、診断表示と修正候補、修正後のプレビューを撮影する。
 6. 拡張機能のウォークスルーと日本語のコマンド名を撮影する。ショートカット `Ctrl+Alt+M` と右クリックメニューから同じ案内画面を開けることを確認する。
 
-スクリーンショットは各手順の**操作前、候補表示、確定後**が識別できる名前で保存する。動画は補完から参照挿入、プレビュー確認までと、内容照合から候補選択までの二本に分け、カーソル操作と結果が読める解像度で収録する。撮影日時、OS、VS Code、VSIX、コミット、サンプルデータの版を添え、各画像・動画をこの記録からリンクする。現時点では新規撮影物がないため、リンク欄は設けていない。
+スクリーンショットは各手順の**操作前、候補表示、確定後**が識別できる名前で保存します。動画は、補完から参照挿入・プレビュー確認までと、内容照合から候補選択までの二本に分け、カーソル操作と結果が読める解像度で収録します。撮影日時、OS、VS Code、VSIX、コミット、サンプルデータの版を添え、各画像・動画をこの記録からリンクします。記録時点では新規撮影物がなかったため、リンク欄は設けていません。
