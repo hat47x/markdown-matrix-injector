@@ -19,4 +19,3 @@ export function readBoundedSourceBytes(file: string, maxBytes: number): Buffer {
     return buffer.subarray(0, length);
   } finally { fs.closeSync(fd); }
 }
-
