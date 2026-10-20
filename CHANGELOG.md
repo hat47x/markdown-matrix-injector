@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 - **Word (.docx) Source Adapter** (ADR-0026, #531): read-only observation of explicit heading styles/outline levels, tables (including `gridSpan`/`vMerge`), embedded pictures and comments as `section`, `table-range`, `image` and `note` Candidates. `mmi inspect` lists them; `mmi extract --docx-table` / `--docx-image` require the reviewed fingerprint and write content-addressed assets with ledger provenance. Nested tables, external image links, unsupported media and missing optional parts are reported as diagnostics without stopping the rest. Not a Linked target for MMI Notation yet.
+- **Per-document provenance report** (`mmi provenance`, `mmi.provenance-report/v1`, ADR-0028, #525): one read-only, content-light report per Markdown document with Linked references and current source digests, adopted Extracted assets with ledger conversion/review metadata and detach freshness, `mmi check` diagnostics, and an explicit `not-configured` review-basis status until #522 lands. The public schema is available through `mmi schema provenance-report`.
 
 ## [0.2.0] - 2026-10-20
 

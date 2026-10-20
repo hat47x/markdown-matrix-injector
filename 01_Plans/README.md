@@ -39,10 +39,12 @@ D
 | 2（既存） | [文脈に応じた補完](https://github.com/hat47x/markdown-matrix-injector/issues/491)、[参照の作成・編集](https://github.com/hat47x/markdown-matrix-injector/issues/492) | In Progress | 多環境の実機確認、利用者の観測 |
 | **3 Source Adapterの一般化** | [Tree / Hierarchy、JSON/YAML/XML、フラットテキスト](https://github.com/hat47x/markdown-matrix-injector/issues/502) | **In Progress**（Tree各形式を共通ライフサイクルへ接続。Excel Choice listは別kindのまま直接範囲参照をM0解決。AutoShape/connectorもsource semanticsからM0 Candidate化） | 次: structured artifactの`hierarchy_relation`をAuthorityへ昇格させないPerception providerとして接続する |ature/docx-source-adapter-20261020
 | 3 | Shape、その他List source | **In Progress** | AutoShape/connectorのSource Adapterとreview/import観測は実装済み。Choice listは独立kindを継続。残る主課題はShapeのExtracted変換とgraphic frame等の安全な分類 |
+D
 | 3 | [WordのSource Adapter](https://github.com/hat47x/markdown-matrix-injector/issues/531)（[ADR-0026](adr/ADR-0026-word-source-adapter-read-only-boundary.md)・[利用案内](../04_Documentation/word-source-adapter.md)） | **In Progress**（.docxの見出し・表・画像・コメントを`section`・`table-range`・`image`・`note` Candidateへ変換。`inspect`と、レビューfingerprint必須の表・画像`extract`を実装。自動テストは合成OOXMLと実生成fixtureで確認） | 実在の業務設計書、Word実機保存文書、変更履歴・コメント入り文書、VS Codeレビュー接続を確認する。初版の非対象はADR-0026に記載 |
 | 3（研究） | structured artifact（SAI）、worksheet format、[review route](https://github.com/hat47x/markdown-matrix-injector/issues/497) | In Progress | 新しい研究段階は、issue-0193の対応表のどの行を強くするかを示してから始める |
 | **4 Detachability** | [実体化とdetach check](https://github.com/hat47x/markdown-matrix-injector/issues/499) | **In Progress**（表・別紙・ローカル画像のmaterialize、採用済み表・画像・JSON/YAML/XML/フラットテキスト/表形式階層Treeのfreshness preflight、artifact closureを実装） | 表・キット・画像つき文書の手動E2Eを確認済み（2026-10-08）。Windowsでキットの実体化とdetach-checkも確認済み（2026-10-15）。残: 実在する設計書での確認、macOS、Windowsの画像つき文書。Shape等がExtracted可能になったら同じprovenance/freshness契約へ拡張 |
 | 4 | [原本参照の影響分析](https://github.com/hat47x/markdown-matrix-injector/issues/515) | **In Progress**（Linked / Extracted / ローカルリンクをread-onlyで横断列挙。CLIに加え、エクスプローラーから影響先Markdownの該当行を開ける） | Node 20と実VS Codeで確認し、実務workspaceの変更・移動・削除判断に十分かを観測する |
+| 4 | [文書ごとの出典報告](https://github.com/hat47x/markdown-matrix-injector/issues/525)（[ADR-0028](adr/ADR-0028-per-document-provenance-report-contract.md)・[利用案内](../04_Documentation/provenance-report.md)） | **In Progress**（`mmi.provenance-report/v1`、`mmi provenance`、Linked／Extracted／診断の統合、内容を写さない読み取り専用報告を実装。自動テスト済み） | #522の見直し記録を同じ契約へ接続する。実在設計書とCIでの利用観測、実機・AIエージェントからの利用は未実施 |
 | **5 組織導入** | 文書キットの追加、CI関門、執筆ベンチマーク v1（大きな表・複数シート・本文と表の矛盾） | 未起票 | 優先度2の縦切りの後 |
 | 5 | [外部の判断記録からの根拠の固定（SEI）](https://github.com/hat47x/markdown-matrix-injector/issues/498) | Draft | CLIの契約が固まった後 |
 | 横断・実行確認 | [リファクタ後の製品テスト9件の再確認](issues/issue-0212-refactor-test-drift.md) | **Done**（2026-10-13、Node 20で9件が合格。全体testの失敗は研究層の36件のみ） | 研究層の既知失敗は個別Issueで扱う。標準出力を差し替えて取り込むCLIテスト11ファイルの点検（任意） |
@@ -80,4 +82,4 @@ WSL2 Ubuntu（Node v20、npm 10、Python 3.12）で`npm ci`・`npm run build`・
 python 01_Plans/tools/planning_queue.py --github
 ```
 
-Draftは検討中であり、採用・実装済みを意味しない。重要な選択は[ADR](adr/TEMPLATE.md)、実行内容は[GitHub Issues](https://github.com/hat47x/markdown-matrix-injector/issues)へ記す。入力支援の経緯は[企画](input-assistance-proposal.md)・[設計レビュー](input-assistance-design-review.md)・[技術調査](input-assistance-technical-research.md)にある。日々の経緯や完了作業の一覧はこのページへ追加しない。`01_Plans/issues/`には、GitHub Issueへ移管する前にクローズしたIssueの本文だけを保管する。
+Draftは検討中であり、採用・実装済みを意味しない。重要な選択は[ADR](adr/TEMPLATE.md)、実行内容は[GitHub Issues](https://github.com/hat47x/markdown-matrix-injector/issues)へ記す。入力支援の経緯は[企画](input-assistance-proposal.md)・[設計レビュー](input-assistance-design-review.md)・[技術調査](input-assistance-technical-research.md)にある。日々の経緯や完了作業の一覧はこのページへ追加しない。`01_Plans/issues/`には、GitHub Issueへ移管する前にクローズしたIssueの本文だけを保管する。20
