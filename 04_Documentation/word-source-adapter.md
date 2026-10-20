@@ -56,6 +56,6 @@ Markdownへの投影では、表の先頭行を見出し行として使います
 
 ## 検証状況
 
-- 自動テスト: 合成したWordprocessingMLと、実際のWordprocessingML生成器で作ったfixture（見出し・表・画像）で確認済み。
+- 自動テスト: 合成したWordprocessingMLと、実際のWordprocessingML生成器で作ったfixture（見出し・表・画像・コメント）で確認済み。
 - 未確認: 実在の業務設計書、Word for Windows/Macで保存した文書、変更履歴・コメントを含む実文書、VS Codeレビュー画面との接続。これらは実機確認として別に扱います。
 - 関連: [ADR-0026](../01_Plans/adr/ADR-0026-word-source-adapter-read-only-boundary.md)、[Candidate契約](../02_Architecture/candidate-contract-v1.md)、Issue #531。
