@@ -58,7 +58,13 @@ mmi schema provenance-report
 
 ## 終了コード
 
-`provenance`は報告を返すコマンドであり、マージ可否のゲートではありません。診断があっても終了コードは0です。CIで失敗させたい場合は、`--json`の`summary.diagnostics`や`summary.stale`を利用者側で判定するか、既存の`mmi check`・`mmi detach-check`を使います。
+`provenance`は報告を返すコマンドであり、既定ではマージ可否のゲートではありません。診断があっても終了コードは0です。CIで失敗させたい場合は、明示的に`--fail-on`を指定します。
+
+```sh
+mmi provenance ./docs/basic-design.md --fail-on diagnostics,review-stale,missing --json
+```
+
+`--fail-on`は`diagnostics`・`stale`（Extractedの鮮度）・`review-stale`（Linked参照の見直し）・`missing`（原本なし）を受け取ります。指定した条件に1つでも該当すれば終了コード1です。既定の0を変えないため、レポートとしての利用とCIゲートとしての利用を分けられます。
 
 ## 検証状況
 

@@ -247,10 +247,12 @@ Commands:
       --ledger <file>          verify adopted extracted Candidates against this ledger
   detach-check <doc.md>     Verify a Markdown artifact has no MMI refs, unresolved cards,
                             broken local links or links outside --root
-  manifest <doc.md>         List references that fall back to 蛻･邏・cards as CSV
+  manifest <doc.md>         List references that fall back to 別紙 cards as CSV
   provenance <doc.md>       Report Linked references, adopted Extracted assets and diagnostics for one document
       --ledger <file>         import ledger (default: <root>/mmi-ledger.json)
       --review-basis <file>   review-basis sidecar (default: <root>/mmi-review-basis.json)
+      --fail-on <list>        opt-in CI gate: diagnostics,stale,review-stale,missing
+                            Default exit code is 0 because this command is a report.
                             Read-only and content-light: source cell values are not included.
                             Review state is not-configured until 'review-basis --write' is used.
   review-basis <doc.md>     Preview or explicitly record the reviewed logical-table digest of each Linked reference
@@ -340,6 +342,7 @@ export async function main(argv: string[]): Promise<number> {
       'assets-dir': { type: 'string' },
       ledger: { type: 'string' },
       'review-basis': { type: 'string' },
+      'fail-on': { type: 'string' },
       write: { type: 'boolean', default: false },
       'similarity-evidence': { type: 'string' },
       unimported: { type: 'boolean', default: false },
@@ -1250,6 +1253,17 @@ export async function main(argv: string[]): Promise<number> {
       if (!handoffPathWithinRoot(markdownFilePath, root)) {
         return usageError('provenance document must stay within --root workspace');
       }
+      const failOn = new Set(
+        (values['fail-on'] ?? '').split(',').map((item) => item.trim()).filter(Boolean),
+      );
+      const failOnChoices = new Set(['diagnostics', 'stale', 'review-stale', 'missing']);
+      for (const choice of failOn) {
+        if (!failOnChoices.has(choice)) {
+          return usageError(
+            `--fail-on accepts diagnostics, stale, review-stale, missing (got ${choice})`,
+          );
+        }
+      }
       let report;
       try {
         const diagnostics = await checkPaths([markdownFilePath], root);
@@ -1270,7 +1284,11 @@ export async function main(argv: string[]): Promise<number> {
       emit(values.json
         ? JSON.stringify(report, null, 2)
         : formatProvenanceReport(report));
-      return 0;
+      const failed = (failOn.has('diagnostics') && report.summary.diagnostics > 0)
+        || (failOn.has('stale') && report.summary.stale > 0)
+        || (failOn.has('review-stale') && report.summary.reviewStale > 0)
+        || (failOn.has('missing') && report.summary.missingSources > 0);
+      return failed ? 1 : 0;
     }
     case 'review-basis': {
       if (args.length !== 1) return usageError('review-basis takes one Markdown file');

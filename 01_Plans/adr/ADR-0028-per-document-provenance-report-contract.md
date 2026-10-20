@@ -27,7 +27,7 @@ MMIの利用者は、一つの文書が何を参照し、何を取り込み、�
 3. **LinkedとExtractedを分ける。** Linkedは記法上の参照と現在の原本ダイジェストを、Extractedは台帳の採用記録と`checkExtractedProvenanceFreshness()`の結果を報告する。両者を一つの「参照」に混ぜない。
 4. **見直し記録は別ファイルへ明示的に書く。** `mmi review-basis --write`が、参照ごとの論理表ダイジェストを`mmi-review-basis.json`（`mmi.review-basis/v1`）へ記録する。`provenance`は記録と現在の論理表を比較し、`fresh`・`stale`・`unrecorded`・`unverifiable`を区別する。記録は自動更新せず、1つでも読めない参照があれば部分的な記録を書かない。記録を記法へ書くかはHuman Sponsorの判断を仰ぐ（#522）。
 5. **診断は`check`の結果を再利用する。** 報告は独自の検証器を持たず、CLIが`checkPaths()`で得た診断を渡す。`check`と`provenance`で診断が食い違わないようにする。
-6. **報告はゲートではない。** `provenance`は情報を返し、終了コード0を基本とする。マージやリリースの可否は既存の`check`・`detach-check`・release gateが決める。報告を使ってCIを失敗させたい場合は、診断件数を利用者側で判定する。
+6. **報告は既定ではゲートではない。** `provenance`は情報を返し、終了コード0を基本とする。利用者が`--fail-on diagnostics,stale,review-stale,missing`を明示した場合だけ、該当件数で終了コード1を返す。既定の0を変えないことで、レポートとCIゲートを分ける。マージ・リリースの最終判断は既存の`check`・`detach-check`・release gateが持つ。
 7. **書き込みをしない。** 報告の生成は、原本・Markdown・台帳・成果物を書き換えない。出力は`--out`で明示した場合だけ書き出す。
 
 ## Consequences
