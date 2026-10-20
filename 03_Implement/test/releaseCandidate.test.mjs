@@ -106,6 +106,9 @@ test('version facts must agree before anything is built', () => {
 test('test summaries of all lanes are added up', () => {
   const output = 'ℹ tests 10\nℹ pass 9\nℹ fail 0\nℹ skipped 1\n...\nℹ tests 3\nℹ pass 3\nℹ fail 0\nℹ skipped 0\n';
   assert.deepEqual(sumTestSummary(output), { tests: 13, pass: 12, fail: 0, skipped: 1 });
+  // Node.js 22 in CI prints TAP when stdout is not a terminal.
+  const tap = '# tests 10\n# suites 0\n# pass 10\n# fail 0\n# cancelled 0\n# skipped 0\n';
+  assert.deepEqual(sumTestSummary(tap), { tests: 10, pass: 10, fail: 0, skipped: 0 });
 });
 
 test('only a clean tree with every automated step passed is releasable; optional steps may be not-run', () => {

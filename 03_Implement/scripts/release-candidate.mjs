@@ -226,10 +226,14 @@ export function checkVersionConsistency({ packageJson, packageLock, changelog, r
   return problems;
 }
 
-/** Sums node:test summary lines ("ℹ tests 12") over all lanes of one run. */
+/**
+ * Sums node:test summary lines over all lanes of one run: "ℹ tests 12" from
+ * the spec reporter and "# tests 12" from TAP, which Node.js 22 and older use
+ * when the output is not a terminal (CI).
+ */
 export function sumTestSummary(output) {
   const totals = { tests: 0, pass: 0, fail: 0, skipped: 0 };
-  for (const match of output.matchAll(/^ℹ (tests|pass|fail|skipped) (\d+)\s*$/gmu)) {
+  for (const match of output.matchAll(/^(?:ℹ|#) (tests|pass|fail|skipped) (\d+)\s*$/gmu)) {
     totals[match[1]] += Number(match[2]);
   }
   return totals;
