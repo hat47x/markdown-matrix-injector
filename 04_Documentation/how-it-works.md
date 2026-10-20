@@ -269,7 +269,7 @@ flowchart TD
 | コード | 条件 | 優先度 | 描画時の対応 |
 |---|---|---|---|
 | `MMI_FILE_NOT_FOUND` | `target` が解決不能 | 0（最優先） | `.mmi-error` |
-| `MMI_PATH_OUTSIDE_BOUNDARY` | ファイルは実在するが境界外（P4） | 0 | `.mmi-error` |
+| `MMI_PATH_OUTSIDE_BOUNDARY` | 解決候補が字句の上で境界外（P4）。存在確認より先に判定し、外のファイルの有無を診断で明かさない | 0 | `.mmi-error` |
 | `MMI_INVALID_XML` | XML 2003 署名不一致 | 1 | `.mmi-error`（正本は読み込まない） |
 | `MMI_SHEET_NOT_FOUND` | 指定シートが不在 | 2 | `.mmi-error` |
 

@@ -13,6 +13,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Reusable CI check** (`.github/actions/mmi-check`, ADR-0029, #526): a dependency-free GitHub Action and `scripts/ci/mmi-ci.mjs` run `mmi check` and `mmi provenance`, write a job summary with reference errors, stale Extracted assets and Linked prose review state, and fail only for the explicitly selected `fail-on` conditions. The source, ledger, review basis and Markdown are never written.
 - **Review basis** (`mmi review-basis`, `mmi.review-basis/v1`, #522): an explicit sidecar (`mmi-review-basis.json`) records the canonical logical-table digest of each reviewed Linked reference. `mmi provenance` reports `fresh` / `stale` / `unrecorded` / `unverifiable`, so a change outside the referenced range does not mark the prose as stale. Recording never happens automatically; an unreadable reference leaves the file unchanged.
 
+### Changed
+- **Boundary diagnostics** (#599, ADR-0030, notation `1.0.0-draft.2`): a reference whose resolution candidates are all lexically outside the workspace now reports `MMI_PATH_OUTSIDE_BOUNDARY` before any existence check. The old behavior reported `MMI_FILE_NOT_FOUND` when the outside file happened to be absent, which let a document author probe the filesystem and made the same typo OS-dependent. The code name is unchanged; the meaning change is recorded before the v1.0.0 freeze.
+
 ## [0.2.0] - 2026-10-20
 
 Verification release (ADR-0025): distributed as a VSIX and a self-contained CLI tarball with release evidence. Extension and package identifiers are unchanged and may still move before the first Marketplace / npm registry release (#504, #517). The notation (MMI Notation v1, Draft), `MMI_*` diagnostic codes and `mmi.*` contract names are unchanged.
