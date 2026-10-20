@@ -35,6 +35,7 @@
     "build:product": "tsc -p tsconfig.product.json",
     "mmi": "node --import tsx src/cli/mmi.ts",
     "mcp": "node --import tsx src/cli/mcp.ts",
+    "ci:mmi": "node scripts/ci/mmi-ci.mjs",
     "test:unit": "node scripts/run-test-lane.mjs product",
     "test:research": "node scripts/run-test-lane.mjs research",
     "test:review-route-evaluation-pipeline": "node --import tsx --test ./test/worksheetReviewRouteEvaluationPipeline.test.ts",
