@@ -36,7 +36,7 @@ Verification release (ADR-0025): distributed as a VSIX and a self-contained CLI 
 - Enforced LF for shell scripts used from Windows checkouts in WSL.
 
 ### Known issues
-- On VS Code 1.142.0 the automated Paste As test inserts the clipboard text instead of the MMI content-match reference; it passes on 1.140.0. Whether people choosing from the Paste As menu are affected is not yet confirmed (#603).
+- On a Windows desktop the automated Paste As test sometimes inserts the clipboard text instead of the MMI content-match reference (seen on VS Code 1.140.0 and 1.142.0; other runs of the same commit pass). It has not been seen with people choosing from the Paste As menu (#603).
 - Pasting an Excel range relies on what the source application puts on the clipboard; Windows Excel HTML/helper formats still need checks on a real machine (#495).
 
 ## [0.1.0] - 2026-07-15

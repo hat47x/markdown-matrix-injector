@@ -254,7 +254,12 @@ function createRuntimeContext(): E2ERuntimeContext {
   const extensionDevelopmentPath = process.env.MMI_E2E_EXTENSION_PATH
     ? path.resolve(process.env.MMI_E2E_EXTENSION_PATH)
     : path.resolve(__dirname, '../..');
-  const extensionTestsPath = path.resolve(__dirname, '../../dist/test/e2e/suite/index.js');
+  // The suite patches window.showQuickPick etc. on the `vscode` object it imports.
+  // VS Code hands each extension its own API object by file location, so for an
+  // unpacked VSIX the suite must live inside that extension (MMI_E2E_TESTS_PATH).
+  const extensionTestsPath = process.env.MMI_E2E_TESTS_PATH
+    ? path.resolve(process.env.MMI_E2E_TESTS_PATH)
+    : path.resolve(__dirname, '../../dist/test/e2e/suite/index.js');
   const workspacePath = createE2EWorkspace();
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-vscode-user-data-'));
   const extensionsDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-vscode-extensions-'));
