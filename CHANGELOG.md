@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Per-document provenance report** (`mmi provenance`, `mmi.provenance-report/v1`, ADR-0028, #525): one read-only, content-light report per Markdown document with Linked references and current source digests, adopted Extracted assets with ledger conversion/review metadata and detach freshness, `mmi check` diagnostics, and an explicit `not-configured` review-basis status until #522 lands. The public schema is available through `mmi schema provenance-report`.
+
 ## [0.2.0] - 2026-10-20
 
 Verification release (ADR-0025): distributed as a VSIX and a self-contained CLI tarball with release evidence. Extension and package identifiers are unchanged and may still move before the first Marketplace / npm registry release (#504, #517). The notation (MMI Notation v1, Draft), `MMI_*` diagnostic codes and `mmi.*` contract names are unchanged.

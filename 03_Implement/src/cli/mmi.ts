@@ -14,6 +14,11 @@ import { createSourceIdentityFromBytes } from '../core/sourceIdentity.js';
 import XLSX from 'xlsx';
 import { WorkbookCache } from '../cache/workbookCache.js';
 import { checkDetachedDocument } from '../application/detachCheck.js';
+import {
+  buildProvenanceReport,
+  formatProvenanceReport,
+} from '../application/provenanceReport.js';
+import { provenanceReportSchemaJson } from '../core/provenanceReportContract.js';
 import { extractHtmlFragment } from '../application/extractHtmlFragment.js';
 import { previewHtmlDecomposition } from '../application/htmlDecompositionPreview.js';
 import { commitHtmlDecomposition } from '../application/commitHtmlDecomposition.js';
@@ -239,6 +244,10 @@ Commands:
   detach-check <doc.md>     Verify a Markdown artifact has no MMI refs, unresolved cards,
                             broken local links or links outside --root
   manifest <doc.md>         List references that fall back to 別紙 cards as CSV
+  provenance <doc.md>       Report Linked references, adopted Extracted assets and diagnostics for one document
+      --ledger <file>         import ledger (default: <root>/mmi-ledger.json)
+                            Read-only and content-light: source cell values are not included.
+                            Review-basis records (#522) are reported as not configured.
   impact <source>           Find Markdown dependencies on one source across --root.
                             Reports live MMI refs, adopted Extracted provenance and local links.
                             The source may already be missing; this command never rewrites references.
@@ -366,19 +375,20 @@ export async function main(argv: string[]): Promise<number> {
     case 'schema': {
       if (args.length !== 1) {
         return usageError(
-          'schema needs one of: candidate, ledger, review-decisions, cognitive-artifact',
+          'schema needs one of: candidate, ledger, review-decisions, provenance-report, cognitive-artifact',
         );
       }
       const schemas: Record<string, () => Record<string, unknown>> = {
         candidate: semanticCandidateSchemaJson,
         ledger: importLedgerSchemaJson,
         'review-decisions': reviewDecisionsSchemaJson,
+        'provenance-report': provenanceReportSchemaJson,
         'cognitive-artifact': cognitiveArtifactManifestSchemaJson,
       };
       const schema = schemas[args[0]];
       if (!schema) {
         return usageError(
-          'schema needs one of: candidate, ledger, review-decisions, cognitive-artifact',
+          'schema needs one of: candidate, ledger, review-decisions, provenance-report, cognitive-artifact',
         );
       }
       emit(JSON.stringify(schema(), null, 2));
@@ -1222,6 +1232,30 @@ export async function main(argv: string[]): Promise<number> {
       emit(values.json ? JSON.stringify(records, null, 2) : csvText);
       return 0;
     }
+    case 'provenance': {
+      if (args.length !== 1) return usageError('provenance takes one Markdown file');
+      const markdownFilePath = path.resolve(args[0]);
+      if (!handoffPathWithinRoot(markdownFilePath, root)) {
+        return usageError('provenance document must stay within --root workspace');
+      }
+      let report;
+      try {
+        const diagnostics = await checkPaths([markdownFilePath], root);
+        report = buildProvenanceReport({
+          markdownFilePath,
+          workspaceRoot: root,
+          ledgerPath: path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE),
+          diagnostics,
+        });
+      } catch (error) {
+        console.error(`mmi: ${error instanceof Error ? error.message : String(error)}`);
+        return 1;
+      }
+      emit(values.json
+        ? JSON.stringify(report, null, 2)
+        : formatProvenanceReport(report));
+      return 0;
+    }
     case 'impact': {
       if (args.length !== 1) return usageError('impact takes one source file path');
       const sourcePath = path.resolve(args[0]);
@@ -1991,7 +2025,7 @@ function applyLedgerView(
     ...(result.links
       ? {
           links: result.links.filter((item) =>
-            allowed.has(`link ${item.sheet} ${item.ref}`)),
+            allowed.has(`link\u0000${item.sheet}\u0000${item.ref}`)),
 
         }
       : {}),

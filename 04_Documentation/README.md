@@ -10,6 +10,7 @@ MMIを初めて知った方は、[概要](overview.md)で「何ができるか�
 | 既存設計書や新しいExcel表を使って本文を書く | [ExcelとMarkdownの併用執筆](excel-markdown-authoring.md) |
 | 操作を調べる | [利用マニュアル](user-manual.md) |
 | 原本とMMIを外す | [原本とMMIを外す手順](detach-guide.md) |
+| 文書が何を参照・取り込みしているか確認する | [文書ごとの出典報告](provenance-report.md) |
 | 実務に近い例を試す | [サンプル集](samples/practical/README.md) |
 | 用途と全体像を知る | [概要](overview.md) |
 | パラメータを調べる | [リファレンス](reference.md) |
