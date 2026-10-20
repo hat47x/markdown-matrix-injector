@@ -6,6 +6,9 @@ import {
   auditVsixEntries,
   changelogSection,
   checkVersionConsistency,
+  contributedEntries,
+  extractZip,
+  readZipFiles,
   isReleasable,
   listZipEntries,
   renderReleaseNotes,
@@ -143,4 +146,79 @@ test('compiled dev scripts, portable experiments and type declarations do not sh
     'extension/dist/src/extension.d.ts',
   ]);
   assert.equal(problems.length, 3, problems.join('\n'));
+});
+
+/** A ZIP whose entries really hold `content`, deflated or stored. */
+function zipWith(files) {
+  const locals = [];
+  const centrals = [];
+  let offset = 0;
+  for (const { name, content, stored = false } of files) {
+    const nameBytes = Buffer.from(name, 'utf8');
+    const plain = Buffer.from(content, 'utf8');
+    const data = stored ? plain : deflateRawSync(plain);
+    const method = stored ? 0 : 8;
+    const local = Buffer.alloc(30);
+    local.writeUInt32LE(0x04034b50, 0);
+    local.writeUInt16LE(method, 8);
+    local.writeUInt32LE(data.length, 18);
+    local.writeUInt32LE(plain.length, 22);
+    local.writeUInt16LE(nameBytes.length, 26);
+    locals.push(local, nameBytes, data);
+    const central = Buffer.alloc(46);
+    central.writeUInt32LE(0x02014b50, 0);
+    central.writeUInt16LE(method, 10);
+    central.writeUInt32LE(data.length, 20);
+    central.writeUInt32LE(plain.length, 24);
+    central.writeUInt16LE(nameBytes.length, 28);
+    central.writeUInt32LE(offset, 42);
+    centrals.push(central, nameBytes);
+    offset += local.length + nameBytes.length + data.length;
+  }
+  const centralBytes = Buffer.concat(centrals);
+  const eocd = Buffer.alloc(22);
+  eocd.writeUInt32LE(0x06054b50, 0);
+  eocd.writeUInt16LE(files.length, 8);
+  eocd.writeUInt16LE(files.length, 10);
+  eocd.writeUInt32LE(centralBytes.length, 12);
+  eocd.writeUInt32LE(offset, 16);
+  return Buffer.concat([...locals, centralBytes, eocd]);
+}
+
+test('a VSIX is unpacked with deflated and stored entries, and nothing may escape the folder (#598)', async () => {
+  const fs = await import('node:fs');
+  const os = await import('node:os');
+  const path = await import('node:path');
+  const zip = zipWith([
+    { name: 'extension/package.json', content: '{"name":"x"}' },
+    { name: 'extension/media/a.css', content: 'body{}', stored: true },
+  ]);
+  assert.deepEqual(readZipFiles(zip).map(({ name, data }) => [name, data.toString('utf8')]), [
+    ['extension/package.json', '{"name":"x"}'],
+    ['extension/media/a.css', 'body{}'],
+  ]);
+  const target = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-unzip-test-'));
+  extractZip(zip, target);
+  assert.equal(fs.readFileSync(path.join(target, 'extension', 'media', 'a.css'), 'utf8'), 'body{}');
+  assert.throws(() => extractZip(zipWith([{ name: '../escape.txt', content: 'no' }]), target), /escapes destination/u);
+  assert.equal(fs.existsSync(path.join(target, '..', 'escape.txt')), false);
+});
+
+test('files that package.json contributes must be listed for the VSIX audit (#598)', () => {
+  assert.deepEqual(contributedEntries({
+    main: './dist/src/extension.js',
+    icon: 'media/icon.png',
+    l10n: './l10n',
+    contributes: {
+      'markdown.previewStyles': ['./media/preview.css'],
+      walkthroughs: [{ steps: [{ media: { markdown: 'media/walkthrough/write.md' } }, { media: { image: 'media/a.png', altText: 'a' } }] }],
+    },
+  }), [
+    'extension/dist/src/extension.js',
+    'extension/l10n/bundle.l10n.ja.json',
+    'extension/media/a.png',
+    'extension/media/icon.png',
+    'extension/media/preview.css',
+    'extension/media/walkthrough/write.md',
+  ]);
 });

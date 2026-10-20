@@ -16,6 +16,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { inflateRawSync } from 'node:zlib';
 
 import { buildCliPackage, collectRuntimeModuleGraph } from './build-cli-package.mjs';
 import { spawnPlan } from './npm-spawn.mjs';
@@ -89,6 +90,63 @@ export function listZipEntries(buffer) {
     cursor += 46 + nameLength + extraLength + commentLength;
   }
   return entries;
+}
+
+/** Reads every file of a ZIP into memory as { name, data } (stored or deflated entries). */
+export function readZipFiles(buffer) {
+  listZipEntries(buffer); // validates the central directory
+  let eocd = buffer.length - 22;
+  while (eocd >= 0 && buffer.readUInt32LE(eocd) !== 0x06054b50) eocd -= 1;
+  const count = buffer.readUInt16LE(eocd + 10);
+  let cursor = buffer.readUInt32LE(eocd + 16);
+  const files = [];
+  for (let index = 0; index < count; index += 1) {
+    const method = buffer.readUInt16LE(cursor + 10);
+    const compressedSize = buffer.readUInt32LE(cursor + 20);
+    const nameLength = buffer.readUInt16LE(cursor + 28);
+    const extraLength = buffer.readUInt16LE(cursor + 30);
+    const commentLength = buffer.readUInt16LE(cursor + 32);
+    const localOffset = buffer.readUInt32LE(cursor + 42);
+    const name = buffer.toString('utf8', cursor + 46, cursor + 46 + nameLength);
+    cursor += 46 + nameLength + extraLength + commentLength;
+    if (name.endsWith('/')) continue;
+    const start = localOffset + 30 + buffer.readUInt16LE(localOffset + 26) + buffer.readUInt16LE(localOffset + 28);
+    const raw = buffer.subarray(start, start + compressedSize);
+    if (method !== 0 && method !== 8) throw new Error(`Unsupported ZIP compression method ${method} for ${name}`);
+    files.push({ name, data: method === 0 ? Buffer.from(raw) : inflateRawSync(raw) });
+  }
+  return files;
+}
+
+/** Unpacks a ZIP below `destination`, refusing entries that would escape it. */
+export function extractZip(buffer, destination) {
+  const root = path.resolve(destination);
+  for (const { name, data } of readZipFiles(buffer)) {
+    const target = path.resolve(root, name);
+    if (target !== root && !target.startsWith(`${root}${path.sep}`)) throw new Error(`ZIP entry escapes destination: ${name}`);
+    fs.mkdirSync(path.dirname(target), { recursive: true });
+    fs.writeFileSync(target, data);
+  }
+}
+
+/** Files that package.json main, icon, l10n and `contributes` point at, as VSIX entries. */
+export function contributedEntries(packageJson) {
+  const entry = (relative) => `extension/${relative.replace(/^\.\//u, '')}`;
+  const found = new Set();
+  if (packageJson.main) found.add(entry(packageJson.main));
+  if (packageJson.icon) found.add(entry(packageJson.icon));
+  if (packageJson.l10n) found.add(entry(`${packageJson.l10n.replace(/\/$/u, '')}/bundle.l10n.ja.json`));
+  const contributes = packageJson.contributes ?? {};
+  for (const style of contributes['markdown.previewStyles'] ?? []) found.add(entry(style));
+  for (const walkthrough of contributes.walkthroughs ?? []) {
+    for (const step of walkthrough.steps ?? []) {
+      const media = step.media ?? {};
+      for (const value of [media.markdown, media.svg, typeof media.image === 'string' ? media.image : undefined]) {
+        if (value) found.add(entry(value));
+      }
+    }
+  }
+  return [...found].sort();
 }
 
 /**
@@ -317,7 +375,10 @@ export async function main(argv = process.argv.slice(2)) {
     for (const entry of [packageJson.main.replace(/^\.\//u, ''), ...EXTRA_RUNTIME_ENTRIES]) {
       for (const module of collectRuntimeModuleGraph(path.join(PROJECT_ROOT, entry), distRoot)) runtime.add(`dist/${module}`);
     }
-    const problems = auditVsixEntries(entries, [...runtime]);
+    const problems = [
+      ...auditVsixEntries(entries, [...runtime]),
+      ...contributedEntries(packageJson).filter((entry) => !entries.includes(entry)).map((entry) => `contributed file not shipped: ${entry}`),
+    ];
     if (problems.length > 0) throw new Error(problems.slice(0, 30).join('\n'));
     return { detail: `${entries.length} entries, ${runtime.size} runtime modules all shipped`, data: { entries: entries.length, runtimeModules: runtime.size } };
   });
@@ -339,6 +400,25 @@ export async function main(argv = process.argv.slice(2)) {
       : run('bash', ['./scripts/run-vscode-e2e.sh']);
     if (result.status !== 0) throw new Error(`Extension Host E2E failed\n${tail(result.output, 25)}`);
     return { detail: 'passed' };
+  }, { optional: true });
+
+  await step('vsix-smoke', () => {
+    // The same suite against the unpacked VSIX instead of 03_Implement: a file
+    // that .vscodeignore dropped but the extension needs fails here (#598).
+    if (!options.e2e) return { status: 'not-run', detail: 'pass --e2e to run' };
+    if (!fs.existsSync(vsixPath)) return { status: 'not-run', detail: 'no VSIX' };
+    const unpacked = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-vsix-smoke-'));
+    try {
+      extractZip(fs.readFileSync(vsixPath), unpacked);
+      const env = { MMI_ENABLE_TEST_COMMANDS: '1', MMI_E2E_EXTENSION_PATH: path.join(unpacked, 'extension') };
+      const result = process.platform === 'win32'
+        ? run('node', ['--import', 'tsx', './test/e2e/runTest.ts'], { env })
+        : run('bash', ['./scripts/run-vscode-e2e.sh'], { env });
+      if (result.status !== 0) throw new Error(`Extension Host E2E against the unpacked VSIX failed\n${tail(result.output, 25)}`);
+      return { detail: 'passed against the unpacked VSIX' };
+    } finally {
+      fs.rmSync(unpacked, { recursive: true, force: true });
+    }
   }, { optional: true });
 
   return finish(evidence, outDir, vsixPath, cliDir);
