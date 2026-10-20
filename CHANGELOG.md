@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+- **Region snapshot freshness** (#530, ADR-0019 D0・D3・D14): `checkExtractedProvenanceFreshness()` now recognizes `mmi:region-snapshot` provenance, so `materialize` checks the source digest, the renderer identity recorded in the ledger, and the rendered artifact digest. A changed source or an edited SVG/PNG makes the adopted snapshot stale instead of silently reusing it. Renderers are compared by identity, never treated as interchangeable.
+
 ## [0.2.0] - 2026-10-20
 
 Verification release (ADR-0025): distributed as a VSIX and a self-contained CLI tarball with release evidence. Extension and package identifiers are unchanged and may still move before the first Marketplace / npm registry release (#504, #517). The notation (MMI Notation v1, Draft), `MMI_*` diagnostic codes and `mmi.*` contract names are unchanged.
