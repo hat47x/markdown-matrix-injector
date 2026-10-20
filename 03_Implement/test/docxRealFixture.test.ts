@@ -38,5 +38,9 @@ test('a document authored with a real WordprocessingML producer is read without 
     result.comments.map((comment) => [comment.author, comment.text, comment.structuralPath]),
     [['レビュア', '実文書のコメント経路を確認する', '/body/p[2]']],
   );
+  assert.deepEqual(
+    result.sectionTree.roots.map((node) => [node.level, node.text, node.children.map((child) => child.text)]),
+    [[1, '基本設計', ['方式']]],
+  );
   assert.ok(result.candidates.every((candidate) => candidateProblem(candidate) === undefined));
 });

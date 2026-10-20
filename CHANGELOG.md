@@ -8,7 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
-- **Word (.docx) Source Adapter** (ADR-0026, #531): read-only observation of explicit heading styles/outline levels, tables (including `gridSpan`/`vMerge`), embedded pictures and comments as `section`, `table-range`, `image` and `note` Candidates. `mmi inspect` lists them; `mmi extract --docx-table` / `--docx-image` require the reviewed fingerprint and write content-addressed assets with ledger provenance. Nested tables, external image links, unsupported media and missing optional parts are reported as diagnostics without stopping the rest. Not a Linked target for MMI Notation yet.
+- **Word (.docx) Source Adapter** (ADR-0026, #531): read-only observation of explicit heading styles/outline levels, tables (including `gridSpan`/`vMerge`), embedded pictures and comments as `section`, `table-range`, `image` and `note` Candidates. `mmi inspect` lists them; `mmi extract --docx-table` / `--docx-image` require the reviewed fingerprint and write content-addressed assets with ledger provenance. Nested tables, external image links, unsupported media and missing optional parts are reported as diagnostics without stopping the rest. `inspect --json` also returns a Section Tree of explicit headings with preamble and owned top-level blocks (level jumps are not invented). Not a Linked target for MMI Notation yet.
 
 ## [0.2.0] - 2026-10-20
 
