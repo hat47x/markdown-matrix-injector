@@ -278,7 +278,7 @@ OOXMLから表・見出し・画像・コメントを読み取り専用で観測
 
 #### (9) 公開していない（段階3、#500・#517・#518）
 
-VS Code拡張は、受け取ったVSIXから入れる検証版である。VS Code Marketplace、Open VSX、npm、GitHub Releasesのいずれにも公開していない（2026-10-17に確認）。CLIのtarballはWindows（Node 24）で確かめたが、別のマシン、Node 20、macOSは未確認である（[#500](https://github.com/hat47x/markdown-matrix-injector/issues/500)）。版は2026-10-20に0.2.0へ上げ、CHANGELOGに2026-07-15以降のCLI・Candidate・取り込み・切り離しを記した。配る成果物は`npm run release:candidate`で一つのコミットから作り、証拠を添える（[ADR-0025](adr/ADR-0025-release-candidate-evidence-and-channels.md)）。
+VS Code拡張は、受け取ったVSIXから入れる検証版である。VS Code Marketplace、Open VSX、npm registryには公開していない。0.2.0の検証版は、2026-10-20にGitHub Releasesのpre-release（`v0.2.0`、非公開リポジトリ）として配った。CLIのtarballはWindows（Node 24）で確かめたが、別のマシン、Node 20、macOSは未確認である（[#500](https://github.com/hat47x/markdown-matrix-injector/issues/500)）。版は2026-10-20に0.2.0へ上げ、CHANGELOGに2026-07-15以降のCLI・Candidate・取り込み・切り離しを記した。配る成果物は`npm run release:candidate`で一つのコミットから作り、証拠を添える（[ADR-0025](adr/ADR-0025-release-candidate-evidence-and-channels.md)）。
 
 検証版は、識別子を変えないまま証拠付きで配れる。Marketplace・npm registryへの公開版は、命名と識別子の決定（段階1）の後に公開先を決める（ADR-0025 D3）。利用者に届かない限り、価値の観測（5.5(19)）も進まない。リリースの判定は、作業ルールのとおり、対象の版と成果物に結び付ける。
 
