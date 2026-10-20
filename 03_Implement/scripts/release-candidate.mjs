@@ -423,7 +423,16 @@ export async function main(argv = process.argv.slice(2)) {
     const unpacked = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-vsix-smoke-'));
     try {
       extractZip(fs.readFileSync(vsixPath), unpacked);
-      const env = { ...e2eEnv(), MMI_E2E_EXTENSION_PATH: path.join(unpacked, 'extension') };
+      // The suite goes inside the unpacked extension: VS Code gives each
+      // extension its own `vscode` API object by file location, and the suite
+      // patches window.showQuickPick on the object the extension uses.
+      const suiteDir = path.join(unpacked, 'extension', 'dist', 'test', 'e2e', 'suite');
+      fs.cpSync(path.join(PROJECT_ROOT, 'dist', 'test', 'e2e', 'suite'), suiteDir, { recursive: true });
+      const env = {
+        ...e2eEnv(),
+        MMI_E2E_EXTENSION_PATH: path.join(unpacked, 'extension'),
+        MMI_E2E_TESTS_PATH: path.join(suiteDir, 'index.js'),
+      };
       const result = process.platform === 'win32'
         ? run('node', ['--import', 'tsx', './test/e2e/runTest.ts'], { env })
         : run('bash', ['./scripts/run-vscode-e2e.sh'], { env });
