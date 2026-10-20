@@ -19,7 +19,7 @@
 | [`phase8-drools-inspired-table-patterns.md`](phase8-drools-inspired-table-patterns.md) | MMI 内部機能を題材にした Drools 参照の表パターンカタログ | [ADR-0007](../../01_Plans/adr/ADR-0007-phase9-rule-table-interoperability-and-design-assetization.md) |
 | [`phase9-rule-table-template-operations.md`](phase9-rule-table-template-operations.md) | ルールテーブルとひな形の運用、文書と試験用データの同期 | [ADR-0008](../../01_Plans/adr/ADR-0008-phase9-template-sync-quality-gate-hardening.md) |
 | [`phase10-evidence-auto-harvest.md`](phase10-evidence-auto-harvest.md) | 証跡の自動収集基盤 | [ADR-0009](../../01_Plans/adr/ADR-0009-phase10-adoption-operations-governance-automation.md) |
-| [`phase10-governance-reporting-foundation.md`](phase10-governance-reporting-foundation.md) | 週次の統治レポートとKPIを作成する基盤（ADR-0012のD6による再定義） | [ADR-0009](../../01_Plans/adr/ADR-0009-phase10-adoption-operations-governance-automation.md) |
+| [`phase10-governance-reporting-foundation.md`](phase10-governance-reporting-foundation.md) | 週次の統治レポートとKPIを作成する基盤（ADR-0012のD6による再定義） | [ADR-0009](../../01_Plans/adr/ADR-0009-phase10-adoption-operations-governance-automation.md)（基盤方針）、[ADR-0012 D6](../../01_Plans/adr/ADR-0012-mission-redefinition-notation-as-governance-boundary.md#d6-kpi-の再定義)（KPIの再定義） |
 
 Phase 10の2文書は、証跡を共通JSONにまとめる手順と、その情報を週次レポートへつなぐ手順を分けて説明しています。KPIの未計測値は実測のゼロとは区別して扱います。
 
