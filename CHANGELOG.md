@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 - **Boundary diagnostics** (#599, ADR-0030, notation `1.0.0-draft.2`): a reference whose resolution candidates are all lexically outside the workspace now reports `MMI_PATH_OUTSIDE_BOUNDARY` before any existence check. The old behavior reported `MMI_FILE_NOT_FOUND` when the outside file happened to be absent, which let a document author probe the filesystem and made the same typo OS-dependent. The code name is unchanged; the meaning change is recorded before the v1.0.0 freeze.
+- **Region snapshot freshness** (#530, ADR-0019 D0・D3・D14): `checkExtractedProvenanceFreshness()` now recognizes `mmi:region-snapshot` provenance, so `materialize` checks the source digest, the renderer identity recorded in the ledger, and the rendered artifact digest. A changed source or an edited SVG/PNG makes the adopted snapshot stale instead of silently reusing it. Renderers are compared by identity, never treated as interchangeable.
 
 ## [0.2.0] - 2026-10-20
 
