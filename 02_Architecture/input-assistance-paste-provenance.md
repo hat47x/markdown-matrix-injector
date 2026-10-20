@@ -4,15 +4,15 @@
 - 対象: [pasteDrop.ts](../03_Implement/src/dx/pasteDrop.ts)、[vscodeAdapters.ts](../03_Implement/src/dx/vscodeAdapters.ts)、[extension.ts](../03_Implement/src/extension.ts)
 - 関連: [ADR-0016](../01_Plans/adr/ADR-0016-notation-first-input-assistance.md)、[ADR-0017](../01_Plans/adr/ADR-0017-windows-clipboard-provenance-bridge.md)、[issue-0114](https://github.com/hat47x/markdown-matrix-injector/issues/495)、[ソースモデル](input-assistance-source-model.md)
 
-Excelで`C5:F12`をコピーし、Markdownへ`![[./data/設計.xlsx#状態遷移|C5:F12]]`として貼り付ける機能の設計。原本の開始位置をどこから得るか、そして得た住所をどう検証するかを定める。
+Excelの`C5:F12`をコピーし、Markdownへ`![[./data/設計.xlsx#状態遷移|C5:F12]]`として参照を貼り付ける機能を扱う。原本のどの位置からコピーしたかという出所情報（provenance）を取得する方法と、取得したセル住所を検証する方法を定める。
 
 ## 1. 観測結果
 
-架空ブックのみを使用し、Windows 11 Pro 26200 / Microsoft Excel 16.0（Office 16.0.20326.20132）で実際にコピーし、Win32のクリップボードAPIで生バイトを13ケース採取した。実務データは扱っていない。採取と表の再生成は[観測ハーネス](../03_Implement/scripts/clipboard-probe/README.md)で再実行できる。
+架空のブックだけを使用し、Windows 11 Pro 26200 / Microsoft Excel 16.0（Office 16.0.20326.20132）で実際にコピーした内容を、Win32のクリップボードAPI（Windowsからコピー内容を直接取得する仕組み）で生バイトとして13ケース採取した。実務データは扱っていない。採取と表の再生成は[観測ハーネス](../03_Implement/scripts/clipboard-probe/README.md)（測定を再実行するためのプログラム）で行える。
 
 ### 1.1 Excelが公開する形式
 
-範囲コピー1回で22形式が並ぶ。
+Excelの範囲を1回コピーすると、クリップボードには22種類の形式が並ぶ。
 
 ```
 EnhancedMetafile | MetaFilePict | Bitmap | Biff12 | Biff8 | Biff5 | SymbolicLink |
@@ -21,7 +21,7 @@ Hyperlink | Rich Text Format | Embed Source | Object Descriptor | Link Source |
 Link Source Descriptor | Link | Format129 | ExcludeClipboardContentFromMonitorProcessing
 ```
 
-原本の開始位置は存在する。 ただしHTMLの中ではない。
+原本の開始位置を示す情報は存在する。ただし、HTMLの内容には含まれていない。
 
 | 形式 | 符号化 | 内容（`状態遷移!C5:F12`をコピーした場合） |
 | --- | --- | --- |
@@ -30,7 +30,7 @@ Link Source Descriptor | Link | Format129 | ExcludeClipboardContentFromMonitorPr
 | `Link Source Descriptor` | UTF-16 | `Object Descriptor`と同内容 |
 | `HTML Format` | UTF-8（ヘッダ含む） | `SourceURL:file:///.../設計.xlsx` と、値のみのHTML表 |
 
-`R5C3:R12C6`は行5・列3から行12・列6であり、A1表記の`C5:F12`と一致する。
+`R5C3:R12C6`は行番号・列番号による住所表現で、行5・列3から行12・列6までを示す。これはA1表記（列を文字、行を数字で示す方法）の`C5:F12`と一致する。
 
 ### 1.2 HTMLには住所が無い
 
@@ -70,7 +70,7 @@ Link Source Descriptor | Link | Format129 | ExcludeClipboardContentFromMonitorPr
 | 非ANSIパス | **設計_??.xlsx** | 状態遷移 | `R5C3:R12C6` | `C5:F12` | 8×4 | 8×4 | 一致 | あり | - |
 | 未保存ブック | Book1 | Sheet1 | `R3C2:R3C3` | `B3:C3` | 1×2 | 1×2 | 一致 | **無し** | - |
 
-この表が設計の根拠である。読み取れることは6つ。
+この表を設計判断の根拠とする。読み取れる事項は6つある。
 
 1. 保存済みブックからの通常のコピーでは、出所と住所が完全に得られる。 単一セル・単一行・結合セルを含むコピーでも、住所と形状は一致した。
 2. 住所は選択内容の証明ではない。 フィルターで行が隠れている場合、住所は3行分（`C5:F7`）を指すのにコピーされた内容は2行しかない。住所をそのまま挿入すると、利用者が意図的に除外した行が表示に混ざる。形状の比較がこれを検出する。
@@ -85,7 +85,7 @@ Link Source Descriptor | Link | Format129 | ExcludeClipboardContentFromMonitorPr
 - `Link`のパスはANSI符号化である。システムのANSIコードページで表せない文字は失われる（`設計_한글.xlsx` → `設計_??.xlsx`を確認）。パスの取得元として使えない。
 - `Object Descriptor`はUTF-16なのでコードページの制約を受けない。シート名と住所はここから取る。
 
-したがってパスは`SourceURL`から、シート名と住所は`Object Descriptor`から取る。 `Link`は交差検証にのみ使う。
+そのため、ファイルのパスは`SourceURL`から、シート名と住所は`Object Descriptor`から取得する。`Link`は、別の情報源と突き合わせる交差検証に限って使う。
 
 .NETの`DataObject`による文字列変換はこれらを誤って復号する（`HTML Format`はUTF-8なのにANSIとして復号され、`Csv`/`Link`はANSIなのにUTF-8として復号されU+FFFDになる）。生バイトを取得し、形式ごとに復号する必要がある。
 
@@ -103,7 +103,7 @@ Link Source Descriptor | Link | Format129 | ExcludeClipboardContentFromMonitorPr
 
 ## 2. VS Codeから何が見えるか（2026-09-11 確認済み）
 
-`DataTransfer`に出所形式は含まれない。 VS Code 1.137.0（ローカル、`remoteName: null`）の隔離インスタンスで、実Excelから`状態遷移!C5:F12`をコピーし、`vscode.languages.registerDocumentPasteEditProvider`で登録した`provideDocumentPasteEdits`を実際に呼び出させて確認した。観測されたMIME型は次の4件のみ。
+`DataTransfer`（VS Codeが貼り付け機能へ渡すデータ）には出所を示す形式が含まれない。VS Code 1.137.0（ローカル、`remoteName: null`）の隔離インスタンスで、実Excelから`状態遷移!C5:F12`をコピーし、`vscode.languages.registerDocumentPasteEditProvider`で登録した`provideDocumentPasteEdits`を実際に呼び出して確認した。観測できたMIME型（データ形式を示す種類）は、次の4件のみ。
 
 ```
 text/plain, text/html, text/rtf, image/png
@@ -124,7 +124,7 @@ text/plain, text/html, text/rtf, image/png
 
 ## 3. 取得経路の階層
 
-出所の取得手段は3層あり、どの層を通っても§4の照合を必ず通す。
+出所を取得する手段は3層に分かれる。どの手段を使った場合でも、§4に示す照合を必ず通す。
 
 ```mermaid
 flowchart TD
@@ -153,7 +153,7 @@ flowchart TD
 
 ## 4. 照合の契約
 
-出所を得ても、それは手掛かりであって証明ではない。フィルターのケースがその反例である。
+出所情報が得られても、それだけでは正しい位置の証明にならず、あくまで照合の手掛かりである。フィルターを使ったケースが、その反例になる。
 
 ```
 入力: 形状(行数×列数) + 表示値行列 + 任意の出所(パス, シート, R1C1住所)
@@ -198,7 +198,7 @@ flowchart TD
    - 読込失敗、索引上限の超過、候補上限による切り詰め、探索対象ブック数の上限超過は、いずれも検索結果の完全性に影響する。候補が0件でも完全な「一致なし」とは断定しない。候補がある場合も、集合が不完全であることを表示する。候補数と探索対象ブック数は、上限に達しただけでは切り詰めとみなさない。上限を超える一致またはブックを1件確認した場合だけ不完全とする。索引上限以外の予期しない例外は「一致なし」へ変換せず、利用者にエラーとして表示する。
 6. 全セルが空の場合、同一内容が多数ある場合、非連続選択の疑いがある場合は曖昧さを残し、通常の貼り付けへ戻れるようにする。
 
-索引の構造は[CPU範囲探索](input-assistance-cpu-search.md)と共有する。ただし、厳密な内容照合を`FlyHash`などの近似検索には依存させない。
+索引（検索用の目録）の構造は[CPU範囲探索](input-assistance-cpu-search.md)と共有する。ただし、原本との厳密な内容照合は、`FlyHash`などの近似検索（似た候補を探す方式）には依存させない。
 
 手順2〜4は2026-09-14に実装した。`src/core/contentMatch.ts`の`findContentMatches(sheet, needle, options?)`が、アンカー選定、転置索引、複数アンカーの突き合わせ、矩形全体の照合を担う。部分一致は候補にしない。`maxIndexedCells`は既定20万セルで、超過時は`ContentMatchIndexLimitError`を返す。`maxCandidates`は既定200件で、完全一致の返却件数へ適用する。2026-10-04には`findContentMatchesDetailed`を追加した。上限件数の次にもう1件の完全一致がある場合だけ`truncated=true`を返す。複数シートの集約側はこの状態を`truncatedSheets`として保持し、`skippedSheets`と同様に検索不完全としてUIへ伝える。
 
