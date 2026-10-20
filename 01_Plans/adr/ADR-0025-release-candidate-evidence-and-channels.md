@@ -38,7 +38,7 @@
 3. 全体の型検査（`npm run build`）と製品のテスト（`npm test`）を実行する。
 4. VSIXを作り、中身を監査する。必須ファイルがあること、ソース・テスト・研究層・fixture・devDependenciesが入っていないことを確かめる。さらに、拡張の入口とworkerから到達する実行時moduleがすべて同梱されていることを確かめる。`.vscodeignore`が実行時に必要なmoduleを除くと、拡張は起動時に落ちるためである。
 5. CLIの自己完結tarballを作り、空のnpm cacheでofflineに導入して`mmi`を実行する（#500の検証をそのまま使う）。
-6. `--e2e`を付けた場合は、Extension Host E2Eを実行する。付けない場合は`not-run`と記録する。
+6. `--e2e`を付けた場合は、Extension Host E2Eを実行する。続けて、作ったVSIXを展開したフォルダーを読み込ませて同じE2Eを実行する（`vsix-smoke`、#598）。開発中のフォルダーではなく配布物そのものを動かすため、`.vscodeignore`で必要なファイルを外した誤りもここで失敗する。付けない場合は、どちらも`not-run`と記録する。
 
 出力は、VSIX、CLI tarball、`SHA256SUMS`、`RELEASE_NOTES.md`（CHANGELOGの該当節と検査結果）、`release-evidence.json`（`mmi.release-evidence/v1`）である。証拠には、コミット、未コミットの有無、OS・Node.jsの版、各手順の結果、成果物のSHA-256を記す。
 

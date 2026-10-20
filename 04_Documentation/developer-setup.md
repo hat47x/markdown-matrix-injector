@@ -53,8 +53,10 @@ MMI_ENABLE_TEST_COMMANDS=1 node --import tsx ./test/e2e/runTest.ts
 
 ```sh
 npm run release:candidate            # 版の整合、全体の型検査、製品テスト、VSIXの作成と監査、CLIのoffline導入確認
-npm run release:candidate -- --e2e   # Extension Host E2Eも実行する
+npm run release:candidate -- --e2e   # Extension Host E2Eを、開発中のフォルダーと展開したVSIXの両方で実行する
 ```
+
+`--vscode-version <x.y.z>`を付けると、E2Eに使うVS Codeの版を固定し、その版を証拠に記録します。付けない場合はstableを使います。
 
 結果は`artifacts/release/<version>/`に出ます。VSIX、CLI tarball、`SHA256SUMS`、`RELEASE_NOTES.md`、`release-evidence.json`の5種類です。未コミットの変更があると失敗します。`--allow-dirty`を付けると予行演習として最後まで実行しますが、その候補は常にリリース不可と記録されます。
 

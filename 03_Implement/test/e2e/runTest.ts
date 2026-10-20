@@ -224,6 +224,8 @@ async function main(): Promise<void> {
 
     await runTests({
       vscodeExecutablePath: runtime.launchMetadata.executablePath,
+      // VSCODE_VERSION pins the downloaded host (like the other E2E runners); unset means stable.
+      ...(process.env.VSCODE_VERSION ? { version: process.env.VSCODE_VERSION } : {}),
       extensionDevelopmentPath: runtime.extensionDevelopmentPath,
       extensionTestsPath: runtime.extensionTestsPath,
       launchArgs: runtime.launchArgs,

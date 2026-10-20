@@ -249,12 +249,13 @@ export function isReleasable(evidence) {
 // ── runner ─────────────────────────────────────────────────────────────────
 
 function parseArgs(argv) {
-  const options = { allowDirty: false, e2e: false, outDir: undefined };
+  const options = { allowDirty: false, e2e: false, outDir: undefined, vscodeVersion: undefined };
   for (let index = 0; index < argv.length; index += 1) {
     const arg = argv[index];
     if (arg === '--allow-dirty') options.allowDirty = true;
     else if (arg === '--e2e') options.e2e = true;
     else if (arg === '--out') options.outDir = argv[++index];
+    else if (arg === '--vscode-version') options.vscodeVersion = argv[++index];
     else if (arg === '--help' || arg === '-h') options.help = true;
     else throw new Error(`Unknown option: ${arg}`);
   }
@@ -285,7 +286,7 @@ function git(args) {
 export async function main(argv = process.argv.slice(2)) {
   const options = parseArgs(argv);
   if (options.help) {
-    console.log('Usage: npm run release:candidate -- [--e2e] [--allow-dirty] [--out <dir>]');
+    console.log('Usage: npm run release:candidate -- [--e2e [--vscode-version <x.y.z>]] [--allow-dirty] [--out <dir>]');
     return 0;
   }
   const packageJson = JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, 'package.json'), 'utf8'));
@@ -302,7 +303,12 @@ export async function main(argv = process.argv.slice(2)) {
       dirty: dirtyFiles.length > 0,
       ...(dirtyFiles.length > 0 ? { dirtyFiles } : {}),
     },
-    environment: { os: `${os.platform()} ${os.release()}`, arch: os.arch(), node: process.version },
+    environment: {
+      os: `${os.platform()} ${os.release()}`,
+      arch: os.arch(),
+      node: process.version,
+      ...(options.e2e ? { vscode: options.vscodeVersion ?? 'stable' } : {}),
+    },
     steps: [],
     artifacts: [],
     manualChecks: MANUAL_CHECKS.map((check) => ({ ...check, status: 'not-run' })),
@@ -326,6 +332,9 @@ export async function main(argv = process.argv.slice(2)) {
     return record.status === 'passed' || record.status === 'not-run';
   };
   const ok = () => evidence.steps.every((entry) => entry.status !== 'failed');
+
+  // The E2E host version is part of the evidence: VS Code changes host behavior between releases.
+  const e2eEnv = () => ({ MMI_ENABLE_TEST_COMMANDS: '1', ...(options.vscodeVersion ? { VSCODE_VERSION: options.vscodeVersion } : {}) });
 
   await step('source-clean', () => {
     if (!evidence.source.dirty) return {};
@@ -396,10 +405,10 @@ export async function main(argv = process.argv.slice(2)) {
   await step('extension-host-e2e', () => {
     if (!options.e2e) return { status: 'not-run', detail: 'pass --e2e to run (downloads VS Code on first use)' };
     const result = process.platform === 'win32'
-      ? run('node', ['--import', 'tsx', './test/e2e/runTest.ts'], { env: { MMI_ENABLE_TEST_COMMANDS: '1' } })
-      : run('bash', ['./scripts/run-vscode-e2e.sh']);
+      ? run('node', ['--import', 'tsx', './test/e2e/runTest.ts'], { env: e2eEnv() })
+      : run('bash', ['./scripts/run-vscode-e2e.sh'], { env: e2eEnv() });
     if (result.status !== 0) throw new Error(`Extension Host E2E failed\n${tail(result.output, 25)}`);
-    return { detail: 'passed' };
+    return { detail: `passed on VS Code ${options.vscodeVersion ?? 'stable'}` };
   }, { optional: true });
 
   await step('vsix-smoke', () => {
@@ -410,12 +419,12 @@ export async function main(argv = process.argv.slice(2)) {
     const unpacked = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-vsix-smoke-'));
     try {
       extractZip(fs.readFileSync(vsixPath), unpacked);
-      const env = { MMI_ENABLE_TEST_COMMANDS: '1', MMI_E2E_EXTENSION_PATH: path.join(unpacked, 'extension') };
+      const env = { ...e2eEnv(), MMI_E2E_EXTENSION_PATH: path.join(unpacked, 'extension') };
       const result = process.platform === 'win32'
         ? run('node', ['--import', 'tsx', './test/e2e/runTest.ts'], { env })
         : run('bash', ['./scripts/run-vscode-e2e.sh'], { env });
       if (result.status !== 0) throw new Error(`Extension Host E2E against the unpacked VSIX failed\n${tail(result.output, 25)}`);
-      return { detail: 'passed against the unpacked VSIX' };
+      return { detail: `passed against the unpacked VSIX on VS Code ${options.vscodeVersion ?? 'stable'}` };
     } finally {
       fs.rmSync(unpacked, { recursive: true, force: true });
     }
