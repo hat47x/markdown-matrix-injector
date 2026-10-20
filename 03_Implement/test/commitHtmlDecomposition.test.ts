@@ -135,3 +135,18 @@ test('refuses a symlinked destination and never writes outside the workspace', (
     }
   });
 });
+
+test('recovers only newly created output files if the shared ledger lock is occupied', () => {
+  workspace((options) => {
+    const lock = path.join(
+      options.workspaceRoot,
+      '.mmi-ledger.json.lock',
+    );
+    fs.writeFileSync(lock, 'another operation owns the ledger lock');
+    assert.throws(() => commitHtmlDecomposition(options), /already being updated/u);
+    assert.equal(fs.existsSync(path.join(options.workspaceRoot, 'docs/overview.html')), false);
+    assert.equal(fs.existsSync(path.join(options.workspaceRoot, 'docs/api.html')), false);
+    assert.equal(fs.existsSync(options.ledgerPath), false);
+    assert.equal(fs.readFileSync(lock, 'utf8'), 'another operation owns the ledger lock');
+  });
+});
