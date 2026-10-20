@@ -4,6 +4,7 @@
  * Source workbooks/documents are never modified. Commands that materialize,
  * extract or import write only to explicit output, asset, attachment and ledger paths.
  */
+import { inventoryDesignSources } from '../application/designSourceInventory.js';
 import { runSnapshot } from './snapshot.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -150,6 +151,12 @@ Commands:
       --download              explicitly allow HTTPS acquisition after showing manifest metadata
       --offline               forbid HTTPS access; use verified cache/local/runtime-managed sources only
                             Runtime-managed Ollama/LM Studio models are discovered only for this explicit command.
+  inventory <directory>    Identify a source collection without exposing document contents.
+      --inspect              also run existing inspect; output only Candidate counts and diagnostic codes
+      --exclude <path>       exclude a directory-relative path/prefix (repeatable; no glob)
+      --max-bytes <n>        per-file read limit (default 16777216; maximum 268435456)
+                            --json emits Source Identity v1, collection digest and explicit coverage gaps.
+                            Exit 1 means partial coverage; output must stay outside the scanned directory.
   inspect <source>          List workbook/CSV regions, structured Trees, static HTML DOM fragments,
                             or Word (.docx) headings, tables, pictures and comments.
                             --json adds Semantic Candidates with status, method, provenance and fingerprint
@@ -304,6 +311,9 @@ export async function main(argv: string[]): Promise<number> {
     allowPositionals: true,
     options: {
       root: { type: 'string' },
+      inspect: { type: 'boolean', default: false },
+      exclude: { type: 'string', multiple: true },
+      'max-bytes': { type: 'string' },
       json: { type: 'boolean', default: false },
       out: { type: 'string', short: 'o' },
       to: { type: 'string', default: 'md' },
@@ -607,6 +617,38 @@ export async function main(argv: string[]): Promise<number> {
         console.error(`mmi: ${error instanceof Error ? error.message : String(error)}`);
         return 1;
       }
+    }
+    case 'inventory': {
+      if (args.length !== 1) return usageError('inventory takes one directory');
+      const directory = path.resolve(args[0]);
+      if (values.out) {
+        const output = path.resolve(values.out);
+        if (fs.existsSync(output)) return usageError('inventory output already exists; choose a new output file');
+        if (isPathWithinBoundary(output, directory)
+            || isPathWithinBoundary(fs.realpathSync(path.dirname(output)), fs.realpathSync(directory))) {
+          return usageError('inventory output must stay outside the scanned directory');
+        }
+      }
+      const report = inventoryDesignSources({
+        workspaceRoot: root, directory, exclude: values.exclude,
+        ...(values['max-bytes'] === undefined ? {} : { maxBytes: Number(values['max-bytes']) }),
+        ...(values.inspect ? { inspect: (file: string) => {
+          const result = inspectSource(file, 0);
+          const candidateCounts: Record<string, number> = {};
+          for (const candidate of result.candidates) candidateCounts[candidate.kind] = (candidateCounts[candidate.kind] ?? 0) + 1;
+          const diagnosticCodes = [...new Set(Object.entries(result)
+            .filter(([key, items]) => key.endsWith('Diagnostics') && Array.isArray(items))
+            .flatMap(([, items]) => (items as { code: string }[]).map((item) => item.code)))].sort();
+          return { candidateCounts, diagnosticCodes };
+        } } : {}),
+      });
+      const text = values.json ? JSON.stringify(report, null, 2) : [
+        `inventory: ${report.status} (${report.consistency})`, report.collectionDigest,
+        ...report.entries.map((entry) => `${entry.state}\t${entry.path}${entry.reason ? `\t${entry.reason}` : ''}`),
+      ].join('\n');
+      if (values.out) fs.writeFileSync(values.out, `${text}\n`, { flag: 'wx' });
+      else emit(text);
+      return report.status === 'complete' ? 0 : 1;
     }
     case 'inspect': {
       if (args.length !== 1) return usageError('inspect takes one source file');
