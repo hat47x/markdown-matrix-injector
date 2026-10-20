@@ -144,10 +144,14 @@ export async function createDiagnosticsForDocument(
       ? path.resolve(workspaceRoot)
       : path.resolve(path.dirname(markdownFilePath));
     const resolvedCandidates = resolveWorkbookPathCandidates(match.filepath, markdownFilePath, workspaceRoot);
-    let resolvedFilepath = resolvedCandidates[0] ?? match.filepath;
+    // Never probe an outside path, even to ask whether it exists (#599). If
+    // every candidate is lexically outside, report containment without I/O.
+    const lexicalCandidates = resolvedCandidates.filter((candidate) =>
+      isPathWithinBoundary(candidate, boundary));
+    let resolvedFilepath = lexicalCandidates[0] ?? resolvedCandidates[0] ?? match.filepath;
     let fileExists = false;
 
-    for (const candidate of resolvedCandidates) {
+    for (const candidate of lexicalCandidates) {
       if (await dependencies.fileExists(candidate)) {
         resolvedFilepath = candidate;
         fileExists = true;
@@ -155,11 +159,13 @@ export async function createDiagnosticsForDocument(
       }
     }
 
-    // Check containment (spec P4): file may exist on disk but lie outside the
-    // workspace boundary (e.g. ../../../../etc/hosts).  Report proactively in
+    // Check containment (spec P4): the file may exist on disk but lie outside
+    // the workspace boundary (e.g. a symlinked path). Report proactively in
     // the Problems panel so the user sees it before opening the preview.
     let containmentOk: boolean | undefined;
-    if (fileExists) {
+    if (lexicalCandidates.length === 0) {
+      containmentOk = false;
+    } else if (fileExists) {
       let checkPath = resolvedFilepath;
       let realBoundary = boundary;
       try { checkPath = fs.realpathSync(resolvedFilepath); } catch { /* best-effort */ }

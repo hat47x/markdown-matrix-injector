@@ -58,7 +58,18 @@ export function resolveSourcePath(options: ResolveSourcePathOptions): string {
   // so compare real paths with the real boundary.
   const realBoundary = realpathOrSelf(boundary);
 
-  for (const candidate of candidates) {
+  // Decide containment lexically before touching the disk. Otherwise a
+  // reference that leaves the workspace reports "file not found" when the
+  // outside file happens to be absent, and "outside boundary" when it exists:
+  // the document author could probe the filesystem by changing the wording,
+  // and the same typo would produce different diagnostics by OS (#599).
+  const lexicalCandidates = candidates.filter((candidate) =>
+    isPathWithinBoundary(candidate, boundary));
+  if (lexicalCandidates.length === 0) {
+    throw new PathContainmentError(options.sourcePath, candidates[0], boundary);
+  }
+
+  for (const candidate of lexicalCandidates) {
     if (fs.existsSync(candidate)) {
       // Defeat symlink bypass: resolve to real path before containment check
       const checkPath = realpathOrSelf(candidate);
