@@ -16,6 +16,7 @@ import { WorkbookCache } from '../cache/workbookCache.js';
 import { checkDetachedDocument } from '../application/detachCheck.js';
 import { extractHtmlFragment } from '../application/extractHtmlFragment.js';
 import { previewHtmlDecomposition } from '../application/htmlDecompositionPreview.js';
+import { commitHtmlDecomposition } from '../application/commitHtmlDecomposition.js';
 import {
   planHtmlDecomposition,
   type HtmlPlanSelection,
@@ -170,6 +171,13 @@ Commands:
                             Generic .xml lists explicit element nodes; XML Spreadsheet 2003 remains a table source.
                             .txt/.text/.log use deterministic M1 hierarchy hypotheses; conflicting methods are not merged.
                             .html/.htm list explicit main/section/table/figure Candidate fragments (no scripts/URLs fetched).
+  html-commit <source.html>  Explicitly save reviewed static HTML fragments as a batch
+      --plan <file.json>      requires sourceDigest and reviewed fragments (id, expectedFingerprint, output)
+      --commit               required for filesystem changes; no implied write from preview
+      --root <workspace>      source, plan, ledger and outputs must stay inside workspace
+      --ledger <file>         default <root>/mmi-ledger.json
+      --json                  report output hashes and ledger location
+                            This is not crash-atomic, safe HTML publishing or Detached.
   html-plan <source.html>   Analyze reviewed fragment locations and cross-file links without writes
       --preview               include normalized, in-memory HTML for reviewed fragments (requires --json)
       --plan <file.json>      workspace-local plan: {"fragments":[{"id":"...","expectedFingerprint":"sha256:...","output":"docs/page.html"}]}
@@ -297,6 +305,7 @@ export async function main(argv: string[]): Promise<number> {
       tree: { type: 'string' },
       'html-id': { type: 'string' },
       plan: { type: 'string' },
+      commit: { type: 'boolean', default: false },
       preview: { type: 'boolean', default: false },
       'expected-fingerprint': { type: 'string' },
       'tree-method': { type: 'string' },
@@ -343,6 +352,9 @@ export async function main(argv: string[]): Promise<number> {
   if (values.help || !command) {
     console.log(USAGE);
     return command || values.help ? 0 : 2;
+  }
+  if (values.commit && command !== 'html-commit') {
+    return usageError('--commit is supported only by html-commit');
   }
   if (values.preview && command !== 'html-plan') {
     return usageError('--preview is supported only by html-plan --json');
@@ -463,6 +475,57 @@ export async function main(argv: string[]): Promise<number> {
         ? JSON.stringify(result, null, 2)
         : formatCognitiveArtifactResult(result));
       return resolution.status === 'unavailable' ? 1 : 0;
+    }
+    case 'html-commit': {
+      if (!values.commit) {
+        return usageError('html-commit requires explicit --commit');
+      }
+      if (args.length !== 1 || !values.plan) {
+        return usageError('html-commit needs one source.html and --plan <file.json>');
+      }
+      if (values.out) {
+        return usageError('html-commit does not support --out for its JSON report');
+      }
+      const sourcePath = path.resolve(args[0]);
+      const planPath = path.resolve(values.plan);
+      const ledgerPath = path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE);
+      try {
+        const rootReal = fs.realpathSync(root);
+        for (const input of [sourcePath, planPath]) {
+          if (!isPathWithinBoundary(input, root)
+              || !isPathWithinBoundary(fs.realpathSync(input), rootReal)) {
+            throw new Error('MMI_HTML_OUTSIDE_ROOT: source/plan must stay in workspace');
+          }
+        }
+        const manifest = JSON.parse(fs.readFileSync(planPath, 'utf8')) as {
+          sourceDigest?: unknown;
+          fragments?: unknown;
+        };
+        if (!manifest || typeof manifest !== 'object'
+            || typeof manifest.sourceDigest !== 'string'
+            || !/^sha256:[0-9a-f]{64}$/u.test(manifest.sourceDigest)
+            || !Array.isArray(manifest.fragments)
+            || manifest.fragments.some((item: unknown) =>
+              !item || typeof item !== 'object'
+              || typeof (item as HtmlPlanSelection).id !== 'string'
+              || typeof (item as HtmlPlanSelection).output !== 'string'
+              || typeof (item as HtmlPlanSelection).expectedFingerprint !== 'string')) {
+          throw new Error('MMI_HTML_COMMIT_INVALID: require sourceDigest and reviewed fragments');
+        }
+        const result = commitHtmlDecomposition({
+          workspaceRoot: root,
+          sourcePath,
+          ledgerPath,
+          selections: manifest.fragments as HtmlPlanSelection[],
+          expectedSourceDigest: manifest.sourceDigest,
+        });
+        emit(values.json ? JSON.stringify(result, null, 2)
+          : result.files.map((item) => `${item.output}: ${item.status} (${item.digest})`).join('\n'));
+        return 0;
+      } catch (error) {
+        console.error(`mmi: ${error instanceof Error ? error.message : String(error)}`);
+        return 1;
+      }
     }
     case 'html-plan': {
       if (values.preview && !values.json) {
