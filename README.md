@@ -30,12 +30,12 @@
 
 ## インストール
 
-公開準備中の検証版は、受け取った `.vsix` ファイルからインストールしてください。
+検証版は、`.vsix` ファイルからインストールしてください。0.2.0のVSIXとコマンドライン版は、GitHub Releasesのpre-release [v0.2.0](https://github.com/hat47x/markdown-matrix-injector/releases/tag/v0.2.0) に置いています（リポジトリへのアクセス権が必要です）。
 VS Codeで `Ctrl+Shift+P` → `Extensions: Install from VSIX...` を選び、MMIのVSIXを指定します。
 更新後はウィンドウを再読み込みします。拡張を使うだけならNode.jsの導入は不要です。
 
 最低対応バージョンはVS Code 1.100.0です。今回の実機検証はWindowsのVS Code 1.136.1で行っています。
-VS Code MarketplaceやGitHub Releasesでの公開は、この手順の前提ではありません。
+VS Code Marketplaceでは、まだ公開していません。
 
 ## まず4件の要件を表示する
 
