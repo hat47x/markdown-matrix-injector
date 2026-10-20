@@ -1,6 +1,8 @@
-# Issue: Marketplace 配布レディネス (manifest + パッケージング)
+# Issue: Marketplace配布に向けたマニフェストとVSIXパッケージの整備
 
 > **DEFERRED（配布は完成度ゲート通過後）**: ADR-0010 の決定により、本タスクは公開に足る品質ゲート（G1〜G4: 実プレビュー描画・PDF 出力実証・データ完全性・正直な制約）を満たすまで着手しない。中途半端な状態での配布を避けるため。
+
+この文書は、Marketplace配布に向けた当時の整備内容と2026年7月15日の検証記録です。冒頭の`DEFERRED`、`Status: Done`、人間による公開手続きの未チェック項目が併存する原記録を保持します。VSIX生成の記録をMarketplace公開の完了や現行CIの成功とはみなしません。
 
 ## Meta
 - Type: Feature
@@ -21,14 +23,14 @@ categories, keywords, icon, repository, license, galleryBanner）が無く、`@v
 同梱のrelease bundleはソースtar.gzで、一般利用者がインストールできる成果物（`.vsix` / Marketplace）ではない。
 「動く」拡張を「入手できる」状態にするための配布レディネスを確立する。
 
-## Execution Plan
-### Proposed solution
+## 当時の実行計画
+### 解決方針（当時の提案）
 1. `package.json` manifest 整備:
    - `private` を解消（またはpublish用に除去）。`publisher`, `displayName`, `description`, `categories: ["Other"|"Visualization"|...]`, `keywords`, `icon`, `repository`, `license`, `bugs`, `homepage` を追加。`engines.node` も宣言。
    - `version` をSemVer運用に乗せ、CHANGELOG（issue-0096）と整合させる。
 2. `@vscode/vsce` をdevDependenciesに追加し、`package`(=`.vsix`生成) / `publish` のnpm scriptを追加。`.vscodeignore` で配布物を最小化（`01_Plans`/`00_Prompt`/test/artifactsを除外、`dist` と `media` とLICENSE/READMEを含める）。
-3. icon（128x128 PNG等）を用意。
-4. CIに「`vsce package` で `.vsix` を生成しアーティファクト化」するジョブを追加（既存release-bundle.ymlの発展or新規）。publishジョブは `workflow_dispatch` + secret前提の雛形に留める。
+3. 配布用アイコン（128×128 PNGなど）を用意する。
+4. CIに`vsce package`で`.vsix`を生成し、成果物として保存するジョブを追加する（既存の`release-bundle.yml`を拡張するか、新設する）。公開用ジョブは`workflow_dispatch`とsecretを前提とした雛形に留める。
 
 ### Acceptance criteria
 - [x] `vsce package` が成功し、インストール可能な `.vsix` が生成される。
@@ -46,7 +48,7 @@ categories, keywords, icon, repository, license, galleryBanner）が無く、`@v
       実CI実行は次回push後に確認する — 実行前に [x] とはしない、の原則に基づき文言を「構成済み」へ訂正）。
 - [ ] (human gate) Marketplace publisher作成・PAT登録・`vsce publish` は人間が実施する旨が手順化されている（AIは実行しない）。
 
-### Task breakdown
+### 作業項目（Task breakdown）
 - [x] manifestメタ情報追加、`private` 解消。
 - [x] `@vscode/vsce` 追加 + `package`/`publish` script + `.vscodeignore`。
 - [x] icon追加（128x128 PNG、実ファイル検品済み）。
@@ -57,7 +59,7 @@ categories, keywords, icon, repository, license, galleryBanner）が無く、`@v
 - [x] .vsix内のreadmeが `03_Implement/README.md`（180 byteのスタブ）になっている。→ 2026-07-15利用者向け
       README（インストール・クイックスタート・機能一覧・開発コマンド）へ差し替え済み。
 
-### Validation plan
+### 当時の検証計画（Validation plan）
 - `npx vsce package` がexit 0、`.vsix` の内容を `vsce ls` 相当で確認（不要ファイル混入なし）。
 - `npm run build` / `npm test` がexit 0。
 - publish自体はhuman gate（ADR-0010のエスカレーション境界）。
