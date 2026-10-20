@@ -1,4 +1,6 @@
-# Issue: カードの「開くボタン」(env.openExternal) 未実装 (Phase 4 完成度ギャップ)
+# Issue: カードから原本ファイルを開く操作の実装と実機確認
+
+この文書は当時のIssue記録です。2026年9月9日のWindows VS Codeでの最終確認が記録されています。旧commandリンク方式からADR-0015の拡張URI方式への変更、途中の未確認状態、最終的なExcel起動確認を時系列の履歴として保持します。
 
 ## Meta
 - Type: Feature
@@ -24,15 +26,15 @@
 - クリック挙動の正しさは実webviewでしか検証できない（GUI必須）。「動くことを実証してからリリース」の原則（ADR-0010）に従い、
   ヘッドレス環境での盲目的実装は避け、本issueとして明示的にトラッキングする。
 
-## Execution Plan（提案・未実施）
-### Proposed solution
+## 当時の実行計画（提案・未実施）
+### 解決方針（当時の提案）
 1. `renderCard.ts` に「開く」リンク/ボタン要素を追加（`mmi-card__open` 等）。リンク先は元ファイルの解決パス。
 2. webviewからのファイルオープン方式を決定（`command:` URI + `enableCommandUris`、またはVS Codeが解決する相対リンク）。
    方式はADRで決定（不可逆な設計判断のため）。
 3. `media/markdown-matrix.css` に開くボタンのスタイルを追加。
 4. unitでHTML構造（リンク存在・解決パス）を固定し、manual-e2e（Checklist）で実クリック挙動を確認。
 
-### Acceptance criteria
+### 受入条件（Acceptance criteria）
 - [x] カードUIにファイル名・範囲に加え「開く」操作要素が存在する（unitでHTML構造を固定）。
       実装: ADR-0011ハイブリッド方式 — ①見出し `mmi-card__title` を著者記述の相対パスへの素のリンク化
       （Strict/未信頼でも動作するbaseline）、②`mmi-card__open`「外部アプリで開く」ボタン
