@@ -6,6 +6,7 @@ import {
   readTabularHierarchy,
   type TabularHierarchyConfig,
 } from '../adapters/tabularHierarchyAdapter.js';
+import { readDocx } from '../adapters/docxSourceAdapter.js';
 import {
   readSourceFileIdentity,
 } from '../core/sourceIdentity.js';
@@ -198,13 +199,18 @@ export function extractedProvenance(markdown: string): ExtractedProvenance[] {
     const image = /<!--\s*mmi:extracted\s+(?<attrs>.*?)\s*-->/u.exec(line);
     if (image?.groups?.attrs) {
       const attrs = attributes(image.groups.attrs);
-      if (attrs.source && attrs.sheet && attrs.sha256) {
+      const pathPlace = attrs.path ? `path:${attrs.path}` : undefined;
+      if (attrs.source && attrs.sha256 && (attrs.sheet || pathPlace)) {
         records.push({
           line: index + 1,
           kind: 'image',
           source: attrs.source,
-          sheet: attrs.sheet,
-          ...(attrs.anchor ? { place: attrs.anchor } : {}),
+          ...(attrs.sheet ? { sheet: attrs.sheet } : {}),
+          ...(pathPlace
+            ? { place: pathPlace }
+            : attrs.anchor
+              ? { place: attrs.anchor }
+              : {}),
           // The comment carries the raw media digest; the Candidate fingerprint is derived from it.
           fingerprintDigest: fingerprintOf('image-media-bytes-v1', normalizedSha256(attrs.sha256)).digest,
         });
@@ -214,13 +220,18 @@ export function extractedProvenance(markdown: string): ExtractedProvenance[] {
     const table = /<!--\s*mmi:extracted-table\s+(?<attrs>.*?)\s*-->/u.exec(line);
     if (table?.groups?.attrs) {
       const attrs = attributes(table.groups.attrs);
-      if (attrs.source && attrs.sheet && attrs.range && attrs['candidate-sha256']) {
+      const pathPlace = attrs.path ? `path:${attrs.path}` : undefined;
+      if (
+        attrs.source
+        && attrs['candidate-sha256']
+        && ((attrs.sheet && attrs.range) || pathPlace)
+      ) {
         records.push({
           line: index + 1,
           kind: 'table-range',
           source: attrs.source,
-          sheet: attrs.sheet,
-          place: attrs.range,
+          ...(attrs.sheet ? { sheet: attrs.sheet } : {}),
+          place: pathPlace ?? attrs.range,
           fingerprintDigest: normalizedSha256(attrs['candidate-sha256']),
         });
       }
@@ -262,6 +273,11 @@ function candidatesFromCurrentSource(
   sourcePath: string,
   sourceLabel: string,
 ): Candidate[] {
+  // Word is a stand-alone document source with no workbook/CSV inventory.
+  // Its table and image Candidates use structural paths as their place.
+  if (/\.docx$/iu.test(sourcePath)) {
+    return readDocx(fs.readFileSync(sourcePath), sourceLabel).candidates;
+  }
   return buildCandidateReviewInventory(sourcePath, sourceLabel)
     .items.map((item) => item.candidate);
 }
