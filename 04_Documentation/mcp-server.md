@@ -2,7 +2,7 @@
 
 MMIは、利用者が選んだAIエージェントから読み取り・検証の操作を呼べるMCP（Model Context Protocol）サーバをstdioで提供します。サーバ名は`mmi-mcp`です。CLIと同じApplication層の関数を呼び、原本・台帳（ledger）・成果物を書き換えません。MMIから外部のLLMやネットワークへ送信する処理も持ちません。
 
-この文書は実装済みの範囲を説明します。実際のAIエージェントからの接続と、基本設計書キットを使った価値の確認は未実施です（[#527](https://github.com/hat47x/markdown-matrix-injector/issues/527)）。
+この文書は実装済みの範囲を説明します。実際のAIエージェントからの接続と、基本設計書キットを使った価値の確認は未実施です（[#527](https://github.com/hat47x/markdown-matrix-injector/issues/527)）。読み取り専用にする設計判断は[ADR-0027](../01_Plans/adr/ADR-0027-read-only-mcp-agent-boundary.md)に記録しています。
 
 ## 起動する
 
