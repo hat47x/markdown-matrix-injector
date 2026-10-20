@@ -9,6 +9,7 @@ import {
   formatProvenanceReport,
 } from '../src/application/provenanceReport.js';
 import { extractTable } from '../src/cli/extract.js';
+import { recordReviewBasis } from '../src/application/reviewBasis.js';
 import { PROVENANCE_REPORT_SCHEMA, provenanceReportSchemaJson } from '../src/core/provenanceReportContract.js';
 
 function workspace(): string {
@@ -48,6 +49,8 @@ test('report resolves Linked references and reports source digests without cell 
       diagnostics: 0,
       stale: 0,
       missingSources: 0,
+      reviewStale: 0,
+      reviewUnrecorded: 1,
     });
     assert.deepEqual(
       [report.linked[0].line, report.linked[0].source, report.linked[0].sheet, report.linked[0].range, report.linked[0].status],
@@ -55,6 +58,7 @@ test('report resolves Linked references and reports source digests without cell 
     );
     assert.match(report.linked[0].sourceDigest ?? '', /^sha256:[0-9a-f]{64}$/u);
     assert.equal(report.review.status, 'not-configured');
+    assert.equal(report.review.references[0].status, 'unrecorded');
     const serialized = JSON.stringify(report);
     assert.ok(!serialized.includes('A,1'));
     assert.ok(!serialized.includes('"item,value"'));
@@ -147,6 +151,42 @@ test('adopted Extracted assets join the ledger and become stale only when their 
     assert.equal(stale.extracted[0].freshness, 'stale');
     assert.equal(stale.summary.stale, 1);
     assert.equal(stale.extracted[0].problems?.[0].code, 'MMI_DETACH_EXTRACTED_STALE');
+  } finally {
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+});
+
+test('a recorded review basis appears in the report and becomes reviewStale after a logical-table change', () => {
+  const root = workspace();
+  try {
+    const source = path.join(root, 'data.csv');
+    const document = path.join(root, 'doc.md');
+    const sidecar = path.join(root, 'mmi-review-basis.json');
+    writeCsv(source, ['A,1', 'B,2']);
+    fs.writeFileSync(document, '![[data.csv#Sheet1|A1:B2]]\n');
+    recordReviewBasis({ markdownFilePath: document, workspaceRoot: root, sidecarPath: sidecar });
+    const fresh = buildProvenanceReport({
+      markdownFilePath: document,
+      workspaceRoot: root,
+      ledgerPath: path.join(root, 'mmi-ledger.json'),
+      reviewBasisPath: sidecar,
+      diagnostics: [],
+    });
+    assert.equal(fresh.review.status, 'recorded');
+    assert.equal(fresh.review.references[0].status, 'fresh');
+    assert.equal(fresh.summary.reviewStale, 0);
+
+    writeCsv(source, ['A,9', 'B,2']);
+    const stale = buildProvenanceReport({
+      markdownFilePath: document,
+      workspaceRoot: root,
+      ledgerPath: path.join(root, 'mmi-ledger.json'),
+      reviewBasisPath: sidecar,
+      diagnostics: [],
+    });
+    assert.equal(stale.review.status, 'recorded');
+    assert.equal(stale.review.references[0].status, 'stale');
+    assert.equal(stale.summary.reviewStale, 1);
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }

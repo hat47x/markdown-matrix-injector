@@ -20,6 +20,8 @@ import {
   formatProvenanceReport,
 } from '../application/provenanceReport.js';
 import { provenanceReportSchemaJson } from '../core/provenanceReportContract.js';
+import { reviewBasisSchemaJson } from '../core/reviewBasisContract.js';
+import { DEFAULT_REVIEW_BASIS_FILE, recordReviewBasis } from '../application/reviewBasis.js';
 import { extractHtmlFragment } from '../application/extractHtmlFragment.js';
 import { extractDocxImage, extractDocxTable } from '../application/extractDocx.js';
 import { previewHtmlDecomposition } from '../application/htmlDecompositionPreview.js';
@@ -145,6 +147,8 @@ Commands:
                             candidate        mmi.semantic-candidate/v1
                             ledger           mmi.ledger/v1
                             review-decisions mmi.review-decisions/v1
+                            provenance-report mmi.provenance-report/v1
+                            review-basis     mmi.review-basis/v1
                             cognitive-artifact mmi.cognitive-artifact-manifest/v0
   core <request.json|->     Execute one mmi.portable-core-request/v1 and emit JSON.
                             Use - to read the request from stdin; source bytes are embedded in the request.
@@ -251,11 +255,16 @@ Commands:
       --ledger <file>          verify adopted extracted Candidates against this ledger
   detach-check <doc.md>     Verify a Markdown artifact has no MMI refs, unresolved cards,
                             broken local links or links outside --root
-  manifest <doc.md>         List references that fall back to 別紙 cards as CSV
+  manifest <doc.md>         List references that fall back to 蛻･邏・cards as CSV
   provenance <doc.md>       Report Linked references, adopted Extracted assets and diagnostics for one document
       --ledger <file>         import ledger (default: <root>/mmi-ledger.json)
+      --review-basis <file>   review-basis sidecar (default: <root>/mmi-review-basis.json)
                             Read-only and content-light: source cell values are not included.
-                            Review-basis records (#522) are reported as not configured.
+                            Review state is not-configured until 'review-basis --write' is used.
+  review-basis <doc.md>     Preview or explicitly record the reviewed logical-table digest of each Linked reference
+      --write                 write the review-basis sidecar (without it, nothing is written)
+      --review-basis <file>   sidecar path (default: <root>/mmi-review-basis.json)
+                            Recording is never automatic. A failed logical-table read leaves the file unchanged.
   impact <source>           Find Markdown dependencies on one source across --root.
                             Reports live MMI refs, adopted Extracted provenance and local links.
                             The source may already be missing; this command never rewrites references.
@@ -340,6 +349,8 @@ export async function main(argv: string[]): Promise<number> {
       'attachments-dir': { type: 'string' },
       'assets-dir': { type: 'string' },
       ledger: { type: 'string' },
+      'review-basis': { type: 'string' },
+      write: { type: 'boolean', default: false },
       'similarity-evidence': { type: 'string' },
       unimported: { type: 'boolean', default: false },
       'exclude-imported': { type: 'boolean', default: false },
@@ -385,7 +396,7 @@ export async function main(argv: string[]): Promise<number> {
     case 'schema': {
       if (args.length !== 1) {
         return usageError(
-          'schema needs one of: candidate, ledger, review-decisions, provenance-report, cognitive-artifact',
+          'schema needs one of: candidate, ledger, review-decisions, provenance-report, review-basis, cognitive-artifact',
         );
       }
       const schemas: Record<string, () => Record<string, unknown>> = {
@@ -393,12 +404,13 @@ export async function main(argv: string[]): Promise<number> {
         ledger: importLedgerSchemaJson,
         'review-decisions': reviewDecisionsSchemaJson,
         'provenance-report': provenanceReportSchemaJson,
+        'review-basis': reviewBasisSchemaJson,
         'cognitive-artifact': cognitiveArtifactManifestSchemaJson,
       };
       const schema = schemas[args[0]];
       if (!schema) {
         return usageError(
-          'schema needs one of: candidate, ledger, review-decisions, provenance-report, cognitive-artifact',
+          'schema needs one of: candidate, ledger, review-decisions, provenance-report, review-basis, cognitive-artifact',
         );
       }
       emit(JSON.stringify(schema(), null, 2));
@@ -1302,6 +1314,10 @@ export async function main(argv: string[]): Promise<number> {
           markdownFilePath,
           workspaceRoot: root,
           ledgerPath: path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE),
+          reviewBasisPath: path.resolve(
+            root,
+            values['review-basis'] ?? DEFAULT_REVIEW_BASIS_FILE,
+          ),
           diagnostics,
         });
       } catch (error) {
@@ -1312,6 +1328,44 @@ export async function main(argv: string[]): Promise<number> {
         ? JSON.stringify(report, null, 2)
         : formatProvenanceReport(report));
       return 0;
+    }
+    case 'review-basis': {
+      if (args.length !== 1) return usageError('review-basis takes one Markdown file');
+      const markdownFilePath = path.resolve(args[0]);
+      if (!handoffPathWithinRoot(markdownFilePath, root)) {
+        return usageError('review-basis document must stay within --root workspace');
+      }
+      let result;
+      try {
+        result = recordReviewBasis({
+          markdownFilePath,
+          workspaceRoot: root,
+          sidecarPath: path.resolve(
+            root,
+            values['review-basis'] ?? DEFAULT_REVIEW_BASIS_FILE,
+          ),
+          dryRun: !values.write,
+        });
+      } catch (error) {
+        console.error(`mmi: ${error instanceof Error ? error.message : String(error)}`);
+        return 1;
+      }
+      for (const problem of result.problems) {
+        console.error(`mmi: ${problem.code}: ${problem.message}`);
+      }
+      if (values.json) {
+        emit(JSON.stringify(result, null, 2));
+      } else {
+        const verb = result.written ? 'recorded' : 'would record';
+        emit(`${verb} ${result.records.length} reference(s) in ${result.document}`);
+        for (const record of result.records) {
+          emit(`  ${record.reference}  ${record.logicalTableDigest}`);
+        }
+        if (!values.write && result.problems.length === 0) {
+          emit('(preview only; pass --write to update the review-basis file)');
+        }
+      }
+      return result.problems.length > 0 ? 1 : 0;
     }
     case 'impact': {
       if (args.length !== 1) return usageError('impact takes one source file path');

@@ -25,7 +25,7 @@ MMIの利用者は、一つの文書が何を参照し、何を取り込み、�
 1. **`mmi.provenance-report/v1`を公開契約にする。** `mmi schema provenance-report`でJSON Schemaを取得でき、`mmi provenance <doc.md> --json`が同じ形を返す。契約は`document`・`summary`・`linked`・`extracted`・`review`・`diagnostics`を持つ。
 2. **原本の値を含めない。** 報告が持つのは、文書と原本のパス、シート・範囲、ダイジェスト、fingerprint、台帳の出力先・変換条件・レビュー状態、鮮度、診断コードだけとする。セル値・本文・コメント本文は含めない。値が必要な場合は、利用者が明示的に`inspect --values`等を使う。
 3. **LinkedとExtractedを分ける。** Linkedは記法上の参照と現在の原本ダイジェストを、Extractedは台帳の採用記録と`checkExtractedProvenanceFreshness()`の結果を報告する。両者を一つの「参照」に混ぜない。
-4. **見直し記録は「未設定」と明示する。** #522が実装されるまで、`review`は`status: "not-configured"`、理由コード、追跡Issueを持つ。空配列を「見直し済み」と解釈させない。
+4. **見直し記録は別ファイルへ明示的に書く。** `mmi review-basis --write`が、参照ごとの論理表ダイジェストを`mmi-review-basis.json`（`mmi.review-basis/v1`）へ記録する。`provenance`は記録と現在の論理表を比較し、`fresh`・`stale`・`unrecorded`・`unverifiable`を区別する。記録は自動更新せず、1つでも読めない参照があれば部分的な記録を書かない。記録を記法へ書くかはHuman Sponsorの判断を仰ぐ（#522）。
 5. **診断は`check`の結果を再利用する。** 報告は独自の検証器を持たず、CLIが`checkPaths()`で得た診断を渡す。`check`と`provenance`で診断が食い違わないようにする。
 6. **報告はゲートではない。** `provenance`は情報を返し、終了コード0を基本とする。マージやリリースの可否は既存の`check`・`detach-check`・release gateが決める。報告を使ってCIを失敗させたい場合は、診断件数を利用者側で判定する。
 7. **書き込みをしない。** 報告の生成は、原本・Markdown・台帳・成果物を書き換えない。出力は`--out`で明示した場合だけ書き出す。
@@ -33,7 +33,7 @@ MMIの利用者は、一つの文書が何を参照し、何を取り込み、�
 ## Consequences
 
 - **Good:** 人・AI・CIが同じ一つの報告から、参照先、取り込み資産、鮮度、未解決診断を辿れる。原本の値を報告へ広げずにレビューできる。形式が版付きなので、AI向けツールが安定して読める。Word等の新しいSource Adapterも、台帳と鮮度の契約に乗れば同じ報告へ現れる。
-- **Bad:** 報告だけでは本文の見直し要否を断定できない（#522待ち）。Linkedの「現在の原本ダイジェスト」は、参照した論理表のダイジェストではないため、範囲外の変更でも値が変わる。報告はゲートではないので、CIで失敗させたい利用者には別途の判定が必要。台帳の`reviewedAt`など既存メタデータは報告に含まれるため、完全なバイト再現性は台帳に依存する。
+- **Bad:** 見直し記録は別ファイルであり、記録を忘れた参照は`unrecorded`のままになる。Linkedの`sourceDigest`は原本ファイル全体のダイジェストであり、参照した論理表のダイジェストではない（見直し判定は`review`側の論理表ダイジェストで行う）。報告はゲートではないので、CIで失敗させたい利用者には別途の判定が必要。台帳の`reviewedAt`など既存メタデータは報告に含まれるため、完全なバイト再現性は台帳に依存する。
 - **Traceability:** 実装は`src/application/provenanceReport.ts`、`src/core/provenanceReportContract.ts`、`src/cli/mmi.ts`。試験は`test/provenanceReport.test.ts`、`test/provenanceCommand.test.ts`。利用文書は`04_Documentation/provenance-report.md`。
 
 ## Traceability
