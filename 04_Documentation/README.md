@@ -9,6 +9,7 @@ MMIを初めて知った方は、[概要](overview.md)で「何ができるか�
 | 最初の表を表示する | [チュートリアル](tutorial.md) |
 | 既存設計書や新しいExcel表を使って本文を書く | [ExcelとMarkdownの併用執筆](excel-markdown-authoring.md) |
 | 操作を調べる | [利用マニュアル](user-manual.md) |
+| AIエージェントから読み取り・検証を呼ぶ | [MCPサーバ](mcp-server.md) |
 | 原本とMMIを外す | [原本とMMIを外す手順](detach-guide.md) |
 | 実務に近い例を試す | [サンプル集](samples/practical/README.md) |
 | 用途と全体像を知る | [概要](overview.md) |

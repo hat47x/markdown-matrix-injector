@@ -1718,8 +1718,9 @@ export function inspectSource(
   fromDocument?: string,
   flatTextMethods: readonly FlatTextTreeMethod[] = DEFAULT_FLAT_TEXT_TREE_METHODS,
   tabularHierarchy?: TabularHierarchyConfig,
+  baseDirectory = process.cwd(),
 ): InspectResult {
-  const base = fromDocument ? path.dirname(path.resolve(fromDocument)) : process.cwd();
+  const base = fromDocument ? path.dirname(path.resolve(fromDocument)) : baseDirectory;
   let relative = path.relative(base, absolutePath).split(path.sep).join('/');
   if (!relative.startsWith('.')) relative = `./${relative}`;
 
@@ -1944,12 +1945,13 @@ function candidateDisplayKey(candidate: Candidate): string {
   return `${candidate.kind}\u0000${candidate.locator.sheet ?? ''}\u0000${placeOf(candidate)}`;
 }
 
-function applyLedgerView(
+export function applyLedgerView(
   result: InspectResult,
   absoluteSource: string,
   ledgerPath: string,
   filter: CandidateLedgerFilter,
   similarityEvidencePath?: string,
+  displayCwd = process.cwd(),
 ): InspectResult {
   const ledger = readLedger(ledgerPath);
   const similarity = similarityEvidencePath
@@ -2009,10 +2011,10 @@ function applyLedgerView(
         allowed.has(`table-range\u0000${sheet.name}\u0000${region.a1}`)),
     })),
     ledger: {
-      file: path.relative(process.cwd(), ledgerPath).split(path.sep).join('/') || path.basename(ledgerPath),
+      file: path.relative(displayCwd, ledgerPath).split(path.sep).join('/') || path.basename(ledgerPath),
       filter,
       ...(similarityEvidencePath
-        ? { similarityEvidenceFile: path.relative(process.cwd(), similarityEvidencePath).split(path.sep).join('/') || path.basename(similarityEvidencePath) }
+        ? { similarityEvidenceFile: path.relative(displayCwd, similarityEvidencePath).split(path.sep).join('/') || path.basename(similarityEvidencePath) }
         : {}),
       candidates: view.map(({ candidate, ledgerState, staleClaims, lineageCandidates, researchScores, similarityEvidence }) => ({
         kind: candidate.kind,
@@ -2198,7 +2200,7 @@ export interface CheckProblem {
   message: string;
 }
 
-export async function checkPaths(files: string[], root: string): Promise<CheckProblem[]> {
+export async function checkPaths(files: string[], root: string, displayCwd = process.cwd()): Promise<CheckProblem[]> {
   const cache = new WorkbookCache<WorkbookData>();
   const locale = cliMessageLanguage();
   const problems: CheckProblem[] = [];
@@ -2215,7 +2217,7 @@ export async function checkPaths(files: string[], root: string): Promise<CheckPr
     });
     for (const { diagnostic, range } of items) {
       problems.push({
-        file: path.relative(process.cwd(), absolute).split(path.sep).join('/'),
+        file: path.relative(displayCwd, absolute).split(path.sep).join('/'),
         line: range.start.line + 1,
         column: range.start.character + 1,
         severity: diagnostic.severity,
@@ -2224,7 +2226,7 @@ export async function checkPaths(files: string[], root: string): Promise<CheckPr
       });
     }
     // Prose IDs the referenced sheets do not have (warnings; the reference errors above stay the gate).
-    const displayFile = path.relative(process.cwd(), absolute).split(path.sep).join('/');
+    const displayFile = path.relative(displayCwd, absolute).split(path.sep).join('/');
     for (const finding of findUnknownProseIds(text, referencedSheets(text, absolute, root, cache))) {
       problems.push({
         file: displayFile,
@@ -2239,7 +2241,7 @@ export async function checkPaths(files: string[], root: string): Promise<CheckPr
   return problems;
 }
 
-function collectMarkdownFiles(target: string): string[] {
+export function collectMarkdownFiles(target: string): string[] {
   const stat = fs.statSync(target);
   if (stat.isFile()) return [target];
   return fs.readdirSync(target, { withFileTypes: true })

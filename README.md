@@ -101,6 +101,7 @@ CSVはUTF-8を使います。一般的なXML、外部URL、ワークスペース
 | [動画と画像](04_Documentation/media/release-20260908/README.md) | 実画面で操作を確認 |
 | [内部の仕組み](04_Documentation/how-it-works.md) | 読み込み・キャッシュ・描画の流れ |
 | [MMI Notation v1](04_Documentation/spec/mmi-notation-v1.md) | 読み取り専用の参照規約 |
+| [MCPサーバ](04_Documentation/mcp-server.md) | AIエージェントから読み取り・検証を呼ぶ（stdio、読み取り専用） |
 | [パラメータの構造定義](04_Documentation/spec/params.schema.json) | ツール向けの機械可読定義 |
 
 MMIはVS Code拡張に加えて、`![[...]]`の公開規約と適合試験を管理しています。

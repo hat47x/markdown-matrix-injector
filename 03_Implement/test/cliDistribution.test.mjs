@@ -47,6 +47,10 @@ function fixture() {
     "#!/usr/bin/env node\nawait import('./mmi.js');\n",
   );
   write(
+    path.join(root, 'dist/src/cli/mcp.js'),
+    "#!/usr/bin/env node\nimport './mmi.js';\n",
+  );
+  write(
     path.join(root, 'dist/src/cli/mmi.js'),
     "#!/usr/bin/env node\nimport '../core/example.js';\nimport 'xlsx';\n",
   );
@@ -91,7 +95,10 @@ test('CLI distribution manifest contains runtime-only package contract', () => {
 
   assert.equal(manifest.name, 'markdown-matrix-injector');
   assert.equal(manifest.version, '0.1.0');
-  assert.deepEqual(manifest.bin, { mmi: './dist/src/cli/bootstrap.js' });
+  assert.deepEqual(manifest.bin, {
+    mmi: './dist/src/cli/bootstrap.js',
+    'mmi-mcp': './dist/src/cli/mcp.js',
+  });
   assert.deepEqual(manifest.engines, { node: '>=20' });
   assert.equal(manifest.bundleDependencies, true);
   assert.deepEqual(manifest.files, [
@@ -123,6 +130,7 @@ test('CLI staging copies compiled runtime and disclosure files, not extension ma
 
   assert.equal(result.stageDirectory, stage);
   assert.equal(fs.existsSync(path.join(stage, 'dist/src/cli/bootstrap.js')), true);
+  assert.equal(fs.existsSync(path.join(stage, 'dist/src/cli/mcp.js')), true);
   assert.equal(fs.existsSync(path.join(stage, 'dist/src/cli/mmi.js')), true);
   assert.equal(fs.existsSync(path.join(stage, 'dist/src/core/example.js')), true);
   assert.equal(fs.existsSync(path.join(stage, 'dist/src/core/nested.js')), true);
@@ -133,6 +141,7 @@ test('CLI staging copies compiled runtime and disclosure files, not extension ma
   );
   assert.deepEqual(result.runtimeFiles, [
     'cli/bootstrap.js',
+    'cli/mcp.js',
     'cli/mmi.js',
     'core/example.js',
     'core/nested.js',
@@ -152,6 +161,7 @@ test('CLI staging copies compiled runtime and disclosure files, not extension ma
     fs.readFileSync(path.join(stage, 'package.json'), 'utf8'),
   );
   assert.equal(manifest.bin.mmi, './dist/src/cli/bootstrap.js');
+  assert.equal(manifest.bin['mmi-mcp'], './dist/src/cli/mcp.js');
   assert.equal(manifest.engines.node, '>=20');
   assert.equal(manifest.bundleDependencies, true);
   assert.deepEqual(manifest.files, [
@@ -285,6 +295,19 @@ test('CLI staging fails closed when compiled bootstrap is absent', () => {
       stageDirectory: path.join(root, 'stage'),
     }),
     /Compiled CLI bootstrap is missing/u,
+  );
+});
+
+test('CLI staging fails closed when compiled MCP entry is absent', () => {
+  const root = fixture();
+  fs.rmSync(path.join(root, 'dist/src/cli/mcp.js'));
+
+  assert.throws(
+    () => stageCliPackage({
+      projectRoot: root,
+      stageDirectory: path.join(root, 'stage'),
+    }),
+    /Compiled MCP entry is missing/u,
   );
 });
 
