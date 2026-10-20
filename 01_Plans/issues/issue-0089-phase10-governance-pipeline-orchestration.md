@@ -1,4 +1,6 @@
-# Issue: Phase 10 governance pipeline orchestration
+# Issue: Phase 10のガバナンス処理を一つのコマンドで連結実行する
+
+この文書は、Phase 10の個別CLIを連結する当時の方針と完了判断を残したIssue記録です。Execution Evidenceには検証コマンドが記載されていますが、実行日時や成否の出力はありません。現行のパイプライン動作を新たに検証したものではありません。
 
 ## Meta
 - Type: Feature
@@ -11,10 +13,10 @@
 - Related Backlog/Phase: Phase 10 Adoption Operations Governance Automation
 - Related ADR/Spec: `01_Plans/adr/ADR-0009-phase10-adoption-operations-governance-automation.md`
 
-## Execution Plan
+## 当時の実行計画
 ### Proposed solution (解決策の概要)
-- phase10の個別CLI（harvest / report / SLA / escalation / auditability）を1コマンドで連結実行するorchestration CLIを追加する。
-- 出力先ディレクトリへ各artifactをまとめて生成し、週次運用の手作業を削減する。
+- Phase 10の個別CLI（harvest／report／SLA／escalation／auditability）を、一つのコマンドから連結実行するためのオーケストレーションCLIを追加する。
+- 指定した出力先ディレクトリに各成果物（artifact）をまとめて生成し、週次運用で複数コマンドを手動実行する負担を減らす。
 
 ### Acceptance criteria (受入条件)
 - [x] `python3 01_Plans/tools/phase10_governance_pipeline.py --gate-inputs ... --decisions ... --output-dir ...` で一連のartifactを生成できる。
@@ -23,12 +25,12 @@
 - [x] `python3 -m unittest 01_Plans.tools.test_phase10_governance_pipeline` が成功する。
 - [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] orchestration CLIを実装する。
 - [x] 成功系/失敗系を含むテストを追加する。
 - [x] 検証コマンドを実行し証跡を追記する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `python3 -m unittest 01_Plans.tools.test_phase10_governance_pipeline`
 - `python3 -m unittest 01_Plans.tools.test_phase10_auditability_log`
 - `python3 01_Plans/tools/planning_queue.py`

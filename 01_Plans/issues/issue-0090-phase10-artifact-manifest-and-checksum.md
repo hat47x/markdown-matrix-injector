@@ -1,4 +1,6 @@
-# Issue: Phase 10 artifact manifest and checksum
+# Issue: Phase 10の生成成果物をマニフェストとSHA-256で記録する
+
+この文書は、Phase 10の生成成果物を一覧化して追跡する当時の方針と完了判断を残したIssue記録です。Execution Evidenceには検証コマンドが記載されていますが、実行日時や成否の出力はありません。現行の生成処理やチェックサム検証を新たに確認したものではありません。
 
 ## Meta
 - Type: Feature
@@ -11,10 +13,10 @@
 - Related Backlog/Phase: Phase 10 Adoption Operations Governance Automation
 - Related ADR/Spec: `01_Plans/adr/ADR-0009-phase10-adoption-operations-governance-automation.md`
 
-## Execution Plan
+## 当時の実行計画
 ### Proposed solution (解決策の概要)
-- pipeline出力物に対し、ファイル名・サイズ・sha256を列挙するmanifest CLIを追加する。
-- governance pipeline実行後にmanifest JSON/Markdownを自動生成し、週次運用成果物の追跡性を強化する。
+- パイプラインの出力ファイルについて、ファイル名・サイズ・SHA-256の値を一覧にまとめるマニフェスト生成CLIを追加する。
+- ガバナンスパイプラインの実行後にマニフェストのJSONとMarkdownを自動生成し、週次運用で作成した成果物を追跡しやすくする。
 
 ### Acceptance criteria (受入条件)
 - [x] `python3 01_Plans/tools/phase10_artifact_manifest.py --output-dir <dir> --output <manifest.json>` でmanifestが生成できる。
@@ -23,13 +25,13 @@
 - [x] `python3 -m unittest 01_Plans.tools.test_phase10_artifact_manifest` が成功する。
 - [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] manifest CLIを実装する。
 - [x] governance pipelineへ統合する。
 - [x] unit testを追加・更新する。
 - [x] 検証コマンドを実行し証跡を記録する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `python3 -m unittest 01_Plans.tools.test_phase10_artifact_manifest`
 - `python3 -m unittest 01_Plans.tools.test_phase10_governance_pipeline`
 - `python3 01_Plans/tools/planning_queue.py`
