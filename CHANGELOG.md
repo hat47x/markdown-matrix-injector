@@ -7,6 +7,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+- **Word (.docx) Source Adapter** (ADR-0026, #531): read-only observation of explicit heading styles/outline levels, tables (including `gridSpan`/`vMerge`), embedded pictures and comments as `section`, `table-range`, `image` and `note` Candidates. `mmi inspect` lists them; `mmi extract --docx-table` / `--docx-image` require the reviewed fingerprint and write content-addressed assets with ledger provenance. Nested tables, external image links, unsupported media and missing optional parts are reported as diagnostics without stopping the rest. Not a Linked target for MMI Notation yet.
+
 ## [0.2.0] - 2026-10-20
 
 Verification release (ADR-0025): distributed as a VSIX and a self-contained CLI tarball with release evidence. Extension and package identifiers are unchanged and may still move before the first Marketplace / npm registry release (#504, #517). The notation (MMI Notation v1, Draft), `MMI_*` diagnostic codes and `mmi.*` contract names are unchanged.
