@@ -1,5 +1,7 @@
 # Phase 9: ルールテーブルテンプレート運用ガイド
 
+この文書は、Phase 9のベンチマーク用CSVと試験fixture、そこから生成する表パターンガイドを整合させるための運用手順です。以下のコマンドは実行手順・判定条件の記載であり、今回改めて検査を実行した記録ではありません。
+
 ## 対象読者
 - SIer設計文書の作成者（author）
 - 受入レビュー担当（reviewer）
@@ -64,6 +66,8 @@ Phase 9では次の4表を最小ベンチマークとして固定する。
 
 ## 2. 更新ルール（Round-trip）
 
+まずdocs用CSVとfixture用CSVを同期します。2026-07-09の追記で、生成ガイドも同一コミットに含める運用へ拡張されています。
+
 1. docs用CSV（`04_Documentation/samples/...`）を更新する。
 2. 同一コミットでfixture用CSV（`03_Implement/test/fixtures/...`）へ同内容を反映する。
 3. `python3 01_Plans/tools/check_phase9_template_sync.py` で列同期 + 行同期（row parity）+ 品質監査（必須列/RuleId/日付形式/有効期間整合）を検証する。
@@ -76,7 +80,7 @@ Phase 9では次の4表を最小ベンチマークとして固定する。
 docs用CSVを更新した場合、以下を **同一コミット** で追加反映する（従来のdocs/fixture 2点ルールを拡張）。
 
 3. `04_Documentation/samples/phase9-rule-table-pattern-guide.md`（生成ガイド）を
-   `python3 01_Plans/tools/generate_phase9_pattern_guide.py` で再生成し、コミットに含める。
+   `python3 01_Plans/tools/generate_phase9_pattern_guide.py` で再生成し、同じコミットに含める。
 
 再生成前に `python3 01_Plans/tools/generate_phase9_pattern_guide.py --check` を実行すると、
 コミット済みガイドがdocs CSVに対して既に陳腐化していないかを確認できる（非ゼロ終了時は要再生成）。
@@ -93,7 +97,7 @@ docs用CSVを更新した場合、以下を **同一コミット** で追加反�
 5. `duplicate RuleId` がある場合は一意なIDへ置換する。
 6. `invalid date format` がある場合は `YYYY-MM-DD` へ修正する（実在しない日付もNG）。
 7. `invalid date range` がある場合は `EffectiveFrom <= ExpiresAt` となるよう修正する。
-8. 修正後にsync checker -> `npm test` を再実行し、issueのValidation evidenceへ追記する。
+8. 修正後にsync checker、続いて `npm test` を再実行し、issueのValidation evidenceへ結果を追記する。
 
 ### 2.2 任意ファイル検証（ローカル差分確認）
 ローカルで一時CSVを使って検証する場合は、次の引数を使う。
@@ -102,7 +106,7 @@ docs用CSVを更新した場合、以下を **同一コミット** で追加反�
 python3 01_Plans/tools/check_phase9_template_sync.py --docs <docs.csv> --fixture <fixture.csv>
 ```
 
-CI連携や自動集計ではJSON出力を使う。
+CI連携や自動集計に使う場合は、次のようにJSON形式で出力する。
 
 ```bash
 python3 01_Plans/tools/check_phase9_template_sync.py --format json
@@ -147,4 +151,4 @@ G3は実行されない。JSON出力ではG3 detailが `skipped by --skip-tests`
 3. `cd 03_Implement && npm test`
 4. `python3 01_Plans/tools/planning_queue.py`
 
-この順序を固定することで、テンプレート整合性 → 標準ガイド整合性 → 回帰検証 → planning整合性を最短で確認できる。
+この順序で、テンプレート整合性 → 標準ガイド整合性 → 回帰検証 → planning整合性を確認する。各コマンドの実行結果は、実行した時点の証跡として別途記録する。
