@@ -153,6 +153,7 @@ Choice listは`inspect`、通常のCandidateレビュー、一括取り込みに
 - 表のgridは`gridSpan`を空セルで展開し、`vMerge`の継続セルも元の文字を保持する。入れ子表は外側セルへ平坦化せず、別Candidateと`MMI_DOCX_NESTED_TABLE_NOT_FLATTENED`診断に残す。
 - fingerprintは表が`docx-table-grid-v1`（gridと明示見出し行のcanonical JSON）、見出しが`docx-heading-v1`、画像が`image-media-bytes-v1`、コメントが`docx-comment-v1`である。
 - `mmi extract --docx-table`はGFM表のMarkdown資産、`--docx-image`は内容アドレスな画像資産を書き出す。どちらも`inspect --json`のfingerprintを必須とし、台帳へ`table-range`／`image`として記録する。外部リンク画像は取得しない。
+- 出典コメントは`path:<structuralPath>`を持ち、`checkExtractedProvenanceFreshness()`はWordの`.docx`を再読して現在のCandidateと台帳を照合する。表の内容が変わればstale、無関係な箇所の変更だけならfreshのままである。
 - 変更履歴の解決、ヘッダ・フッタ、脚注、テキストボックス、SmartArt・グラフの意味解釈、`.doc`旧形式は初版の非対象である（ADR-0026）。
 
 ### fingerprint（暫定）
