@@ -112,6 +112,17 @@ test('mmi review-basis previews, records explicitly and feeds the provenance rep
     };
     assert.equal(staleReport.review.references[0].status, 'stale');
     assert.equal(staleReport.summary.reviewStale, 1);
+
+    const gated = run([
+      'provenance', document, '--root', root, '--ledger', 'mmi-ledger.json',
+      '--review-basis', 'mmi-review-basis.json', '--fail-on', 'review-stale', '--json',
+    ]);
+    assert.equal(gated.status, 1, 'opt-in CI gate fails on stale reviewed prose');
+    const ungated = run([
+      'provenance', document, '--root', root, '--ledger', 'mmi-ledger.json',
+      '--review-basis', 'mmi-review-basis.json', '--json',
+    ]);
+    assert.equal(ungated.status, 0, 'the report itself is not a gate');
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
