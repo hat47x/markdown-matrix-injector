@@ -1,4 +1,6 @@
-# Issue: Phase 10 escalation threshold override
+# Issue: Phase 10のエスカレーション閾値をJSONで上書きできるようにする
+
+この文書は、Phase 10の起票候補抽出で閾値を外部指定する当時の方針と完了判断を残すIssue記録です。Execution Evidenceは検証コマンドの記載であり、実行日時や成否の出力はありません。現行の閾値定義やCLI動作を新たに確認したものではありません。
 
 ## Meta
 - Type: Feature
@@ -11,10 +13,10 @@
 - Related Backlog/Phase: Phase 10 Adoption Operations Governance Automation
 - Related ADR/Spec: `01_Plans/adr/ADR-0009-phase10-adoption-operations-governance-automation.md`
 
-## Execution Plan
+## 当時の実行計画
 ### Proposed solution (解決策の概要)
-- backlog auto-escalationの閾値をJSONで外部指定できるようにし、運用現場ごとの基準差異へ対応する。
-- governance pipelineも同じ閾値ファイルを受け取り、一貫した候補抽出を行う。
+- バックログの自動エスカレーションで使う閾値をJSONから指定できるようにし、運用組織ごとの基準の違いに対応する。
+- ガバナンスパイプラインも同じ閾値ファイルを受け取れるようにし、単独CLIと連結実行の双方で同じ基準を使って候補を抽出する。
 
 ### Acceptance criteria (受入条件)
 - [x] `phase10_backlog_escalation.py` が `--thresholds <json>` を受け取り、指定キーのみ上書きできる。
@@ -23,12 +25,12 @@
 - [x] `python3 -m unittest 01_Plans.tools.test_phase10_backlog_escalation` が成功する。
 - [x] `python3 01_Plans/tools/planning_queue.py` 実行時にorphan issueが0件である。
 
-### Task breakdown (作業分解)
+### 作業項目（Task breakdown）
 - [x] 閾値ロード処理を実装する。
 - [x] backlog CLIとpipeline CLIに引数を追加する。
 - [x] 閾値上書きのテストを追加する。
 
-### Validation plan (検証計画)
+### 当時の検証計画（Validation plan）
 - `python3 -m unittest 01_Plans.tools.test_phase10_backlog_escalation`
 - `python3 -m unittest 01_Plans.tools.test_phase10_governance_pipeline`
 - `python3 01_Plans/tools/planning_queue.py`
