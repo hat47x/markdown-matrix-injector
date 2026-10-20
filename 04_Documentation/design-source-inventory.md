@@ -88,3 +88,56 @@ mmi inspect ./sources/申請設計.xlsx --root . \
 範囲は単一セルまたは正順の矩形で、最大4096セル。`--max-cells`でこれ以下の上限も指定できる。不正な座標・逆順・上限超過はセルの実体化前に拒否する。`--header-range`は選択範囲内に限る。必要な結合範囲の座標は示すが、範囲外の値は出力しない。ブック全体は既存の読込み処理で解析し、セルの投影だけを選択範囲へ限定する。
 
 `--cells`の`-o`は`--root`内の新しい出力ファイルに限り、原本や既存ファイルを上書きしない。正常時の終了コードは0、指定不備・境界外・digest不一致・読込み失敗等は2。これは観測出力の成立であり、設計の整合性やTEI化の成功判定ではない。
+
+
+## 複数資料の明示IDを照合する
+
+第3段階の最初の範囲は[#626](https://github.com/hat47x/markdown-matrix-injector/issues/626)で管理する。利用者が選んだ定義元・参照元のセルだけを比較し、IDの全出現について原本の所在、シート、セル、Source Identityを残す。
+
+選択ファイルはJSON配列とし、各要素に次の6項目を指定する。パスは`--root`からの相対パスであり、選択ファイルからの相対パスではない。
+
+```json
+[
+  {
+    "source": "sources/項目定義.xlsx",
+    "sheet": "項目",
+    "range": "C7:C30",
+    "namespace": "申請項目",
+    "role": "definition",
+    "expectedSourceDigest": "sha256:目録の対象ファイルのidentity.digestへ置換"
+  },
+  {
+    "source": "sources/処理定義.xlsx",
+    "sheet": "入出力",
+    "range": "D5:D18",
+    "namespace": "申請項目",
+    "role": "reference",
+    "expectedSourceDigest": "sha256:目録の対象ファイルのidentity.digestへ置換"
+  }
+]
+```
+
+digestは説明用の値を実際の目録の値へ置き換える。`namespace`と`role`は呼出し側の指定であり、資料から認定した業務上の意味ではない。異なるnamespaceのIDは比較しない。見出しを含めず、IDが入るセルを選ぶ。
+
+```sh
+mmi match-ids selection.json --root . --json --include-values -o id-matches.json
+```
+
+IDそのものを出力するため、`--include-values`を必須とする。出力にはID値・選択条件・出典が含まれる。選択外の本文、表示文字列、数式は出力しない。選択を誤ると本文もIDとして出力され得るため、公開前に選択範囲を確認する。
+
+文字列リテラルを完全一致で比較し、前後の空白、先頭ゼロ、大文字小文字、Unicode表記を変えない。数値、日付、数式、結合セル、空文字・空白だけの文字列、未表現セルは比較から外し、`gaps`に座標と理由を残す。数式の保存済み結果もIDとして採用しない。対象はExcel（.xlsx/.xlsm/.xls）とXML Spreadsheet 2003。既存CSV読込みは引用符のない値の前後空白を除くため、この照合ではCSVを拒否する。
+
+出力は実験的な`mmi.source-id-matches/v0`。`selections`に選択条件と実際に解析したSource Identity、`occurrences`に選択番号とセル座標とIDを置く。`matches`の`definitions`・`references`は、`occurrences`の0始まりの番号を示す。
+
+| `matches.status` | 意味 |
+| --- | --- |
+| `unique-token-match` | 選択範囲内の定義が1件で、同じnamespaceに参照がある |
+| `ambiguous` | 選択範囲内に同じnamespace・IDの定義が複数ある。候補を一つに絞らない |
+| `missing-definition` | 選択範囲内に同じnamespace・IDの定義が見つからない |
+| `definition-only` | 選択範囲内の定義が1件で、参照が見つからない |
+
+同じID文字列であることから、同じ業務対象だと確定しない。定義不明や参照なしも、選択範囲内の観測に限る。`gaps`に除外した定義が含まれる可能性を残し、案件全体の整合性が確認できたとは扱わない。
+
+選択ファイルは64 KiB以下、選択は1〜16件、合計4096セル以下、原本は1ファイル16 MiB以下。同じ物理セルの重複選択は拒否する。原本の境界・digestを検査し、同じファイルの複数範囲は一回取得したバイト列で読む。ブック全体は既存処理で解析するため、展開メモリや解析時間の厳密な上限は保証しない。資料集合の一時点固定でもない。
+
+`-o`は`--root`内の新規ファイルに限り、既存ファイルを上書きしない。終了コードは、比較が成立し、除外セル・定義重複・定義不明がなければ0、それらがあれば1、指定不備・境界外・digest不一致・読込み失敗なら2。0でも意味統合、Data・Function・Businessの十分性、SEI/TEIへの受渡しの成立は保証しない。

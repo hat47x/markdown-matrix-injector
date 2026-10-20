@@ -84,3 +84,5 @@ Draftは検討中であり、採用・実装済みを意味しない。重要な
 資料群をSEI等からTEI化へ渡す下準備は[#618](https://github.com/hat47x/markdown-matrix-injector/issues/618)で段階的に進める。最初の[目録CLI](../04_Documentation/design-source-inventory.md)は[#620](https://github.com/hat47x/markdown-matrix-injector/issues/620)で検証し、意味統合・TEI側の受理とは区別する。
 
 目録から選んだ原本範囲の結合・型・値の由来を読む処理は[#622](https://github.com/hat47x/markdown-matrix-injector/issues/622)で進め、[利用案内](../04_Documentation/design-source-inventory.md#原本範囲のセルと結合を観測する)へまとめる。
+
+- [明示IDの資料間照合と出典保持 #626](https://github.com/hat47x/markdown-matrix-injector/issues/626)

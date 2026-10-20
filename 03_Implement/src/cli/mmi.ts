@@ -4,6 +4,7 @@
  * Source workbooks/documents are never modified. Commands that materialize,
  * extract or import write only to explicit output, asset, attachment and ledger paths.
  */
+import { matchSourceIds } from '../application/matchSourceIds.js';
 import { observeSourceCells } from '../application/observeSourceCells.js';
 import { readBoundedSourceBytes } from '../core/readBoundedSourceBytes.js';
 import { inventoryDesignSources } from '../application/designSourceInventory.js';
@@ -153,6 +154,9 @@ Commands:
       --download              explicitly allow HTTPS acquisition after showing manifest metadata
       --offline               forbid HTTPS access; use verified cache/local/runtime-managed sources only
                             Runtime-managed Ollama/LM Studio models are discovered only for this explicit command.
+  match-ids <selection.json> Compare caller-selected literal string IDs across sources.
+                            Requires --json and --include-values; digest pins are mandatory.
+                            Exit 1 means gaps, duplicate definitions or missing definitions.
   inventory <directory>    Identify a source collection without exposing document contents.
       --inspect              also run existing inspect; output only Candidate counts and diagnostic codes
       --exclude <path>       exclude a directory-relative path/prefix (repeatable; no glob)
@@ -631,6 +635,22 @@ export async function main(argv: string[]): Promise<number> {
         console.error(`mmi: ${error instanceof Error ? error.message : String(error)}`);
         return 1;
       }
+    }
+    case 'match-ids': {
+      if (args.length !== 1 || !values.json || !values['include-values']) return usageError('match-ids requires one selection file, --json and --include-values (ID tokens will be disclosed)');
+      const allowed = new Set(['root', 'json', 'include-values', 'out']);
+      for (const [key, value] of Object.entries(values)) {
+        if (value === undefined || value === false || (key === 'to' && value === 'md') || (key === 'values' && value === '0')) continue;
+        if (!allowed.has(key)) return usageError(`match-ids does not accept --${key}`);
+      }
+      if (values.out && (!pathWithinBoundaryForWrite(path.resolve(values.out), root) || fs.existsSync(values.out))) return usageError('match-ids output must be a new file inside --root');
+      const selectionPath = resolveSourcePath({ markdownFilePath: path.join(root, '__mmi_ids__.md'), sourcePath: path.resolve(args[0]), workspaceRoot: root });
+      const input: unknown = JSON.parse(readBoundedSourceBytes(selectionPath, 65536).toString('utf8'));
+      const report = matchSourceIds(input, root);
+      const text = `${JSON.stringify(report, null, 2)}\n`;
+      if (values.out) fs.writeFileSync(values.out, text, { flag: 'wx' });
+      else process.stdout.write(text);
+      return report.status === 'observed' ? 0 : 1;
     }
     case 'inventory': {
       if (args.length !== 1) return usageError('inventory takes one directory');
