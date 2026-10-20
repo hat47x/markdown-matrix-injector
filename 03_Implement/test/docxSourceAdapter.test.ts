@@ -55,6 +55,60 @@ test('headings: explicit heading styles become observed Section Candidates with 
   assert.equal(result.headings[1].candidate.claims.some((claim) => claim.aspect === 'style-id' && claim.value === 'CustomHeading'), true);
 });
 
+test('section tree: explicit headings form the outline and own the top-level blocks before the next heading', () => {
+  const bytes = buildDocx({
+    styles: stylesXml([
+      { id: 'Heading1', name: 'heading 1' },
+      { id: 'Heading2', name: 'heading 2' },
+      { id: 'Heading3', name: 'heading 3' },
+    ]),
+    body:
+      paragraph('前書き')
+      + paragraph('第1章', { styleId: 'Heading1' })
+      + paragraph('本章の本文')
+      + tableWithHeaderRow(['項目'], [['値']])
+      + paragraph('1.1', { styleId: 'Heading2' })
+      + paragraph('節の本文')
+      + paragraph('1.1.1', { styleId: 'Heading3' })
+      + paragraph('項の本文')
+      + paragraph('1.2', { styleId: 'Heading2' })
+      + paragraph('別の節'),
+  });
+  const result = readDocx(bytes, './sections.docx');
+  assert.deepEqual(result.sectionTree.preamble, ['/body/p[1]']);
+  assert.equal(result.sectionTree.roots.length, 1);
+  const chapter = result.sectionTree.roots[0];
+  assert.deepEqual([chapter.level, chapter.text, chapter.structuralPath], [1, '第1章', '/body/p[2]']);
+  assert.deepEqual(chapter.contentPaths, ['/body/p[3]', '/body/tbl[1]']);
+  assert.deepEqual(chapter.children.map((node) => [node.level, node.text]), [[2, '1.1'], [2, '1.2']]);
+  assert.deepEqual(chapter.children[0].contentPaths, ['/body/p[5]']);
+  assert.deepEqual(chapter.children[0].children.map((node) => [node.level, node.text]), [[3, '1.1.1']]);
+  assert.deepEqual(chapter.children[0].children[0].contentPaths, ['/body/p[7]']);
+  assert.deepEqual(chapter.children[1].contentPaths, ['/body/p[9]']);
+});
+
+test('section tree: level jumps keep the nearest lower heading as parent and no heading means a preamble', () => {
+  const bytes = buildDocx({
+    styles: stylesXml([
+      { id: 'Heading1', name: 'heading 1' },
+      { id: 'Heading2', name: 'heading 2' },
+      { id: 'Heading3', name: 'heading 3' },
+    ]),
+    body:
+      paragraph('章', { styleId: 'Heading1' })
+      + paragraph('深い見出し', { styleId: 'Heading3' })
+      + paragraph('中見出し', { styleId: 'Heading2' }),
+  });
+  const result = readDocx(bytes, './jumps.docx');
+  assert.deepEqual(
+    result.sectionTree.roots[0].children.map((node) => [node.level, node.text]),
+    [[3, '深い見出し'], [2, '中見出し']],
+  );
+  const none = readDocx(buildDocx({ body: paragraph('本文') + table([[{ text: 'x' }]]) }), './none.docx');
+  assert.deepEqual(none.sectionTree.roots, []);
+  assert.deepEqual(none.sectionTree.preamble, ['/body/p[1]', '/body/tbl[1]']);
+});
+
 test('headings: style outline levels and style ids resolve without guessing from formatting', () => {
   const bytes = buildDocx({
     styles: stylesXml([

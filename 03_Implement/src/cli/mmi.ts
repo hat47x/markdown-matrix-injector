@@ -1762,6 +1762,14 @@ export interface InspectLink {
   contentDigest: string;
 }
 
+export interface InspectDocxSectionNode {
+  level: number;
+  text: string;
+  structuralPath: string;
+  contentPaths: string[];
+  children: InspectDocxSectionNode[];
+}
+
 export interface InspectResult {
   source: string;
   /** Public machine-readable contract used by every item in candidates. */
@@ -1812,6 +1820,10 @@ export interface InspectResult {
       structuralPath?: string;
       fingerprint: string;
     }[];
+    sectionTree: {
+      preamble: string[];
+      roots: InspectDocxSectionNode[];
+    };
   };
   /** Word package parts that could not be interpreted; one failure does not hide the rest. */
   docxDiagnostics?: DocxDiagnostic[];
@@ -2003,6 +2015,7 @@ export function inspectSource(
             : { structuralPath: comment.structuralPath }),
           fingerprint: comment.candidate.fingerprint.digest,
         })),
+        sectionTree: parsed.sectionTree,
       },
       docxDiagnostics: parsed.diagnostics,
       images: [],
@@ -2280,6 +2293,7 @@ export function applyLedgerView(
               allowed.has(
                 `note\u0000\u0000path:${comment.structuralPath ?? `comments/comment[${comment.ordinal}]`}`,
               )),
+            sectionTree: result.docx.sectionTree,
           },
         }
       : {}),
@@ -2344,6 +2358,25 @@ function formatInspect(result: InspectResult): string {
           `  #${heading.ordinal}  level ${heading.level}  ${heading.structuralPath}  ${heading.text}${ledgerSuffix('section', '', `path:${heading.structuralPath}`)}`,
         );
       }
+    }
+    if (result.docx.sectionTree.preamble.length > 0
+        || result.docx.sectionTree.roots.length > 0) {
+      lines.push('', 'document section tree:');
+      if (result.docx.sectionTree.preamble.length > 0) {
+        lines.push(`  (preamble)  ${result.docx.sectionTree.preamble.length} block(s)`);
+      }
+      const printSections = (
+        nodes: InspectDocxSectionNode[],
+        depth: number,
+      ): void => {
+        for (const node of nodes) {
+          lines.push(
+            `  ${'  '.repeat(depth)}level ${node.level}  ${node.text}  ${node.structuralPath}  (${node.contentPaths.length} block(s))`,
+          );
+          printSections(node.children, depth + 1);
+        }
+      };
+      printSections(result.docx.sectionTree.roots, 0);
     }
     if (result.docx.tables.length > 0) {
       lines.push('', 'document tables:');
