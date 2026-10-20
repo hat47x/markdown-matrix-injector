@@ -3,3 +3,5 @@ dist/
 dist-cli/
 .vscode-test/
 *.vsix
+artifacts/cli-package/
+artifacts/cli-package-stage/

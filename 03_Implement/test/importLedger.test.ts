@@ -398,12 +398,14 @@ test('Claim basis canonicalization ignores object key insertion order', () => {
     entryFor(ledgerPath, source, reviewed, path.join(root, 'assets', 'image-a.png'), 'mmi extract'),
   ]);
 
+  const reviewedRun = reviewed.provenance.run;
+  assert.ok(reviewedRun.execution === 'deterministic');
   const reordered: Candidate = {
     ...reviewed,
     provenance: {
       ...reviewed.provenance,
       run: {
-        ...reviewed.provenance.run,
+        ...reviewedRun,
         config: { alpha: 1, beta: 2 },
       },
     },

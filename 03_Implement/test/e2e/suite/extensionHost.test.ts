@@ -67,6 +67,7 @@ export async function runIntegrationTests(): Promise<void> {
   );
   const autocompleteResult = await runStage('autocomplete-boundary', () => verifyAutocompleteIntegration(markdownFilePath));
   await runStage('diagnostics', () => verifyDiagnosticsIntegration(workspaceRoot));
+  await runStage('quick-fix-on-held-back-line', () => verifyQuickFixOnHeldBackLine(workspaceRoot));
   await runStage('hover-and-authoring', () => verifyHoverAndAuthoringEntry(workspaceRoot));
   await runStage('guided-flows-scripted', () => verifyGuidedFlowsScripted(workspaceRoot));
   await runStage('search-observation-recording', () => verifySearchObservationRecording(workspaceRoot));
@@ -342,7 +343,7 @@ async function verifyHoverAndAuthoringEntry(workspaceRoot: string): Promise<void
     .flatMap((hover) => hover.contents)
     .map((content) => (typeof content === 'string' ? content : 'value' in content ? content.value : ''))
     .join('\n');
-  assert.match(text, /本体2行 × 2列/u, `Hover must summarise the real rendering. Got: ${text.slice(0, 300)}`);
+  assert.match(text, /本体2行 × 2列|2 body rows × 2 columns/u, `Hover must summarise the real rendering. Got: ${text.slice(0, 300)}`);
   assert.match(text, /<table class="mmi-table">/u, 'Hover must show the engine table.');
   assert.match(text, /command:markdownMatrixInjector\.authorEmbed/u, 'Hover must offer editing.');
 
@@ -357,6 +358,41 @@ async function verifyHoverAndAuthoringEntry(workspaceRoot: string): Promise<void
   for (const id of ['markdownMatrixInjector.findEmbedByDescription', 'markdownMatrixInjector.clearSearchIndex']) {
     assert.ok(commands.includes(id), `${id} must be registered.`);
   }
+}
+
+// #579: while typing, the cursor line's diagnostic is held back from Problems
+// (ADR-0019 D13), but its quick fix must still come up from the light bulb there.
+async function verifyQuickFixOnHeldBackLine(workspaceRoot: string): Promise<void> {
+  const document = await openMarkdownDocument(
+    path.join(workspaceRoot, 'docs', 'held-back-fix.md'),
+    ['# Held back', '![[../data/roles.csv#MissingSheet|A1:B2]]'].join('\n'),
+  );
+  const editor = await vscode.window.showTextDocument(document);
+  const [shown] = await waitForDiagnostics(document.uri, 1);
+  assert.equal(shown?.code?.toString(), 'MMI_SHEET_NOT_FOUND');
+
+  // Type on the reference line: the authoring pass holds its diagnostic back.
+  const end = document.lineAt(1).range.end;
+  editor.selection = new vscode.Selection(end, end);
+  assert.ok(await editor.edit((builder) => builder.insert(end, ' ')));
+  let heldBack = false;
+  for (let attempt = 0; attempt < 40 && !heldBack; attempt += 1) {
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    heldBack = vscode.languages.getDiagnostics(document.uri).every((diagnostic) => diagnostic.range.start.line !== 1);
+  }
+  assert.ok(heldBack, 'While typing on the line, its diagnostic must be held back from Problems (D13).');
+
+  const cursor = new vscode.Position(1, 5);
+  const actions = await vscode.commands.executeCommand<vscode.CodeAction[]>(
+    'vscode.executeCodeActionProvider',
+    document.uri,
+    new vscode.Range(cursor, cursor),
+  );
+  const titles = (actions ?? []).map((action) => action.title);
+  assert.ok(
+    titles.some((title) => /^(「Sheet1」に置き換える|Replace with "Sheet1")$/u.test(title)),
+    `The light bulb on the held-back line must offer the sheet fix. Got: ${titles.join(', ')}`,
+  );
 }
 
 async function verifyDiagnosticsIntegration(workspaceRoot: string): Promise<void> {
@@ -791,7 +827,7 @@ async function verifyContentMatchStandaloneCommand(markdownFilePath: string): Pr
   await editor.edit((editBuilder) => editBuilder.replace(fullRange, '# ContentMatch\n\n'));
   editor.selection = new vscode.Selection(new vscode.Position(1, 0), new vscode.Position(1, 0));
 
-  await vscode.env.clipboard.writeText('Alice\tAdmin');
+  if (!(await clipboardKeeps('Alice\tAdmin', 'content-match-standalone-command'))) return;
   const clipboardReadBack = await vscode.env.clipboard.readText();
   const workspaceFolderForDoc = vscode.workspace.getWorkspaceFolder(document.uri);
   const workbookFilesSeen = await vscode.workspace.findFiles('**/*.{xlsx,xls,csv,xml}', '**/{node_modules,dist}/**');
@@ -854,7 +890,7 @@ async function verifyContentMatchPasteAsHostCommand(
   const editor = await vscode.window.showTextDocument(document);
   editor.selection = new vscode.Selection(new vscode.Position(1, 0), new vscode.Position(1, 0));
 
-  await vscode.env.clipboard.writeText('Alice\tAdmin');
+  if (!(await clipboardKeeps('Alice\tAdmin', 'content-match-paste-as-host-command'))) return;
   // The command acts on the focused editor; showTextDocument can resolve before focus has settled.
   await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
   await delay(500);
@@ -1242,6 +1278,24 @@ function formatCompletionState(state: CompletionState): string {
     labels: state.labels,
     labelsByAttempt: state.labelsByAttempt,
   });
+}
+
+/**
+ * Writes `text` to the host clipboard and reports whether it stayed there.
+ * On a Windows desktop another process can hold the clipboard, so the write
+ * is lost; that is an environment prerequisite, not a product result, and the
+ * stage is logged as skipped instead of failing on the product's behalf.
+ */
+async function clipboardKeeps(text: string, stage: string): Promise<boolean> {
+  await vscode.env.clipboard.writeText(text);
+  const readBack = await vscode.env.clipboard.readText();
+  if (readBack === text) return true;
+  logStage(`${stage}:skipped`, {
+    category: 'environment-prerequisite',
+    reason: 'vscode.env.clipboard did not keep the written text',
+    clipboardReadBack: readBack,
+  });
+  return false;
 }
 
 async function openMarkdownDocument(filePath: string, content: string): Promise<vscode.TextDocument> {

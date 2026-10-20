@@ -224,6 +224,8 @@ async function main(): Promise<void> {
 
     await runTests({
       vscodeExecutablePath: runtime.launchMetadata.executablePath,
+      // VSCODE_VERSION pins the downloaded host (like the other E2E runners); unset means stable.
+      ...(process.env.VSCODE_VERSION ? { version: process.env.VSCODE_VERSION } : {}),
       extensionDevelopmentPath: runtime.extensionDevelopmentPath,
       extensionTestsPath: runtime.extensionTestsPath,
       launchArgs: runtime.launchArgs,
@@ -247,7 +249,11 @@ async function main(): Promise<void> {
 }
 
 function createRuntimeContext(): E2ERuntimeContext {
-  const extensionDevelopmentPath = path.resolve(__dirname, '../..');
+  // MMI_E2E_EXTENSION_PATH runs the same suite against an unpacked VSIX
+  // (release:candidate vsix-smoke, #598), so packaging mistakes fail here too.
+  const extensionDevelopmentPath = process.env.MMI_E2E_EXTENSION_PATH
+    ? path.resolve(process.env.MMI_E2E_EXTENSION_PATH)
+    : path.resolve(__dirname, '../..');
   const extensionTestsPath = path.resolve(__dirname, '../../dist/test/e2e/suite/index.js');
   const workspacePath = createE2EWorkspace();
   const userDataDir = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-vscode-user-data-'));

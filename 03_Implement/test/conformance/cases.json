@@ -205,8 +205,8 @@
     "name": "containment-rejects-traversal-outside-boundary",
     "level": "core",
     "spec": "P4 / issue-0105",
-    "files": { "roles.csv": "Name,Role\nAlice,Admin" },
-    "markdown": "![[../../../../../../../etc/hosts#Sheet1|A1:B2]]",
+    "files": { "roles.csv": "Name,Role\nAlice,Admin", "../outside.csv": "Secret,Value\nkey,1" },
+    "markdown": "![[../outside.csv#Sheet1|A1:B2]]",
     "expectContains": ["class=\"mmi-error\"", "outside workspace boundary"],
     "expectNotContains": ["mmi-table", "mmi-card"]
   }

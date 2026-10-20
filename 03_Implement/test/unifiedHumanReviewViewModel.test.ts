@@ -28,6 +28,9 @@ import {
 import {
   WORKSHEET_FORMAT_FEATURE_VERSION,
 } from '../src/experimental/worksheetFormatPrototype.js';
+import type {
+  FlyWorksheetFormatPerceptionPayload,
+} from '../src/experimental/flyWorksheetFormatPerceptionProvider.js';
 
 const SOURCE = 'sha256:' + 'a'.repeat(64);
 const PROPOSAL = 'sha256:' + 'b'.repeat(64);
@@ -54,14 +57,18 @@ function envelope(): CognitiveReviewEnvelope {
       },
       signal: {
         kind: 'format-novelty',
-        payload: {
+        // Fixture omits observationIdentity: the view model never reads it.
+        payload: ({
           classification: 'novel',
           candidates: [],
           noveltyScore: 1,
           featureVersion: WORKSHEET_FORMAT_FEATURE_VERSION,
           sourceProfileId: 'test-profile',
           sourceEvidence: ['structure'],
-        },
+        } satisfies Omit<
+          FlyWorksheetFormatPerceptionPayload,
+          'observationIdentity'
+        >) as unknown as FlyWorksheetFormatPerceptionPayload,
         scores: [],
         evidence: [{ code: 'FORMAT_NOVEL' }],
       },

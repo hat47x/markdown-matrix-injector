@@ -123,8 +123,10 @@ test('hierarchy review preserves an explicit header row selected below title row
   );
   assert.ok(account && account.kind === 'tree');
   assert.equal(account.tabularHierarchy?.headerRow, 1);
+  const accountRun = account.candidate.provenance.run;
+  assert.ok(accountRun.execution === 'deterministic');
   assert.equal(
-    account.candidate.provenance.run.config.headerRow,
+    accountRun.config.headerRow,
     1,
   );
 });

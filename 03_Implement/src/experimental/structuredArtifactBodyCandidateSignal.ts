@@ -80,7 +80,7 @@ function normalizedRows(
   const byRow = new Map<number, NormalizedCell[]>();
 
   for (const cell of snapshot.cells) {
-    const text = cell.text.trim();
+    const text = (cell.text ?? '').trim();
     if (text.length === 0) {
       continue;
     }

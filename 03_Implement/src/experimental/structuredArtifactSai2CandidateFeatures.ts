@@ -2,6 +2,7 @@ import {
   deriveMmiStructuredArtifactBodyCandidateSignal,
 } from './structuredArtifactBodyCandidateSignal.js';
 import type {
+  WorksheetFormatCell,
   WorksheetFormatSnapshot,
 } from './worksheetFormatFeatureAdapter.js';
 import type {
@@ -47,7 +48,7 @@ export function deriveMmiSai2CandidateLocalFeatures(
   assertRange(range);
 
   let nonEmptyCount = 0;
-  const cells: WorksheetFormatSnapshot['cells'] = [];
+  const cells: WorksheetFormatCell[] = [];
 
   for (
     let row = range.row_start;

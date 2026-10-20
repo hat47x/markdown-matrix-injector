@@ -196,7 +196,9 @@ function provider(
 async function record(
   source: WorksheetReviewRouteLabelCorpusV1,
   runtimeProvider = provider(),
-  readinessPolicy = policy,
+  readinessPolicy: Parameters<
+    typeof createWorksheetReviewRouteEvaluationPlan
+  >[1] = policy,
 ): Promise<{
   plan: WorksheetReviewRouteEvaluationPlanV1;
   record: WorksheetReviewRouteEvaluationRecordV1;

@@ -80,7 +80,7 @@ function withoutFill(snapshot: WorksheetFormatSnapshot): WorksheetFormatSnapshot
       const { fillTone: _fillTone, ...rest } = cell;
       return rest;
     }),
-    merges: snapshot.merges.map((merge) => ({ ...merge })),
+    merges: (snapshot.merges ?? []).map((merge) => ({ ...merge })),
   };
 }
 
