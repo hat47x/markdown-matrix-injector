@@ -259,6 +259,52 @@ export function verifyCliPackage(tarballPath) {
     );
   }
 
+  // Save the two-fragment plan using an explicitly reviewed source snapshot.
+  // This is the normal-failure guarded write path, NOT a crash-atomic test.
+  const htmlCommitPlan = JSON.parse(
+    fs.readFileSync(path.join(workspace, 'html-plan.json'), 'utf8'),
+  );
+  htmlCommitPlan.sourceDigest = inspectedHtml.candidates?.find(
+    (candidate) => candidate.locator?.sourceDigest,
+  )?.locator.sourceDigest;
+  if (!/^sha256:[0-9a-f]{64}$/u.test(htmlCommitPlan.sourceDigest ?? '')) {
+    throw new Error('mmi inspect HTML did not expose source digest for reviewed commit');
+  }
+  fs.writeFileSync(
+    path.join(workspace, 'html-commit-plan.json'),
+    JSON.stringify(htmlCommitPlan),
+  );
+  const htmlCommitWithoutFlag = run(bin, [
+    'html-commit', 'design.html', '--plan', 'html-commit-plan.json', '--root', '.',
+  ], workspace);
+  if (htmlCommitWithoutFlag.status === 0
+      || fs.existsSync(path.join(docs, 'intro.html'))) {
+    throw new Error('mmi html-commit wrote output without explicit --commit');
+  }
+  const htmlCommit = run(bin, [
+    'html-commit', 'design.html', '--plan', 'html-commit-plan.json',
+    '--root', '.', '--commit', '--json',
+  ], workspace);
+  let committedHtml;
+  try {
+    committedHtml = JSON.parse(htmlCommit.stdout);
+  } catch {
+    throw new Error(
+      `mmi html-commit returned invalid JSON:\n${htmlCommit.stderr || htmlCommit.stdout}`,
+    );
+  }
+  if (htmlCommit.status !== 0
+    || committedHtml.files?.length !== 2
+    || !fs.existsSync(path.join(docs, 'intro.html'))
+    || !fs.existsSync(path.join(docs, 'api.html'))
+    || !fs.readFileSync(path.join(docs, 'intro.html'), 'utf8')
+      .includes('href="api.html#api"')
+    || fs.readFileSync(htmlSource, 'utf8') !== originalHtml) {
+    throw new Error(
+      `mmi html-commit failed or modified source:\n${htmlCommit.stderr || htmlCommit.stdout}`,
+    );
+  }
+
   const htmlExtract = run(
     bin,
     [
@@ -500,6 +546,7 @@ export function verifyCliPackage(tarballPath) {
         htmlPlan: 'passed',
         htmlExtract: 'passed',
         htmlLedger: 'passed',
+        htmlBatchCommit: 'passed',
       },
     };
   } finally {
