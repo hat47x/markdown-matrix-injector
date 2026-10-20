@@ -1,3 +1,4 @@
+D
 # 現在の作業
 
 この文書はMMIの開発状況と、次に進める作業の一覧です。MMIを初めて知る方は、先に[概要](../04_Documentation/overview.md)をご覧ください。
@@ -36,8 +37,9 @@
 | 2（既存） | [Excel範囲貼り付け](https://github.com/hat47x/markdown-matrix-injector/issues/495) | Open | Paste As宿主dispatchの自動E2Eは実VS Code 1.140.0で3回連続成功（2026-10-06）。残: Windows実ExcelのHTML/helper/視覚picker実機証拠。表Candidateの `observed` / `inferred` を保ったまま、採用時にreviewを `accepted` とする経路として扱う |
 | 2（既存） | [CPUでの範囲探索](https://github.com/hat47x/markdown-matrix-injector/issues/496) | In Progress | 言い換え対応。v4初回評価（2026-10-06）でRecall@5 0.633・言い換え1/8・誤受理0。辞書では扱えず、構造による言い換えレーンも未見v5で0/22（安全性は維持）。**ローカル埋め込みによる意味検索を実験的・既定オフで実装済み**（loopback限定、設計§7.4b）。未見v6（事前登録の閾値0.6）で言い換え 0→8/30（Recall@5 0.304→0.500、モデルによる誤受理0）。実用水準には届かず既定オフのまま |
 | 2（既存） | [文脈に応じた補完](https://github.com/hat47x/markdown-matrix-injector/issues/491)、[参照の作成・編集](https://github.com/hat47x/markdown-matrix-injector/issues/492) | In Progress | 多環境の実機確認、利用者の観測 |
-| **3 Source Adapterの一般化** | [Tree / Hierarchy、JSON/YAML/XML、フラットテキスト](https://github.com/hat47x/markdown-matrix-injector/issues/502) | **In Progress**（Tree各形式を共通ライフサイクルへ接続。Excel Choice listは別kindのまま直接範囲参照をM0解決。AutoShape/connectorもsource semanticsからM0 Candidate化） | 次: structured artifactの`hierarchy_relation`をAuthorityへ昇格させないPerception providerとして接続する |
+| **3 Source Adapterの一般化** | [Tree / Hierarchy、JSON/YAML/XML、フラットテキスト](https://github.com/hat47x/markdown-matrix-injector/issues/502) | **In Progress**（Tree各形式を共通ライフサイクルへ接続。Excel Choice listは別kindのまま直接範囲参照をM0解決。AutoShape/connectorもsource semanticsからM0 Candidate化） | 次: structured artifactの`hierarchy_relation`をAuthorityへ昇格させないPerception providerとして接続する |ature/docx-source-adapter-20261020
 | 3 | Shape、その他List source | **In Progress** | AutoShape/connectorのSource Adapterとreview/import観測は実装済み。Choice listは独立kindを継続。残る主課題はShapeのExtracted変換とgraphic frame等の安全な分類 |
+| 3 | [WordのSource Adapter](https://github.com/hat47x/markdown-matrix-injector/issues/531)（[ADR-0026](adr/ADR-0026-word-source-adapter-read-only-boundary.md)・[利用案内](../04_Documentation/word-source-adapter.md)） | **In Progress**（.docxの見出し・表・画像・コメントを`section`・`table-range`・`image`・`note` Candidateへ変換。`inspect`と、レビューfingerprint必須の表・画像`extract`を実装。自動テストは合成OOXMLと実生成fixtureで確認） | 実在の業務設計書、Word実機保存文書、変更履歴・コメント入り文書、VS Codeレビュー接続を確認する。初版の非対象はADR-0026に記載 |
 | 3（研究） | structured artifact（SAI）、worksheet format、[review route](https://github.com/hat47x/markdown-matrix-injector/issues/497) | In Progress | 新しい研究段階は、issue-0193の対応表のどの行を強くするかを示してから始める |
 | **4 Detachability** | [実体化とdetach check](https://github.com/hat47x/markdown-matrix-injector/issues/499) | **In Progress**（表・別紙・ローカル画像のmaterialize、採用済み表・画像・JSON/YAML/XML/フラットテキスト/表形式階層Treeのfreshness preflight、artifact closureを実装） | 表・キット・画像つき文書の手動E2Eを確認済み（2026-10-08）。Windowsでキットの実体化とdetach-checkも確認済み（2026-10-15）。残: 実在する設計書での確認、macOS、Windowsの画像つき文書。Shape等がExtracted可能になったら同じprovenance/freshness契約へ拡張 |
 | 4 | [原本参照の影響分析](https://github.com/hat47x/markdown-matrix-injector/issues/515) | **In Progress**（Linked / Extracted / ローカルリンクをread-onlyで横断列挙。CLIに加え、エクスプローラーから影響先Markdownの該当行を開ける） | Node 20と実VS Codeで確認し、実務workspaceの変更・移動・削除判断に十分かを観測する |
