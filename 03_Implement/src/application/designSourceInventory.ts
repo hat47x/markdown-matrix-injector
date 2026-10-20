@@ -1,6 +1,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { createHash } from 'node:crypto';
+import { readBoundedSourceBytes } from '../core/readBoundedSourceBytes.js';
 import { isPathWithinBoundary } from '../core/pathResolver.js';
 import { createSourceIdentityFromBytes, type SourceIdentityV1 } from '../core/sourceIdentity.js';
 
@@ -41,25 +42,6 @@ export interface SourceInventory {
 const slash = (value: string) => value.split(path.sep).join('/');
 const sorted = (values: string[]) => values.sort((a, b) => a < b ? -1 : a > b ? 1 : 0);
 
-/** Bounded byte observation; never follows a final-component symlink. */
-function readBytes(file: string, maxBytes: number): Buffer {
-  const fd = fs.openSync(file, fs.constants.O_RDONLY | (fs.constants.O_NOFOLLOW ?? 0));
-  try {
-    const stat = fs.fstatSync(fd);
-    if (!stat.isFile()) throw new Error('not-regular-file');
-    if (stat.size > maxBytes) throw new Error('size-limit');
-    const buffer = Buffer.alloc(stat.size + 1);
-    let length = 0;
-    while (length < buffer.length) {
-      const count = fs.readSync(fd, buffer, length, buffer.length - length, null);
-      if (!count) break;
-      length += count;
-    }
-    if (length !== stat.size || fs.fstatSync(fd).mtimeMs !== stat.mtimeMs) throw new Error('source-changed');
-    return buffer.subarray(0, length);
-  } finally { fs.closeSync(fd); }
-}
-
 /** Host-side inventory. Reuses Source Identity and an existing inspection capability. */
 export function inventoryDesignSources(options: InventoryOptions): SourceInventory {
   const boundary = fs.realpathSync(path.resolve(options.workspaceRoot));
@@ -96,14 +78,14 @@ export function inventoryDesignSources(options: InventoryOptions): SourceInvento
       }
       if (!stat.isFile()) { entries.push({ path: name, state: 'excluded', reason: 'not-regular-file' }); return; }
       if (stat.size > maxBytes) { entries.push({ path: name, state: 'excluded', reason: 'size-limit' }); return; }
-      const identity = createSourceIdentityFromBytes(readBytes(file, maxBytes));
+      const identity = createSourceIdentityFromBytes(readBoundedSourceBytes(file, maxBytes));
       const entry: InventoryEntry = { path: name, state: 'identified', identity };
       entries.push(entry);
       if (!options.inspect) return;
       if (!INSPECT_EXTENSIONS.has(path.extname(file).toLowerCase())) { entry.state = 'unsupported'; entry.reason = 'unsupported-inspection-format'; return; }
       try {
         const inspection = options.inspect(file);
-        const after = createSourceIdentityFromBytes(readBytes(file, maxBytes));
+        const after = createSourceIdentityFromBytes(readBoundedSourceBytes(file, maxBytes));
         if (identity.digest !== after.digest) { entry.state = 'changed'; entry.reason = 'source-changed'; return; }
         entry.state = 'inspected';
         entry.inspection = inspection;

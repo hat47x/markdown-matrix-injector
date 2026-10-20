@@ -49,3 +49,42 @@ JSONの`contract`は実験的な`mmi.source-inventory/v0`。各`identity`は既�
 `consistency=per-file-observation`は、ファイルを順に観測したことを示す。ディレクトリ全体を一斉に固定したsnapshot、原本の保存コピー、敵対的なファイルシステム変更への完全な隔離ではない。実行中は対象資料を変更しない運用にする。厳密な一時点固定が必要なら、利用者が用意した読み取り専用snapshotを入力する。
 
 この段階では、複数資料の意味統合、TEIモデルの自動生成、SEI/TEIへの送信や依存は追加しない。Data・Function・Businessの不足や矛盾の照合は、目録から必要な原本を選んで既存の`inspect`等で読む後続段階として扱う。SEI/TEIでの実受渡しと実在設計資料での効果は別に確認する。
+
+## 原本範囲のセルと結合を観測する
+
+目録から選んだ資料の範囲を、原本座標を保ったまま読む。第2段階のこの範囲は[#622](https://github.com/hat47x/markdown-matrix-injector/issues/622)で管理する。
+
+```sh
+mmi inspect ./sources/申請設計.xlsx --root . \
+  --cells --sheet 項目 --range C5:H8 --json
+
+mmi inspect ./sources/申請設計.xlsx --root . \
+  --cells --sheet 項目 --range C5:H8 --header-range C5:H6 \
+  --expected-source-digest sha256:ここへ目録のidentity.digestを指定 \
+  --include-values --json -o selected-cells.json
+```
+
+二つ目のdigestは説明用の記載であり、そのままでは実行できない。目録の対象ファイルにある`identity.digest`全体へ置き換える。不一致なら現在の原本を観測したことにせず、出力せずに終了する。実際の解析は、一回取得したバイト列からSource Identityとセルモデルの両方を作る。
+
+このモードは`--json`・`--sheet`・`--range`を必須とし、既存の通常の`inspect`とは区別する。Excel（.xlsx/.xlsm/.xls）、CSV、XML Spreadsheet 2003を対象とする。原本は`--root`内で解決し、16 MiBを超える読込みを拒否する。解析後の展開メモリ・所要時間の厳密な上限を保証するものではない。
+
+出力は実験的な`mmi.source-cells/v0`であり、既存SheetSourceの読み取り専用の投影である。CandidateやTEIの受理済み意味を新たに定義しない。
+
+| 出力 | 読み方 |
+| --- | --- |
+| `sourceIdentity` | 実際に解析したバイト列のSource Identity v1 |
+| `range`・`usedRange`・`address` | 選択範囲、原本の使用範囲、各セルの物理座標 |
+| `merges` | 原本に宣言された結合範囲と結合元。選択範囲外の結合元は`anchorOutsideSelection`で示す |
+| `presence` | 現行モデルにセルが表現されているか。`not-represented`を未記入・任意・NULLと解釈しない |
+| `mergeRole` | 結合元、結合従属、結合なし、重複した結合の曖昧さ。結合元の値は従属セルへ複製しない |
+| `valueOrigin` | リテラル、保存済み数式キャッシュ、キャッシュ不在、未観測の区別 |
+| `headerSelection` | 呼出し側が見出しとして選んだ範囲。観測済みの業務上の役割や、推定の採用を意味しない |
+| `payload` | `--include-values`を明示した場合だけ、モデルの値・表示文字列・数式を含む |
+
+`payload.value`は既存読込みモデルが復号・型変換した値であり、OOXMLの文字列表記やExcel内部の数値をそのまま返すものではない。例えば日付はDateからJSON文字列になるため、`type`と合わせて読む。文字列の先頭ゼロを数値へ変えず、値2と表示文字列`2.00`は別に保持する。表示文字列は既存読込み処理の投影であり、Excel実機の描画との一致確認ではない。数式は実行せず、保存されたキャッシュだけを読む。
+
+現行モデルは、未表現セルと書式だけのstubを区別しない。読込みモデルが保持しない数式や属性は復元しない。空文字の数式結果、キャッシュ不在、原本にセルが表現されない状態は混同しない。表の意味に関する必須・任意や、未記入の理由は推定しない。
+
+範囲は単一セルまたは正順の矩形で、最大4096セル。`--max-cells`でこれ以下の上限も指定できる。不正な座標・逆順・上限超過はセルの実体化前に拒否する。`--header-range`は選択範囲内に限る。必要な結合範囲の座標は示すが、範囲外の値は出力しない。ブック全体は既存の読込み処理で解析し、セルの投影だけを選択範囲へ限定する。
+
+`--cells`の`-o`は`--root`内の新しい出力ファイルに限り、原本や既存ファイルを上書きしない。正常時の終了コードは0、指定不備・境界外・digest不一致・読込み失敗等は2。これは観測出力の成立であり、設計の整合性やTEI化の成功判定ではない。
