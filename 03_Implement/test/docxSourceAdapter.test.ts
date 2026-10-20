@@ -55,6 +55,26 @@ test('headings: explicit heading styles become observed Section Candidates with 
   assert.equal(result.headings[1].candidate.claims.some((claim) => claim.aspect === 'style-id' && claim.value === 'CustomHeading'), true);
 });
 
+test('headings: style outline levels and style ids resolve without guessing from formatting', () => {
+  const bytes = buildDocx({
+    styles: stylesXml([
+      { id: 'CustomOutline', name: '章見出し', outlineLevel: 3 },
+      { id: 'BodyText' },
+    ]),
+    body:
+      paragraph('章', { styleId: 'CustomOutline' })
+      + paragraph('直接指定', { styleId: 'Heading4' })
+      + paragraph('太字だけ', { styleId: 'BodyText' }),
+  });
+  const result = readDocx(bytes, './outline.docx');
+  assert.deepEqual(result.headings.map((heading) => [heading.level, heading.text]), [
+    [4, '章'],
+    [4, '直接指定'],
+  ]);
+  // No direct formatting inference: a body-styled paragraph is not a heading.
+  assert.equal(result.headings.some((heading) => heading.text === '太字だけ'), false);
+});
+
 test('headings: a heading style inside a table is reported, not promoted to a Section Candidate', () => {
   const bytes = buildDocx({
     styles: stylesXml([{ id: 'Heading1', name: 'heading 1' }]),
