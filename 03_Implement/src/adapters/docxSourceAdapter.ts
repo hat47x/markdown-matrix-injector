@@ -709,7 +709,7 @@ function headingCandidate(input: {
 function imageCandidate(input: {
   source: string;
   sourceDigest: string;
-  image: DocxImage;
+  image: Omit<DocxImage, 'candidate'>;
 }): Candidate {
   const { image } = input;
   const claims: Claim[] = [
@@ -1067,7 +1067,7 @@ function parseDocument(input: {
         message: `${format} cannot be shown in Markdown; the picture is listed but not extracted`,
       });
     }
-    const image: DocxImage = {
+    const image: Omit<DocxImage, 'candidate'> = {
       ordinal: result.images.length + 1,
       structuralPath: drawing.structuralPath,
       ...(drawing.name ? { name: drawing.name } : {}),
@@ -1078,10 +1078,11 @@ function parseDocument(input: {
       digest,
       extractable,
       ...(drawing.extentEmu ? { extentEmu: drawing.extentEmu } : {}),
-      candidate: undefined as unknown as Candidate,
     };
-    image.candidate = imageCandidate({ source: input.source, sourceDigest: input.sourceDigest, image });
-    result.images.push(image);
+    result.images.push({
+      ...image,
+      candidate: imageCandidate({ source: input.source, sourceDigest: input.sourceDigest, image }),
+    });
   };
 
   const finishTable = (table: TableFrame): void => {
