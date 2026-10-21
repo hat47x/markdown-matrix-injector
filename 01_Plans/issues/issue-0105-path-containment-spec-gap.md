@@ -1,4 +1,6 @@
-# Issue: パス封じ込め（spec P4 Containment MUST）と実装のギャップ
+# Issue: パス封じ込めの仕様準拠ギャップと是正記録
+
+この文書は当時のIssue記録です。2026年7月15日の発見経緯と、当時のパス境界・シンボリックリンク対策、Problemsパネル統合を記録した文書です。現在進行中のPR #628は関連実装を変更していますが、本清書ではそのPRの成果を取り込んだり現行実装の成立を断定したりしません。
 
 ## Meta
 - Type: Bug
@@ -24,8 +26,8 @@ read-only性質（G3）は保持されるため情報の書き換えは起きな
 プレビューへ表示される**のは、企業統制が仕様を根拠に承認する前提（ADR-0012議事録: セキュリティ統制
 ステークホルダーの要求）を裏切る。仕様準拠ギャップとして是正する。
 
-## Execution Plan
-### Proposed solution
+## 当時の実行計画
+### 解決方針（当時の提案）
 1. `resolveSourcePath()` に封じ込め検査を追加する。
    - 解決候補それぞれについて `path.resolve` 後の実パスが、許容境界（workspaceRootがあればその配下、
      なければMarkdownファイルの属するディレクトリ木＝保守的にmarkdownFilePathの親）に
@@ -39,7 +41,7 @@ read-only性質（G3）は保持されるため情報の書き換えは起きな
    可視エラーになる）を追加。conformance corpusに封じ込めケースを1件追加。
 4. `reference.md` / specのContainment記述を実装後の事実に合わせて最終化。
 
-### Acceptance criteria
+### 受入条件（Acceptance criteria）
 - [x] 境界外への `..` 遡上が拒否され、mmi-errorとして可視化される。
       実装: `src/core/pathResolver.ts` の `isPathWithinBoundary()` + `PathContainmentError`。
       `path.relative` ベースの境界検査、`fs.realpathSync` によるシンボリックリンク迂回対策込み。
@@ -62,7 +64,7 @@ read-only性質（G3）は保持されるため情報の書き換えは起きな
 `MMI_FILE_NOT_FOUND` が優先し二重報告しない）。`test/diagnostics.test.ts` に4テスト追加
 （発火・非発火・ファイル不在優先・後方互換undefined）。
 
-### Validation plan（実績）
+### 当時の検証計画（Validation plan）（実績）
 - `npm run build` / `npm test`: 213 tests pass, phase9 sync OK, guide-sync OK
 - `python3 01_Plans/tools/planning_queue.py`: orphan 0を確認
 - 手動: `../../../../../../../etc/hosts` 参照が `mmi-error`（`outside workspace boundary`）を返すことを

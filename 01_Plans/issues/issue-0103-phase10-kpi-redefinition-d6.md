@@ -1,4 +1,6 @@
-# Issue: Phase 10 KPI 再定義 (ADR-0012 D6)
+# Issue: Phase 10のKPIをADR-0012 D6に沿って再定義
+
+この文書は当時のIssue記録です。旧4指標から新3指標への置き換えと、手動実測値・未計測プレースホルダを区別する当時の実装記録です。記載されたテスト成功とスモークテストは過去の実績であり、現行の再検証ではありません。
 
 ## Meta
 - Type: Feature
@@ -22,8 +24,8 @@ ADR-0012 D6は、採用観測の主要KPIを「閲覧・導入時間」中心の
 ことが判明した。新KPIではこの問題を繰り返さないよう、実測値は明示的な手動入力（`--manual-kpis-file`）として扱い、
 `kpisProvenance` で「実測」と「未計測のプレースホルダ」を区別する。
 
-## Execution Plan
-### Proposed solution（実施済み）
+## 当時の実行計画
+### 解決方針（当時の提案）（実施済み）
 1. `phase10_governance_report.py`: `SCHEMA_VERSION = "phase10-governance-report/v2"` を追加し `schemaVersion` を必須化。
    `REQUIRED_KPI_KEYS` を新3フィールド（`displacedDuplicationCount` / `canonDriftIncidentCount` /
    `tableChangeReviewLeadTimeHours`）に置換。`LEGACY_KPI_KEYS` を検出して明示的にエラーとするguardを追加。
@@ -50,7 +52,7 @@ ADR-0012 D6は、採用観測の主要KPIを「閲覧・導入時間」中心の
 - いずれも、本issueがmanual entry (`--manual-kpis-file`) で確立したデータ契約（3フィールド + provenance）を
   自動収集で埋める後続実装であり、本issueのスコープには含めない。
 
-### Acceptance criteria
+### 受入条件（Acceptance criteria）
 - [x] `phase10_governance_report.py` の `REQUIRED_KPI_KEYS` が新3キーに置換され、`render_markdown()` が新3行を出力する。
 - [x] `schemaVersion` が必須化され、欠落/不正値/legacyキー混入がそれぞれ明確なエラーメッセージで拒否される。
 - [x] `phase10_backlog_escalation.py` の閾値・シグナルが新3指標の正しい極性で判定される（SLA breach判定は不変）。
@@ -61,7 +63,7 @@ ADR-0012 D6は、採用観測の主要KPIを「閲覧・導入時間」中心の
 - [x] 副次的に発見した `--thresholds` 無視バグと `test_phase10_backlog_escalation.py` の構文エラーを修正。
 - [x] `python3 01_Plans/tools/planning_queue.py` でorphan issueが0件。
 
-### Validation plan（実績）
+### 当時の検証計画（Validation plan）（実績）
 ```bash
 cd 01_Plans/tools
 python3 -m unittest test_phase10_governance_report -v      # 7 pass
