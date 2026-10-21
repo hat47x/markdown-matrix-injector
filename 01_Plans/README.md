@@ -40,6 +40,7 @@
 | 3（研究） | structured artifact（SAI）、worksheet format、[review route](https://github.com/hat47x/markdown-matrix-injector/issues/497) | In Progress | 新しい研究段階は、issue-0193の対応表のどの行を強くするかを示してから始める |
 | **4 Detachability** | [実体化とdetach check](https://github.com/hat47x/markdown-matrix-injector/issues/499) | **In Progress**（表・別紙・ローカル画像のmaterialize、採用済み表・画像・JSON/YAML/XML/フラットテキスト/表形式階層Treeのfreshness preflight、artifact closureを実装） | 表・キット・画像つき文書の手動E2Eを確認済み（2026-10-08）。Windowsでキットの実体化とdetach-checkも確認済み（2026-10-15）。残: 実在する設計書での確認、macOS、Windowsの画像つき文書。Shape等がExtracted可能になったら同じprovenance/freshness契約へ拡張 |
 | 4 | [原本参照の影響分析](https://github.com/hat47x/markdown-matrix-injector/issues/515) | **In Progress**（Linked / Extracted / ローカルリンクをread-onlyで横断列挙。CLIに加え、エクスプローラーから影響先Markdownの該当行を開ける） | Node 20と実VS Codeで確認し、実務workspaceの変更・移動・削除判断に十分かを観測する |
+| 4 | [MMIを外す手順書](https://github.com/hat47x/markdown-matrix-injector/issues/532)（[手順](../04_Documentation/detach-guide.md)） | **In Progress**（全文書の実体化・検査・原本保管・台帳・拡張/CLIのアンインストール・MMI無しでの表示確認を記載。基本設計書キットの複製でmaterializeとdetach-checkをCLIで再確認） | 拡張とCLIを実際に外したVS Codeでの表示確認、実在設計書、macOS/Linux。図形・範囲画像の切り離しは#530の自動テストまで確認済み |
 | **5 組織導入** | 文書キットの追加、CI関門、執筆ベンチマーク v1（大きな表・複数シート・本文と表の矛盾） | 未起票 | 優先度2の縦切りの後 |
 | 5 | [外部の判断記録からの根拠の固定（SEI）](https://github.com/hat47x/markdown-matrix-injector/issues/498) | Draft | CLIの契約が固まった後 |
 | 横断・実行確認 | [リファクタ後の製品テスト9件の再確認](issues/issue-0212-refactor-test-drift.md) | **Done**（2026-10-13、Node 20で9件が合格。全体testの失敗は研究層の36件のみ） | 研究層の既知失敗は個別Issueで扱う。標準出力を差し替えて取り込むCLIテスト11ファイルの点検（任意） |
