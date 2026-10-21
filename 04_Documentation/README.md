@@ -16,6 +16,7 @@ MMIを初めて知った方は、[概要](overview.md)で「何ができるか�
 | 記法を正確に扱う | [MMI記法仕様](spec/mmi-notation-v1.md) |
 | 内部の処理を理解する | [動作リファレンス](how-it-works.md) |
 | 開発・検証する | [開発環境](developer-setup.md)・[E2E手順](vscode-e2e-testing.md) |
+| 実機に残す確認を確かめる | [実機確認の棚卸し](manual-verification-inventory.md) |
 | 追加機能の検証状況を確認する | [2026-09-24 入力支援機能の検証記録](validation-input-assistance-2026-09-24.md) |
 | 次の開発作業を知る | [現在の作業](../01_Plans/README.md) |
 
