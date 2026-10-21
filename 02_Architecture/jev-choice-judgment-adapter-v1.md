@@ -2,9 +2,9 @@
 
 ## 1. 目的
 
-Jev ChoiceをMMIのprovider-neutral Closed-choice Judgment portへ接続する。
+Jev Choice（選択肢から回答するJevの機能）を、MMIのprovider-neutral（提供元に依存しない）Closed-choice Judgment port（限定された選択肢の判断結果を受け取る接続口）へ接続する。
 
-本adapterはnetwork clientではない。
+このadapter（接続先との形式変換を担う部品）自体はnetwork client（通信処理の本体）ではない。
 
 ```text
 MMI Cognitive Observation
@@ -31,7 +31,7 @@ proposal-only Judgment
 
 ## 2. 公式HTTP contract
 
-2026-09-20時点のTypeSafe公式docsではSystem One APIは:
+2026-09-20時点に参照したTypeSafe公式docsでは、System One APIの入口は次のとおり。
 
 ```text
 POST https://api.typesafe.ai/v1/systemone
@@ -53,13 +53,13 @@ response:
 - probabilities
 - confidence
 
-参考は次のとおりです。
+当時の参照先は次のとおり。
 - https://docs.typesafe.ai/api
 - https://docs.typesafe.ai/primitives/choice
 
 ## 3. Transport injection
 
-adapterは以下だけに依存する。
+adapterは次のtransport（通信を委譲する接続口）にのみ依存する。
 
 ```ts
 interface JevSystemOneTransport {
@@ -79,11 +79,11 @@ adapter責務:
 - response shape
 - MMI provider mapping
 
-これによりunit testはnetwork不要。
+この分離により、unit test（部品単位の試験）では実際のnetwork通信を必要としない。
 
 ## 4. Explicit state projection
 
-ObservationをそのままJevへ送らない。
+Observation（MMI側で観測した情報）を、そのままJevへ送信しない。
 
 callerが:
 
@@ -93,7 +93,7 @@ projectState(observation)
 
 を明示する。
 
-review用途なら、raw worksheetではなくderived stateだけを投影できる。
+review（人による確認）の用途では、raw worksheet（元のワークシート全体）ではなくderived state（必要な情報だけを取り出した状態）を投影できる。
 
 ## 5. Choice criteria
 
@@ -109,7 +109,7 @@ nullも許容するが、暗黙生成はしない。
 
 ## 6. Choice cardinality
 
-公式docsのChoice上限255に合わせ:
+参照時点の公式docsに記載されたChoiceの上限255に合わせ、次の範囲で扱う。
 
 - 2未満: existing question contractで拒否
 - 256以上: Jev adapterで拒否
@@ -118,7 +118,7 @@ nullも許容するが、暗黙生成はしない。
 
 ## 7. State validation
 
-Jev stateはJSON-compatibleな:
+Jevへ渡すstate（状態データ）は、JSON-compatible（JSONとして表現できる）な次の型に限定する。
 - string
 - object
 - array
@@ -138,9 +138,9 @@ transportへ渡す前に検証する。
 
 ## 8. Response mapping
 
-transport responseはunknownとして受け、shapeを検証する。
+transportのresponse（返答）は型が未確定のunknownとして受け取り、shape（データの構造）を検証する。
 
-必要は次のとおりです。
+必要となる項目は次のとおり。
 - model: non-empty string
 - answers.decision
 - type = choice
@@ -148,24 +148,24 @@ transport responseはunknownとして受け、shapeを検証する。
 - probabilities: object
 - confidence: finite number
 
-ここではprobability sum等を再実装しない。
+ここではprobability sum（選択肢の確率値の合計）などの検証を再実装しない。
 generic provider responseへ変換後、issue-0161 runner経由でissue-0138 adapterが検証する。
 
 ## 9. Confidence semantics
 
-Jev公式docsではChoice confidenceはprobability distributionから導出される0〜1値とされる。
+参照時点のJev公式docsでは、Choice confidence（提供元が返す確信度）はprobability distribution（各選択肢の確率分布）から導出される0〜1の値と説明されている。
 
-MMIではこの値を正答率や他providerと共通尺度とは扱わない。
+MMIではこの値を正答率や、異なるprovider間で比較できる共通尺度としては扱わない。
 既存のprovider-confidence namespaceへ保持するだけとする。
 
 ## 10. Model identity
 
-defaultは `jev-latest`。
+既定のmodel id（モデル識別子）は `jev-latest`。
 
 再現性が必要な評価ではcallerがversioned model idを明示する。
 provider descriptor versionには**requestしたmodel id**を保持する。
 
-floating aliasをexact model versionとみなさない。
+floating alias（指す実体が更新され得る別名）を、特定版のモデルと同一視しない。
 
 ## 11. 非責務
 
