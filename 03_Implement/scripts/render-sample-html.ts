@@ -27,6 +27,8 @@ md.use(markdownMatrixPlugin, {
   markdownFilePath: mdPath,
   workspaceRoot: sampleDir,
   cache: new WorkbookCache(),
+  // Committed evidence must not carry the generating machine's absolute paths.
+  forExport: true,
 });
 
 const body = md.render(fs.readFileSync(mdPath, 'utf-8'));

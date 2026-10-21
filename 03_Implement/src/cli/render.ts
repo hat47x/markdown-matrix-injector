@@ -15,6 +15,7 @@ import { getImmediateSmartFallbackDecision, getSmartFallbackDecisionAfterLoad } 
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
 import { extractEmbedQueries, type EmbedQuery } from '../parser/embedSyntax.js';
 import { markdownMatrixPlugin } from '../plugin/markdownMatrixPlugin.js';
+import { buildDocumentHtml, FrontMatterError } from './documentExport.js';
 import { cliErrorText } from './messageLanguage.js';
 
 export interface RenderOptions {
@@ -30,6 +31,7 @@ export function renderDocumentHtml(options: RenderOptions): string {
     markdownFilePath: options.markdownFilePath,
     workspaceRoot: options.workspaceRoot,
     cache: options.cache ?? new WorkbookCache(),
+    forExport: true,
   });
   // src/cli (tsx), dist/src/cli (compiled), or the standalone package where mmi.mjs sits beside media/.
   const cssUrl = ['../../media/markdown-matrix.css', '../../../media/markdown-matrix.css', './media/markdown-matrix.css']
@@ -37,18 +39,15 @@ export function renderDocumentHtml(options: RenderOptions): string {
     .find((url) => fs.existsSync(url));
   if (!cssUrl) console.error('mmi: media/markdown-matrix.css not found next to the CLI; the HTML will be unstyled.');
   const css = cssUrl ? fs.readFileSync(cssUrl, 'utf8') : '';
-  const body = md.render(fs.readFileSync(options.markdownFilePath, 'utf8'));
-  if (body.includes('class="mmi-error"')) throw new RenderError('MMI reference errors must be resolved before export. Run `mmi check`.');
-  return `<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>MMI 文書出力</title><style>
-  body { font-family: "Noto Sans CJK JP", "Yu Gothic", sans-serif; color: #182c40; line-height: 1.65; font-size: 10pt; }
-  h1 { font-size: 21pt; } h2 { font-size: 14pt; margin-top: 1.5em; }
-  a { color: #176989; } code { overflow-wrap: anywhere; } pre { white-space: pre-wrap; }
-  ${css}
-  @page { size: A4; margin: 18mm; @bottom-center { content: counter(page); font-size: 9pt; } }
-  @page landscape { size: A4 landscape; }
-  @page portrait { size: A4 portrait; }
-  @media screen { body { max-width: 1100px; margin: 32px auto; padding: 0 24px; } }
-  </style></head><body>${body}</body></html>`;
+  let html: string;
+  try {
+    html = buildDocumentHtml(md, fs.readFileSync(options.markdownFilePath, 'utf8'), {}, css);
+  } catch (error) {
+    if (error instanceof FrontMatterError) throw new RenderError(error.message);
+    throw error;
+  }
+  if (html.includes('class="mmi-error"')) throw new RenderError('MMI reference errors must be resolved before export. Run `mmi check`.');
+  return html;
 }
 
 export function renderDocumentMarkdown(options: RenderOptions): string {

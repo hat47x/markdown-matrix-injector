@@ -9,6 +9,7 @@
 | 参照記法から表示までの処理・コードの責務 | [動作リファレンス](../04_Documentation/how-it-works.md) |
 | 記法の意味と変換順序 | [記法仕様](../04_Documentation/spec/mmi-notation-v1.md) |
 | VS Code宿主での検証 | [E2E設計](vscode-extension-host-e2e.md) |
+| 納品用PDFに求められる体裁と現状の差分 | [納品用PDF出力](delivery-pdf-output.md) |
 | 公開文書の品質 | [文書設計](phase6-public-documentation-architecture.md) |
 | 原本座標を保持する読込みと切り出し | [ソースモデル](input-assistance-source-model.md) |
 | Excelコピーの出所取得と照合（Windowsの出所取得を含む） | [クリップボード出所と照合](input-assistance-paste-provenance.md) |

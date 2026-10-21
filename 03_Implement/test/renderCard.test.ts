@@ -43,7 +43,7 @@ test('renderEmbedCard routes the open button to the extension URI handler', () =
 test('renderEmbedCard keeps the machine-readable data-path and sheet/range meta line', () => {
   const html = renderEmbedCard(embed('![[./roles.csv#Sheet1|A1:B3?mode=card]]'), '/ws/roles.csv');
 
-  assert.match(html, /<div class="mmi-card" data-path="\/ws\/roles\.csv">/);
+  assert.match(html, /<div class="mmi-card" data-path="\/ws\/roles\.csv" data-source="\.\/roles\.csv">/);
   assert.match(html, /<div class="mmi-card__meta">Sheet1 \/ A1:B3<\/div>/);
 });
 
@@ -73,4 +73,15 @@ test('renderEmbedCard escapes the author-written relative path used in the basel
   const html = renderEmbedCard(parsed, '/ws/a&b.csv');
 
   assert.ok(html.includes('href="./a&amp;b.csv"'));
+});
+
+test('renderEmbedCard carries the author-written path for print, and export mode drops local paths', () => {
+  const parsed = embed('![[./data/roles.csv#Sheet1|A1:B3?mode=card]]');
+  assert.match(renderEmbedCard(parsed, '/ws/docs/data/roles.csv'), /data-source="\.\/data\/roles\.csv"/);
+
+  const exported = renderEmbedCard(parsed, '/home/alice/customer-x/docs/data/roles.csv', { forExport: true });
+  assert.equal(
+    exported,
+    '<div class="mmi-card" data-source="./data/roles.csv"><a class="mmi-card__title" href="./data/roles.csv">roles.csv</a><div class="mmi-card__meta">Sheet1 / A1:B3</div></div>',
+  );
 });
