@@ -1,4 +1,6 @@
-# Issue: XLSX 日付セルがロケール依存の曖昧な短縮形式（例: 4/3/26）で表示される欠陥の是正
+# Issue: XLSX日付セルの曖昧な短縮表示を是正
+
+この文書は当時のIssue記録です。2026年7月15日の修正で日付型セルの表示形式を明確化した記録です。非日付セルの無変化と226件のテスト成功は当時の実績として保持します。
 
 ## Meta
 - Type: Bug
@@ -27,8 +29,8 @@
 Excel 日付型セル 2026-04-03 → MMI 表示: "4/3/26"（曖昧）
 ```
 
-## Execution Plan
-### Proposed solution（実施済み）
+## 当時の実行計画
+### 解決方針（当時の提案）（実施済み）
 `XLSX.readFile()` に `{ cellDates: true, dateNF: 'yyyy-mm-dd' }` を追加。実データで以下を確認済み:
 
 - 日付型セルのみISO 8601（`YYYY-MM-DD`）形式で文字列化される。
@@ -36,12 +38,12 @@ Excel 日付型セル 2026-04-03 → MMI 表示: "4/3/26"（曖昧）
 - 日付「らしく見える」テキストセル（例: `"2026-04-03 as text"`）も無変化（型で判定されるため）。
 - XML Spreadsheet 2003も同一の `XLSX.readFile()` 経路を通るため同様に適用される。
 
-### Acceptance criteria
+### 受入条件（Acceptance criteria）
 - [x] Excelで日付型として入力されたセルが `YYYY-MM-DD` で表示される。
 - [x] 非日付の数値・テキストセルに影響がない（回帰なし、既存224テスト全通過を確認）。
 - [x] 新規unit 2件（日付セルのISO 8601化・非日付セルの無変化）を追加。
 
-### Validation plan（実績）
+### 当時の検証計画（Validation plan）（実績）
 ```bash
 cd 03_Implement
 npm run build   # エラーなし

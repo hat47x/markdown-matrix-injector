@@ -1,4 +1,6 @@
-# Issue: CSV パーサーが RFC4180 クォート（カンマ/改行/エスケープ引用符）を未対応だった欠陥の是正
+# Issue: CSVパーサーのRFC 4180引用符処理の不備を是正
+
+この文書は当時のIssue記録です。2026年7月15日のCSVパーサー修正と、同日中のPhase 9 CSVデータ側の是正を記録しています。224件のテスト成功は当時の検証結果であり、現行の再実行結果ではありません。
 
 ## Meta
 - Type: Bug
@@ -32,8 +34,8 @@
 これは要件Phase 1のCSV読み込み機能そのものの正しさに関わり、Phase 9ツール群固有の問題より
 影響範囲・深刻度ともに大きい。
 
-## Execution Plan
-### Proposed solution（実施済み）
+## 当時の実行計画
+### 解決方針（当時の提案）（実施済み）
 `workbookLoader.ts` の `parseCsv()` を、依存追加なしの状態機械によるRFC4180準拠パーサーへ書き換えた。
 
 - クォートされたセル内のカンマ・改行を区切りとして扱わない。
@@ -42,7 +44,7 @@
 - ファイル全体の先頭/末尾の空行除去（従来の `contents.trim()` 相当）とファイル中間の空行保持は従来動作を維持。
 - BOM（U+FEFF）除去は新規追加（副次的改善）。
 
-### Acceptance criteria
+### 受入条件（Acceptance criteria）
 - [x] クォート内のカンマが列区切りとして扱われない（`"Smith, John contact"` が1フィールドとして保持される）。
 - [x] `""` エスケープが正しく `"` 一文字へ変換される。
 - [x] クォート内の改行が単一の論理行として扱われる（複数物理行にまたがるセル）。
@@ -67,7 +69,7 @@
 
 `ADR-0013` のFollow-up Actionsにも本対応の完了を追記済み。
 
-### Validation plan（実績）
+### 当時の検証計画（Validation plan）（実績）
 ```bash
 cd 03_Implement
 npm run build   # tsc -p tsconfig.json: エラーなし
