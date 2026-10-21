@@ -1,4 +1,6 @@
-# Issue: Phase 9 表パターンガイドの独立公開 (ADR-0012 D7 / ADR-0013)
+# Issue: Phase 9表パターンガイドの独立公開と同期検証
+
+この文書は当時のIssue記録です。MMI拡張なしで読める表パターンガイドを生成する当時の方針と実績です。既存CSVの品質上の欠陥はスコープ外として記録されたまま保持し、修正済みとは扱いません。
 
 ## Meta
 - Type: Feature
@@ -22,8 +24,8 @@ ADR-0012 D7は、将来ドキュメントが正本から都度AI生成される�
 名指しし、独立公開への投資を決定した。ADR-0013はその実現方式を、既存の安定契約（docs/fixture CSV同期・
 release gate G3・`markdownMatrixPlugin.test.ts`）を一切変更しない**純粋加算**の生成ガイドとして決定した。
 
-## Execution Plan
-### Proposed solution（実施済み）
+## 当時の実行計画
+### 解決方針（当時の提案）（実施済み）
 1. `01_Plans/tools/generate_phase9_pattern_guide.py` を新設。docs用CSVを唯一の入力とし、MMI拡張を
    インストールせずに読める標準Markdownガイドを生成する。`QueryExample` は各表末尾の「任意」コールアウトに
    隔離し、`RelatedTest`（MMI内部の回帰テストポインタ）は一切出力しない。未知の `BenchmarkTable` 値は
@@ -42,7 +44,7 @@ release gate G3・`markdownMatrixPlugin.test.ts`）を一切変更しない**純
   `markdownMatrixPlugin.test.ts` の独自パーサが同じ問題を固定位置復元で回避しており、本issueの生成器も
   同じ手法を採用した。是正は別issueへ（詳細はADR-0013 Follow-up Actions）。
 
-### Acceptance criteria
+### 受入条件（Acceptance criteria）
 - [x] `phase9-rule-table-pattern-guide.md` がMMI非依存で意味の通る内容として読める
       （QueryExampleは「任意」コールアウトのみ、主テーブルは10列で完結）。
 - [x] `RelatedTest` はガイドのどこにも出現しない。
@@ -58,7 +60,7 @@ release gate G3・`markdownMatrixPlugin.test.ts`）を一切変更しない**純
 - [x] root READMEに新ガイドへのリンクが1行追加されている（生CSV・Phase8資産・運用文書への直接リンクは追加しない）。
 - [x] `python3 01_Plans/tools/planning_queue.py` でorphan issueが0件。
 
-### Validation plan（実績）
+### 当時の検証計画（Validation plan）（実績）
 ```bash
 cd 01_Plans/tools
 python3 -m unittest test_generate_phase9_pattern_guide -v   # 9 pass
