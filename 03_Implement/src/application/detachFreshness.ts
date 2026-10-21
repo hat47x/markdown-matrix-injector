@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto';
 import fs from 'node:fs';
 import path from 'node:path';
 
@@ -6,6 +7,7 @@ import {
   readTabularHierarchy,
   type TabularHierarchyConfig,
 } from '../adapters/tabularHierarchyAdapter.js';
+import { readDocx } from '../adapters/docxSourceAdapter.js';
 import {
   readSourceFileIdentity,
 } from '../core/sourceIdentity.js';
@@ -53,13 +55,17 @@ export interface DetachFreshnessOptions {
 
 export interface ExtractedProvenance {
   line: number;
-  kind: 'image' | 'table-range' | 'tree';
+  kind: 'image' | 'table-range' | 'tree' | 'region-snapshot';
   source: string;
   sheet?: string;
   place?: string;
   fingerprintDigest: string;
   projection?: string;
   tabularHierarchy?: TabularHierarchyConfig;
+  /** Region snapshots bind the whole source bytes and the rendered artifact. */
+  sourceDigest?: string;
+  artifactDigest?: string;
+  renderer?: string;
 }
 
 /**
@@ -107,6 +113,51 @@ export function checkExtractedProvenanceFreshness(
       options.workspaceRoot,
       sourcePath,
     ).split(path.sep).join('/');
+
+    // Region snapshots are not table/image/tree Candidates. They bind the
+    // whole source bytes, the renderer identity and the rendered artifact.
+    if (record.kind === 'region-snapshot') {
+      const entry = ledger.entries.find((candidate) =>
+        candidate.kind === 'region-snapshot'
+        && candidate.source === sourceKey(options.ledgerPath, sourcePath)
+        && (candidate.sheet ?? '') === (record.sheet ?? '')
+        && candidate.place === (record.place ?? ''));
+      if (!entry) {
+        problems.push(problemFor(record, 'MMI_DETACH_EXTRACTED_UNTRACKED',
+          'the region snapshot has no matching import-ledger review record'));
+        continue;
+      }
+      const currentSourceDigest = readSourceFileIdentity(sourcePath).digest;
+      if (!record.sourceDigest || record.sourceDigest !== currentSourceDigest) {
+        checked += 1;
+        problems.push(problemFor(record, 'MMI_DETACH_EXTRACTED_STALE',
+          'the source changed after the region snapshot was reviewed', 'changed'));
+        continue;
+      }
+      if (
+        record.renderer
+        && typeof entry.conversion.renderer === 'string'
+        && entry.conversion.renderer !== record.renderer
+      ) {
+        checked += 1;
+        problems.push(problemFor(record, 'MMI_DETACH_EXTRACTED_STALE',
+          'the region snapshot renderer differs from the reviewed ledger record', 'changed'));
+        continue;
+      }
+      const artifactPath = path.resolve(path.dirname(options.ledgerPath), entry.output);
+      if (!fs.existsSync(artifactPath)
+          || !fs.statSync(artifactPath).isFile()
+          || !record.artifactDigest
+          || sha256OfFile(artifactPath) !== record.artifactDigest) {
+        checked += 1;
+        problems.push(problemFor(record, 'MMI_DETACH_EXTRACTED_STALE',
+          'the rendered region snapshot artifact is missing or changed', 'changed'));
+        continue;
+      }
+      checked += 1;
+      continue;
+    }
+
     let candidates: Candidate[];
     try {
       if (
@@ -198,13 +249,18 @@ export function extractedProvenance(markdown: string): ExtractedProvenance[] {
     const image = /<!--\s*mmi:extracted\s+(?<attrs>.*?)\s*-->/u.exec(line);
     if (image?.groups?.attrs) {
       const attrs = attributes(image.groups.attrs);
-      if (attrs.source && attrs.sheet && attrs.sha256) {
+      const pathPlace = attrs.path ? `path:${attrs.path}` : undefined;
+      if (attrs.source && attrs.sha256 && (attrs.sheet || pathPlace)) {
         records.push({
           line: index + 1,
           kind: 'image',
           source: attrs.source,
-          sheet: attrs.sheet,
-          ...(attrs.anchor ? { place: attrs.anchor } : {}),
+          ...(attrs.sheet ? { sheet: attrs.sheet } : {}),
+          ...(pathPlace
+            ? { place: pathPlace }
+            : attrs.anchor
+              ? { place: attrs.anchor }
+              : {}),
           // The comment carries the raw media digest; the Candidate fingerprint is derived from it.
           fingerprintDigest: fingerprintOf('image-media-bytes-v1', normalizedSha256(attrs.sha256)).digest,
         });
@@ -214,14 +270,43 @@ export function extractedProvenance(markdown: string): ExtractedProvenance[] {
     const table = /<!--\s*mmi:extracted-table\s+(?<attrs>.*?)\s*-->/u.exec(line);
     if (table?.groups?.attrs) {
       const attrs = attributes(table.groups.attrs);
-      if (attrs.source && attrs.sheet && attrs.range && attrs['candidate-sha256']) {
+      const pathPlace = attrs.path ? `path:${attrs.path}` : undefined;
+      if (
+        attrs.source
+        && attrs['candidate-sha256']
+        && ((attrs.sheet && attrs.range) || pathPlace)
+      ) {
         records.push({
           line: index + 1,
           kind: 'table-range',
           source: attrs.source,
+          ...(attrs.sheet ? { sheet: attrs.sheet } : {}),
+          place: pathPlace ?? attrs.range,
+          fingerprintDigest: normalizedSha256(attrs['candidate-sha256']),
+        });
+      }
+    }
+
+    const snapshot = /<!--\s*mmi:region-snapshot\s+(?<attrs>.*?)\s*-->/u.exec(line);
+    if (snapshot?.groups?.attrs) {
+      const attrs = attributes(snapshot.groups.attrs);
+      if (
+        attrs.source
+        && attrs.sheet
+        && attrs.range
+        && attrs['source-sha256']
+        && attrs['artifact-sha256']
+      ) {
+        records.push({
+          line: index + 1,
+          kind: 'region-snapshot',
+          source: attrs.source,
           sheet: attrs.sheet,
           place: attrs.range,
-          fingerprintDigest: normalizedSha256(attrs['candidate-sha256']),
+          fingerprintDigest: normalizedSha256(attrs['artifact-sha256']),
+          sourceDigest: normalizedSha256(attrs['source-sha256']),
+          artifactDigest: normalizedSha256(attrs['artifact-sha256']),
+          ...(attrs.renderer ? { renderer: attrs.renderer } : {}),
         });
       }
     }
@@ -262,6 +347,11 @@ function candidatesFromCurrentSource(
   sourcePath: string,
   sourceLabel: string,
 ): Candidate[] {
+  // Word is a stand-alone document source with no workbook/CSV inventory.
+  // Its table and image Candidates use structural paths as their place.
+  if (/\.docx$/iu.test(sourcePath)) {
+    return readDocx(fs.readFileSync(sourcePath), sourceLabel).candidates;
+  }
   return buildCandidateReviewInventory(sourcePath, sourceLabel)
     .items.map((item) => item.candidate);
 }
@@ -432,6 +522,10 @@ function ledgerEntryFor(
       && (entry.sheet ?? '') === (candidate.locator.sheet ?? '')
       && entry.place === place,
   );
+}
+
+function sha256OfFile(file: string): string {
+  return `sha256:${createHash('sha256').update(fs.readFileSync(file)).digest('hex')}`;
 }
 
 function problemFor(

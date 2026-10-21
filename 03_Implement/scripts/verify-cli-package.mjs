@@ -44,6 +44,9 @@ export function verifyCliPackage(tarballPath) {
   if (packageJson.bin?.mmi !== './dist/src/cli/bootstrap.js') {
     throw new Error('Installed CLI package does not expose the expected mmi binary.');
   }
+  if (packageJson.bin?.['mmi-mcp'] !== './dist/src/cli/mcp.js') {
+    throw new Error('Installed CLI package does not expose the expected mmi-mcp binary.');
+  }
 
   const bin = path.join(
     prefix,
@@ -53,6 +56,15 @@ export function verifyCliPackage(tarballPath) {
   );
   if (!fs.existsSync(bin)) {
     throw new Error(`Installed mmi binary is missing: ${bin}`);
+  }
+  const mcpBin = path.join(
+    prefix,
+    'node_modules',
+    '.bin',
+    process.platform === 'win32' ? 'mmi-mcp.cmd' : 'mmi-mcp',
+  );
+  if (!fs.existsSync(mcpBin)) {
+    throw new Error(`Installed mmi-mcp binary is missing: ${mcpBin}`);
   }
 
   fs.writeFileSync(
@@ -394,6 +406,63 @@ export function verifyCliPackage(tarballPath) {
     throw new Error(`mmi render failed:\n${render.stderr || render.stdout}`);
   }
 
+  // MCP smoke: initialize, tools/list and one read-only inspect, over the same
+  // line-delimited stdio transport the installed package exposes.
+  const mcpEntry = path.join(packageRoot, 'dist', 'src', 'cli', 'mcp.js');
+  const mcp = runMcp(mcpEntry, [
+    {
+      jsonrpc: '2.0',
+      id: 1,
+      method: 'initialize',
+      params: {
+        protocolVersion: '2024-11-05',
+        capabilities: {},
+        clientInfo: { name: 'mmi-cli-package-smoke', version: '0' },
+      },
+    },
+    { jsonrpc: '2.0', method: 'notifications/initialized' },
+    { jsonrpc: '2.0', id: 2, method: 'tools/list' },
+    {
+      jsonrpc: '2.0',
+      id: 3,
+      method: 'tools/call',
+      params: { name: 'inspect', arguments: { source: 'service.json' } },
+    },
+  ], workspace);
+  const mcpResponses = mcp.stdout
+    .split(/\r?\n/u)
+    .filter((line) => line.trim().length > 0)
+    .map((line) => JSON.parse(line));
+  const initialized = mcpResponses.find((response) => response.id === 1);
+  const listed = mcpResponses.find((response) => response.id === 2);
+  const inspected = mcpResponses.find((response) => response.id === 3);
+  if (
+    mcp.status !== 0
+    || initialized?.result?.protocolVersion !== '2024-11-05'
+    || !listed?.result?.tools?.some((tool) => tool.name === 'inspect')
+    || !listed.result.tools.some((tool) => tool.name === 'check')
+    || !listed.result.tools.some((tool) => tool.name === 'schema')
+  ) {
+    throw new Error(
+      `mmi-mcp initialize/tools/list failed:\n${mcp.stderr || mcp.stdout}`,
+    );
+  }
+  let inspectedByMcp;
+  try {
+    inspectedByMcp = JSON.parse(inspected?.result?.content?.[0]?.text ?? '');
+  } catch {
+    throw new Error(`mmi-mcp inspect returned invalid JSON:\n${mcp.stdout}`);
+  }
+  if (
+    inspected?.result?.isError === true
+    || inspectedByMcp.candidateContract !== 'mmi.semantic-candidate/v1'
+    || !inspectedByMcp.candidates?.some(
+      (candidate) => candidate.kind === 'tree',
+    )
+  ) {
+    throw new Error(`mmi-mcp inspect failed:\n${mcp.stdout}`);
+  }
+
   let inspectedTree;
   let extractedTree;
   try {
@@ -535,6 +604,9 @@ export function verifyCliPackage(tarballPath) {
         reviewDecisionsSchema: 'passed',
         check: 'passed',
         render: 'passed',
+        mcpInitialize: 'passed',
+        mcpToolsList: 'passed',
+        mcpInspect: 'passed',
         jsonTreeInspect: 'passed',
         jsonTreeExtract: 'passed',
         jsonTreeLedger: 'passed',
@@ -577,6 +649,21 @@ function run(executable, args, cwd) {
     encoding: 'utf8',
     stdio: ['ignore', 'pipe', 'pipe'],
     shell: process.platform === 'win32',
+  });
+  if (result.error) throw result.error;
+  return {
+    status: result.status,
+    stdout: result.stdout ?? '',
+    stderr: result.stderr ?? '',
+  };
+}
+
+function runMcp(entry, messages, cwd) {
+  const result = spawnSync(process.execPath, [entry], {
+    cwd,
+    encoding: 'utf8',
+    input: `${messages.map((message) => JSON.stringify(message)).join('\n')}\n`,
+    stdio: ['pipe', 'pipe', 'pipe'],
   });
   if (result.error) throw result.error;
   return {

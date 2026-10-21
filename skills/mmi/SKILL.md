@@ -4,7 +4,7 @@ description: >
   Excel・CSV・TSV・XML Spreadsheet 2003の表を、Markdownの設計書へ写さずにMMI参照（![[...]]）で載せる。
   JSON・安全subset YAML・汎用XML・フラットテキストのTree Candidateをinspect・review・extractするときにも使う。
   設計書・仕様書・試験書などで正本を参照して章を書くとき、mmi inspect / check / renderを使うとき、
-  `![[...]]`を含むMarkdownを編集するときに使う。
+  MCPサーバ（mmi-mcp）から同じ読み取り・検証を呼ぶとき、`![[...]]`を含むMarkdownを編集するときに使う。
 ---
 
 # MMI: 表は写さず、正本を参照する
@@ -51,6 +51,23 @@ MMIの参照は、Excel・CSVなどの正本から必要な表だけをMarkdown�
 6. 報告する。 使った正本、参照した範囲、`check`の結果、本文と表の確認結果を利用者に伝える。
 
 `mmi`は配布されたCLI tarballをNode.js 20以上の環境へ導入して使う。開発用checkoutで作業していて配布CLIが無い場合だけ、MMIリポジトリの`03_Implement`で`npm run mmi -- <command> ...`を使う。
+
+## MCPサーバから使う（読み取り・検証）
+
+MCP対応のAIエージェントからは、`mmi-mcp`がCLIと同じ読み取り・検証を提供する。stdioで起動し、`--root`でワークスペースの境界を固定する。サーバは原本・ledger・成果物を書き換えず、ネットワークへ接続しない。
+
+```json
+{
+  "mcpServers": {
+    "mmi": {
+      "command": "mmi-mcp",
+      "args": ["--root", "."]
+    }
+  }
+}
+```
+
+使えるのは`inspect`・`check`・`render`・`select`・`find`・`handoff`・`validate-proposal`・`validate-selection`・`validate-transformation`・`schema`である。`extract`・`import`・`materialize`などの書き込み系は公開しない。`inspect`は既定で構造だけを返すため、値が必要なときだけ`values`を行数で指定する。書き込みが要る作業はCLIへ戻り、利用者の確認を取る。設定と制限は[MCPサーバ](../../04_Documentation/mcp-server.md)を参照する。
 
 ## 外部LLMへ相談する（MMIは送信しない）
 
