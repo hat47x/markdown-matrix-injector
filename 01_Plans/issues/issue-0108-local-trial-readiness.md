@@ -1,4 +1,6 @@
-# Issue: 中間報告向けのローカル試用版整備
+# Issue: 中間報告向けローカル試用版の整備と検証範囲
+
+この文書は当時のIssue記録です。2026年9月8日のWSL・Extension Host・VSIX作成の検証記録です。実OSでのpaste/dropや外部アプリ起動クリックは未確認と記されており、当時の試用版整備を正式製品受入や現行環境の検証済み状態へ昇格させません。
 
 ## Meta
 - Type: Bugfix
@@ -14,15 +16,15 @@
 ## 背景
 2026-09-08の現行コード検証ではbuildと226テストが通ったが、配布依存のnpm auditでhigh 2件・moderate 1件を検出した。またWindows checkoutのCRLFによりWSLのE2E runnerが起動しなかった。
 
-## Execution Plan
-### Acceptance criteria
+## 当時の実行計画
+### 受入条件（Acceptance criteria）
 - [x] Markdown解析依存を互換範囲で更新し、SheetJSは公式配布版へ更新する。
 - [x] shell runnerのLFを固定する。
 - [x] build・全既存テスト・実Extension Hostの検証結果を記録する。
 - [x] 配布依存のaudit結果とVSIX作成結果を記録する。
 - [x] issue-0100の実クリック確認を代替したと主張せず、試用版と正式完成を区別する。
 
-### Validation plan
+### 当時の検証計画（Validation plan）
 `npm run build`、`npm test`、`npm run test:e2e`、`npm audit --omit=dev`、VSIX内容検査。SheetJS更新は[公式NodeJS導入手順](https://docs.sheetjs.com/docs/getting-started/installation/nodejs/)に従う。正本表の編集機能や新しい製品要件は追加しない。
 
 ## Validation evidence（2026-09-08）
