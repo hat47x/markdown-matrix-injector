@@ -2,7 +2,7 @@
 
 ## 1. 目的
 
-generic Jev Choice能力を、MMIのworksheet reviewで安全に使える狭いJudgmentへ固定する。
+generic Jev Choice（選択肢から回答する汎用機能）を、MMIのworksheet review（ワークシートの人手確認）に使う限定的なJudgment（判断候補）へ対応付ける。
 
 ## 2. Choices
 
@@ -11,15 +11,15 @@ inspect
 routine
 ```
 
-これはreview attention routeであり、業務結果の承認判定ではない。
+この2つはreview attention route（人が確認するときの注意の振り分け先）であり、業務結果の承認・不承認を決めるものではない。
 
 ### inspect
 
-通常より注意深いhuman reviewへ回す。
+通常より注意深いhuman review（人による確認）へ回す。
 
 ### routine
 
-通常のhuman reviewへ回す。
+通常のhuman review（人による確認）へ回す。
 
 routineでも:
 - humanReviewRequired = true
@@ -28,7 +28,7 @@ routineでも:
 
 ## 3. Minimized external state
 
-Jevへ送るのは次のderived stateのみ。
+Jevへ送るのは、derived state（観測情報から必要な項目だけを取り出した状態）のみとする。
 
 ```json
 {
@@ -39,7 +39,7 @@ Jevへ送るのは次のderived stateのみ。
 }
 ```
 
-意図的に除外は次のとおりです。
+次の情報は意図的に除外する。
 - sheet name
 - Profile/candidate id
 - source digest
@@ -47,7 +47,7 @@ Jevへ送るのは次のderived stateのみ。
 - raw cells
 - raw feature vector
 
-issue-0163のreview-route Observation自体よりさらに縮約する。
+issue-0163のreview-route Observation（レビュー経路のための観測データ）よりも、さらに送信項目を絞る。
 
 ## 4. Question semantics
 
@@ -74,8 +74,8 @@ issue-0163 derived Observation
 
 ## 6. Confidence
 
-Jev confidence/probabilities areprovider-reported Judgment metricsとして保持する。
-route自動化のthresholdには使わない。
+Jevが返すconfidence/probabilities（確信度と確率値）は、provider-reported Judgment metrics（提供元が報告した判断指標）として保持する。
+これらの値を、route自動化のthreshold（自動的に振り分ける閾値）には使わない。
 
 ## 7. 非責務
 
