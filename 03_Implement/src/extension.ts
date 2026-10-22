@@ -54,6 +54,7 @@ import {
   hostPasteAsContentMatchPicker,
 } from './dx/contentMatchHostPhrases.js';
 import { markdownMatrixPlugin } from './plugin/markdownMatrixPlugin.js';
+import { uiText } from './dx/uiPhrases.js';
 import {
   AUTHOR_EMBED_COMMAND_ID,
   createEmbedFixProvider,
@@ -282,7 +283,7 @@ export function activate(context: vscode.ExtensionContext): { extendMarkdownIt: 
     ...registerSearchObservationCommands(context),
     vscode.commands.registerCommand(CLEAR_SEARCH_INDEX_COMMAND_ID, () => {
       clearSearchIndexes();
-      void vscode.window.showInformationMessage('MMI: 表の検索索引を消去しました（メモリ上のみに保持していました）。');
+      void vscode.window.showInformationMessage(uiText('MMI: Cleared the table search index (it was kept in memory only).'));
     }),
     vscode.commands.registerCommand(
       REFRESH_LINKED_PREVIEWS_COMMAND_ID,
@@ -421,7 +422,7 @@ function registerTableCatalog(
           || document.uri.scheme !== 'file'
         ) {
           void vscode.window.showInformationMessage(
-            'MMI: Markdownを開いた状態で、表の目録のシートから実行してください。',
+            uiText('MMI: Run this from a sheet in the table catalog, with a Markdown file open.'),
           );
           return;
         }
@@ -583,7 +584,7 @@ export function extendMarkdownIt(md: MarkdownIt): MarkdownIt {
 async function generateDeliveryManifestForEditor(editor: vscode.TextEditor): Promise<void> {
   const document = editor.document;
   if (document.isUntitled) {
-    void vscode.window.showWarningMessage('MMI: Save the Markdown file before generating a delivery manifest.');
+    void vscode.window.showWarningMessage(uiText('MMI: Save the Markdown file before generating a delivery manifest.'));
     return;
   }
 
@@ -597,7 +598,7 @@ async function generateDeliveryManifestForEditor(editor: vscode.TextEditor): Pro
 
   if (records.length === 0) {
     void vscode.window.showInformationMessage(
-      'MMI: No attachment (card) embeds found in this document — delivery manifest not written.',
+      uiText('MMI: No attachment (card) embeds found in this document — delivery manifest not written.'),
     );
     return;
   }
@@ -606,11 +607,11 @@ async function generateDeliveryManifestForEditor(editor: vscode.TextEditor): Pro
   try {
     await fs.writeFile(outputPath, `${csvText}\n`, 'utf8');
     void vscode.window.showInformationMessage(
-      `MMI: Delivery manifest written (${records.length} attachment(s)) -> ${outputPath}`,
+      uiText('MMI: Delivery manifest written ({0} attachment(s)) -> {1}', records.length, outputPath),
     );
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    void vscode.window.showErrorMessage(`MMI: Failed to write delivery manifest: ${reason}`);
+    void vscode.window.showErrorMessage(uiText('MMI: Failed to write delivery manifest: {0}', reason));
   }
 }
 
@@ -628,20 +629,20 @@ function buildDeliveryManifestOutputPath(markdownFilePath: string): string {
  */
 async function openEmbedSource(sourcePath: unknown): Promise<void> {
   if (typeof sourcePath !== 'string' || sourcePath.trim() === '') {
-    void vscode.window.showErrorMessage('MMI: Open Embed Source requires a file path argument.');
+    void vscode.window.showErrorMessage(uiText('MMI: Open Embed Source requires a file path argument.'));
     return;
   }
 
   try {
     if (!vscode.workspace.isTrusted || vscode.env.remoteName) {
-      throw new Error('外部アプリで開く操作は、信頼済みのローカルワークスペースで利用してください。');
+      throw new Error(uiText('Opening in an external app is available in a trusted local workspace.'));
     }
     const roots = (vscode.workspace.workspaceFolders ?? []).filter(folder => folder.uri.scheme === 'file').map(folder => folder.uri.fsPath);
     const safePath = await validateOpenSourcePath(sourcePath, roots);
-    if (!await vscode.env.openExternal(vscode.Uri.file(safePath))) throw new Error('既定のアプリで開けませんでした。');
+    if (!await vscode.env.openExternal(vscode.Uri.file(safePath))) throw new Error(uiText('The default app could not open it.'));
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    void vscode.window.showErrorMessage(`MMI: Failed to open ${sourcePath}: ${reason}`);
+    void vscode.window.showErrorMessage(uiText('MMI: Failed to open {0}: {1}', sourcePath, reason));
   }
 }
 
@@ -653,7 +654,7 @@ interface SourceImpactPickItem extends vscode.QuickPickItem {
 async function showSourceImpact(target?: vscode.Uri): Promise<void> {
   if (!target || target.scheme !== 'file') {
     void vscode.window.showInformationMessage(
-      'MMI: エクスプローラーで原本ファイルを選び、「この原本を参照中のMarkdownを確認」を実行してください。',
+      uiText('MMI: Select a source file in the Explorer and run "Show Markdown References to This Source".'),
     );
     return;
   }
@@ -661,7 +662,7 @@ async function showSourceImpact(target?: vscode.Uri): Promise<void> {
   const workspaceFolder = vscode.workspace.getWorkspaceFolder(target);
   if (!workspaceFolder || workspaceFolder.uri.scheme !== 'file') {
     void vscode.window.showWarningMessage(
-      'MMI: 影響分析はローカルワークスペース内の原本ファイルを対象にします。',
+      uiText('MMI: Impact analysis covers source files in a local workspace.'),
     );
     return;
   }
@@ -675,14 +676,14 @@ async function showSourceImpact(target?: vscode.Uri): Promise<void> {
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
     void vscode.window.showErrorMessage(
-      `MMI: 参照影響を確認できませんでした: ${reason}`,
+      uiText('MMI: Could not check the references: {0}', reason),
     );
     return;
   }
 
   if (report.impacts.length === 0) {
     void vscode.window.showInformationMessage(
-      `MMI: ${path.basename(target.fsPath)} を参照するMarkdownは見つかりませんでした。`,
+      uiText('MMI: No Markdown references {0}.', path.basename(target.fsPath)),
     );
     return;
   }
@@ -695,8 +696,8 @@ async function showSourceImpact(target?: vscode.Uri): Promise<void> {
       )),
     {
       title:
-        `MMI: ${path.basename(target.fsPath)} の参照先（${report.counts.total}件）`,
-      placeHolder: '開くMarkdownと行を選択',
+        uiText('MMI: References to {0} ({1})', path.basename(target.fsPath), report.counts.total),
+      placeHolder: uiText('Choose the Markdown file and line to open'),
       matchOnDescription: true,
       matchOnDetail: true,
     },
@@ -800,13 +801,13 @@ async function insertEmbedByContentMatch(): Promise<void> {
 
   const clipboardText = await vscode.env.clipboard.readText();
   if (!clipboardText.trim()) {
-    void vscode.window.showInformationMessage('MMI: Clipboard has no text to match against a workbook.');
+    void vscode.window.showInformationMessage(uiText('MMI: Clipboard has no text to match against a workbook.'));
     return;
   }
 
   const workspaceRoot = vscode.workspace.getWorkspaceFolder(documentUri)?.uri.fsPath;
   if (!workspaceRoot) {
-    void vscode.window.showInformationMessage('MMI: Content-match search requires the document to be inside a workspace folder.');
+    void vscode.window.showInformationMessage(uiText('MMI: Content-match search requires the document to be inside a workspace folder.'));
     return;
   }
 
@@ -863,7 +864,7 @@ async function insertEmbedByContentMatch(): Promise<void> {
     currentEditor.document.version !== documentVersion ||
     !currentEditor.selection.isEqual(selection)
   ) {
-    void vscode.window.showInformationMessage('MMI: The document or selection changed before the match could be inserted. Run the content match again.');
+    void vscode.window.showInformationMessage(uiText('MMI: The document or selection changed before the match could be inserted. Run the content match again.'));
     return;
   }
 
@@ -973,13 +974,13 @@ async function resolveValidatedPasteEdit(
   const document = vscode.workspace.textDocuments.find((candidate) => candidate.uri.toString() === validation.documentUri);
   if (!document || document.version !== validation.documentVersion) {
     edit.insertText = '';
-    void vscode.window.showWarningMessage('MMI: The document changed while Paste As was open. Run Paste As again.');
+    void vscode.window.showWarningMessage(uiText('MMI: The document changed while Paste As was open. Run Paste As again.'));
     return edit;
   }
 
   if (!(await contentMatchSourceStillExact(validation.markdownFilePath, validation.clipboardText, validation.match))) {
     edit.insertText = '';
-    void vscode.window.showWarningMessage('MMI: The selected workbook range changed while Paste As was open. Run Paste As again.');
+    void vscode.window.showWarningMessage(uiText('MMI: The selected workbook range changed while Paste As was open. Run Paste As again.'));
   }
   return edit;
 }
@@ -1018,7 +1019,7 @@ async function getContentMatchPasteEdits(
     searchResult = findWorkbookContentMatchesDetailed(plainText, loadResult.workbooks);
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    void vscode.window.showErrorMessage(`MMI: Content-match Paste As failed: ${reason}`);
+    void vscode.window.showErrorMessage(uiText('MMI: Content-match Paste As failed: {0}', reason));
     return [];
   }
   const matches = withSource(source.match, searchResult.matches);
@@ -1032,7 +1033,7 @@ async function getContentMatchPasteEdits(
     hostContentMatchIncompletePhrases,
   );
   if (matches.length === 0 && incomplete) {
-    void vscode.window.showWarningMessage(`MMI: Content-match Paste As found no match in the sheets that could be searched. ${incomplete}`);
+    void vscode.window.showWarningMessage(uiText('MMI: Content-match Paste As found no match in the sheets that could be searched. {0}', incomplete));
   }
   if (token.isCancellationRequested || document.version !== documentVersion) {
     return [];
@@ -1069,7 +1070,7 @@ interface ContentMatchPickItem extends vscode.QuickPickItem {
 async function pickContentMatch(matches: readonly WorkbookContentMatch[]): Promise<WorkbookContentMatch | undefined> {
   const items: ContentMatchPickItem[] = matches.map((match) => ({
     label: isConfirmedSource(match) ? `$(verified) ${match.filepath}#${match.sheet}` : `${match.filepath}#${match.sheet}`,
-    description: [cellRangeToA1(match.range), match.context?.title, isConfirmedSource(match) ? hostPasteAsContentMatchPicker.confirmedSourceLabel() : '内容から推定']
+    description: [cellRangeToA1(match.range), match.context?.title, isConfirmedSource(match) ? hostPasteAsContentMatchPicker.confirmedSourceLabel() : hostPasteAsContentMatchPicker.estimatedSourceLabel()]
       .filter(Boolean)
       .join('  '),
     detail: describeContentMatchDetail(match, hostContentMatchDetailPhrases),
@@ -1079,7 +1080,7 @@ async function pickContentMatch(matches: readonly WorkbookContentMatch[]): Promi
   const placeHolder =
     matches.length === 1
       ? hostPasteAsContentMatchPicker.insertThisRangePlaceholder()
-      : `hostPasteAsContentMatchPicker.chooseFromCandidatesPlaceholder(matches.length)`;
+      : hostPasteAsContentMatchPicker.chooseFromCandidatesPlaceholder(matches.length);
 
   const picked = await vscode.window.showQuickPick(items, { placeHolder });
   return picked?.match;
@@ -1185,7 +1186,7 @@ function registerTestCommands(nativePasteDropState: NativePasteDropState, contex
 async function exportQueryEvidenceForEditor(editor: vscode.TextEditor): Promise<void> {
   const document = editor.document;
   if (document.isUntitled) {
-    void vscode.window.showWarningMessage('MMI: Save the Markdown file before exporting query evidence.');
+    void vscode.window.showWarningMessage(uiText('MMI: Save the Markdown file before exporting query evidence.'));
     return;
   }
 
@@ -1200,7 +1201,7 @@ async function exportQueryEvidenceForEditor(editor: vscode.TextEditor): Promise<
     markdownOutputPath,
   } = buildQueryEvidenceExportArtifacts(document.getText(), document.uri.fsPath);
   if (records.length === 0) {
-    void vscode.window.showWarningMessage('MMI: No embed query evidence found in the current Markdown file.');
+    void vscode.window.showWarningMessage(uiText('MMI: No embed query evidence found in the current Markdown file.'));
     return;
   }
 
@@ -1211,11 +1212,11 @@ async function exportQueryEvidenceForEditor(editor: vscode.TextEditor): Promise<
       fs.writeFile(markdownOutputPath, `${markdownReportText}\n`, 'utf8'),
     ]);
     void vscode.window.showInformationMessage(
-      `MMI: Exported query evidence for ${sourceName} (${records.length}) -> ${csvOutputPath}, ${jsonOutputPath}, ${markdownOutputPath}`,
+      uiText('MMI: Exported query evidence for {0} ({1}) -> {2}, {3}, {4}', sourceName, records.length, csvOutputPath, jsonOutputPath, markdownOutputPath),
     );
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error);
-    void vscode.window.showErrorMessage(`MMI: Failed to export query evidence: ${reason}`);
+    void vscode.window.showErrorMessage(uiText('MMI: Failed to export query evidence: {0}', reason));
   }
 }
 
