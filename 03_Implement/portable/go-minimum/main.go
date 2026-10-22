@@ -306,7 +306,7 @@ func xmlTreeCandidates(
 }
 
 func parseGenericXML(input []byte) (*xmlElement, error) {
-	text := strings.TrimPrefix(string(input), "﻿")
+	text := strings.TrimPrefix(string(input), "\ufeff")
 	decoder := xml.NewDecoder(strings.NewReader(text))
 	stack := []xmlFrame{}
 	var root *xmlElement
