@@ -167,6 +167,15 @@ interface NativePasteDropState {
   hostSupportsDropProvider: boolean;
   registeredPasteProvider: boolean;
   registeredDropProvider: boolean;
+  /**
+   * How VS Code asked for the most recent paste edits (newest last, at most 20).
+   * VS Code can turn an explicit Paste As into an Automatic paste when the
+   * native paste event arrives late (#603); the E2E reads this to tell that
+   * host race from a provider that fails under Paste As.
+   */
+  recentPasteTriggers: ('pasteAs' | 'automatic')[];
+  /** How many times VS Code has asked for paste edits; never capped. */
+  pasteRequests: number;
 }
 
 function createNativePasteDropState(): NativePasteDropState {
@@ -175,6 +184,8 @@ function createNativePasteDropState(): NativePasteDropState {
     hostSupportsDropProvider: typeof vscode.languages.registerDocumentDropEditProvider === 'function',
     registeredPasteProvider: false,
     registeredDropProvider: false,
+    recentPasteTriggers: [],
+    pasteRequests: 0,
   };
 }
 
@@ -1259,6 +1270,9 @@ function registerNativePasteProvider(context: vscode.ExtensionContext, nativePas
       MARKDOWN_SELECTOR,
       {
         async provideDocumentPasteEdits(document, _ranges, dataTransfer, context, token) {
+          nativePasteDropState.pasteRequests += 1;
+          nativePasteDropState.recentPasteTriggers.push(context.triggerKind === vscode.DocumentPasteTriggerKind.PasteAs ? 'pasteAs' : 'automatic');
+          nativePasteDropState.recentPasteTriggers.splice(0, Math.max(0, nativePasteDropState.recentPasteTriggers.length - 20));
           // Adding text/plain to pasteMimeTypes lets the explicit Paste As
           // command exercise content matching from TSV even when the host
           // clipboard API cannot synthesize Excel's text/html. Preserve normal
