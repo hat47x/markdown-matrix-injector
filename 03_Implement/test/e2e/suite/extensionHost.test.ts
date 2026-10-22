@@ -895,47 +895,72 @@ async function verifyContentMatchPasteAsHostCommand(
   await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
   await delay(500);
 
-  const documentVersionBeforeCommand = document.version;
-  const activeEditorUriBeforeCommand = activeEditorUri();
-  const messageCapture = captureWindowMessages();
-  const commandStartedAt = Date.now();
-  let commandElapsedMs = 0;
-  let documentVersionAfterCommand = documentVersionBeforeCommand;
-  let activeEditorUriAfterCommand = activeEditorUriBeforeCommand;
-  try {
-    await vscode.commands.executeCommand('editor.action.pasteAs', {
-      preferences: [integrationState.contentMatchPasteEditKind],
-    });
-  } finally {
-    commandElapsedMs = Date.now() - commandStartedAt;
-    documentVersionAfterCommand = document.version;
-    activeEditorUriAfterCommand = activeEditorUri();
-    messageCapture.restore();
-  }
+  // VS Code's `pasteAs` marks the paste as "Paste As", runs the native paste,
+  // and clears the mark in a `finally`. When the native paste event arrives
+  // after that (seen on Windows desktops, #603), providers are asked with
+  // triggerKind Automatic and the built-in text edit is inserted. MMI then
+  // rightly offers no content-match guess (R1). That is a host race, not a
+  // product result, so such an attempt is logged, undone and retried; the
+  // stage still fails unless one attempt reaches the Paste As path.
+  const reference = /!\[\[\.\.\/data\/roles\.csv#Sheet1\|A2:B2\]\]/u;
+  const maxAttempts = 4;
+  let pasteAsText = '';
+  let pasteAsDiagnostics: Record<string, unknown> = {};
+  for (let attempt = 1; attempt <= maxAttempts; attempt += 1) {
+    if (attempt > 1) {
+      const whole = new vscode.Range(document.positionAt(0), document.positionAt(document.getText().length));
+      await editor.edit((editBuilder) => editBuilder.replace(whole, '# PasteAsContentMatch\n\n'));
+      editor.selection = new vscode.Selection(new vscode.Position(1, 0), new vscode.Position(1, 0));
+      await vscode.commands.executeCommand('workbench.action.focusActiveEditorGroup');
+      await delay(500);
+    }
+    const documentVersionBeforeCommand = document.version;
+    const activeEditorUriBeforeCommand = activeEditorUri();
+    const messageCapture = captureWindowMessages();
+    const commandStartedAt = Date.now();
+    let commandElapsedMs = 0;
+    let documentVersionAfterCommand = documentVersionBeforeCommand;
+    let activeEditorUriAfterCommand = activeEditorUriBeforeCommand;
+    try {
+      await vscode.commands.executeCommand('editor.action.pasteAs', {
+        preferences: [integrationState.contentMatchPasteEditKind],
+      });
+    } finally {
+      commandElapsedMs = Date.now() - commandStartedAt;
+      documentVersionAfterCommand = document.version;
+      activeEditorUriAfterCommand = activeEditorUri();
+      messageCapture.restore();
+    }
 
-  const pollStartedAt = Date.now();
-  const pasteAsText = await waitForDocumentText(
-    document,
-    (text) => /!\[\[\.\.\/data\/roles\.csv#Sheet1\|A2:B2\]\]/u.test(text),
-  );
-  const pollElapsedMs = Date.now() - pollStartedAt;
-  const pasteAsDiagnostics = {
-    documentUri: document.uri.toString(),
-    documentVersionBeforeCommand,
-    documentVersionAfterCommand,
-    documentVersionAfterPoll: document.version,
-    activeEditorUriBeforeCommand,
-    activeEditorUriAfterCommand,
-    activeEditorUriAfterPoll: activeEditorUri(),
-    commandElapsedMs,
-    pollElapsedMs,
-    capturedWindowMessages: messageCapture.messages,
-  };
-  logStage('content-match-paste-as-host-command:paste-as-diagnostics', pasteAsDiagnostics);
+    const pollStartedAt = Date.now();
+    pasteAsText = await waitForDocumentText(document, (text) => reference.test(text) || text.includes('Alice\tAdmin'));
+    const pollElapsedMs = Date.now() - pollStartedAt;
+    const outcome = reference.test(pasteAsText)
+      ? 'content-match'
+      : pasteAsText.includes('Alice\tAdmin')
+        ? 'host-paste-race:plain-text-inserted'
+        : 'nothing-inserted';
+    pasteAsDiagnostics = {
+      attempt,
+      outcome,
+      documentUri: document.uri.toString(),
+      documentVersionBeforeCommand,
+      documentVersionAfterCommand,
+      documentVersionAfterPoll: document.version,
+      activeEditorUriBeforeCommand,
+      activeEditorUriAfterCommand,
+      activeEditorUriAfterPoll: activeEditorUri(),
+      commandElapsedMs,
+      pollElapsedMs,
+      capturedWindowMessages: messageCapture.messages,
+    };
+    logStage('content-match-paste-as-host-command:paste-as-diagnostics', pasteAsDiagnostics);
+    if (outcome === 'content-match') break;
+  }
   assert.match(
     pasteAsText,
-    /!\[\[\.\.\/data\/roles\.csv#Sheet1\|A2:B2\]\]/u,
-    `Expected editor.action.pasteAs to dispatch through the registered MMI provider and insert the unique content-match reference. Document was: ${JSON.stringify(pasteAsText)} diagnostics=${JSON.stringify(pasteAsDiagnostics)}`,
+    reference,
+    `Expected editor.action.pasteAs (in ${maxAttempts} attempts) to dispatch through the registered MMI provider and insert the unique content-match reference. Document was: ${JSON.stringify(pasteAsText)} diagnostics=${JSON.stringify(pasteAsDiagnostics)}`,
   );
 
   // Registering text/plain as a provider trigger must not turn ordinary
