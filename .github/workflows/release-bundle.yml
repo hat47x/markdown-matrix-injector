@@ -6,6 +6,12 @@ name: Release Candidate
 # human step (ADR-0025 D3). Gated on MMI_ACTIONS_ENABLED like CI (D4).
 on:
   workflow_dispatch:
+    inputs:
+      vscode-version:
+        description: 'VS Code for the E2E: "stable", or x.y.z (e.g. the engines.vscode floor 1.100.0, ADR-0025 D2)'
+        required: true
+        default: 'stable'
+        type: string
 
 permissions:
   contents: read
@@ -32,11 +38,22 @@ jobs:
       - name: Install Extension Host E2E prerequisites
         run: sudo apt-get update && sudo apt-get install -y xvfb
       - name: Build release candidate with Extension Host E2E
-        run: npm run release:candidate -- --e2e
+        env:
+          VSCODE_PIN: ${{ inputs.vscode-version }}
+        run: |
+          set -euo pipefail
+          if [ "$VSCODE_PIN" = "stable" ]; then
+            npm run release:candidate -- --e2e
+          elif [[ "$VSCODE_PIN" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            npm run release:candidate -- --e2e --vscode-version "$VSCODE_PIN"
+          else
+            echo "vscode-version must be 'stable' or x.y.z, got: $VSCODE_PIN" >&2
+            exit 2
+          fi
       - name: Upload release candidate
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: release-candidate-${{ github.sha }}
+          name: release-candidate-${{ github.sha }}-vscode-${{ inputs.vscode-version }}
           path: artifacts/release/
           if-no-files-found: error
