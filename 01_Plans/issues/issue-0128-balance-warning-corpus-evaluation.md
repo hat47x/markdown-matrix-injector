@@ -1,4 +1,6 @@
-# Issue: balance warning の有効性とノイズ率を実務寄りfixtureで評価する
+# Issue: 実務的なfixtureによってbalance warningの有効性とノイズ率を評価する
+
+この文書は当時のIssue記録です。2026年9月18日の16ケースcorpusのprecision・recall・false-positive rateと6 assertionsの記録を保持します。boundary warningとcomposition warningは異なる意味を持ち、これらの結果を新しいproduction閾値や自動レビュー判定へ昇格させません。
 
 ## Meta
 - Type: Evaluation / Design evidence
