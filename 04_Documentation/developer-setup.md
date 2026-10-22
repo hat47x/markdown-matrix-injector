@@ -64,4 +64,4 @@ npm run release:candidate -- --e2e   # Extension Host E2Eを、開発中のフ�
 
 `release-evidence.json`の`manualChecks`には、ADR-0010のG1〜G4など、人が実機で見る確認が`not-run`として並びます。自動の検査に合格しても、これらは確認済みになりません。実機で確かめたら、版とSHA-256を添えて検証記録に残します。タグ・GitHub Release・Marketplaceへの公開は、Human Sponsorが行う別の操作です。
 
-CI（`.github/workflows/ci.yml`）も同じコマンドを呼びます。jobは、リポジトリ変数`MMI_ACTIONS_ENABLED`が`true`のときだけ動きます。
+CI（`.github/workflows/ci.yml`）も同じコマンドを呼びます。jobは、リポジトリ変数`MMI_ACTIONS_ENABLED`が`true`のときだけ動きます。手動で起動するRelease Candidate workflow（`.github/workflows/release-bundle.yml`）は、E2Eも含めた候補をheadlessのLinuxで作ります。入力`vscode-version`に`1.100.0`（`engines.vscode`の下限）を指定すると、最低対応版での確認になります。
