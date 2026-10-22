@@ -2,35 +2,35 @@
 
 ## 1. Position
 
-This adapter is research-only for GitHub Issue #218 SAI-0/H2.
+本adapter（観測データを別の形式へ対応付ける部品）は、GitHub Issue #218のSAI-0/H2に関する研究専用である。
 
-It does not replace:
+次の既存機構・契約を置き換えるものではない。
 - WorksheetFormatSnapshot
 - Format Profile
 - Fly matcher
 - review-route
 - MMI Notation
 
-The neutral observation remains a lossy projection.
+neutral observation（比較用の中立な観測表現）は、元の情報を一部省略した投影であり、原本と同じ情報量を保持するものではない。
 
 ## 2. Source observation
 
-Input is the existing `WorksheetFormatSnapshot`.
+入力には、既存の`WorksheetFormatSnapshot`（ワークシート書式の観測スナップショット）を用いる。
 
-The adapter does not read XLSX directly and does not widen filesystem authority.
+adapter自体はXLSXを直接読み込まず、ファイルシステムへのアクセス権限も拡張しない。
 
-A separate caller may obtain the snapshot through the existing contained XLSX path.
+スナップショットの取得は、別の呼び出し側が既存のcontained XLSX経路（アクセス範囲を制限した読み込み経路）を通して行える。
 
 ## 3. Region
 
-The neutral region is the bounding rectangle of cells whose normalized text is non-empty.
+neutral region（中立表現での観測範囲）は、正規化したテキストが空でないセルを囲む最小の矩形とする。これは観測範囲の決め方であり、元のセルの存在判定を変更しない。
 
-MMI coordinates are zero-based internally.
-Neutral coordinates are one-based inclusive.
+MMI内部の座標は0始まりである。
+中立表現の座標は1始まりで、範囲の両端を含む。
 
-Style-only cells do not widen the region.
+書式のみが設定されたセルによって、観測範囲は拡張しない。
 
-An observation with no non-empty text cells is rejected rather than inventing a 0x0 region.
+空でないテキストを持つセルが存在しない観測は、0×0の領域を仮に作るのではなく拒否する。
 
 ## 4. Features
 
@@ -45,30 +45,30 @@ slots in non-empty bounding rectangle
 Method:
 `mmi-snapshot-non-empty-bounds-v1`
 
-This is not the same method as the normalizer visible-only ratio because MMI snapshot does not preserve hidden row/column visibility.
+MMIのスナップショットは行・列の非表示状態を保持しないため、この比率はnormalizer（比較先の正規化処理）が求める表示セル限定の比率とは算出方法が異なる。
 
 ### geometry.merged_cell_count
 
-Count merges that overlap the observed region.
+観測範囲と重なる結合セルの範囲を数える。
 
 Method:
 `mmi-snapshot-region-merge-count-v1`
 
 ### role.header_candidate_signal
 
-Reuse `extractWorksheetFormatFeatures`.
+`extractWorksheetFormatFeatures`（既存の書式特徴抽出処理）を再利用する。
 
 Values:
 - present
 - absent
 
-Method includes `WORKSHEET_FORMAT_FEATURE_VERSION`.
+方式の識別情報には`WORKSHEET_FORMAT_FEATURE_VERSION`（書式特徴の契約版）を含める。
 
-It is a derived candidate signal, not a structural label.
+これは導出した候補信号であり、構造を確定したラベルではない。
 
 ## 5. Missing features
 
-Do not emit:
+次の特徴は出力しない。
 - border_closure
 - grid_alignment
 - merge_ambiguity
@@ -76,23 +76,23 @@ Do not emit:
 - repeated row/column signals
 - body candidate
 
-unless future executable MMI observations provide a defensible mapping.
+将来、実行可能なMMI観測によって根拠のある対応付けが示されるまでは、これらを補完して出力しない。
 
-Missing is not zero.
+欠落は数値のゼロを意味しない。未観測と観測値ゼロを区別する。
 
 ## 6. Provenance digest
 
-The source observation digest hashes canonical:
+source observation digest（元の観測情報の識別用ハッシュ値）は、次の情報を正規化された順序・表現でハッシュ化する。
 - producer schema marker
 - sheet name
 - sorted snapshot cells
 - sorted merges
 
-A style/text change may change provenance even when the projected neutral feature happens to remain numerically equal.
+投影した中立特徴の数値が同じでも、書式やテキストの変更によってprovenance（出所と観測の由来を表す情報）が変わる場合がある。
 
 ## 7. Adapter config identity
 
-Static adapter config digest binds:
+静的なadapter設定のdigest（設定の識別用ハッシュ値）は、次の要素を結び付ける。
 - adapter version
 - non-empty method
 - merge method
@@ -101,13 +101,13 @@ Static adapter config digest binds:
 
 ## 8. Cross-repo comparison
 
-H2 must preserve:
+H2で比較する際には、次の差異・根拠を保持する。
 - region disagreement
 - method disagreement
 - missing features
 - producer provenance
 
-The adapter does not coerce MMI output to match excel-normalizer output.
+adapterは、excel-normalizerの出力に合わせるためにMMIの観測結果を強制的に書き換えない。
 
 ## 9. Non-goals
 
