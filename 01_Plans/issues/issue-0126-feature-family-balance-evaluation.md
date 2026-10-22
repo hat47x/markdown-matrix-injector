@@ -1,4 +1,6 @@
-# Issue: v6 feature family の実質的な寄与と列数依存性を評価する
+# Issue: v6の特徴familyの実効寄与と表の列数による偏りを評価する
+
+この文書は当時のIssue記録です。2026年9月17日のfeature-level fixtureによる構成比、confidence、symmetric ablationの測定値を保持します。これは重みの採用判断ではなく、matcher・閾値・feature contractを変更しない観測記録です。
 
 ## Meta
 - Type: Evaluation / Design evidence
