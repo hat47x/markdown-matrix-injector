@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
@@ -14,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode/utf16"
 	"unicode/utf8"
@@ -175,10 +177,10 @@ func run(input []byte) ([]byte, error) {
 		return nil, errors.New("source.bytesBase64 must be canonical base64")
 	}
 	extension := strings.ToLower(filepath.Ext(req.Source.Name))
-	if extension != ".csv" && extension != ".json" && extension != ".xml" {
-		return nil, errors.New("go-minimum currently supports CSV, JSON, and generic XML only")
+	if extension != ".csv" && extension != ".json" && extension != ".xml" && extension != ".xlsx" && extension != ".xlsm" {
+		return nil, errors.New("go-minimum currently supports CSV, JSON, generic XML, and XLSX")
 	}
-	if !utf8.Valid(bytes) {
+	if (extension == ".csv" || extension == ".json" || extension == ".xml") && !utf8.Valid(bytes) {
 		return nil, errors.New("go-minimum CSV/JSON/XML profile currently supports UTF-8 only")
 	}
 
@@ -217,6 +219,30 @@ func run(input []byte) ([]byte, error) {
 		)
 		if err != nil {
 			return nil, err
+		}
+	case ".xlsx", ".xlsm":
+		if extension == ".xlsx" {
+			format = "xlsx"
+		} else {
+			format = "xlsm"
+		}
+		rows, err := parseXLSX(bytes)
+		if err != nil {
+			return nil, err
+		}
+		regions := detectRegions(rows, maxScan)
+		candidates = make([]candidate, 0, len(regions))
+		for _, r := range regions {
+			candidates = append(
+				candidates,
+				toCandidate(
+					req.Source.Label,
+					sourceDigest,
+					rows,
+					r,
+					maxScan,
+				),
+			)
 		}
 	case ".xml":
 		if isXMLSpreadsheet2003Bytes(bytes) {
@@ -1147,6 +1173,230 @@ func parseCSV(contents string) ([][]string, error) {
 		flushRow()
 	}
 	return rows, nil
+}
+
+func parseXLSX(data []byte) ([][]string, error) {
+	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return nil, fmt.Errorf("xlsx is not a zip archive: %w", err)
+	}
+
+	// Read shared strings.
+	shared := []string{}
+	for _, f := range reader.File {
+		if f.Name != "xl/sharedStrings.xml" {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return nil, err
+		}
+		dec := xml.NewDecoder(rc)
+		for {
+			tok, err := dec.Token()
+			if err != nil {
+				break
+			}
+			se, ok := tok.(xml.StartElement)
+			if !ok || se.Name.Local != "si" {
+				continue
+			}
+			// Collect all <t> text inside this <si>.
+			var b strings.Builder
+			depth := 1
+			for depth > 0 {
+				tok2, err := dec.Token()
+				if err != nil {
+					break
+				}
+				switch v := tok2.(type) {
+				case xml.StartElement:
+					depth++
+					if v.Name.Local == "t" {
+						var s string
+						if err := dec.DecodeElement(&s, &v); err == nil {
+							b.WriteString(s)
+						}
+						depth-- // DecodeElement consumes the element
+					}
+				case xml.EndElement:
+					depth--
+				}
+			}
+			shared = append(shared, b.String())
+		}
+		rc.Close()
+	}
+
+	// Read sheet1.xml.
+	var sheetFile *zip.File
+	for _, f := range reader.File {
+		if f.Name == "xl/worksheets/sheet1.xml" {
+			sheetFile = f
+			break
+		}
+	}
+	if sheetFile == nil {
+		// fallback: first worksheet
+		for _, f := range reader.File {
+			if strings.HasPrefix(f.Name, "xl/worksheets/sheet") && strings.HasSuffix(f.Name, ".xml") {
+				sheetFile = f
+				break
+			}
+		}
+	}
+	if sheetFile == nil {
+		return nil, errors.New("xlsx has no worksheet")
+	}
+
+	rc, err := sheetFile.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+
+	type cell struct {
+		ref string
+		t   string
+		v   string
+		is  string
+	}
+	rows := map[int]map[int]string{}
+	maxRow, maxCol := 0, 0
+
+	dec := xml.NewDecoder(rc)
+	for {
+		tok, err := dec.Token()
+		if err != nil {
+			break
+		}
+		se, ok := tok.(xml.StartElement)
+		if !ok || se.Name.Local != "c" {
+			continue
+		}
+		// parse cell attributes
+		var ref, t string
+		for _, a := range se.Attr {
+			if a.Name.Local == "r" {
+				ref = a.Value
+			}
+			if a.Name.Local == "t" {
+				t = a.Value
+			}
+		}
+		// read inner value
+		var v, isText string
+		depth := 1
+		for depth > 0 {
+			tok2, err := dec.Token()
+			if err != nil {
+				break
+			}
+			switch v2 := tok2.(type) {
+			case xml.StartElement:
+				depth++
+				if v2.Name.Local == "v" {
+					var s string
+					if err := dec.DecodeElement(&s, &v2); err == nil {
+						v = s
+					}
+					depth--
+				} else if v2.Name.Local == "t" {
+					var s string
+					if err := dec.DecodeElement(&s, &v2); err == nil {
+						isText = s
+					}
+					depth--
+				} else if v2.Name.Local == "is" {
+					// inline string container; read <t> inside
+					innerDepth := 1
+					for innerDepth > 0 {
+						tok3, err := dec.Token()
+						if err != nil {
+							break
+						}
+						switch v3 := tok3.(type) {
+						case xml.StartElement:
+							innerDepth++
+							if v3.Name.Local == "t" {
+								var s string
+								if err := dec.DecodeElement(&s, &v3); err == nil {
+									isText += s
+								}
+								innerDepth--
+							}
+						case xml.EndElement:
+							innerDepth--
+						}
+					}
+					depth-- // consumed
+				}
+			case xml.EndElement:
+				depth--
+			}
+		}
+
+		// resolve ref -> row, col
+		rowNum, colNum := parseCellRef(ref)
+		if rowNum <= 0 || colNum <= 0 {
+			continue
+		}
+		if rowNum > maxRow {
+			maxRow = rowNum
+		}
+		if colNum > maxCol {
+			maxCol = colNum
+		}
+		if rows[rowNum] == nil {
+			rows[rowNum] = map[int]string{}
+		}
+		var value string
+		switch t {
+		case "s":
+			idx, _ := strconv.Atoi(v)
+			if idx >= 0 && idx < len(shared) {
+				value = shared[idx]
+			}
+		case "inlineStr":
+			value = isText
+		default:
+			value = v
+		}
+		rows[rowNum][colNum] = value
+	}
+
+	if maxRow == 0 || maxCol == 0 {
+		return [][]string{}, nil
+	}
+	out := make([][]string, maxRow)
+	for r := 1; r <= maxRow; r++ {
+		out[r-1] = make([]string, maxCol)
+		if cells, ok := rows[r]; ok {
+			for c := 1; c <= maxCol; c++ {
+				if v, ok := cells[c]; ok {
+					out[r-1][c-1] = v
+				}
+			}
+		}
+	}
+	return out, nil
+}
+
+func parseCellRef(ref string) (int, int) {
+	// e.g. "A1", "BC12"
+	col := 0
+	i := 0
+	for i < len(ref) && ((ref[i] >= 'A' && ref[i] <= 'Z') || (ref[i] >= 'a' && ref[i] <= 'z')) {
+		ch := ref[i]
+		if ch >= 'a' && ch <= 'z' {
+			ch -= 32
+		}
+		col = col*26 + int(ch-'A'+1)
+		i++
+	}
+	rowStr := ref[i:]
+	row, _ := strconv.Atoi(rowStr)
+	return row, col
 }
 
 func detectRegions(rows [][]string, maxScan int64) []region {

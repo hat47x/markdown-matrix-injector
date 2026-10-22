@@ -6,7 +6,7 @@ issue-0203の比較用実装。production採用を決めるものではない。
 
 - `mmi.portable-core-request/v1` / response v1を使用する。
 - 標準ライブラリだけでbuildする。
-- UTF-8 CSVのdeterministic table Candidateと、UTF-8 JSON / 汎用XMLの明示Tree Candidateを実装する。
+- UTF-8 CSVのdeterministic table Candidate、UTF-8 JSON / 汎用XMLの明示Tree Candidateに加え、UTF-8 XLSXの単一シート表Candidate（shared strings + inline strings、archive/zip + encoding/xmlで解析）を実装する（仮実装。XLSXの複数シート・merged cells・数式・スタイル等は未対応）。
 - XLSX、XML Spreadsheet 2003、CP932、provider-dependent処理は未対応である。`.xml`のXML Spreadsheet 2003 signatureは汎用Treeへ誤流入させずfail-closedで拒否する。
 - CSVの空行/空列分割、title/header判定、Candidate claim、provenance、fingerprint、referenceはTypeScript参照実装のCSV経路を移植する。
 

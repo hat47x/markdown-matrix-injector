@@ -182,6 +182,22 @@ func TestCSVConformanceCase(t *testing.T) {
 	}
 }
 
+func TestXLSXConformanceCase(t *testing.T) {
+	actualResponse := runConformanceCase(
+		t,
+		"xlsx-table.case.json",
+	)
+	if got := actualResponse.Candidates[0].Fingerprint.Digest; got != "sha256:1843ff7d0f2bb62e5453688434fc7c5eaad0968fb21d7c6e8bcdd47e79cedfb6" {
+		t.Fatalf("fingerprint mismatch: %s", got)
+	}
+	if got := actualResponse.Candidates[0].Reference; got != "![[./fixture.xlsx#Sheet1|A1:B3?header=first]]" {
+		t.Fatalf("reference mismatch: %s", got)
+	}
+	if got := actualResponse.Source.Format; got != "xlsx" {
+		t.Fatalf("format mismatch: %s", got)
+	}
+}
+
 func TestCSVLeadingBlankRowsConformanceCase(t *testing.T) {
 	actualResponse := runConformanceCase(
 		t,
