@@ -1,4 +1,6 @@
-# Issue: feature familyを考慮したscoring候補をoffline比較する
+# Issue: 特徴familyを考慮したスコア方式の候補をオフラインで比較する
+
+この文書は当時のIssue記録です。2026年9月18日の6件のローカルテストと比較値を保持します。代替2方式による既存novel境界のmatchedへの反転を記録し、flat方式と現行閾値の維持、未採用のwarning閾値を明確に区別します。
 
 ## Meta
 - Type: Evaluation / Design evidence
