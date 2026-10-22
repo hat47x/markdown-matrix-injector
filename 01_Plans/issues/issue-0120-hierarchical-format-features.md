@@ -1,4 +1,6 @@
-# Issue: 小規模表に耐える階層的な書式特徴表現
+# Issue: 小規模表の識別に使う階層的な書式特徴の整備
+
+この文書は当時のIssue記録です。2026年9月12日のローカル検証では13件のunit testに成功したと記録されています。2列表の境界値、閾値を変更しない判断、v1と混在させないv2のfeature version、製品経路未接続を保持します。
 
 ## Meta
 - Type: Feature
@@ -18,8 +20,8 @@ source profile境界を固定した後、2〜6列表で軽微な差異をロー�
 
 これは閾値より、特徴数が少ない小規模表で具体特徴1件の置換がJaccard集合へ与える影響が大きいことが原因である。閾値を緩めると別書式の誤採用も増えるため、先に特徴表現を階層化した。
 
-## Execution Plan
-### Proposed solution
+## 当時の実行計画
+### 解決方針（当時の提案）
 
 具体特徴だけでなく、同じ観測を複数解像度で表す粗い共有特徴を追加する。
 
@@ -35,7 +37,7 @@ feature集合が変わるため、`WORKSHEET_FORMAT_FEATURE_VERSION`を`workshee
 
 source profileのevidence filterも更新し、`header:fill-present`を`fill` evidenceとして扱う。`structure` profileへ誤って混入させない。
 
-### Acceptance criteria
+### 受入条件（Acceptance criteria）
 - [x] header候補が成立した観測に`region:table`と`header:row`を追加する。
 - [x] meaningful fillがある場合に`header:fill-present`と具体toneの両方を追加する。
 - [x] SheetJS CE XLSX profileで`header:fill-present`はfill evidenceとして扱う。
