@@ -386,6 +386,11 @@ test('the l10n bundle carries a Japanese wording for every sentence the host put
     'MMI: No embed query evidence found in the current Markdown file.',
     'MMI: Exported query evidence for {0} ({1}) -> {2}, {3}, {4}',
     'MMI: Failed to export query evidence: {0}',
+    'Linked reference',
+    'Local link',
+    'Sheet: {0}',
+    'Location: {0}',
+    'Matched by the old path only',
   ];
   // Sentence shapes that are identical in English and Japanese, so echoing the key is correct.
   const languageNeutral = new Set(['MMI: {0} ({1})', '(root)']);

@@ -369,5 +369,10 @@
   "MMI: Save the Markdown file before exporting query evidence.": "MMI: 参照の根拠を書き出す前に、Markdownファイルを保存してください。",
   "MMI: No embed query evidence found in the current Markdown file.": "MMI: このMarkdownに、書き出せる参照の根拠がありません。",
   "MMI: Exported query evidence for {0} ({1}) -> {2}, {3}, {4}": "MMI: {0} の参照の根拠を書き出しました（{1}件）→ {2}、{3}、{4}",
-  "MMI: Failed to export query evidence: {0}": "MMI: 参照の根拠を書き出せませんでした: {0}"
+  "MMI: Failed to export query evidence: {0}": "MMI: 参照の根拠を書き出せませんでした: {0}",
+  "Linked reference": "Linked参照",
+  "Local link": "ローカルリンク",
+  "Sheet: {0}": "シート: {0}",
+  "Location: {0}": "位置: {0}",
+  "Matched by the old path only": "旧パス一致"
 }

@@ -731,14 +731,14 @@ function sourceImpactPickItem(
   workspaceRoot: string,
 ): SourceImpactPickItem {
   const relation = impact.relation === 'linked'
-    ? 'Linked参照'
+    ? uiText('Linked reference')
     : impact.relation === 'extracted'
       ? 'Extracted'
-      : 'ローカルリンク';
+      : uiText('Local link');
   const context = [
-    impact.sheet ? `シート: ${impact.sheet}` : '',
-    impact.place ? `位置: ${impact.place}` : '',
-    impact.resolution === 'path-only' ? '旧パス一致' : '',
+    impact.sheet ? uiText('Sheet: {0}', impact.sheet) : '',
+    impact.place ? uiText('Location: {0}', impact.place) : '',
+    impact.resolution === 'path-only' ? uiText('Matched by the old path only') : '',
   ].filter(Boolean).join(' · ');
 
   return {
