@@ -14,6 +14,7 @@ import {
 } from '../adapters/htmlFragmentAdapter.js';
 import {
   claimBasisOf,
+  lineageHintsOf,
   placeOf,
   readLedger,
   sourceKey,
@@ -105,10 +106,12 @@ function ledgerState(
   // insufficient when its claimed evidence or conversion metadata was altered.
   const sourceDigest = candidate.locator.sourceDigest;
   const expectedClaimBasis = claimBasisOf(candidate);
+  const expectedLineageHints = lineageHintsOf(candidate);
   return entry.sourceDigest === sourceDigest
     && entry.fingerprint.digest === candidate.fingerprint.digest
     && entry.fingerprint.representation === candidate.fingerprint.representation
     && JSON.stringify(entry.claimBasis) === JSON.stringify(expectedClaimBasis)
+    && JSON.stringify(entry.lineageHints) === JSON.stringify(expectedLineageHints)
     && entry.output === output
     && entry.outputDigest === outputDigest
     && entry.reviewState === 'accepted'
