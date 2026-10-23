@@ -1,4 +1,6 @@
-# Issue: SheetJS worksheetから書式snapshotを構築するread-only bridge
+# Issue: SheetJSのworksheetから書式スナップショットを構築する読み取り専用bridge
+
+この文書は当時のIssue記録です。2026年9月12日のローカル検証では6件のunit testが成功したと記録されています。bridgeはSheetJS本体をimportせず、製品経路に未接続です。未解決色や未知のstyleを推測して補完しない境界を維持します。
 
 ## Meta
 - Type: Feature
@@ -12,8 +14,8 @@
 - Related ADR/Spec: ADR-0017-fly-inspired-format-deviation-assistance.md
 - Dependency: issue-0114 Done, issue-0115 Done, issue-0116 Done
 
-## Execution Plan
-### Proposed solution
+## 当時の実行計画
+### 解決方針（当時の提案）
 
 SheetJS 0.20.3のworksheet表現から、issue-0116で定義した `WorksheetFormatSnapshot` へ変換するread-only bridgeを追加する。
 
@@ -32,7 +34,7 @@ styleについてはCommunity Editionが詳細な見た目再現を主目的と�
 - https://docs.sheetjs.com/docs/csf/features/merges/
 - https://docs.sheetjs.com/docs/csf/sheet/
 
-### Acceptance criteria
+### 受入条件（Acceptance criteria）
 - [x] sparse worksheetのセル、formatted text、mergeをsnapshotへ変換できる。
 - [x] dense worksheet (`!data`) を同じsnapshot型へ変換できる。
 - [x] `!ref`外のセルを無視し、`!ref`欠落worksheetは空として扱う。
@@ -44,14 +46,14 @@ styleについてはCommunity Editionが詳細な見た目再現を主目的と�
 - [x] 既存`workbookLoader`・renderer・extensionから呼ばない。
 - [x] ローカルstrict TypeScript検証とunit testが成功する。
 
-### Task breakdown
+### 作業項目（Task breakdown）
 - [x] sparse / dense worksheetのセル走査を実装する。
 - [x] `!ref` / `!merges`変換を実装する。
 - [x] 保守的なfill / border分類を実装する。
 - [x] read-only / fail-closedを含むunit testを追加する。
 - [x] ローカル型検査・unit testの結果を記録する。
 
-### Validation plan
+### 当時の検証計画（Validation plan）
 
 GitHub Actionsはリソース不足のため完了条件に含めない。対象差分をstrict TypeScript条件でコンパイルし、unit testをNode test runnerで実行する。
 

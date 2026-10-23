@@ -1,4 +1,6 @@
-# Issue: ハエ脳由来書式matcherの評価fixtureと採用ゲート固定
+# Issue: 書式matcherの評価fixtureと採用判定条件の固定
+
+この文書は当時のIssue記録です。2026年9月12日のローカル検証で5テスト成功と記録されています。評価対象は抽象特徴トークンのfixtureであり、実Workbookの書式抽出や製品経路の実証ではありません。
 
 ## Meta
 - Type: Test
@@ -12,14 +14,14 @@
 - Related ADR/Spec: ADR-0017-fly-inspired-format-deviation-assistance.md
 - Dependency: issue-0114 Done
 
-## Execution Plan
-### Proposed solution
+## 当時の実行計画
+### 解決方針（当時の提案）
 
 実Workbookのstyle抽出へ進む前に、既知書式・軽微逸脱・識別特徴欠落・未知書式を機械可読fixtureとして固定する。`matchFormatObservation`を同一fixtureへ反復適用し、既知書式を正しく候補化できることと、未知・拮抗ケースを無理に既知書式へ寄せないことを採用ゲートにする。
 
 fixtureは現実のExcelバイナリではなく、将来のExcel style adapterが出力すべき抽象特徴トークンを表す。これによりmatcher自体の性能と、style抽出性能を分離して評価できる。
 
-### Acceptance criteria
+### 受入条件（Acceptance criteria）
 - [x] 少なくとも4種類のprototypeと、known / ambiguous / novelを含む12ケースをfixture化する。
 - [x] known 8ケースすべてで`matched`かつ期待winnerが一致する。
 - [x] novel 3ケースで誤った`matched`が0件である。
@@ -28,12 +30,12 @@ fixtureは現実のExcelバイナリではなく、将来のExcel style adapter�
 - [x] fixtureは将来のstyle adapterから独立し、Workbook I/Oや製品経路を追加しない。
 - [x] ローカルstrict TypeScript検証とunit testが成功する。
 
-### Task breakdown
+### 作業項目（Task breakdown）
 - [x] prototypeと評価ケースをJSON fixtureへ定義する。
 - [x] 集計指標と個別期待値を検証するunit testを追加する。
 - [x] ローカルで型検査・unit testを実行する。
 
-### Validation plan
+### 当時の検証計画（Validation plan）
 
 GitHub Actionsはリソース不足のため完了条件に含めない。ローカルで対象差分をstrict TypeScript条件で型検査し、コンパイル後のテストをNode test runnerで実行する。
 

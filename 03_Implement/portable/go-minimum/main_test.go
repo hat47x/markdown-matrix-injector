@@ -182,6 +182,51 @@ func TestCSVConformanceCase(t *testing.T) {
 	}
 }
 
+func TestXLSXConformanceCase(t *testing.T) {
+	actualResponse := runConformanceCase(
+		t,
+		"xlsx-table.case.json",
+	)
+	if got := actualResponse.Candidates[0].Fingerprint.Digest; got != "sha256:1843ff7d0f2bb62e5453688434fc7c5eaad0968fb21d7c6e8bcdd47e79cedfb6" {
+		t.Fatalf("fingerprint mismatch: %s", got)
+	}
+	if got := actualResponse.Candidates[0].Reference; got != "![[./fixture.xlsx#Sheet1|A1:B3?header=first]]" {
+		t.Fatalf("reference mismatch: %s", got)
+	}
+	if got := actualResponse.Source.Format; got != "xlsx" {
+		t.Fatalf("format mismatch: %s", got)
+	}
+}
+
+func TestXLSXLeadingBlankRowsConformanceCase(t *testing.T) {
+	actualResponse := runConformanceCase(
+		t,
+		"xlsx-leading-blank-rows.case.json",
+	)
+	if got := actualResponse.Candidates[0].Locator.Range; got != "A3:B5" {
+		t.Fatalf("range mismatch: %s", got)
+	}
+	if got := actualResponse.Candidates[0].Reference; got != "![[./fixture.xlsx#Sheet1|A3:B5?header=first]]" {
+		t.Fatalf("reference mismatch: %s", got)
+	}
+}
+
+func TestXLSTwoTablesConformanceCase(t *testing.T) {
+	actualResponse := runConformanceCase(
+		t,
+		"xlsx-two-tables.case.json",
+	)
+	if got := len(actualResponse.Candidates); got != 2 {
+		t.Fatalf("candidate count mismatch: %d", got)
+	}
+	if got := actualResponse.Candidates[0].Locator.Range; got != "A1:B2" {
+		t.Fatalf("range0 mismatch: %s", got)
+	}
+	if got := actualResponse.Candidates[1].Locator.Range; got != "A4:B5" {
+		t.Fatalf("range1 mismatch: %s", got)
+	}
+}
+
 func TestCSVLeadingBlankRowsConformanceCase(t *testing.T) {
 	actualResponse := runConformanceCase(
 		t,

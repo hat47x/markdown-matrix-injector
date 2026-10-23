@@ -1,4 +1,6 @@
-# Issue: 書式feature contract v3化に既存回帰テストを追随させる
+# Issue: 書式feature contract v3への更新に既存回帰テストを追随させる
+
+この文書は当時のIssue記録です。issue-0121のv3契約変更に伴う、既存回帰テストの期待値と名称の修正記録です。既存の記録には実行テスト件数の明記がないため、新たな成功件数や現在のCI合格を補いません。
 
 ## Meta
 - Type: Test / Maintenance

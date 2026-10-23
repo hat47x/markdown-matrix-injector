@@ -1,4 +1,6 @@
-# Issue: 書式prototypeのsource profile境界と同一adapter生成を固定する
+# Issue: 書式prototypeの入力元別比較契約と同一adapter生成を固定する
+
+この文書は当時のIssue記録です。2026年9月12日のローカル検証では6件のunit testに成功したと記録されています。SheetJS CE由来の比較対象はstructureとfillに限り、borderを保証対象に含めません。実SheetJS 0.20.3のXLSX round-tripは未検証、製品経路も未接続のままです。
 
 ## Meta
 - Type: Feature
@@ -22,8 +24,8 @@ issue-0116で、観測側だけが全列などの正しい特徴を持ち、prot
 - https://docs.sheetjs.com/docs/api/parse-options/
 - https://git.sheetjs.com/sheetjs/sheetjs/src/commit/4495a9253e82eb54e5a97b83638974f158fa634c/bits/66_wscommon.js
 
-## Execution Plan
-### Proposed solution
+## 当時の実行計画
+### 解決方針（当時の提案）
 
 runtime prototypeを必ず**観測時と同じfeature adapter**から生成し、さらにprototypeへfeature versionとsource profileを記録する。
 
@@ -37,7 +39,7 @@ prototypeと観測でfeature version、source profile ID、evidence contractが�
 
 さらにsource profileはメタデータだけではなく、実際にmatcherへ渡すfeature集合を制約する。`structure + fill` profileでは、adapterが`border:*`を観測していても比較対象から除外する。full-style profileを明示した場合だけborderを比較する。
 
-### Acceptance criteria
+### 受入条件（Acceptance criteria）
 - [x] prototypeは`extractWorksheetFormatFeatures`の完全観測から生成され、手書きfeature抜粋を必要としない。
 - [x] prototypeにfeature version、source profile ID、evidence contractを記録する。
 - [x] SheetJS CE XLSX 0.20.3 profileは`structure + fill`とし、borderを保証対象に含めない。

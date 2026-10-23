@@ -1,4 +1,6 @@
-# Issue: FlyHash風疎表現による書式候補・逸脱判定のCPU-only試作
+# Issue: FlyHash風の疎表現による書式候補・逸脱判定のCPU試作
+
+この文書は当時のIssue記録です。2026年9月12日のローカル検証では6テストが成功したと記録されています。一方、製品経路には未接続で、当時のGitHub Actionsはジョブ開始前に失敗したため、CI成功や製品機能の受入とは扱いません。
 
 ## Meta
 - Type: Feature
@@ -11,14 +13,14 @@
 - Related Backlog/Phase: requirements.md Phase 1 / Phase 5 / Phase 11
 - Related ADR/Spec: ADR-0017-fly-inspired-format-deviation-assistance.md, ADR-0012-mission-redefinition-notation-as-governance-boundary.md
 
-## Execution Plan
-### Proposed solution
+## 当時の実行計画
+### 解決方針（当時の提案）
 
 既存のWorkbook読込み・パース・描画経路へ接続しない純粋TypeScriptモジュールとして、抽象化済み書式特徴トークンを疎な高次元署名へ写像し、既知prototypeとの類似度から候補順位、confidence、DeviationScoreを返す。上位候補はwinner-take-allで1件に絞るが、confidence不足は`novel`、上位差不足は`ambiguous`としてwinnerを返さない。
 
 疎署名は乱数を使わない安定hashによる多重投影とtop-k activationで作る。最終confidenceは疎署名だけに依存させず、元の特徴集合の一致度も併用し、hash collisionがそのまま採用判定にならないようにする。
 
-### Acceptance criteria
+### 受入条件（Acceptance criteria）
 - [x] 同じ特徴集合からは順序・重複に依存せず同じ疎署名が得られる。
 - [x] 完全一致prototypeはconfidence 1、DeviationScore 0となり`matched`になる。
 - [x] 1〜少数特徴の逸脱は候補として残り、完全に異なる特徴集合は既定閾値で`novel`になる。
@@ -28,13 +30,13 @@
 - [x] `workbookLoader`、parser、renderer、VS Code extensionの既存経路から本モジュールを呼ばない。
 - [x] 今回差分のstrict TypeScriptコンパイルとunit testがローカルで成功する。既存mainの回帰実績と組み合わせ、GitHub Actionsはリソース不足のため完了条件から除外する。
 
-### Task breakdown
+### 作業項目（Task breakdown）
 - [x] 疎投影・特徴正規化・類似度の純粋関数を実装する。
 - [x] WTA / novelty / ambiguity / DeviationScoreの結果型と判定を実装する。
 - [x] 完全一致、軽微逸脱、未知、拮抗、順序/重複不変、空入力のunit testを追加する。
 - [x] ローカルで差分コンパイルとunit testを実行し、結果を記録する。
 
-### Validation plan
+### 当時の検証計画（Validation plan）
 
 GitHub Actionsは2026-09-12時点でリソース不足によりジョブ本体が開始されないため、Human Sponsor指示によりローカル検証へ置き換える。
 
