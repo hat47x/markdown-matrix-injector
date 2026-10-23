@@ -211,6 +211,22 @@ func TestXLSXLeadingBlankRowsConformanceCase(t *testing.T) {
 	}
 }
 
+func TestXLSTwoTablesConformanceCase(t *testing.T) {
+	actualResponse := runConformanceCase(
+		t,
+		"xlsx-two-tables.case.json",
+	)
+	if got := len(actualResponse.Candidates); got != 2 {
+		t.Fatalf("candidate count mismatch: %d", got)
+	}
+	if got := actualResponse.Candidates[0].Locator.Range; got != "A1:B2" {
+		t.Fatalf("range0 mismatch: %s", got)
+	}
+	if got := actualResponse.Candidates[1].Locator.Range; got != "A4:B5" {
+		t.Fatalf("range1 mismatch: %s", got)
+	}
+}
+
 func TestCSVLeadingBlankRowsConformanceCase(t *testing.T) {
 	actualResponse := runConformanceCase(
 		t,

@@ -131,6 +131,10 @@ test('portable Core XLSX preserves leading blank row coordinates', () => {
   assertConformanceCase(readCase('xlsx-leading-blank-rows.case.json'));
 });
 
+test('portable Core XLSX detects multiple tables in one sheet', () => {
+  assertConformanceCase(readCase('xlsx-two-tables.case.json'));
+});
+
 test('portable Core CSV preserves leading blank row coordinates', () => {
   assertConformanceCase(readCase('csv-leading-blank-rows.case.json'));
 });
