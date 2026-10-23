@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import csv
+import io
 import subprocess
 import sys
 import tempfile
@@ -22,15 +24,29 @@ def _row(
     query_example: str = "header=first&columns=A,B,C",
     related_test: str = "markdownMatrixPlugin:some-test",
 ) -> str:
-    # Mirrors the real canonical CSV's (pre-existing, unquoted) convention:
-    # QueryExample legitimately contains raw commas (e.g. "columns=A,B,C") and
-    # is reconstructed by generate_phase9_pattern_guide.read_rows() via fixed
-    # leading/trailing column counts, not RFC4180 quoting. Fixtures must use
-    # the same raw-comma shape to exercise that reconstruction path.
-    return (
-        f"{table},{rule_id},ReqTrace,module=AUTH,link req,90,2026-04-03,2026-12-31,"
-        f"{query_example},Phase9-Template,{related_test},author,note text"
+    # Written with the csv module, like the canonical CSV: QueryExample legitimately
+    # contains commas (e.g. "columns=A,B,C") and is RFC4180-quoted there, which is what
+    # generate_phase9_pattern_guide.read_rows() (csv.DictReader) expects. An unquoted
+    # raw comma would shift every later column (RelatedTest would land in Notes).
+    buffer = io.StringIO()
+    csv.writer(buffer, lineterminator="").writerow(
+        [
+            table,
+            rule_id,
+            "ReqTrace",
+            "module=AUTH",
+            "link req",
+            "90",
+            "2026-04-03",
+            "2026-12-31",
+            query_example,
+            "Phase9-Template",
+            related_test,
+            "author",
+            "note text",
+        ]
     )
+    return buffer.getvalue()
 
 
 def _write_csv(path: Path, rows: list[str]) -> None:
