@@ -104,6 +104,15 @@ export async function run(): Promise<void> {
     await sleep(500);
     expect(codesAt(document, 2).length === 0, `A: a reference written with a matching record is quiet (got ${codesAt(document, 2).join(',')})`);
     await shot('A-initial');
+    if (SHOTS) {
+      // Command titles come from package.nls.*.json; the impact picker's sentences go through vscode.l10n.
+      void vscode.commands.executeCommand('workbench.action.quickOpen', '>MMI');
+      await shot('P1-command-palette');
+      await vscode.commands.executeCommand('workbench.action.closeQuickOpen');
+      void vscode.commands.executeCommand('markdownMatrixInjector.showSourceImpact', vscode.Uri.file(book));
+      await shot('P2-source-impact');
+      await vscode.commands.executeCommand('workbench.action.closeQuickOpen');
+    }
 
     // C. Excel saves a changed value -> the preview is asked to refresh, and the render shows the saved value.
     await excel(book, 'value');
