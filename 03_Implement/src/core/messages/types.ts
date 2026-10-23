@@ -25,6 +25,13 @@ export interface MessageParamsMap {
     more: number;
   };
   unknownParam: { key: string; suggestion: string };
+  /** A prose ID in the body that no cell of the referenced tables has. */
+  unknownProseId: { id: string; sources: readonly string[]; example: string };
+  /** Why a review item can only be confirmed, rejected or deferred (not extracted). */
+  reviewOnlyProvider: Record<string, never>;
+  reviewOnlyChoiceList: Record<string, never>;
+  reviewOnlyShape: Record<string, never>;
+  reviewOnlyNote: Record<string, never>;
   invalidParam: { key: string; value: string; allowed: AllowedValues; suggestion?: string };
   /** Workbook read failures named by `workbookLoader` before SheetJS guesses at the cause. */
   workbookEmpty: { file: string };

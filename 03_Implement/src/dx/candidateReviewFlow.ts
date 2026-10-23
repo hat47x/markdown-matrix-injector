@@ -67,6 +67,7 @@ import {
   RegionSnapshotError,
   renderLibreOfficeRegionSnapshot,
 } from '../snapshot/libreOfficeRegionSnapshot.js';
+import { currentMessageLanguage } from './messageLanguage.js';
 import { uiText } from './uiPhrases.js';
 
 export const REVIEW_CANDIDATES_COMMAND_ID =
@@ -1014,7 +1015,7 @@ export async function reviewCandidates(
     );
     if (!picked) return;
     selectedCount += 1;
-    const actionPolicy = candidateReviewActionPolicy(picked.source);
+    const actionPolicy = candidateReviewActionPolicy(picked.source, currentMessageLanguage());
     const canUseDeterministicExtract =
       actionPolicy.extraction === 'deterministic-extract';
 

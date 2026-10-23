@@ -54,6 +54,7 @@ import {
   hostPasteAsContentMatchPicker,
 } from './dx/contentMatchHostPhrases.js';
 import { markdownMatrixPlugin } from './plugin/markdownMatrixPlugin.js';
+import { currentMessageLanguage } from './dx/messageLanguage.js';
 import { uiText } from './dx/uiPhrases.js';
 import {
   AUTHOR_EMBED_COMMAND_ID,
@@ -499,15 +500,6 @@ async function refreshMarkdownViewsForWorkbooks(
 
   clearWorkbookPreviewCaches();
   await refreshLinkedMarkdownViews(affectedDocuments, diagnostics);
-}
-
-/**
- * The language of messages shown to a person: the `markdownMatrixInjector.language` setting, or, for `auto`,
- * VS Code's own display language. Many Japanese teams run VS Code in English, hence the setting.
- */
-function currentMessageLanguage(): string {
-  const chosen = vscode.workspace.getConfiguration('markdownMatrixInjector').get<string>('language', 'auto');
-  return chosen === 'auto' ? vscode.env.language : chosen;
 }
 
 async function refreshLinkedMarkdownViews(
@@ -1521,7 +1513,7 @@ function proseIdDiagnostics(document: vscode.TextDocument, workspaceRoot: string
     const sources = referencedSheets(document.getText(), document.uri.fsPath, workspaceRoot);
     return findUnknownProseIds(document.getText(), sources).map((finding) => {
       const range = new vscode.Range(finding.line - 1, finding.column - 1, finding.line - 1, finding.column - 1 + finding.id.length);
-      const diagnostic = new vscode.Diagnostic(range, unknownIdMessage(finding), vscode.DiagnosticSeverity.Information);
+      const diagnostic = new vscode.Diagnostic(range, unknownIdMessage(finding, currentMessageLanguage()), vscode.DiagnosticSeverity.Information);
       diagnostic.source = 'markdown-matrix-injector';
       diagnostic.code = UNKNOWN_PROSE_ID_CODE;
       return diagnostic;

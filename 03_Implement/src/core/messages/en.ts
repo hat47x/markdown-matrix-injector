@@ -58,6 +58,15 @@ export const enMessages: MessageTable = {
       'A column may have been inserted, deleted or reordered in the source, so the reference may point at a different column.'
     );
   },
+  unknownProseId: ({ id, sources, example }) =>
+    `"${id}" in the body is not in any cell of the referenced tables (${sources.join(', ')}) (an example of the same form: ${example}). ` +
+    'The ID may have been removed or changed in the source, or mistyped.',
+  reviewOnlyProvider: () =>
+    'A provider-dependent Candidate cannot be extracted yet: the contract that re-verifies its identity against the source deterministic Candidate is not connected, so only confirm, reject and defer are available for now.',
+  reviewOnlyChoiceList: () => 'A choice-list Candidate is not converted into an Extracted asset yet.',
+  reviewOnlyShape: () => 'The Shape Candidate itself is not converted into an Extracted asset yet.',
+  reviewOnlyNote: () =>
+    'An Excel Note can be reviewed as supplementary information from the source, but it is not imported into the body automatically yet.',
   unknownParam: ({ key, suggestion }) => `"${key}" is not a known parameter and is ignored. Did you mean "${suggestion}"?`,
   invalidParam: ({ key, value, allowed: values, suggestion }) =>
     `The value "${value}" is not valid for ${key} (${allowed(values)}). It is ignored.` +

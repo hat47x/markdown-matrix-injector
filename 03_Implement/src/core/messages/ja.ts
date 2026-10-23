@@ -53,6 +53,13 @@ export const jaMessages: MessageTable = {
     const rest = more > 0 ? ` ほか${more}列` : '';
     return `見出しが、参照を書いたときと違います（${items.join('、')}${rest}）。正本の列の挿入・削除・並べ替えで、参照が別の列を指している可能性があります。`;
   },
+  unknownProseId: ({ id, sources, example }) =>
+    `本文の「${id}」は、参照している表（${sources.join('、')}）のどのセルにもありません（同じ形式の例: ${example}）。正本の変更で消えた・変わったIDか、書き間違いの可能性があります。`,
+  reviewOnlyProvider: () =>
+    'provider依存Candidateは、原本のdeterministic Candidateへ同一性を再検証する契約が未接続のため、現時点では確認・却下・保留のみ利用できます。',
+  reviewOnlyChoiceList: () => '選択肢CandidateはまだExtracted資産へ変換しません。',
+  reviewOnlyShape: () => 'Shape Candidate自体はまだExtracted資産へ変換しません。',
+  reviewOnlyNote: () => 'Excel Noteは原本の補足情報として確認できますが、本文への自動取り込みはまだ行いません。',
   unknownParam: ({ key, suggestion }) => `「${key}」は未知の指定のため無視されます。「${suggestion}」の誤りではありませんか？`,
   invalidParam: ({ key, value, allowed: values, suggestion }) =>
     `${key} の値「${value}」は使えません（${allowed(values)}）。この指定は無視されます。` +

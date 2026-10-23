@@ -2590,7 +2590,7 @@ export async function checkPaths(files: string[], root: string, displayCwd = pro
         column: finding.column,
         severity: 'warning',
         code: UNKNOWN_PROSE_ID_CODE,
-        message: unknownIdMessage(finding),
+        message: unknownIdMessage(finding, cliMessageLanguage()),
       });
     }
   }
