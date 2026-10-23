@@ -204,6 +204,7 @@ func run(input []byte) ([]byte, error) {
 				toCandidate(
 					req.Source.Label,
 					sourceDigest,
+					"Sheet1",
 					rows,
 					r,
 					maxScan,
@@ -226,23 +227,26 @@ func run(input []byte) ([]byte, error) {
 		} else {
 			format = "xlsm"
 		}
-		rows, err := parseXLSX(bytes)
+		sheets, err := parseXLSXSheets(bytes)
 		if err != nil {
 			return nil, err
 		}
-		regions := detectRegions(rows, maxScan)
-		candidates = make([]candidate, 0, len(regions))
-		for _, r := range regions {
-			candidates = append(
-				candidates,
-				toCandidate(
-					req.Source.Label,
-					sourceDigest,
-					rows,
-					r,
-					maxScan,
-				),
-			)
+		candidates = make([]candidate, 0)
+		for _, sh := range sheets {
+			regions := detectRegions(sh.rows, maxScan)
+			for _, r := range regions {
+				candidates = append(
+					candidates,
+					toCandidate(
+						req.Source.Label,
+						sourceDigest,
+						sh.name,
+						sh.rows,
+						r,
+						maxScan,
+					),
+				)
+			}
 		}
 	case ".xml":
 		if isXMLSpreadsheet2003Bytes(bytes) {
@@ -1175,7 +1179,12 @@ func parseCSV(contents string) ([][]string, error) {
 	return rows, nil
 }
 
-func parseXLSX(data []byte) ([][]string, error) {
+type xlsxSheet struct {
+	name string
+	rows [][]string
+}
+
+func parseXLSXSheets(data []byte) ([]xlsxSheet, error) {
 	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return nil, fmt.Errorf("xlsx is not a zip archive: %w", err)
@@ -1201,7 +1210,6 @@ func parseXLSX(data []byte) ([][]string, error) {
 			if !ok || se.Name.Local != "si" {
 				continue
 			}
-			// Collect all <t> text inside this <si>.
 			var b strings.Builder
 			depth := 1
 			for depth > 0 {
@@ -1217,7 +1225,7 @@ func parseXLSX(data []byte) ([][]string, error) {
 						if err := dec.DecodeElement(&s, &v); err == nil {
 							b.WriteString(s)
 						}
-						depth-- // DecodeElement consumes the element
+						depth--
 					}
 				case xml.EndElement:
 					depth--
@@ -1228,158 +1236,269 @@ func parseXLSX(data []byte) ([][]string, error) {
 		rc.Close()
 	}
 
-	// Read sheet1.xml.
-	var sheetFile *zip.File
-	for _, f := range reader.File {
-		if f.Name == "xl/worksheets/sheet1.xml" {
-			sheetFile = f
-			break
-		}
+	// Determine sheet list (name + target path) from workbook.xml + rels.
+	type sheetInfo struct {
+		name   string
+		target string
 	}
-	if sheetFile == nil {
-		// fallback: first worksheet
+	sheets := []sheetInfo{}
+	// rels map: rId -> target
+	rels := map[string]string{}
+	for _, f := range reader.File {
+		if f.Name != "xl/_rels/workbook.xml.rels" {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			continue
+		}
+		dec := xml.NewDecoder(rc)
+		for {
+			tok, err := dec.Token()
+			if err != nil {
+				break
+			}
+			se, ok := tok.(xml.StartElement)
+			if !ok || se.Name.Local != "Relationship" {
+				continue
+			}
+			var id, target string
+			for _, a := range se.Attr {
+				if a.Name.Local == "Id" {
+					id = a.Value
+				}
+				if a.Name.Local == "Target" {
+					target = a.Value
+				}
+			}
+			if id != "" && target != "" {
+				// target may be relative to xl/
+				if !strings.HasPrefix(target, "/") {
+					target = "xl/" + strings.TrimPrefix(target, "./")
+				} else {
+					target = strings.TrimPrefix(target, "/")
+				}
+				rels[id] = target
+			}
+		}
+		rc.Close()
+	}
+	// parse workbook.xml
+	for _, f := range reader.File {
+		if f.Name != "xl/workbook.xml" {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			continue
+		}
+		dec := xml.NewDecoder(rc)
+		for {
+			tok, err := dec.Token()
+			if err != nil {
+				break
+			}
+			se, ok := tok.(xml.StartElement)
+			if !ok || se.Name.Local != "sheet" {
+				continue
+			}
+			var name, rid string
+			for _, a := range se.Attr {
+				if a.Name.Local == "name" {
+					name = a.Value
+				}
+				if a.Name.Local == "id" || a.Name.Space != "" {
+					// r:id
+					if strings.HasSuffix(a.Name.Local, "id") || a.Name.Local == "id" {
+						rid = a.Value
+					}
+				}
+			}
+			// r:id is in the r namespace; handle by local name "id"
+			for _, a := range se.Attr {
+				if a.Name.Local == "id" {
+					rid = a.Value
+				}
+			}
+			if name == "" {
+				name = fmt.Sprintf("Sheet%d", len(sheets)+1)
+			}
+			target := ""
+			if rid != "" {
+				target = rels[rid]
+			}
+			if target == "" {
+				// fallback: xl/worksheets/sheetN.xml
+				target = fmt.Sprintf("xl/worksheets/sheet%d.xml", len(sheets)+1)
+			}
+			sheets = append(sheets, sheetInfo{name: name, target: target})
+		}
+		rc.Close()
+	}
+	// fallback if no workbook.xml parsed
+	if len(sheets) == 0 {
+		sheets = append(sheets, sheetInfo{name: "Sheet1", target: "xl/worksheets/sheet1.xml"})
+	}
+
+	// Parse each sheet.
+	result := []xlsxSheet{}
+	for _, sh := range sheets {
+		var sheetFile *zip.File
 		for _, f := range reader.File {
-			if strings.HasPrefix(f.Name, "xl/worksheets/sheet") && strings.HasSuffix(f.Name, ".xml") {
+			if f.Name == sh.target {
 				sheetFile = f
 				break
 			}
 		}
-	}
-	if sheetFile == nil {
-		return nil, errors.New("xlsx has no worksheet")
-	}
-
-	rc, err := sheetFile.Open()
-	if err != nil {
-		return nil, err
-	}
-	defer rc.Close()
-
-	type cell struct {
-		ref string
-		t   string
-		v   string
-		is  string
-	}
-	rows := map[int]map[int]string{}
-	maxRow, maxCol := 0, 0
-
-	dec := xml.NewDecoder(rc)
-	for {
-		tok, err := dec.Token()
-		if err != nil {
-			break
+		if sheetFile == nil {
+			// try sheet1.xml
+			for _, f := range reader.File {
+				if strings.HasPrefix(f.Name, "xl/worksheets/sheet") && strings.HasSuffix(f.Name, ".xml") {
+					// pick by index not already used; simple: first available
+					sheetFile = f
+					break
+				}
+			}
 		}
-		se, ok := tok.(xml.StartElement)
-		if !ok || se.Name.Local != "c" {
+		if sheetFile == nil {
 			continue
 		}
-		// parse cell attributes
-		var ref, t string
-		for _, a := range se.Attr {
-			if a.Name.Local == "r" {
-				ref = a.Value
-			}
-			if a.Name.Local == "t" {
-				t = a.Value
-			}
+		rc, err := sheetFile.Open()
+		if err != nil {
+			continue
 		}
-		// read inner value
-		var v, isText string
-		depth := 1
-		for depth > 0 {
-			tok2, err := dec.Token()
+		rows := map[int]map[int]string{}
+		maxRow, maxCol := 0, 0
+		dec := xml.NewDecoder(rc)
+		for {
+			tok, err := dec.Token()
 			if err != nil {
 				break
 			}
-			switch v2 := tok2.(type) {
-			case xml.StartElement:
-				depth++
-				if v2.Name.Local == "v" {
-					var s string
-					if err := dec.DecodeElement(&s, &v2); err == nil {
-						v = s
-					}
-					depth--
-				} else if v2.Name.Local == "t" {
-					var s string
-					if err := dec.DecodeElement(&s, &v2); err == nil {
-						isText = s
-					}
-					depth--
-				} else if v2.Name.Local == "is" {
-					// inline string container; read <t> inside
-					innerDepth := 1
-					for innerDepth > 0 {
-						tok3, err := dec.Token()
-						if err != nil {
-							break
+			se, ok := tok.(xml.StartElement)
+			if !ok || se.Name.Local != "c" {
+				continue
+			}
+			var ref, t string
+			for _, a := range se.Attr {
+				if a.Name.Local == "r" {
+					ref = a.Value
+				}
+				if a.Name.Local == "t" {
+					t = a.Value
+				}
+			}
+			var v, isText string
+			depth := 1
+			for depth > 0 {
+				tok2, err := dec.Token()
+				if err != nil {
+					break
+				}
+				switch v2 := tok2.(type) {
+				case xml.StartElement:
+					depth++
+					if v2.Name.Local == "v" {
+						var s string
+						if err := dec.DecodeElement(&s, &v2); err == nil {
+							v = s
 						}
-						switch v3 := tok3.(type) {
-						case xml.StartElement:
-							innerDepth++
-							if v3.Name.Local == "t" {
-								var s string
-								if err := dec.DecodeElement(&s, &v3); err == nil {
-									isText += s
+						depth--
+					} else if v2.Name.Local == "t" {
+						var s string
+						if err := dec.DecodeElement(&s, &v2); err == nil {
+							isText = s
+						}
+						depth--
+					} else if v2.Name.Local == "is" {
+						innerDepth := 1
+						for innerDepth > 0 {
+							tok3, err := dec.Token()
+							if err != nil {
+								break
+							}
+							switch v3 := tok3.(type) {
+							case xml.StartElement:
+								innerDepth++
+								if v3.Name.Local == "t" {
+									var s string
+									if err := dec.DecodeElement(&s, &v3); err == nil {
+										isText += s
+									}
+									innerDepth--
 								}
+							case xml.EndElement:
 								innerDepth--
 							}
-						case xml.EndElement:
-							innerDepth--
 						}
+						depth--
 					}
-					depth-- // consumed
+				case xml.EndElement:
+					depth--
 				}
-			case xml.EndElement:
-				depth--
 			}
+			rowNum, colNum := parseCellRef(ref)
+			if rowNum <= 0 || colNum <= 0 {
+				continue
+			}
+			if rowNum > maxRow {
+				maxRow = rowNum
+			}
+			if colNum > maxCol {
+				maxCol = colNum
+			}
+			if rows[rowNum] == nil {
+				rows[rowNum] = map[int]string{}
+			}
+			var value string
+			switch t {
+			case "s":
+				idx, _ := strconv.Atoi(v)
+				if idx >= 0 && idx < len(shared) {
+					value = shared[idx]
+				}
+			case "inlineStr":
+				value = isText
+			default:
+				value = v
+			}
+			rows[rowNum][colNum] = value
 		}
+		rc.Close()
 
-		// resolve ref -> row, col
-		rowNum, colNum := parseCellRef(ref)
-		if rowNum <= 0 || colNum <= 0 {
+		if maxRow == 0 || maxCol == 0 {
+			result = append(result, xlsxSheet{name: sh.name, rows: [][]string{}})
 			continue
 		}
-		if rowNum > maxRow {
-			maxRow = rowNum
-		}
-		if colNum > maxCol {
-			maxCol = colNum
-		}
-		if rows[rowNum] == nil {
-			rows[rowNum] = map[int]string{}
-		}
-		var value string
-		switch t {
-		case "s":
-			idx, _ := strconv.Atoi(v)
-			if idx >= 0 && idx < len(shared) {
-				value = shared[idx]
-			}
-		case "inlineStr":
-			value = isText
-		default:
-			value = v
-		}
-		rows[rowNum][colNum] = value
-	}
-
-	if maxRow == 0 || maxCol == 0 {
-		return [][]string{}, nil
-	}
-	out := make([][]string, maxRow)
-	for r := 1; r <= maxRow; r++ {
-		out[r-1] = make([]string, maxCol)
-		if cells, ok := rows[r]; ok {
-			for c := 1; c <= maxCol; c++ {
-				if v, ok := cells[c]; ok {
-					out[r-1][c-1] = v
+		out := make([][]string, maxRow)
+		for r := 1; r <= maxRow; r++ {
+			out[r-1] = make([]string, maxCol)
+			if cells, ok := rows[r]; ok {
+				for c := 1; c <= maxCol; c++ {
+					if v, ok := cells[c]; ok {
+						out[r-1][c-1] = v
+					}
 				}
 			}
 		}
+		result = append(result, xlsxSheet{name: sh.name, rows: out})
 	}
-	return out, nil
+	if len(result) == 0 {
+		result = append(result, xlsxSheet{name: "Sheet1", rows: [][]string{}})
+	}
+	return result, nil
+}
+
+// parseXLSX is retained for single-sheet callers; it returns the first sheet's rows.
+func parseXLSX(data []byte) ([][]string, error) {
+	sheets, err := parseXLSXSheets(data)
+	if err != nil {
+		return nil, err
+	}
+	if len(sheets) == 0 {
+		return [][]string{}, nil
+	}
+	return sheets[0].rows, nil
 }
 
 func parseCellRef(ref string) (int, int) {
@@ -1627,7 +1746,7 @@ func classifyHeader(rows [][]string, top, bottom, left, right int) (string, []st
 	return "uncertain", texts
 }
 
-func toCandidate(source, sourceDigest string, rows [][]string, r region, maxScan int64) candidate {
+func toCandidate(source, sourceDigest, sheetName string, rows [][]string, r region, maxScan int64) candidate {
 	claims := []claim{
 		{
 			Aspect: "location", Value: r.a1, Status: "observed",
@@ -1683,7 +1802,7 @@ func toCandidate(source, sourceDigest string, rows [][]string, r region, maxScan
 	}
 	material := strings.Join(materialRows, "\x1e")
 	fpSum := sha256.Sum256([]byte(material))
-	reference := fmt.Sprintf("![[%s#Sheet1|%s", source, r.a1)
+	reference := fmt.Sprintf("![[%s#%s|%s", source, sheetName, r.a1)
 	if r.headerConfidence == "likely" && r.headers != nil {
 		reference += "?header=first"
 	}
@@ -1691,7 +1810,7 @@ func toCandidate(source, sourceDigest string, rows [][]string, r region, maxScan
 
 	return candidate{
 		Kind: "table-range",
-		Locator: locator{Source: source, SourceDigest: sourceDigest, Sheet: "Sheet1", Range: r.a1},
+		Locator: locator{Source: source, SourceDigest: sourceDigest, Sheet: sheetName, Range: r.a1},
 		Status: "inferred", Execution: "deterministic", Method: "M1",
 		Claims: claims,
 		Provenance: provenance{
