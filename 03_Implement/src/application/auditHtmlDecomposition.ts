@@ -88,6 +88,31 @@ function assetStatus(root: string, absolute: string, expectedDigest: string): Fi
   return actual === expectedDigest ? 'matching' : 'changed';
 }
 
+function sameClaimBasis(
+  actual: LedgerEntry['claimBasis'],
+  expected: ReturnType<typeof claimBasisOf>,
+): boolean {
+  return Array.isArray(actual)
+    && actual.length === expected.length
+    && actual.every((item, index) =>
+      item.index === expected[index].index
+      && item.aspect === expected[index].aspect
+      && item.digest === expected[index].digest);
+}
+
+function sameLineageHints(
+  actual: LedgerEntry['lineageHints'],
+  expected: ReturnType<typeof lineageHintsOf>,
+): boolean {
+  if (!actual) return false; // The batch commit always records a hints object.
+  const actualKeys = Object.keys(actual).sort();
+  const expectedKeys = Object.keys(expected).sort();
+  return actualKeys.length === expectedKeys.length
+    && actualKeys.every((key, i) =>
+      key === expectedKeys[i]
+      && actual[key as keyof typeof actual] === expected[key as keyof typeof expected]);
+}
+
 function ledgerState(
   entries: readonly LedgerEntry[],
   source: string,
@@ -110,8 +135,8 @@ function ledgerState(
   return entry.sourceDigest === sourceDigest
     && entry.fingerprint.digest === candidate.fingerprint.digest
     && entry.fingerprint.representation === candidate.fingerprint.representation
-    && JSON.stringify(entry.claimBasis) === JSON.stringify(expectedClaimBasis)
-    && JSON.stringify(entry.lineageHints) === JSON.stringify(expectedLineageHints)
+    && sameClaimBasis(entry.claimBasis, expectedClaimBasis)
+    && sameLineageHints(entry.lineageHints, expectedLineageHints)
     && entry.output === output
     && entry.outputDigest === outputDigest
     && entry.reviewState === 'accepted'
