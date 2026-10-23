@@ -139,6 +139,10 @@ test('portable Core XLSX detects a detached title above a table', () => {
   assertConformanceCase(readCase('xlsx-title.case.json'));
 });
 
+test('portable Core XLSX handles a merged title cell above a table', () => {
+  assertConformanceCase(readCase('xlsx-title-merged.case.json'));
+});
+
 test('portable Core CSV preserves leading blank row coordinates', () => {
   assertConformanceCase(readCase('csv-leading-blank-rows.case.json'));
 });
