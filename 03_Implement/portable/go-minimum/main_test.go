@@ -227,6 +227,19 @@ func TestXLSTwoTablesConformanceCase(t *testing.T) {
 	}
 }
 
+func TestXLSTitleConformanceCase(t *testing.T) {
+	actualResponse := runConformanceCase(
+		t,
+		"xlsx-title.case.json",
+	)
+	if got := actualResponse.Candidates[0].Locator.Range; got != "A2:B4" {
+		t.Fatalf("range mismatch: %s", got)
+	}
+	if got := actualResponse.Candidates[0].Reference; got != "![[./fixture.xlsx#Sheet1|A2:B4?header=first]]" {
+		t.Fatalf("reference mismatch: %s", got)
+	}
+}
+
 func TestCSVLeadingBlankRowsConformanceCase(t *testing.T) {
 	actualResponse := runConformanceCase(
 		t,

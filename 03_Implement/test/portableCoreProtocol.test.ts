@@ -135,6 +135,10 @@ test('portable Core XLSX detects multiple tables in one sheet', () => {
   assertConformanceCase(readCase('xlsx-two-tables.case.json'));
 });
 
+test('portable Core XLSX detects a detached title above a table', () => {
+  assertConformanceCase(readCase('xlsx-title.case.json'));
+});
+
 test('portable Core CSV preserves leading blank row coordinates', () => {
   assertConformanceCase(readCase('csv-leading-blank-rows.case.json'));
 });
