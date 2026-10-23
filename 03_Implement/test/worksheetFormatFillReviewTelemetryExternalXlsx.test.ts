@@ -17,7 +17,7 @@ import type {
 } from '../src/experimental/worksheetFormatFeatureAdapter.js';
 
 const THEME_SHA256 =
-  '45d925f4e7d26e5110d05f79a22b2d9b0d67ec73ca8db581cf0a7633d93a4a07';
+  '525adf8be480e1db1a3ddfbe81465c176d8ba12553efdfa74a8c6ba2dcff4819';
 const RGB_SHA256 =
   'ac561a7f5ca19aeb642fe288a897e036081811274ffd109938215e49e94393e1';
 
