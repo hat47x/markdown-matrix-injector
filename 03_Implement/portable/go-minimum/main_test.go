@@ -198,6 +198,19 @@ func TestXLSXConformanceCase(t *testing.T) {
 	}
 }
 
+func TestXLSXLeadingBlankRowsConformanceCase(t *testing.T) {
+	actualResponse := runConformanceCase(
+		t,
+		"xlsx-leading-blank-rows.case.json",
+	)
+	if got := actualResponse.Candidates[0].Locator.Range; got != "A3:B5" {
+		t.Fatalf("range mismatch: %s", got)
+	}
+	if got := actualResponse.Candidates[0].Reference; got != "![[./fixture.xlsx#Sheet1|A3:B5?header=first]]" {
+		t.Fatalf("reference mismatch: %s", got)
+	}
+}
+
 func TestCSVLeadingBlankRowsConformanceCase(t *testing.T) {
 	actualResponse := runConformanceCase(
 		t,
