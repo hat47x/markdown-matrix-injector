@@ -227,3 +227,17 @@ test('does not follow a symlinked ledger, including one pointing outside workspa
     assert.deepEqual(fs.readFileSync(other), ledgerContents);
   });
 });
+
+test('detects altered lineage hints independently of source content and file hashes', () => {
+  workspace((options) => {
+    commitHtmlDecomposition(options);
+    const ledger = readLedger(options.ledgerPath);
+    ledger.entries[0].lineageHints = { objectName: 'invented meaning' };
+    fs.writeFileSync(options.ledgerPath, JSON.stringify(ledger));
+    const report = auditHtmlDecomposition(options);
+    assert.equal(report.status, 'incomplete');
+    assert.equal(report.files[0].file, 'matching');
+    assert.equal(report.files[0].ledger, 'changed');
+    assert.ok(report.problems.includes('MMI_HTML_LEDGER_CHANGED'));
+  });
+});
