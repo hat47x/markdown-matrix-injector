@@ -165,3 +165,65 @@ test('never follows an output symlink or repairs a potentially unsafe path', (t)
     assert.equal(fs.readFileSync(other, 'utf8'), 'secret source');
   });
 });
+
+test('detects tampered claim provenance even if output bytes and main fingerprint still match', () => {
+  workspace((options) => {
+    commitHtmlDecomposition(options);
+    const ledger = readLedger(options.ledgerPath);
+    const basis = ledger.entries[0].claimBasis;
+    assert.ok(basis && basis.length > 0);
+    basis[0].digest = 'sha256:' + '0'.repeat(64);
+    fs.writeFileSync(options.ledgerPath, JSON.stringify(ledger));
+    const result = auditHtmlDecomposition(options);
+    assert.equal(result.status, 'incomplete');
+    assert.equal(result.files[0].file, 'matching');
+    assert.equal(result.files[0].ledger, 'changed');
+    assert.ok(result.problems.includes('MMI_HTML_LEDGER_CHANGED'));
+  });
+});
+
+test('detects changed duplicated output digest in conversion metadata', () => {
+  workspace((options) => {
+    commitHtmlDecomposition(options);
+    const ledger = readLedger(options.ledgerPath);
+    ledger.entries[0].conversion = {
+      ...ledger.entries[0].conversion,
+      outputDigest: 'sha256:' + '1'.repeat(64),
+    };
+    fs.writeFileSync(options.ledgerPath, JSON.stringify(ledger));
+    const result = auditHtmlDecomposition(options);
+    assert.equal(result.status, 'incomplete');
+    assert.equal(result.files[0].file, 'matching');
+    assert.equal(result.files[0].ledger, 'changed');
+  });
+});
+
+test('classifies a corrupted ledger separately from intact output files', () => {
+  workspace((options) => {
+    commitHtmlDecomposition(options);
+    fs.writeFileSync(options.ledgerPath, '{broken json');
+    const result = auditHtmlDecomposition(options);
+    assert.equal(result.status, 'incomplete');
+    assert.ok(result.files.every((file) => file.file === 'matching' && file.ledger === 'invalid'));
+    assert.ok(result.problems.includes('MMI_HTML_LEDGER_INVALID'));
+    assert.equal(fs.readFileSync(options.ledgerPath, 'utf8'), '{broken json');
+  });
+});
+
+test('does not follow a symlinked ledger, including one pointing outside workspace', (t) => {
+  workspace((options) => {
+    commitHtmlDecomposition(options);
+    const ledgerContents = fs.readFileSync(options.ledgerPath);
+    const other = path.join(options.workspaceRoot, 'unexpected-ledger.json');
+    fs.writeFileSync(other, ledgerContents);
+    fs.unlinkSync(options.ledgerPath);
+    try {
+      fs.symlinkSync(other, options.ledgerPath, 'file');
+    } catch {
+      t.skip('symlink creation is unavailable');
+      return;
+    }
+    assert.throws(() => auditHtmlDecomposition(options), /MMI_HTML_SYMLINK_PATH/u);
+    assert.deepEqual(fs.readFileSync(other), ledgerContents);
+  });
+});
