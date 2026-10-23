@@ -72,5 +72,5 @@
 ### 検証証拠の段階
 
 - 2026-10-21時点のPR #641 `16f447f...`では、Ubuntu/Windowsのproduct laneで追加監査7テストがすべてPASS。Research-laneには失敗35件が残っていたが、前段PR #609と失敗テスト名は同一だった。Workflow結論はsuccess。これらを本追記後headのPASSと同一視しない。
-- 追補では、成果物のbytesとLedger主要fingerprintが一致していても、**Claim basis、lineage hints、重複記録された変換digestが異なる場合は`changed`に分類**する。Ledger破損・symlink入力への負例を追加。
+- 追補では、成果物のbytesとLedger主要fingerprintが一致していても、**Claim basis、lineage hints、重複記録された変換digestが異なる場合は`changed`に分類（JSONオブジェクトのプロパティ順序だけの変更は同等と扱う）**する。Ledger破損・symlink入力への負例を追加。
 - このPRはApplicationレベルのread-only監査PoC。配布CLIやMCPの公開APIは増やさず、他PRの`mmi.ts`との衝突を避ける。
