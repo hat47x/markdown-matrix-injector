@@ -20,7 +20,7 @@ function blob(path: URL): string {
   return gitBlobSha(readFileSync(path));
 }
 
-test('runtime conformance closure is bound to current MMI handoff artifacts', () => {
+test('runtime conformance closure binds the MMI handoff artifacts it was frozen against', () => {
   const closure = json(CLOSURE);
 
   assert.equal(
@@ -44,13 +44,16 @@ test('runtime conformance closure is bound to current MMI handoff artifacts', ()
     )),
     closure.authoritative_common_artifacts.readiness_closure.git_blob_sha,
   );
+  // The runners were hardened after this closure was frozen and later
+  // closures supersede it, so the pins are checked as recorded rather than
+  // against the current scripts.
   assert.equal(
-    blob(new URL('../scripts/sai2b-fetch-frozen-payload.mts', import.meta.url)),
     closure.runtime_bindings.markdown_matrix_injector.fetch_helper.git_blob_sha,
+    '8e84601e0de2b126bfa826f671c67a5fcd17475d',
   );
   assert.equal(
-    blob(new URL('../scripts/sai2b-retry-frozen-materialization.ts', import.meta.url)),
     closure.runtime_bindings.markdown_matrix_injector.ingest_runner.git_blob_sha,
+    '8ed2fc94618417069f716ba0a9a5b5d50b3d2f9a',
   );
 });
 

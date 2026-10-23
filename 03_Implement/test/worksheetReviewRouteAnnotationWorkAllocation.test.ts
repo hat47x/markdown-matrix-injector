@@ -37,7 +37,7 @@ function corpus(): WorksheetReviewRouteLabelCorpusV1 {
           sourceClass: 'replay',
           caseFamily: 'zero',
           reference: 'evidence:zero',
-          facts: ['Needs two independent annotations.'],
+          facts: ['Needs two independent reviewers.'],
         },
         projectionState: {
           classification: 'ambiguous',

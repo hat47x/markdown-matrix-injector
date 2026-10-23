@@ -155,7 +155,7 @@ test('requires two independent annotations and an independent adjudicator', () =
 
   assert.throws(
     () => assertWorksheetReviewRouteLabelCorpus(tooFew),
-    /at least two independent annotations/,
+    /at least 2 independent annotations/,
   );
 
   const samePerson = structuredClone(corpus());

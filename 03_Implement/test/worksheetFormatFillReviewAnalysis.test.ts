@@ -16,16 +16,33 @@ function snapshot(
   labels: readonly string[],
   fill: FormatFillTone | null = 'dark',
 ): WorksheetFormatSnapshot {
+  const cells: WorksheetFormatSnapshot['cells'][number][] = [
+    { row: 0, column: 0, text: 'Table' },
+  ];
+
+  labels.forEach((label, column) => {
+    cells.push({
+      row: 1,
+      column,
+      text: label,
+      ...(fill ? { fillTone: fill } : {}),
+    });
+  });
+
+  for (let row = 2; row < 5; row += 1) {
+    labels.forEach((_, column) => {
+      cells.push({ row, column, text: `r${row - 1}c${column + 1}` });
+    });
+  }
+
   return {
-    cells: labels.flatMap((label, column) => [
-      {
-        row: 1,
-        column,
-        text: label,
-        ...(fill ? { fillTone: fill } : {}),
-      },
-      { row: 2, column, text: `v${column + 1}` },
-    ]),
+    cells,
+    merges: [{
+      startRow: 0,
+      startColumn: 0,
+      endRow: 0,
+      endColumn: labels.length - 1,
+    }],
   };
 }
 

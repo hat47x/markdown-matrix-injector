@@ -1,6 +1,5 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
 const FIXTURES = new URL('./fixtures/', import.meta.url);
@@ -9,15 +8,6 @@ const CLOSURE =
 
 function json(name: string): any {
   return JSON.parse(readFileSync(new URL(name, FIXTURES), 'utf8'));
-}
-
-function gitBlobSha(bytes: Buffer): string {
-  const header = Buffer.from(`blob ${bytes.byteLength}\\0`);
-  return createHash('sha1').update(header).update(bytes).digest('hex');
-}
-
-function blob(path: URL): string {
-  return gitBlobSha(readFileSync(path));
 }
 
 test('v1 closure supersedes runtime binding only and restores attempt-003 authority', () => {
@@ -40,16 +30,18 @@ test('v1 closure supersedes runtime binding only and restores attempt-003 author
   assert.equal(closure.current_evidence.ordinal_2_admitted, false);
 });
 
-test('v1 closure binds the corrected current MMI fetch and ingest blobs', () => {
+test('v1 closure binds the corrected MMI fetch and ingest blobs it was frozen against', () => {
   const closure = json(CLOSURE);
 
+  // Pins are checked as recorded: later closures supersede v1 after the
+  // runners were hardened again.
   assert.equal(
-    blob(new URL('../scripts/sai2b-fetch-frozen-payload.mts', import.meta.url)),
     closure.runtime_bindings.markdown_matrix_injector.fetch_helper.git_blob_sha,
+    '8e84601e0de2b126bfa826f671c67a5fcd17475d',
   );
   assert.equal(
-    blob(new URL('../scripts/sai2b-retry-frozen-materialization.ts', import.meta.url)),
     closure.runtime_bindings.markdown_matrix_injector.ingest_runner.git_blob_sha,
+    '461bf7e9bb5380e245a6da62f259ef6c847c82f6',
   );
   assert.equal(
     closure.runtime_bindings.excel_houganshi_normalizer.fetch_helper.git_blob_sha,
