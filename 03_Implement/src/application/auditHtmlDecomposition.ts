@@ -13,12 +13,14 @@ import {
   selectHtmlFragmentById,
 } from '../adapters/htmlFragmentAdapter.js';
 import {
+  claimBasisOf,
   placeOf,
   readLedger,
   sourceKey,
   type LedgerEntry,
 } from '../core/importLedger.js';
 import { createSourceIdentityFromBytes, readSourceFileIdentity } from '../core/sourceIdentity.js';
+import type { Candidate } from '../core/candidate.js';
 import { previewHtmlDecomposition } from './htmlDecompositionPreview.js';
 import type { CommitHtmlDecompositionOptions } from './commitHtmlDecomposition.js';
 
@@ -88,29 +90,32 @@ function assetStatus(root: string, absolute: string, expectedDigest: string): Fi
 function ledgerState(
   entries: readonly LedgerEntry[],
   source: string,
-  place: string,
-  kind: LedgerEntry['kind'],
-  digest: string,
+  candidate: Candidate,
   output: string,
   outputDigest: string,
   id: string,
-  sourceDigest: string,
-  representation: string,
 ): LedgerState {
+  const place = placeOf(candidate);
   const occurrences = entries.filter((entry) =>
-    entry.source === source && entry.place === place && entry.kind === kind);
+    entry.source === source && entry.place === place && entry.kind === candidate.kind);
   if (occurrences.length === 0) return 'missing';
   if (occurrences.length !== 1) return 'changed';
   const entry = occurrences[0];
+  // The ledger is a provenance record. Verifying only the output hash is
+  // insufficient when its claimed evidence or conversion metadata was altered.
+  const sourceDigest = candidate.locator.sourceDigest;
+  const expectedClaimBasis = claimBasisOf(candidate);
   return entry.sourceDigest === sourceDigest
-    && entry.fingerprint.digest === digest
-    && entry.fingerprint.representation === representation
+    && entry.fingerprint.digest === candidate.fingerprint.digest
+    && entry.fingerprint.representation === candidate.fingerprint.representation
+    && JSON.stringify(entry.claimBasis) === JSON.stringify(expectedClaimBasis)
     && entry.output === output
     && entry.outputDigest === outputDigest
     && entry.reviewState === 'accepted'
     && entry.basis === 'reviewed-html-decomposition-batch-v0'
     && entry.conversion.projection === 'normalized-html-with-reviewed-anchor-rewrites-v0'
     && entry.conversion.id === id
+    && entry.conversion.outputDigest === outputDigest
     ? 'matching' : 'changed';
 }
 
@@ -187,14 +192,10 @@ export function auditHtmlDecomposition(
     const currentLedger = invalidLedger ? 'invalid' : ledgerState(
       entries,
       sourceLabel,
-      placeOf(candidate),
-      candidate.kind,
-      candidate.fingerprint.digest,
+      candidate,
       outputRelative,
       file.digest,
       file.sourceId,
-      sourceDigest,
-      candidate.fingerprint.representation,
     );
     if (currentFile !== 'matching') {
       problems.push('MMI_HTML_OUTPUT_' + currentFile.toUpperCase());
