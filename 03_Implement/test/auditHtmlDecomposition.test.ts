@@ -241,3 +241,21 @@ test('detects altered lineage hints independently of source content and file has
     assert.ok(report.problems.includes('MMI_HTML_LEDGER_CHANGED'));
   });
 });
+
+test('JSON field order changes do not turn unchanged review evidence into a false mismatch', () => {
+  workspace((options) => {
+    commitHtmlDecomposition(options);
+    const ledger = readLedger(options.ledgerPath);
+    const claims = ledger.entries[0].claimBasis;
+    assert.ok(claims);
+    ledger.entries[0].claimBasis = claims.map((claim) => ({
+      digest: claim.digest,
+      aspect: claim.aspect,
+      index: claim.index,
+    }));
+    fs.writeFileSync(options.ledgerPath, JSON.stringify(ledger));
+    const report = auditHtmlDecomposition(options);
+    assert.equal(report.status, 'complete');
+    assert.equal(report.consistentAtObservation, true);
+  });
+});
