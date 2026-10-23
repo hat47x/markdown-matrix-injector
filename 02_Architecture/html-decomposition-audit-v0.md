@@ -30,7 +30,7 @@
 2. 原本のbytesからdigestを確認。一致しない場合は`stale`を返し、断片の「完了」を検査しない。
 3. 同じ`previewHtmlDecomposition`で全断片・リンク書換え・expected output digestを再計算。阻害があれば`blocked`とする。
 4. 各出力について「存在しない」「期待digestと一致」「bytesが変更されている」「symlink等でunsafe」を区別する。ここでは参照先を修復しない。
-5. Ledgerのsource/locator/kind、Candidate fingerprint、source digest、出力パス/digest、既存のbatch変換条件、review stateを照合する。破損Ledgerを読めても有効とは扱わない。
+5. Ledgerのsource/locator/kind、Candidate fingerprint、source digest、Claim basis、lineage hints、出力パス/digest、既存のbatch変換条件、review stateを照合する。保存時に重複記録した`conversion.outputDigest`も、実出力のdigestと一致する必要がある。破損Ledgerを読めても有効とは扱わない。
 6. 最後に再び原本digestを確認し、監査中の原本変更を`stale`へ落とす。
 
 実装は `src/application/auditHtmlDecomposition.ts` と `test/auditHtmlDecomposition.test.ts` のみ。**新CLIコマンド、MCP書込操作、Ledger/Notation schemaは追加しない**。別の並行PRが`src/cli/mmi.ts`を編集しているため、公開面を今回拡張せず責任と差分を限定する。
@@ -52,3 +52,25 @@
 人が必要な判断を行った後、元のレビュー済みdigestを使って`html-commit --commit`を再試行できる場合がある。ただしファイルが変更/unsafeのときは、既存のno-overwriteを尊重して停止する。自動削除・自動再採用は避ける。
 
 **未検証**: 本PR headでのビルド/自動テスト、配布用CLI、Windows実機・ブラウザー・PDF品質。この監査はApplication内のPoCであり製品UIからの利用受入は未実施。
+
+## 追加観測・回復判断票（2026-10-24レビュー）
+
+本監査が`incomplete`を返したとき、**機械的な状態確認**と**人間が受け入れる修復判断**を区別する。
+
+| 原本 | 出力 | Ledger | 確認する意味 | 次の操作候補 |
+| --- | --- | --- | --- | --- |
+| 一致 | 全件一致 | 全件一致 | 指定バッチの機械的整合性あり | 納品/表示/Detachedの別レビュー |
+| 一致 | 全件一致 | 欠落/破損 | 書出し成功後に台帳確定できなかった可能性。ただし過去の削除・改変とも識別不可 | 既存成果物の確認と台帳の出所レビュー後に回復可否を判断 |
+| 一致 | 一部欠落 | 全件一致 | Ledgerはあるが資産が欠けている | 生成物の保全・欠落原因調査。承認済manifestで再生成できるか検証 |
+| 一致 | 変更 | 一致 | 保存後にファイルが編集された可能性 | 元の資産を上書きせず差分確認。自動削除・置換は見送る |
+| 一致 | 全件一致 | 来歴/変換条件が変更 | bytesとレビュー記録の結合が崩れている | Claim basis、lineage hints、変換digestを人が再確認 |
+| 不一致 | 任意 | 任意 | 元HTMLのSource Digestが承認時から変化 | 新しいsnapshot/候補を再レビュー |
+| 一致 | symlink等unsafe | 任意 | 参照先の安全境界が未確認 | 作業を停止してWorkspaceのパスを点検 |
+
+本PoCは既存のLedger全体の余分な記録、計画外ファイル、監査時点以後の外部更新までは閉包検証しない。出力ファイルとLedgerは同時にロックしていないため、`complete`は**一時点の観測**に限る。異常を見つけても、監査が`html-commit --commit`を自動実行することはない。
+
+### 検証証拠の段階
+
+- 2026-10-21時点のPR #641 `16f447f...`では、Ubuntu/Windowsのproduct laneで追加監査7テストがすべてPASS。Research-laneには失敗35件が残っていたが、前段PR #609と失敗テスト名は同一だった。Workflow結論はsuccess。これらを本追記後headのPASSと同一視しない。
+- 追補では、成果物のbytesとLedger主要fingerprintが一致していても、**Claim basis、lineage hints、重複記録された変換digestが異なる場合は`changed`に分類**する。Ledger破損・symlink入力への負例を追加。
+- このPRはApplicationレベルのread-only監査PoC。配布CLIやMCPの公開APIは増やさず、他PRの`mmi.ts`との衝突を避ける。
