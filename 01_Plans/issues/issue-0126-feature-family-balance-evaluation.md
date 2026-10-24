@@ -2,6 +2,8 @@
 
 この文書は当時のIssue記録です。2026年9月17日のfeature-level fixtureによる構成比、confidence、symmetric ablationの測定値を保持します。これは重みの採用判断ではなく、matcher・閾値・feature contractを変更しない観測記録です。
 
+ここでいう**family**は同じ性質の特徴をまとめた分類、**fixture**は比較条件を固定したテスト用入力、**confidence**は既存matcherが返す候補の類似度スコアを指す。**symmetric ablation**は比較対象の双方から同じfamilyを取り除いて再評価し、そのfamilyの寄与を調べる方法である。
+
 ## Meta
 - Type: Evaluation / Design evidence
 - Status: Done
