@@ -253,6 +253,19 @@ func TestXLSTitleMergedConformanceCase(t *testing.T) {
 	}
 }
 
+func TestXLSMergedCellsConformanceCase(t *testing.T) {
+	actualResponse := runConformanceCase(
+		t,
+		"xlsx-merged-cells.case.json",
+	)
+	if got := actualResponse.Candidates[0].Locator.Range; got != "A1:B3" {
+		t.Fatalf("range mismatch: %s", got)
+	}
+	if got := actualResponse.Candidates[0].Reference; got != "![[./fixture.xlsx#Sheet1|A1:B3?header=first]]" {
+		t.Fatalf("reference mismatch: %s", got)
+	}
+}
+
 func TestCSVLeadingBlankRowsConformanceCase(t *testing.T) {
 	actualResponse := runConformanceCase(
 		t,

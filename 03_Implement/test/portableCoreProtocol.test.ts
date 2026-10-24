@@ -131,6 +131,10 @@ test('portable Core XLSX title-merged conformance case', () => {
   assertConformanceCase(readCase('xlsx-title-merged.case.json'));
 });
 
+test('portable Core XLSX merged-cells conformance case', () => {
+  assertConformanceCase(readCase('xlsx-merged-cells.case.json'));
+});
+
 test('portable Core XLSX preserves leading blank row coordinates', () => {
   assertConformanceCase(readCase('xlsx-leading-blank-rows.case.json'));
 });
