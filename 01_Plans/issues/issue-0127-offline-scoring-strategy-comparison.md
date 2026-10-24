@@ -2,6 +2,8 @@
 
 この文書は当時のIssue記録です。2026年9月18日の6件のローカルテストと比較値を保持します。代替2方式による既存novel境界のmatchedへの反転を記録し、flat方式と現行閾値の維持、未採用のwarning閾値を明確に区別します。
 
+ここでいう**family**は同種の特徴をまとめた分類、**fixture**は条件を固定した比較用のテスト入力、**confidence**は候補の類似度を示すスコアである。各方式は同じfixtureと既存の判定閾値で比較する。
+
 ## Meta
 - Type: Evaluation / Design evidence
 - Status: Done
