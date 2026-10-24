@@ -256,18 +256,42 @@ func run(input []byte) ([]byte, error) {
 		}
 	case ".xml":
 		if isXMLSpreadsheet2003Bytes(bytes) {
-			return nil, errors.New(
-				"go-minimum does not yet implement the XML Spreadsheet 2003 table profile",
+			format = "xml-spreadsheet"
+			sheets, err := parseXMLSpreadsheet2003Sheets(bytes)
+			if err != nil {
+				return nil, err
+			}
+			candidates = make([]candidate, 0)
+			for _, sh := range sheets {
+				regions := detectRegions(sh.rows, sh.merges, maxScan)
+				for _, r := range regions {
+					candidates = append(
+						candidates,
+						toCandidate(
+							req.Source.Label,
+							sourceDigest,
+							sh.name,
+							sh.rows,
+							r,
+							sh.merges,
+							maxScan,
+						),
+					)
+				}
+			}
+			if len(candidates) == 0 {
+				candidates = []candidate{}
+			}
+		} else {
+			format = "xml"
+			candidates, err = xmlTreeCandidates(
+				bytes,
+				req.Source.Label,
+				sourceDigest,
 			)
-		}
-		format = "xml"
-		candidates, err = xmlTreeCandidates(
-			bytes,
-			req.Source.Label,
-			sourceDigest,
-		)
-		if err != nil {
-			return nil, err
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -1189,6 +1213,66 @@ type xlsxSheet struct {
 	name   string
 	rows   [][]string
 	merges []cellRange
+}
+
+type xmlSpreadsheetSheet struct {
+	name string
+	rows [][]string
+}
+
+// XML Spreadsheet 2003 structs for struct-based unmarshaling.
+type xmlSSWorkbook struct {
+	XMLName    xml.Name          `xml:"Workbook"`
+	Worksheets []xmlSSWorksheet  `xml:"Worksheet"`
+}
+type xmlSSWorksheet struct {
+	Name  string       `xml:"Name,attr"`
+	Table xmlSSTable   `xml:"Table"`
+}
+type xmlSSTable struct {
+	Rows []xmlSSRow `xml:"Row"`
+}
+type xmlSSRow struct {
+	Cells []xmlSSCell `xml:"Cell"`
+}
+type xmlSSCell struct {
+	Data xmlSSData `xml:"Data"`
+}
+type xmlSSData struct {
+	Type string `xml:"Type,attr"`
+	Text string `xml:",chardata"`
+}
+
+func parseXMLSpreadsheet2003Sheets(data []byte) ([]xlsxSheet, error) {
+	var wb xmlSSWorkbook
+	if err := xml.Unmarshal(data, &wb); err != nil {
+		return nil, fmt.Errorf("invalid XML Spreadsheet 2003: %w", err)
+	}
+	result := []xlsxSheet{}
+	for _, ws := range wb.Worksheets {
+		name := ws.Name
+		if name == "" {
+			name = fmt.Sprintf("Sheet%d", len(result)+1)
+		}
+		rows := [][]string{}
+		for _, row := range ws.Table.Rows {
+			cells := []string{}
+			for _, cell := range row.Cells {
+				val := strings.TrimSpace(cell.Data.Text)
+				cells = append(cells, val)
+			}
+			// pad? keep as-is (detectRegions handles ragged rows via cell())
+			rows = append(rows, cells)
+		}
+		if len(rows) == 0 {
+			rows = [][]string{}
+		}
+		result = append(result, xlsxSheet{name: name, rows: rows, merges: nil})
+	}
+	if len(result) == 0 {
+		result = append(result, xlsxSheet{name: "Sheet1", rows: [][]string{}, merges: nil})
+	}
+	return result, nil
 }
 
 func parseXLSXSheets(data []byte) ([]xlsxSheet, error) {

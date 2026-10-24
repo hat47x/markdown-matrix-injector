@@ -383,7 +383,7 @@ func TestXMLTreeRejectsDTDEncodingAndUndeclaredPrefixes(t *testing.T) {
 
 func TestXMLSpreadsheetDoesNotFallThroughToGenericTree(t *testing.T) {
 	source := `<?mso-application progid="Excel.Sheet"?>
-<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"/>`
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"><Worksheet ss:Name="Sheet1"><Table><Row><Cell><Data ss:Type="String">A</Data></Cell></Row></Table></Worksheet></Workbook>`
 	request := map[string]any{
 		"schema":    requestSchema,
 		"operation": "inspect",
@@ -397,12 +397,16 @@ func TestXMLSpreadsheetDoesNotFallThroughToGenericTree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if _, err := run(raw); err == nil ||
-		!strings.Contains(err.Error(), "XML Spreadsheet 2003") {
-		t.Fatalf(
-			"expected XML Spreadsheet 2003 profile rejection, got: %v",
-			err,
-		)
+	output, err := run(raw)
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	var resp response
+	if err := json.Unmarshal(output, &resp); err != nil {
+		t.Fatal(err)
+	}
+	if resp.Source.Format != "xml-spreadsheet" {
+		t.Fatalf("expected format xml-spreadsheet, got: %s", resp.Source.Format)
 	}
 }
 
