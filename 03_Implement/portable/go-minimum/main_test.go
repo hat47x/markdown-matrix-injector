@@ -266,6 +266,19 @@ func TestXLSMergedCellsConformanceCase(t *testing.T) {
 	}
 }
 
+func TestCP932ConformanceCase(t *testing.T) {
+	actualResponse := runConformanceCase(
+		t,
+		"cp932-table.case.json",
+	)
+	if got := actualResponse.Candidates[0].Locator.Range; got != "A1:B3" {
+		t.Fatalf("range mismatch: %s", got)
+	}
+	if got := actualResponse.Candidates[0].Reference; got != "![[./fixture.csv#Sheet1|A1:B3?header=first]]" {
+		t.Fatalf("reference mismatch: %s", got)
+	}
+}
+
 func TestCSVLeadingBlankRowsConformanceCase(t *testing.T) {
 	actualResponse := runConformanceCase(
 		t,
