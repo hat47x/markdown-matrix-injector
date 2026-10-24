@@ -6,9 +6,9 @@ issue-0203の比較用実装。production採用を決めるものではない。
 
 - `mmi.portable-core-request/v1` / response v1を使用する。
 - 標準ライブラリだけでbuildする。
-- UTF-8 CSVのdeterministic table Candidate、UTF-8 JSON / 汎用XMLの明示Tree Candidateに加え、UTF-8 XLSXの表Candidateを実装する。単一・複数シート、shared strings + inline strings に対応。archive/zip + encoding/xml で解析し、表領域検出は CSV と同一コードを再利用する（仮実装。merged cells・数式・スタイル・XML Spreadsheet 2003・CP932は未対応）。
-- XLSX、XML Spreadsheet 2003、CP932、provider-dependent処理は未対応である。`.xml`のXML Spreadsheet 2003 signatureは汎用Treeへ誤流入させずfail-closedで拒否する。
-- CSVの空行/空列分割、title/header判定、Candidate claim、provenance、fingerprint、referenceはTypeScript参照実装のCSV経路を移植する。
+- 標準ライブラリ + golang.org/x/text（CP932/shift_jis対応）でbuildする。CP932は仮の設計判断（stdlib-only制約からの逸脱）。
+- UTF-8/CP932 CSVのdeterministic table Candidate、UTF-8 JSON / 汎用XMLの明示Tree Candidate、UTF-8 XLSXの表Candidateを実装する。XLSXは単一・複数シート、shared/inline strings、タイトル行検出、merged cellsに対応。archive/zip + encoding/xml で解析し、表領域検出は CSV と同一コードを再利用する（仮実装。merged cellsのcolumn anchors、数式の再計算、スタイル/書式、XML Spreadsheet 2003は未対応または部分対応）。
+- XML Spreadsheet 2003、provider-dependent処理は未対応である。`.xml`のXML Spreadsheet 2003 signatureは汎用Treeへ誤流入させずfail-closedで拒否する。
 
 ## 実行
 

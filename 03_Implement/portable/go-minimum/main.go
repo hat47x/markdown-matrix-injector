@@ -19,6 +19,8 @@ import (
 	"strings"
 	"unicode/utf16"
 	"unicode/utf8"
+
+	"golang.org/x/text/encoding/japanese"
 )
 
 const (
@@ -184,7 +186,7 @@ func run(input []byte) ([]byte, error) {
 	if extension != ".csv" && extension != ".json" && extension != ".xml" && extension != ".xlsx" && extension != ".xlsm" {
 		return nil, errors.New("go-minimum currently supports CSV, JSON, generic XML, and XLSX")
 	}
-	if (extension == ".csv" || extension == ".json" || extension == ".xml") && !utf8.Valid(bytes) {
+	if (extension == ".json" || extension == ".xml") && !utf8.Valid(bytes) {
 		return nil, errors.New("go-minimum CSV/JSON/XML profile currently supports UTF-8 only")
 	}
 
@@ -196,7 +198,11 @@ func run(input []byte) ([]byte, error) {
 	switch extension {
 	case ".csv":
 		format = "csv"
-		rows, err := parseCSV(string(bytes))
+		text, err := decodeCSVBytes(bytes)
+		if err != nil {
+			return nil, err
+		}
+		rows, err := parseCSV(text)
 		if err != nil {
 			return nil, err
 		}
@@ -1137,6 +1143,33 @@ func ensureEOF(decoder *json.Decoder) error {
 	}
 	return errors.New("request JSON must contain exactly one value")
 }
+
+func decodeCSVBytes(bytes []byte) (string, error) {
+	// UTF-16 BOM rejection (matches TS workbookLoader.decodeCsv).
+	if len(bytes) >= 2 && (bytes[0] == 0xff && bytes[1] == 0xfe || bytes[0] == 0xfe && bytes[1] == 0xff) {
+		return "", errors.New("csvUtf16")
+	}
+	hasUtf8Bom := len(bytes) >= 3 && bytes[0] == 0xef && bytes[1] == 0xbb && bytes[2] == 0xbf
+	// Try UTF-8 first.
+	if utf8.Valid(bytes) {
+		return string(bytes), nil
+	}
+	if hasUtf8Bom {
+		return "", errors.New("csvInvalidUtf8")
+	}
+	// Fall back to shift_jis (CP932 / Windows-31J), matching TS TextDecoder('shift_jis').
+	dec := japanese.ShiftJIS.NewDecoder()
+	out, err := dec.Bytes(bytes)
+	if err != nil {
+		return "", errors.New("csvUnreadableEncoding")
+	}
+	// Ensure the result is valid UTF-8.
+	if !utf8.Valid(out) {
+		return "", errors.New("csvUnreadableEncoding")
+	}
+	return string(out), nil
+}
+
 
 func parseCSV(contents string) ([][]string, error) {
 	text := strings.TrimPrefix(contents, "\uFEFF")
