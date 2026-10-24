@@ -143,4 +143,4 @@ Coreのbinary sizeと、認知model/profileのartifact size（モデルや設定
 6. その後に`check` / `render` / `extract`を同じApplication contractへ移す。
 7. CLIとVS Codeのhost adapterを同じApplication APIへ収束させる。
 
-実行ファイルのサイズを理由に、Candidate契約やAuthority semantics（権限・検証に関わる意味）を弱めない。
+実行ファイルのサイズを理由に、Candidate契約やAuthority semanticsを弱めない。
