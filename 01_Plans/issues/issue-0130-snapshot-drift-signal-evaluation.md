@@ -1,4 +1,6 @@
-# Issue: snapshot → adapter → matcher 経路で multi-family drift signal を再評価する
+# Issue: snapshotからadapter・matcherへ至る経路で複数familyの変化を再評価する
+
+この文書は2026年9月18日時点の評価記録である。**snapshot**はworksheetのセル位置・値・結合・書式などを抽象化した観測データ、**adapter**はsnapshotを比較用特徴に変換する部品、**prototype**は同じ規則で作成した既知書式の基準である。**family**は特徴の種類別分類、**drift**は基準と観測の差、**corpus**は期待結果を持つ評価ケース集合、**confidence**は候補の類似度スコアを指す。**precision / recall / false-positive rate**はそれぞれ検知の適合率・対象の捕捉率・対象外の誤検知率である。ここでのsnapshotはテスト内で構築したもので、実XLSX readerによる生成結果やproductionでの受入を示さない。
 
 ## Meta
 - Type: Evaluation / Design evidence
@@ -18,7 +20,7 @@
 
 issue-0129では、feature文字列を直接構成した5 / 7 / 9列のheld-out corpusでmulti-family drift signalを比較した。
 
-そこではは次のとおりです。
+前回の比較では、次の傾向が確認された。
 
 - boundary warning: 高precision / low recall
 - matched DeviationScore: 差異量には反応するが表幅依存を受ける
@@ -26,9 +28,7 @@ issue-0129では、feature文字列を直接構成した5 / 7 / 9列のheld-out 
 - penalizing ablation-family count: sparse signature再構成のため不安定
 - boundary + deviation + different-family count: 18 synthetic casesでは完全
 
-という結果だった。
-
-ただしfeature文字列を直接構成するfixtureでは、次を通していない。
+ただし、この結果はfeature文字列を直接構成したfixtureに基づく。次の処理経路は通していなかった。
 
 1. `WorksheetFormatSnapshot`
 2. header選択
@@ -85,12 +85,10 @@ existing multi-family drift evaluator
 
 重要なのは、評価側でfeature extractionやsource-profile filteringを再実装していないこと。
 
-既存のは次のとおりです。
+既存の次の関数をそのまま利用する。
 
 - `createWorksheetFormatPrototype`
 - `matchWorksheetFormatSnapshot`
-
-をそのまま利用する。
 
 ## Corpus
 
@@ -150,12 +148,12 @@ evidence = [structure]
 
 structure-onlyでもraw snapshot側にはfillを置く。
 
-そのうえでは次のとおりです。
+そのうえで、rawと比較用の特徴集合について次を確認する。
 
 - `rawObservationFeatures` には `header:dark-fill` が存在
 - `comparedObservationFeatures` からはfillが除外
 
-されることを固定する。
+という違いを固定する。
 
 これにより、評価fixture自身がfillを作らなかったのではなく、**source profile境界で除外された**ことを確認できる。
 
@@ -338,7 +336,7 @@ snapshot adapterを通してもこの問題は残った。
 
 ### boundary OR deviation OR different-family count
 
-同じくは次のとおりです。
+3信号を組み合わせた場合も、結果は次のとおりである。
 
 ```text
 precision = 1.0
