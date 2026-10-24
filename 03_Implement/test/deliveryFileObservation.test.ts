@@ -20,6 +20,7 @@ function fixture() {
   fs.mkdirSync(path.join(excel, 'folder.xlsx'));
   return {
     root,
+    workspaceRoot: root,
     docs,
     excel,
     markdownFilePath: path.join(docs, 'delivery.md'),
