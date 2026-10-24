@@ -132,6 +132,10 @@ type block struct {
 	splitByRow, splitByCol   bool
 }
 
+type cellRange struct {
+	startRow, startCol, endRow, endCol int
+}
+
 type region struct {
 	top, bottom, left, right int
 	a1                       string
@@ -196,7 +200,7 @@ func run(input []byte) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		regions := detectRegions(rows, maxScan)
+		regions := detectRegions(rows, nil, maxScan)
 		candidates = make([]candidate, 0, len(regions))
 		for _, r := range regions {
 			candidates = append(
@@ -207,6 +211,7 @@ func run(input []byte) ([]byte, error) {
 					"Sheet1",
 					rows,
 					r,
+					nil,
 					maxScan,
 				),
 			)
@@ -233,7 +238,7 @@ func run(input []byte) ([]byte, error) {
 		}
 		candidates = make([]candidate, 0)
 		for _, sh := range sheets {
-			regions := detectRegions(sh.rows, maxScan)
+			regions := detectRegions(sh.rows, sh.merges, maxScan)
 			for _, r := range regions {
 				candidates = append(
 					candidates,
@@ -243,6 +248,7 @@ func run(input []byte) ([]byte, error) {
 						sh.name,
 						sh.rows,
 						r,
+						sh.merges,
 						maxScan,
 					),
 				)
@@ -1180,8 +1186,9 @@ func parseCSV(contents string) ([][]string, error) {
 }
 
 type xlsxSheet struct {
-	name string
-	rows [][]string
+	name   string
+	rows   [][]string
+	merges []cellRange
 }
 
 func parseXLSXSheets(data []byte) ([]xlsxSheet, error) {
@@ -1370,13 +1377,38 @@ func parseXLSXSheets(data []byte) ([]xlsxSheet, error) {
 		rows := map[int]map[int]string{}
 		maxRow, maxCol := 0, 0
 		dec := xml.NewDecoder(rc)
+		var merges []cellRange
 		for {
 			tok, err := dec.Token()
 			if err != nil {
 				break
 			}
 			se, ok := tok.(xml.StartElement)
-			if !ok || se.Name.Local != "c" {
+			if !ok {
+				continue
+			}
+			if se.Name.Local == "mergeCell" {
+				var ref string
+				for _, a := range se.Attr {
+					if a.Name.Local == "ref" {
+						ref = a.Value
+					}
+				}
+				if ref != "" {
+					// parse ref like "A1:C1" or "A1"
+					parts := strings.Split(ref, ":")
+					if len(parts) == 1 {
+						parts = append(parts, parts[0])
+					}
+					r1, c1 := parseCellRef(parts[0])
+					r2, c2 := parseCellRef(parts[1])
+					if r1 > 0 && c1 > 0 && r2 > 0 && c2 > 0 {
+						merges = append(merges, cellRange{startRow: r1 - 1, startCol: c1 - 1, endRow: r2 - 1, endCol: c2 - 1})
+					}
+				}
+				continue
+			}
+			if se.Name.Local != "c" {
 				continue
 			}
 			var ref, t string
@@ -1467,7 +1499,7 @@ func parseXLSXSheets(data []byte) ([]xlsxSheet, error) {
 		rc.Close()
 
 		if maxRow == 0 || maxCol == 0 {
-			result = append(result, xlsxSheet{name: sh.name, rows: [][]string{}})
+			result = append(result, xlsxSheet{name: sh.name, rows: [][]string{}, merges: merges})
 			continue
 		}
 		out := make([][]string, maxRow)
@@ -1481,10 +1513,10 @@ func parseXLSXSheets(data []byte) ([]xlsxSheet, error) {
 				}
 			}
 		}
-		result = append(result, xlsxSheet{name: sh.name, rows: out})
+		result = append(result, xlsxSheet{name: sh.name, rows: out, merges: merges})
 	}
 	if len(result) == 0 {
-		result = append(result, xlsxSheet{name: "Sheet1", rows: [][]string{}})
+		result = append(result, xlsxSheet{name: "Sheet1", rows: [][]string{}, merges: nil})
 	}
 	return result, nil
 }
@@ -1518,7 +1550,17 @@ func parseCellRef(ref string) (int, int) {
 	return row, col
 }
 
-func detectRegions(rows [][]string, maxScan int64) []region {
+func isSingleMerge(merges []cellRange, b block) bool {
+	for _, m := range merges {
+		if m.startRow <= b.top && m.endRow >= b.bottom &&
+			m.startCol <= b.left && m.endCol >= b.right {
+			return true
+		}
+	}
+	return false
+}
+
+func detectRegions(rows [][]string, merges []cellRange, maxScan int64) []region {
 	if len(rows) == 0 {
 		return []region{}
 	}
@@ -1553,6 +1595,23 @@ func detectRegions(rows [][]string, maxScan int64) []region {
 			}
 		}
 	}
+	// Mark merged ranges as occupied (TS parity: regionDetector lines 98-103).
+	for _, m := range merges {
+		if m.startRow > lastRow {
+			continue
+		}
+		for row := m.startRow; row <= m.endRow && row <= lastRow; row++ {
+			for col := m.startCol; col <= m.endCol; col++ {
+				if col >= width {
+					continue
+				}
+				if occupied[row] == nil {
+					occupied[row] = map[int]bool{}
+				}
+				occupied[row][col] = true
+			}
+		}
+	}
 	blocks := findBlocks(occupied)
 	consumed := map[int]bool{}
 	titleFor := map[int]int{}
@@ -1562,7 +1621,7 @@ func detectRegions(rows [][]string, maxScan int64) []region {
 			continue
 		}
 		cells := occupiedCellsIn(occupied, candidate)
-		if len(cells) != 1 {
+		if len(cells) != 1 && !isSingleMerge(merges, candidate) {
 			continue
 		}
 		for oi, other := range blocks {
@@ -1603,7 +1662,7 @@ func detectRegions(rows [][]string, maxScan int64) []region {
 		} else if b.bottom > top && b.right > b.left {
 			first := occupiedCellsInRow(occupied, top, b)
 			second := occupiedCellsInRow(occupied, top+1, b)
-			if len(first) == 1 && len(second) >= 2 {
+			if (len(first) == 1 || isSingleMerge(merges, block{top: top, bottom: top, left: b.left, right: b.right})) && len(second) >= 2 {
 				title = strings.TrimSpace(cell(rows, top, first[0]))
 				titleA1 = a1(top, first[0])
 				top++
@@ -1625,6 +1684,15 @@ func detectRegions(rows [][]string, maxScan int64) []region {
 		}
 		if b.right-b.left+1 == 1 {
 			reasons = append(reasons, "single-column")
+		}
+		// contains-merged-cells: TS parity (regionDetector line 168)
+		rangeRect := struct{ sr, sc, er, ec int }{top, b.left, b.bottom, b.right}
+		for _, m := range merges {
+			if m.startRow <= rangeRect.er && m.endRow >= rangeRect.sr &&
+				m.startCol <= rangeRect.ec && m.endCol >= rangeRect.sc {
+				reasons = append(reasons, "contains-merged-cells")
+				break
+			}
 		}
 
 		confidence, headers := classifyHeader(rows, top, b.bottom, b.left, b.right)
@@ -1746,7 +1814,7 @@ func classifyHeader(rows [][]string, top, bottom, left, right int) (string, []st
 	return "uncertain", texts
 }
 
-func toCandidate(source, sourceDigest, sheetName string, rows [][]string, r region, maxScan int64) candidate {
+func toCandidate(source, sourceDigest, sheetName string, rows [][]string, r region, merges []cellRange, maxScan int64) candidate {
 	claims := []claim{
 		{
 			Aspect: "location", Value: r.a1, Status: "observed",

@@ -497,7 +497,7 @@ func TestCSVRegionCoordinatesIncludeLeadingBlankRecords(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	regions := detectRegions(rows, 1_000)
+	regions := detectRegions(rows, nil, 1_000)
 	if len(regions) != 1 {
 		t.Fatalf("regions: got %d want 1: %#v", len(regions), regions)
 	}
