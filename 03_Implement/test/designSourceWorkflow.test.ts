@@ -5,7 +5,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import XLSX from 'xlsx';
-import { compareAttributes } from '../src/application/sourceIdAttributes.js';
+import { compareAttributes, type AttributeSelectionInput } from '../src/application/sourceIdAttributes.js';
 
 test('compiled CLI carries inventory identities through cells and three-source comparison, without accepting missing attribute selections', (t) => {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-design-workflow-'));
@@ -57,7 +57,7 @@ test('compiled CLI carries inventory identities through cells and three-source c
 });
 
 test('coverage is scoped to each matched ID and namespace; absent observations also retain the expected locator', () => {
-  const selections = [{ attributes: { 型: 'D' } }, {}, { attributes: { 条件: 'E' } }];
+  const selections: AttributeSelectionInput[] = [{ attributes: { 型: 'D' } }, {}, { attributes: { 条件: 'E' } }];
   const occurrences = [0, 1, 2].map((selection) => ({ selection, address: 'C5', id: 'ID', row: 5 }));
   const groups = [{ namespace: 'data', id: 'ID', definitions: [0], references: [1] },
     { namespace: 'business', id: 'ID', definitions: [2], references: [] }];
