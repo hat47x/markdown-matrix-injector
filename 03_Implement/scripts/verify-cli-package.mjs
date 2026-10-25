@@ -317,6 +317,51 @@ export function verifyCliPackage(tarballPath) {
     );
   }
 
+  const auditArgs = [
+    'html-audit', 'design.html', '--plan', 'html-commit-plan.json',
+    '--root', '.', '--json',
+  ];
+  const htmlAudit = run(bin, auditArgs, workspace);
+  let auditedHtml;
+  try {
+    auditedHtml = JSON.parse(htmlAudit.stdout);
+  } catch {
+    throw new Error(
+      `mmi html-audit returned invalid JSON:\n${htmlAudit.stderr || htmlAudit.stdout}`,
+    );
+  }
+  if (htmlAudit.status !== 0
+    || auditedHtml.status !== 'complete'
+    || auditedHtml.consistentAtObservation !== true
+    || auditedHtml.files?.length !== 2
+    || auditedHtml.files.some((file) =>
+      file.file !== 'matching' || file.ledger !== 'matching')) {
+    throw new Error(
+      `mmi html-audit failed to confirm two-file batch:\n${htmlAudit.stderr || htmlAudit.stdout}`,
+    );
+  }
+  // A non-destructive audit must not silently recreate a missing output.
+  const htmlApiOutput = path.join(docs, 'api.html');
+  const apiBytes = fs.readFileSync(htmlApiOutput);
+  fs.unlinkSync(htmlApiOutput);
+  const incompleteAudit = run(bin, auditArgs, workspace);
+  let incomplete;
+  try {
+    incomplete = JSON.parse(incompleteAudit.stdout);
+  } catch {
+    throw new Error(
+      `mmi html-audit did not produce diagnostics for missing output:\n${incompleteAudit.stderr || incompleteAudit.stdout}`,
+    );
+  }
+  if (incompleteAudit.status === 0 || incomplete.status !== 'incomplete'
+    || !incomplete.files?.some((file) =>
+      file.output === 'docs/api.html' && file.file === 'missing')
+    || fs.existsSync(htmlApiOutput)) {
+    throw new Error('mmi html-audit incorrectly accepted or repaired missing HTML output');
+  }
+  // Restore fixture bytes in this isolated verification workspace only.
+  fs.writeFileSync(htmlApiOutput, apiBytes);
+
   const htmlExtract = run(
     bin,
     [
@@ -619,6 +664,8 @@ export function verifyCliPackage(tarballPath) {
         htmlExtract: 'passed',
         htmlLedger: 'passed',
         htmlBatchCommit: 'passed',
+        htmlReadOnlyAudit: 'passed',
+        htmlAuditDetectsMissing: 'passed',
       },
     };
   } finally {
