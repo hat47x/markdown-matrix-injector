@@ -54,17 +54,25 @@ export function compareAttributes(
   groups: Iterable<IdGroup>,
 ): AttributeComparison[] {
   const out: AttributeComparison[] = [];
-  const names = [...new Set(selections.flatMap((selection) => Object.keys(selection.attributes ?? {})))];
   for (const group of groups) {
     const indexes = [...group.definitions, ...group.references];
+    const names = [...new Set(indexes.flatMap((index) => Object.keys(selections[occurrences[index].selection].attributes ?? {})))];
     for (const attribute of names) {
       const values: AttributeComparison['values'] = [];
       const gaps: AttributeComparison['gaps'] = [];
       for (const occurrenceIndex of indexes) {
         const occurrence = occurrences[occurrenceIndex];
-        if (!selections[occurrence.selection].attributes?.[attribute]) continue;
+        const column = selections[occurrence.selection].attributes?.[attribute];
+        if (!column) {
+          // No attribute coordinate was selected; point reviewers to this ID's cell instead.
+          gaps.push({ selection: occurrence.selection, occurrence: occurrenceIndex, address: occurrence.address, reason: 'attribute-not-selected' });
+          continue;
+        }
         const observed = observations.find((entry) => entry.selection === occurrence.selection && entry.attribute === attribute && entry.row === occurrence.row);
-        if (!observed) continue;
+        if (!observed) {
+          gaps.push({ selection: occurrence.selection, occurrence: occurrenceIndex, address: `${column}${occurrence.row}`, reason: 'not-observed' });
+          continue;
+        }
         if (observed.gap) {
           gaps.push({ selection: occurrence.selection, occurrence: occurrenceIndex, address: observed.address, reason: observed.gap });
           continue;
