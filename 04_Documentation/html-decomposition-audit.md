@@ -53,6 +53,22 @@ mmi html-audit project/source.html --root project --plan project/reviewed.json
 
 `<...>`は説明用プレースホルダーです。実際のDigestはCLIが出力した値で確認してください。
 
+## MCPからの読み取り専用監査
+
+MCPサーバ（`mmi-mcp`）の`html-audit`ツールから、同じレビュー済みmanifestとLedgerを確認できます。既存`html-commit`の書込み機能はMCPに公開されません。
+
+ツール引数の例：
+
+```json
+{
+  "source": "source.html",
+  "plan": "reviewed.json",
+  "ledger": "mmi-ledger.json"
+}
+```
+
+パスはMCPサーバを起動したWorkspace rootを基準に解決します。CLIで`--json`を指定したときと同じ監査JSONを返します。`incomplete`、`stale`、`blocked`は有効な監査結果であり、MCPのツールエラーではありません。追加の`commit`や`write`引数は拒否し、ファイルは変更しません。実際の外部AIクライアントからの受入確認は別途必要です。
+
 ## 判定結果と対処
 
 | `status` | 意味 | 次に確認すること |
