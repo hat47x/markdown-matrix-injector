@@ -22,7 +22,7 @@
 
 ## Decision (決定事項)
 1. **追加専用の生成ガイドを新設する**。既存のdocs用CSV（`phase9-rule-table-benchmark-pack.csv`）を唯一の入力とし、
-   `01_Plans/tools/generate_phase9_pattern_guide.py` が `04_Documentation/samples/phase9-rule-table-pattern-guide.md`
+   `03_Implement/tools/generate_phase9_pattern_guide.py` が `04_Documentation/samples/phase9-rule-table-pattern-guide.md`
    を機械的に生成する。ガイドはMMI拡張機能を一切インストールせずに読める汎用Markdownとし、`QueryExample` は
    各表ごとに明示的な「任意: MMIで問い合わせる」コールアウト内にのみ収め、`RelatedTest`（MMI内部の回帰テスト
    ポインタで一般読者に無価値）はガイドに一切出力しない。
@@ -87,8 +87,8 @@
   `ADR-0008-phase9-template-sync-quality-gate-hardening.md`（同種の二段階強化の先例）,
   `ADR-0012-mission-redefinition-notation-as-governance-boundary.md`（D7の決定根拠）
 - Related issue: `issue-0104-phase9-standalone-pattern-guide.md`
-- Unaffected contracts (verified untouched): `01_Plans/tools/check_phase9_template_sync.py`,
-  `03_Implement/test/markdownMatrixPlugin.test.ts`, `01_Plans/tools/release_gate_check.py`（G3）
+- Unaffected contracts (verified untouched): `03_Implement/tools/check_phase9_template_sync.py`,
+  `03_Implement/test/markdownMatrixPlugin.test.ts`, `03_Implement/tools/release_gate_check.py`（G3）
 
 ## 議事録 (AI読込不要)
 ### Issue Definition

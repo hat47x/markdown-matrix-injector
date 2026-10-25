@@ -43,8 +43,8 @@ Phase 10を「採用運用ガバナンス自動化」と定義し、運用エビ
 
 ## Traceability (関連情報)
 - Related requirements: `00_Prompt/requirements.md` (Phase 10)
-- Related issue: `01_Plans/issues/issue-0084-phase10-governance-reporting-foundation.md`
-- Evidence command: `python3 01_Plans/tools/planning_queue.py`
+- Related issue: `04_Documentation/history/issues/issue-0084-phase10-governance-reporting-foundation.md`
+- Evidence command: `python3 03_Implement/tools/planning_queue.py`
 
 ## 議事録 (AI読込不要)
 ### Issue Definition

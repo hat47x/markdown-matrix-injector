@@ -44,7 +44,7 @@ Windows版VS Codeに0.1.0の候補VSIXをインストールし、表・別紙・
 - OSネイティブの貼付け／ドロップの最終イベント配送。Extension Hostのプロバイダ検査とは区別します。
 - Marketplaceでの公開・導入、他OSや別バージョンの実機動作、実顧客の業務成果。
 
-[issue-0100](../01_Plans/issues/issue-0100-phase11-card-open-button.md)と[issue-0109](../01_Plans/issues/issue-0109-release-user-experience.md)は、今回の受入条件を満たしたためDoneに更新しました。これを未検証環境への動作保証と解釈しません。
+[issue-0100](history/issues/issue-0100-phase11-card-open-button.md)と[issue-0109](history/issues/issue-0109-release-user-experience.md)は、今回の受入条件を満たしたためDoneに更新しました。これを未検証環境への動作保証と解釈しません。
 
 ## 再現手順
 

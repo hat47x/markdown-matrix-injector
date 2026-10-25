@@ -1,7 +1,7 @@
 # 既存設計書の取り込み支援
 
 - 状態: 試作（エンジン・VS Codeコマンド・単体テスト・架空データでの評価・拡張機能ホストでの確認まで）。画面操作の目視確認と、利用者による価値確認は未実施。
-- 関連: [ADR-0019](../01_Plans/adr/ADR-0019-ai-era-sier-document-value-and-policy.md) D7優先度2、[ADR-0018](../01_Plans/adr/ADR-0018-cognitive-assistance-plane.md)（認知補助の境界）、[ADR-0017 書式補助](../01_Plans/adr/ADR-0017-fly-inspired-format-deviation-assistance.md)、[issue-0205](https://github.com/hat47x/markdown-matrix-injector/issues/508)、[認知機能の仮説カード](../01_Plans/cognitive-hypothesis-cards.md)
+- 関連: [ADR-0019](../01_Plans/adr/ADR-0019-ai-era-sier-document-value-and-policy.md) D7優先度2、[ADR-0018](../01_Plans/adr/ADR-0018-cognitive-assistance-plane.md)（認知補助の境界）、[ADR-0017 書式補助](../01_Plans/adr/ADR-0017-fly-inspired-format-deviation-assistance.md)、[issue-0205](https://github.com/hat47x/markdown-matrix-injector/issues/508)、[認知機能の仮説カード](research/cognitive-hypothesis-cards.md)
 
 既存のExcel設計書（セルを細かく区切った方眼紙形式を含む）をMarkdownへ移すとき、どの表を参照として残し、何を本文へ移し、何を取り込まないかは人が決める。本設計は、その判断を支援する候補を示し、表については正本（参照元のExcelファイル）どおりに描画できる参照を提案する。
 

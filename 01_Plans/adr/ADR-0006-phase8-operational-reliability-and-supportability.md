@@ -7,7 +7,7 @@
 - Informed: Documentation / Implementation maintainers
 
 ## Context (背景と課題)
-- `01_Plans/tools/planning_queue.py` の結果でpending issue / ADRは0件となり、Phase 7のrelease gate automationは一巡した。
+- `03_Implement/tools/planning_queue.py` の結果でpending issue / ADRは0件となり、Phase 7のrelease gate automationは一巡した。
 - 一方で公開後運用を想定すると、失敗時の切り分け時間、現場サポートの再現性、保守作業の属人化が次のボトルネックになる。
 - 新機能を追加する前に、既存機能を「壊れた時に早く直せる状態」へ引き上げる運用設計が必要。
 
@@ -48,8 +48,8 @@ Phase 8を「Operational Reliability & Supportability」と定義し、以下の
 
 ## Traceability (関連情報)
 - Related requirements: `00_Prompt/requirements.md` (Phase 8追記)
-- Related issue: `01_Plans/issues/issue-0065-phase8-operational-reliability-foundation.md`
-- Evidence command: `python3 01_Plans/tools/planning_queue.py`
+- Related issue: `04_Documentation/history/issues/issue-0065-phase8-operational-reliability-foundation.md`
+- Evidence command: `python3 03_Implement/tools/planning_queue.py`
 
 ## 議事録 (AI読込不要)
 ### Issue Definition

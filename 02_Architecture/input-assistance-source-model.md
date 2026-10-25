@@ -101,7 +101,7 @@ SheetJSはこの4項目を再計算なしに提供する。実測した例。
 
 ### 切り出し
 
-実体化の前に必ず寸法を算術で評価する（[レビューR3](../01_Plans/input-assistance-design-review.md)）。案Dでも、範囲省略時に`usedRange`全体を、あるいは全シート相当の明示範囲をそのまま矩形化すれば、巨大な疎シートで停止する。順序を契約として固定する。
+実体化の前に必ず寸法を算術で評価する（[レビューR3](../04_Documentation/history/input-assistance/input-assistance-design-review.md)）。案Dでも、範囲省略時に`usedRange`全体を、あるいは全シート相当の明示範囲をそのまま矩形化すれば、巨大な疎シートで停止する。順序を契約として固定する。
 
 ```
 1. 住所を検証する            範囲外・0・逆順・桁あふれを棄却
@@ -155,7 +155,7 @@ SheetJSはこの4項目を再計算なしに提供する。実測した例。
 - ISO表記を求めるなら、記法のパラメータとして明示的に足す。読込み時に全体を書き換えない。
 - どちらにしても、効果の範囲を正しく述べるようコメントを修正する。
 
-この選択は既存文書の表示を変えるため、[レビューR5](../01_Plans/input-assistance-design-review.md)に従いissue-0114の必須条件にしない。 既存表示との差分を整理し、実装時にユーザー確認を得る。
+この選択は既存文書の表示を変えるため、[レビューR5](../04_Documentation/history/input-assistance/input-assistance-design-review.md)に従いissue-0114の必須条件にしない。 既存表示との差分を整理し、実装時にユーザー確認を得る。
 
 ## 6. クリップボード照合との接点
 
@@ -189,11 +189,11 @@ ELECTRON_RUN_AS_NODE=1 "<VS Codeのインストール先>/Code.exe" 03_Implement
 
 回帰試験にはExcelを必要としない。 SheetJSで`!ref`を`C5:F12`にし9行目を空にしたブックを書き出すと、Excelが作ったブックと同一の結果（現行実装で3行`[["取消済","合格"],["ST-002"],["完了","合格"]]`）になることを確認済み。既存の`test/workbookCache.test.ts`と同じく一時ディレクトリへ`XLSX.write`する方式を使い、バイナリをリポジトリへ追加しない。
 
-ハーネスのスクリプトは製品関数を複製しているため、回帰試験として使わない（[レビュー](../01_Plans/input-assistance-design-review.md)）。製品コードを直接呼ぶテストへ置き換える。
+ハーネスのスクリプトは製品関数を複製しているため、回帰試験として使わない（[レビュー](../04_Documentation/history/input-assistance/input-assistance-design-review.md)）。製品コードを直接呼ぶテストへ置き換える。
 
 ## 実装結果（2026-09-11）
 
-[設計レビュー](../01_Plans/input-assistance-design-review.md)のR3/R5に従い実装した。日付比較ハーネスの`w`キャッシュ再利用は修正済み（§5の表は独立オブジェクトでの再測定値）。`SourceCell.text`は`XLSX.read()`が計算する`.w`をそのまま用いており、旧`sheet_to_json({raw:false})`の出力と1件ずつ突き合わせて一致を確認した（相違点はエラーセルの表示のみで、これは意図した修正）。`w`が無いケース（`z`型のスタブセル）は「セルなし」として扱い、`sliceRegion`が空文字で埋める。
+[設計レビュー](../04_Documentation/history/input-assistance/input-assistance-design-review.md)のR3/R5に従い実装した。日付比較ハーネスの`w`キャッシュ再利用は修正済み（§5の表は独立オブジェクトでの再測定値）。`SourceCell.text`は`XLSX.read()`が計算する`.w`をそのまま用いており、旧`sheet_to_json({raw:false})`の出力と1件ずつ突き合わせて一致を確認した（相違点はエラーセルの表示のみで、これは意図した修正）。`w`が無いケース（`z`型のスタブセル）は「セルなし」として扱い、`sliceRegion`が空文字で埋める。
 
 `measureRegion`がセルへ一切触れずに寸法を返すことは、`cellAt`が呼ばれたら例外を投げるテスト用`SheetSource`で保証した（`test/tableGeometry.test.ts`）。詳細な変更内容とテスト一覧は[issue-0114](https://github.com/hat47x/markdown-matrix-injector/issues/495)の「Bの完了内容」節を参照。
 

@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-03-24
 - Deciders: Project Maintainers
-- Scope: `01_Plans/adr/`, `01_Plans/issues/`, `02_Architecture/`, `04_Documentation/`
+- Scope: `01_Plans/adr/`, `04_Documentation/history/issues/`, `02_Architecture/`, `04_Documentation/`
 
 ## Context (背景と課題)
 - Phase 6の基盤（4層ドキュメント構造とfeedback loop）は `ADR-0002` で確定したが、次に何をどの順番で進めると採用価値が最大化されるかは実行計画まで落ちていない。
@@ -47,7 +47,7 @@ Phase 6の次イテレーションは、以下の4ストリームで実行する
 
 ## Traceability (関連情報)
 - Related ADRs: `01_Plans/adr/ADR-0001-documentation-governance.md`, `01_Plans/adr/ADR-0002-phase6-documentation-feedback-loop.md`
-- Related Issues: `01_Plans/issues/issue-0015-phase6-public-docs-foundation.md`, `01_Plans/issues/issue-0016-phase6-adoption-fast-path.md`, `01_Plans/issues/issue-0017-phase6-scenario-roi-proof.md`, `01_Plans/issues/issue-0018-phase6-reference-trustworthiness.md`, `01_Plans/issues/issue-0019-phase6-feedback-loop-operations.md`, `01_Plans/issues/issue-0020-phase6-value-kpi-and-audit-scorecard.md`
+- Related Issues: `04_Documentation/history/issues/issue-0015-phase6-public-docs-foundation.md`, `04_Documentation/history/issues/issue-0016-phase6-adoption-fast-path.md`, `04_Documentation/history/issues/issue-0017-phase6-scenario-roi-proof.md`, `04_Documentation/history/issues/issue-0018-phase6-reference-trustworthiness.md`, `04_Documentation/history/issues/issue-0019-phase6-feedback-loop-operations.md`, `04_Documentation/history/issues/issue-0020-phase6-value-kpi-and-audit-scorecard.md`
 
 ## 議事録 (AI読込不要)
 ### Issue Definition

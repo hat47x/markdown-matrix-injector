@@ -2,7 +2,7 @@
 
 > このガイドは Markdown Matrix Injector (MMI) や VS Code を一切インストールせずに読める、汎用的な SIer 設計文書向け表パターン集です。各パターンは Word / Excel / 任意の Markdown ビューアでもそのまま活用できます。MMI によるクエリ例は各表の末尾に **任意** の補足として示していますが、本ガイドの利用に MMI は必須ではありません。
 
-生成元データ: `phase9-rule-table-benchmark-pack.csv`（本ガイドは `01_Plans/tools/generate_phase9_pattern_guide.py` により機械生成されます。直接編集しないでください）。
+生成元データ: `phase9-rule-table-benchmark-pack.csv`（本ガイドは `03_Implement/tools/generate_phase9_pattern_guide.py` により機械生成されます。直接編集しないでください）。
 
 ## RequirementsTraceability
 

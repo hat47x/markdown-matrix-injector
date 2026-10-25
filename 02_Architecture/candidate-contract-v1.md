@@ -1,7 +1,7 @@
 # Semantic Candidate 契約 v1
 
 - 状態: 実装済み（型・不変条件・表・画像・Choice list・AutoShape/connector・JSON/YAML/XML Tree、フラットテキストとExcel / CSVの推定Tree、`mmi inspect --json`、`mmi extract`、Candidateレビュー）。2026-10-03のIssue #417で認識論上の状態と採用状態を分離した。AutoShape/connectorは観測・レビューまで実装し、Extracted変換は未実装。graphic frameは未解釈の警告として残す。Word（.docx）は見出し・表・画像・コメントを観測し、表・画像の明示抽出まで実装した（2026-10-20、issue-0531）。
-- 関連: [ADR-0019](../01_Plans/adr/ADR-0019-ai-era-sier-document-value-and-policy.md) D4・D6・D8、[ADR-0018](../01_Plans/adr/ADR-0018-cognitive-assistance-plane.md) D1〜D5、[ADR-0020](../01_Plans/adr/ADR-0020-requirement-oriented-cognition-method-selection.md)、[issue-0193](../01_Plans/issues/issue-0193-candidate-source-adapter-contract.md)
+- 関連: [ADR-0019](../01_Plans/adr/ADR-0019-ai-era-sier-document-value-and-policy.md) D4・D6・D8、[ADR-0018](../01_Plans/adr/ADR-0018-cognitive-assistance-plane.md) D1〜D5、[ADR-0020](../01_Plans/adr/ADR-0020-requirement-oriented-cognition-method-selection.md)、[issue-0193](../04_Documentation/history/issues/issue-0193-candidate-source-adapter-contract.md)
 - 実装: `src/core/candidate.ts`（型とruntime不変条件）、`src/core/candidateContract.ts`（公開JSON Schema）、`src/adapters/tableRegionAdapter.ts`、`src/adapters/excelImageAdapter.ts`、`src/adapters/excelChoiceListAdapter.ts`、`src/adapters/jsonTreeAdapter.ts`、`src/adapters/yamlTreeAdapter.ts`、`src/adapters/xmlTreeAdapter.ts`、`src/adapters/flatTextTreeStructuralizer.ts`、`src/adapters/tabularHierarchyAdapter.ts`
 
 Candidateは、Source Adapterが見つけた「情報の単位」を、取り込み・参照・レビュー・台帳が共通に扱うための型である。入力形式とMarkdown出力を直接結ばず、Source Adapter → Observed Structure → Candidate → 確認／参照／取り込み、の順に流す（ADR-0019 D4）。
@@ -158,7 +158,7 @@ Choice listは`inspect`、通常のCandidateレビュー、一括取り込みに
 
 ### fingerprint（暫定）
 
-表のfingerprintは、範囲の**表示セル値の列**（セルを`U+001F`、行を`U+001E`で連結）のsha256とし、`representation`は`table-display-cells-v1`とする。**位置を含めない**ので、表が別の行へ動いても同じfingerprintになり、セルを1つ変えると変わる。位置は`locator`が別に持つ。ADR-0019 D8のとおり方式は種別ごとに異なってよい。台帳での使い方（移動・再取り込みの判定）は[issue-0195](../01_Plans/issues/issue-0195-import-ledger.md)で確定し、必要なら`representation`を上げる。
+表のfingerprintは、範囲の**表示セル値の列**（セルを`U+001F`、行を`U+001E`で連結）のsha256とし、`representation`は`table-display-cells-v1`とする。**位置を含めない**ので、表が別の行へ動いても同じfingerprintになり、セルを1つ変えると変わる。位置は`locator`が別に持つ。ADR-0019 D8のとおり方式は種別ごとに異なってよい。台帳での使い方（移動・再取り込みの判定）は[issue-0195](../04_Documentation/history/issues/issue-0195-import-ledger.md)で確定し、必要なら`representation`を上げる。
 
 ## 4. CLI
 
@@ -205,7 +205,7 @@ Choice listは`inspect`、通常のCandidateレビュー、一括取り込みに
 
 ### 実コードと食い違っていた記述（訂正）
 
-[ギャップ分析](../01_Plans/product-gap-analysis.md)の旧§5は、次を研究済みの成果として並べていたが、実コードでは生成されていない。
+[ギャップ分析](product-gap-analysis.md)の旧§5は、次を研究済みの成果として並べていたが、実コードでは生成されていない。
 
 - `region.hierarchy_relation`、`region.repeated_block`、`ambiguous_or_non_table`は、`structuredArtifactNeutralObservation.ts`に**ラベル名として宣言があるだけ**で、`src`にも`test`にも出力する生成コードが無い。中立アダプタは`labels: {}`を返し、ラベルを持つのは合成fixtureの正解側だけである。
 - この研究ラベル自体を生成する製品コードは現在も無い。一方、Tree / Hierarchyは研究ラベルを経由せず、JSON/YAML/XMLの明示構造と、フラットテキスト・Excel / CSVの決定論的な推定から製品Adapterを実装した。Excel Data Validationのlistは独立した`choice-list` Candidate、AutoShape/connectorは`shape` Candidateとして実装済みである。Note、Section、graphic frame等は未実装である。

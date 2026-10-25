@@ -1,0 +1,54 @@
+# Issue: Phase 6で観測テンプレートの補完と挿入を整えるMVP
+
+この文書は、当時の観測テンプレート挿入MVPの提案と完了状態を残したIssue記録です。以下のチェック項目と2026年3月29日の検証結果は当時の内容であり、現在の実装や動作を新たに確認したものではありません。
+
+## Meta
+- Type: Feature
+- Status: Done
+- Priority: High
+- Scope: `03_Implement/src/extension.ts`, `03_Implement/src/dx/autocompleteProvider.ts`, `03_Implement/test/`
+- Expected verification level: unit + manual-e2e
+
+## Traceability
+- Related Backlog/Phase: Phase 5 DX / Phase 6 Documentation feedback loop
+- Related ADR/Spec: `01_Plans/adr/ADR-0004-phase6-product-gap-implementation-sequencing.md`, `04_Documentation/history/issues/issue-0021-phase6-scenario-product-gap-followup.md`, `04_Documentation/scenario-sier-design-docs.md`
+
+## 当時の実行計画
+### 解決方針（当時の提案）
+- 主な利用方法は、`autocompleteProvider`がMarkdownの入力状況に応じてテンプレート候補を示す方式とする。同じ見出しがすでにある場合は候補を抑制し、通常のコマンド操作には影響を与えない。
+- テンプレートをまとめて挿入する機能は、開発・検証用コマンド`markdownMatrixInjector.__dev.insertScenarioObservationTemplate`に限定し、一般向けのコマンドパレットには公開しない。
+
+### 受入条件（Acceptance criteria）
+- [x] 開発/検証用コマンド経由で観測テンプレートを挿入できる。
+- [x] テンプレート補完候補が適切な文脈で表示され、重複時に抑制される。
+- [x] 既存 `![[...]]` 系補完・パース挙動を壊さない。
+- [x] docs-check / unit / manual-e2eの検証結果をIssueに記録する。
+
+### 作業項目（Task breakdown）
+- [x] `extension.ts` に開発/検証用コマンド登録と挿入処理を追加する。
+- [x] `autocompleteProvider.ts` にテンプレート候補ロジックを追加する。
+- [x] 該当ユニットテストを追加・更新する。
+- [x] 既存テストを実行し回帰なしを確認する。
+
+### 当時の検証計画（Validation plan）
+- `cd 03_Implement && npm test -- autocompleteProvider`
+- `cd 03_Implement && npm test`
+- `cd 03_Implement && npm run package`
+- `python3 03_Implement/tools/planning_queue.py`
+
+## Notes
+- 非対象: クエリ履歴CSV/JSON出力（issue-0023で対応）。
+
+## Validation evidence (実行証跡)
+### 2026-03-29 (UTC)
+- Run date (UTC): `2026-03-29`
+- Executor: `agent`
+- Commands:
+  - `cd 03_Implement && npm test`
+  - `python3 03_Implement/tools/planning_queue.py`
+- Result summary:
+  - `npm test` で103 tests passed（fail 0）を確認。
+  - 新規追加した観測テンプレート補助ロジックの単体テストを含めて回帰なし。
+  - planning queue上でissue-0023のみpendingとして残る状態を確認。
+- Status decision:
+  - Snippet MVPの受入条件を満たしたため `Status: Done` に更新。

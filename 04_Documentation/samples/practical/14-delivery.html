@@ -1,0 +1,295 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><title>申請システム 基本設計書</title><meta name="author" content="架空システムズ株式会社"><meta name="description" content="申請・承認システム更改プロジェクト"><meta name="keywords" content="SD-APP-0001, 社外秘"><meta name="generator" content="Markdown Matrix Injector"><style>
+/*
+ * Markdown Matrix Injector — VS Code Markdown preview styles.
+ *
+ * Contributed via package.json `contributes.markdown.previewStyles`. This file
+ * styles every class/attribute emitted by the renderers in src/core/*:
+ *   - renderEmbedFrame.ts: .mmi-embed, .mmi-embed__caption,
+ *                          [data-page-break], [data-orientation]
+ *   - renderTable.ts:      .mmi-table, .mmi-table__row(.--highlight),
+ *                          .mmi-table__cell(.--formatted), .mmi-table__cell-code
+ *   - renderCard.ts:       .mmi-card, .mmi-card__title, .mmi-card__meta, [data-source]
+ *   - markdownMatrixPlugin.ts (error path): .mmi-error
+ *
+ * Colors use VS Code theme variables (--vscode-*) with safe fallbacks so the
+ * output adapts to light / dark / high-contrast themes.
+ */
+
+/* ---- Embed frame (figure) ---- */
+.mmi-embed {
+  margin: 1rem 0;
+}
+
+.mmi-embed__caption {
+  font-weight: 600;
+  margin-bottom: 0.35rem;
+  color: var(--vscode-descriptionForeground, inherit);
+}
+
+/* ---- Table ---- */
+.mmi-table {
+  border-collapse: collapse;
+  width: 100%;
+  margin: 0.25rem 0;
+}
+
+.mmi-table th,
+.mmi-table .mmi-table__cell {
+  border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border, #c8c8c8));
+  padding: 0.3rem 0.55rem;
+  text-align: left;
+  vertical-align: top;
+}
+
+.mmi-table thead th {
+  background-color: var(--vscode-editorWidget-background, rgba(127, 127, 127, 0.12));
+  font-weight: 600;
+}
+
+.mmi-table__row--highlight {
+  background-color: var(--vscode-editor-findMatchHighlightBackground, rgba(255, 214, 0, 0.28));
+}
+
+.mmi-table__cell--formatted {
+  white-space: normal;
+}
+
+.mmi-table__cell-code {
+  margin: 0;
+  padding: 0.25rem 0.4rem;
+  background-color: var(--vscode-textCodeBlock-background, rgba(127, 127, 127, 0.12));
+  border-radius: 3px;
+  overflow-x: auto;
+  font-family: var(--vscode-editor-font-family, monospace);
+  font-size: 0.92em;
+}
+
+.mmi-table__cell-code > code {
+  background: none;
+  padding: 0;
+}
+
+/* ---- Card (smart fallback / link card) ---- */
+.mmi-card {
+  display: inline-block;
+  min-width: 14rem;
+  max-width: 100%;
+  margin: 0.25rem 0;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border, #c8c8c8));
+  border-radius: 6px;
+  background-color: var(--vscode-editorWidget-background, rgba(127, 127, 127, 0.06));
+}
+
+.mmi-card__title {
+  display: block;
+  font-weight: 600;
+  color: var(--vscode-textLink-foreground, inherit);
+  word-break: break-all;
+  text-decoration: none;
+}
+
+.mmi-card__title:hover {
+  text-decoration: underline;
+}
+
+.mmi-card__meta {
+  margin-top: 0.2rem;
+  font-size: 0.88em;
+  color: var(--vscode-descriptionForeground, #888);
+}
+
+/* ADR-0015: extension URI routed to validated env.openExternal handling.
+ * The title's plain relative link remains the baseline. */
+.mmi-card__open {
+  display: inline-block;
+  margin-top: 0.35rem;
+  font-size: 0.85em;
+  color: var(--vscode-textLink-foreground, #0066bf);
+  text-decoration: none;
+  border: 1px solid var(--vscode-editorWidget-border, var(--vscode-panel-border, #c8c8c8));
+  border-radius: 4px;
+  padding: 0.15rem 0.5rem;
+}
+
+.mmi-card__open:hover {
+  text-decoration: underline;
+}
+
+/* ---- Error ---- */
+.mmi-error {
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.7rem;
+  border: 1px solid var(--vscode-inputValidation-errorBorder, #be1100);
+  border-radius: 4px;
+  background-color: var(--vscode-inputValidation-errorBackground, rgba(190, 17, 0, 0.1));
+  color: var(--vscode-inputValidation-errorForeground, var(--vscode-editor-foreground, inherit));
+  font-size: 0.92em;
+}
+
+/* ---- Print / PDF (enterprise output: page break + orientation + 別紙参照) ----
+ * NOTE (G4 / honest scope): @page named-page orientation and page-break support
+ * varies by PDF engine. Validate per generator in issue-0098 and document limits.
+ */
+@media print {
+  @page landscape {
+    size: landscape;
+  }
+
+  @page portrait {
+    size: portrait;
+  }
+
+  .mmi-embed[data-page-break="before"] {
+    page-break-before: always;
+    break-before: page;
+  }
+
+  .mmi-embed[data-page-break="after"] {
+    page-break-after: always;
+    break-after: page;
+  }
+
+  .mmi-embed[data-page-break="both"] {
+    page-break-before: always;
+    page-break-after: always;
+    break-before: page;
+    break-after: page;
+  }
+
+  /* Per-page orientation via named @page. */
+  .mmi-embed[data-orientation="landscape"] {
+    page: landscape;
+  }
+
+  .mmi-embed[data-orientation="portrait"] {
+    page: portrait;
+  }
+
+  /* A caption never ends a page apart from its table or 別紙 block. */
+  .mmi-embed__caption {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* Chromium drops backgrounds when printing unless asked; keep header shading and highlights. */
+  .mmi-table thead th,
+  .mmi-table__row--highlight {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Highlight must survive monochrome printers: add a bar that does not depend on color. */
+  .mmi-table__row--highlight > td:first-child {
+    border-left: 3pt solid #000;
+  }
+
+  .mmi-table th,
+  .mmi-table .mmi-table__cell {
+    overflow-wrap: break-word;
+  }
+
+  /* Keep table rows intact across page boundaries; repeat header per page. */
+  .mmi-table__row {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .mmi-table thead {
+    display: table-header-group;
+  }
+
+  /* Cards degrade to a printable "別紙参照" (separate-attachment) reference block. */
+  .mmi-card {
+    display: block;
+    border: 1px solid #000;
+    background: none;
+    /* Keep the whole reference block (title + path) on one page. */
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* Interactive open affordance is meaningless on paper — drop it from 別紙参照. */
+  .mmi-card__open {
+    display: none;
+  }
+
+  .mmi-card__title::before {
+    content: "別紙参照: ";
+    font-weight: 600;
+  }
+
+  /* The author-written relative path: an absolute local path would leak the author's folders. */
+  .mmi-card[data-source]::after {
+    content: attr(data-source);
+    display: block;
+    margin-top: 0.2rem;
+    font-size: 0.85em;
+  }
+}
+
+
+  html { font-family: "Noto Sans CJK JP", "Noto Sans JP", "BIZ UDPGothic", "Yu Gothic", "YuGothic", Meiryo, "Hiragino Sans", "Noto Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+    color: #1a1a1a; }
+  body { line-height: 1.65; font-size: 10pt; }
+  code, pre, kbd, samp { font-family: "Noto Sans Mono CJK JP", Consolas, "BIZ UDGothic", "MS Gothic", "DejaVu Sans Mono", monospace; }
+  h1 { font-size: 20pt; } h2 { font-size: 14pt; margin-top: 1.5em; } h3 { font-size: 12pt; }
+  h1, h2, h3, h4, h5, h6 { break-after: avoid; page-break-after: avoid; break-inside: avoid; }
+  a { color: #0b5394; } code { overflow-wrap: anywhere; } pre { white-space: pre-wrap; }
+  [data-mmi-break="before"] { break-before: page; page-break-before: always; }
+  [data-mmi-orientation="landscape"] { page: landscape; }
+  [data-mmi-orientation="portrait"] { page: portrait; }
+  [data-mmi-break] + .mmi-embed[data-page-break="before"] { break-before: auto; page-break-before: auto; }
+  [data-mmi-break] + .mmi-embed[data-page-break="both"] { break-before: auto; page-break-before: auto; }
+  img { max-width: 100%; height: auto; }
+  table { border-collapse: collapse; margin: 0.5em 0; }
+  th, td { border: 0.75pt solid #808080; padding: 0.25em 0.5em; vertical-align: top; overflow-wrap: break-word; }
+  thead th { background: #e8e8e8; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  thead { display: table-header-group; }
+  tr { break-inside: avoid; page-break-inside: avoid; }
+  blockquote { margin: 0.8em 0; padding: 0.2em 0.9em; border-left: 3pt solid #b0b0b0; color: #333; }
+  @page { size: A4; margin: 20mm 18mm 18mm;
+    @top-left { font-size: 8pt; color: #555; }
+    @top-right { font-size: 8pt; }
+    @bottom-left { font-size: 8pt; color: #555; }
+    @bottom-center { font-size: 9pt; }
+    @top-left { content: "申請システム 基本設計書";  }
+    @top-right { content: "社外秘"; font-weight: 700; }
+    @bottom-left { content: "SD-APP-0001　第1.2版";  }
+    @bottom-center { content: counter(page) " / " counter(pages); }
+  }
+  @page landscape { size: A4 landscape; }
+  @page portrait { size: A4 portrait; }
+  @page mmi-cover { @top-left { content: none; } @top-right { content: none; } @bottom-left { content: none; } @bottom-center { content: none; } }
+  .mmi-cover { page: mmi-cover; break-after: page; display: flex; flex-direction: column; min-height: 240mm; }
+  .mmi-cover__head { text-align: right; font-size: 10pt; }
+  .mmi-cover__classification { display: inline-block; margin-top: 0.4em; padding: 0.15em 0.8em; border: 1.5pt solid #000; font-weight: 700; }
+  .mmi-cover__customer { margin-top: 18mm; font-size: 14pt; }
+  .mmi-cover__main { margin-top: 45mm; text-align: center; }
+  .mmi-cover__subtitle { font-size: 14pt; margin-bottom: 0.6em; }
+  .mmi-cover__title { font-size: 26pt; font-weight: 700; margin-bottom: 1.2em; }
+  .mmi-cover__version, .mmi-cover__date { font-size: 12pt; }
+  .mmi-cover__foot { margin-top: auto; padding-top: 30mm; text-align: center; }
+  .mmi-cover__organization { font-size: 14pt; margin-bottom: 10mm; }
+  .mmi-cover__approvals { margin: 0 0 0 auto; }
+  .mmi-cover__approvals th { width: 22mm; font-weight: 400; background: none; text-align: center; }
+  .mmi-cover__approvals td { height: 22mm; }
+  .mmi-toc { break-after: page; }
+  .mmi-toc__title { font-size: 16pt; font-weight: 700; margin-bottom: 0.8em; bookmark-level: 1; bookmark-label: "目次"; }
+  .mmi-toc ol { list-style: none; padding: 0; margin: 0; }
+  .mmi-toc__item { margin: 0.25em 0; }
+  .mmi-toc__item--h3 { padding-left: 1.5em; font-size: 0.95em; }
+  .mmi-toc a { color: inherit; text-decoration: none; }
+  .mmi-toc a::after { content: leader(".") target-counter(attr(href url), page); }
+  @media screen { body { max-width: 1100px; margin: 32px auto; padding: 0 24px; } .mmi-cover { min-height: auto; border-bottom: 1px solid #ccc; padding-bottom: 24px; } }
+</style></head><body><section class="mmi-cover"><div class="mmi-cover__head"><div class="mmi-cover__number">SD-APP-0001</div><div class="mmi-cover__classification">社外秘</div></div><div class="mmi-cover__customer">架空商事株式会社 御中</div><div class="mmi-cover__main"><div class="mmi-cover__subtitle">申請・承認システム更改プロジェクト</div><div class="mmi-cover__title">申請システム 基本設計書</div><div class="mmi-cover__version">第1.2版</div><div class="mmi-cover__date">2026年10月21日</div></div><div class="mmi-cover__foot"><div class="mmi-cover__organization">架空システムズ株式会社</div><table class="mmi-cover__approvals"><tr><th>承認</th><th>審査</th><th>作成</th></tr><tr><td></td><td></td><td></td></tr></table></div></section><nav class="mmi-toc"><div class="mmi-toc__title">目次</div><ol><li class="mmi-toc__item mmi-toc__item--h2"><a href="#mmi-section-1">改訂履歴</a></li><li class="mmi-toc__item mmi-toc__item--h2"><a href="#mmi-section-2">1. レビューで残った項目</a></li><li class="mmi-toc__item mmi-toc__item--h2"><a href="#mmi-section-3">2. 状態遷移</a></li><li class="mmi-toc__item mmi-toc__item--h2"><a href="#mmi-section-4">3. 別紙</a></li></ol></nav><main class="mmi-doc-body"><h2 id="mmi-section-1">改訂履歴</h2>
+<p>改訂履歴はExcelやCSVで管理している台帳をそのまま参照します。版を上げるときは台帳に1行足すだけで、この表も更新されます。</p>
+<figure class="mmi-embed" id="revisions"><figcaption class="mmi-embed__caption">表1　改訂履歴</figcaption><table class="mmi-table"><thead><tr><th>版数</th><th>改訂日</th><th>改訂箇所</th><th>改訂内容</th><th>作成</th><th>承認</th></tr></thead><tbody><tr class="mmi-table__row"><td class="mmi-table__cell">第1.0版</td><td class="mmi-table__cell">2026/09/30</td><td class="mmi-table__cell">全体</td><td class="mmi-table__cell">初版発行</td><td class="mmi-table__cell">山田</td><td class="mmi-table__cell">鈴木</td></tr><tr class="mmi-table__row"><td class="mmi-table__cell">第1.1版</td><td class="mmi-table__cell">2026/10/14</td><td class="mmi-table__cell">2章</td><td class="mmi-table__cell">状態遷移ST-11・ST-12を追加</td><td class="mmi-table__cell">山田</td><td class="mmi-table__cell">鈴木</td></tr><tr class="mmi-table__row"><td class="mmi-table__cell">第1.2版</td><td class="mmi-table__cell">2026/10/21</td><td class="mmi-table__cell">1章・別紙1</td><td class="mmi-table__cell">残件の判定を更新、別紙1を差し替え</td><td class="mmi-table__cell">佐藤</td><td class="mmi-table__cell">鈴木</td></tr></tbody></table></figure><h2 id="mmi-section-2">1. レビューで残った項目</h2>
+<p>判定台帳から「要確認」の3件を表示します。</p>
+<figure class="mmi-embed" id="open-items"><figcaption class="mmi-embed__caption">表2　残件一覧</figcaption><table class="mmi-table"><thead><tr><th>判定ID</th><th>確認項目</th><th>判定</th></tr></thead><tbody><tr class="mmi-table__row"><td class="mmi-table__cell">REL-01</td><td class="mmi-table__cell">必須要件の試験</td><td class="mmi-table__cell">要確認</td></tr><tr class="mmi-table__row"><td class="mmi-table__cell">REL-04</td><td class="mmi-table__cell">監査権限の分離</td><td class="mmi-table__cell">要確認</td></tr><tr class="mmi-table__row"><td class="mmi-table__cell">REL-09</td><td class="mmi-table__cell">別紙の同梱</td><td class="mmi-table__cell">要確認</td></tr></tbody></table></figure><p>業務の流れは<a href="#workflow">表3の状態遷移</a>で確認できます。</p>
+<h2 data-mmi-break="before" data-mmi-orientation="landscape" id="mmi-section-3">2. 状態遷移</h2>
+<figure class="mmi-embed" id="workflow" data-page-break="before" data-orientation="landscape"><figcaption class="mmi-embed__caption">表3　状態遷移</figcaption><table class="mmi-table"><thead><tr><th>遷移ID</th><th>現在の状態</th><th>操作</th><th>実行者</th><th>次の状態</th><th>条件</th></tr></thead><tbody><tr class="mmi-table__row"><td class="mmi-table__cell">ST-01</td><td class="mmi-table__cell">未作成</td><td class="mmi-table__cell">新規作成</td><td class="mmi-table__cell">申請者</td><td class="mmi-table__cell">下書き</td><td class="mmi-table__cell">社員が有効</td></tr><tr class="mmi-table__row"><td class="mmi-table__cell">ST-02</td><td class="mmi-table__cell">下書き</td><td class="mmi-table__cell">保存</td><td class="mmi-table__cell">申請者</td><td class="mmi-table__cell">下書き</td><td class="mmi-table__cell">本人の申請</td></tr><tr class="mmi-table__row"><td class="mmi-table__cell">ST-03</td><td class="mmi-table__cell">下書き</td><td class="mmi-table__cell">申請</td><td class="mmi-table__cell">申請者</td><td class="mmi-table__cell">承認待ち</td><td class="mmi-table__cell">必須項目を入力済</td></tr><tr class="mmi-table__row"><td class="mmi-table__cell">ST-04</td><td class="mmi-table__cell">承認待ち</td><td class="mmi-table__cell">承認</td><td class="mmi-table__cell">承認者</td><td class="mmi-table__cell">承認済</td><td class="mmi-table__cell">担当部門が一致</td></tr><tr class="mmi-table__row"><td class="mmi-table__cell">ST-05</td><td class="mmi-table__cell">承認待ち</td><td class="mmi-table__cell">差戻し</td><td class="mmi-table__cell">承認者</td><td class="mmi-table__cell">差戻し</td><td class="mmi-table__cell">理由を入力済</td></tr><tr class="mmi-table__row"><td class="mmi-table__cell">ST-06</td><td class="mmi-table__cell">承認待ち</td><td class="mmi-table__cell">取下げ</td><td class="mmi-table__cell">申請者</td><td class="mmi-table__cell">取下げ済</td><td class="mmi-table__cell">承認処理前</td></tr><tr class="mmi-table__row"><td class="mmi-table__cell">ST-07</td><td class="mmi-table__cell">差戻し</td><td class="mmi-table__cell">修正</td><td class="mmi-table__cell">申請者</td><td class="mmi-table__cell">差戻し</td><td class="mmi-table__cell">本人の申請</td></tr><tr class="mmi-table__row"><td class="mmi-table__cell">ST-08</td><td class="mmi-table__cell">差戻し</td><td class="mmi-table__cell">再申請</td><td class="mmi-table__cell">申請者</td><td class="mmi-table__cell">承認待ち</td><td class="mmi-table__cell">指摘事項を修正済</td></tr><tr class="mmi-table__row"><td class="mmi-table__cell">ST-09</td><td class="mmi-table__cell">承認済</td><td class="mmi-table__cell">処理開始</td><td class="mmi-table__cell">業務担当</td><td class="mmi-table__cell">処理中</td><td class="mmi-table__cell">実行予定日以降</td></tr><tr class="mmi-table__row"><td class="mmi-table__cell">ST-10</td><td class="mmi-table__cell">処理中</td><td class="mmi-table__cell">完了</td><td class="mmi-table__cell">業務担当</td><td class="mmi-table__cell">完了</td><td class="mmi-table__cell">処理記録を保存済</td></tr><tr class="mmi-table__row"><td class="mmi-table__cell">ST-11</td><td class="mmi-table__cell">処理中</td><td class="mmi-table__cell">失敗記録</td><td class="mmi-table__cell">業務担当</td><td class="mmi-table__cell">要対応</td><td class="mmi-table__cell">障害理由を記録済</td></tr><tr class="mmi-table__row"><td class="mmi-table__cell">ST-12</td><td class="mmi-table__cell">要対応</td><td class="mmi-table__cell">再処理</td><td class="mmi-table__cell">業務担当</td><td class="mmi-table__cell">処理中</td><td class="mmi-table__cell">原因を解消済</td></tr></tbody></table></figure><p>状態遷移は12件です。表3は横向きのページに置きます。</p>
+<h2 data-mmi-break="before" data-mmi-orientation="portrait" id="mmi-section-4">3. 別紙</h2>
+<figure class="mmi-embed" data-page-break="before" data-orientation="portrait"><figcaption class="mmi-embed__caption">別紙1　設計データ</figcaption><div class="mmi-card" data-source="./data/design.xlsx"><a class="mmi-card__title" href="./data/design.xlsx">design.xlsx</a></div></figure><p>別紙1の設計データは、このPDFとは別のファイルとして納品物に同梱します。</p>
+<p>以上</p>
+</main></body></html>

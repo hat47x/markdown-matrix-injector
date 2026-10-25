@@ -39,9 +39,9 @@ Phase 9の次イテレーションでは、テンプレート同期を「列一�
 
 ## Traceability (関連情報)
 - Related requirements: `00_Prompt/requirements.md` (Phase 9)
-- Related issue: `01_Plans/issues/issue-0067-phase9-template-sync-quality-gate-hardening.md`
-- Previous issue: `01_Plans/issues/issue-0066-phase9-rule-table-template-foundation.md`
-- Evidence command: `python3 01_Plans/tools/planning_queue.py`
+- Related issue: `04_Documentation/history/issues/issue-0067-phase9-template-sync-quality-gate-hardening.md`
+- Previous issue: `04_Documentation/history/issues/issue-0066-phase9-rule-table-template-foundation.md`
+- Evidence command: `python3 03_Implement/tools/planning_queue.py`
 
 ## 議事録 (AI読込不要)
 ### Issue Definition

@@ -21,7 +21,7 @@
 ## 関連正本
 - 要件: `00_Prompt/requirements.md`（Phase 9）
 - 方針: `01_Plans/adr/ADR-0007-phase9-rule-table-interoperability-and-design-assetization.md`
-- 実行: `01_Plans/issues/issue-0066-phase9-rule-table-template-foundation.md`
+- 実行: `04_Documentation/history/issues/issue-0066-phase9-rule-table-template-foundation.md`
 - docsテンプレート: `04_Documentation/samples/phase9-rule-table-benchmark-pack.csv`
 - fixtureテンプレート: `03_Implement/test/fixtures/workspace/data/phase9-rule-table-benchmark-pack.csv`
 
@@ -70,7 +70,7 @@ Phase 9では次の4表を最小ベンチマークとして固定する。
 
 1. docs用CSV（`04_Documentation/samples/...`）を更新する。
 2. 同一コミットでfixture用CSV（`03_Implement/test/fixtures/...`）へ同内容を反映する。
-3. `python3 01_Plans/tools/check_phase9_template_sync.py` で列同期 + 行同期（row parity）+ 品質監査（必須列/RuleId/日付形式/有効期間整合）を検証する。
+3. `python3 03_Implement/tools/check_phase9_template_sync.py` で列同期 + 行同期（row parity）+ 品質監査（必須列/RuleId/日付形式/有効期間整合）を検証する。
 4. `cd 03_Implement && npm test` でquery観測テストを実行する。
 5. 差分理由・検証結果をissue-0066のValidation evidenceへ追記する。
 
@@ -80,9 +80,9 @@ Phase 9では次の4表を最小ベンチマークとして固定する。
 docs用CSVを更新した場合、以下を **同一コミット** で追加反映する（従来のdocs/fixture 2点ルールを拡張）。
 
 3. `04_Documentation/samples/phase9-rule-table-pattern-guide.md`（生成ガイド）を
-   `python3 01_Plans/tools/generate_phase9_pattern_guide.py` で再生成し、同じコミットに含める。
+   `python3 03_Implement/tools/generate_phase9_pattern_guide.py` で再生成し、同じコミットに含める。
 
-再生成前に `python3 01_Plans/tools/generate_phase9_pattern_guide.py --check` を実行すると、
+再生成前に `python3 03_Implement/tools/generate_phase9_pattern_guide.py --check` を実行すると、
 コミット済みガイドがdocs CSVに対して既に陳腐化していないかを確認できる（非ゼロ終了時は要再生成）。
 このガイドは `04_Documentation/samples/README.md` からMMI非依存の読者向けに公開される
 （ADR-0012 D7 / ADR-0013参照）。
@@ -103,25 +103,25 @@ docs用CSVを更新した場合、以下を **同一コミット** で追加反�
 ローカルで一時CSVを使って検証する場合は、次の引数を使う。
 
 ```bash
-python3 01_Plans/tools/check_phase9_template_sync.py --docs <docs.csv> --fixture <fixture.csv>
+python3 03_Implement/tools/check_phase9_template_sync.py --docs <docs.csv> --fixture <fixture.csv>
 ```
 
 CI連携や自動集計に使う場合は、次のようにJSON形式で出力する。
 
 ```bash
-python3 01_Plans/tools/check_phase9_template_sync.py --format json
+python3 03_Implement/tools/check_phase9_template_sync.py --format json
 ```
 
 行順のみ差分で内容一致を確認したい場合は、次のオプションを利用する（標準は順序厳格）。
 
 ```bash
-python3 01_Plans/tools/check_phase9_template_sync.py --ignore-row-order
+python3 03_Implement/tools/check_phase9_template_sync.py --ignore-row-order
 ```
 
 release gate経由で同じ緩和モードを使う場合は、`release_gate_check.py` 側で次のフラグを指定する。
 
 ```bash
-python3 01_Plans/tools/release_gate_check.py --phase9-ignore-row-order
+python3 03_Implement/tools/release_gate_check.py --phase9-ignore-row-order
 ```
 
 > 注意: `--phase9-ignore-row-order` は「行順のみ」を緩和する。行内容不一致（例: `ActionExpr` 差分）は NG のまま。
@@ -142,13 +142,13 @@ G3は実行されない。JSON出力ではG3 detailが `skipped by --skip-tests`
 |---|---|---|---|
 | 可読性 | 列名だけで業務意図が読めるか | 4 表すべてで `RuleSet` / `Notes` が用途を説明 | `head -n 5 04_Documentation/samples/phase9-rule-table-benchmark-pack.csv` |
 | 検証性 | query パラメータで再観測できるか | `QueryExample` と unit test が一致し、`npm test` が成功 | `cd 03_Implement && npm test` |
-| 追跡性 | 要件・テストへ遡及できるか | docs/fixture の行内容が一致し、`RelatedRequirement` / `RelatedTest` が空欄なし、`RuleId` 重複なし、日付形式と有効期間整合が正しい | `python3 01_Plans/tools/check_phase9_template_sync.py` |
+| 追跡性 | 要件・テストへ遡及できるか | docs/fixture の行内容が一致し、`RelatedRequirement` / `RelatedTest` が空欄なし、`RuleId` 重複なし、日付形式と有効期間整合が正しい | `python3 03_Implement/tools/check_phase9_template_sync.py` |
 
 ## 5. 推奨実行シーケンス
 
-1. `python3 01_Plans/tools/check_phase9_template_sync.py`
-2. `python3 01_Plans/tools/generate_phase9_pattern_guide.py --check`（ADR-0013、標準ガイドの陳腐化検知）
+1. `python3 03_Implement/tools/check_phase9_template_sync.py`
+2. `python3 03_Implement/tools/generate_phase9_pattern_guide.py --check`（ADR-0013、標準ガイドの陳腐化検知）
 3. `cd 03_Implement && npm test`
-4. `python3 01_Plans/tools/planning_queue.py`
+4. `python3 03_Implement/tools/planning_queue.py`
 
 この順序で、テンプレート整合性 → 標準ガイド整合性 → 回帰検証 → planning整合性を確認する。各コマンドの実行結果は、実行した時点の証跡として別途記録する。

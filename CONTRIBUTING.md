@@ -55,7 +55,7 @@ git checkout -b feature/issue-<number>-<short-description>
 MMIプロジェクトでは、決定（ADR）と実行（Issue）を分離しています。
 
 - ADR (`01_Plans/adr/`): アーキテクチャ上の意思決定。`Draft → Proposed → Accepted/Rejected` のライフサイクル。
-- [GitHub Issues](https://github.com/hat47x/markdown-matrix-injector/issues): 実行計画。GitHubのOpen / Closedで状態を表す。`01_Plans/issues/`は移管前にクローズしたIssueの保管場所であり、新規起票先ではない。
+- [GitHub Issues](https://github.com/hat47x/markdown-matrix-injector/issues): 実行計画。GitHubのOpen / Closedで状態を表す。`04_Documentation/history/issues/`は移管前にクローズしたIssueの保管場所であり、新規起票先ではない。
 
 詳細は [`01_Plans/README.md`](01_Plans/README.md) を参照してください。
 

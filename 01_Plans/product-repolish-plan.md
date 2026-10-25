@@ -1,6 +1,8 @@
 # 製品を磨き直すための足掛かり
 
 - 作成日: 2026-10-17
+- 関連Issue: [#504](https://github.com/hat47x/markdown-matrix-injector/issues/504)、[#517〜#532](https://github.com/hat47x/markdown-matrix-injector/issues?q=is%3Aissue+repo%3Ahat47x%2Fmarkdown-matrix-injector+517..532)
+- 終了条件: 命名の採否と各段階の残作業が関連Issue・ADR・現行文書へ反映され、この順序図を別に保守する必要がなくなったら削除する。
 - 状態: 提案。命名と価値の言い方は[ADR-0024](adr/ADR-0024-product-name-layers-and-value-statement.md)（Proposed）で採否を決める。不足機能の作業は、第7節の[GitHub Issues](https://github.com/hat47x/markdown-matrix-injector/issues)（#517〜#532、いずれもDraft）で扱う。
 - 基準: 価値と優先度の正本は[ADR-0019](adr/ADR-0019-ai-era-sier-document-value-and-policy.md)とする。到達点は[現在の作業](README.md)と、2026-10-17時点のコード・CLIの実行結果で確かめた。
 - 番号: 断りのないD0〜D15はADR-0019の決定を指す。ADR-0019にはD15が二つあり（[#416](https://github.com/hat47x/markdown-matrix-injector/issues/416)）、本書のD15は「MMIと生成AIの関係」を指す。
@@ -236,7 +238,7 @@ VS Codeのコマンドと設定を`mmi.*`へ移す場合は、旧キー（`markd
 
 #### (3) 原本を更新した後、参照の周りの本文が古いまま残る（段階2、#522）
 
-執筆ベンチマーク v0では、正本の変更後、参照した表は追従したが、本文の説明は古いまま残った（[ギャップ分析](product-gap-analysis.md)§3）。`MMI_PROSE_ID_NOT_IN_SOURCE`が扱うのは、本文中のIDが表に無い場合だけである。
+執筆ベンチマーク v0では、正本の変更後、参照した表は追従したが、本文の説明は古いまま残った（[ギャップ分析](../02_Architecture/product-gap-analysis.md)§3）。`MMI_PROSE_ID_NOT_IN_SOURCE`が扱うのは、本文中のIDが表に無い場合だけである。
 
 Extractedには台帳と鮮度の確認があるが、Linkedには、書き手がどの原本の状態で本文を確かめたかの記録が無い。人がExcel側を直し続ける運用ほど、Markdown側の本文が気づかないうちに古くなる。
 
@@ -340,7 +342,7 @@ D3は「安全にMMIを外せることも成功条件とする」と定めてい
 - Excel NoteのCandidate化は2026-10-08に実装されたが、[#471](https://github.com/hat47x/markdown-matrix-injector/issues/471)はOpenのままである。
 - 現在の作業の「開発環境」は、Windows側にNode.jsとPython 3が無いと書く。2026-10-17のこの環境ではNode v24.19.0とPython 3.12.10が使え、ビルド済みのCLIも動いた。WSLで入れた依存はWindowsで使えない場合があるため、両方の条件を書き分ける。
 
-意味を変えずに番号と参照先を整え、実装済みのIssueを閉じる。[ギャップ分析](product-gap-analysis.md)は、Tree・Note・Shape・範囲画像の行が古かったため、本書とあわせて更新した。
+意味を変えずに番号と参照先を整え、実装済みのIssueを閉じる。[ギャップ分析](../02_Architecture/product-gap-analysis.md)は、Tree・Note・Shape・範囲画像の行が古かったため、本書とあわせて更新した。
 
 #### (19) 利用者による価値確認が無い（段階2から継続、#524）
 

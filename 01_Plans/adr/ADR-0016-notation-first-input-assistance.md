@@ -12,7 +12,7 @@ Excelのコピー領域を原本座標のMMI参照として貼り付ける操作
 
 ## 提案する設計判断
 
-[設計レビュー](../input-assistance-design-review.md)の修正条件を満たしてから実装へ進める。観測事実と採用判断を区別する。根拠は[ソースモデル](../../02_Architecture/input-assistance-source-model.md)と[クリップボード出所と照合](../../02_Architecture/input-assistance-paste-provenance.md)。
+[設計レビュー](../../04_Documentation/history/input-assistance/input-assistance-design-review.md)の修正条件を満たしてから実装へ進める。観測事実と採用判断を区別する。根拠は[ソースモデル](../../02_Architecture/input-assistance-source-model.md)と[クリップボード出所と照合](../../02_Architecture/input-assistance-paste-provenance.md)。
 
 原本座標を保持する読込み・切り出し（1点目の判断）は2026-09-11に実装・自動テスト済み。 それ以外（貼り付け・出所照合・CPU探索）は未実装。詳細は[issue-0114](https://github.com/hat47x/markdown-matrix-injector/issues/495)「Bの完了内容」。
 
@@ -34,6 +34,6 @@ Excelのコピー領域を原本座標のMMI参照として貼り付ける操作
 
 ## 実行
 
-[企画](../input-assistance-proposal.md)と[技術調査](../input-assistance-technical-research.md)を参照する。設計は[02_Architecture](../../02_Architecture/README.md)の3件。[現在の作業](../README.md)の順序で進める。原本座標を保持する読込み・切り出しは実装・自動テスト済み。貼り付け・出所照合・CPU探索は未実装であり、CPU探索の性能・精度は未測定。
+[企画](../../04_Documentation/history/input-assistance/input-assistance-proposal.md)と[技術調査](../../04_Documentation/history/input-assistance/input-assistance-technical-research.md)を参照する。設計は[02_Architecture](../../02_Architecture/README.md)の3件。[現在の作業](../README.md)の順序で進める。原本座標を保持する読込み・切り出しは実装・自動テスト済み。貼り付け・出所照合・CPU探索は未実装であり、CPU探索の性能・精度は未測定。
 
 初期提供は出所情報があっても候補を明示選択する。自動確定とWindows橋渡しはレビューR1〜R4を満たすまで採用しない。

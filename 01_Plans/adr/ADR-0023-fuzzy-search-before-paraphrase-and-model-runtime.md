@@ -137,4 +137,4 @@ Bを採る。
 
 - 実測の根拠: `03_Implement/artifacts/cpu-search-test4-first-run.json`、`cpu-search-test5-first-run.json`（カテゴリ別のquality）。
 - 評価セット: `03_Implement/scripts/cpu-search-eval/queries.abbr1.json`（blob `7ff1e1a454b8f74cb7ba787401fcf7861705f14e`、凍結。commit `468894c`、`reject`フラグの形式修正後の値））。
-- 関連: 仮説カードK5・K6（[認知機能の仮説カード](../cognitive-hypothesis-cards.md)）。
+- 関連: 仮説カードK5・K6（[認知機能の仮説カード](../../02_Architecture/research/cognitive-hypothesis-cards.md)）。

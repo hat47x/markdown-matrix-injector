@@ -2,7 +2,7 @@
 
 Excel範囲貼り付け（[issue-0114](https://github.com/hat47x/markdown-matrix-injector/issues/495)）の受入条件が要求する観測を再実行するための道具です。設計の根拠は[クリップボード出所と照合](../../../02_Architecture/input-assistance-paste-provenance.md)と[ソースモデル](../../../02_Architecture/input-assistance-source-model.md)にあります。
 
-製品コードではありません。 ビルド・テスト・配布物に含めません。[設計レビュー](../../../01_Plans/input-assistance-design-review.md)のR2/R4に従い、ここでの解析方法をそのまま製品へ移植しないでください。
+製品コードではありません。 ビルド・テスト・配布物に含めません。[設計レビュー](../../../04_Documentation/history/input-assistance/input-assistance-design-review.md)のR2/R4に従い、ここでの解析方法をそのまま製品へ移植しないでください。
 
 - HTMLは正規表現で走査しています。製品では構文解析し、コピー断片と外側の表の文脈を区別する必要があります。
 - `Object Descriptor`は宣言されたオフセット（`dwSrcOfCopy`）から読んでいます。バッファ全体を文字列化して検索する方法は採っていません。製品でも同様にします。
@@ -74,7 +74,7 @@ node .\verify-cases.cjs --update   # 現在の採取結果で期待値を作り�
 
 記録しているハッシュは同一環境での再取得検知用です。採取バイトには絶対パス（`SourceURL`）が埋まるため、機器が変われば必ず変わります。機器間の一致判定には使えません。
 
-レビュー時の独立再検証の記録は[review-evidence.json](../../../01_Plans/research/input-assistance-review-evidence.json)にあります。その`scriptHashes`はR1〜R5修正前のスクリプトを指します。 現在のスクリプトとは一致しません。
+レビュー時の独立再検証の記録は[review-evidence.json](../../../04_Documentation/history/input-assistance/input-assistance-review-evidence.json)にあります。その`scriptHashes`はR1〜R5修正前のスクリプトを指します。 現在のスクリプトとは一致しません。
 
 ## 自己検査
 
