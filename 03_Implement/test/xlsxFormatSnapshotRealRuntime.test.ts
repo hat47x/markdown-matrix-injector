@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import XLSX from 'xlsx';
+import XLSX, { version as xlsxVersion } from 'xlsx';
 import {
   parseXlsxFormatSnapshot,
   readXlsxFormatSnapshot,
@@ -55,7 +55,7 @@ function parseRealWorkbook(
 }
 
 test('real SheetJS 0.20.3 XLSX roundtrip preserves merge ranges while covered and blank cells remain absent', () => {
-  assert.equal(XLSX.version, '0.20.3');
+  assert.equal(xlsxVersion, '0.20.3');
 
   const worksheet = XLSX.utils.aoa_to_sheet([
     ['Release table', undefined, undefined],
@@ -200,8 +200,10 @@ test('runtime-generated XLSX does not strengthen the fill contract beyond what t
     (cell) => cell.row === 1 && cell.column === 0,
   )?.fillTone;
 
+  // SheetJS CE does not persist the style it is given, so the reader sees an
+  // explicit empty pattern ('none'); it must not report a stronger fill.
   assert.ok(
-    fillTone === undefined || fillTone === 'dark',
+    fillTone === undefined || fillTone === 'none' || fillTone === 'dark',
     `unexpected runtime fill classification: ${String(fillTone)}`,
   );
 });

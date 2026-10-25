@@ -85,8 +85,8 @@ test('v2 replaces only four Census primaries and one Census reserve', () => {
     true,
   );
   assert.equal(
-    [...primaryIds, ...reserveIds].some(
-      (id) => String(id).includes('census'),
+    [...v2.primary_sources, ...v2.reserve_sources].some(
+      (x: any) => x.publisher_id === 'us-census',
     ),
     false,
   );

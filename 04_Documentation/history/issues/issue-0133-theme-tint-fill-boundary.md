@@ -84,7 +84,7 @@ theme indexだけがありRGBを取得できない異常・未解決ケースで
 decoded SHA-256:
 
 ```text
-45d925f4e7d26e5110d05f79a22b2d9b0d67ec73ca8db581cf0a7633d93a4a07
+525adf8be480e1db1a3ddfbe81465c176d8ba12553efdfa74a8c6ba2dcff4819
 ```
 
 生成環境は次のとおりです。

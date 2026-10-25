@@ -106,10 +106,13 @@ export function classifyWorksheetFormatFillReview(
 
   pushStatusTransition(telemetry, structureStatus, withFillStatus);
 
+  // With no winner on either side, a different top candidate is only a tie
+  // order, not a change of winner.
   if (
     result.withFill.topPrototypeId
     && result.structureOnly.topPrototypeId
     && result.withFill.topPrototypeId !== result.structureOnly.topPrototypeId
+    && (withFillStatus !== 'ambiguous' || structureStatus !== 'ambiguous')
   ) {
     telemetry.push('fill-changed-winner');
   }

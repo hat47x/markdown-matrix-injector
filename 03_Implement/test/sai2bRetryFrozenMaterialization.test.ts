@@ -987,9 +987,11 @@ test('offline handoff rejects content types outside the frozen receipt schema sp
 });
 
 test('direct retry rejects normalized content types outside the frozen spelling', async () => {
+  // Headers trims surrounding whitespace before the runner sees the value, so
+  // whitespace spellings are covered by the offline receipt tests instead.
   for (const contentType of [
     'Application/Zip',
-    ' application/zip',
+    'APPLICATION/ZIP',
   ]) {
     const outcome = await retryFrozenMaterialization({
       entry: entry(),
@@ -1183,7 +1185,7 @@ test('package identity rejects namespace and required attributes spoofed inside 
     '_rels/.rels':
       '<?xml version="1.0" encoding="UTF-8"?>'
       + '<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
-      + '<Relationship note=\' Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" '
+      + '<Relationship Id="rId1" note=\' Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" '
       + 'Target="xl/workbook.xml"\'/>'
       + '</Relationships>',
   });
@@ -1204,7 +1206,7 @@ test('package identity admits correctly-prefixed OPC direct-child declarations',
     '_rels/.rels':
       '<?xml version="1.0" encoding="UTF-8"?>'
       + '<r:Relationships xmlns:r="http://schemas.openxmlformats.org/package/2006/relationships">'
-      + '<r:Relationship Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
+      + '<r:Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/>'
       + '</r:Relationships>',
   });
   assert.deepEqual(validateZipContainer(prefixed), { ok: true });

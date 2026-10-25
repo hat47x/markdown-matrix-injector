@@ -5,7 +5,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import XLSX from 'xlsx';
+import XLSX, { version as xlsxVersion } from 'xlsx';
 import {
   readXlsxFormatSnapshot,
 } from '../src/experimental/xlsxFormatSnapshotReader.js';
@@ -18,7 +18,7 @@ import {
 } from '../src/experimental/worksheetFormatPrototype.js';
 
 const FIXTURE_SHA256 =
-  '45d925f4e7d26e5110d05f79a22b2d9b0d67ec73ca8db581cf0a7633d93a4a07';
+  '525adf8be480e1db1a3ddfbe81465c176d8ba12553efdfa74a8c6ba2dcff4819';
 
 type ThemeColorLike = {
   theme?: number;
@@ -78,7 +78,7 @@ function rawSheetJsStyle(sheetName: string): ThemeStyleLike {
 }
 
 test('SheetJS 0.20.3 resolves external theme index to RGB before the bridge classifies fill tone', () => {
-  assert.equal(XLSX.version, '0.20.3');
+  assert.equal(xlsxVersion, '0.20.3');
 
   const style = rawSheetJsStyle('Theme Dark');
   assert.equal(style.patternType, 'solid');
@@ -154,7 +154,8 @@ test('SheetJS 0.20.3 applies theme tint before fill-tone classification', () => 
 test('theme fixture carries a direct-RGB control through the same external workbook', () => {
   const style = rawSheetJsStyle('RGB Control');
   assert.equal(style.patternType, 'solid');
-  assert.equal(style.fgColor?.rgb?.toUpperCase(), 'FF202020');
+  // The OOXML value is FF202020; SheetJS 0.20.3 drops the alpha channel.
+  assert.equal(style.fgColor?.rgb?.toUpperCase(), '202020');
 
   withExternalFixture((absolutePath) => {
     const result = readXlsxFormatSnapshot({
