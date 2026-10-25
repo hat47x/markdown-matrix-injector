@@ -120,7 +120,7 @@ export interface HtmlTableShape {
 /**
  * Shape (row/column count) of the first `<table>` in `html`, via an
  * occupancy grid that honors `rowspan`/`colspan` (design review R2:
- * `01_Plans/input-assistance-design-review.md`). This deliberately returns
+ * `04_Documentation/history/input-assistance/input-assistance-design-review.md`). This deliberately returns
  * *shape only*, never an A1 range -- see `suggestEmbedFromClipboardHtml` for
  * why inferring an origin from shape alone is unsound. Intended for the
  * content-matching candidate search (issue-0114 "作業D", not yet

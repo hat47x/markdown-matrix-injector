@@ -7,7 +7,7 @@
 - Informed: Documentation / Implementation maintainers
 
 ## Context (背景と課題)
-- Phase 1〜6の実装・文書化が完了し、`01_Plans/tools/planning_queue.py` でもpending issue / ADRが0件となった。
+- Phase 1〜6の実装・文書化が完了し、`03_Implement/tools/planning_queue.py` でもpending issue / ADRが0件となった。
 - 現状は「機能はあるが、導入判定・回帰検知・運用観測」が散在し、公開後の品質維持を継続的に回す仕組みが弱い。
 - 次段階では新機能追加よりも、リリース判断を自動化し、実利用での採用障壁を下げる運用基盤が必要。
 
@@ -33,8 +33,8 @@ Phase 7を「Release Readiness & Adoption Scale」と定義し、以下の3ス�
 
 ## Traceability (関連情報)
 - Related requirements: `00_Prompt/requirements.md` (Phase 7追記)
-- Related issue: `01_Plans/issues/issue-0043-phase7-release-readiness-foundation.md`
-- Evidence command: `python3 01_Plans/tools/planning_queue.py`
+- Related issue: `04_Documentation/history/issues/issue-0043-phase7-release-readiness-foundation.md`
+- Evidence command: `python3 03_Implement/tools/planning_queue.py`
 
 ## 議事録 (AI読込不要)
 ### Issue Definition

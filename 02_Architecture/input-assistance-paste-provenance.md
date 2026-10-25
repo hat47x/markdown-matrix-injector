@@ -276,6 +276,6 @@ flowchart TD
 
 ## 実装前の修正条件
 
-[設計レビュー](../01_Plans/input-assistance-design-review.md)のR1/R2/R4/R5を満たすこと。同じ値の別コピーは内容比較では検出できないため、初期提供では自動確定しない。Object Descriptorはバイナリ構造のオフセットから読む。観測された形式と文字列はこの環境の実測であり、すべてのExcel環境の保証ではない。
+[設計レビュー](../04_Documentation/history/input-assistance/input-assistance-design-review.md)のR1/R2/R4/R5を満たすこと。同じ値の別コピーは内容比較では検出できないため、初期提供では自動確定しない。Object Descriptorはバイナリ構造のオフセットから読む。観測された形式と文字列はこの環境の実測であり、すべてのExcel環境の保証ではない。
 
 2026-09-11: 作業C（VS CodeのDataTransfer観測）は完了した。 §2の結果により、layer1（DataTransfer自体が出所を運ぶ）は不採用が確定し、[ADR-0017](../01_Plans/adr/ADR-0017-windows-clipboard-provenance-bridge.md)は「観測待ち」から「補助プロセス方式を実装するか、内容照合のみで進めるかの二択」へ進む。次の判断はADR-0017側で行う。

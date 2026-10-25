@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/zip"
 	"bytes"
 	"crypto/sha256"
 	"encoding/base64"
@@ -14,9 +15,12 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"unicode/utf16"
 	"unicode/utf8"
+
+	"golang.org/x/text/encoding/japanese"
 )
 
 const (
@@ -130,6 +134,10 @@ type block struct {
 	splitByRow, splitByCol   bool
 }
 
+type cellRange struct {
+	startRow, startCol, endRow, endCol int
+}
+
 type region struct {
 	top, bottom, left, right int
 	a1                       string
@@ -175,10 +183,10 @@ func run(input []byte) ([]byte, error) {
 		return nil, errors.New("source.bytesBase64 must be canonical base64")
 	}
 	extension := strings.ToLower(filepath.Ext(req.Source.Name))
-	if extension != ".csv" && extension != ".json" && extension != ".xml" {
-		return nil, errors.New("go-minimum currently supports CSV, JSON, and generic XML only")
+	if extension != ".csv" && extension != ".json" && extension != ".xml" && extension != ".xlsx" && extension != ".xlsm" {
+		return nil, errors.New("go-minimum currently supports CSV, JSON, generic XML, and XLSX")
 	}
-	if !utf8.Valid(bytes) {
+	if (extension == ".json" || extension == ".xml") && !utf8.Valid(bytes) {
 		return nil, errors.New("go-minimum CSV/JSON/XML profile currently supports UTF-8 only")
 	}
 
@@ -190,11 +198,15 @@ func run(input []byte) ([]byte, error) {
 	switch extension {
 	case ".csv":
 		format = "csv"
-		rows, err := parseCSV(string(bytes))
+		text, err := decodeCSVBytes(bytes)
 		if err != nil {
 			return nil, err
 		}
-		regions := detectRegions(rows, maxScan)
+		rows, err := parseCSV(text)
+		if err != nil {
+			return nil, err
+		}
+		regions := detectRegions(rows, nil, maxScan)
 		candidates = make([]candidate, 0, len(regions))
 		for _, r := range regions {
 			candidates = append(
@@ -202,8 +214,10 @@ func run(input []byte) ([]byte, error) {
 				toCandidate(
 					req.Source.Label,
 					sourceDigest,
+					"Sheet1",
 					rows,
 					r,
+					nil,
 					maxScan,
 				),
 			)
@@ -218,20 +232,72 @@ func run(input []byte) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-	case ".xml":
-		if isXMLSpreadsheet2003Bytes(bytes) {
-			return nil, errors.New(
-				"go-minimum does not yet implement the XML Spreadsheet 2003 table profile",
-			)
+	case ".xlsx", ".xlsm":
+		if extension == ".xlsx" {
+			format = "xlsx"
+		} else {
+			format = "xlsm"
 		}
-		format = "xml"
-		candidates, err = xmlTreeCandidates(
-			bytes,
-			req.Source.Label,
-			sourceDigest,
-		)
+		sheets, err := parseXLSXSheets(bytes)
 		if err != nil {
 			return nil, err
+		}
+		candidates = make([]candidate, 0)
+		for _, sh := range sheets {
+			regions := detectRegions(sh.rows, sh.merges, maxScan)
+			for _, r := range regions {
+				candidates = append(
+					candidates,
+					toCandidate(
+						req.Source.Label,
+						sourceDigest,
+						sh.name,
+						sh.rows,
+						r,
+						sh.merges,
+						maxScan,
+					),
+				)
+			}
+		}
+	case ".xml":
+		if isXMLSpreadsheet2003Bytes(bytes) {
+			format = "xml-spreadsheet"
+			sheets, err := parseXMLSpreadsheet2003Sheets(bytes)
+			if err != nil {
+				return nil, err
+			}
+			candidates = make([]candidate, 0)
+			for _, sh := range sheets {
+				regions := detectRegions(sh.rows, sh.merges, maxScan)
+				for _, r := range regions {
+					candidates = append(
+						candidates,
+						toCandidate(
+							req.Source.Label,
+							sourceDigest,
+							sh.name,
+							sh.rows,
+							r,
+							sh.merges,
+							maxScan,
+						),
+					)
+				}
+			}
+			if len(candidates) == 0 {
+				candidates = []candidate{}
+			}
+		} else {
+			format = "xml"
+			candidates, err = xmlTreeCandidates(
+				bytes,
+				req.Source.Label,
+				sourceDigest,
+			)
+			if err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -306,7 +372,7 @@ func xmlTreeCandidates(
 }
 
 func parseGenericXML(input []byte) (*xmlElement, error) {
-	text := strings.TrimPrefix(string(input), "﻿")
+	text := strings.TrimPrefix(string(input), "\ufeff")
 	decoder := xml.NewDecoder(strings.NewReader(text))
 	stack := []xmlFrame{}
 	var root *xmlElement
@@ -1078,6 +1144,33 @@ func ensureEOF(decoder *json.Decoder) error {
 	return errors.New("request JSON must contain exactly one value")
 }
 
+func decodeCSVBytes(bytes []byte) (string, error) {
+	// UTF-16 BOM rejection (matches TS workbookLoader.decodeCsv).
+	if len(bytes) >= 2 && (bytes[0] == 0xff && bytes[1] == 0xfe || bytes[0] == 0xfe && bytes[1] == 0xff) {
+		return "", errors.New("csvUtf16")
+	}
+	hasUtf8Bom := len(bytes) >= 3 && bytes[0] == 0xef && bytes[1] == 0xbb && bytes[2] == 0xbf
+	// Try UTF-8 first.
+	if utf8.Valid(bytes) {
+		return string(bytes), nil
+	}
+	if hasUtf8Bom {
+		return "", errors.New("csvInvalidUtf8")
+	}
+	// Fall back to shift_jis (CP932 / Windows-31J), matching TS TextDecoder('shift_jis').
+	dec := japanese.ShiftJIS.NewDecoder()
+	out, err := dec.Bytes(bytes)
+	if err != nil {
+		return "", errors.New("csvUnreadableEncoding")
+	}
+	// Ensure the result is valid UTF-8.
+	if !utf8.Valid(out) {
+		return "", errors.New("csvUnreadableEncoding")
+	}
+	return string(out), nil
+}
+
+
 func parseCSV(contents string) ([][]string, error) {
 	text := strings.TrimPrefix(contents, "\uFEFF")
 	if text == "" {
@@ -1149,7 +1242,442 @@ func parseCSV(contents string) ([][]string, error) {
 	return rows, nil
 }
 
-func detectRegions(rows [][]string, maxScan int64) []region {
+type xlsxSheet struct {
+	name   string
+	rows   [][]string
+	merges []cellRange
+}
+
+type xmlSpreadsheetSheet struct {
+	name string
+	rows [][]string
+}
+
+// XML Spreadsheet 2003 structs for struct-based unmarshaling.
+type xmlSSWorkbook struct {
+	XMLName    xml.Name          `xml:"Workbook"`
+	Worksheets []xmlSSWorksheet  `xml:"Worksheet"`
+}
+type xmlSSWorksheet struct {
+	Name  string       `xml:"Name,attr"`
+	Table xmlSSTable   `xml:"Table"`
+}
+type xmlSSTable struct {
+	Rows []xmlSSRow `xml:"Row"`
+}
+type xmlSSRow struct {
+	Cells []xmlSSCell `xml:"Cell"`
+}
+type xmlSSCell struct {
+	Data xmlSSData `xml:"Data"`
+}
+type xmlSSData struct {
+	Type string `xml:"Type,attr"`
+	Text string `xml:",chardata"`
+}
+
+func parseXMLSpreadsheet2003Sheets(data []byte) ([]xlsxSheet, error) {
+	var wb xmlSSWorkbook
+	if err := xml.Unmarshal(data, &wb); err != nil {
+		return nil, fmt.Errorf("invalid XML Spreadsheet 2003: %w", err)
+	}
+	result := []xlsxSheet{}
+	for _, ws := range wb.Worksheets {
+		name := ws.Name
+		if name == "" {
+			name = fmt.Sprintf("Sheet%d", len(result)+1)
+		}
+		rows := [][]string{}
+		for _, row := range ws.Table.Rows {
+			cells := []string{}
+			for _, cell := range row.Cells {
+				val := strings.TrimSpace(cell.Data.Text)
+				cells = append(cells, val)
+			}
+			// pad? keep as-is (detectRegions handles ragged rows via cell())
+			rows = append(rows, cells)
+		}
+		if len(rows) == 0 {
+			rows = [][]string{}
+		}
+		result = append(result, xlsxSheet{name: name, rows: rows, merges: nil})
+	}
+	if len(result) == 0 {
+		result = append(result, xlsxSheet{name: "Sheet1", rows: [][]string{}, merges: nil})
+	}
+	return result, nil
+}
+
+func parseXLSXSheets(data []byte) ([]xlsxSheet, error) {
+	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
+	if err != nil {
+		return nil, fmt.Errorf("xlsx is not a zip archive: %w", err)
+	}
+
+	// Read shared strings.
+	shared := []string{}
+	for _, f := range reader.File {
+		if f.Name != "xl/sharedStrings.xml" {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			return nil, err
+		}
+		dec := xml.NewDecoder(rc)
+		for {
+			tok, err := dec.Token()
+			if err != nil {
+				break
+			}
+			se, ok := tok.(xml.StartElement)
+			if !ok || se.Name.Local != "si" {
+				continue
+			}
+			var b strings.Builder
+			depth := 1
+			for depth > 0 {
+				tok2, err := dec.Token()
+				if err != nil {
+					break
+				}
+				switch v := tok2.(type) {
+				case xml.StartElement:
+					depth++
+					if v.Name.Local == "t" {
+						var s string
+						if err := dec.DecodeElement(&s, &v); err == nil {
+							b.WriteString(s)
+						}
+						depth--
+					}
+				case xml.EndElement:
+					depth--
+				}
+			}
+			shared = append(shared, b.String())
+		}
+		rc.Close()
+	}
+
+	// Determine sheet list (name + target path) from workbook.xml + rels.
+	type sheetInfo struct {
+		name   string
+		target string
+	}
+	sheets := []sheetInfo{}
+	// rels map: rId -> target
+	rels := map[string]string{}
+	for _, f := range reader.File {
+		if f.Name != "xl/_rels/workbook.xml.rels" {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			continue
+		}
+		dec := xml.NewDecoder(rc)
+		for {
+			tok, err := dec.Token()
+			if err != nil {
+				break
+			}
+			se, ok := tok.(xml.StartElement)
+			if !ok || se.Name.Local != "Relationship" {
+				continue
+			}
+			var id, target string
+			for _, a := range se.Attr {
+				if a.Name.Local == "Id" {
+					id = a.Value
+				}
+				if a.Name.Local == "Target" {
+					target = a.Value
+				}
+			}
+			if id != "" && target != "" {
+				// target may be relative to xl/
+				if !strings.HasPrefix(target, "/") {
+					target = "xl/" + strings.TrimPrefix(target, "./")
+				} else {
+					target = strings.TrimPrefix(target, "/")
+				}
+				rels[id] = target
+			}
+		}
+		rc.Close()
+	}
+	// parse workbook.xml
+	for _, f := range reader.File {
+		if f.Name != "xl/workbook.xml" {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			continue
+		}
+		dec := xml.NewDecoder(rc)
+		for {
+			tok, err := dec.Token()
+			if err != nil {
+				break
+			}
+			se, ok := tok.(xml.StartElement)
+			if !ok || se.Name.Local != "sheet" {
+				continue
+			}
+			var name, rid string
+			for _, a := range se.Attr {
+				if a.Name.Local == "name" {
+					name = a.Value
+				}
+				if a.Name.Local == "id" || a.Name.Space != "" {
+					// r:id
+					if strings.HasSuffix(a.Name.Local, "id") || a.Name.Local == "id" {
+						rid = a.Value
+					}
+				}
+			}
+			// r:id is in the r namespace; handle by local name "id"
+			for _, a := range se.Attr {
+				if a.Name.Local == "id" {
+					rid = a.Value
+				}
+			}
+			if name == "" {
+				name = fmt.Sprintf("Sheet%d", len(sheets)+1)
+			}
+			target := ""
+			if rid != "" {
+				target = rels[rid]
+			}
+			if target == "" {
+				// fallback: xl/worksheets/sheetN.xml
+				target = fmt.Sprintf("xl/worksheets/sheet%d.xml", len(sheets)+1)
+			}
+			sheets = append(sheets, sheetInfo{name: name, target: target})
+		}
+		rc.Close()
+	}
+	// fallback if no workbook.xml parsed
+	if len(sheets) == 0 {
+		sheets = append(sheets, sheetInfo{name: "Sheet1", target: "xl/worksheets/sheet1.xml"})
+	}
+
+	// Parse each sheet.
+	result := []xlsxSheet{}
+	for _, sh := range sheets {
+		var sheetFile *zip.File
+		for _, f := range reader.File {
+			if f.Name == sh.target {
+				sheetFile = f
+				break
+			}
+		}
+		if sheetFile == nil {
+			// try sheet1.xml
+			for _, f := range reader.File {
+				if strings.HasPrefix(f.Name, "xl/worksheets/sheet") && strings.HasSuffix(f.Name, ".xml") {
+					// pick by index not already used; simple: first available
+					sheetFile = f
+					break
+				}
+			}
+		}
+		if sheetFile == nil {
+			continue
+		}
+		rc, err := sheetFile.Open()
+		if err != nil {
+			continue
+		}
+		rows := map[int]map[int]string{}
+		maxRow, maxCol := 0, 0
+		dec := xml.NewDecoder(rc)
+		var merges []cellRange
+		for {
+			tok, err := dec.Token()
+			if err != nil {
+				break
+			}
+			se, ok := tok.(xml.StartElement)
+			if !ok {
+				continue
+			}
+			if se.Name.Local == "mergeCell" {
+				var ref string
+				for _, a := range se.Attr {
+					if a.Name.Local == "ref" {
+						ref = a.Value
+					}
+				}
+				if ref != "" {
+					// parse ref like "A1:C1" or "A1"
+					parts := strings.Split(ref, ":")
+					if len(parts) == 1 {
+						parts = append(parts, parts[0])
+					}
+					r1, c1 := parseCellRef(parts[0])
+					r2, c2 := parseCellRef(parts[1])
+					if r1 > 0 && c1 > 0 && r2 > 0 && c2 > 0 {
+						merges = append(merges, cellRange{startRow: r1 - 1, startCol: c1 - 1, endRow: r2 - 1, endCol: c2 - 1})
+					}
+				}
+				continue
+			}
+			if se.Name.Local != "c" {
+				continue
+			}
+			var ref, t string
+			for _, a := range se.Attr {
+				if a.Name.Local == "r" {
+					ref = a.Value
+				}
+				if a.Name.Local == "t" {
+					t = a.Value
+				}
+			}
+			var v, isText string
+			depth := 1
+			for depth > 0 {
+				tok2, err := dec.Token()
+				if err != nil {
+					break
+				}
+				switch v2 := tok2.(type) {
+				case xml.StartElement:
+					depth++
+					if v2.Name.Local == "v" {
+						var s string
+						if err := dec.DecodeElement(&s, &v2); err == nil {
+							v = s
+						}
+						depth--
+					} else if v2.Name.Local == "t" {
+						var s string
+						if err := dec.DecodeElement(&s, &v2); err == nil {
+							isText = s
+						}
+						depth--
+					} else if v2.Name.Local == "is" {
+						innerDepth := 1
+						for innerDepth > 0 {
+							tok3, err := dec.Token()
+							if err != nil {
+								break
+							}
+							switch v3 := tok3.(type) {
+							case xml.StartElement:
+								innerDepth++
+								if v3.Name.Local == "t" {
+									var s string
+									if err := dec.DecodeElement(&s, &v3); err == nil {
+										isText += s
+									}
+									innerDepth--
+								}
+							case xml.EndElement:
+								innerDepth--
+							}
+						}
+						depth--
+					}
+				case xml.EndElement:
+					depth--
+				}
+			}
+			rowNum, colNum := parseCellRef(ref)
+			if rowNum <= 0 || colNum <= 0 {
+				continue
+			}
+			if rowNum > maxRow {
+				maxRow = rowNum
+			}
+			if colNum > maxCol {
+				maxCol = colNum
+			}
+			if rows[rowNum] == nil {
+				rows[rowNum] = map[int]string{}
+			}
+			var value string
+			switch t {
+			case "s":
+				idx, _ := strconv.Atoi(v)
+				if idx >= 0 && idx < len(shared) {
+					value = shared[idx]
+				}
+			case "inlineStr":
+				value = isText
+			default:
+				value = v
+			}
+			rows[rowNum][colNum] = value
+		}
+		rc.Close()
+
+		if maxRow == 0 || maxCol == 0 {
+			result = append(result, xlsxSheet{name: sh.name, rows: [][]string{}, merges: merges})
+			continue
+		}
+		out := make([][]string, maxRow)
+		for r := 1; r <= maxRow; r++ {
+			out[r-1] = make([]string, maxCol)
+			if cells, ok := rows[r]; ok {
+				for c := 1; c <= maxCol; c++ {
+					if v, ok := cells[c]; ok {
+						out[r-1][c-1] = v
+					}
+				}
+			}
+		}
+		result = append(result, xlsxSheet{name: sh.name, rows: out, merges: merges})
+	}
+	if len(result) == 0 {
+		result = append(result, xlsxSheet{name: "Sheet1", rows: [][]string{}, merges: nil})
+	}
+	return result, nil
+}
+
+// parseXLSX is retained for single-sheet callers; it returns the first sheet's rows.
+func parseXLSX(data []byte) ([][]string, error) {
+	sheets, err := parseXLSXSheets(data)
+	if err != nil {
+		return nil, err
+	}
+	if len(sheets) == 0 {
+		return [][]string{}, nil
+	}
+	return sheets[0].rows, nil
+}
+
+func parseCellRef(ref string) (int, int) {
+	// e.g. "A1", "BC12"
+	col := 0
+	i := 0
+	for i < len(ref) && ((ref[i] >= 'A' && ref[i] <= 'Z') || (ref[i] >= 'a' && ref[i] <= 'z')) {
+		ch := ref[i]
+		if ch >= 'a' && ch <= 'z' {
+			ch -= 32
+		}
+		col = col*26 + int(ch-'A'+1)
+		i++
+	}
+	rowStr := ref[i:]
+	row, _ := strconv.Atoi(rowStr)
+	return row, col
+}
+
+func isSingleMerge(merges []cellRange, b block) bool {
+	for _, m := range merges {
+		if m.startRow <= b.top && m.endRow >= b.bottom &&
+			m.startCol <= b.left && m.endCol >= b.right {
+			return true
+		}
+	}
+	return false
+}
+
+func detectRegions(rows [][]string, merges []cellRange, maxScan int64) []region {
 	if len(rows) == 0 {
 		return []region{}
 	}
@@ -1184,6 +1712,23 @@ func detectRegions(rows [][]string, maxScan int64) []region {
 			}
 		}
 	}
+	// Mark merged ranges as occupied (TS parity: regionDetector lines 98-103).
+	for _, m := range merges {
+		if m.startRow > lastRow {
+			continue
+		}
+		for row := m.startRow; row <= m.endRow && row <= lastRow; row++ {
+			for col := m.startCol; col <= m.endCol; col++ {
+				if col >= width {
+					continue
+				}
+				if occupied[row] == nil {
+					occupied[row] = map[int]bool{}
+				}
+				occupied[row][col] = true
+			}
+		}
+	}
 	blocks := findBlocks(occupied)
 	consumed := map[int]bool{}
 	titleFor := map[int]int{}
@@ -1193,7 +1738,7 @@ func detectRegions(rows [][]string, maxScan int64) []region {
 			continue
 		}
 		cells := occupiedCellsIn(occupied, candidate)
-		if len(cells) != 1 {
+		if len(cells) != 1 && !isSingleMerge(merges, candidate) {
 			continue
 		}
 		for oi, other := range blocks {
@@ -1234,7 +1779,7 @@ func detectRegions(rows [][]string, maxScan int64) []region {
 		} else if b.bottom > top && b.right > b.left {
 			first := occupiedCellsInRow(occupied, top, b)
 			second := occupiedCellsInRow(occupied, top+1, b)
-			if len(first) == 1 && len(second) >= 2 {
+			if (len(first) == 1 || isSingleMerge(merges, block{top: top, bottom: top, left: b.left, right: b.right})) && len(second) >= 2 {
 				title = strings.TrimSpace(cell(rows, top, first[0]))
 				titleA1 = a1(top, first[0])
 				top++
@@ -1256,6 +1801,15 @@ func detectRegions(rows [][]string, maxScan int64) []region {
 		}
 		if b.right-b.left+1 == 1 {
 			reasons = append(reasons, "single-column")
+		}
+		// contains-merged-cells: TS parity (regionDetector line 168)
+		rangeRect := struct{ sr, sc, er, ec int }{top, b.left, b.bottom, b.right}
+		for _, m := range merges {
+			if m.startRow <= rangeRect.er && m.endRow >= rangeRect.sr &&
+				m.startCol <= rangeRect.ec && m.endCol >= rangeRect.sc {
+				reasons = append(reasons, "contains-merged-cells")
+				break
+			}
 		}
 
 		confidence, headers := classifyHeader(rows, top, b.bottom, b.left, b.right)
@@ -1377,7 +1931,7 @@ func classifyHeader(rows [][]string, top, bottom, left, right int) (string, []st
 	return "uncertain", texts
 }
 
-func toCandidate(source, sourceDigest string, rows [][]string, r region, maxScan int64) candidate {
+func toCandidate(source, sourceDigest, sheetName string, rows [][]string, r region, merges []cellRange, maxScan int64) candidate {
 	claims := []claim{
 		{
 			Aspect: "location", Value: r.a1, Status: "observed",
@@ -1433,7 +1987,7 @@ func toCandidate(source, sourceDigest string, rows [][]string, r region, maxScan
 	}
 	material := strings.Join(materialRows, "\x1e")
 	fpSum := sha256.Sum256([]byte(material))
-	reference := fmt.Sprintf("![[%s#Sheet1|%s", source, r.a1)
+	reference := fmt.Sprintf("![[%s#%s|%s", source, sheetName, r.a1)
 	if r.headerConfidence == "likely" && r.headers != nil {
 		reference += "?header=first"
 	}
@@ -1441,7 +1995,7 @@ func toCandidate(source, sourceDigest string, rows [][]string, r region, maxScan
 
 	return candidate{
 		Kind: "table-range",
-		Locator: locator{Source: source, SourceDigest: sourceDigest, Sheet: "Sheet1", Range: r.a1},
+		Locator: locator{Source: source, SourceDigest: sourceDigest, Sheet: sheetName, Range: r.a1},
 		Status: "inferred", Execution: "deterministic", Method: "M1",
 		Claims: claims,
 		Provenance: provenance{

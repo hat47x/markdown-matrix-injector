@@ -122,7 +122,7 @@ test('default cache root follows explicit override, XDG and Windows LOCALAPPDATA
       'linux',
       '/home/user',
     ),
-    path.join('/tmp/xdg', 'mmi', 'cognitive-artifacts'),
+    path.resolve('/tmp/xdg', 'mmi', 'cognitive-artifacts'),
   );
   assert.equal(
     cognitiveArtifactCacheRoot(

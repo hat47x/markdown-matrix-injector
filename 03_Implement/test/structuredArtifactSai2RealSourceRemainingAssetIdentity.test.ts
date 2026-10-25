@@ -7,6 +7,8 @@ const DISCOVERY =
   'structured-artifact-sai2-real-source-discovery-manifest-v2.json';
 const IDENTITY =
   'structured-artifact-sai2-real-source-asset-identity-remaining-v2-v0.json';
+const REPLACEMENTS =
+  'structured-artifact-sai2-real-source-asset-identity-v2-replacements-v0.json';
 
 function j(name: string): any {
   return JSON.parse(readFileSync(new URL(name, ROOT), 'utf8'));
@@ -15,12 +17,16 @@ function j(name: string): any {
 test('remaining identity tranche covers exactly the twelve not in prior identity tranches', () => {
   const discovery = j(DISCOVERY);
   const identity = j(IDENTITY);
+  const replaced = new Set(
+    j(REPLACEMENTS).assets.map((x: any) => x.source_id),
+  );
   const expected = [
     ...discovery.primary_sources,
     ...discovery.reserve_sources,
   ].filter(
     (x: any) =>
-      ['abs', 'stats-nz', 'defra', 'gla'].includes(x.publisher_id),
+      ['abs', 'stats-nz', 'defra', 'gla'].includes(x.publisher_id)
+      && !replaced.has(x.source_id),
   );
 
   assert.equal(identity.assets.length, 12);

@@ -1,0 +1,54 @@
+name: MMI check
+description: Run read-only MMI reference checks and write a provenance summary to the job.
+author: hat47x
+
+inputs:
+  root:
+    description: Workspace root passed to every MMI command.
+    required: false
+    default: .
+  paths:
+    description: Comma-separated Markdown files or directories to check.
+    required: false
+    default: .
+  ledger:
+    description: Import ledger path, relative to the workspace root.
+    required: false
+    default: mmi-ledger.json
+  review-basis:
+    description: Review-basis sidecar path, relative to the workspace root.
+    required: false
+    default: mmi-review-basis.json
+  fail-on:
+    description: Comma-separated conditions that fail the job (diagnostics, stale, review-stale, missing).
+    required: false
+    default: diagnostics,review-stale,missing
+  mmi:
+    description: MMI executable available on PATH (for example mmi or npx).
+    required: false
+    default: mmi
+
+runs:
+  using: composite
+  steps:
+    - name: Run MMI check and provenance report
+      shell: bash
+      env:
+        MMI_ROOT: ${{ inputs.root }}
+        MMI_PATHS: ${{ inputs.paths }}
+        MMI_LEDGER: ${{ inputs.ledger }}
+        MMI_REVIEW_BASIS: ${{ inputs.review-basis }}
+        MMI_FAIL_ON: ${{ inputs.fail-on }}
+        MMI_COMMAND: ${{ inputs.mmi }}
+      run: |
+        set -euo pipefail
+        args=(--mmi "$MMI_COMMAND" --root "$MMI_ROOT" --ledger "$MMI_LEDGER" --review-basis "$MMI_REVIEW_BASIS" --fail-on "$MMI_FAIL_ON")
+        IFS=',' read -r -a paths <<< "$MMI_PATHS"
+        for item in "${paths[@]}"; do
+          args+=(--paths "$item")
+        done
+        node "$GITHUB_ACTION_PATH/../../../03_Implement/scripts/ci/mmi-ci.mjs" "${args[@]}"
+
+branding:
+  icon: check-circle
+  color: blue

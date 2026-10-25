@@ -3,7 +3,7 @@
 - Status: Accepted
 - Date: 2026-03-29
 - Deciders: Project Maintainers
-- Scope: `01_Plans/adr/`, `01_Plans/issues/`, `03_Implement/`, `04_Documentation/`
+- Scope: `01_Plans/adr/`, `04_Documentation/history/issues/`, `03_Implement/`, `04_Documentation/`
 
 ## Context (背景と課題)
 - `issue-0021` でproduct gap（観点別テンプレート自動挿入、抽出クエリ履歴のエビデンス出力）のMVP要件は定義済み。
@@ -25,7 +25,7 @@
 - **Bad:** Query Evidence 機能の提供時期は1イテレーション後ろ倒しになる。
 
 ## Traceability (関連情報)
-- Related Issues: `01_Plans/issues/issue-0021-phase6-scenario-product-gap-followup.md`, `01_Plans/issues/issue-0022-phase6-snippet-template-mvp.md`, `01_Plans/issues/issue-0023-phase6-query-evidence-export-mvp.md`
+- Related Issues: `04_Documentation/history/issues/issue-0021-phase6-scenario-product-gap-followup.md`, `04_Documentation/history/issues/issue-0022-phase6-snippet-template-mvp.md`, `04_Documentation/history/issues/issue-0023-phase6-query-evidence-export-mvp.md`
 - Related Spec: `00_Prompt/requirements.md` (Phase 5 DX / Phase 6 feedback loop)
 
 ## 議事録 (AI読込不要)

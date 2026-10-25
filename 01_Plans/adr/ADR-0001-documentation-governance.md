@@ -35,5 +35,5 @@
 - **Bad:** 既存文書も必要に応じて配置や表現を継続的に見直す必要がある。
 
 ## Traceability (関連情報)
-- Related Issues: `01_Plans/issues/issue-0003-restructure-layered-directories.md`
-- Related Docs: `01_Plans/planning-triage.md`, `04_Documentation/README.md`
+- Related Issues: `04_Documentation/history/issues/issue-0003-restructure-layered-directories.md`
+- Related Docs: `01_Plans/README.md`, `04_Documentation/README.md`

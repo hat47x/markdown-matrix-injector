@@ -16,7 +16,7 @@
   2. **Tutorial / Quickstart**: 最初の成功体験までを最短手順で案内する。
   3. **Scenario Guides**: SIer設計書移行、巨大表の別紙参照、レビュー・監査準備など、業務文脈ごとの使い方を示す。
   4. **Reference**: 記法、クエリ、Smart Fallback、印刷制御、Diagnostics、Paste / D&Dなどを正確に引ける詳細仕様を持つ。
-- 公開文書は `04_Documentation/` に置き、設計判断は `02_Architecture/`、実行計画は `01_Plans/issues/`、要求水準は `requirements.md` に戻す。公開文書だけに仕様差分を閉じ込めない。
+- 公開文書は `04_Documentation/` に置き、設計判断は `02_Architecture/`、実行計画は `04_Documentation/history/issues/`、要求水準は `requirements.md` に戻す。公開文書だけに仕様差分を閉じ込めない。
 - 文書化イテレーションごとに、以下の観点でフィードバックを評価する。
   - 要件: 読者価値、対象ユーザー、品質ゲート、未記載の制約がrequirementsに反映されているか。
   - 設計: 情報アーキテクチャ、文書間リンク、サンプル戦略、スクリーンショット方針、正本の所在がarchitectureに固定されているか。
@@ -38,7 +38,7 @@
 
 ## Traceability (関連情報)
 - Related ADRs: `01_Plans/adr/ADR-0001-documentation-governance.md`
-- Related Issues: `01_Plans/issues/issue-0015-phase6-public-docs-foundation.md`
+- Related Issues: `04_Documentation/history/issues/issue-0015-phase6-public-docs-foundation.md`
 - Related Docs: `02_Architecture/phase6-public-documentation-architecture.md`, `04_Documentation/README.md`
 
 ## 議事録 (AI読込不要)

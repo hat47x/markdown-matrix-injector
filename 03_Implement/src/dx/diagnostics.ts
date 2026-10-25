@@ -72,24 +72,24 @@ export function validateEmbedDiagnostics(input: ValidateEmbedDiagnosticsInput): 
   const diagnostics: EmbedDiagnostic[] = [];
   const fallbackRange = input.range ?? buildRangeFromQuery(input.query.raw);
 
-  if (!input.fileExists) {
-    diagnostics.push(
-      createDiagnostic(
-        'MMI_FILE_NOT_FOUND',
-        formatMessage('fileNotFound', { path: input.query.filepath }, input.locale),
-        buildSubjectRange(input.query.raw, input.query.filepath, fallbackRange),
-      ),
-    );
-  }
-
-  // Emit containment diagnostic only when the file exists (it was found on disk)
-  // but lies outside the workspace boundary — spec P4 Containment MUST.
-  // When the file doesn't exist, MMI_FILE_NOT_FOUND already covers it.
-  if (input.fileExists && input.containmentOk === false) {
+  // Containment is decided before existence (#599): a reference that leaves
+  // the workspace must not reveal whether an outside file exists. When the
+  // path is lexically outside, MMI_PATH_OUTSIDE_BOUNDARY is the only answer,
+  // even if the target is absent.
+  const outsideBoundary = input.containmentOk === false;
+  if (outsideBoundary) {
     diagnostics.push(
       createDiagnostic(
         'MMI_PATH_OUTSIDE_BOUNDARY',
         formatMessage('outsideBoundary', { path: input.query.filepath }, input.locale),
+        buildSubjectRange(input.query.raw, input.query.filepath, fallbackRange),
+      ),
+    );
+  } else if (!input.fileExists) {
+    diagnostics.push(
+      createDiagnostic(
+        'MMI_FILE_NOT_FOUND',
+        formatMessage('fileNotFound', { path: input.query.filepath }, input.locale),
         buildSubjectRange(input.query.raw, input.query.filepath, fallbackRange),
       ),
     );

@@ -59,20 +59,37 @@ Purpose:
 Decoded SHA-256:
 
 ```text
-45d925f4e7d26e5110d05f79a22b2d9b0d67ec73ca8db581cf0a7633d93a4a07
+525adf8be480e1db1a3ddfbe81465c176d8ba12553efdfa74a8c6ba2dcff4819
 ```
 
 Generation environment:
 
 ```text
-LibreOffice 25.2.3.2 520(Build:2)
+LibreOffice 25.2.3.2 (bbb074479178df812d175f709636b368952c2ce3, official Linux x86-64 deb archive)
 OpenPyXL 3.1.5
 ```
+
+History:
+
+- The first version of this fixture (SHA-256 `45d925f4e7d26e5110d05f79a22b2d9b0d67ec73ca8db581cf0a7633d93a4a07`)
+  was stored through a text channel and its base64 text was damaged (one
+  flipped byte in `xl/workbook.xml`, a flipped bit and truncated records in the
+  central directory), so the committed file could not be opened. The original
+  bytes were reconstructed from the surviving data and verified against that
+  SHA-256.
+- The original workbook was also inconsistent with the purpose below: the body
+  of `Theme Dark` lacked cell `C3`, so `Theme Dark` and `Theme Light Tint`
+  differed in structure as well as in fill, and structure-only matching could
+  never be ambiguous between them. This version was regenerated with the
+  process below, with the `Theme Dark` body laid out like `Theme Light Tint`
+  (`D-001`/`D-002` rows, `Owner` = `A`/`B`).
 
 Generation process:
 
 1. Build an XLSX source with OpenPyXL using theme-indexed solid fills.
 2. Use theme index 3 for a dark2 fill and theme index 3 + tint 0.8 for a lightened fill.
+   `Theme Dark` and `Theme Light Tint` share the same title, header labels and a
+   fully populated 2-row body, so that only the header fill tone differs.
 3. Add a direct RGB `FF202020` sheet as a control.
 4. Re-open and re-save the workbook with LibreOffice Calc's Office Open XML exporter.
 5. Independently inspect the final XLSX using OpenPyXL and ZIP/XML.

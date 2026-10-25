@@ -21,13 +21,13 @@ Phase 7で定めたリリース判定、導入KPIの記録、文書監査から�
 - `.github/workflows/ci.yml`（release-gate job）
 - `.github/workflows/release-gate-manual.yml`（手動workflow_dispatch実行）
 - `00_Prompt/requirements.md`（Phase 7要件）
-- `01_Plans/tools/release_gate_check.py`（Phase 7最小release gate自動実行）
-- `01_Plans/tools/release_gate_metrics.py`（release gate JSONからKPI CSVを生成）
-- `01_Plans/tools/release_gate_clean.py`（release gate生成物のクリーンアップ）
-- `01_Plans/tools/phase7_issue_rollup.py`（Phase 7 issueステータス集計）
-- `01_Plans/tools/release_gate_assert_artifacts.py`（必須artifact存在チェック）
+- `03_Implement/tools/release_gate_check.py`（Phase 7最小release gate自動実行）
+- `03_Implement/tools/release_gate_metrics.py`（release gate JSONからKPI CSVを生成）
+- `03_Implement/tools/release_gate_clean.py`（release gate生成物のクリーンアップ）
+- `03_Implement/tools/phase7_issue_rollup.py`（Phase 7 issueステータス集計）
+- `03_Implement/tools/release_gate_assert_artifacts.py`（必須artifact存在チェック）
 - `01_Plans/adr/ADR-0005-phase7-release-readiness-and-adoption-scale.md`（運用方針）
-- `01_Plans/issues/issue-0043-phase7-release-readiness-foundation.md`（初回実行タスク）
+- `04_Documentation/history/issues/issue-0043-phase7-release-readiness-foundation.md`（初回実行タスク）
 - `04_Documentation/README.md`（公開導線と運用導線）
 
 ## 既知の制約
@@ -42,9 +42,9 @@ Phase 7で定めたリリース判定、導入KPIの記録、文書監査から�
 
 | Gate | 必須チェック | 実行コマンド/証跡 | 合格条件 |
 |---|---|---|---|
-| G1: Planning Integrity | pending/orphan の整合 | `python3 01_Plans/tools/planning_queue.py` | orphan=0、対象issueが traceable |
+| G1: Planning Integrity | pending/orphan の整合 | `python3 03_Implement/tools/planning_queue.py` | orphan=0、対象issueが traceable |
 | G2: Test Integrity | unit test 回帰 | `cd 03_Implement && npm run test:unit` | fail=0 |
-| G3: Phase9 Sync Integrity | docs/fixture の品質監査（機械判定） | `python3 01_Plans/tools/release_gate_check.py` | `G3:Phase9Sync` が PASS |
+| G3: Phase9 Sync Integrity | docs/fixture の品質監査（機械判定） | `python3 03_Implement/tools/release_gate_check.py` | `G3:Phase9Sync` が PASS |
 | G4: Documentation Integrity | 公開導線と運用導線の整合 | `04_Documentation/README.md` の導線確認 | 導線リンク切れなし |
 | G5: Evidence Integrity | issue の Validation evidence 更新 | issue本文 | 実行日・コマンド・結果が記録済み |
 | G6: Decision Integrity | ADR/issue の責務分離 | ADR/issue 差分レビュー | 方針=ADR、実行=issue を維持 |
@@ -52,7 +52,7 @@ Phase 7で定めたリリース判定、導入KPIの記録、文書監査から�
 ### 判定フロー
 以下は判定時に実施する手順です。今回の文書修正でコマンドを実行した記録ではありません。
 
-1. まず `python3 01_Plans/tools/release_gate_check.py` を実行し、G1/G2/G3（Phase9Sync）を自動判定する。
+1. まず `python3 03_Implement/tools/release_gate_check.py` を実行し、G1/G2/G3（Phase9Sync）を自動判定する。
    - `03_Implement` 配下では `npm run release:gate`（証跡保存時は `npm run release:gate:artifacts`、CSVまで含む場合は `npm run release:gate:full`）を利用できる。
    - release-gate toolingのunit testは `npm run test:release-gate-tools` で実行する。
    - 既存証跡を掃除する場合は `npm run release:gate:clean` を実行する。
@@ -135,7 +135,7 @@ Phase 7で定めたリリース判定、導入KPIの記録、文書監査から�
 |---|---|---|---|
 | requirements 変更が必要 | 3営業日以内に草案 | Product/Architecture Lead | `00_Prompt/requirements.md` + ADR |
 | 設計調整が必要 | 3営業日以内に設計差分 | Architecture Lead | `02_Architecture/` |
-| テスト観点不足 | 2営業日以内に issue 起票 | QA/Delivery Lead | `03_Implement/test` + `01_Plans/issues/` |
+| テスト観点不足 | 2営業日以内に issue 起票 | QA/Delivery Lead | `03_Implement/test` + `04_Documentation/history/issues/` |
 | 文書導線/表現改善 | 2営業日以内にPR化 | Documentation Lead | `04_Documentation/` |
 
 ### 運用ルール

@@ -13,7 +13,7 @@
  *                          [data-page-break], [data-orientation]
  *   - renderTable.ts:      .mmi-table, .mmi-table__row(.--highlight),
  *                          .mmi-table__cell(.--formatted), .mmi-table__cell-code
- *   - renderCard.ts:       .mmi-card, .mmi-card__title, .mmi-card__meta, [data-path]
+ *   - renderCard.ts:       .mmi-card, .mmi-card__title, .mmi-card__meta, [data-source]
  *   - markdownMatrixPlugin.ts (error path): .mmi-error
  *
  * Colors use VS Code theme variables (--vscode-*) with safe fallbacks so the
@@ -104,8 +104,8 @@
   color: var(--vscode-descriptionForeground, #888);
 }
 
-/* ADR-0011: explicit env.openExternal affordance (command: URI). Fires only in
- * trusted previews; the title's plain link above is the always-working baseline. */
+/* ADR-0015: extension URI routed to validated env.openExternal handling.
+ * The title's plain relative link remains the baseline. */
 .mmi-card__open {
   display: inline-block;
   margin-top: 0.35rem;
@@ -171,6 +171,29 @@
     page: portrait;
   }
 
+  /* A caption never ends a page apart from its table or 別紙 block. */
+  .mmi-embed__caption {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* Chromium drops backgrounds when printing unless asked; keep header shading and highlights. */
+  .mmi-table thead th,
+  .mmi-table__row--highlight {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Highlight must survive monochrome printers: add a bar that does not depend on color. */
+  .mmi-table__row--highlight > td:first-child {
+    border-left: 3pt solid #000;
+  }
+
+  .mmi-table th,
+  .mmi-table .mmi-table__cell {
+    overflow-wrap: break-word;
+  }
+
   /* Keep table rows intact across page boundaries; repeat header per page. */
   .mmi-table__row {
     break-inside: avoid;
@@ -201,8 +224,9 @@
     font-weight: 600;
   }
 
-  .mmi-card[data-path]::after {
-    content: attr(data-path);
+  /* The author-written relative path: an absolute local path would leak the author's folders. */
+  .mmi-card[data-source]::after {
+    content: attr(data-source);
     display: block;
     margin-top: 0.2rem;
     font-size: 0.85em;
@@ -239,7 +263,7 @@
 <h2>3. 障害切り分けガイド</h2>
 <p>PATH/SHEET 系の障害を抽出します（<code>highlight</code> + <code>grep</code> + <code>caption</code> + <code>id</code>）。</p>
 <figure class="mmi-embed" id="tbl-failure-triage"><figcaption class="mmi-embed__caption">表4: PATH系障害切り分け（Highのみハイライト）</figcaption><table class="mmi-table"><thead><tr><th>Category</th><th>Symptom</th><th>FirstCheck</th><th>PossibleCause</th><th>Action</th><th>Severity</th></tr></thead><tbody><tr class="mmi-table__row mmi-table__row--highlight"><td class="mmi-table__cell">PATH</td><td class="mmi-table__cell">ファイルが見つからない</td><td class="mmi-table__cell">相対パス確認</td><td class="mmi-table__cell">Markdownからの相対パス誤り</td><td class="mmi-table__cell">パスを修正して保存</td><td class="mmi-table__cell">High</td></tr><tr class="mmi-table__row mmi-table__row--highlight"><td class="mmi-table__cell">PATH</td><td class="mmi-table__cell">ワークスペース外参照エラー</td><td class="mmi-table__cell">フォルダ構成確認</td><td class="mmi-table__cell">ワークスペース未設定</td><td class="mmi-table__cell">VSCodeでフォルダを開く</td><td class="mmi-table__cell">High</td></tr></tbody></table></figure><p><strong>全障害パターン（別紙参照）</strong> — 列数が多いため Smart Fallback でカード表示します。</p>
-<figure class="mmi-embed" id="card-failure-triage-full"><figcaption class="mmi-embed__caption">別紙: 障害切り分けガイド全件</figcaption><div class="mmi-card" data-path="/sessions/gracious-nice-newton/mnt/markdown-matrix-injector/04_Documentation/samples/sier-design/failure-triage.csv"><a class="mmi-card__title" href="./failure-triage.csv">failure-triage.csv</a><div class="mmi-card__meta">Sheet1 / A1:F9</div><a class="mmi-card__open" href="command:markdownMatrixInjector.openSource?%5B%22%2Fsessions%2Fgracious-nice-newton%2Fmnt%2Fmarkdown-matrix-injector%2F04_Documentation%2Fsamples%2Fsier-design%2Ffailure-triage.csv%22%5D">外部アプリで開く</a></div></figure><hr>
+<figure class="mmi-embed" id="card-failure-triage-full"><figcaption class="mmi-embed__caption">別紙: 障害切り分けガイド全件</figcaption><div class="mmi-card" data-source="./failure-triage.csv"><a class="mmi-card__title" href="./failure-triage.csv">failure-triage.csv</a><div class="mmi-card__meta">Sheet1 / A1:F9</div></div></figure><hr>
 <h2>4. リリース判定表</h2>
 <p>品質ゲートの状態を確認します（<code>highlightColumn</code> + <code>pageBreak=before</code>）。</p>
 <figure class="mmi-embed" id="tbl-release-gate" data-page-break="before"><figcaption class="mmi-embed__caption">表5: リリース判定表（要確認項目をハイライト）</figcaption><table class="mmi-table"><thead><tr><th>Gate</th><th>Check</th><th>Result</th><th>Threshold</th><th>Status</th><th>Notes</th></tr></thead><tbody><tr class="mmi-table__row"><td class="mmi-table__cell">G1</td><td class="mmi-table__cell">プレビュー描画確認</td><td class="mmi-table__cell">pass</td><td class="mmi-table__cell">全埋め込みが表またはカードで表示</td><td class="mmi-table__cell">OK</td><td class="mmi-table__cell">unit 154件 + production preview wiring 実証済み</td></tr><tr class="mmi-table__row mmi-table__row--highlight"><td class="mmi-table__cell">G2</td><td class="mmi-table__cell">PDF改ページ確認</td><td class="mmi-table__cell">pending</td><td class="mmi-table__cell">pageBreak指定箇所で改ページ再現</td><td class="mmi-table__cell">pending</td><td class="mmi-table__cell">Chromium/weasyprint系エンジンで手動確認必要</td></tr><tr class="mmi-table__row mmi-table__row--highlight"><td class="mmi-table__cell">G2</td><td class="mmi-table__cell">PDF横向き確認</td><td class="mmi-table__cell">pending</td><td class="mmi-table__cell">orientation=landscape指定ページが横向き</td><td class="mmi-table__cell">pending</td><td class="mmi-table__cell">named-page対応エンジン(weasyprint/Chrome headless)が必要</td></tr><tr class="mmi-table__row"><td class="mmi-table__cell">G3</td><td class="mmi-table__cell">データ完全性確認</td><td class="mmi-table__cell">pass</td><td class="mmi-table__cell">原本CSV/XLSXが改変されない</td><td class="mmi-table__cell">OK</td><td class="mmi-table__cell">read-onlyビューア設計確認済み</td></tr><tr class="mmi-table__row"><td class="mmi-table__cell">G4</td><td class="mmi-table__cell">適用範囲文書化</td><td class="mmi-table__cell">pass</td><td class="mmi-table__cell">非対応条件が実測ベースで明記</td><td class="mmi-table__cell">OK</td><td class="mmi-table__cell">04_Documentation/samples/sier-design/README.md参照</td></tr></tbody></table></figure><p>→ G1/G3/G4 は OK、G2 は手動確認が必要です（<a href="#g4-honest-scope">G4 制約</a> 参照）。</p>
@@ -369,7 +393,7 @@
 </ul>
 <hr>
 <p><em>このサンプルは <code>04_Documentation/samples/sier-design/</code> 配下で管理されます。</em><br>
-<em>関連 issue: <a href="../../../01_Plans/issues/issue-0098-phase11-pdf-print-output-proof.md">issue-0098</a> / ADR-0010 G2/G4</em></p>
+<em>関連 issue: <a href="../../history/issues/issue-0098-phase11-pdf-print-output-proof.md">issue-0098</a> / ADR-0010 G2/G4</em></p>
 
 </body>
 </html>

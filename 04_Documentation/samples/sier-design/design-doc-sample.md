@@ -126,4 +126,4 @@ PATH/SHEET 系の障害を抽出します（`highlight` + `grep` + `caption` + `
 ---
 
 *このサンプルは `04_Documentation/samples/sier-design/` 配下で管理されます。*  
-*関連 issue: [issue-0098](../../../01_Plans/issues/issue-0098-phase11-pdf-print-output-proof.md) / ADR-0010 G2/G4*
+*関連 issue: [issue-0098](../../history/issues/issue-0098-phase11-pdf-print-output-proof.md) / ADR-0010 G2/G4*

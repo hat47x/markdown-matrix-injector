@@ -4,7 +4,7 @@ Phase 10の運用ガバナンス自動化に向けて、`docs-check` / `unit` / 
 
 ## 1. Harvest Artifact Contract
 
-`01_Plans/tools/phase10_evidence_harvest.py` は、収集した結果を次の項目を持つJSONとして出力します。
+`03_Implement/tools/phase10_evidence_harvest.py` は、収集した結果を次の項目を持つJSONとして出力します。
 
 - `generatedAt` (string): 収集時刻（ISO 8601）
 - `schemaVersion` (string): 契約バージョン（`phase10-evidence-harvest/v1`）
@@ -28,7 +28,7 @@ Phase 10の運用ガバナンス自動化に向けて、`docs-check` / `unit` / 
 リポジトリのルートディレクトリで、次のコマンドを実行する例です。サンプル入力から証跡JSONと週次ガバナンスレポート用の入力JSONを生成します。
 
 ```bash
-python3 01_Plans/tools/phase10_evidence_harvest.py \
+python3 03_Implement/tools/phase10_evidence_harvest.py \
   --inputs 04_Documentation/samples/phase10-harvest-input.sample.json \
   --output artifacts/phase10-evidence-harvest.json \
   --governance-output artifacts/phase10-governance-seed.json \
@@ -55,4 +55,4 @@ ADR-0012 D6の3 KPI（`displacedDuplicationCount` / `canonDriftIncidentCount` / 
 プレースホルダが入り、`kpisProvenance` に `unmeasured-default` として記録される — 「未計測」と「実測でゼロ」を
 混同しないための明示的な区別です。未計測のプレースホルダ値は、実際の測定結果がゼロだったという意味ではありません。
 
-この接続は `01_Plans/tools/test_phase10_evidence_harvest.py` の最小統合テストで保証する。
+この接続は `03_Implement/tools/test_phase10_evidence_harvest.py` の最小統合テストで保証する。

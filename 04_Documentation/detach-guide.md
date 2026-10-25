@@ -52,7 +52,7 @@
 | --- | --- |
 | 基本設計書キットの複製での手順1〜4（Windows、Node v24.19.0、CLI 0.1.0、2026-10-17） | 確認済み。`materialize`は参照なし・別紙なし・画像なしで成功し、`detach-check`は、原本へのリンクを直す前に1件、直した後に0件を報告した（原本を外した状態） |
 | 実在する設計書 | 未確認 |
-| 画像を含む文書、図形を含む文書 | 未確認（図形・範囲画像は[#530](https://github.com/hat47x/markdown-matrix-injector/issues/530)で扱う） |
+| 画像を含む文書、図形を含む文書 | 図形・範囲画像の鮮度確認は自動テストで確認済み（原本の変更と描画artifactの編集でstale。[#530](https://github.com/hat47x/markdown-matrix-injector/issues/530)）。実機の図形入りブックと、実在文書での画像・図形の切り離しは未確認 |
 | macOS、Linux | 未確認 |
 | 手順6（MMIの拡張とCLIを外した環境での表示確認） | 未確認 |
 

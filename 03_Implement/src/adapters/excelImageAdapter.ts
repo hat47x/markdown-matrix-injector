@@ -21,6 +21,12 @@ import { createHash } from 'node:crypto';
 
 import type { Candidate, Claim, Evidence } from '../core/candidate.js';
 import { candidateProblem, fingerprintOf } from '../core/candidate.js';
+import {
+  EXTRACTABLE_MEDIA_FORMATS,
+  isExtractableMediaFormat,
+  mediaFormatOf,
+  type MediaFormat,
+} from '../core/mediaFormat.js';
 import { readZip, ZipError, type ZipEntry } from '../core/zipReader.js';
 
 export const IMAGE_ADAPTER_ALGORITHM = 'mmi.excel-image-reader';
@@ -30,8 +36,8 @@ export const SHAPE_ADAPTER_ALGORITHM = 'mmi.excel-drawing-shape-reader';
 export const SHAPE_ADAPTER_VERSION = '2';
 
 /** Formats Markdown/browsers can display; others are listed but not extractable. */
-export const EXTRACTABLE_FORMATS = ['png', 'jpeg', 'gif', 'bmp', 'svg'] as const;
-export type ImageFormat = (typeof EXTRACTABLE_FORMATS)[number] | 'tiff' | 'emf' | 'wmf' | 'unknown';
+export const EXTRACTABLE_FORMATS = EXTRACTABLE_MEDIA_FORMATS;
+export type ImageFormat = MediaFormat;
 
 export type ImageDiagnosticCode =
   | 'MMI_IMAGE_NOT_A_PACKAGE'
@@ -226,20 +232,6 @@ function sheetsOf(zip: Map<string, ZipEntry>): { name: string; part: string }[] 
   return sheets;
 }
 
-function formatOf(bytes: Buffer, partName: string): ImageFormat {
-  const startsWith = (...values: number[]) => values.every((value, i) => bytes[i] === value);
-  if (startsWith(0x89, 0x50, 0x4e, 0x47)) return 'png';
-  if (startsWith(0xff, 0xd8, 0xff)) return 'jpeg';
-  if (startsWith(0x47, 0x49, 0x46, 0x38)) return 'gif';
-  if (startsWith(0x42, 0x4d)) return 'bmp';
-  if (startsWith(0x49, 0x49, 0x2a, 0x00) || startsWith(0x4d, 0x4d, 0x00, 0x2a)) return 'tiff';
-  if (bytes.length >= 44 && bytes.readUInt32LE(40) === 0x464d4520) return 'emf';
-  if (startsWith(0xd7, 0xcd, 0xc6, 0x9a)) return 'wmf';
-  if (/<svg[\s>]/u.test(bytes.subarray(0, 2048).toString('utf8'))) return 'svg';
-  const extension = partName.split('.').pop()?.toLowerCase();
-  return extension === 'jpg' ? 'jpeg' : (['png', 'jpeg', 'gif', 'bmp', 'svg', 'tiff', 'emf', 'wmf'] as const).find((f) => f === extension) ?? 'unknown';
-}
-
 function pointOf(block: string): CellPoint | undefined {
   const col = /<(?:\w+:)?col>(\d+)</u.exec(block)?.[1];
   const row = /<(?:\w+:)?row>(\d+)</u.exec(block)?.[1];
@@ -432,7 +424,7 @@ export function readExcelImages(bytes: Uint8Array): ImageReadResult {
         if (!mediaCache.has(rel.target)) {
           try {
             const data = entry.read();
-            mediaCache.set(rel.target, { bytes: data, digest: `sha256:${createHash('sha256').update(data).digest('hex')}`, format: formatOf(data, rel.target) });
+            mediaCache.set(rel.target, { bytes: data, digest: `sha256:${createHash('sha256').update(data).digest('hex')}`, format: mediaFormatOf(data, rel.target) });
           } catch (error) {
             mediaCache.set(rel.target, undefined);
             result.diagnostics.push({ code: 'MMI_IMAGE_MEDIA_MISSING', severity: 'warning', sheet: sheet.name, part: rel.target, message: `${label}: ${error instanceof Error ? error.message : 'unreadable media'}` });
@@ -440,7 +432,7 @@ export function readExcelImages(bytes: Uint8Array): ImageReadResult {
         }
         const media = mediaCache.get(rel.target);
         if (!media) continue;
-        const extractable = (EXTRACTABLE_FORMATS as readonly string[]).includes(media.format);
+        const extractable = isExtractableMediaFormat(media.format);
         if (!extractable) {
           result.diagnostics.push({ code: 'MMI_IMAGE_UNSUPPORTED_FORMAT', severity: 'warning', sheet: sheet.name, part: rel.target, message: `${label}: ${media.format} cannot be shown in Markdown; it is listed but not extracted` });
         }

@@ -1,6 +1,6 @@
 # MMI Notation v1 — 仕様書 / Specification (Draft)
 
-- Version: 1.0.0-draft.1（SemVer。v1.0.0到達時にコア構文を凍結 / core syntax freezes at 1.0.0）
+- Version: 1.0.0-draft.2（SemVer。v1.0.0到達時にコア構文を凍結 / core syntax freezes at 1.0.0。draft.2で§9の境界外判定を存在確認より前に固定 / #599）
 - Status: Draft
 - Normative language: 本書の MUST / MUST NOT / SHOULD / MAY はRFC 2119に従う。日本語正文が規範であり、英文は参考訳（EN mirrors are informative）。
 - 決定正本 / Decision record: `01_Plans/adr/ADR-0012-mission-redefinition-notation-as-governance-boundary.md`
@@ -25,7 +25,7 @@ MMI Notationは、テキスト文書から正本表データ（CSV / XLSX / XML 
 | P1 | **Read-only** | 準拠プロセッサは参照先を**改変してはならない** (MUST NOT modify referenced sources)。 |
 | P2 | **Visible degradation** | 記法を解釈しないホストでは原文がそのまま可視であること。準拠プロセッサは解釈失敗を**沈黙で隠してはならない** (failures MUST be visible, never silent)。 |
 | P3 | **Determinism** | 同一の正本 + 同一の参照 → 同一の論理表 (same source + same reference MUST yield the same logical table)。 |
-| P4 | **Containment** | パス解決は文書基準の相対解決とワークスペース境界内に限定する (resolution MUST stay within the workspace boundary)。コア仕様はネットワーク取得を含まない。リモートソースは明示 opt-in の拡張とする。 |
+| P4 | **Containment** | パス解決は文書基準の相対解決とワークスペース境界内に限定する (resolution MUST stay within the workspace boundary)。境界外と判定したパスは、存在確認のために読みに行かない。コア仕様はネットワーク取得を含まない。リモートソースは明示 opt-in の拡張とする。 |
 | P5 | **Forward compatibility** | 未知のクエリキーはエラーにせず**無視しなければならない** (unknown query keys MUST be ignored)。実験キーは `x-` 名前空間を用いる (SHOULD)。 |
 | P6 | **Stable diagnostics** | §9 の診断コードは安定 API であり、意味を変えてはならない (diagnostic codes are a stable API)。 |
 | P7 | **i18n 中立** | クエリキーは ASCII、値は任意の Unicode (MAY)。ロケール固有の出版概念は Profile（§8）に隔離する。 |
@@ -125,7 +125,7 @@ params      = URL クエリ文字列（application/x-www-form-urlencoded）
 | `MMI_FILE_NOT_FOUND` | 解決不能な `target` | エラー該当箇所を利用者に可視化 |
 | `MMI_SHEET_NOT_FOUND` | 存在しない `sheet` | 同上 |
 | `MMI_INVALID_XML` | XML 2003 シグネチャ不一致 | パース中断・可視エラー（正本は読み込まない） |
-| `MMI_PATH_OUTSIDE_BOUNDARY` | `target` はファイルとして存在するが P4 の境界（ワークスペース境界）外 | プレビュー描画前に Problems パネルで検知、かつ描画時も可視エラー（issue-0105） |
+| `MMI_PATH_OUTSIDE_BOUNDARY` | `target` の解決候補がすべて字句の上で P4 の境界（ワークスペース境界）外。**存在確認より先に判定する**。境界内の候補が実体はシンボリックリンクで外を指す場合も同じ | プレビュー描画前に Problems パネルで検知、かつ描画時も可視エラー（issue-0105、#599）。境界外の存在有無を診断で明かさない。存在しない境界内のパスは`MMI_FILE_NOT_FOUND` |
 
 レンダリング時の失敗は可視のエラー表示（参照実装では `mmi-error` ブロック）としなければならない (MUST)。空白化・黙殺はP2違反である。
 
@@ -151,6 +151,18 @@ conformance corpus（`03_Implement/test/conformance/cases.json`）は本仕様�
 各ケースは「入力Markdown + ソースファイル群 + 期待される出力断片/診断」を機械可読に宣言する。
 実装は自レベルの全ケースに合格することで準拠を主張できる。corpusは同時に
 AIエージェントへの記法教示データとして利用できる（P8）。
+
+## 13. v1.0.0で凍結する範囲（提案・非規範）
+
+> この節は提案であり、v1.0.0の凍結を宣言しない。承認は[ADR-0031](../../01_Plans/adr/ADR-0031-notation-v1-freeze-scope-proposal.md)で行う。
+
+v1.0.0では、P1〜P8、§3の構文、§4の解決モデル、§6の変換順序と5ステップ、§9の4つの診断コード、§8のL0〜L2を凍結する。`params.schema.json`の12キーの名前と意味、L3 Delivery Profileのパラメータと別紙マニフェストの列も凍結する。
+
+実験キー`x-headers`・`x-below`・`x-table`・`x-name`は`x-`のまま残し、v1.0.0のコアに含めない。`where=`は予約のままとし、コアに含めない。未知キーを無視するP5と`additionalProperties: true`は維持する。
+
+凍結後の変更は、コア構文・コアパラメータの意味・診断コードの意味がmajor、追加パラメータ・新しい`x-`キー・新しい診断コードがminor、文言・例・参考訳がpatchである。
+
+規範文とconformance caseの対応、未固定の規範、凍結前の残作業は[v1.0.0凍結範囲の対応表](v1.0.0-freeze-scope.md)に示す。
 
 ## 参照実装のCSV文字コード（非規範）
 

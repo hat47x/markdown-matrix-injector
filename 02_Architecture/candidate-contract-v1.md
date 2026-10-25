@@ -1,7 +1,7 @@
 # Semantic Candidate 契約 v1
 
-- 状態: 実装済み（型・不変条件・表・画像・Choice list・AutoShape/connector・JSON/YAML/XML Tree、フラットテキストとExcel / CSVの推定Tree、`mmi inspect --json`、`mmi extract`、Candidateレビュー）。2026-10-03のIssue #417で認識論上の状態と採用状態を分離した。AutoShape/connectorは観測・レビューまで実装し、Extracted変換は未実装。graphic frame、メモ、見出し等のAdapterは未実装。
-- 関連: [ADR-0019](../01_Plans/adr/ADR-0019-ai-era-sier-document-value-and-policy.md) D4・D6・D8、[ADR-0018](../01_Plans/adr/ADR-0018-cognitive-assistance-plane.md) D1〜D5、[ADR-0020](../01_Plans/adr/ADR-0020-requirement-oriented-cognition-method-selection.md)、[issue-0193](../01_Plans/issues/issue-0193-candidate-source-adapter-contract.md)
+- 状態: 実装済み（型・不変条件・表・画像・Choice list・AutoShape/connector・JSON/YAML/XML Tree、フラットテキストとExcel / CSVの推定Tree、`mmi inspect --json`、`mmi extract`、Candidateレビュー）。2026-10-03のIssue #417で認識論上の状態と採用状態を分離した。AutoShape/connectorは観測・レビューまで実装し、Extracted変換は未実装。graphic frameは未解釈の警告として残す。Word（.docx）は見出し・表・画像・コメントを観測し、表・画像の明示抽出まで実装した（2026-10-20、issue-0531）。
+- 関連: [ADR-0019](../01_Plans/adr/ADR-0019-ai-era-sier-document-value-and-policy.md) D4・D6・D8、[ADR-0018](../01_Plans/adr/ADR-0018-cognitive-assistance-plane.md) D1〜D5、[ADR-0020](../01_Plans/adr/ADR-0020-requirement-oriented-cognition-method-selection.md)、[issue-0193](../04_Documentation/history/issues/issue-0193-candidate-source-adapter-contract.md)
 - 実装: `src/core/candidate.ts`（型とruntime不変条件）、`src/core/candidateContract.ts`（公開JSON Schema）、`src/adapters/tableRegionAdapter.ts`、`src/adapters/excelImageAdapter.ts`、`src/adapters/excelChoiceListAdapter.ts`、`src/adapters/jsonTreeAdapter.ts`、`src/adapters/yamlTreeAdapter.ts`、`src/adapters/xmlTreeAdapter.ts`、`src/adapters/flatTextTreeStructuralizer.ts`、`src/adapters/tabularHierarchyAdapter.ts`
 
 Candidateは、Source Adapterが見つけた「情報の単位」を、取り込み・参照・レビュー・台帳が共通に扱うための型である。入力形式とMarkdown出力を直接結ばず、Source Adapter → Observed Structure → Candidate → 確認／参照／取り込み、の順に流す（ADR-0019 D4）。
@@ -137,13 +137,32 @@ inline listは原本に記録された値を`observed + deterministic + M0`と�
 
 Choice listは`inspect`、通常のCandidateレビュー、一括取り込みに同じCandidateとして現れる。レビューUIでは確認、却下、保留を扱うが、現時点ではChoice list自体を別のExtracted資産へ変換しない。参照先の値またはreview basisが変われば、既存のfingerprint / Claim basis照合により旧判断をそのまま継承しない。
 
+## 3h. Word文書（.docx）のSource Adapter（issue-0531）
+
+`readDocx()`はOOXMLパッケージの`word/document.xml`、`word/styles.xml`、`word/comments.xml`、`word/_rels/document.xml.rels`を読み、`section`・`table-range`・`image`・`note`のCandidateへ写す（[ADR-0026](../01_Plans/adr/ADR-0026-word-source-adapter-read-only-boundary.md)）。WordをMMI記法のLinked targetにはしない。見出しは`w:pStyle`が解決できる見出しスタイル、または`w:outlineLvl`が明示された場合だけ`observed + M0`とし、太字・文字サイズからの推定はしない。
+
+| 主張 | 状態 | method | 根拠 |
+| --- | --- | --- | --- |
+| `structural-path` | `observed` | M0 | 文書内の段落・表・セル・drawingの順序 |
+| `heading-level`・`heading-text`・`style-id` | `observed` | M0 | 見出しスタイルまたは`w:outlineLvl`、`w:t` |
+| `rows`・`columns` | `observed` | M0 | `w:tbl`の行・セル・`gridSpan` |
+| `header-row` | `observed`または`abstained` | M0／M1 | `w:tblHeader`があるときだけ行番号を主張。なければ`no-explicit-header-row` |
+| `media`・`format`・`bytes`・`digest`・`name`・`description`・`extent-emu` | `observed` | M0 | drawingの関係・媒体シグネチャ・`docPr` |
+| `comment-id`・`text`・`author`・`date`・`anchor` | `observed`／`anchor`は`abstained`可 | M0／M1 | `word/comments.xml`と`w:commentRangeStart` |
+
+- 表のgridは`gridSpan`を空セルで展開し、`vMerge`の継続セルも元の文字を保持する。入れ子表は外側セルへ平坦化せず、別Candidateと`MMI_DOCX_NESTED_TABLE_NOT_FLATTENED`診断に残す。
+- fingerprintは表が`docx-table-grid-v1`（gridと明示見出し行のcanonical JSON）、見出しが`docx-heading-v1`、画像が`image-media-bytes-v1`、コメントが`docx-comment-v1`である。
+- `mmi extract --docx-table`はGFM表のMarkdown資産、`--docx-image`は内容アドレスな画像資産を書き出す。どちらも`inspect --json`のfingerprintを必須とし、台帳へ`table-range`／`image`として記録する。外部リンク画像は取得しない。
+- 出典コメントは`path:<structuralPath>`を持ち、`checkExtractedProvenanceFreshness()`はWordの`.docx`を再読して現在のCandidateと台帳を照合する。表の内容が変わればstale、無関係な箇所の変更だけならfreshのままである。
+- 変更履歴の解決、ヘッダ・フッタ、脚注、テキストボックス、SmartArt・グラフの意味解釈、`.doc`旧形式は初版の非対象である（ADR-0026）。
+
 ### fingerprint（暫定）
 
-表のfingerprintは、範囲の**表示セル値の列**（セルを`U+001F`、行を`U+001E`で連結）のsha256とし、`representation`は`table-display-cells-v1`とする。**位置を含めない**ので、表が別の行へ動いても同じfingerprintになり、セルを1つ変えると変わる。位置は`locator`が別に持つ。ADR-0019 D8のとおり方式は種別ごとに異なってよい。台帳での使い方（移動・再取り込みの判定）は[issue-0195](../01_Plans/issues/issue-0195-import-ledger.md)で確定し、必要なら`representation`を上げる。
+表のfingerprintは、範囲の**表示セル値の列**（セルを`U+001F`、行を`U+001E`で連結）のsha256とし、`representation`は`table-display-cells-v1`とする。**位置を含めない**ので、表が別の行へ動いても同じfingerprintになり、セルを1つ変えると変わる。位置は`locator`が別に持つ。ADR-0019 D8のとおり方式は種別ごとに異なってよい。台帳での使い方（移動・再取り込みの判定）は[issue-0195](../04_Documentation/history/issues/issue-0195-import-ledger.md)で確定し、必要なら`representation`を上げる。
 
 ## 4. CLI
 
-`mmi inspect <source> --json`は表・画像・Choice listと、JSON/YAML/XMLの明示Tree Candidateを返す。フラットテキストはM1の階層仮説を返し、Excel / CSVは利用者が親列またはLevel列を明示した場合にM1のTree Candidateを返す。JSON出力には`candidateContract: "mmi.semantic-candidate/v1"`を併記し、外部AIや他ツールがCandidate配列の契約を推測しなくてよいようにする。契約本体は`mmi schema candidate`で取得する。JSON/YAMLではRFC 6901 JSON Pointer、XMLではelement pathを構造位置として扱う。
+`mmi inspect <source> --json`は表・画像・Choice listと、JSON/YAML/XMLの明示Tree Candidate、Word（.docx）の見出し・表・画像・コメントを返す。フラットテキストはM1の階層仮説を返し、Excel / CSVは利用者が親列またはLevel列を明示した場合にM1のTree Candidateを返す。JSON出力には`candidateContract: "mmi.semantic-candidate/v1"`を併記し、外部AIや他ツールがCandidate配列の契約を推測しなくてよいようにする。契約本体は`mmi schema candidate`で取得する。JSON/YAMLではRFC 6901 JSON Pointer、XMLではelement pathを構造位置として扱う。
 
 - 実務サンプルの全20ブック（CSV・TSV・XLSX・XML 2003）と基本設計書キットのマスター（5シート）で、`candidates`の件数が`regions`の件数と一致し、各Candidateが不変条件と`reference`の一致を満たすことを確認した。
 - 認知側の処理が`check`の診断と`render`の論理表を変えないことを、同一入力での実行前後の比較と、権威経路（`render`・診断・表の描画）が`adapters/`・`search/`・`experimental/`・`core/candidate`を読み込まないことの静的検査で確かめる（`test/candidate.test.ts`）。
@@ -186,7 +205,7 @@ Choice listは`inspect`、通常のCandidateレビュー、一括取り込みに
 
 ### 実コードと食い違っていた記述（訂正）
 
-[ギャップ分析](../01_Plans/product-gap-analysis.md)の旧§5は、次を研究済みの成果として並べていたが、実コードでは生成されていない。
+[ギャップ分析](product-gap-analysis.md)の旧§5は、次を研究済みの成果として並べていたが、実コードでは生成されていない。
 
 - `region.hierarchy_relation`、`region.repeated_block`、`ambiguous_or_non_table`は、`structuredArtifactNeutralObservation.ts`に**ラベル名として宣言があるだけ**で、`src`にも`test`にも出力する生成コードが無い。中立アダプタは`labels: {}`を返し、ラベルを持つのは合成fixtureの正解側だけである。
 - この研究ラベル自体を生成する製品コードは現在も無い。一方、Tree / Hierarchyは研究ラベルを経由せず、JSON/YAML/XMLの明示構造と、フラットテキスト・Excel / CSVの決定論的な推定から製品Adapterを実装した。Excel Data Validationのlistは独立した`choice-list` Candidate、AutoShape/connectorは`shape` Candidateとして実装済みである。Note、Section、graphic frame等は未実装である。

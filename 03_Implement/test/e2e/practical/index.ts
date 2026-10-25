@@ -18,7 +18,7 @@ const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const EMBED = /!\[\[[^\]\n]*\]\]/gu;
 /** Deliberately broken references in 11-diagnostics.md (line number, 0-based). */
 const EXPECTED_ERRORS: Record<string, Record<number, string>> = {
-  '11-diagnostics.md': { 7: 'MMI_FILE_NOT_FOUND', 13: 'MMI_SHEET_NOT_FOUND', 19: 'MMI_INVALID_XML' },
+  '11-diagnostics.md': { 8: 'MMI_FILE_NOT_FOUND', 16: 'MMI_SHEET_NOT_FOUND', 24: 'MMI_INVALID_XML' },
 };
 
 async function open(file: string): Promise<{ document: vscode.TextDocument; editor: vscode.TextEditor }> {

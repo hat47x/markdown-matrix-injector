@@ -36,5 +36,5 @@ issue-0106（CSV RFC4180 クォート未対応）・issue-0107（XLSX 日付セ�
 - issue-0107: XLSX/XML 日付セルの曖昧な短縮表記
 
 ## 関連正本
-- `01_Plans/issues/issue-0106-csv-rfc4180-quoting-fix.md`
-- `01_Plans/issues/issue-0107-xlsx-date-cell-locale-ambiguity-fix.md`
+- `04_Documentation/history/issues/issue-0106-csv-rfc4180-quoting-fix.md`
+- `04_Documentation/history/issues/issue-0107-xlsx-date-cell-locale-ambiguity-fix.md`

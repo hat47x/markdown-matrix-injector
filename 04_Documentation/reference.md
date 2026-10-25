@@ -48,7 +48,7 @@
 
 ### 関連正本リンク
 - 要件正本: `00_Prompt/requirements.md`
-- 実行計画: `01_Plans/issues/issue-0018-phase6-reference-trustworthiness.md`
+- 実行計画: `04_Documentation/history/issues/issue-0018-phase6-reference-trustworthiness.md`
 - architecture gate正本: `02_Architecture/phase6-public-documentation-architecture.md`
 - 関連ADR:
   - `01_Plans/adr/ADR-0002-phase6-documentation-feedback-loop.md`
@@ -228,10 +228,65 @@
 
 ### 関連正本
 - `00_Prompt/requirements.md`
-- `01_Plans/issues/issue-0006-phase3-caption-and-print-control.md`
+- `04_Documentation/history/issues/issue-0006-phase3-caption-and-print-control.md`
 - `02_Architecture/phase6-public-documentation-architecture.md`
 - `03_Implement/src/core/renderEmbedFrame.ts`
 - `03_Implement/test/markdownMatrixPlugin.test.ts`
+
+## 納品用の文書情報（front matter）
+
+`mmi render --to html`は、Markdownの先頭にあるYAMLのfront matterから、納品用PDFの表紙・目次・柱（ヘッダー・フッター）・文書プロパティを作ります。front matterがない文書は、従来どおり出力します。
+
+```yaml
+---
+title: 申請システム 基本設計書
+subtitle: 申請・承認システム更改プロジェクト
+documentNumber: SD-APP-0001
+version: 第1.2版
+date: 2026年10月21日
+customer: 架空商事株式会社 御中
+organization: 架空システムズ株式会社
+author: 山田 太郎
+classification: 社外秘
+approvals: [承認, 審査, 作成]
+cover: true
+toc: true
+paper: A4
+---
+```
+
+| キー | 使われる場所 | 省略時 |
+|---|---|---|
+| `title` | 表紙の文書名、ヘッダー左、PDFの文書プロパティ「タイトル」 | 最初の`#`見出し |
+| `subtitle` | 表紙の文書名の上（案件名など）、PDFの「サブタイトル」 | 表示しない |
+| `documentNumber` / `version` | 表紙右上・フッター左、PDFの「キーワード」 | 表示しない |
+| `date` | 表紙。`YYYY-MM-DD`形式のときだけPDFの作成日にも入れる | 表示しない |
+| `customer` | 表紙の宛先（「御中」も含めて書く） | 表示しない |
+| `organization` / `author` | 表紙の発行組織、PDFの「作成者」（`author`を優先） | 表示しない |
+| `classification` | 表紙右上の枠、ヘッダー右（例: 社外秘、関係者限り） | 表示しない |
+| `approvals` | 表紙右下の承認欄（押印・サイン用の空欄）。役割名を左から並べる | 承認欄なし |
+| `cover` | `true`で表紙を付ける | `false` |
+| `toc` | `true`で`##`・`###`見出しからページ番号付きの目次を作る | `false` |
+| `paper` | 用紙。`A4`または`A3`。`orientation`の横向きも同じ用紙の横になる | `A4` |
+
+### 正常系挙動
+
+- 値は書いたとおりの文字列として扱う。`1.10`は`1.1`にならず、日付も書式を変えない。和暦も使える。
+- ページ番号はフッター中央に「現在のページ / 総ページ数」で入る。表紙にはヘッダー・フッターを入れない。ページ番号は表紙から数えるので、PDF閲覧ソフトのページ番号と一致する。
+- 見出しの直後に`pageBreak=before`や`orientation`付きの表がある場合、見出しも表と同じページへ送る。見出しだけが前のページの末尾に残らない。
+- 別紙カードには文書に書いた相対パスだけを出す。作成者のPCの絶対パス（ユーザー名や顧客名を含むフォルダー）や「外部アプリで開く」リンクは、出力したHTMLにもPDFにも入れない。
+- 改訂履歴は、ExcelやCSVの台帳をMMI参照で表示すると、版を上げるたびに台帳へ1行足すだけで済む（[納品用の見本](samples/practical/14-delivery.md)）。
+
+### 代表的失敗ケース
+
+- `paper`に`A4`・`A3`以外、`cover`・`toc`に`true`・`false`以外、`title`などに複数値を書くと、`mmi render`は出力せずにエラーで終了する。誤った体裁のPDFを黙って作らないためである。
+- front matterにないキーは無視する。Pandocや静的サイト生成器のキーと同じ文書に書いてよい。
+
+### 制約
+
+- 表紙・目次・柱・ページ番号はCSS Paged Mediaで指定する。確認済みの生成器はWeasyPrint 69.0である。ブラウザの印刷やChromium系の生成器では、目次のページ番号・柱・ページ番号が出ない場合がある。
+- 表紙の構成は1種類で、会社ごとの書式（ロゴ、罫線、承認欄の配置）は再現しない。
+- 目次の対象は`##`と`###`だけである。
 
 ## Smart Fallback
 
@@ -261,8 +316,8 @@
 
 ### 関連正本
 - `00_Prompt/requirements.md`
-- `01_Plans/issues/issue-0007-phase4-smart-fallback.md`
-- `01_Plans/issues/issue-0008-smart-fallback-short-circuit.md`
+- `04_Documentation/history/issues/issue-0007-phase4-smart-fallback.md`
+- `04_Documentation/history/issues/issue-0008-smart-fallback-short-circuit.md`
 - `02_Architecture/phase6-public-documentation-architecture.md`
 - `03_Implement/src/core/smartFallback.ts`
 - `03_Implement/test/smartFallback.test.ts`
@@ -292,7 +347,7 @@
 
 ### 関連正本
 - `00_Prompt/requirements.md`
-- `01_Plans/issues/issue-0010-phase5-native-paste-drop-provider.md`
+- `04_Documentation/history/issues/issue-0010-phase5-native-paste-drop-provider.md`
 - `03_Implement/src/dx/diagnostics.ts`
 - `03_Implement/test/diagnostics.test.ts`
 
@@ -323,7 +378,7 @@
 
 ### 関連正本
 - `00_Prompt/requirements.md`
-- `01_Plans/issues/issue-0010-phase5-native-paste-drop-provider.md`
+- `04_Documentation/history/issues/issue-0010-phase5-native-paste-drop-provider.md`
 - `03_Implement/src/dx/pasteDrop.ts`
 - `03_Implement/test/pasteDrop.test.ts`
 
@@ -399,7 +454,7 @@ VS Codeコマンドパレットから利用できる主要コマンド:
 ## Cross-reference map（01_Plans / 02_Architecture / 03_Implement/test）
 - 要件正本: `00_Prompt/requirements.md`
 - 計画（Issue/ADR）:
-  - `01_Plans/issues/issue-0018-phase6-reference-trustworthiness.md`
+  - `04_Documentation/history/issues/issue-0018-phase6-reference-trustworthiness.md`
   - `01_Plans/adr/ADR-0002-phase6-documentation-feedback-loop.md`
   - `01_Plans/adr/ADR-0003-phase6-user-value-maximization-roadmap.md`
   - `01_Plans/adr/ADR-0010-product-completion-gate.md`（G1〜G4品質ゲート）

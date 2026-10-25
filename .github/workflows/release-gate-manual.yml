@@ -78,7 +78,7 @@ jobs:
             EXTRA_FLAGS+=(--skip-tests)
           fi
 
-          python3 ../01_Plans/tools/release_gate_check.py \
+          python3 ../03_Implement/tools/release_gate_check.py \
             --repo-root .. \
             --format json \
             --output-file artifacts/release-gate.json \
@@ -87,15 +87,15 @@ jobs:
             --npm-test-timeout-sec "$NPM_TEST_TIMEOUT_SEC" \
             "${EXTRA_FLAGS[@]}"
 
-          python3 ../01_Plans/tools/release_gate_metrics.py \
+          python3 ../03_Implement/tools/release_gate_metrics.py \
             --input-file ../artifacts/release-gate.json \
             --output-file ../artifacts/release-gate-metrics.csv
 
-          python3 ../01_Plans/tools/phase7_issue_rollup.py \
+          python3 ../03_Implement/tools/phase7_issue_rollup.py \
             --repo-root .. \
             --output-file artifacts/phase7-issue-rollup.md
 
-          python3 ../01_Plans/tools/release_gate_assert_artifacts.py \
+          python3 ../03_Implement/tools/release_gate_assert_artifacts.py \
             --repo-root ..
       - name: Upload release gate artifact
         uses: actions/upload-artifact@v4

@@ -1,6 +1,6 @@
 /**
  * Excel + Markdown coauthoring in real VS Code with real Excel
- * (issue-0211 scenarios A, B, C, D, F, and the x-below record of #521). Excel (COM, hidden) creates and saves
+ * (issue-0211 scenarios A, B, C, D, F, and the x-below record of #521, plus a structural-change scene). Excel (COM, hidden) creates and saves
  * the workbook between steps, exactly as a person saving in Excel would; this
  * suite then looks at what VS Code shows: the render the preview uses, the
  * diagnostics, the table catalog and whether open previews were asked to
@@ -104,6 +104,15 @@ export async function run(): Promise<void> {
     await sleep(500);
     expect(codesAt(document, 2).length === 0, `A: a reference written with a matching record is quiet (got ${codesAt(document, 2).join(',')})`);
     await shot('A-initial');
+    if (SHOTS) {
+      // Command titles come from package.nls.*.json; the impact picker's sentences go through vscode.l10n.
+      void vscode.commands.executeCommand('workbench.action.quickOpen', '>MMI');
+      await shot('P1-command-palette');
+      await vscode.commands.executeCommand('workbench.action.closeQuickOpen');
+      void vscode.commands.executeCommand('markdownMatrixInjector.showSourceImpact', vscode.Uri.file(book));
+      await shot('P2-source-impact');
+      await vscode.commands.executeCommand('workbench.action.closeQuickOpen');
+    }
 
     // C. Excel saves a changed value -> the preview is asked to refresh, and the render shows the saved value.
     await excel(book, 'value');
@@ -134,6 +143,14 @@ export async function run(): Promise<void> {
     );
     expect(codesAt(document, 4).length === 0, `D2: a reference without a record stays quiet (got ${codesAt(document, 4).join(',')})`);
     await shot('D2-row-inserted-inside');
+
+    // D4. a column inserted inside the fixed range: the range still resolves, but the former last column
+    // falls out of A1:C4, so the writer can see the structure changed (EW05 structural change).
+    await excel(book, 'insert-column-inside');
+    await waitFor(async () => (html = await render(document)).includes('挿入列'), 'D4: the inserted column appears');
+    expect(html.includes('挿入列') && !html.includes('必須'), 'D4: the inserted column is shown and the former last column falls out of A1:C4');
+    note('d4-diagnostics', diagnosticsOf(document));
+    await shot('D4-column-inserted-inside');
 
     // D3. a renamed header is reported by x-headers.
     await excel(book, 'rename-header');

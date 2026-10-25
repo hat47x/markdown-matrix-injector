@@ -216,12 +216,12 @@ runtime連携は、可能な限り次の2層へ分ける。
 ## Traceability
 
 - Related Issues:
-  - [issue-0193](../issues/issue-0193-candidate-source-adapter-contract.md)
-  - [issue-0194](../issues/issue-0194-excel-image-candidates.md)
+  - [issue-0193](../../04_Documentation/history/issues/issue-0193-candidate-source-adapter-contract.md)
+  - [issue-0194](../../04_Documentation/history/issues/issue-0194-excel-image-candidates.md)
   - [issue-0199](https://github.com/hat47x/markdown-matrix-injector/issues/502)
   - [issue-0202](https://github.com/hat47x/markdown-matrix-injector/issues/505)
   - [issue-0203](https://github.com/hat47x/markdown-matrix-injector/issues/506)
   - [issue-0204](https://github.com/hat47x/markdown-matrix-injector/issues/507)
 - Related Docs:
   - [製品要求](../../00_Prompt/requirements.md)
-  - [製品価値と現行実装のギャップ](../product-gap-analysis.md)
+  - [製品価値と現行実装のギャップ](../../02_Architecture/product-gap-analysis.md)

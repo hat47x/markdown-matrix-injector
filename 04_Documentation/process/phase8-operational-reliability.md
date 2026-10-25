@@ -20,10 +20,10 @@ Phase 8で定めた障害一次対応、サポート記録、文書監査、要�
 ## 関連文書
 - `00_Prompt/requirements.md`（Phase 8要件）
 - `01_Plans/adr/ADR-0006-phase8-operational-reliability-and-supportability.md`（運用方針）
-- `01_Plans/issues/issue-0065-phase8-operational-reliability-foundation.md`（初回実行タスク）
+- `04_Documentation/history/issues/issue-0065-phase8-operational-reliability-foundation.md`（初回実行タスク）
 - `04_Documentation/process/phase7-release-readiness.md`（release gate基盤）
 - `04_Documentation/process/phase8-drools-inspired-table-patterns.md`（Drools Excelテーブル書式を参照した設計文書・テストデータパターン集）
-- `01_Plans/tools/planning_queue.py`（orphan/pending可視化）
+- `03_Implement/tools/planning_queue.py`（orphan/pending可視化）
 
 ## 既知の制約
 - 本ガイドの記載時点ではtriageの分類は運用ルールが中心であり、すべての問い合わせが自動でタグ付けされるわけではない。
@@ -34,7 +34,7 @@ Phase 8で定めた障害一次対応、サポート記録、文書監査、要�
 ## 1. インシデント一次対応の固定導線（最短経路）
 現象を再現可能な形で記録し、一次回避から恒久対応へつなぐための手順です。
 
-1. `python3 01_Plans/tools/planning_queue.py` を実行し、関連issue / orphanの有無を確認する。
+1. `python3 03_Implement/tools/planning_queue.py` を実行し、関連issue / orphanの有無を確認する。
 2. 対象現象を `path / sheet / query / render / print` のいずれかに分類する。
 3. issueに「入力・期待値・実際値・再現手順」を記録する。
 4. FAQ / troubleshootingを参照し、一次回避策を適用する。
@@ -77,9 +77,9 @@ Phase 8で定めた障害一次対応、サポート記録、文書監査、要�
 2. 抽出結果を以下に振り分ける。
    - 要件変更が必要: `00_Prompt/requirements.md`
    - 方針決定が必要: `01_Plans/adr/`
-   - 実行タスク化が必要: `01_Plans/issues/`
+   - 実行タスク化が必要: `04_Documentation/history/issues/`
    - 回帰防止が必要: `03_Implement/test`
-3. 反映後、`python3 01_Plans/tools/planning_queue.py` を再実行しorphan issueが0であることを確認する。
+3. 反映後、`python3 03_Implement/tools/planning_queue.py` を再実行しorphan issueが0であることを確認する。
 4. 月次で「文書更新だけで終了した件数」と「テスト/要件まで還流した件数」を比較し、後者の比率を継続改善する。
 
 ---

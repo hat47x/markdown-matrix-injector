@@ -4,6 +4,7 @@
  * skipped: the reference diagnostics already report them.
  */
 import type { WorkbookCache } from '../cache/workbookCache.js';
+import { formatMessage } from '../core/messages/index.js';
 import { resolveSourcePath } from '../core/pathResolver.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
 import { extractEmbedQueries } from '../parser/embedSyntax.js';
@@ -28,6 +29,10 @@ export function referencedSheets(text: string, markdownFilePath: string, workspa
   return out;
 }
 
-export function unknownIdMessage(finding: { id: string; example: string; sources: readonly string[] }): string {
-  return `本文の「${finding.id}」は、参照している表（${finding.sources.join('、')}）のどのセルにもありません（同じ形式の例: ${finding.example}）。正本の変更で消えた・変わったIDか、書き間違いの可能性があります。`;
+/** The sentence for a prose ID that no referenced table has, in `language` (default English). */
+export function unknownIdMessage(
+  finding: { id: string; example: string; sources: readonly string[] },
+  language?: string,
+): string {
+  return formatMessage('unknownProseId', { id: finding.id, sources: finding.sources, example: finding.example }, language);
 }

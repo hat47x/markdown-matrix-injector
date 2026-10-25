@@ -47,7 +47,7 @@
 ### 2.3 Phase 9 表パターンガイド（ツール非依存・ADR-0012 D7）
 - [phase9-rule-table-pattern-guide.md](./phase9-rule-table-pattern-guide.md) — MMIがなくても読める標準ガイド（生成物）
 - [phase9-rule-table-benchmark-pack.csv](./phase9-rule-table-benchmark-pack.csv) — 生成元 CSV（正本）
-- 生成スクリプト: `01_Plans/tools/generate_phase9_pattern_guide.py`（`--check` でドリフト検知）
+- 生成スクリプト: `03_Implement/tools/generate_phase9_pattern_guide.py`（`--check` でドリフト検知）
 - 運用手順: [`../process/phase9-rule-table-template-operations.md`](../process/phase9-rule-table-template-operations.md)
 
 ### 2.4 Phase 8 Drools 参照パターン（MMI 内部機能のケーススタディ）

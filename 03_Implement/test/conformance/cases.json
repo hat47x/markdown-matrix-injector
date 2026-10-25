@@ -209,5 +209,50 @@
     "markdown": "![[../outside.csv#Sheet1|A1:B2]]",
     "expectContains": ["class=\"mmi-error\"", "outside workspace boundary"],
     "expectNotContains": ["mmi-table", "mmi-card"]
+  },
+  {
+    "name": "containment-rejects-nonexistent-outside",
+    "level": "core",
+    "spec": "P4 / issue-0599",
+    "files": { "roles.csv": "Name,Role\nAlice,Admin" },
+    "markdown": "![[../absent-outside.csv#Sheet1|A1:B2]]",
+    "expectContains": ["class=\"mmi-error\"", "outside workspace boundary"],
+    "expectNotContains": ["mmi-table", "mmi-card", "file not found"]
+  },
+  {
+    "name": "header-row-out-of-range-is-visible",
+    "level": "L1",
+    "spec": "§6 step 4",
+    "files": { "data.csv": "A,B\n1,2" },
+    "markdown": "![[./data.csv#Sheet1|A1:B2?header=99]]",
+    "expectContains": ["class=\"mmi-error\"", "Header row not found"],
+    "expectNotContains": ["mmi-table"]
+  },
+  {
+    "name": "columns-are-case-insensitive",
+    "level": "L1",
+    "spec": "§6 step 2",
+    "files": { "data.csv": "A,B\n1,2" },
+    "markdown": "![[./data.csv#Sheet1|A1:B2?header=first&columns=b]]",
+    "expectContains": ["<th>B</th>"],
+    "expectNotContains": ["<th>A</th>", "mmi-error"]
+  },
+  {
+    "name": "grep-is-case-insensitive",
+    "level": "L1",
+    "spec": "§6 step 5",
+    "files": { "roles.csv": "Name,Role\nAlice,Admin\nBob,User" },
+    "markdown": "![[./roles.csv#Sheet1|A1:B3?header=first&grep=admin]]",
+    "expectContains": ["Alice"],
+    "expectNotContains": ["Bob", "mmi-error"]
+  },
+  {
+    "name": "invalid-format-column-is-ignored",
+    "level": "L2",
+    "spec": "§6 decoration",
+    "files": { "data.csv": "A,B\n1,2" },
+    "markdown": "![[./data.csv#Sheet1|A1:B2?header=first&formatColumn=broken]]",
+    "expectContains": ["<td class=\"mmi-table__cell\">1</td>"],
+    "expectNotContains": ["mmi-error"]
   }
 ]

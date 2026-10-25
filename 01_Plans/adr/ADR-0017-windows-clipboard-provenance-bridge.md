@@ -64,4 +64,4 @@ Excelの選択範囲をMMI参照として貼り付けるには、原本のパス
 - Related ADR: [ADR-0016](ADR-0016-notation-first-input-assistance.md)
 - Related Docs: [クリップボード出所と照合](../../02_Architecture/input-assistance-paste-provenance.md)、[ソースモデル](../../02_Architecture/input-assistance-source-model.md)、[観測ハーネス](../../03_Implement/scripts/clipboard-probe/README.md)
 
-実装条件は[設計レビュー](../input-assistance-design-review.md)のR1/R4。Object Descriptor全体の文字列検索を製品実装に使用しない。
+実装条件は[設計レビュー](../../04_Documentation/history/input-assistance/input-assistance-design-review.md)のR1/R4。Object Descriptor全体の文字列検索を製品実装に使用しない。

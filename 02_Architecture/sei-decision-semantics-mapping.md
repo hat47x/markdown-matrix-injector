@@ -13,8 +13,8 @@ SEI側の資料は次のとおり。
 | 資料 | 場所 | 状態 |
 | --- | --- | --- |
 | Semantic Reference、Decision Memory、Capability Observation、Semantic Interchangeの各契約と、Representation Profile 2件 | `hat47x/sei-cognition:contracts/`（`semantic-reference/`、`decision-memory/`、`capability/`、`interchange/`、`profiles/`） | SEIの`main`にある（いずれもv1alpha1） |
-| 家族の判断の意味論の対応表 | `hat47x/sei-cognition:product/definition/SEI_FAMILY_SEMANTIC_MAP.md` | 未マージのブランチ`docs/family-apex-backflow-20260927`で提案中 |
-| 統合の頂点と制御の意味の境界 | `hat47x/sei-cognition:plan/adr/ADR-0032-family-integration-apex-and-control-meaning-boundary.md` | 同上 |
+| 家族の判断の意味論の対応表 | `hat47x/sei-cognition:product/definition/SEI_FAMILY_SEMANTIC_MAP.md` | SEIの`main`にある（2026-10-09にマージ。MMIの行は「候補」） |
+| 統合の頂点と制御の意味の境界 | `hat47x/sei-cognition:plan/adr/ADR-0035-family-integration-apex-and-control-meaning-boundary.md` | SEIの`main`にある（Proposed）。提案時のADR-0032から番号を付け直した |
 
 ## 2. 対応表
 
@@ -35,7 +35,7 @@ SEI側の資料は次のとおり。
 3. abstentionを別の意味に変えない: `novel`・`ambiguous`・`abstained`は、既知の候補を一つに決められなかったという結果である。SEIでは、確定した候補のないRecommendation、またはUnknownとして読み、既知の候補へ割り当て直さない（ADR-0018 D5、SEIの`Unknown != incompatible`）。`unavailable`・`unsupported`はproviderの状態であり、Capability Observationの観測条件として読む。観測がないことを`unavailable`と同じに扱わない（SEIの`not observed != unavailable`）。
 4. 参照文字列は所在である: MMIの参照文字列はファイルパスを含む。SEIはファイルパスを論理参照そのものにしないため、記録する側は表を指す識別子を別に持ち、参照文字列は所在を示す情報として添える。
 5. digestはファイル全体に対するもの: Source Identity v1は解決した正本ファイルのバイト列全体に対するもので、参照した範囲だけの同一性ではない。不一致は「範囲の内容が変わった」ではなく「判断のときと同じ内容だとは確かめられない」を意味する。範囲に限った同一性は、ADR-0019の未解決事項（確定版のダイジェストの対象）で扱う。
-6. 現行のマニフェストにdigestはない: 別紙マニフェスト（記法仕様§8.1）は出所のdigestを含まない。digestは[Source Identity Contract v1](source-identity-contract-v1.md)の規則で求める。表記はどちらも`sha256:`に続く小文字16進64桁で、同じバイト列からは同じ文字列になる。CLIの出力にdigestを含めるかは[issue-0192](https://github.com/hat47x/markdown-matrix-injector/issues/498)で扱う候補であり、決まっていない。
+6. 現行のマニフェストにdigestはない: 別紙マニフェスト（記法仕様§8.1）は出所のdigestを含まない。digestは[Source Identity Contract v1](source-identity-contract-v1.md)の規則で求める。表記はどちらも`sha256:`に続く小文字16進64桁で、同じバイト列からは同じ文字列になる。CLIでは、`mmi provenance <doc.md> --json`（`mmi.provenance-report/v1`、[ADR-0028](../01_Plans/adr/ADR-0028-per-document-provenance-report-contract.md)）が、Linked参照ごとに参照文字列（`reference`）と正本のSource Identity v1（`sourceDigest`）を返す。`check`と`manifest`のJSON出力には加えない。`check`は診断だけを返すゲートで、`manifest`は記法仕様§8.1の別紙の列を写す。どちらに加えても同じ値の出口が増えるだけになる（[#498](https://github.com/hat47x/markdown-matrix-injector/issues/498)で決定）。ADR-0028はProposedのため、採否が変われば本項も見直す。
 7. 診断が出ないことは判断の正しさを示さない: MMIの診断がないことは、表を参照どおりに描けることを示すだけである。本文の主張と表の整合は、ADR-0019 D4のとおり保証の外にある。
 
 ## 4. 境界

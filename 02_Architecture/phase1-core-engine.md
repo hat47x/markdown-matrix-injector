@@ -1,8 +1,8 @@
 # Phase 1 Core Engine Architecture
 
-> **注記**: 本書は Phase 1〜2 時点のコアエンジン設計スナップショット（歴史的記録）です。
-> 拡張の現行のエンドツーエンド挙動・全モジュールの責務・図・コードマップは
-> [`../04_Documentation/how-it-works.md`](../04_Documentation/how-it-works.md) に集約しています。まずそちらを参照してください。
+> **注記**: 本書はPhase 1〜2当時のコアエンジン構成を記録した設計スナップショットです。現在の機能全体を説明する文書ではありません。
+> 現在の拡張機能の一連の処理、全モジュールの責務、構成図、コードとの対応関係は
+> [`../04_Documentation/how-it-works.md`](../04_Documentation/how-it-works.md) に集約しています。現在の動作を確認するときは、そちらを参照してください。
 
 ## Module map
 - `03_Implement/src/parser`: MMI独自記法の抽出と分解。

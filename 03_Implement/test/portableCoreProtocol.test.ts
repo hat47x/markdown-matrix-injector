@@ -123,6 +123,42 @@ test('portable Core CSV conformance case', () => {
   assertConformanceCase(readCase('csv-table.case.json'));
 });
 
+test('portable Core XLSX conformance case', () => {
+  assertConformanceCase(readCase('xlsx-table.case.json'));
+});
+
+test('portable Core XLSX title-merged conformance case', () => {
+  assertConformanceCase(readCase('xlsx-title-merged.case.json'));
+});
+
+test('portable Core XLSX merged-cells conformance case', () => {
+  assertConformanceCase(readCase('xlsx-merged-cells.case.json'));
+});
+
+test('portable Core XLSX preserves leading blank row coordinates', () => {
+  assertConformanceCase(readCase('xlsx-leading-blank-rows.case.json'));
+});
+
+test('portable Core XLSX detects multiple tables in one sheet', () => {
+  assertConformanceCase(readCase('xlsx-two-tables.case.json'));
+});
+
+test('portable Core XLSX detects a detached title above a table', () => {
+  assertConformanceCase(readCase('xlsx-title.case.json'));
+});
+
+test('portable Core XLSX handles a merged title cell above a table', () => {
+  assertConformanceCase(readCase('xlsx-title-merged.case.json'));
+});
+
+test('portable Core CSV CP932 conformance case', () => {
+  assertConformanceCase(readCase('cp932-table.case.json'));
+});
+
+test('portable Core XML Spreadsheet 2003 conformance case', () => {
+  assertConformanceCase(readCase('xmlss-table.case.json'));
+});
+
 test('portable Core CSV preserves leading blank row coordinates', () => {
   assertConformanceCase(readCase('csv-leading-blank-rows.case.json'));
 });

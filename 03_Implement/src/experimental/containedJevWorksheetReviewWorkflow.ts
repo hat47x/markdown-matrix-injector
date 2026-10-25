@@ -28,7 +28,7 @@ export type ContainedJevWorksheetReviewInput = Omit<
   jevProviderId?: string;
 };
 
-export function prepareContainedUnifiedReviewWithJevRouteReaderAndLoader(
+export async function prepareContainedUnifiedReviewWithJevRouteReaderAndLoader(
   input: ContainedJevWorksheetReviewInput,
   transport: JevSystemOneTransport,
   snapshotReader: ContainedUnifiedReviewSnapshotReader,

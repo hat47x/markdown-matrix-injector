@@ -261,7 +261,7 @@ test('verifier rejects parsed baseline that differs from baselineRaw', () => {
       returnedSnapshotRaw: evidence.snapshotRaw,
       receiptRaw: evidence.receiptRaw,
     }),
-    /exactly match the supplied baselineRaw JSON/u,
+    /exactly match its supplied raw JSON/u,
   );
 });
 

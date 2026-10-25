@@ -302,7 +302,7 @@ AIエージェントに使わせる場合は、[AI向け指示](../skills/mmi/SK
 
 ## PDFを作る
 
-MMIはプレビュー用のHTMLとCSSを生成します。PDFへの変換は別の生成器を使います。
+MMIはPDF変換用のHTMLを生成します。PDFへの変換は別の生成器を使います。
 通常のMarkdown変換器だけでは`![[...]]`が展開されないので、**まずMMIで表を展開し、そのHTMLをPDFに変換**します。
 
 確認用の [設計書PDF](samples/practical/10-print.pdf) は、縦・横・縦の3ページです。
@@ -325,6 +325,29 @@ WindowsのフォントをWSLから指定した手順は [検証記録](release-v
 別のPDF生成器を使う場合は表の展開・改ページ・用紙の向きまで確認してください。
 VS Codeの「Markdown PDF」拡張からの直接出力は、今回の検証済み経路に含みません。
 
+### 納品用の体裁にする
+
+Markdownの先頭に文書情報（front matter）を書くと、表紙・承認欄・ページ番号付きの目次・ヘッダーとフッター・PDFの文書プロパティが付きます。
+書けるキーと意味は [リファレンス](reference.md#納品用の文書情報front-matter) を参照してください。
+見本は [納品用の設計書](samples/practical/14-delivery.md) と、そこから作った [PDF](samples/practical/14-delivery.pdf) です。
+
+```bash
+npm run mmi -- render ../04_Documentation/samples/practical/14-delivery.md --to html -o ../04_Documentation/samples/practical/14-delivery.html --root ../04_Documentation/samples/practical
+weasyprint --pdf-variant pdf/a-2b --pdf-tags ../04_Documentation/samples/practical/14-delivery.html ../04_Documentation/samples/practical/14-delivery.pdf
+```
+
+`--pdf-variant pdf/a-2b`は長期保存向けのPDF/A-2b形式、`--pdf-tags`は見出しや表の構造を読み上げソフトへ伝えるタグを付ける指定です。どちらもWeasyPrintの機能です。
+見本はこの指定で作りました。ただし、PDF/Aやアクセシビリティの適合は外部の検証ツールで確かめていません。発注者が適合を求める場合は、veraPDFやAcrobatの検査で確かめてください。
+フォントはPDFに埋め込まれます。PDFにパスワードや印刷禁止などのセキュリティは設定しません。
+
+納品前に、出力したPDFで次を確かめます。
+
+- 表紙の文書番号・版数・日付・機密区分が、今回の版と合っている。
+- 目次のページ番号と、見出しのページが合っている。
+- 横向きにした表の前で、見出しだけが前のページに残っていない。
+- 別紙カードの相対パスと同じファイルを、納品物に同梱している（[納品一覧を作る](#納品一覧を作る)）。
+- 日本語が四角（□）になっていない。絵文字や特殊な記号はフォントにない場合があるので、本文では避ける。
+
 ## 困ったとき
 
 | 症状 | 確認すること |
@@ -340,6 +363,8 @@ VS Codeの「Markdown PDF」拡張からの直接出力は、今回の検証済�
 | 原本を変更したのに表示が古い | 原本の保存後にプレビューを開き直したか |
 | PDFだけ表が出ない | MMIで展開済みのHTMLから変換しているか |
 | PDFの日本語が四角になる | PDF生成環境に日本語フォントがあるか |
+| PDFの表紙や目次が出ない | front matterの`cover: true`・`toc: true`、WeasyPrintで変換しているか |
+| `mmi render`がfront matterのエラーで止まる | `paper`は`A4`か`A3`、`cover`と`toc`は`true`か`false`か |
 
 
 問題の報告には、VS Code・MMIのバージョン、OS、最小の記法、期待した表示、実際の表示を添えてください。

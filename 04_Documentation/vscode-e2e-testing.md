@@ -18,7 +18,7 @@
 ## Related docs
 - `04_Documentation/developer-setup.md`
 - `02_Architecture/vscode-extension-host-e2e.md`
-- `01_Plans/issues/issue-0010-phase5-native-paste-drop-provider.md`
+- `04_Documentation/history/issues/issue-0010-phase5-native-paste-drop-provider.md`
 
 ## Known limitations
 - Preview DOMやOSネイティブイベントの最終UXはmanual観測に依存します。
@@ -50,7 +50,7 @@ Task 1 / Task 3の自己点検用に、本書が依拠する上流文書の責�
 
 | Upstream source | Already fixed there | What this runbook is allowed to add | What this runbook must not redefine |
 |---|---|---|---|
-| `01_Plans/issues/issue-0010-phase5-native-paste-drop-provider.md` Progress Notes | native provider / shared parsing / fallback behavior を proof boundary とし、manual E2E に native/fallback 比較順・known unstable 分離・failure triage を残すこと | Progress Notes にある manual 運用項目を、再実行可能な手順・表・ログテンプレートへ落とす | acceptance criteria 自体の変更、issue status の判定基準変更 |
+| `04_Documentation/history/issues/issue-0010-phase5-native-paste-drop-provider.md` Progress Notes | native provider / shared parsing / fallback behavior を proof boundary とし、manual E2E に native/fallback 比較順・known unstable 分離・failure triage を残すこと | Progress Notes にある manual 運用項目を、再実行可能な手順・表・ログテンプレートへ落とす | acceptance criteria 自体の変更、issue status の判定基準変更 |
 | `02_Architecture/vscode-extension-host-e2e.md` automation boundary | canonical path / compatibility path / shared-logic boundary / known unstable separation | manual 観測順、host class ごとの first path / comparison path、failure 記録方法 | canonical path / compatibility path の意味、delegated manual scope の範囲 |
 | `04_Documentation/developer-setup.md` setup boundary | 前提条件、実行入口、`xvfb-run` prerequisite の setup 導線 | setup 後にどの順で manual E2E を進めるか | OS セットアップ手順の正本化、architecture handoff の再定義 |
 
@@ -200,12 +200,21 @@ Interpretation rule
 ### MMI固有のmanual確認は提示層だけ
 `mmi check` / `mmi render` / `mmi select` は、VS Codeと**同じ共通Core**を通ります（Diagnosticsの生成、プレビューのmarkdown-itプラグイン、参照の作成）。したがって、診断の内容、プレビューのHTML、参照に記録される値は、実機の前にCLIで確認できます。実機のmanual E2Eに残すのは提示層だけです。
 
-- Problemsパネルの見え方、クリック遷移
-- ホバーの見え方と、電球メニューに修正候補が出るかどうか（カーソル行では控えめにするため、その行には出ない）
-- プレビューのCSSと、Obsidian系の埋め込み記法を独自に解釈する他のプレビュー拡張との競合
-- 貼り付け / ドラッグ&ドロップのOS経路、レビューUI
+| 確認項目 | CLIで確かめられるか | 自動E2Eで確かめられるか（レーン名） | 人が実機で確かめる |
+|---|---|---|---|
+| 診断の内容（コード・メッセージ・重要度） | `mmi check`（同じCore） | `test:e2e:coauthoring`（`MMI_BELOW_MISMATCH` の重要度まで） | 不要 |
+| プレビューのHTML（table/card/errorクラス、`data-page-break` 等） | `mmi render` | `markdown-preview-entry` | 不要 |
+| 参照に記録される値（`x-below`、`x-headers` 等） | `mmi select` | `test:e2e:import`（`&x-below=0` を含む参照テキスト） | 不要 |
+| Problemsパネルの見え方・並び・行ジャンプ・クリック遷移 | なし | なし（`getDiagnostics` の内容のみ） | Checklist B |
+| ホバーの見え方と、電球メニューに修正候補が出るかどうか（カーソル行では出ない） | なし | なし | Checklist B（#579） |
+| プレビューのCSSと、Obsidian系の埋め込み記法を独自に解釈する他のプレビュー拡張との競合（MPEのD1） | なし（描画経路は同じだが、拡張の独自解釈はVS Code側） | なし | Checklist A |
+| 貼り付け / ドラッグ&ドロップのOS経路 | なし | なし（native providerのDataTransfer解析は自動、OS eventは未） | Checklist D / E |
+| レビューUI | なし | なし | Checklist D / E |
+| PDF/印刷での改ページ・用紙向き・別紙参照の最終視覚確認 | `mmi render --to html`（構造のみ） | なし（G2） | Checklist F |
 
-新しい振る舞いを足すときは、先にCLIで観測できる形か、純関数のヘッドレステストを用意し、実機で見る項目を提示層に限ってからmanual確認へ進みます。この一覧を、項目ごとに「CLI」「自動E2E（レーン名）」「人の実機」へ割り当てる棚卸しは #580 で行います。
+上の表で「人が実機で確かめる」が空でない行だけが、実機のmanual確認に残ります。Problemsパネル・Suggest widget・OS native paste/dropの一般論は、[Why manual E2E is still required](#why-manual-e2e-is-still-required) の表にまとめています。
+
+新しい振る舞いを足すときは、先にCLIで観測できる形か、純関数のヘッドレステストを用意し、実機で見る項目を提示層に限ってからmanual確認へ進みます。この割り当て表は #580 で作ったものです。
 
 ## Native provider and fallback policy
 この節が、issue-0010に対する文書上の正本です。Paste / D&Dの責務を native path と fallback path に分けて解釈してください。

@@ -2,11 +2,11 @@
 
 ## 1. 位置づけ
 
-`params.schema.json` はNotation v1 query parameterのmachine-readable正本である。
+`params.schema.json`は、Notation v1のquery parameter（参照記法に付く指定項目）について、machine-readable（プログラムで読み取れる）形式で記述した正本である。
 
-runtime codeは配布物内のDocumentation JSONへ依存しないため、parser層に同じ制約の小さなTypeScript metadataを置く。
+runtime code（実行時の処理）は配布物中のDocumentation JSONに依存しないため、parser層（記法を解析する処理）にも、同じ制約を表す小さなTypeScript metadata（制約定義）を配置する。
 
-このmetadataのdriftはsync testで検出する。
+両者のdrift（内容のずれ）はsync test（同期を確認するテスト）で検出する。
 
 ```text
 params.schema.json
@@ -35,38 +35,38 @@ parameterContract.ts
 - pageBreak
 - orientation
 
-制約種別はは次のとおりです。
+制約の種類は次のとおり。
 
 - enum
 - regex pattern
 - minimum string length
 - unconstrained string
 
-のみ。
+これらに限る。
 
 ## 3. Forward compatibility
 
-正本schemaは `additionalProperties=true`。
+正本schemaは`additionalProperties=true`（定義外の項目も許可）とする。
 
-したがってvalidatorはunknown keyを拒否しない。
-`x-*` experimental namespaceも同様に許容する。
+したがってvalidator（パラメータ検証処理）はunknown key（既知の一覧にない項目名）を拒否しない。
+`x-*`のexperimental namespace（実験用の名前領域）も同様に許容する。
 
-unknown keyを「knownでない」という理由だけでwarning/errorへ昇格しない。
+unknown keyを「既知でない」という理由だけでwarning/error（警告・エラー）へ昇格させない。
 
 ## 4. URLSearchParams semantics
 
-URL queryは同じkeyを複数回持てる。
+URL query（URLのパラメータ部分）には、同じkey（項目名）を複数回記述できる。
 
-validatorは `entries()` を順に処理し、known parameterの**全occurrence**を検証する。
+validatorは`entries()`を記述順に処理し、known parameter（既知の項目）の**全occurrence（出現箇所）**を検証する。
 
-特に `formatColumn` はruntime側で `getAll()` を利用するため、2件目以降も必ず検証対象とする。
+特に`formatColumn`はruntime側で`getAll()`を使用するため、同じ項目の2件目以降も検証対象から除外しない。
 
-このcontractは重複key自体を禁止しない。
-JSON Schemaのobject表現も重複回数制約を定義していないためである。
+このcontract（既存の制約定義）は、keyの重複そのものを禁止しない。
+JSON Schemaのobject表現でも、同じkeyの出現回数に関する制約を定義していないためである。
 
 ## 5. Validation issue
 
-issueは:
+validation issue（検証で検出した問題）は、次の情報を持つ。
 
 - key
 - value
@@ -76,11 +76,11 @@ issueは:
 
 を持つ。
 
-Authority adapterは最初のissueをReceipt detailへ変換するが、validator API自体は全issueを返す。
+Authority adapter（検証結果とReceiptを結び付ける処理）は最初のissueをReceipt detail（検証記録の詳細）へ変換する。一方、validator API自体は検出した全issueを返す。
 
 ## 6. Sync boundary
 
-testはJSON Schemaを読み:
+同期を確認するtestはJSON Schemaを読み、次の項目を照合する。
 
 - property集合
 - enum
@@ -89,9 +89,9 @@ testはJSON Schemaを読み:
 - additionalProperties=true
 - `^x-` patternProperties
 
-をTypeScript contractと照合する。
+これらをTypeScript contract（実行時側の制約定義）と照合する。
 
-schema側に新parameterが増えた場合、contract更新前はtest failureとなる。
+schema側に新parameterが追加され、TypeScript contractがまだ更新されていなければtest failure（テスト失敗）となる。
 
 ## 7. 非責務
 
@@ -102,4 +102,4 @@ schema側に新parameterが増えた場合、contract更新前はtest failureと
 - URL decoding変更
 - Cognitive score / provider判断
 
-Notation仕様の意味を1箇所増やすのではなく、既存schemaとruntime検証の同期をテストで固定することが目的である。
+新しいNotationの意味や制約を増やすことではなく、既存schemaとruntimeの検証条件が一致する状態をテストで維持することが目的である。

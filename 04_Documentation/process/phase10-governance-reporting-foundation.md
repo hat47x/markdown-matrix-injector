@@ -36,7 +36,7 @@ Phase 10の初回実装として、週次ガバナンスレポートを生成す
 
 ## 2. Weekly Report Markdown Template
 
-`01_Plans/tools/phase10_governance_report.py` は入力契約を検証し、次のセクションを含むMarkdownを出力します。
+`03_Implement/tools/phase10_governance_report.py` は入力契約を検証し、次のセクションを含むMarkdownを出力します。
 
 1. `Weekly Governance Report` ヘッダ（生成時刻・対象週）
 2. `KPI Summary`（3 KPIの表形式要約）
@@ -63,7 +63,7 @@ v2への移行は破壊的変更です。旧フィールド名が`kpis`に含ま
 リポジトリのルートディレクトリで、次のコマンドを実行する例です。指定したJSON入力から週次のMarkdownレポートを生成します。
 
 ```bash
-python3 01_Plans/tools/phase10_governance_report.py \
+python3 03_Implement/tools/phase10_governance_report.py \
   --input 04_Documentation/samples/phase10-governance-input.sample.json \
   --output artifacts/phase10-weekly-governance-report.md
 ```
@@ -74,7 +74,7 @@ python3 01_Plans/tools/phase10_governance_report.py \
 
 ## 4. Minimal Test Contract
 
-`01_Plans/tools/test_phase10_governance_report.py`では、次の項目を検証対象とします。今回の文章修正では、このテストを再実行していません。
+`03_Implement/tools/test_phase10_governance_report.py`では、次の項目を検証対象とします。今回の文章修正では、このテストを再実行していません。
 
 - 必須キー不足時に `ValidationError` またはCLI終了コード `1` になる。
 - 正常入力時にMarkdownレポート生成が成功する。

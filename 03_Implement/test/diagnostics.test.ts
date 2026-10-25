@@ -271,7 +271,7 @@ test('validateEmbedDiagnostics does NOT report boundary violation when containme
   assert.deepEqual(diags, []);
 });
 
-test('validateEmbedDiagnostics does NOT report boundary violation when file does not exist (MMI_FILE_NOT_FOUND already covers it)', () => {
+test('validateEmbedDiagnostics reports containment, not missing file, when the reference is outside the boundary', () => {
   const diags = validateEmbedDiagnostics({
     query: baseQuery,
     fileExists: false,
@@ -280,7 +280,7 @@ test('validateEmbedDiagnostics does NOT report boundary violation when file does
 
   assert.deepEqual(
     diags.map((d) => d.code),
-    ['MMI_FILE_NOT_FOUND'],
+    ['MMI_PATH_OUTSIDE_BOUNDARY'],
   );
 });
 

@@ -116,4 +116,4 @@ PDFの最終的な表示品質は使用するPDF生成器に依存し、MMIで�
 
 ---
 
-**関連**: [issue-0098](../../../01_Plans/issues/issue-0098-phase11-pdf-print-output-proof.md) / [ADR-0010](../../../01_Plans/adr/ADR-0010-product-completion-gate.md)
+**関連**: [issue-0098](../../history/issues/issue-0098-phase11-pdf-print-output-proof.md) / [ADR-0010](../../../01_Plans/adr/ADR-0010-product-completion-gate.md)
