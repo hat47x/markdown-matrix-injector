@@ -362,35 +362,6 @@ export function verifyCliPackage(tarballPath) {
   // Restore fixture bytes in this isolated verification workspace only.
   fs.writeFileSync(htmlApiOutput, apiBytes);
 
-  const htmlExtract = run(
-    bin,
-    [
-      'extract', 'design.html',
-      '--html-id', 'api',
-      '--expected-fingerprint', inspectedApi.fingerprint,
-      '--root', '.', '--json',
-    ],
-    workspace,
-  );
-  let extractedHtml;
-  try {
-    extractedHtml = JSON.parse(htmlExtract.stdout);
-  } catch {
-    throw new Error(
-      `mmi extract HTML returned invalid JSON:\n${htmlExtract.stderr || htmlExtract.stdout}`,
-    );
-  }
-  if (htmlExtract.status !== 0
-    || extractedHtml.fragmentFingerprint !== inspectedApi.fingerprint
-    || !extractedHtml.path
-    || !fs.existsSync(extractedHtml.path)
-    || !fs.readFileSync(extractedHtml.path, 'utf8').includes('id="api"')
-    || fs.readFileSync(htmlSource, 'utf8') !== originalHtml) {
-    throw new Error(
-      `mmi extract HTML failed or modified its source:\n${htmlExtract.stderr || htmlExtract.stdout}`,
-    );
-  }
-
   if (help.status !== 0 || !help.stdout.includes('Usage: mmi')) {
     throw new Error(`mmi --help failed:\n${help.stderr || help.stdout}`);
   }
@@ -529,6 +500,39 @@ export function verifyCliPackage(tarballPath) {
     || JSON.stringify(auditedByMcpReport) !== JSON.stringify(auditedHtml)) {
     throw new Error(`mmi-mcp html-audit disagreed with read-only CLI report:\n${mcp.stdout}`);
   }
+
+  // The shared ledger records the most recent extraction for each occurrence.
+  // Audit the reviewed batch BEFORE the legacy single-fragment extraction
+  // replaces the same API occurrence in that ledger.
+  const htmlExtract = run(
+    bin,
+    [
+      'extract', 'design.html',
+      '--html-id', 'api',
+      '--expected-fingerprint', inspectedApi.fingerprint,
+      '--root', '.', '--json',
+    ],
+    workspace,
+  );
+  let extractedHtml;
+  try {
+    extractedHtml = JSON.parse(htmlExtract.stdout);
+  } catch {
+    throw new Error(
+      `mmi extract HTML returned invalid JSON:\n${htmlExtract.stderr || htmlExtract.stdout}`,
+    );
+  }
+  if (htmlExtract.status !== 0
+    || extractedHtml.fragmentFingerprint !== inspectedApi.fingerprint
+    || !extractedHtml.path
+    || !fs.existsSync(extractedHtml.path)
+    || !fs.readFileSync(extractedHtml.path, 'utf8').includes('id="api"')
+    || fs.readFileSync(htmlSource, 'utf8') !== originalHtml) {
+    throw new Error(
+      `mmi extract HTML failed or modified its source:\n${htmlExtract.stderr || htmlExtract.stdout}`,
+    );
+  }
+
 
   let inspectedTree;
   let extractedTree;
