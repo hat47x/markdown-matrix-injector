@@ -279,6 +279,22 @@ func TestCP932ConformanceCase(t *testing.T) {
 	}
 }
 
+func TestXMLSpreadsheetConformanceCase(t *testing.T) {
+	actualResponse := runConformanceCase(
+		t,
+		"xmlss-table.case.json",
+	)
+	if got := actualResponse.Candidates[0].Locator.Range; got != "A1:F9" {
+		t.Fatalf("range mismatch: %s", got)
+	}
+	if got := actualResponse.Candidates[0].Reference; got != "![[./migration.xml#移行確認|A1:F9?header=first]]" {
+		t.Fatalf("reference mismatch: %s", got)
+	}
+	if got := actualResponse.Source.Format; got != "xml-spreadsheet" {
+		t.Fatalf("format mismatch: %s", got)
+	}
+}
+
 func TestCSVLeadingBlankRowsConformanceCase(t *testing.T) {
 	actualResponse := runConformanceCase(
 		t,

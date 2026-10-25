@@ -155,6 +155,10 @@ test('portable Core CSV CP932 conformance case', () => {
   assertConformanceCase(readCase('cp932-table.case.json'));
 });
 
+test('portable Core XML Spreadsheet 2003 conformance case', () => {
+  assertConformanceCase(readCase('xmlss-table.case.json'));
+});
+
 test('portable Core CSV preserves leading blank row coordinates', () => {
   assertConformanceCase(readCase('csv-leading-blank-rows.case.json'));
 });
