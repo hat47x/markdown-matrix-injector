@@ -1,4 +1,6 @@
-# Issue: multi-family drift signalをheld-out fixtureで比較する
+# Issue: 複数の特徴familyにまたがる変化を独立fixtureで評価する
+
+この文書は2026年9月18日時点の評価記録である。**family**は同種の書式特徴の分類、**drift**はprototypeと観測の特徴差、**fixture**は評価条件を固定したテスト用入力を指す。**held-out corpus**は先行評価の16ケースとは別に構成したケース集合であり、実Workbook由来の独立標本を意味しない。**precision**は検知件数中の正しい検知の割合、**recall**は対象件数中の検知割合、**false-positive rate**は対象外件数中の誤検知割合である。**DeviationScore**は候補と観測の差を表す既存指標、**ablation**は双方から同じfamilyを除いてスコアの変化を見る操作である。これらの数値はproductionの受入結果や採用閾値を表さない。
 
 ## Meta
 - Type: Evaluation / Design evidence
@@ -113,12 +115,12 @@ issue-0128で使用した6 / 8 / 10列は使わない。
 
 boundary warningよりrecallは上がる。
 
-ただし9列ではは次のとおりです。
+ただし9列では、次の値となった。
 
 - label + occupancy: DeviationScore `0.176471`
 - label + merge: DeviationScore `0.171429`
 
-となり、multi-family driftでも0.18未満になる。
+いずれもmulti-family driftだが、DeviationScoreは0.18未満となる。
 
 したがって固定DeviationScoreだけではwide tableで再びcardinality effectを受ける。
 
@@ -197,7 +199,7 @@ differentFamilyCount = 3
 penalizingFamilyCount = 1
 ```
 
-実際にはは次のとおりです。
+実際に差異があるfamilyは次の3種類である。
 
 - semantic-label
 - relative-position

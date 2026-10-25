@@ -91,7 +91,7 @@ Draftは検討中であり、採用・実装済みを意味しない。重要な
 
 ## 資料の置き場所
 
-配置と更新・終了のルールは[AGENTS.md](../AGENTS.md#計画と資料を散逸させない)に従う。直下で継続管理する計画は[製品の磨き直し](product-repolish-plan.md)の一件とし、個別の進行状況はリンク先のIssueを読む。
+配置と更新・終了のルールは[AGENTS.md](../AGENTS.md#計画と資料を散逸させない)に従う。直下で継続管理する計画は[製品の磨き直し](product-repolish-plan.md)と[MMIのPoC継続と将来Desktop製品の方向性](mmi-poc-and-future-desktop-direction-2026-10.md)の二件とし、個別の進行状況はリンク先のIssueを読む。
 
 | 読む目的 | 参照先 |
 | --- | --- |

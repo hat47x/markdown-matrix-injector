@@ -1,4 +1,6 @@
-# Issue: 横方向mergeの相対shapeをstructure evidenceとして扱う
+# Issue: 横方向のセル結合形状を相対的な構造的証拠として扱う
+
+この文書は当時のIssue記録です。2026年9月17日に記録された10件のローカルテストと境界ケースは当時の実績です。v6の横方向merge maskと厳格過半数を維持し、縦方向・矩形mergeや製品経路の未対応を受入済みにしません。
 
 ## Meta
 - Type: Feature / Evaluation

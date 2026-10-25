@@ -2,7 +2,7 @@
 
 ## 1. 目的
 
-contained sourceから得たPerceptionを、provider-neutral closed-choice Judgmentへ安全に渡し、その結果を既存4-domain review modelへ統合する。
+contained source（アクセス範囲を制限して扱う原本）から得たPerception（観測に基づく認識結果）を、provider-neutral closed-choice Judgment（提供元に依存しない、選択肢を限定した判断候補）へ渡し、その結果を既存の4-domain review model（4領域のレビュー表現）へ統合する。
 
 ```text
 stable contained snapshot
@@ -27,9 +27,9 @@ UnifiedHumanReviewViewModelV1
 
 ## 2. Derived Judgment Observation
 
-providerはsource Observationそのものを受け取らない。
+provider（判断処理の提供元）へは、source Observation（原本から得た観測情報）をそのまま渡さない。
 
-派生payload:
+providerへ渡す派生payload（必要な項目を抽出したデータ）は、次のとおり。
 - kind = worksheet-format-review-route
 - sheetName
 - classification
@@ -37,7 +37,7 @@ providerはsource Observationそのものを受け取らない。
 - optional winnerPrototypeId
 - noveltyScore
 
-含めないは次のとおりです。
+次の情報は派生payloadに含めない。
 - cells
 - merges
 - raw features
@@ -45,19 +45,19 @@ providerはsource Observationそのものを受け取らない。
 - source bytes
 - WorkbookData
 
-provenanceはsource ObservationからsourceKind/sourceDigest/featureVersion/sourceProfileIdをcopyする。
+provenance（観測の出所・版を示す情報）には、source ObservationのsourceKind/sourceDigest/featureVersion/sourceProfileIdを引き継ぐ。
 
 ## 3. Why a separate Observation
 
-Judgment providerへ渡す情報を、Perception APIやWorksheet snapshotの将来拡張から隔離する。
+Judgment providerへ渡す情報の範囲を、Perception APIやWorksheet snapshot（ワークシートの観測記録）が将来拡張されても独立して保てるようにする。
 
-「providerが見てよいderived state」を明示型にすることで、Observation payloadへ将来raw情報が増えても自動的に外部providerへ流れない。
+「providerへ渡せるderived state（観測情報から必要な項目だけを取り出した状態）」を明示的な型として定める。これにより、Observation payloadに将来raw情報（加工前の情報）が追加されても、そのまま外部providerへ渡ることを防ぐ。
 
 ## 4. External opt-in
 
-provider invocationはissue-0161 `runClosedChoiceJudgmentProvider` を必ず通す。
+provider invocation（提供元への呼び出し）は、issue-0161の`runClosedChoiceJudgmentProvider`を必ず経由する。
 
-external-opt-in providerは `allowExternalJudgment=true` なしでは呼ばない。
+external-opt-in provider（外部呼び出しに明示的な許可が必要な提供元）は、`allowExternalJudgment=true`が指定されている場合に限って呼び出す。
 
 ## 5. Failure ordering
 
@@ -72,24 +72,24 @@ Profile preflight
  -> Authority Workbook load
 ```
 
-provider拒否/失敗/invalid responseではAuthority loaderへ進まない。
+providerが拒否した場合、呼び出しに失敗した場合、またはinvalid response（形式の不正な応答）だった場合は、Authority loader（原本を検証のために読み込む処理）へ進まない。
 
 ## 6. Source changes during provider wait
 
-stable read window終了後、provider call中にsourceが変化する可能性はある。
+stable read window（同じ原本状態を読み取る期間）が終了した後、provider call（提供元の処理を待つ時間）中にsource（原本）が変わる可能性はある。
 
-workflowはprovider call中filesystem lockを保持しない。
-代わりにAuthority側がEnvelope sourceDigestと現在source bytesを再照合する。
+workflow（処理の流れ）は、provider callの間、filesystem lock（ファイルへの操作を排他的に制限する仕組み）を保持しない。
+代わりにAuthority側で、Envelope（レビュー結果をまとめる情報）のsourceDigest（原本内容を識別するdigest）と現在のsource bytes（原本のバイト列）を再照合する。
 
-変化していれば最終modelはAuthority `blocked(source-identity)` となる。
+原本の変化が確認された場合、最終modelのAuthority結果は`blocked(source-identity)`となる。
 
-Cognitive/Deterministic結果は「以前のstable source stateに対する記述」として改変しない。
+Cognitive/Deterministic（認知処理／決定的処理）の結果は、以前のstable source state（安定して読み取った時点の原本状態）に対する記述として保持し、内容を改変しない。
 
 ## 7. Provider-specific projection
 
-Jev adapterなどは派生Observationをさらに明示 `projectState` してprovider transportへ送る。
+Jev adapterなどでは、派生Observation（観測から作った限定的な情報）をさらに明示的な`projectState`で投影し、provider transport（提供元への通信を担う経路）へ渡す。
 
-したがって二段階になる。
+このため、外部への情報の絞り込みは次の二段階になる。
 
 ```text
 raw worksheet
