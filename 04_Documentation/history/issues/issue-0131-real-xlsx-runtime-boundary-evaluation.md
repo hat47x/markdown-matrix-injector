@@ -1,4 +1,6 @@
-# Issue: 実SheetJS XLSX roundtripで format snapshot 境界を確認する
+# Issue: SheetJSによる実XLSXの往復処理で書式snapshotの境界を確認する
+
+この文書は実SheetJS runtimeを用いる検証の設計と、当時の実行環境で確認できた範囲を記したものである。**round-trip**はXLSXバイト列への書き出しと再読込、**snapshot**は読込結果をセル・結合・書式情報として表した中間観測、**runtime境界**は実ライブラリによる入出力で初めて確認できる条件を指す。テスト追加のチェック済み項目と、依存取得不能により未実施だったテスト実行を区別する。外部Excel製品で作成された書式付きファイルの読取保証も、この記録だけでは確定しない。
 
 ## Meta
 - Type: Evaluation / Runtime boundary evidence
@@ -139,7 +141,7 @@ SheetJSで2-sheet workbookを実XLSXとして生成し、一時ファイルへ�
 
 header cellへdark fill相当のstyle objectを与え、`cellStyles: true` でXLSXを生成する。
 
-ただしこのテストではは次のとおりです。
+ただし、このテストで許容する観測値は次のとおりである。
 
 ```text
 fillTone = undefined OR dark
@@ -197,7 +199,7 @@ structure-only profileで:
 
 writerのstyle生成能力とreaderのstyle読取能力を同じroundtripだけで評価すると、writer制約をreader制約と誤認する可能性がある。
 
-したがっては次のとおりです。
+したがって、確認範囲を次のように分ける。
 
 - structure: 強くcontract test化する
 - fill: capability probeに留める
@@ -214,7 +216,7 @@ writerのstyle生成能力とreaderのstyle読取能力を同じroundtripだけ�
 - runtime boundary説明文書
 - experimental READMEへの導線
 
-変更しないは次のとおりです。
+変更対象から除外するのは次のとおりである。
 
 - reader実装
 - SheetJS bridge実装
