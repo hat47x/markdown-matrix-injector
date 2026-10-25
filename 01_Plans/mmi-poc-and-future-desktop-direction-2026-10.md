@@ -1,5 +1,8 @@
 # MMIのPoC継続と将来Desktop製品の方向性（2026-10-22）
 
+- 状態: 構想・要件候補（実装状態ではない）
+- 関連Issue: [#504](https://github.com/hat47x/markdown-matrix-injector/issues/504)、[#658](https://github.com/hat47x/markdown-matrix-injector/issues/658)
+- 終了条件: 採用した判断をADR（ADR-0024の再整理）へ、残る検証作業を#658へ移し、本書を削除する
 - 区分：**利用者が示した開発方針と、そこから導く検証候補の整理**
 - 対象：MMIの役割、実務検証、将来製品との境界
 - 実装状態：**構想・要件候補**。本書は新しい記法・API・品質Gateの採用、機能実装、TEI製品接続の実証ではない
