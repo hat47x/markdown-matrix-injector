@@ -35,5 +35,7 @@ def check(repo_root: Path) -> list[str]:
 
 if __name__ == '__main__':
     problems = check(Path(__file__).resolve().parents[2])
+    # Windows CI consoles default to cp1252, which cannot encode the Japanese messages.
+    sys.stdout.reconfigure(encoding='utf-8')
     print('\n'.join(problems) if problems else '01_Plansの配置: OK')
     sys.exit(bool(problems))
