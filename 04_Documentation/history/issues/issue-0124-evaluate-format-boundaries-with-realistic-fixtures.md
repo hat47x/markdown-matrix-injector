@@ -1,4 +1,6 @@
-# Issue: 実務に近い書式fixtureで認知境界を評価する
+# Issue: 実務的な書式fixtureを使って候補判定の境界を評価する
+
+この文書は当時のIssue記録です。2026年9月12日にv3実装で行った17件のローカルテストと測定値を記録した文書です。v5のoccupancy追加とは異なる評価時点の証拠であり、2列表のstructure-only判定や閾値を後年の結果で書き換えません。
 
 ## Meta
 - Type: Test / Evaluation
