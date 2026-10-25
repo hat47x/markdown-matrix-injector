@@ -1,4 +1,6 @@
-# Issue: fill evidenceの識別価値と過剰支持リスクを対比較する
+# Issue: 塗りつぶし特徴の識別価値と過剰支持リスクを比較する
+
+この文書は当時のv6 matcherによる対比較評価である。**fill evidence**はセルの塗りつぶしに由来する比較用特徴、**snapshot**は表の構造・書式を表す観測データ、**prototype**は既知書式の比較基準、**source profile**は比較に使う特徴の範囲、**confidence**は候補の類似度スコアを指す。**winner margin**は上位候補間のスコア差、**fail-closed**は根拠が不足する場合に一致を確定しない判定方針である。記載値は独立replayによる当時の期待値照合であり、repository test suiteの成功やproduction採用を示さない。
 
 ## Meta
 - Type: Evaluation / Design evidence
@@ -229,15 +231,13 @@ fillは強いidentity keyではなく補助証拠として扱う。
 
 prototypeがfillを持つのにobservationでfillが無い場合、confidenceが下がる。
 
-ただしこれはは次のとおりです。
+ただし、confidenceの低下だけでは次の原因を区別できない。
 
 - 本当にformatが変わった
 - reader/source側でstyle evidenceが取れない
 - workbook側でfillが消えた
 
-を区別しない。
-
-したがって自動rejectには使わない。
+この違いを識別できないため、自動rejectには使わない。
 
 ## Acceptance criteria
 
@@ -278,14 +278,12 @@ GitHub Actionsは既知のrunner/resource不足があるため完了条件にし
 
 次はfillのweight変更ではなく、**fill availability / fill disagreementをreview telemetryとしてどう観測するか**をheld-out fixtureで評価する。
 
-特には次のとおりです。
+特に、次のケースを分けて観測する。
 
 1. structureがnear-gateのときだけfill一致がmatchedへ押し上げるケース
 2. fill missingがconfidence低下の主因になるケース
 3. fill-onlyでdisambiguateしたケース
 4. fillとstructureが異なるprototypeを支持するケース
 5. direct RGB / theme / no-fillを混ぜた実務寄りcorpus
-
-を分けて観測する。
 
 十分な再現性が出るまではproduction gateへ追加しない。
