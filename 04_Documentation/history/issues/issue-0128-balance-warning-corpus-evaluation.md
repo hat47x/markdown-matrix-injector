@@ -1,4 +1,8 @@
-# Issue: balance warning の有効性とノイズ率を実務寄りfixtureで評価する
+# Issue: 実務的なfixtureによってbalance warningの有効性とノイズ率を評価する
+
+この文書は当時のIssue記録です。2026年9月18日の16ケースcorpusのprecision・recall・false-positive rateと6 assertionsの記録を保持します。boundary warningとcomposition warningは異なる意味を持ち、これらの結果を新しいproduction閾値や自動レビュー判定へ昇格させません。
+
+ここでいう**family**は同種の書式特徴をまとめた分類、**fixture**は期待結果をあらかじめ定めたテスト入力、**confidence**は候補の類似度スコアを指す。**precision（適合率）**は検知した件数のうち実際にレビュー対象だった割合、**recall（再現率）**はレビュー対象のうち検知できた割合、**false-positive rate（偽陽性率）**はレビュー不要ケースのうち誤って検知した割合である。
 
 ## Meta
 - Type: Evaluation / Design evidence
@@ -153,7 +157,7 @@ boundary warningだけをreview flagとした場合。
 - 6列2ラベル変更のnear-gate `novel`
 - near-tied prototypeの `ambiguous`
 
-はいずれも妥当だった。
+この2件はいずれもレビュー対象として妥当だった。
 
 一方、confidenceが0.7から離れていても、複数familyにまたがるdriftは拾えない。
 
@@ -205,12 +209,12 @@ fill featureが2件消えたことで、列比例familyの**絶対件数は変�
 
 ## 結果5: 現在のwarningが取り逃す複合driftがある
 
-6列表は次のとおりです。
+6列表で次の2つの変化を同時に与えたケースを評価した。
 
 - `判定 -> 状態`
 - majority occupancy `111111 -> 111110`
 
-を同時に与えたケースは次のとおりです。
+その結果は次のとおりです。
 
 ```text
 status         = matched
@@ -272,13 +276,11 @@ precisionは高いがrecall 25%である。
 
 ### 4. gate thresholdは変更しない
 
-今回の結果だけを使っては次のとおりです。
+今回の結果だけを根拠に、次のような閾値調整は行わない。
 
 - nearConfidenceDistanceを広げる
 - maxColumnFamilyShareを上げる
 - deviationScore thresholdを追加する
-
-といった調整は行わない。
 
 同じcorpusへ合わせるだけのoverfitになるためである。
 
