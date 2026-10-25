@@ -1,4 +1,6 @@
-# Issue: Fly-inspired matcherをPerception provider contractへ適合する
+# Issue: Fly-inspired matcherの結果をPerception provider契約へ対応付ける
+
+この文書は2026年9月19日の実験用adapterに関する履歴記録である。**Fly-inspired matcher**は書式特徴から候補を比較する既存の照合部品、**Perception provider**は観測・照合結果を認知支援用の契約へ渡す部品、**adapter**は両者のデータ形式を対応付ける薄い変換層を指す。**confidence**はmatcher固有の類似度、**DeviationScore**は書式の差を表す指標、**provenance**はfeature versionやsource profileを含む出典情報である。既存の順位とスコアを保持したfocused testの成功は、production経路への接続を意味しない。
 
 ## Meta
 - Type: Feature / Integration experiment
@@ -12,14 +14,14 @@
 - Related ADR/Spec: ADR-0018-cognitive-assistance-plane.md, ADR-0017-fly-inspired-format-deviation-assistance.md
 - Depends on: issue-0135 Done
 
-## Execution Plan
-### Proposed solution
+## 当時の実行計画
+### 解決方針（当時の提案）
 
 既存`flyInspiredFormatMatcher` / worksheet-format-v6 matcherを変更せず、その結果をCognitive Contractへ写像する薄いPerception provider adapterを追加する。
 
 `matched`はcandidate-ranking signal、`ambiguous`はambiguity / abstention、`novel`はnovelty signalへ写像する。既存confidence / DeviationScoreはprovider固有metricとして保持し、featureVersion / sourceProfileIdはprovenanceへ保持する。
 
-### Acceptance criteria
+### 受入条件（Acceptance criteria）
 - [x] matcher本体を変更しない。
 - [x] `matched / ambiguous / novel`を情報損失なくCognitive Contractへ写像する。
 - [x] confidence / DeviationScoreをFly provider namespaceのmetricとして保持する。
@@ -29,7 +31,7 @@
 - [x] production runtimeへ接続しない。
 - [x] focused regressionで既存候補順位とadapter結果の一致を確認する。
 
-### Validation plan
+### 当時の検証計画（Validation plan）
 
 issue-0135のcontract testに加え、既存worksheet-format fixtureからmatched / ambiguous / novel代表ケースを再利用し、scoreとstatusがadapter前後で変化しないことを確認する。
 
@@ -43,7 +45,7 @@ issue-0135のcontract testに加え、既存worksheet-format fixtureからmatche
 - strict compile: `--strict --target ES2022 --module NodeNext --moduleResolution NodeNext` で成功。
 - focused integration test: **5 tests / 5 pass / 0 fail**。
 - 実際の `worksheetFormatFeatureAdapter` → `worksheetFormatPrototype` → `flyInspiredFormatMatcher` 経路を通して確認。
-- 検証内容は次のとおりです。
+- 次の結果と境界を検証した。
   - `matched`: winner、候補順位、confidence、noveltyScoreを変更せず写像。
   - `ambiguous`: 候補を保持し、winnerを生成しない。
   - `novel`: novelty signalへ写像し、winnerを生成しない。
