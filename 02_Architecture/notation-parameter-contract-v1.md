@@ -74,13 +74,11 @@ validation issue（検証で検出した問題）は、次の情報を持つ。
 - constraint
 - message
 
-を持つ。
-
 Authority adapter（検証結果とReceiptを結び付ける処理）は最初のissueをReceipt detail（検証記録の詳細）へ変換する。一方、validator API自体は検出した全issueを返す。
 
 ## 6. Sync boundary
 
-同期を確認するtestはJSON Schemaを読み、次の項目を照合する。
+同期を確認するtestはJSON Schemaを読み、次の項目をTypeScript contract（実行時側の制約定義）と照合する。
 
 - property集合
 - enum
@@ -88,8 +86,6 @@ Authority adapter（検証結果とReceiptを結び付ける処理）は最初�
 - minLength
 - additionalProperties=true
 - `^x-` patternProperties
-
-これらをTypeScript contract（実行時側の制約定義）と照合する。
 
 schema側に新parameterが追加され、TypeScript contractがまだ更新されていなければtest failure（テスト失敗）となる。
 
