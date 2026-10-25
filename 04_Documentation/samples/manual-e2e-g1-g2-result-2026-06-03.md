@@ -1,6 +1,8 @@
 # Manual E2E Result — G1 (Checklist F) / G2 (sier-design README)
 
 - Date: 2026-06-03
+
+> この文書は当時のヘッドレス環境での検証記録です。G1/G2のPASSはCI経路での結果であり、VS Codeの実画面を操作・撮影したことを意味しません。
 - Operator: automated headless run (Cowork)
 - Source procedures: `04_Documentation/vscode-e2e-testing.md` → **Checklist F (G1)**, `04_Documentation/samples/sier-design/README.md` → **G2: 実 PDF 生成**
 
@@ -48,6 +50,8 @@ Per-page orientation (proves named `@page`): p1 portrait, **p2 LANDSCAPE**, **p3
 Bonus features also visually confirmed: `columns`+`grep` filter (表1), `highlight` rows (表4 High, 表5 pending), `caption`/`id`, and `pageBreak=before` on 表5.
 
 ## Findings
+
+以下は当時の検証で確認した制約と改善候補です。改善の実装や再検証の完了を示すものではありません。
 
 1. **`design-doc-sample-rendered.html` is not a valid G2 source.** It was produced by Pandoc alone, which cannot expand MMI embeds — the `![[...]]` survive as literal `[[...]]` text inside `<p>`, so it contains **zero** `mmi-embed` figures. A PDF made from it (README Route B as literally written, using that file) shows no tables/landscape/cards. The working path is to render the `.md` through the MMI pipeline first (done here). Recommend regenerating that HTML from the real preview output, or annotating the README.
 2. **Card straddles the landscape→portrait page boundary** (p3→p4): the `data-path` `::after` block of the 別紙参照 card spilled to p4. Cosmetic; consider `break-inside: avoid` on `.mmi-card` in the print stylesheet.
