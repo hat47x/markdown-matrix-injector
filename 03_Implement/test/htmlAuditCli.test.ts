@@ -6,6 +6,7 @@ import path from 'node:path';
 
 import { readHtmlFragments, selectHtmlFragmentById } from '../src/adapters/htmlFragmentAdapter.js';
 import { commitHtmlDecomposition } from '../src/application/commitHtmlDecomposition.js';
+import { extractHtmlFragment } from '../src/application/extractHtmlFragment.js';
 import { main } from '../src/cli/mmi.js';
 import { createSourceIdentityFromBytes } from '../src/core/sourceIdentity.js';
 
@@ -143,5 +144,31 @@ test('CLI html-audit requires reviewed inputs and refuses unsupported writes', a
     const missing = await invoke(['html-audit', source, '--plan', plan, '--root', root, '--json']);
     assert.equal(missing.code, 1);
     assert.equal(fs.existsSync(path.join(root, 'mmi-ledger.json')), false);
+  });
+});
+
+test('single-fragment extraction to the same ledger invalidates the earlier batch receipt', async () => {
+  await inWorkspace(async ({ root, source, plan, ledger, selections }) => {
+    commitHtmlDecomposition({
+      workspaceRoot: root, sourcePath: source, ledgerPath: ledger,
+      selections, expectedSourceDigest: digest,
+    });
+    // Ledger v1 records the latest projection per Candidate occurrence. A later
+    // single extraction legitimately replaces the API occurrence's batch entry.
+    extractHtmlFragment({
+      workspaceRoot: root, sourcePath: source, ledgerPath: ledger,
+      outDir: path.join(root, 'assets'),
+      id: 'api',
+      expectedFingerprint: selections[1].expectedFingerprint,
+    });
+    const result = await invoke([
+      'html-audit', source, '--plan', plan, '--root', root, '--json',
+    ]);
+    assert.equal(result.code, 1);
+    const report = JSON.parse(result.output);
+    assert.equal(report.status, 'incomplete');
+    assert.equal(report.files[1].file, 'matching');
+    assert.equal(report.files[1].ledger, 'changed');
+    assert.equal(fs.existsSync(path.join(root, 'docs/api.html')), true);
   });
 });
