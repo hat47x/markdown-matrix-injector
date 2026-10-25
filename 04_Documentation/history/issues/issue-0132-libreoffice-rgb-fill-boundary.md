@@ -1,4 +1,6 @@
-# Issue: LibreOffice生成XLSXで direct RGB fill の source-profile 境界を固定する
+# Issue: LibreOffice生成XLSXでRGB塗りつぶしの読取境界を確認する
+
+この文書は当時の外部生成XLSXの検証記録である。**fixture**は条件を固定したテスト用ファイル、**direct RGB fill**は色をRGB値で直接指定したセルの塗りつぶし、**source profile**は比較に採用する特徴の範囲を定める設定を指す。LibreOffice再保存ファイルの独立確認と、依存未導入で実行できなかったSheetJS runtime testを区別する。既存Excelとの共存方針や現行の製品受入を変更する記録ではない。
 
 ## Meta
 - Type: Runtime boundary evaluation
@@ -198,11 +200,9 @@ evidence = [structure, fill]
 
 ### 拡張しない
 
-今回の結果をは次のとおりです。
+今回の結果から、次のような保証まで導くことはできない。
 
 > theme-only colorもすべてdark/gray/lightへ解決できる
-
-とは解釈しない。
 
 bridgeの現在のfill classifierはRGBを直接解決できない場合に保守的に `other` を返す。
 
@@ -214,12 +214,12 @@ theme-indexed fillは別fixtureで評価する。
 
 featureの意味やsource evidence集合を変更していないため。
 
-今回行うのはは次のとおりです。
+今回行うのは次の2点である。
 
 - 既存 `fill` evidence contractの実証
 - 保証範囲の文書上の明確化
 
-であり、
+この範囲に留まり、次の変更は含まない。
 
 - 新しいfeature追加
 - theme resolution追加
