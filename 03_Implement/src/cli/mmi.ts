@@ -239,6 +239,7 @@ Commands:
                             (exit code 1 when any error is found)
   render <doc.md>           Expand references into Markdown tables (default) or HTML
       --to md|html
+                            html: YAML front matter adds cover, approvals, TOC, header/footer (reference.md)
   materialize <doc.md>      Write a source-independent Markdown projection for detaching
       -o, --out <file>        detached Markdown output (required; must differ from source)
       --attachments-dir <dir> directory for card-sized table attachments

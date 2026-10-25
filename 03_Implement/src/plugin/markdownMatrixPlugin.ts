@@ -20,6 +20,8 @@ export interface MarkdownMatrixPluginOptions {
   workspaceRoot?: string;
   cache?: WorkbookCache<WorkbookData>;
   uriScheme?: string;
+  /** Document export (`mmi render --to html`): cards carry only author-written relative paths. */
+  forExport?: boolean;
   /**
    * The reader's language (for example VS Code's `env.language`); error sentences follow it. Defaults to English.
    * A function is read on every render, so a changed setting applies without reloading.
@@ -40,6 +42,7 @@ interface EmbedRenderContext {
   workspaceRoot?: string;
   cache?: WorkbookCache<WorkbookData>;
   uriScheme?: string;
+  forExport?: boolean;
   locale?: string;
   createTimeBudget?: () => CooperativeTimeBudget;
 }
@@ -56,6 +59,7 @@ export function markdownMatrixPlugin(md: MarkdownIt, options: MarkdownMatrixPlug
       workspaceRoot,
       cache: options.cache,
       uriScheme: options.uriScheme,
+      forExport: options.forExport,
       locale: typeof options.locale === 'function' ? options.locale() : options.locale,
       createTimeBudget: options.createTimeBudget,
     };
@@ -173,7 +177,7 @@ function renderEmbed(embed: ReturnType<typeof extractEmbedQueries>[number], cont
     budget,
   });
   try {
-    if (outcome.kind === 'card') return renderEmbedFrame(embed, renderEmbedCard(embed, outcome.absolutePath, context.uriScheme));
+    if (outcome.kind === 'card') return renderEmbedFrame(embed, renderEmbedCard(embed, outcome.absolutePath, { uriScheme: context.uriScheme, forExport: context.forExport }));
     if (outcome.kind === 'table') return renderEmbedFrame(embed, renderLogicalTable(embed, outcome.logical, budget));
     const code = outcome.code ? ` data-code="${escapeHtml(outcome.code)}"` : '';
     const text = outcome.localizable ? localizeError(outcome.localizable, context.locale) : outcome.message;

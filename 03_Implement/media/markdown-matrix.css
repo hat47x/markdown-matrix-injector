@@ -7,7 +7,7 @@
  *                          [data-page-break], [data-orientation]
  *   - renderTable.ts:      .mmi-table, .mmi-table__row(.--highlight),
  *                          .mmi-table__cell(.--formatted), .mmi-table__cell-code
- *   - renderCard.ts:       .mmi-card, .mmi-card__title, .mmi-card__meta, [data-path]
+ *   - renderCard.ts:       .mmi-card, .mmi-card__title, .mmi-card__meta, [data-source]
  *   - markdownMatrixPlugin.ts (error path): .mmi-error
  *
  * Colors use VS Code theme variables (--vscode-*) with safe fallbacks so the
@@ -165,6 +165,29 @@
     page: portrait;
   }
 
+  /* A caption never ends a page apart from its table or 別紙 block. */
+  .mmi-embed__caption {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* Chromium drops backgrounds when printing unless asked; keep header shading and highlights. */
+  .mmi-table thead th,
+  .mmi-table__row--highlight {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Highlight must survive monochrome printers: add a bar that does not depend on color. */
+  .mmi-table__row--highlight > td:first-child {
+    border-left: 3pt solid #000;
+  }
+
+  .mmi-table th,
+  .mmi-table .mmi-table__cell {
+    overflow-wrap: break-word;
+  }
+
   /* Keep table rows intact across page boundaries; repeat header per page. */
   .mmi-table__row {
     break-inside: avoid;
@@ -195,8 +218,9 @@
     font-weight: 600;
   }
 
-  .mmi-card[data-path]::after {
-    content: attr(data-path);
+  /* The author-written relative path: an absolute local path would leak the author's folders. */
+  .mmi-card[data-source]::after {
+    content: attr(data-source);
     display: block;
     margin-top: 0.2rem;
     font-size: 0.85em;
