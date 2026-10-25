@@ -560,6 +560,11 @@ class McpServerImplementation implements McpServer {
   }
 
   private htmlAuditTool(args: JsonObject): string {
+    for (const name of Object.keys(args)) {
+      if (!['source', 'plan', 'ledger'].includes(name)) {
+        throw new InvalidParamsError(`Unexpected html-audit argument "${name}": this tool is read-only.`);
+      }
+    }
     const sourcePath = this.resolveInsideRoot(requiredString(args, 'source'), 'source');
     const planPath = this.resolveInsideRoot(requiredString(args, 'plan'), 'plan');
     const ledgerPath = this.resolveInsideRoot(
