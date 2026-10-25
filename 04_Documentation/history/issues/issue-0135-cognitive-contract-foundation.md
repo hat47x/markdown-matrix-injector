@@ -1,4 +1,6 @@
-# Issue: provider-neutral Cognitive Contract foundation
+# Issue: 特定providerに依存しないCognitive Contractの基盤を定義する
+
+この文書は2026年9月19日のCognitive Contract実験に関する履歴記録である。**Cognitive Contract**は認知支援部品が観測・判断候補を受け渡すための共通データ型、**provider**はその情報を供給する部品、**provenance**は入力や処理の出典情報、**abstention**は判断を保留する結果を指す。**confidence**はproviderが独自の意味・尺度で示すスコアであり、異種provider間で単純に合算できる値ではない。ここに記載したunit testの成功はexperimental型の検証であり、production runtimeやAuthority Planeとの接続を示さない。
 
 ## Meta
 - Type: Feature / Architecture
@@ -12,14 +14,14 @@
 - Related ADR/Spec: ADR-0018-cognitive-assistance-plane.md
 - Depends on: なし
 
-## Execution Plan
-### Proposed solution
+## 当時の実行計画
+### 解決方針（当時の提案）
 
 Authority Planeへ接続しないpure TypeScript contractとして、Cognitive Assistance Planeの共通型を定義する。初期contractはprovider実装を持たず、observation / signal / abstention / provenance / provider descriptor / provider固有confidence metadataだけを固定する。
 
 provider categoryは少なくとも `perception` / `judgment` / `reasoning-generation` を表現できる。confidenceは単一numberへ潰さず、namespace / semantics / valueを保持し、異なるnamespaceをmergeするhelperは作らない。
 
-### Acceptance criteria
+### 受入条件（Acceptance criteria）
 - [x] Authority PlaneとCognitive Assistance Planeのデータフローをarchitecture文書へ固定する。
 - [x] observation / signal / abstention / provenanceの型をpure TypeScriptで定義する。
 - [x] provider capability categoryを明示できる。
@@ -31,7 +33,7 @@ provider categoryは少なくとも `perception` / `judgment` / `reasoning-gener
 - [x] focused unit testで正常系・abstention・不正metadataを固定する。
 - [x] contractの存在有無で既存MMI runtime semanticsが変化しない。
 
-### Task breakdown
+### 作業項目（Task breakdown）
 - [x] architecture文書で境界とデータフローを定義。
 - [x] contract型と最小validation helperを追加。
 - [x] confidence namespace / abstention / provenance testを追加。
@@ -39,7 +41,7 @@ provider categoryは少なくとも `perception` / `judgment` / `reasoning-gener
 - [x] strict TypeScript compile + focused unit test。
 - [x] 検証後StatusをDoneへ更新。
 
-### Validation plan
+### 当時の検証計画（Validation plan）
 
 strict TypeScript条件で対象module/testをcompileし、provider category、confidence metadata、abstention、provenanceを確認する。repository検索でproduction importが存在しないことも確認する。GitHub Actionsの既知runner/resource不足は完了条件にしない。
 
@@ -52,7 +54,7 @@ strict TypeScript条件で対象module/testをcompileし、provider category、c
 - TypeScript: `5.8.3`
 - compile: `--strict --target ES2022 --module NodeNext --moduleResolution NodeNext` で成功
 - focused unit test: **8 tests / 8 pass / 0 fail**
-- 検証内容は次のとおりです。
+- 次の項目を検証した。
   - provider category / execution boundary
   - namespaced score semantics
   - observation provenance / source digest
