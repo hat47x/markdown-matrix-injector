@@ -4,6 +4,10 @@
  * Source workbooks/documents are never modified. Commands that materialize,
  * extract or import write only to explicit output, asset, attachment and ledger paths.
  */
+import { matchSourceIds } from '../application/matchSourceIds.js';
+import { observeSourceCells } from '../application/observeSourceCells.js';
+import { readBoundedSourceBytes } from '../core/readBoundedSourceBytes.js';
+import { inventoryDesignSources } from '../application/designSourceInventory.js';
 import { runSnapshot } from './snapshot.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -90,7 +94,7 @@ import {
   type LedgerState,
   type LineageCandidate,
 } from '../core/importLedger.js';
-import { isPathWithinBoundary } from '../core/pathResolver.js';
+import { isPathWithinBoundary, resolveSourcePath } from '../core/pathResolver.js';
 import { findUnknownProseIds, UNKNOWN_PROSE_ID_CODE } from '../application/proseIdCheck.js';
 import { referencedSheets, unknownIdMessage } from '../application/referencedSheets.js';
 import {
@@ -159,9 +163,23 @@ Commands:
       --download              explicitly allow HTTPS acquisition after showing manifest metadata
       --offline               forbid HTTPS access; use verified cache/local/runtime-managed sources only
                             Runtime-managed Ollama/LM Studio models are discovered only for this explicit command.
+  match-ids <selection.json> Compare caller-selected literal string IDs across sources.
+                            Requires --json and --include-values; digest pins are mandatory.
+                            Exit 1 means gaps, duplicate definitions or missing definitions.
+  inventory <directory>    Identify a source collection without exposing document contents.
+      --inspect              also run existing inspect; output only Candidate counts and diagnostic codes
+      --exclude <path>       exclude a directory-relative path/prefix (repeatable; no glob)
+      --max-bytes <n>        per-file read limit (default 16777216; maximum 268435456)
+                            --json emits Source Identity v1, collection digest and explicit coverage gaps.
+                            Exit 1 means partial coverage; output must stay outside the scanned directory.
   inspect <source>          List workbook/CSV regions, structured Trees, static HTML DOM fragments,
                             or Word (.docx) headings, tables, pictures and comments.
                             --json adds Semantic Candidates with status, method, provenance and fingerprint
+      --cells                 bounded physical-cell observation; requires --sheet, --range and --json
+      --include-values        with --cells, explicitly include raw/display values and saved formula text
+      --header-range <A1:B2>  caller-selected header inside --range; no semantic inference
+      --max-cells <n>         --cells output limit (default/maximum 4096)
+      --expected-source-digest <sha256:...>  require the inventory Source Identity before --cells parsing
       --values <n>            also print the first n body rows of each region
       --from <doc.md>         write suggested references relative to this document
       --import-assist          also show grid-layout import roles, revalidated reference proposals and cautions
@@ -325,6 +343,13 @@ export async function main(argv: string[]): Promise<number> {
     allowPositionals: true,
     options: {
       root: { type: 'string' },
+      cells: { type: 'boolean', default: false },
+      'header-range': { type: 'string' },
+      'max-cells': { type: 'string' },
+      'expected-source-digest': { type: 'string' },
+      inspect: { type: 'boolean', default: false },
+      exclude: { type: 'string', multiple: true },
+      'max-bytes': { type: 'string' },
       json: { type: 'boolean', default: false },
       out: { type: 'string', short: 'o' },
       to: { type: 'string', default: 'md' },
@@ -392,6 +417,9 @@ export async function main(argv: string[]): Promise<number> {
   }
   if (values.preview && command !== 'html-plan') {
     return usageError('--preview is supported only by html-plan --json');
+  }
+  if ((values.cells || values['header-range'] || values['max-cells'] || values['expected-source-digest']) && command !== 'inspect') {
+    return usageError('--cells and its range options apply only to inspect');
   }
   const root = path.resolve(values.root ?? process.cwd());
   const emit = (text: string) => (values.out ? fs.writeFileSync(values.out, text) : process.stdout.write(text.endsWith('\n') ? text : `${text}\n`));
@@ -634,11 +662,82 @@ export async function main(argv: string[]): Promise<number> {
         return 1;
       }
     }
+    case 'match-ids': {
+      if (args.length !== 1 || !values.json || !values['include-values']) return usageError('match-ids requires one selection file, --json and --include-values (ID tokens will be disclosed)');
+      const allowed = new Set(['root', 'json', 'include-values', 'out']);
+      for (const [key, value] of Object.entries(values)) {
+        if (value === undefined || value === false || (key === 'to' && value === 'md') || (key === 'values' && value === '0')) continue;
+        if (!allowed.has(key)) return usageError(`match-ids does not accept --${key}`);
+      }
+      if (values.out && (!pathWithinBoundaryForWrite(path.resolve(values.out), root) || fs.existsSync(values.out))) return usageError('match-ids output must be a new file inside --root');
+      const selectionPath = resolveSourcePath({ markdownFilePath: path.join(root, '__mmi_ids__.md'), sourcePath: path.resolve(args[0]), workspaceRoot: root });
+      const input: unknown = JSON.parse(readBoundedSourceBytes(selectionPath, 65536).toString('utf8'));
+      const report = matchSourceIds(input, root);
+      const text = `${JSON.stringify(report, null, 2)}\n`;
+      if (values.out) fs.writeFileSync(values.out, text, { flag: 'wx' });
+      else process.stdout.write(text);
+      return report.status === 'observed' ? 0 : 1;
+    }
+    case 'inventory': {
+      if (args.length !== 1) return usageError('inventory takes one directory');
+      const directory = path.resolve(args[0]);
+      if (values.out) {
+        const output = path.resolve(values.out);
+        if (fs.existsSync(output)) return usageError('inventory output already exists; choose a new output file');
+        if (isPathWithinBoundary(output, directory)
+            || isPathWithinBoundary(fs.realpathSync(path.dirname(output)), fs.realpathSync(directory))) {
+          return usageError('inventory output must stay outside the scanned directory');
+        }
+      }
+      const report = inventoryDesignSources({
+        workspaceRoot: root, directory, exclude: values.exclude,
+        ...(values['max-bytes'] === undefined ? {} : { maxBytes: Number(values['max-bytes']) }),
+        ...(values.inspect ? { inspect: (file: string) => {
+          const result = inspectSource(file, 0);
+          const candidateCounts: Record<string, number> = {};
+          for (const candidate of result.candidates) candidateCounts[candidate.kind] = (candidateCounts[candidate.kind] ?? 0) + 1;
+          const diagnosticCodes = [...new Set(Object.entries(result)
+            .filter(([key, items]) => key.endsWith('Diagnostics') && Array.isArray(items))
+            .flatMap(([, items]) => (items as { code: string }[]).map((item) => item.code)))].sort();
+          return { candidateCounts, diagnosticCodes };
+        } } : {}),
+      });
+      const text = values.json ? JSON.stringify(report, null, 2) : [
+        `inventory: ${report.status} (${report.consistency})`, report.collectionDigest,
+        ...report.entries.map((entry) => `${entry.state}\t${entry.path}${entry.reason ? `\t${entry.reason}` : ''}`),
+      ].join('\n');
+      if (values.out) fs.writeFileSync(values.out, `${text}\n`, { flag: 'wx' });
+      else emit(text);
+      return report.status === 'complete' ? 0 : 1;
+    }
     case 'inspect': {
       if (args.length !== 1) return usageError('inspect takes one source file');
       if (values.unimported && values['exclude-imported']) {
         return usageError('inspect accepts only one of --unimported or --exclude-imported');
       }
+      if (values.cells) {
+        if (!values.sheet || !values.range || !values.json) return usageError('--cells requires --sheet, --range and --json');
+        if (values.values !== '0' || values['import-assist'] || values.ledger || values.unimported || values['exclude-imported'] || values['similarity-evidence']) {
+          return usageError('--cells cannot be combined with row samples, import assistance or ledger options');
+        }
+        const sourcePath = resolveSourcePath({ markdownFilePath: path.join(root, '__mmi_cells__.md'), sourcePath: path.resolve(args[0]), workspaceRoot: root });
+        if (values.out && (!pathWithinBoundaryForWrite(path.resolve(values.out), root) || fs.existsSync(values.out))) {
+          return usageError('--cells output must be a new file inside --root');
+        }
+        const report = observeSourceCells({
+          source: path.relative(root, sourcePath).split(path.sep).join('/'),
+          bytes: readBoundedSourceBytes(sourcePath, 16 * 1024 * 1024),
+          sheet: values.sheet, range: values.range,
+          headerRange: values['header-range'], includeValues: values['include-values'],
+          expectedSourceDigest: values['expected-source-digest'],
+          ...(values['max-cells'] === undefined ? {} : { maxCells: Number(values['max-cells']) }),
+        });
+        const text = `${JSON.stringify(report, null, 2)}\n`;
+        if (values.out) fs.writeFileSync(values.out, text, { flag: 'wx' });
+        else process.stdout.write(text);
+        return 0;
+      }
+      if (values['header-range'] || values['max-cells'] || values['expected-source-digest']) return usageError('cell range options require --cells');
       const absoluteSource = path.resolve(args[0]);
       if (
         values['tree-method']

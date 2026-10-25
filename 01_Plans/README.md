@@ -82,6 +82,12 @@ python 03_Implement/tools/planning_queue.py --github
 
 Draftは検討中であり、採用・実装済みを意味しない。重要な選択は[ADR](adr/TEMPLATE.md)、実行内容は[GitHub Issues](https://github.com/hat47x/markdown-matrix-injector/issues)へ記す。入力支援の過去の検討（当時の状態）は[企画](../04_Documentation/history/input-assistance/input-assistance-proposal.md)・[設計レビュー](../04_Documentation/history/input-assistance/input-assistance-design-review.md)・[技術調査](../04_Documentation/history/input-assistance/input-assistance-technical-research.md)にある。日々の経緯や完了作業の一覧はこのページへ追加しない。`04_Documentation/history/issues/`には、GitHub Issueへ移管する前にクローズしたIssueの本文だけを保管する。
 
+資料群をSEI等からTEI化へ渡す下準備は[#618](https://github.com/hat47x/markdown-matrix-injector/issues/618)で段階的に進める。最初の[目録CLI](../04_Documentation/design-source-inventory.md)は[#620](https://github.com/hat47x/markdown-matrix-injector/issues/620)で検証し、意味統合・TEI側の受理とは区別する。
+
+目録から選んだ原本範囲の結合・型・値の由来を読む処理は[#622](https://github.com/hat47x/markdown-matrix-injector/issues/622)で進め、[利用案内](../04_Documentation/design-source-inventory.md#原本範囲のセルと結合を観測する)へまとめる。
+
+- [明示IDの資料間照合と出典保持 #626](https://github.com/hat47x/markdown-matrix-injector/issues/626)
+
 ## 資料の置き場所
 
 配置と更新・終了のルールは[AGENTS.md](../AGENTS.md#計画と資料を散逸させない)に従う。直下で継続管理する計画は[製品の磨き直し](product-repolish-plan.md)の一件とし、個別の進行状況はリンク先のIssueを読む。
