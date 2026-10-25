@@ -17,6 +17,8 @@ import { parseArgs } from 'node:util';
 import type { CandidateLedgerFilter } from '../core/candidateLedgerView.js';
 import { semanticCandidateSchemaJson } from '../core/candidateContract.js';
 import { DEFAULT_LEDGER_FILE } from '../core/importLedger.js';
+import { auditHtmlDecomposition } from '../application/auditHtmlDecomposition.js';
+import type { HtmlPlanSelection } from '../application/htmlDecompositionPlan.js';
 import { isPathWithinBoundary } from '../core/pathResolver.js';
 import { importLedgerSchemaJson, reviewDecisionsSchemaJson } from '../core/reviewContracts.js';
 import { createAiHandoffPackage, parseAiHandoffPackage } from '../dx/aiHandoff.js';
@@ -64,6 +66,23 @@ export const MCP_TOOLS: readonly McpToolDefinition[] = [
         contract: { type: 'string', enum: ['candidate', 'ledger', 'review-decisions'] },
       },
       required: ['contract'],
+      additionalProperties: false,
+    },
+  },
+  {
+    name: 'html-audit',
+    description:
+      'Read-only audit of reviewed HTML fragment outputs and their import ledger. ' +
+      'Uses the same approved manifest as mmi html-commit; reports complete/incomplete/stale/blocked. ' +
+      'Does not create, remove, repair, or approve files or ledger records.',
+    inputSchema: {
+      type: 'object',
+      properties: {
+        source: { type: 'string', description: 'Existing static HTML source path within the workspace.' },
+        plan: { type: 'string', description: 'Existing reviewed html-commit JSON manifest with sourceDigest and fragments.' },
+        ledger: { type: 'string', description: 'Optional existing ledger path. Defaults to mmi-ledger.json.' },
+      },
+      required: ['source', 'plan'],
       additionalProperties: false,
     },
   },
@@ -501,6 +520,8 @@ class McpServerImplementation implements McpServer {
         return this.schemaTool(args);
       case 'inspect':
         return this.inspectTool(args);
+      case 'html-audit':
+        return this.htmlAuditTool(args);
       case 'check':
         return await this.checkTool(args);
       case 'render':
@@ -536,6 +557,42 @@ class McpServerImplementation implements McpServer {
       );
     }
     return JSON.stringify(schema(), null, 2);
+  }
+
+  private htmlAuditTool(args: JsonObject): string {
+    const sourcePath = this.resolveInsideRoot(requiredString(args, 'source'), 'source');
+    const planPath = this.resolveInsideRoot(requiredString(args, 'plan'), 'plan');
+    const ledgerPath = this.resolveInsideRoot(
+      optionalString(args, 'ledger') ?? DEFAULT_LEDGER_FILE, 'ledger',
+    );
+    const manifest = this.readJson(planPath, 'html-audit plan');
+    if (!isObject(manifest)
+        || typeof manifest.sourceDigest !== 'string'
+        || !/^sha256:[0-9a-f]{64}$/u.test(manifest.sourceDigest)
+        || !Array.isArray(manifest.fragments)
+        || manifest.fragments.some((item) =>
+          !isObject(item)
+          || typeof item.id !== 'string'
+          || typeof item.output !== 'string'
+          || typeof item.expectedFingerprint !== 'string')) {
+      throw new InvalidParamsError(
+        'html-audit plan requires sourceDigest (sha256) and fragments with id, output, expectedFingerprint.',
+      );
+    }
+    try {
+      const report = auditHtmlDecomposition({
+        workspaceRoot: this.root,
+        sourcePath,
+        ledgerPath,
+        selections: manifest.fragments as HtmlPlanSelection[],
+        expectedSourceDigest: manifest.sourceDigest,
+      });
+      // An inconsistent but well-formed batch is a successful inspection with
+      // a non-complete status, not an RPC exception or implicit repair request.
+      return JSON.stringify(report, null, 2);
+    } catch (error) {
+      throw new ToolFailure(messageOf(error));
+    }
   }
 
   private inspectTool(args: JsonObject): string {
