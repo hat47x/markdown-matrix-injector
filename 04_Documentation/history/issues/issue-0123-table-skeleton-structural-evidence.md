@@ -1,4 +1,6 @@
-# Issue: 小規模表を支える table skeleton 構造 evidence を追加する
+# Issue: 小規模表の識別を補うtable skeletonの構造的証拠を追加する
+
+この文書は当時のIssue記録です。2026年9月17日のローカル検証では34件のテスト成功と境界値を記録しています。worksheet-format-v4の構造特徴は候補判定のためのもので、production経路への接続や正本変更の受入を意味しません。
 
 ## Meta
 - Type: Feature / Evaluation
@@ -92,8 +94,8 @@ headerより下、かつheaderの水平範囲内にある非空セルを行単�
 
 最初の本文候補行について、headerで実際に使われている各列に非空セルがあるかを見る。
 
-- 全header列に値がある: `full`は次のとおりです。
-- 1列以上欠ける: `partial`は次のとおりです。
+- 全header列に値がある場合: `full`。
+- 1列以上欠ける場合: `partial`。
 
 header自体がgappedの場合でも、Excel上の連続spanではなく**headerが実際に使っている列集合**を基準にする。これにより、意図的な空き列を本文欠損と誤認しない。
 

@@ -14,6 +14,7 @@ import { validateEmbedDiagnostics } from '../src/dx/diagnostics.js';
 import { parameterIssues } from '../src/dx/parameterDiagnostics.js';
 import { PathContainmentError, resolveSourcePath } from '../src/core/pathResolver.js';
 import { SmartFallbackLimitError } from '../src/core/smartFallback.js';
+import { unknownIdMessage } from '../src/application/referencedSheets.js';
 
 test('a language is matched exactly, then by its primary language, else English', () => {
   assert.equal(resolveMessageLocale('ja'), 'ja');
@@ -140,4 +141,26 @@ test('header, binding and parameter messages exist in every registered language'
   assert.ok(ja.length >= 2);
   assert.ok(ja.every((message) => /[ぁ-んァ-ン一-龥]/u.test(message)));
   assert.ok(en.every((message) => !/[ぁ-んァ-ン一-龥]/u.test(message)));
+});
+
+test('a prose ID missing from the referenced tables is worded in both languages', () => {
+  const finding = { id: 'REQ-999', example: 'REQ-001', sources: ['a.xlsx#要件', 'b.xlsx#機能'] };
+  assert.equal(
+    unknownIdMessage(finding, 'ja'),
+    '本文の「REQ-999」は、参照している表（a.xlsx#要件、b.xlsx#機能）のどのセルにもありません（同じ形式の例: REQ-001）。正本の変更で消えた・変わったIDか、書き間違いの可能性があります。',
+  );
+  assert.equal(
+    unknownIdMessage(finding),
+    '"REQ-999" in the body is not in any cell of the referenced tables (a.xlsx#要件, b.xlsx#機能) (an example of the same form: REQ-001). The ID may have been removed or changed in the source, or mistyped.',
+  );
+});
+
+test('every review-only reason exists in English and Japanese', () => {
+  for (const id of ['reviewOnlyProvider', 'reviewOnlyChoiceList', 'reviewOnlyShape', 'reviewOnlyNote'] as const) {
+    const en = formatMessage(id, {}, 'en');
+    const ja = formatMessage(id, {}, 'ja');
+    assert.notEqual(en, ja, id);
+    assert.ok(/[ぁ-んァ-ン一-龥]/u.test(ja), id);
+    assert.ok(!/[ぁ-んァ-ン一-龥]/u.test(en), id);
+  }
 });

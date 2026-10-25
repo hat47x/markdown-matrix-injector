@@ -1,3 +1,4 @@
+import { formatMessage } from '../core/messages/index.js';
 import type {
   CandidateReviewInventoryItem,
 } from './candidateReviewInventory.js';
@@ -8,6 +9,7 @@ export type CandidateReviewExtractionMode =
 
 export interface CandidateReviewActionPolicy {
   extraction: CandidateReviewExtractionMode;
+  /** Why the item is review-only, in the language the caller asked for (default English). */
   reason?: string;
 }
 
@@ -24,12 +26,12 @@ export interface CandidateReviewActionPolicy {
  */
 export function candidateReviewActionPolicy(
   item: CandidateReviewInventoryItem,
+  language?: string,
 ): CandidateReviewActionPolicy {
   if (item.candidate.execution === 'provider-dependent') {
     return {
       extraction: 'review-only',
-      reason:
-        'provider依存Candidateは、原本のdeterministic Candidateへ同一性を再検証する契約が未接続のため、現時点では確認・却下・保留のみ利用できます。',
+      reason: formatMessage('reviewOnlyProvider', {}, language),
     };
   }
   switch (item.kind) {
@@ -40,20 +42,17 @@ export function candidateReviewActionPolicy(
     case 'choice-list':
       return {
         extraction: 'review-only',
-        reason:
-          '選択肢CandidateはまだExtracted資産へ変換しません。',
+        reason: formatMessage('reviewOnlyChoiceList', {}, language),
       };
     case 'shape':
       return {
         extraction: 'review-only',
-        reason:
-          'Shape Candidate自体はまだExtracted資産へ変換しません。',
+        reason: formatMessage('reviewOnlyShape', {}, language),
       };
     case 'note':
       return {
         extraction: 'review-only',
-        reason:
-          'Excel Noteは原本の補足情報として確認できますが、本文への自動取り込みはまだ行いません。',
+        reason: formatMessage('reviewOnlyNote', {}, language),
       };
   }
 }

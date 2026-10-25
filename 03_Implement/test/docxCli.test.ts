@@ -47,6 +47,11 @@ test('inspectSource routes .docx to Word Candidates without workbook sections', 
     assert.deepEqual(result.docx?.headings.map((heading) => [heading.level, heading.text]), [[1, '概要']]);
     assert.deepEqual(result.docx?.tables.map((item) => [item.rows, item.columns, item.explicitHeaderRow]), [[2, 2, 1]]);
     assert.deepEqual(result.docx?.images.map((image) => [image.name, image.format, image.extractable]), [['構成図', 'png', true]]);
+    assert.deepEqual(result.docx?.sectionTree.preamble, []);
+    assert.deepEqual(
+      result.docx?.sectionTree.roots.map((node) => [node.level, node.text, node.contentPaths]),
+      [[1, '概要', ['/body/tbl[1]', '/body/p[2]']]],
+    );
     assert.deepEqual(result.docxDiagnostics, []);
     assert.ok(!JSON.stringify(result).includes('<w:'));
   } finally {

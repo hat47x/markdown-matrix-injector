@@ -1,4 +1,6 @@
-# Issue: style非依存の位置・結合構造特徴を追加する
+# Issue: styleに依存しない列位置・結合構造特徴を追加する
+
+この文書は当時のIssue記録です。2026年9月12日のローカル検証では5件のunit testに成功したと記録されています。表左端を基準にした相対位置、列順と空き列、タイトル結合幅の構造特徴を区別し、v3のfeature versionと製品経路未接続を維持します。
 
 ## Meta
 - Type: Feature
@@ -18,9 +20,9 @@ issue-0119でSheetJS CE XLSXの比較契約を`structure + fill`へ限定し、i
 
 とくに`column:<label>`は集合として正規化されるため、列順序を失う。これはExcel設計書の書式認識では重要な構造情報である。一方、絶対列番号を特徴にすると表を右へ移動しただけで別書式と判定してしまうため、位置は表左端からの相対値として扱う。
 
-## Execution Plan
+## 当時の実行計画
 
-### Proposed solution
+### 解決方針（当時の提案）
 
 既存の意味特徴を残したまま、styleに依存しない構造特徴を重ねる。
 
@@ -31,7 +33,7 @@ issue-0119でSheetJS CE XLSXの比較契約を`structure + fill`へ限定し、i
 
 特徴契約が変わるため`WORKSHEET_FORMAT_FEATURE_VERSION`を`worksheet-format-v3`へ上げる。v2 prototypeとの混在は既存version gateで拒否する。
 
-### Acceptance criteria
+### 受入条件（Acceptance criteria）
 - [x] 同一表を別の絶対列へ平行移動しても同じ相対位置特徴になる。
 - [x] 同じ列ラベル集合でも順序が異なればDeviation evidenceが残る。
 - [x] 連続headerと空き列を含むheaderをstyleなしで区別できる。

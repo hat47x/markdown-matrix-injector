@@ -145,7 +145,8 @@ test('choice-list, shape and Note remain review-only independently of provider m
     candidateReviewActionPolicy(shape).extraction,
     'review-only',
   );
-  const notePolicy = candidateReviewActionPolicy(note);
+  const notePolicy = candidateReviewActionPolicy(note, 'ja');
   assert.equal(notePolicy.extraction, 'review-only');
   assert.match(notePolicy.reason ?? '', /自動取り込み/u);
+  assert.match(candidateReviewActionPolicy(note).reason ?? '', /not imported into the body automatically/u);
 });

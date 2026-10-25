@@ -15,6 +15,13 @@ import { createSourceIdentityFromBytes } from '../core/sourceIdentity.js';
 import XLSX from 'xlsx';
 import { WorkbookCache } from '../cache/workbookCache.js';
 import { checkDetachedDocument } from '../application/detachCheck.js';
+import {
+  buildProvenanceReport,
+  formatProvenanceReport,
+} from '../application/provenanceReport.js';
+import { provenanceReportSchemaJson } from '../core/provenanceReportContract.js';
+import { reviewBasisSchemaJson } from '../core/reviewBasisContract.js';
+import { DEFAULT_REVIEW_BASIS_FILE, recordReviewBasis } from '../application/reviewBasis.js';
 import { extractHtmlFragment } from '../application/extractHtmlFragment.js';
 import { extractDocxImage, extractDocxTable } from '../application/extractDocx.js';
 import { previewHtmlDecomposition } from '../application/htmlDecompositionPreview.js';
@@ -140,6 +147,8 @@ Commands:
                             candidate        mmi.semantic-candidate/v1
                             ledger           mmi.ledger/v1
                             review-decisions mmi.review-decisions/v1
+                            provenance-report mmi.provenance-report/v1
+                            review-basis     mmi.review-basis/v1
                             cognitive-artifact mmi.cognitive-artifact-manifest/v0
   core <request.json|->     Execute one mmi.portable-core-request/v1 and emit JSON.
                             Use - to read the request from stdin; source bytes are embedded in the request.
@@ -248,6 +257,17 @@ Commands:
   detach-check <doc.md>     Verify a Markdown artifact has no MMI refs, unresolved cards,
                             broken local links or links outside --root
   manifest <doc.md>         List references that fall back to 別紙 cards as CSV
+  provenance <doc.md>       Report Linked references, adopted Extracted assets and diagnostics for one document
+      --ledger <file>         import ledger (default: <root>/mmi-ledger.json)
+      --review-basis <file>   review-basis sidecar (default: <root>/mmi-review-basis.json)
+      --fail-on <list>        opt-in CI gate: diagnostics,stale,review-stale,missing
+                            Default exit code is 0 because this command is a report.
+                            Read-only and content-light: source cell values are not included.
+                            Review state is not-configured until 'review-basis --write' is used.
+  review-basis <doc.md>     Preview or explicitly record the reviewed logical-table digest of each Linked reference
+      --write                 write the review-basis sidecar (without it, nothing is written)
+      --review-basis <file>   sidecar path (default: <root>/mmi-review-basis.json)
+                            Recording is never automatic. A failed logical-table read leaves the file unchanged.
   impact <source>           Find Markdown dependencies on one source across --root.
                             Reports live MMI refs, adopted Extracted provenance and local links.
                             The source may already be missing; this command never rewrites references.
@@ -332,6 +352,9 @@ export async function main(argv: string[]): Promise<number> {
       'attachments-dir': { type: 'string' },
       'assets-dir': { type: 'string' },
       ledger: { type: 'string' },
+      'review-basis': { type: 'string' },
+      'fail-on': { type: 'string' },
+      write: { type: 'boolean', default: false },
       'similarity-evidence': { type: 'string' },
       unimported: { type: 'boolean', default: false },
       'exclude-imported': { type: 'boolean', default: false },
@@ -377,19 +400,21 @@ export async function main(argv: string[]): Promise<number> {
     case 'schema': {
       if (args.length !== 1) {
         return usageError(
-          'schema needs one of: candidate, ledger, review-decisions, cognitive-artifact',
+          'schema needs one of: candidate, ledger, review-decisions, provenance-report, review-basis, cognitive-artifact',
         );
       }
       const schemas: Record<string, () => Record<string, unknown>> = {
         candidate: semanticCandidateSchemaJson,
         ledger: importLedgerSchemaJson,
         'review-decisions': reviewDecisionsSchemaJson,
+        'provenance-report': provenanceReportSchemaJson,
+        'review-basis': reviewBasisSchemaJson,
         'cognitive-artifact': cognitiveArtifactManifestSchemaJson,
       };
       const schema = schemas[args[0]];
       if (!schema) {
         return usageError(
-          'schema needs one of: candidate, ledger, review-decisions, cognitive-artifact',
+          'schema needs one of: candidate, ledger, review-decisions, provenance-report, review-basis, cognitive-artifact',
         );
       }
       emit(JSON.stringify(schema(), null, 2));
@@ -1280,6 +1305,87 @@ export async function main(argv: string[]): Promise<number> {
       emit(values.json ? JSON.stringify(records, null, 2) : csvText);
       return 0;
     }
+    case 'provenance': {
+      if (args.length !== 1) return usageError('provenance takes one Markdown file');
+      const markdownFilePath = path.resolve(args[0]);
+      if (!handoffPathWithinRoot(markdownFilePath, root)) {
+        return usageError('provenance document must stay within --root workspace');
+      }
+      const failOn = new Set(
+        (values['fail-on'] ?? '').split(',').map((item) => item.trim()).filter(Boolean),
+      );
+      const failOnChoices = new Set(['diagnostics', 'stale', 'review-stale', 'missing']);
+      for (const choice of failOn) {
+        if (!failOnChoices.has(choice)) {
+          return usageError(
+            `--fail-on accepts diagnostics, stale, review-stale, missing (got ${choice})`,
+          );
+        }
+      }
+      let report;
+      try {
+        const diagnostics = await checkPaths([markdownFilePath], root);
+        report = buildProvenanceReport({
+          markdownFilePath,
+          workspaceRoot: root,
+          ledgerPath: path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE),
+          reviewBasisPath: path.resolve(
+            root,
+            values['review-basis'] ?? DEFAULT_REVIEW_BASIS_FILE,
+          ),
+          diagnostics,
+        });
+      } catch (error) {
+        console.error(`mmi: ${error instanceof Error ? error.message : String(error)}`);
+        return 1;
+      }
+      emit(values.json
+        ? JSON.stringify(report, null, 2)
+        : formatProvenanceReport(report));
+      const failed = (failOn.has('diagnostics') && report.summary.diagnostics > 0)
+        || (failOn.has('stale') && report.summary.stale > 0)
+        || (failOn.has('review-stale') && report.summary.reviewStale > 0)
+        || (failOn.has('missing') && report.summary.missingSources > 0);
+      return failed ? 1 : 0;
+    }
+    case 'review-basis': {
+      if (args.length !== 1) return usageError('review-basis takes one Markdown file');
+      const markdownFilePath = path.resolve(args[0]);
+      if (!handoffPathWithinRoot(markdownFilePath, root)) {
+        return usageError('review-basis document must stay within --root workspace');
+      }
+      let result;
+      try {
+        result = recordReviewBasis({
+          markdownFilePath,
+          workspaceRoot: root,
+          sidecarPath: path.resolve(
+            root,
+            values['review-basis'] ?? DEFAULT_REVIEW_BASIS_FILE,
+          ),
+          dryRun: !values.write,
+        });
+      } catch (error) {
+        console.error(`mmi: ${error instanceof Error ? error.message : String(error)}`);
+        return 1;
+      }
+      for (const problem of result.problems) {
+        console.error(`mmi: ${problem.code}: ${problem.message}`);
+      }
+      if (values.json) {
+        emit(JSON.stringify(result, null, 2));
+      } else {
+        const verb = result.written ? 'recorded' : 'would record';
+        emit(`${verb} ${result.records.length} reference(s) in ${result.document}`);
+        for (const record of result.records) {
+          emit(`  ${record.reference}  ${record.logicalTableDigest}`);
+        }
+        if (!values.write && result.problems.length === 0) {
+          emit('(preview only; pass --write to update the review-basis file)');
+        }
+      }
+      return result.problems.length > 0 ? 1 : 0;
+    }
     case 'impact': {
       if (args.length !== 1) return usageError('impact takes one source file path');
       const sourcePath = path.resolve(args[0]);
@@ -1657,6 +1763,14 @@ export interface InspectLink {
   contentDigest: string;
 }
 
+export interface InspectDocxSectionNode {
+  level: number;
+  text: string;
+  structuralPath: string;
+  contentPaths: string[];
+  children: InspectDocxSectionNode[];
+}
+
 export interface InspectResult {
   source: string;
   /** Public machine-readable contract used by every item in candidates. */
@@ -1707,6 +1821,10 @@ export interface InspectResult {
       structuralPath?: string;
       fingerprint: string;
     }[];
+    sectionTree: {
+      preamble: string[];
+      roots: InspectDocxSectionNode[];
+    };
   };
   /** Word package parts that could not be interpreted; one failure does not hide the rest. */
   docxDiagnostics?: DocxDiagnostic[];
@@ -1816,8 +1934,9 @@ export function inspectSource(
   fromDocument?: string,
   flatTextMethods: readonly FlatTextTreeMethod[] = DEFAULT_FLAT_TEXT_TREE_METHODS,
   tabularHierarchy?: TabularHierarchyConfig,
+  baseDirectory = process.cwd(),
 ): InspectResult {
-  const base = fromDocument ? path.dirname(path.resolve(fromDocument)) : process.cwd();
+  const base = fromDocument ? path.dirname(path.resolve(fromDocument)) : baseDirectory;
   let relative = path.relative(base, absolutePath).split(path.sep).join('/');
   if (!relative.startsWith('.')) relative = `./${relative}`;
 
@@ -1897,6 +2016,7 @@ export function inspectSource(
             : { structuralPath: comment.structuralPath }),
           fingerprint: comment.candidate.fingerprint.digest,
         })),
+        sectionTree: parsed.sectionTree,
       },
       docxDiagnostics: parsed.diagnostics,
       images: [],
@@ -2101,12 +2221,13 @@ function candidateDisplayKey(candidate: Candidate): string {
   return `${candidate.kind}\u0000${candidate.locator.sheet ?? ''}\u0000${placeOf(candidate)}`;
 }
 
-function applyLedgerView(
+export function applyLedgerView(
   result: InspectResult,
   absoluteSource: string,
   ledgerPath: string,
   filter: CandidateLedgerFilter,
   similarityEvidencePath?: string,
+  displayCwd = process.cwd(),
 ): InspectResult {
   const ledger = readLedger(ledgerPath);
   const similarity = similarityEvidencePath
@@ -2173,6 +2294,7 @@ function applyLedgerView(
               allowed.has(
                 `note\u0000\u0000path:${comment.structuralPath ?? `comments/comment[${comment.ordinal}]`}`,
               )),
+            sectionTree: result.docx.sectionTree,
           },
         }
       : {}),
@@ -2182,10 +2304,10 @@ function applyLedgerView(
         allowed.has(`table-range\u0000${sheet.name}\u0000${region.a1}`)),
     })),
     ledger: {
-      file: path.relative(process.cwd(), ledgerPath).split(path.sep).join('/') || path.basename(ledgerPath),
+      file: path.relative(displayCwd, ledgerPath).split(path.sep).join('/') || path.basename(ledgerPath),
       filter,
       ...(similarityEvidencePath
-        ? { similarityEvidenceFile: path.relative(process.cwd(), similarityEvidencePath).split(path.sep).join('/') || path.basename(similarityEvidencePath) }
+        ? { similarityEvidenceFile: path.relative(displayCwd, similarityEvidencePath).split(path.sep).join('/') || path.basename(similarityEvidencePath) }
         : {}),
       candidates: view.map(({ candidate, ledgerState, staleClaims, lineageCandidates, researchScores, similarityEvidence }) => ({
         kind: candidate.kind,
@@ -2237,6 +2359,25 @@ function formatInspect(result: InspectResult): string {
           `  #${heading.ordinal}  level ${heading.level}  ${heading.structuralPath}  ${heading.text}${ledgerSuffix('section', '', `path:${heading.structuralPath}`)}`,
         );
       }
+    }
+    if (result.docx.sectionTree.preamble.length > 0
+        || result.docx.sectionTree.roots.length > 0) {
+      lines.push('', 'document section tree:');
+      if (result.docx.sectionTree.preamble.length > 0) {
+        lines.push(`  (preamble)  ${result.docx.sectionTree.preamble.length} block(s)`);
+      }
+      const printSections = (
+        nodes: InspectDocxSectionNode[],
+        depth: number,
+      ): void => {
+        for (const node of nodes) {
+          lines.push(
+            `  ${'  '.repeat(depth)}level ${node.level}  ${node.text}  ${node.structuralPath}  (${node.contentPaths.length} block(s))`,
+          );
+          printSections(node.children, depth + 1);
+        }
+      };
+      printSections(result.docx.sectionTree.roots, 0);
     }
     if (result.docx.tables.length > 0) {
       lines.push('', 'document tables:');
@@ -2416,7 +2557,7 @@ export interface CheckProblem {
   message: string;
 }
 
-export async function checkPaths(files: string[], root: string): Promise<CheckProblem[]> {
+export async function checkPaths(files: string[], root: string, displayCwd = process.cwd()): Promise<CheckProblem[]> {
   const cache = new WorkbookCache<WorkbookData>();
   const locale = cliMessageLanguage();
   const problems: CheckProblem[] = [];
@@ -2433,7 +2574,7 @@ export async function checkPaths(files: string[], root: string): Promise<CheckPr
     });
     for (const { diagnostic, range } of items) {
       problems.push({
-        file: path.relative(process.cwd(), absolute).split(path.sep).join('/'),
+        file: path.relative(displayCwd, absolute).split(path.sep).join('/'),
         line: range.start.line + 1,
         column: range.start.character + 1,
         severity: diagnostic.severity,
@@ -2442,7 +2583,7 @@ export async function checkPaths(files: string[], root: string): Promise<CheckPr
       });
     }
     // Prose IDs the referenced sheets do not have (warnings; the reference errors above stay the gate).
-    const displayFile = path.relative(process.cwd(), absolute).split(path.sep).join('/');
+    const displayFile = path.relative(displayCwd, absolute).split(path.sep).join('/');
     for (const finding of findUnknownProseIds(text, referencedSheets(text, absolute, root, cache))) {
       problems.push({
         file: displayFile,
@@ -2450,14 +2591,14 @@ export async function checkPaths(files: string[], root: string): Promise<CheckPr
         column: finding.column,
         severity: 'warning',
         code: UNKNOWN_PROSE_ID_CODE,
-        message: unknownIdMessage(finding),
+        message: unknownIdMessage(finding, cliMessageLanguage()),
       });
     }
   }
   return problems;
 }
 
-function collectMarkdownFiles(target: string): string[] {
+export function collectMarkdownFiles(target: string): string[] {
   const stat = fs.statSync(target);
   if (stat.isFile()) return [target];
   return fs.readdirSync(target, { withFileTypes: true })

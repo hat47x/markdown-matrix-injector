@@ -81,7 +81,24 @@ export interface DocxHeading {
   text: string;
   styleId?: string;
   structuralPath: string;
+  /** Document order of the heading paragraph (not an external coordinate). */
+  order: number;
   candidate: Candidate;
+}
+
+export interface DocxSectionNode {
+  level: number;
+  text: string;
+  structuralPath: string;
+  /** Top-level body paragraphs/tables before the next heading, in document order. */
+  contentPaths: string[];
+  children: DocxSectionNode[];
+}
+
+export interface DocxSectionTree {
+  /** Top-level blocks before the first heading. */
+  preamble: string[];
+  roots: DocxSectionNode[];
 }
 
 export interface DocxTable {
@@ -130,6 +147,7 @@ export interface DocxReadResult {
   tables: DocxTable[];
   images: DocxImage[];
   comments: DocxComment[];
+  sectionTree: DocxSectionTree;
   candidates: Candidate[];
   diagnostics: DocxDiagnostic[];
 }
@@ -175,6 +193,8 @@ interface ParagraphFrame {
   drawingOrdinal: number;
   commentStarts: string[];
   commentRefs: string[];
+  /** Document order when this is a top-level body paragraph. */
+  order?: number;
   cell?: CellFrame;
 }
 
@@ -199,6 +219,8 @@ interface TableFrame {
   currentRow?: RowFrame;
   parentCell?: CellFrame;
   ignored: boolean;
+  /** Document order when this is a top-level body table. */
+  order?: number;
 }
 
 interface DocumentParseResult {
@@ -207,6 +229,7 @@ interface DocumentParseResult {
   images: DocxImage[];
   commentAnchors: Map<string, string>;
   commentReferences: Map<string, string[]>;
+  sectionTree: DocxSectionTree;
   diagnostics: DocxDiagnostic[];
 }
 
@@ -219,6 +242,7 @@ function emptyResult(source: string, sourceDigest: string): DocxReadResult {
     tables: [],
     images: [],
     comments: [],
+    sectionTree: { preamble: [], roots: [] },
     candidates: [],
     diagnostics: [],
   };
@@ -907,6 +931,52 @@ function commentCandidate(input: {
   return candidate;
 }
 
+/**
+ * Build the heading outline from headings and top-level body blocks.
+ *
+ * A section's content ends at the next heading of any level; child sections
+ * then own the blocks after them. Level jumps do not invent missing headings:
+ * the nearest lower level becomes the parent. Headings inside table cells are
+ * not in `headings`, so they cannot become section nodes.
+ */
+function buildSectionTree(
+  headings: readonly DocxHeading[],
+  blocks: readonly { structuralPath: string; order: number }[],
+): DocxSectionTree {
+  const sorted = [...headings].sort((left, right) => left.order - right.order);
+  const headingPaths = new Set(sorted.map((heading) => heading.structuralPath));
+  const firstOrder = sorted[0]?.order ?? Number.POSITIVE_INFINITY;
+  const preamble = blocks
+    .filter((block) => block.order < firstOrder && !headingPaths.has(block.structuralPath))
+    .map((block) => block.structuralPath);
+  const roots: DocxSectionNode[] = [];
+  const stack: DocxSectionNode[] = [];
+  for (let index = 0; index < sorted.length; index += 1) {
+    const heading = sorted[index];
+    const nextOrder = sorted[index + 1]?.order ?? Number.POSITIVE_INFINITY;
+    const node: DocxSectionNode = {
+      level: heading.level,
+      text: heading.text,
+      structuralPath: heading.structuralPath,
+      contentPaths: blocks
+        .filter((block) =>
+          block.order > heading.order
+          && block.order < nextOrder
+          && !headingPaths.has(block.structuralPath))
+        .map((block) => block.structuralPath),
+      children: [],
+    };
+    while (stack.length > 0 && stack[stack.length - 1].level >= node.level) {
+      stack.pop();
+    }
+    const parent = stack[stack.length - 1];
+    if (parent) parent.children.push(node);
+    else roots.push(node);
+    stack.push(node);
+  }
+  return { preamble, roots };
+}
+
 function parseDocument(input: {
   xml: string;
   source: string;
@@ -921,15 +991,18 @@ function parseDocument(input: {
     images: [],
     commentAnchors: new Map(),
     commentReferences: new Map(),
+    sectionTree: { preamble: [], roots: [] },
     diagnostics: [],
   };
   const stack: SaxesTagNS[] = [];
   const paragraphStack: ParagraphFrame[] = [];
   const tableStack: TableFrame[] = [];
   const bodyCounters = new Map<string, number>();
+  const bodyBlocks: { structuralPath: string; order: number }[] = [];
   const drawingStack: DrawingFrame[] = [];
   let currentCell: CellFrame | undefined;
   let tableOrdinal = 0;
+  let nextBodyOrder = 0;
   let documentTextSink: string[] | undefined;
 
   const bump = (counters: Map<string, number>, key: string): number => {
@@ -983,6 +1056,7 @@ function parseDocument(input: {
           text: headingText,
           ...(paragraph.styleId ? { styleId: paragraph.styleId } : {}),
           structuralPath: paragraph.structuralPath,
+          order: paragraph.order ?? 0,
           candidate,
         });
       }
@@ -1178,12 +1252,18 @@ function parseDocument(input: {
       const cell = currentCell;
       let structuralPath: string;
       let finalize = false;
+      let order: number | undefined;
       if (cell) {
         structuralPath = `${cell.structuralPath}/p[${bump(cell.childCounters, 'p')}]`;
         finalize = !inside;
       } else if (inBody()) {
         structuralPath = `/body/p[${bump(bodyCounters, 'p')}]`;
         finalize = !inside;
+        if (finalize) {
+          order = nextBodyOrder;
+          nextBodyOrder += 1;
+          bodyBlocks.push({ structuralPath, order });
+        }
       } else {
         structuralPath = `/outside/p[${bump(bodyCounters, 'p')}]`;
       }
@@ -1194,6 +1274,7 @@ function parseDocument(input: {
         drawingOrdinal: 0,
         commentStarts: [],
         commentRefs: [],
+        ...(order === undefined ? {} : { order }),
         ...(cell ? { cell } : {}),
       });
       return;
@@ -1219,6 +1300,12 @@ function parseDocument(input: {
       const structuralPath = parentCell
         ? `${parentCell.structuralPath}/tbl[${bump(parentCell.childCounters, 'tbl')}]`
         : `/body/tbl[${bump(bodyCounters, 'tbl')}]`;
+      let order: number | undefined;
+      if (!parentCell && !ignored) {
+        order = nextBodyOrder;
+        nextBodyOrder += 1;
+        bodyBlocks.push({ structuralPath, order });
+      }
       if (parentCell) {
         result.diagnostics.push({
           code: 'MMI_DOCX_NESTED_TABLE_NOT_FLATTENED',
@@ -1235,6 +1322,7 @@ function parseDocument(input: {
         rows: [],
         ...(parentCell ? { parentCell } : {}),
         ignored,
+        ...(order === undefined ? {} : { order }),
       });
       currentCell = undefined;
       return;
@@ -1334,6 +1422,7 @@ function parseDocument(input: {
   if (paragraphStack.length > 0 || tableStack.length > 0) {
     throw new Error('word/document.xml ended with unclosed paragraph or table state');
   }
+  result.sectionTree = buildSectionTree(result.headings, bodyBlocks);
   return result;
 }
 
@@ -1399,6 +1488,7 @@ export function readDocx(bytes: Uint8Array, source: string): DocxReadResult {
   }
   result.documentReadable = true;
   result.headings = parsed.headings;
+  result.sectionTree = parsed.sectionTree;
   result.tables = [...parsed.tables].sort((left, right) => left.ordinal - right.ordinal);
   result.images = parsed.images;
   result.diagnostics.push(...parsed.diagnostics);

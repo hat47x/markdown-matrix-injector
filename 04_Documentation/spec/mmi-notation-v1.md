@@ -1,6 +1,6 @@
 # MMI Notation v1 — 仕様書 / Specification (Draft)
 
-- Version: 1.0.0-draft.1（SemVer。v1.0.0到達時にコア構文を凍結 / core syntax freezes at 1.0.0）
+- Version: 1.0.0-draft.2（SemVer。v1.0.0到達時にコア構文を凍結 / core syntax freezes at 1.0.0。draft.2で§9の境界外判定を存在確認より前に固定 / #599）
 - Status: Draft
 - Normative language: 本書の MUST / MUST NOT / SHOULD / MAY はRFC 2119に従う。日本語正文が規範であり、英文は参考訳（EN mirrors are informative）。
 - 決定正本 / Decision record: `01_Plans/adr/ADR-0012-mission-redefinition-notation-as-governance-boundary.md`
@@ -25,7 +25,7 @@ MMI Notationは、テキスト文書から正本表データ（CSV / XLSX / XML 
 | P1 | **Read-only** | 準拠プロセッサは参照先を**改変してはならない** (MUST NOT modify referenced sources)。 |
 | P2 | **Visible degradation** | 記法を解釈しないホストでは原文がそのまま可視であること。準拠プロセッサは解釈失敗を**沈黙で隠してはならない** (failures MUST be visible, never silent)。 |
 | P3 | **Determinism** | 同一の正本 + 同一の参照 → 同一の論理表 (same source + same reference MUST yield the same logical table)。 |
-| P4 | **Containment** | パス解決は文書基準の相対解決とワークスペース境界内に限定する (resolution MUST stay within the workspace boundary)。コア仕様はネットワーク取得を含まない。リモートソースは明示 opt-in の拡張とする。 |
+| P4 | **Containment** | パス解決は文書基準の相対解決とワークスペース境界内に限定する (resolution MUST stay within the workspace boundary)。境界外と判定したパスは、存在確認のために読みに行かない。コア仕様はネットワーク取得を含まない。リモートソースは明示 opt-in の拡張とする。 |
 | P5 | **Forward compatibility** | 未知のクエリキーはエラーにせず**無視しなければならない** (unknown query keys MUST be ignored)。実験キーは `x-` 名前空間を用いる (SHOULD)。 |
 | P6 | **Stable diagnostics** | §9 の診断コードは安定 API であり、意味を変えてはならない (diagnostic codes are a stable API)。 |
 | P7 | **i18n 中立** | クエリキーは ASCII、値は任意の Unicode (MAY)。ロケール固有の出版概念は Profile（§8）に隔離する。 |
@@ -125,7 +125,7 @@ params      = URL クエリ文字列（application/x-www-form-urlencoded）
 | `MMI_FILE_NOT_FOUND` | 解決不能な `target` | エラー該当箇所を利用者に可視化 |
 | `MMI_SHEET_NOT_FOUND` | 存在しない `sheet` | 同上 |
 | `MMI_INVALID_XML` | XML 2003 シグネチャ不一致 | パース中断・可視エラー（正本は読み込まない） |
-| `MMI_PATH_OUTSIDE_BOUNDARY` | `target` はファイルとして存在するが P4 の境界（ワークスペース境界）外 | プレビュー描画前に Problems パネルで検知、かつ描画時も可視エラー（issue-0105） |
+| `MMI_PATH_OUTSIDE_BOUNDARY` | `target` の解決候補がすべて字句の上で P4 の境界（ワークスペース境界）外。**存在確認より先に判定する**。境界内の候補が実体はシンボリックリンクで外を指す場合も同じ | プレビュー描画前に Problems パネルで検知、かつ描画時も可視エラー（issue-0105、#599）。境界外の存在有無を診断で明かさない。存在しない境界内のパスは`MMI_FILE_NOT_FOUND` |
 
 レンダリング時の失敗は可視のエラー表示（参照実装では `mmi-error` ブロック）としなければならない (MUST)。空白化・黙殺はP2違反である。
 

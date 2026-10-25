@@ -41,6 +41,34 @@ mmi extract ./docs/basic-design.docx \
 
 Markdownへの投影では、表の先頭行を見出し行として使います。これは変換上の選択であり、原本が見出し行を指定していない場合の`header-row` Claimは`abstained`のままです。
 
+## 見出し階層（Section Tree）
+
+`mmi inspect --json`は、明示された見出しから`docx.sectionTree`を組み立てます。
+
+```json
+{
+  "preamble": ["/body/p[1]"],
+  "roots": [
+    {
+      "level": 1,
+      "text": "第1章",
+      "structuralPath": "/body/p[2]",
+      "contentPaths": ["/body/p[3]", "/body/tbl[1]"],
+      "children": [
+        { "level": 2, "text": "1.1", "structuralPath": "/body/p[5]", "contentPaths": [], "children": [] }
+      ]
+    }
+  ]
+}
+```
+
+- `preamble`は最初の見出しより前のトップレベル段落・表です。
+- `contentPaths`は、その見出しの直後から次の見出し（階層を問わない）までのトップレベル段落・表です。表・画像・コメントは、この配下の構造位置から辿れます。
+- レベルの飛び（1→3）は補完せず、最も近い低いレベルの見出しを親にします。
+- 表のセル内の見出しスタイルはSection Candidateにせず、診断に残します。
+
+`mmi inspect`のテキスト出力にも`document section tree`として階層を表示します。章単位の抽出・文書分解への接続は別Issue（#613）です。
+
 ## 出力と台帳
 
 - 表は`table-<digest>.md`として書き出し、GFM表と`mmi:extracted-table`の出典コメントを含めます。

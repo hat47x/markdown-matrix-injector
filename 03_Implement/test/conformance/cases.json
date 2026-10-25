@@ -209,5 +209,14 @@
     "markdown": "![[../outside.csv#Sheet1|A1:B2]]",
     "expectContains": ["class=\"mmi-error\"", "outside workspace boundary"],
     "expectNotContains": ["mmi-table", "mmi-card"]
+  },
+  {
+    "name": "containment-rejects-nonexistent-outside",
+    "level": "core",
+    "spec": "P4 / issue-0599",
+    "files": { "roles.csv": "Name,Role\nAlice,Admin" },
+    "markdown": "![[../absent-outside.csv#Sheet1|A1:B2]]",
+    "expectContains": ["class=\"mmi-error\"", "outside workspace boundary"],
+    "expectNotContains": ["mmi-table", "mmi-card", "file not found"]
   }
 ]

@@ -35,6 +35,7 @@ export function createCliPackageManifest(sourcePackage) {
     type: 'module',
     bin: {
       mmi: './dist/src/cli/bootstrap.js',
+      'mmi-mcp': './dist/src/cli/mcp.js',
     },
     engines: {
       node: '>=20',
@@ -73,15 +74,28 @@ export function stageCliPackage(options = {}) {
       `Compiled CLI bootstrap is missing: ${cliEntry}. Run npm run build:product first.`,
     );
   }
+  const mcpEntry = path.join(compiledRoot, 'cli', 'mcp.js');
+  if (!fs.existsSync(mcpEntry)) {
+    throw new Error(
+      `Compiled MCP entry is missing: ${mcpEntry}. Run npm run build:product first.`,
+    );
+  }
 
   fs.rmSync(stageDirectory, { recursive: true, force: true });
   fs.mkdirSync(stageDirectory, { recursive: true });
 
-  const runtimeFiles = copyRuntimeModuleGraph(
-    cliEntry,
-    compiledRoot,
-    path.join(stageDirectory, 'dist', 'src'),
-  );
+  const runtimeFiles = [...new Set([
+    ...copyRuntimeModuleGraph(
+      cliEntry,
+      compiledRoot,
+      path.join(stageDirectory, 'dist', 'src'),
+    ),
+    ...copyRuntimeModuleGraph(
+      mcpEntry,
+      compiledRoot,
+      path.join(stageDirectory, 'dist', 'src'),
+    ),
+  ])].sort();
   copyRequired(
     path.join(projectRoot, 'media', 'markdown-matrix.css'),
     path.join(stageDirectory, 'media', 'markdown-matrix.css'),

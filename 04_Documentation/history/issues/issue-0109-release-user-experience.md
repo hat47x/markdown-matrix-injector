@@ -1,4 +1,6 @@
-# Issue: VSIX実機検証と日本語の公開用使用例・操作ガイド
+# Issue: VSIX実機検証と日本語の使用例・操作ガイドの整備
+
+この文書は当時のIssue記録です。2026年9月9日の実機確認と最終リリースゲートの記録です。途中のG1不合格と最終的なG1〜G4成功を時系列として保持します。正式公開は依頼範囲外だったため、現在のMarketplace公開や新たな受入を意味しません。
 
 ## Meta
 - Type: Bugfix
@@ -11,24 +13,24 @@
 - Related Backlog/Phase: requirements.md Phase 6 / Phase 11 G1–G4
 - Related ADR/Spec: ADR-0010, ADR-0011, 00_Prompt/requirements.md
 
-## Execution Plan
-### Proposed solution
+## 当時の実行計画
+### 解決方針（当時の提案）
 2026-09-08の利用者依頼に基づく正式リリース準備。既存の未コミット修正を保持し、既存VSIXをWindows VS Codeにインストールして検証する。issue-0100の実クリック検証中に、標準プレビューで記法が未展開の不具合を発見したため、その前提修復を本Issueで先行する。仕様変更・Marketplace公開・タグ作成は含めない。
 
-### Acceptance criteria
+### 受入条件（Acceptance criteria）
 - [x] activateの公開APIを標準Markdown拡張が取得でき、インストール済みVSIXの実プレビューで表が表示される。
 - [x] CSV / XLSX / SpreadsheetMLの実務サンプル、クエリ・別紙・診断・納品一覧の利用例を揃える。
 - [x] 実VS Codeのスクリーンショットと操作動画を採取し、自然な日本語のREADME・チュートリアル・マニュアルから参照できる。
 - [x] build・unit・Extension Host・サンプル検証と原本ハッシュ比較を実施し、PDFおよび未確認操作の範囲を明記する。
 - [x] 更新版VSIXとサンプル配布物を作成し、導入内容・検証結果・残課題を追跡可能にする。
 
-### Task breakdown
+### 作業項目（Task breakdown）
 1. プレビュー公開APIの前提修復と実機再確認。
 2. 実務サンプルと各参照の期待結果を作成。
 3. 実機操作、画像・動画、PDF、非改変確認。
 4. 読者向け文書と同梱READMEを整備し、パッケージを再検証。
 
-### Validation plan
+### 当時の検証計画（Validation plan）
 `npm run build`, `npm test`, Extension Hostで`extension.activate()`の返すAPIから描画する回帰確認、実Windows VS Code 1.136.1でVSIXインストール・プレビュー・カード・補完・診断・納品コマンドを確認。新規サンプルを製品パイプラインで展開し、表の件数・値と原本SHA-256を検査。画像・動画の表示と文書リンクを確認する。
 
 ## 2026-09-09 検証結果

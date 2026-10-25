@@ -361,6 +361,36 @@ test('the l10n bundle carries a Japanese wording for every sentence the host put
     "MMI: Some workbook data could not be searched. The candidate list may be incomplete. {0}",
     "MMI: The selected workbook range changed before insertion. Search again before inserting the reference.",
     "Observation template: {0}",
+    'MMI: Cleared the table search index (it was kept in memory only).',
+    'MMI: Run this from a sheet in the table catalog, with a Markdown file open.',
+    'MMI: Save the Markdown file before generating a delivery manifest.',
+    'MMI: No attachment (card) embeds found in this document — delivery manifest not written.',
+    'MMI: Delivery manifest written ({0} attachment(s)) -> {1}',
+    'MMI: Failed to write delivery manifest: {0}',
+    'MMI: Open Embed Source requires a file path argument.',
+    'Opening in an external app is available in a trusted local workspace.',
+    'The default app could not open it.',
+    'MMI: Failed to open {0}: {1}',
+    'MMI: Select a source file in the Explorer and run "Show Markdown References to This Source".',
+    'MMI: Impact analysis covers source files in a local workspace.',
+    'MMI: Could not check the references: {0}',
+    'MMI: No Markdown references {0}.',
+    'MMI: References to {0} ({1})',
+    'Choose the Markdown file and line to open',
+    'MMI: Clipboard has no text to match against a workbook.',
+    'MMI: Content-match search requires the document to be inside a workspace folder.',
+    'MMI: The document or selection changed before the match could be inserted. Run the content match again.',
+    'MMI: The document changed while Paste As was open. Run Paste As again.',
+    'MMI: The selected workbook range changed while Paste As was open. Run Paste As again.',
+    'MMI: Save the Markdown file before exporting query evidence.',
+    'MMI: No embed query evidence found in the current Markdown file.',
+    'MMI: Exported query evidence for {0} ({1}) -> {2}, {3}, {4}',
+    'MMI: Failed to export query evidence: {0}',
+    'Linked reference',
+    'Local link',
+    'Sheet: {0}',
+    'Location: {0}',
+    'Matched by the old path only',
   ];
   // Sentence shapes that are identical in English and Japanese, so echoing the key is correct.
   const languageNeutral = new Set(['MMI: {0} ({1})', '(root)']);
@@ -372,11 +402,12 @@ test('the l10n bundle carries a Japanese wording for every sentence the host put
     }
   }
 
-  // Every uiText sentence that exists in the host code is in the bundle.
+  // Every uiText sentence that exists in the host code (src/dx and the entry file) is in the bundle.
   const dxFiles = fs.readdirSync(path.join(srcDir, 'src', 'dx')).filter((name) => name.endsWith('.ts'));
+  const hostFiles = [...dxFiles.map((name) => path.join('src', 'dx', name)), path.join('src', 'extension.ts')];
   const uiTextSentences = new Set<string>();
-  for (const name of dxFiles) {
-    const text = read(path.join('src', 'dx', name));
+  for (const file of hostFiles) {
+    const text = read(file);
     for (const match of text.matchAll(/uiText\(\s*(['"`])(.+?)\1/gsu)) {
       // The scan reads the escape sequences as written in code; the bundle keys hold their values.
       uiTextSentences.add(match[2].replace(/\\([nt])/gu, (_, c) => (c === 'n' ? '\n' : '\t')));
