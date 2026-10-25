@@ -473,6 +473,13 @@ export function verifyCliPackage(tarballPath) {
       method: 'tools/call',
       params: { name: 'inspect', arguments: { source: 'service.json' } },
     },
+    {
+      jsonrpc: '2.0', id: 4, method: 'tools/call',
+      params: {
+        name: 'html-audit',
+        arguments: { source: 'design.html', plan: 'html-commit-plan.json' },
+      },
+    },
   ], workspace);
   const mcpResponses = mcp.stdout
     .split(/\r?\n/u)
@@ -481,12 +488,15 @@ export function verifyCliPackage(tarballPath) {
   const initialized = mcpResponses.find((response) => response.id === 1);
   const listed = mcpResponses.find((response) => response.id === 2);
   const inspected = mcpResponses.find((response) => response.id === 3);
+  const auditedByMcp = mcpResponses.find((response) => response.id === 4);
   if (
     mcp.status !== 0
     || initialized?.result?.protocolVersion !== '2024-11-05'
     || !listed?.result?.tools?.some((tool) => tool.name === 'inspect')
     || !listed.result.tools.some((tool) => tool.name === 'check')
     || !listed.result.tools.some((tool) => tool.name === 'schema')
+    || !listed.result.tools.some((tool) => tool.name === 'html-audit')
+    || listed.result.tools.some((tool) => tool.name === 'html-commit')
   ) {
     throw new Error(
       `mmi-mcp initialize/tools/list failed:\n${mcp.stderr || mcp.stdout}`,
@@ -506,6 +516,18 @@ export function verifyCliPackage(tarballPath) {
     )
   ) {
     throw new Error(`mmi-mcp inspect failed:\n${mcp.stdout}`);
+  }
+
+  let auditedByMcpReport;
+  try {
+    auditedByMcpReport = JSON.parse(auditedByMcp?.result?.content?.[0]?.text ?? '');
+  } catch {
+    throw new Error(`mmi-mcp html-audit returned invalid JSON:\n${mcp.stdout}`);
+  }
+  if (auditedByMcp?.result?.isError === true
+    || auditedByMcpReport.status !== 'complete'
+    || JSON.stringify(auditedByMcpReport) !== JSON.stringify(auditedHtml)) {
+    throw new Error(`mmi-mcp html-audit disagreed with read-only CLI report:\n${mcp.stdout}`);
   }
 
   let inspectedTree;
@@ -666,6 +688,7 @@ export function verifyCliPackage(tarballPath) {
         htmlBatchCommit: 'passed',
         htmlReadOnlyAudit: 'passed',
         htmlAuditDetectsMissing: 'passed',
+        mcpHtmlReadOnlyAudit: 'passed',
       },
     };
   } finally {
