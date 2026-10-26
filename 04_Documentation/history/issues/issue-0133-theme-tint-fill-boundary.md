@@ -1,4 +1,6 @@
-# Issue: LibreOffice生成XLSXで theme / tint fill の解決境界を固定する
+# Issue: LibreOffice生成XLSXでtheme・tint指定の塗りつぶし読取境界を確認する
+
+この文書は当時のtheme/tint読取境界に関する設計・fixture検証記録である。**theme**はWorkbook側の配色定義を参照する色指定、**tint**は基準色への明暗補正、**bridge**はSheetJSのセル情報をMMIのsnapshotへ変換する部品、**source profile**は比較対象の特徴を限定する設定を指す。XLSXの独立検査とSheetJS公開ソースの確認は記録されているが、当時の環境で追加runtime testの成功は確認されていない。
 
 ## Meta
 - Type: Runtime boundary evaluation
@@ -35,19 +37,19 @@ XLSX
 
 Excel/Open XMLでは、fill colorは必ずしも `rgb="..."` として保存されない。
 
-たとえばは次のとおりです。
+たとえば、次の指定がある。
 
 ```xml
 <fgColor theme="3"/>
 ```
 
-やは次のとおりです。
+また、明暗補正を伴う次の指定もある。
 
 ```xml
 <fgColor theme="3" tint="0.8"/>
 ```
 
-のようにworkbook themeとtintで指定できる。
+このように、workbookのthemeとtintを組み合わせて色を指定できる。
 
 ここでbridgeがtheme XMLを自前で読むべきか、それともSheetJSがread時にRGBへ解決する契約へ依存すべきかを実fixtureで確認する。
 
@@ -280,13 +282,13 @@ fillTone = other
 
 adapterは `other` をmeaningful fill evidenceへ入れない。
 
-したがっては次のとおりです。
+したがって、次のような入力ではRGB値を推測で補わない。
 
 - theme XML欠落
 - unsupported theme representation
 - parserがRGB解決できない入力
 
-を推測で補わない。
+これらを推測で補わず、未解決の塗りつぶしは `other` として扱う。
 
 ## Source profile判断
 
