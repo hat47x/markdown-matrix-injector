@@ -266,6 +266,16 @@ func TestXLSMergedCellsConformanceCase(t *testing.T) {
 	}
 }
 
+func TestXLSEmptyConformanceCase(t *testing.T) {
+	actualResponse := runConformanceCase(
+		t,
+		"xlsx-empty.case.json",
+	)
+	if got := len(actualResponse.Candidates); got != 0 {
+		t.Fatalf("expected 0 candidates, got %d", got)
+	}
+}
+
 func TestCP932ConformanceCase(t *testing.T) {
 	actualResponse := runConformanceCase(
 		t,

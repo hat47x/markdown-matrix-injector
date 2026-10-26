@@ -151,6 +151,10 @@ test('portable Core XLSX handles a merged title cell above a table', () => {
   assertConformanceCase(readCase('xlsx-title-merged.case.json'));
 });
 
+test('portable Core XLSX empty sheet yields no candidates', () => {
+  assertConformanceCase(readCase('xlsx-empty.case.json'));
+});
+
 test('portable Core CSV CP932 conformance case', () => {
   assertConformanceCase(readCase('cp932-table.case.json'));
 });
