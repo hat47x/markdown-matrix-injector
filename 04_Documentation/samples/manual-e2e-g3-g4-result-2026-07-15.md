@@ -1,6 +1,8 @@
 # G3/G4 Gate Closure Evidence — Read-Only Guarantee & Honest Limitations
 
 - Date: 2026-07-15
+
+> この文書は2026-07-15時点のコード監査・自動試験・訂正履歴を記録しています。以下のG3/G4判定は当時の対象と条件に基づき、現在の全環境や実GUIでの動作を追加検証した記録ではありません。
 - Operator: automated verification (Claude Code agent)
 - Source: ADR-0010 G3/G4 definitions, existing test corpus, codebase audit
 
@@ -25,6 +27,8 @@ The MMI render pipeline is **structurally read-only**. A full-source audit (`gre
 The only `writeFile` operations in the entire codebase produce **derived outputs** (delivery manifest CSV, benchmark reports) — never touching the source Excel/CSV/XML files referenced by `![[...]]` embeds.
 
 ### Test evidence
+
+原本CSVのバイト列が描画前後で一致することを確認する試験です。初版で引用された試験には検証上の欠陥があり、同日修正後の再実行結果を採用した経緯を以下に残します。
 
 Automated verification in `03_Implement/test/enterpriseOutput.test.ts`:
 
