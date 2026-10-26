@@ -24,7 +24,7 @@ function fixture(t: { after(callback: () => void): void }, count = 2) {
       ['ID', '名称', '区分'],
       [index, `画面${index}`, '設計対象'],
     ]), '基本設計');
-    XLSX.writeFile(book, file);
+    fs.writeFileSync(file, XLSX.write(book, { type: 'buffer', bookType: 'xlsx' }));
     files.push(file);
   }
   const markdownFilePath = path.join(docs, 'delivery.md');

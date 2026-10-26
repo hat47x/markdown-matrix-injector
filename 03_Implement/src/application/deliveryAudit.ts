@@ -31,7 +31,7 @@ export function auditDeliveryReferences(options: DeliveryAuditOptions) {
     || !isPathWithinBoundary(fs.realpathSync(markdownPath), realRoot)) {
     throw new Error('Delivery Markdown must be inside the workspace');
   }
-  if (!/\.markdown?$/iu.test(markdownPath) || !fs.statSync(markdownPath).isFile()) {
+  if (!/\.(?:md|markdown)$/iu.test(markdownPath) || !fs.statSync(markdownPath).isFile()) {
     throw new Error('Delivery input must be a Markdown file');
   }
 
