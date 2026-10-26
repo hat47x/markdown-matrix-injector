@@ -8,6 +8,7 @@ import { matchSourceIds } from '../application/matchSourceIds.js';
 import { observeSourceCells } from '../application/observeSourceCells.js';
 import { readBoundedSourceBytes } from '../core/readBoundedSourceBytes.js';
 import { inventoryDesignSources } from '../application/designSourceInventory.js';
+import { auditDeliveryReferences } from '../application/deliveryAudit.js';
 import { runSnapshot } from './snapshot.js';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -166,6 +167,11 @@ Commands:
   match-ids <selection.json> Compare caller-selected literal string IDs across sources.
                             Requires --json and --include-values; digest pins are mandatory.
                             Exit 1 means gaps, duplicate definitions or missing definitions.
+  delivery-audit <doc.md> <directory>
+                            Compare whole-file Excel references with the source inventory.
+                            Requires --root and --json. Read-only: --out is not supported.
+                            Exit 0: observed sets aligned; 1: differences/indeterminate; 2: invalid input.
+                            This never asserts contractual delivery completeness.
   inventory <directory>    Identify a source collection without exposing document contents.
       --inspect              also run existing inspect; output only Candidate counts and diagnostic codes
       --exclude <path>       exclude a directory-relative path/prefix (repeatable; no glob)
@@ -677,6 +683,20 @@ export async function main(argv: string[]): Promise<number> {
       if (values.out) fs.writeFileSync(values.out, text, { flag: 'wx' });
       else process.stdout.write(text);
       return report.status === 'observed' ? 0 : 1;
+    }
+    case 'delivery-audit': {
+      if (args.length !== 2) return usageError('delivery-audit takes a Markdown file and inventory directory');
+      if (!values.root || !values.json || values.out || values.inspect || values.exclude?.length) {
+        return usageError('delivery-audit requires --root and --json; --out, --inspect and --exclude are not supported');
+      }
+      const report = auditDeliveryReferences({
+        markdownFilePath: path.resolve(args[0]),
+        inventoryDirectory: path.resolve(args[1]),
+        workspaceRoot: root,
+        ...(values['max-bytes'] === undefined ? {} : { maxBytes: Number(values['max-bytes']) }),
+      });
+      process.stdout.write(`${JSON.stringify(report, null, 2)}\n`);
+      return report.comparison.alignment === 'aligned' ? 0 : 1;
     }
     case 'inventory': {
       if (args.length !== 1) return usageError('inventory takes one directory');
