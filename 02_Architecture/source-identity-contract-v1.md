@@ -2,9 +2,9 @@
 
 ## 1. 目的
 
-Cognitive Assistance PlaneとAuthority Planeが、同じsourceを同じidentity規則で参照できるようにする。
+Cognitive Assistance Plane（認知支援側）とAuthority Plane（規約を決定論的に検証する側）が、同じsource（参照元ファイル）について共通のidentity（同一性）規則を使えるようにする。
 
-canonical source identity:
+正規のsource identity（原本の同一性を表す形式）は次のとおり。
 
 ```text
 representation = source-file-bytes-v1
@@ -14,9 +14,9 @@ digest         = sha256:<lowercase hexadecimal SHA-256>
 
 ## 2. Identity対象
 
-digest対象は**resolved source fileのraw bytes**である。
+digest（内容を照合するための値）の対象は、**resolved source file（参照先を解決した原本ファイル）のraw bytes（加工前のバイト列）**である。
 
-対象外は次のとおりです。
+次の情報はdigestの計算対象としない。
 
 - Workbookのparsed cell matrix
 - worksheet feature vector
@@ -24,24 +24,24 @@ digest対象は**resolved source fileのraw bytes**である。
 - filesystem path文字列
 - mtime
 
-したがって同じbytesであればpathが異なってもdigestは同じ。
+したがって、ファイルのpath（所在）が異なっていても、bytesが同じならdigestは同じになる。
 
 ## 3. API
 
 ### createSourceIdentityFromBytes
 
-既に読み込まれたbytesからidentityを生成する。
+すでに読み込んだbytes（バイト列）からidentityを生成する。
 
 ### readSourceFileIdentity
 
-absolute pathのbytesを読みidentityを生成する。
+absolute path（絶対パス）で指定されたファイルのbytesを読み取り、identityを生成する。
 
-この関数自身はcontainmentを判定しない。
-「既にAuthority boundaryで許可されたabsolute path」に対するprimitiveである。
+この関数自身はcontainment（許可された領域内に参照先が収まること）を判定しない。
+Authority boundary（Authority側で参照を許可する境界）で、すでに許可されたabsolute pathを扱うprimitive（基本処理）である。
 
 ### resolveContainedSourceIdentity
 
-既存 `resolveSourcePath` を用いて:
+既存の`resolveSourcePath`を用い、次の処理を順に行う。
 
 1. markdown-relative/workspace-root resolution
 2. workspace containment
@@ -50,20 +50,20 @@ absolute pathのbytesを読みidentityを生成する。
 
 を順に実行する。
 
-返却は次のとおりです。
+返す情報は次のとおり。
 
 - resolvedPath
 - identity
 
 ## 4. byteLength
 
-identityには `byteLength` を保持する。
+identityには、原本のバイト数を表す`byteLength`を保持する。
 
-byteLengthはdigestの代用ではなく、diagnostic / consistency check用の補助metadataである。
+byteLengthはdigestの代わりにはならず、diagnostic（診断）やconsistency check（整合性確認）のための補助metadata（付随情報）である。
 
 ## 5. Authority adapter
 
-Authority adapterは既にresolver/containment failureを個別checkへ写像する必要があるため、
+Authority adapter（Authority側の処理へつなぐ部品）は、resolver/containment failure（参照先の解決や領域内判定の失敗）を個別のcheckへ対応づける必要がある。このため、
 `resolveContainedSourceIdentity` を直接置換利用せず:
 
 - 既存resolveContextでcontained path取得
@@ -71,20 +71,20 @@ Authority adapterは既にresolver/containment failureを個別checkへ写像す
 
 とする。
 
-これによりReceipt evidence codeを変更せず、hash規則だけ共通化できる。
+これにより、Receipt evidence code（検証結果に付ける証拠コード）を変更せずに、hash（バイト列からdigestを求める処理）の規則だけを共通化できる。
 
 ## 6. Cognitive側への利用
 
-本IssueではCognitive Observation builderまでは実装しない。
+本Issueの実装範囲には、Cognitive Observation builder（認知側の観測記録を組み立てる処理）を含めない。
 
-次段階では次のとおりです。
+次段階での接続先は次のとおり。
 
 ```text
 resolveContainedSourceIdentity
   -> CognitiveObservation.provenance.sourceDigest
 ```
 
-と接続するための共通primitiveを先に完成させる。
+この接続に先立ち、共通primitiveを用意する。
 
 ## 7. 非責務
 
@@ -96,4 +96,4 @@ resolveContainedSourceIdentity
 - mtimeによるidentity
 - semantic content hashing
 
-source identityの意味を一義化することだけを責務とする。
+この契約が担うのはsource identityの意味を一つに定めることであり、ファイルの固定や取引的一貫性の保証は非責務として残す。
