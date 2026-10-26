@@ -340,6 +340,13 @@ weasyprint --pdf-variant pdf/a-2b --pdf-tags ../04_Documentation/samples/practic
 見本はこの指定で作りました。ただし、PDF/Aやアクセシビリティの適合は外部の検証ツールで確かめていません。発注者が適合を求める場合は、veraPDFやAcrobatの検査で確かめてください。
 フォントはPDFに埋め込まれます。PDFにパスワードや印刷禁止などのセキュリティは設定しません。
 
+発注者が書体・余白・綴じ代を指定する場合は、front matterの`font`・`margin`・`gutter`で指定できます。それより細かい体裁は、CSSファイルを`css`または`mmi render --css <file>`で渡します（既定の体裁を上書きします）。
+CSSは作業フォルダーの中に置き、`@import`と外部URLの`url()`は使えません。
+
+```bash
+npm run mmi -- render ../04_Documentation/samples/practical/14-delivery.md --to html --css ./styles/customer.css -o ../04_Documentation/samples/practical/14-delivery.html --root ../04_Documentation/samples/practical
+```
+
 納品前に、出力したPDFで次を確かめます。
 
 - 表紙の文書番号・版数・日付・機密区分が、今回の版と合っている。

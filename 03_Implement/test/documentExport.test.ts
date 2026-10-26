@@ -11,6 +11,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { readFrontMatter } from '../src/cli/documentExport.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from '../src/cli/render.js';
+import { main } from '../src/cli/mmi.js';
 
 function documentFixture(markdown: string): { root: string; doc: string } {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-export-'));
@@ -130,4 +131,72 @@ test('render --to md passes front matter through for Pandoc and other tools', ()
   const out = renderDocumentMarkdown({ markdownFilePath: doc, workspaceRoot: root });
   assert.ok(out.startsWith('---\ntitle: 題\n---\n'));
   assert.match(out, /\| OP-01 \| 申請 \|/);
+});
+
+const withCss = (markdown: string, files: Record<string, string>, userCss?: string[]) => {
+  const { root, doc } = documentFixture(markdown);
+  for (const [name, text] of Object.entries(files)) {
+    fs.mkdirSync(path.dirname(path.join(root, name)), { recursive: true });
+    fs.writeFileSync(path.join(root, name), text);
+  }
+  return () => renderDocumentHtml({ markdownFilePath: doc, workspaceRoot: root, userCss });
+};
+
+test('font, margin and gutter front matter set the page without hand-written CSS', () => {
+  const { html } = render('---\nfont: BIZ UDPGothic, Yu Gothic\nmargin: 25mm 20mm\ngutter: 10mm\n---\n本文\n');
+  assert.match(html, /html \{ font-family: "BIZ UDPGothic", "Yu Gothic", "Noto Sans CJK JP"/);
+  assert.match(html, /@page \{ size: A4; margin: 25mm 20mm 25mm 20mm;/);
+  assert.match(html, /@page :right \{ margin-left: calc\(20mm \+ 10mm\); \}/);
+  assert.match(html, /@page :left \{ margin-right: calc\(20mm \+ 10mm\); \}/);
+});
+
+test('font, margin and gutter reject values that are not plain names or lengths', () => {
+  assert.throws(() => readFrontMatter('---\nfont: "a\\"; } body { display:none"\n---\n'), /font family names/);
+  assert.throws(() => readFrontMatter('---\nmargin: 1px\n---\n'), /lengths/);
+  assert.throws(() => readFrontMatter('---\ngutter: 5mm 5mm\n---\n'), /one length/);
+});
+
+test('user css comes after the defaults, from front matter and --css, and stays inside the workspace', () => {
+  const html = withCss('---\ncss: ./style/customer.css\n---\n本文\n', {
+    'style/customer.css': '@page { margin: 30mm; }\n',
+    'extra.css': 'h2 { color: #123456; }\n',
+  }, ['./extra.css'])();
+  assert.ok(html.indexOf('/* customer.css */') > html.indexOf('@page landscape'), 'customer css overrides the defaults');
+  assert.ok(html.indexOf('/* extra.css */') > html.indexOf('/* customer.css */'), '--css comes after front matter css');
+  assert.match(html, /h2 \{ color: #123456; \}/);
+});
+
+test('user css that would leave the workspace, reach the network or break out of <style> is refused', () => {
+  const refused = (css: string, message: RegExp) => assert.throws(
+    withCss('# t\n', { 'c.css': css }, ['./c.css']), (error: unknown) => error instanceof RenderError && message.test(error.message));
+  refused('@import "https://example.com/a.css";', /@import/);
+  refused('body { background: url(https://example.com/a.png); }', /external url/);
+  refused('body { background: url(//example.com/a.png); }', /external url/);
+  refused('x { } </style><script>1</script>', /<\/style/);
+  assert.doesNotThrow(withCss('# t\n', { 'ok.css': 'x { background: url(data:image/png;base64,AAAA); }' }, ['./ok.css']));
+  assert.throws(withCss('# t\n', {}, ['../outside.css']), RenderError);
+  assert.throws(withCss('# t\n', {}, ['./missing.css']), RenderError);
+  assert.throws(withCss('# t\n', { 'big.css': 'a{}'.repeat(100000) }, ['./big.css']), /at most 256 KB/);
+});
+
+test('without user css the exported html is unchanged', () => {
+  const { html } = render('# t\n');
+  assert.ok(!html.includes('/* ') || !/\/\* \S+\.css \*\//.test(html));
+  assert.match(html, /@page \{ size: A4; margin: 20mm 18mm 18mm 18mm;/);
+  assert.doesNotMatch(html, /@page :right/);
+});
+
+test('mmi render --css feeds the style sheet and rejects it for markdown output', async () => {
+  const { root, doc } = documentFixture('# t\n');
+  fs.writeFileSync(path.join(root, 'c.css'), 'h1 { color: #abcdef; }\n');
+  const outFile = path.join(root, 'out.html');
+  const err = console.error;
+  console.error = () => {};
+  try {
+    assert.equal(await main(['render', doc, '--to', 'html', '--css', './c.css', '--root', root, '-o', outFile]), 0);
+    assert.equal(await main(['render', doc, '--to', 'md', '--css', './c.css', '--root', root]), 2);
+  } finally {
+    console.error = err;
+  }
+  assert.ok(fs.readFileSync(outFile, 'utf8').includes('h1 { color: #abcdef; }'));
 });

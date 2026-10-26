@@ -266,6 +266,7 @@ Commands:
                             (exit code 1 when any error is found)
   render <doc.md>           Expand references into Markdown tables (default) or HTML
       --to md|html
+      --css <file>            html: add a style sheet after the defaults (repeatable; inside --root, no @import or external url())
                             html: YAML front matter adds cover, approvals, TOC, header/footer (reference.md)
   materialize <doc.md>      Write a source-independent Markdown projection for detaching
       -o, --out <file>        detached Markdown output (required; must differ from source)
@@ -353,6 +354,7 @@ export async function main(argv: string[]): Promise<number> {
       json: { type: 'boolean', default: false },
       out: { type: 'string', short: 'o' },
       to: { type: 'string', default: 'md' },
+      css: { type: 'string', multiple: true },
       values: { type: 'string', default: '0' },
       from: { type: 'string' },
       image: { type: 'string' },
@@ -1282,7 +1284,8 @@ export async function main(argv: string[]): Promise<number> {
     case 'render': {
       if (args.length !== 1) return usageError('render takes one Markdown file');
       if (values.to !== 'md' && values.to !== 'html') return usageError('--to must be md or html');
-      const options = { markdownFilePath: path.resolve(args[0]), workspaceRoot: root };
+      if (values.css?.length && values.to !== 'html') return usageError('--css applies to --to html');
+      const options = { markdownFilePath: path.resolve(args[0]), workspaceRoot: root, userCss: values.css };
       try {
         emit(values.to === 'html' ? renderDocumentHtml(options) : renderDocumentMarkdown(options));
       } catch (error) {
