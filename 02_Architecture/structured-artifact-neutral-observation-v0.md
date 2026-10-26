@@ -218,11 +218,11 @@ hat47x.structured-artifact-observation/v0をv1へ進める前に、hat47x/sei-co
 
 v1へ進む前に解消するか、差分として記録する事項は次のとおり。
 
-1. Unknown content. v0 fails closed on unknown top-level fields. The SEI envelope carries unknown nested contracts opaquely as not_verified. These can coexist: fail closed inside a known schema version, and carry unknown versions opaquely at the envelope level. v1 should state which applies where.
-2. Canonical bytes. §10 sorts object keys recursively, serializes compact JSON, and appends LF. v0 does not declare RFC 8785 (JCS). The SEI JCS profile follows RFC 8785 and has no trailing newline. Both use SHA-256, but the same object yields different digests, at least because of the trailing LF. v1 should either adopt the JCS profile or declare its own representation profile identity.
-3. Digest text. Both sides use sha256:<64 lowercase hex>. MMI source identity (source-identity-contract-v1.md, representation source-file-bytes-v1) follows the same byte rule as sei.raw-bytes+sha256/v1alpha1.
-4. Provenance. v0 producer and provenance fields (§3) should map onto SEI adapter and mapping provenance without flattening source origin, derivation, and adapter version into one field.
-5. Confidence. The v0 non-goal "common scoring of product-specific confidence" (§11) agrees with ADR-0018 D4 and with SEI provider neutrality. v1 should keep it.
+1. 未知の内容: v0では、未知の最上位フィールドをfail closed（拒否）とする。一方、SEIのenvelopeは、未知の入れ子の契約を解釈せず、not_verifiedとして保持する。既知のschema versionの内部ではfail closedとし、未知のversionはenvelopeの階層で解釈せず保持することで、両者は共存できる。v1では、それぞれの規則を適用する範囲を明記する必要がある。
+2. 正規化したバイト列: §10ではobjectのkeyを再帰的に並べ替え、空白を省いたJSONとして直列化し、末尾にLFを付ける。v0はRFC 8785 (JCS)への準拠を宣言していない。SEIのJCS profileはRFC 8785に従い、末尾の改行を付けない。どちらもSHA-256を使うが、少なくとも末尾のLFの有無によって、同じobjectでもdigestが異なる。v1ではJCS profileを採用するか、独自のrepresentation profile identityを宣言する必要がある。
+3. digestの表記: 双方ともsha256:<64 lowercase hex>を用いる。MMIのsource identity（source-identity-contract-v1.md、representationはsource-file-bytes-v1）は、sei.raw-bytes+sha256/v1alpha1と同じバイト列の扱いに従う。
+4. 来歴（Provenance）: v0のproducerとprovenanceの各フィールド（§3）は、source origin（出所）、derivation（派生過程）、adapter versionを一つのフィールドにまとめず、SEIのadapterおよびmapping provenanceへ対応づける必要がある。
+5. confidenceの扱い: v0の非目標である「製品固有のconfidenceを共通尺度で採点すること」（§11）は、ADR-0018 D4とSEIのprovider neutrality（providerに依存しない中立性）に沿う。v1でも、この非目標を維持する必要がある。
 
 目的は、関連製品群に三つ目の独立したenvelope（データの受け渡しを包む形式）を増やさないことである。候補は、(a) v0/v1をSEI interchange envelopeの拡張記録として運べるpayload契約にする、(b) v1のcanonicalizationをJCS profileに合わせる、(c) 両者を分けたまま対応表を公開する、の三つである。選択はv1への移行時に行い、二つ目のproducer（excel-houganshi-normalizer）の合意を要する。
 
