@@ -1,4 +1,4 @@
-# Issue: fill availability / disagreement を review telemetry として held-out 評価する
+# Issue: 塗りつぶしの有無と不一致をレビュー用観測情報として独立評価する
 
 ## Meta
 - Type: Evaluation / Design evidence
@@ -14,33 +14,31 @@
 - Avoided concurrent scope: Cognitive Contract / provider interface
 - Evaluation helper: `worksheetFormatFillReviewTelemetry.ts`
 
+本Issueでいう**fill**はセルの塗りつぶし、**review telemetry**は候補の確認が必要かを検討するための観測情報、**held-out corpus**は先行評価とは別に用意した評価用データ群を指す。**snapshot**は表の構造や書式を記録した観測データ、**prototype**は既知の書式を表す比較基準、**winner margin**は上位候補間のスコア差である。ここでの評価対象は6列・8列の合成snapshot 20ケースに限られ、実Workbook全体の傾向やproduction環境での効果を示すものではない。
+
 ## 背景
 
-issue-0134では、同じsnapshotをstructure+fill / structure-onlyで対比較し、fill evidenceには次の両面性があることを確認した。
+issue-0134では、同じsnapshotを「構造と塗りつぶしの両方を使う場合」と「構造だけを使う場合」で比較した。その結果、fill evidence（塗りつぶし由来の比較特徴）には、次のような利点とリスクがあることを確認した。
 
 - fill-onlyでしか区別できないprototypeをdisambiguateできる
 - 共通fillが構造差を薄め、novel/matched境界を変える場合がある
 - fill欠落がconfidenceを下げる
 - structureとfillが異なるcandidateを支持するとwinner marginが狭まる
 
-次の問いは、
+そこで次に検討したのは、塗りつぶしの有無や違いという事実を、そのままレビューを促すsignalにしてよいか、という点である。
 
-> fillがある／ない／違う、という事実そのものをreview signalにすべきか
-
-である。
-
-結論を先に言うと、**広いavailability/disagreement事実はノイズが多い**。
+この評価では、**塗りつぶしの有無や不一致を広く検知するだけでは、レビュー不要のケースまで拾いやすい**ことが分かった。
 
 一方、
 
 - fillが実際にstatus/winnerを変えた
 - fillが唯一の識別材料なのにobservationから欠けている
 
-という高影響ケースは、review reasonとして説明可能である。
+といった判定への影響が大きいケースは、レビュー理由として具体的に説明できる。
 
 ## 他レーンとの競合回避
 
-作業開始時にrepositoryを確認した。
+当時の作業開始時点で、repositoryの状態を確認した。
 
 - main: `ab73a66712460bc484f6c35ee9a0bc61b222f23a`
 - open PR: 0
@@ -156,7 +154,7 @@ no review       12
 
 ## 重要な幅依存
 
-同じ「2 label drift + same fill」でも結果が逆方向になる。
+同じ「ラベル2件の変更と同一の塗りつぶし」という条件でも、列数によって判定の変化は逆方向になる。
 
 ### 6列
 
@@ -178,11 +176,7 @@ with fill:      novel
 
 これはglobal sparse signatureとの相互作用を含むため、fillは常にconfidenceを上げるわけではない。
 
-したがっては次のとおりです。
-
-> fillありなら加点
-
-のような単純理解は不正確である。
+したがって、「塗りつぶし情報があれば常に加点される」という理解は正確ではない。
 
 ## Result 1: decision-impact
 
@@ -233,7 +227,7 @@ fill-unavailable-for-discrimination
 | recall | 1.000000 |
 | false-positive rate | 0.000000 |
 
-ただし、このperfect resultをproduction ruleへ昇格させない。
+ただし、この評価で全件を正しく識別したという結果を、そのままproduction ruleの採用根拠にはしない。
 
 理由は次のとおりです。
 
@@ -243,11 +237,7 @@ fill-unavailable-for-discrimination
 - direct RGB / themeはsnapshot上同じcoarse toneへ正規化済み
 - border / mixed style / partial header stylingを含まない
 
-今回の結論は、
-
-> high-impact reason codesは次の実務corpusで再評価する価値がある
-
-までとする。
+この段階での結論は、高影響のreason codeを次の実務データ群で再評価する価値がある、という範囲に留める。
 
 ## Result 4: broad fill-unavailable
 
@@ -309,7 +299,7 @@ high-impactとbroad factsをすべて同じreview flagへ潰すと:
 
 ### 2. high-impact telemetryはevaluation reason codeとして維持
 
-特には次のとおりです。
+特に、次のケースを区別して扱う。
 
 - acceptance crossing
 - disambiguation
