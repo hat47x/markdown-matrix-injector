@@ -317,34 +317,50 @@ export function verifyCliPackage(tarballPath) {
     );
   }
 
-  const htmlExtract = run(
-    bin,
-    [
-      'extract', 'design.html',
-      '--html-id', 'api',
-      '--expected-fingerprint', inspectedApi.fingerprint,
-      '--root', '.', '--json',
-    ],
-    workspace,
-  );
-  let extractedHtml;
+  const auditArgs = [
+    'html-audit', 'design.html', '--plan', 'html-commit-plan.json',
+    '--root', '.', '--json',
+  ];
+  const htmlAudit = run(bin, auditArgs, workspace);
+  let auditedHtml;
   try {
-    extractedHtml = JSON.parse(htmlExtract.stdout);
+    auditedHtml = JSON.parse(htmlAudit.stdout);
   } catch {
     throw new Error(
-      `mmi extract HTML returned invalid JSON:\n${htmlExtract.stderr || htmlExtract.stdout}`,
+      `mmi html-audit returned invalid JSON:\n${htmlAudit.stderr || htmlAudit.stdout}`,
     );
   }
-  if (htmlExtract.status !== 0
-    || extractedHtml.fragmentFingerprint !== inspectedApi.fingerprint
-    || !extractedHtml.path
-    || !fs.existsSync(extractedHtml.path)
-    || !fs.readFileSync(extractedHtml.path, 'utf8').includes('id="api"')
-    || fs.readFileSync(htmlSource, 'utf8') !== originalHtml) {
+  if (htmlAudit.status !== 0
+    || auditedHtml.status !== 'complete'
+    || auditedHtml.consistentAtObservation !== true
+    || auditedHtml.files?.length !== 2
+    || auditedHtml.files.some((file) =>
+      file.file !== 'matching' || file.ledger !== 'matching')) {
     throw new Error(
-      `mmi extract HTML failed or modified its source:\n${htmlExtract.stderr || htmlExtract.stdout}`,
+      `mmi html-audit failed to confirm two-file batch:\n${htmlAudit.stderr || htmlAudit.stdout}`,
     );
   }
+  // A non-destructive audit must not silently recreate a missing output.
+  const htmlApiOutput = path.join(docs, 'api.html');
+  const apiBytes = fs.readFileSync(htmlApiOutput);
+  fs.unlinkSync(htmlApiOutput);
+  const incompleteAudit = run(bin, auditArgs, workspace);
+  let incomplete;
+  try {
+    incomplete = JSON.parse(incompleteAudit.stdout);
+  } catch {
+    throw new Error(
+      `mmi html-audit did not produce diagnostics for missing output:\n${incompleteAudit.stderr || incompleteAudit.stdout}`,
+    );
+  }
+  if (incompleteAudit.status === 0 || incomplete.status !== 'incomplete'
+    || !incomplete.files?.some((file) =>
+      file.output === 'docs/api.html' && file.file === 'missing')
+    || fs.existsSync(htmlApiOutput)) {
+    throw new Error('mmi html-audit incorrectly accepted or repaired missing HTML output');
+  }
+  // Restore fixture bytes in this isolated verification workspace only.
+  fs.writeFileSync(htmlApiOutput, apiBytes);
 
   if (help.status !== 0 || !help.stdout.includes('Usage: mmi')) {
     throw new Error(`mmi --help failed:\n${help.stderr || help.stdout}`);
@@ -428,6 +444,13 @@ export function verifyCliPackage(tarballPath) {
       method: 'tools/call',
       params: { name: 'inspect', arguments: { source: 'service.json' } },
     },
+    {
+      jsonrpc: '2.0', id: 4, method: 'tools/call',
+      params: {
+        name: 'html-audit',
+        arguments: { source: 'design.html', plan: 'html-commit-plan.json' },
+      },
+    },
   ], workspace);
   const mcpResponses = mcp.stdout
     .split(/\r?\n/u)
@@ -436,12 +459,15 @@ export function verifyCliPackage(tarballPath) {
   const initialized = mcpResponses.find((response) => response.id === 1);
   const listed = mcpResponses.find((response) => response.id === 2);
   const inspected = mcpResponses.find((response) => response.id === 3);
+  const auditedByMcp = mcpResponses.find((response) => response.id === 4);
   if (
     mcp.status !== 0
     || initialized?.result?.protocolVersion !== '2024-11-05'
     || !listed?.result?.tools?.some((tool) => tool.name === 'inspect')
     || !listed.result.tools.some((tool) => tool.name === 'check')
     || !listed.result.tools.some((tool) => tool.name === 'schema')
+    || !listed.result.tools.some((tool) => tool.name === 'html-audit')
+    || listed.result.tools.some((tool) => tool.name === 'html-commit')
   ) {
     throw new Error(
       `mmi-mcp initialize/tools/list failed:\n${mcp.stderr || mcp.stdout}`,
@@ -462,6 +488,51 @@ export function verifyCliPackage(tarballPath) {
   ) {
     throw new Error(`mmi-mcp inspect failed:\n${mcp.stdout}`);
   }
+
+  let auditedByMcpReport;
+  try {
+    auditedByMcpReport = JSON.parse(auditedByMcp?.result?.content?.[0]?.text ?? '');
+  } catch {
+    throw new Error(`mmi-mcp html-audit returned invalid JSON:\n${mcp.stdout}`);
+  }
+  if (auditedByMcp?.result?.isError === true
+    || auditedByMcpReport.status !== 'complete'
+    || JSON.stringify(auditedByMcpReport) !== JSON.stringify(auditedHtml)) {
+    throw new Error(`mmi-mcp html-audit disagreed with read-only CLI report:\n${mcp.stdout}`);
+  }
+
+  // The shared ledger records the most recent extraction for each occurrence.
+  // Audit the reviewed batch BEFORE the legacy single-fragment extraction
+  // replaces the same API occurrence in that ledger.
+  const htmlExtract = run(
+    bin,
+    [
+      'extract', 'design.html',
+      '--html-id', 'api',
+      '--expected-fingerprint', inspectedApi.fingerprint,
+      '--root', '.', '--json',
+    ],
+    workspace,
+  );
+  let extractedHtml;
+  try {
+    extractedHtml = JSON.parse(htmlExtract.stdout);
+  } catch {
+    throw new Error(
+      `mmi extract HTML returned invalid JSON:\n${htmlExtract.stderr || htmlExtract.stdout}`,
+    );
+  }
+  if (htmlExtract.status !== 0
+    || extractedHtml.fragmentFingerprint !== inspectedApi.fingerprint
+    || !extractedHtml.path
+    || !fs.existsSync(extractedHtml.path)
+    || !fs.readFileSync(extractedHtml.path, 'utf8').includes('id="api"')
+    || fs.readFileSync(htmlSource, 'utf8') !== originalHtml) {
+    throw new Error(
+      `mmi extract HTML failed or modified its source:\n${htmlExtract.stderr || htmlExtract.stdout}`,
+    );
+  }
+
 
   let inspectedTree;
   let extractedTree;
@@ -619,6 +690,9 @@ export function verifyCliPackage(tarballPath) {
         htmlExtract: 'passed',
         htmlLedger: 'passed',
         htmlBatchCommit: 'passed',
+        htmlReadOnlyAudit: 'passed',
+        htmlAuditDetectsMissing: 'passed',
+        mcpHtmlReadOnlyAudit: 'passed',
       },
     };
   } finally {

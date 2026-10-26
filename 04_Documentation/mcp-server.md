@@ -60,6 +60,7 @@ MCP対応クライアントには、コマンドと引数を次の形で登録�
 | --- | --- | --- |
 | `schema` | `contract`（`candidate`・`ledger`・`review-decisions`） | `mmi schema <contract>` |
 | `inspect` | `source`、`values`、`from`、`ledger`、`unimported`、`excludeImported` | `mmi inspect --json` |
+| `html-audit` | `source`、`plan`、任意`ledger` | `mmi html-audit --json`（静的HTML分割後の監査のみ） |
 | `check` | `paths`（ファイルまたはディレクトリの配列） | `mmi check --json` |
 | `render` | `document`、`to`（`md`または`html`） | `mmi render` |
 | `select` | `source`、`table`または`candidate`、`sheet`、`columns`、`contains`、`in`、`first`、`from` | `mmi select --json` |
@@ -70,6 +71,8 @@ MCP対応クライアントには、コマンドと引数を次の形で登録�
 | `validate-transformation` | `proposal`（パスまたはJSON object）、`package`、`document` | `mmi validate-transformation --json` |
 
 `inspect`は既定で構造だけを返します。セルの値が必要なときだけ`values`へ行数を指定します。これはCLIの`--values`と同じで、既定では値を含めません。
+
+`html-audit`は、既存の明示的な`html-commit`で使用したレビュー済みJSON計画を指定し、分割後の出力とLedgerを読み取り専用で再照合します。`complete/incomplete/stale/blocked`と各出力の診断を返します。`incomplete`はツール呼出しの失敗ではなく、有効な監査結果なので`isError=false`です。ワークスペース外のパス、不正な計画、解析不能なファイルはエラーとして扱います。保存用`html-commit`ツールは公開せず、`html-audit`に`commit`など未知の引数を渡した場合も拒否します。[CLIと手動確認手順](html-decomposition-audit.md)を参照してください。
 
 `handoff`はCLIの`--json`と同じhandoff packageを返します。CLIの既定出力であるprompt文字列は返しません。promptが必要な場合は、返されたpackageをクライアント側で扱うか、CLIの`mmi handoff`を使ってください。
 
@@ -101,6 +104,7 @@ MCP対応クライアントには、コマンドと引数を次の形で登録�
 - `select`と`mmi select --json`
 - `find`と`mmi find --json`
 - `handoff`と`mmi handoff --json`
+- `html-audit`と`mmi html-audit --json`（専用fixture。正常・欠落・原本更新時のread-onlyパリティ）
 
 テストは基本設計書キット（`04_Documentation/kits/basic-design`）を使います。比較のため、MCPサーバのパス表示は起動時のrootを基準にします。
 

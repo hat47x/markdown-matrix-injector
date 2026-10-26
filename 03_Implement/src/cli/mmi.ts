@@ -31,6 +31,7 @@ import { extractHtmlFragment } from '../application/extractHtmlFragment.js';
 import { extractDocxImage, extractDocxTable } from '../application/extractDocx.js';
 import { previewHtmlDecomposition } from '../application/htmlDecompositionPreview.js';
 import { commitHtmlDecomposition } from '../application/commitHtmlDecomposition.js';
+import { auditHtmlDecomposition } from '../application/auditHtmlDecomposition.js';
 import {
   planHtmlDecomposition,
   type HtmlPlanSelection,
@@ -208,6 +209,12 @@ Commands:
                             .txt/.text/.log use deterministic M1 hierarchy hypotheses; conflicting methods are not merged.
                             .html/.htm list explicit main/section/table/figure Candidate fragments (no scripts/URLs fetched).
                             .docx lists explicit heading styles, tables, embedded pictures and comments (read-only).
+  html-audit <source.html>   Read-only post-commit integrity audit (no repairs or file writes)
+      --plan <file.json>      reuse approved html-commit manifest with sourceDigest and fragments
+      --root <workspace>      source, plan, ledger and outputs must stay inside workspace
+      --ledger <file>         default <root>/mmi-ledger.json
+      --json                  show complete / incomplete / stale / blocked and per-file details
+                            Exit 0 only for complete mechanical consistency; exit 1 otherwise.
   html-commit <source.html>  Explicitly save reviewed static HTML fragments as a batch
       --plan <file.json>      requires sourceDigest and reviewed fragments (id, expectedFingerprint, output)
       --commit               required for filesystem changes; no implied write from preview
@@ -545,6 +552,64 @@ export async function main(argv: string[]): Promise<number> {
         ? JSON.stringify(result, null, 2)
         : formatCognitiveArtifactResult(result));
       return resolution.status === 'unavailable' ? 1 : 0;
+    }
+    case 'html-audit': {
+      if (args.length !== 1 || !values.plan) {
+        return usageError('html-audit needs one source.html and --plan <file.json>');
+      }
+      if (values.out || values.write || values.preview || values.commit) {
+        return usageError('html-audit is read-only: --out, --write, --preview and --commit are not supported');
+      }
+      const sourcePath = path.resolve(args[0]);
+      const planPath = path.resolve(values.plan);
+      const ledgerPath = path.resolve(root, values.ledger ?? DEFAULT_LEDGER_FILE);
+      try {
+        const rootReal = fs.realpathSync(root);
+        for (const input of [sourcePath, planPath]) {
+          if (!isPathWithinBoundary(input, root)
+              || !isPathWithinBoundary(fs.realpathSync(input), rootReal)) {
+            throw new Error('MMI_HTML_OUTSIDE_ROOT: source and plan must stay in workspace');
+          }
+        }
+        const manifest = JSON.parse(fs.readFileSync(planPath, 'utf8')) as {
+          sourceDigest?: unknown;
+          fragments?: unknown;
+        };
+        if (!manifest || typeof manifest !== 'object'
+            || typeof manifest.sourceDigest !== 'string'
+            || !/^sha256:[0-9a-f]{64}$/u.test(manifest.sourceDigest)
+            || !Array.isArray(manifest.fragments)
+            || manifest.fragments.some((item: unknown) =>
+              !item || typeof item !== 'object'
+              || typeof (item as HtmlPlanSelection).id !== 'string'
+              || typeof (item as HtmlPlanSelection).output !== 'string'
+              || typeof (item as HtmlPlanSelection).expectedFingerprint !== 'string')) {
+          throw new Error('MMI_HTML_AUDIT_INVALID: require reviewed sourceDigest and fragments');
+        }
+        const report = auditHtmlDecomposition({
+          workspaceRoot: root,
+          sourcePath,
+          ledgerPath,
+          selections: manifest.fragments as HtmlPlanSelection[],
+          expectedSourceDigest: manifest.sourceDigest,
+        });
+        if (values.json) {
+          emit(JSON.stringify(report, null, 2));
+        } else {
+          emit([
+            `status: ${report.status}`,
+            `source digest: ${report.sourceDigest}`,
+            ...report.files.map((file) =>
+              `  ${file.output}: output=${file.file} ledger=${file.ledger}`),
+            ...report.problems.map((problem) => `  problem: ${problem}`),
+            'complete means mechanically consistent at observation time, not approved for publication.',
+          ].join('\n'));
+        }
+        return report.status === 'complete' ? 0 : 1;
+      } catch (error) {
+        console.error(`mmi: ${error instanceof Error ? error.message : String(error)}`);
+        return 1;
+      }
     }
     case 'html-commit': {
       if (!values.commit) {

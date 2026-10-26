@@ -50,6 +50,14 @@ jobs:
         run: npm test
       - name: Release-gate tool tests
         run: npm run test:release-gate-tools
+      # Verify the actual npm tarball, not only the checkout's TypeScript code.
+      # package:cli creates SHA256 evidence, installs the tarball with an empty
+      # npm cache and --offline, and smokes both mmi and mmi-mcp. Run once per
+      # PR on Linux to limit CI minutes; main's release-candidate job has its
+      # own packaging gate.
+      - name: Offline standalone CLI and MCP package acceptance (Linux PR)
+        if: ${{ matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request' }}
+        run: npm run package:cli
 
   # Research-layer tests (#519). Informational: known failures there must not hide product regressions.
   research-tests:

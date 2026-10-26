@@ -12,6 +12,7 @@ MMIを初めて知った方は、[概要](overview.md)で「何ができるか�
 | 操作を調べる | [利用マニュアル](user-manual.md) |
 | AIエージェントから読み取り・検証を呼ぶ | [MCPサーバ](mcp-server.md) |
 | 原本とMMIを外す | [原本とMMIを外す手順](detach-guide.md) |
+| HTMLを分割した後にファイル・出典の整合性を監査する | [HTML分割後の整合性確認](html-decomposition-audit.md) |
 | 文書が何を参照・取り込みしているか確認する | [文書ごとの出典報告](provenance-report.md) |
 | PRで参照と鮮度を自動検査する | [利用者のCIでの検査](ci.md) |
 | 実務に近い例を試す | [サンプル集](samples/practical/README.md) |
