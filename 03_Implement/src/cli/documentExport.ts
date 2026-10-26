@@ -13,6 +13,7 @@ import type Token from 'markdown-it/lib/token.mjs';
 import { parse as parseYaml } from 'yaml';
 import { escapeHtml } from '../core/html.js';
 import { extractEmbedQueries } from '../parser/embedSyntax.js';
+import { CROSS_REFERENCE_CSS, numberCaptions } from './captionNumbers.js';
 
 export interface DocumentProperties {
   title?: string;
@@ -27,6 +28,8 @@ export interface DocumentProperties {
   approvals: string[];
   cover: boolean;
   toc: boolean;
+  /** Number the captioned tables (表1, 表2, ...) and add page numbers to links to them (#639). */
+  captionNumbers: boolean;
   paper: 'A4' | 'A3';
   font?: string;
   margin?: string;
@@ -40,7 +43,7 @@ export class FrontMatterError extends Error {}
 
 /** Splits a leading `---` YAML block from the Markdown body. Other front matter keys are left to other tools. */
 export function readFrontMatter(markdown: string): { properties: DocumentProperties; body: string } {
-  const defaults: DocumentProperties = { approvals: [], cover: false, toc: false, paper: 'A4', css: [] };
+  const defaults: DocumentProperties = { approvals: [], cover: false, toc: false, captionNumbers: false, paper: 'A4', css: [] };
   const match = /^\uFEFF?---[ \t]*\r?\n([\s\S]*?)\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/.exec(markdown);
   if (!match) return { properties: defaults, body: markdown };
   // Keep line numbers of the body stable for diagnostics: replace the block with blank lines.
@@ -80,6 +83,7 @@ export function readFrontMatter(markdown: string): { properties: DocumentPropert
   if (record.gutter !== undefined) properties.gutter = readLengths(record.gutter, 'gutter', 1, 1);
   properties.cover = readFlag(record, 'cover');
   properties.toc = readFlag(record, 'toc');
+  properties.captionNumbers = readFlag(record, 'captionNumbers');
   if (record.paper !== undefined) {
     const paper = typeof record.paper === 'string' ? record.paper.trim().toUpperCase() : '';
     if (paper !== 'A4' && paper !== 'A3') throw new FrontMatterError('front matter "paper" must be A4 or A3');
@@ -108,7 +112,7 @@ function readFontFamilies(value: unknown): string {
   return names.join(', ');
 }
 
-function readFlag(record: Record<string, unknown>, key: 'cover' | 'toc'): boolean {
+function readFlag(record: Record<string, unknown>, key: 'cover' | 'toc' | 'captionNumbers'): boolean {
   const value = record[key];
   if (value === undefined) return false;
   if (value === 'true') return true;
@@ -172,7 +176,8 @@ export function buildDocumentHtml(
   const tokens = md.parse(body, env);
   keepHeadingsWithEmbeds(tokens);
   const toc = properties.toc ? collectHeadings(tokens) : [];
-  const bodyHtml = md.renderer.render(tokens, md.options, env);
+  const renderedHtml = md.renderer.render(tokens, md.options, env);
+  const bodyHtml = properties.captionNumbers ? numberCaptions(renderedHtml).html : renderedHtml;
   const title = properties.title ?? firstHeading(tokens) ?? '';
   const parts = [
     properties.cover ? renderCover(properties, title) : '',
@@ -181,7 +186,8 @@ export function buildDocumentHtml(
   ];
   return `<!doctype html><html lang="ja"><head><meta charset="utf-8">${renderMeta(properties, title)}<style>
 ${moduleCss}
-${documentCss(properties, title)}
+${documentCss(properties, title)}${properties.captionNumbers ? `
+${CROSS_REFERENCE_CSS}` : ''}
 ${loadUserCss(properties.css)}
 </style></head><body>${parts.join('')}</body></html>`;
 }
