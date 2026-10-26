@@ -28,6 +28,10 @@ export interface DocumentProperties {
   cover: boolean;
   toc: boolean;
   paper: 'A4' | 'A3';
+  font?: string;
+  margin?: string;
+  gutter?: string;
+  css: string[];
 }
 
 const TEXT_KEYS = ['title', 'subtitle', 'documentNumber', 'version', 'date', 'customer', 'organization', 'author', 'classification'] as const;
@@ -36,7 +40,7 @@ export class FrontMatterError extends Error {}
 
 /** Splits a leading `---` YAML block from the Markdown body. Other front matter keys are left to other tools. */
 export function readFrontMatter(markdown: string): { properties: DocumentProperties; body: string } {
-  const defaults: DocumentProperties = { approvals: [], cover: false, toc: false, paper: 'A4' };
+  const defaults: DocumentProperties = { approvals: [], cover: false, toc: false, paper: 'A4', css: [] };
   const match = /^\uFEFF?---[ \t]*\r?\n([\s\S]*?)\r?\n(?:---|\.\.\.)[ \t]*(?:\r?\n|$)/.exec(markdown);
   if (!match) return { properties: defaults, body: markdown };
   // Keep line numbers of the body stable for diagnostics: replace the block with blank lines.
@@ -64,6 +68,16 @@ export function readFrontMatter(markdown: string): { properties: DocumentPropert
     }
     properties.approvals = approvals.map((item: string) => item.trim()).filter(Boolean);
   }
+  if (record.css !== undefined) {
+    const css = typeof record.css === 'string' ? [record.css] : record.css;
+    if (!Array.isArray(css) || css.some((item) => typeof item !== 'string' || !item.trim())) {
+      throw new FrontMatterError('front matter "css" must be a file path or a list of file paths');
+    }
+    properties.css = css.map((item: string) => item.trim());
+  }
+  if (record.font !== undefined) properties.font = readFontFamilies(record.font);
+  if (record.margin !== undefined) properties.margin = readLengths(record.margin, 'margin', 1, 4);
+  if (record.gutter !== undefined) properties.gutter = readLengths(record.gutter, 'gutter', 1, 1);
   properties.cover = readFlag(record, 'cover');
   properties.toc = readFlag(record, 'toc');
   if (record.paper !== undefined) {
@@ -73,6 +87,25 @@ export function readFrontMatter(markdown: string): { properties: DocumentPropert
   }
   // Unknown keys belong to other tools (Pandoc, static site generators); they are not an error.
   return { properties, body };
+}
+
+const LENGTH = /^\d+(?:\.\d+)?(?:mm|cm|in|pt)$/;
+
+function readLengths(value: unknown, key: string, min: number, max: number): string {
+  const parts = typeof value === 'string' ? value.trim().split(/\s+/) : [];
+  if (parts.length < min || parts.length > max || parts.some((part) => !LENGTH.test(part))) {
+    throw new FrontMatterError(`front matter "${key}" must be ${max === 1 ? 'one length' : `1 to ${max} lengths`} in mm, cm, in or pt, such as 20mm`);
+  }
+  return parts.join(' ');
+}
+
+/** Comma-separated family names; each is emitted as a quoted CSS string, so only plain name characters are accepted. */
+function readFontFamilies(value: unknown): string {
+  const names = typeof value === 'string' ? value.split(',').map((name) => name.trim()).filter(Boolean) : [];
+  if (names.length === 0 || names.length > 6 || names.some((name) => !/^[\p{L}\p{N} _.\-]{1,60}$/u.test(name))) {
+    throw new FrontMatterError('front matter "font" must be up to 6 comma-separated font family names, such as BIZ UDPGothic, Yu Gothic');
+  }
+  return names.join(', ');
 }
 
 function readFlag(record: Record<string, unknown>, key: 'cover' | 'toc'): boolean {
@@ -128,7 +161,13 @@ export function firstHeading(tokens: Token[]): string | undefined {
   return index >= 0 ? tokens[index + 1]?.content.trim() || undefined : undefined;
 }
 
-export function buildDocumentHtml(md: MarkdownIt, markdown: string, env: Record<string, unknown>, moduleCss: string): string {
+export function buildDocumentHtml(
+  md: MarkdownIt,
+  markdown: string,
+  env: Record<string, unknown>,
+  moduleCss: string,
+  loadUserCss: (frontMatterRefs: string[]) => string = () => '',
+): string {
   const { properties, body } = readFrontMatter(markdown);
   const tokens = md.parse(body, env);
   keepHeadingsWithEmbeds(tokens);
@@ -143,6 +182,7 @@ export function buildDocumentHtml(md: MarkdownIt, markdown: string, env: Record<
   return `<!doctype html><html lang="ja"><head><meta charset="utf-8">${renderMeta(properties, title)}<style>
 ${moduleCss}
 ${documentCss(properties, title)}
+${loadUserCss(properties.css)}
 </style></head><body>${parts.join('')}</body></html>`;
 }
 
@@ -187,6 +227,13 @@ function cssString(value: string): string {
 
 function documentCss(properties: DocumentProperties, title: string): string {
   const size = properties.paper;
+  const [top, right = top, bottom = top, left = right] = (properties.margin ?? '20mm 18mm 18mm').split(' ');
+  const gutter = properties.gutter
+    ? `
+  @page :right { margin-left: calc(${left} + ${properties.gutter}); }
+  @page :left { margin-right: calc(${right} + ${properties.gutter}); }`
+    : '';
+  const fonts = properties.font ? `${properties.font.split(', ').map(cssString).join(', ')}, ` : '';
   const footerLeft = [properties.documentNumber, properties.version].filter(Boolean).join('　');
   const margin = (box: string, value: string | undefined, extra = '') => (value ? `@${box} { content: ${cssString(value)}; ${extra} }` : '');
   const runningBoxes = [
@@ -196,7 +243,7 @@ function documentCss(properties: DocumentProperties, title: string): string {
     '@bottom-center { content: counter(page) " / " counter(pages); }',
   ].join('\n    ');
   return `
-  html { font-family: "Noto Sans CJK JP", "Noto Sans JP", "BIZ UDPGothic", "Yu Gothic", "YuGothic", Meiryo, "Hiragino Sans", "Noto Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
+  html { font-family: ${fonts}"Noto Sans CJK JP", "Noto Sans JP", "BIZ UDPGothic", "Yu Gothic", "YuGothic", Meiryo, "Hiragino Sans", "Noto Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", sans-serif;
     color: #1a1a1a; }
   body { line-height: 1.65; font-size: 10pt; }
   code, pre, kbd, samp { font-family: "Noto Sans Mono CJK JP", Consolas, "BIZ UDGothic", "MS Gothic", "DejaVu Sans Mono", monospace; }
@@ -215,14 +262,14 @@ function documentCss(properties: DocumentProperties, title: string): string {
   thead { display: table-header-group; }
   tr { break-inside: avoid; page-break-inside: avoid; }
   blockquote { margin: 0.8em 0; padding: 0.2em 0.9em; border-left: 3pt solid #b0b0b0; color: #333; }
-  @page { size: ${size}; margin: 20mm 18mm 18mm;
+  @page { size: ${size}; margin: ${top} ${right} ${bottom} ${left};
     @top-left { font-size: 8pt; color: #555; }
     @top-right { font-size: 8pt; }
     @bottom-left { font-size: 8pt; color: #555; }
     @bottom-center { font-size: 9pt; }
     ${runningBoxes}
   }
-  @page landscape { size: ${size} landscape; }
+  @page landscape { size: ${size} landscape; }${gutter}
   @page portrait { size: ${size} portrait; }
   @page mmi-cover { @top-left { content: none; } @top-right { content: none; } @bottom-left { content: none; } @bottom-center { content: none; } }
   .mmi-cover { page: mmi-cover; break-after: page; display: flex; flex-direction: column; min-height: 240mm; }

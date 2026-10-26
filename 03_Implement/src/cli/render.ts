@@ -22,6 +22,8 @@ export interface RenderOptions {
   markdownFilePath: string;
   workspaceRoot: string;
   cache?: WorkbookCache<WorkbookData>;
+  /** Extra style sheets (`mmi render --css`), appended after the defaults and the front matter `css`. */
+  userCss?: string[];
 }
 
 export class RenderError extends Error {}
@@ -41,13 +43,40 @@ export function renderDocumentHtml(options: RenderOptions): string {
   const css = cssUrl ? fs.readFileSync(cssUrl, 'utf8') : '';
   let html: string;
   try {
-    html = buildDocumentHtml(md, fs.readFileSync(options.markdownFilePath, 'utf8'), {}, css);
+    html = buildDocumentHtml(md, fs.readFileSync(options.markdownFilePath, 'utf8'), {}, css, (refs) => loadUserCss(options, refs));
   } catch (error) {
     if (error instanceof FrontMatterError) throw new RenderError(error.message);
     throw error;
   }
   if (html.includes('class="mmi-error"')) throw new RenderError('MMI reference errors must be resolved before export. Run `mmi check`.');
   return html;
+}
+
+const USER_CSS_MAX_BYTES = 256 * 1024;
+
+/**
+ * Reads the customer's style sheets. They are inlined into the exported HTML, so each file must stay inside
+ * the workspace, stay small, and not pull anything in by URL: a delivered document must render the same
+ * offline, and an @import or http(s) url() would send the reader's PDF generator to the network.
+ */
+function loadUserCss(options: RenderOptions, frontMatterRefs: string[]): string {
+  const refs = [...frontMatterRefs.map((ref) => ({ ref, base: options.markdownFilePath })), ...(options.userCss ?? []).map((ref) => ({ ref, base: path.join(options.workspaceRoot, '__mmi_css__.md') }))];
+  return refs.map(({ ref, base }) => {
+    let file: string;
+    try {
+      file = resolveSourcePath({ markdownFilePath: base, sourcePath: ref, workspaceRoot: options.workspaceRoot });
+    } catch (error) {
+      throw new RenderError(`css ${ref}: ${cliErrorText(error)}`);
+    }
+    const stat = fs.statSync(file);
+    if (!stat.isFile() || stat.size > USER_CSS_MAX_BYTES) throw new RenderError(`css ${ref}: must be a regular file of at most ${USER_CSS_MAX_BYTES / 1024} KB`);
+    const text = fs.readFileSync(file, 'utf8').replace(/^﻿/, '');
+    if (/@import\b/i.test(text) || /url\(\s*['"]?\s*(?:[a-z][a-z0-9+.-]*:(?!image\/|font\/|application\/font)|\/\/)/i.test(text)) {
+      throw new RenderError(`css ${ref}: @import and external url() are not allowed; use a data: URI or install the font`);
+    }
+    if (/<\/style/i.test(text)) throw new RenderError(`css ${ref}: must not contain </style`);
+    return `/* ${path.basename(file).replace(/\*\//g, '')} */\n${text}`;
+  }).join('\n');
 }
 
 export function renderDocumentMarkdown(options: RenderOptions): string {
