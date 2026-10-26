@@ -276,6 +276,19 @@ func TestXLSEmptyConformanceCase(t *testing.T) {
 	}
 }
 
+func TestXLSSingleConformanceCase(t *testing.T) {
+	actualResponse := runConformanceCase(
+		t,
+		"xlsx-single.case.json",
+	)
+	if got := actualResponse.Candidates[0].Locator.Range; got != "A1" {
+		t.Fatalf("range mismatch: %s", got)
+	}
+	if got := actualResponse.Candidates[0].Reference; got != "![[./fixture.xlsx#Sheet1|A1]]" {
+		t.Fatalf("reference mismatch: %s", got)
+	}
+}
+
 func TestCP932ConformanceCase(t *testing.T) {
 	actualResponse := runConformanceCase(
 		t,

@@ -155,6 +155,10 @@ test('portable Core XLSX empty sheet yields no candidates', () => {
   assertConformanceCase(readCase('xlsx-empty.case.json'));
 });
 
+test('portable Core XLSX single cell yields one candidate', () => {
+  assertConformanceCase(readCase('xlsx-single.case.json'));
+});
+
 test('portable Core CSV CP932 conformance case', () => {
   assertConformanceCase(readCase('cp932-table.case.json'));
 });
