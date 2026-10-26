@@ -1,4 +1,4 @@
-# Issue: external XLSX由来snapshotでfill review telemetryを再評価する
+# Issue: 外部生成XLSXから読み取ったsnapshotで塗りつぶしのレビュー用観測情報を再評価する
 
 ## Meta
 - Type: Evaluation / Runtime boundary evidence
@@ -16,11 +16,13 @@
 - Related: issue-0135〜0138 Cognitive Assistance Plane
 - Evaluation helper: `worksheetFormatFillReviewTelemetry.ts`
 
+本Issueは、LibreOfficeで最終保存した外部生成XLSXの固定fixtureを読み取り、**fill review telemetry**（塗りつぶしに関するレビュー用観測情報）の評価条件を整理した履歴記録である。**snapshot**はreaderが取得した表の構造・書式情報、**paired replay**は同じ観測を「構造と塗りつぶし」と「構造のみ」で対比較する方法、**reason code**は判定に関係する理由の分類名を指す。実際の顧客Workbookの母集団を調査した記録ではなく、外部送信や実データ利用への同意を確認した証拠もここには含まれない。記載の9ケースはfixture由来の期待値であり、当時の作業環境でruntime testが成功したことを示すものではない。
+
 ## 背景
 
 issue-0139では6列・8列のsynthetic snapshot 20ケースでfill review telemetryを評価した。
 
-高影響reason code:
+判定への影響が大きいreason codeとして、次の分類を用いた。
 
 - fill-supported-acceptance
 - fill-supported-disambiguation
@@ -29,11 +31,11 @@ issue-0139では6列・8列のsynthetic snapshot 20ケースでfill review telem
 - fill-changed-winner
 - fill-unavailable-for-discrimination
 
-は有望だったが、synthetic snapshotだけでは採用根拠にならない。
+これらは有望だったが、合成snapshotでの結果だけでは採用根拠として十分ではない。
 
-一方、issue-0132 / 0133ではLibreOfficeが最終保存したactual XLSX fixtureを既に保持している。
+一方、issue-0132 / 0133では、LibreOfficeが最終保存した実際のXLSXバイト列を固定fixtureとして保持している。
 
-そこで今回は、
+そこで今回は、次の読取・比較・観測の経路を一続きの評価対象とする。
 
 ```text
 external XLSX bytes
@@ -47,7 +49,7 @@ external XLSX bytes
 
 ## 他レーンとの競合回避
 
-作業開始時のmain:
+当時の作業開始時点のmain:
 
 ```text
 8bf49cdc989a5e1a0521c61f423dd8acfa6f5a11
@@ -106,13 +108,13 @@ fill除去以外の:
 
 ## なぜheader textやstructureを人工変更しないのか
 
-今回の目的はissue-0139の全taxonomyを再現することではなく、
+今回の目的は、issue-0139で定義した全分類を再現することではなく、
 
 > 外部XLSX reader境界を通してもhigh-impact / broad-factの意味分離が保たれるか
 
 を確認することである。
 
-そのため最初のpractical corpusでは、外部fixtureに元から存在する。
+そのため、最初の実務寄り評価データ群では、外部fixtureにもともと存在する次の特徴を優先する。
 
 - dark / light fill差
 - gapped header
@@ -152,7 +154,7 @@ structure + fill:
 fill-supported-disambiguation
 ```
 
-これはissue-0139のsynthetic fill-only discriminationをactual XLSX由来snapshotへ移す最重要ケース。
+これは、issue-0139で合成データを使って評価した「塗りつぶしだけによる候補識別」を、実XLSXから取得したsnapshotで確かめるための重要なケースである。
 
 ## Expected boundary 2: essential unavailable
 
@@ -239,11 +241,7 @@ fill-unavailable
 
 を持つ。
 
-external practical corpusでも、
-
-> fill unavailable = review
-
-とはできないことを再確認する。
+外部XLSX由来の実務寄り評価データでも、「塗りつぶし情報が取得できない」という事実だけをレビュー必須の条件にはできないことを再確認する。
 
 ## Encoded metrics
 
@@ -303,7 +301,7 @@ recall    1.000000
 FPR       0.428571
 ```
 
-これらはrepository runtime testへ固定する期待値であり、現在環境で実行済みとは記録しない。
+これらの数値はrepositoryのruntime testに固定した期待値であり、この記録の作業環境で実行して得た実測結果ではない。
 
 ## 判断
 
@@ -317,7 +315,7 @@ reader経路固有の別taxonomyは作らない。
 
 issue-0135〜0138でprovider-neutral contractは整ったが、今回のreason codeをCognitiveSignalへ写像する変更は行わない。
 
-理由は次のとおりです。
+理由は次のとおり。
 
 - practical corpusが9ケースと小さい
 - high-impact taxonomyの全codeをexternal XLSXで確認していない
@@ -385,6 +383,6 @@ GitHub Actionsは既知runner/resource不足のため完了条件にしない。
 
 を実XLSX由来で確認すること。
 
-そのためには「同じ実務templateでlabel driftやstyle driftを持つ複数external workbook」が必要。
+そのためには、同じ実務templateを基に、ラベルや書式に変化のある複数の外部生成Workbookを用意する必要がある。
 
 そこまで再現した後、Cognitive Contract側のFly Perception signal provenanceに**deterministic review reason**として添付すべきかをissue-0136以降の契約と照合する。
