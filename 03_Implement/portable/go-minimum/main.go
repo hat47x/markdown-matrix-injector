@@ -15,6 +15,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"time"
 	"strconv"
 	"strings"
 	"unicode/utf16"
@@ -1308,11 +1309,210 @@ func parseXMLSpreadsheet2003Sheets(data []byte) ([]xlsxSheet, error) {
 	return result, nil
 }
 
+
+// parseXLSXStyles parses xl/styles.xml and returns numFmtId per cellXfs index
+// and custom format codes. Provisional implementation for #506.
+func parseXLSXStyles(reader *zip.Reader) (map[int]int, map[int]string) {
+	xfNumFmt := map[int]int{}
+	numFmts := map[int]string{}
+	builtin := map[int]string{
+		0: "General", 1: "0", 2: "0.00", 3: "#,##0", 4: "#,##0.00",
+		9: "0%", 10: "0.00%", 14: "mm-dd-yy", 15: "d-mmm-yy",
+		16: "d-mmm", 17: "mmm-yy", 22: "m/d/yy h:mm", 49: "@",
+	}
+	for k, v := range builtin {
+		numFmts[k] = v
+	}
+	for _, f := range reader.File {
+		if f.Name != "xl/styles.xml" {
+			continue
+		}
+		rc, err := f.Open()
+		if err != nil {
+			continue
+		}
+		dec := xml.NewDecoder(rc)
+		inCellXfs := false
+		inNumFmts := false
+		xfIndex := 0
+		for {
+			tok, err := dec.Token()
+			if err != nil {
+				break
+			}
+			switch v := tok.(type) {
+			case xml.StartElement:
+				switch v.Name.Local {
+				case "numFmts":
+					inNumFmts = true
+				case "numFmt":
+					if inNumFmts {
+						var id int
+						var code string
+						for _, a := range v.Attr {
+							if a.Name.Local == "numFmtId" {
+								id, _ = strconv.Atoi(a.Value)
+							}
+							if a.Name.Local == "formatCode" {
+								code = a.Value
+							}
+						}
+						if code != "" {
+							numFmts[id] = code
+						}
+					}
+				case "cellXfs":
+					inCellXfs = true
+				case "xf":
+					if inCellXfs {
+						numFmtId := 0
+						for _, a := range v.Attr {
+							if a.Name.Local == "numFmtId" {
+								numFmtId, _ = strconv.Atoi(a.Value)
+							}
+						}
+						xfNumFmt[xfIndex] = numFmtId
+						xfIndex++
+					}
+				}
+			case xml.EndElement:
+				switch v.Name.Local {
+				case "numFmts":
+					inNumFmts = false
+				case "cellXfs":
+					inCellXfs = false
+				}
+			}
+		}
+		rc.Close()
+	}
+	return xfNumFmt, numFmts
+}
+
+// applyNumberFormat applies a basic Excel number format to a raw value.
+// Provisional: handles General, integers, decimals, and date serials.
+func applyNumberFormat(raw, formatCode string) string {
+	raw = strings.TrimSpace(raw)
+	if raw == "" || formatCode == "" || formatCode == "General" || formatCode == "@" {
+		return raw
+	}
+	lower := strings.ToLower(formatCode)
+	isDate := strings.ContainsAny(lower, "ydh")
+	if isDate {
+		var serial float64
+		if _, err := fmt.Sscanf(raw, "%f", &serial); err != nil {
+			return raw
+		}
+		var days int
+		if serial >= 60 && serial < 61 {
+			days = 60
+		} else if serial > 60 {
+			days = int(serial)
+		} else {
+			days = int(serial) + 1
+		}
+		tt := time.Date(1899, 12, 30, 0, 0, 0, 0, time.UTC).AddDate(0, 0, days)
+		frac := serial - float64(int(serial))
+		hour, minute, second := 0, 0, 0
+		if frac > 0 {
+			totalSec := int(frac * 86400)
+			hour = totalSec / 3600
+			minute = (totalSec % 3600) / 60
+			second = totalSec % 60
+		}
+		result := ""
+		i := 0
+		for i < len(formatCode) {
+			if i+4 <= len(formatCode) && formatCode[i:i+4] == "yyyy" {
+				result += fmt.Sprintf("%04d", tt.Year())
+				i += 4
+				continue
+			}
+			if i+2 <= len(formatCode) && formatCode[i:i+2] == "yy" {
+				result += fmt.Sprintf("%02d", tt.Year()%100)
+				i += 2
+				continue
+			}
+			if i+2 <= len(formatCode) && formatCode[i:i+2] == "mm" {
+				result += fmt.Sprintf("%02d", tt.Month())
+				i += 2
+				continue
+			}
+			if i < len(formatCode) && formatCode[i] == 'm' {
+				result += fmt.Sprintf("%d", tt.Month())
+				i++
+				continue
+			}
+			if i+2 <= len(formatCode) && formatCode[i:i+2] == "dd" {
+				result += fmt.Sprintf("%02d", tt.Day())
+				i += 2
+				continue
+			}
+			if i < len(formatCode) && formatCode[i] == 'd' {
+				result += fmt.Sprintf("%d", tt.Day())
+				i++
+				continue
+			}
+			if i+2 <= len(formatCode) && formatCode[i:i+2] == "hh" {
+				result += fmt.Sprintf("%02d", hour)
+				i += 2
+				continue
+			}
+			if i < len(formatCode) && formatCode[i] == 'h' {
+				result += fmt.Sprintf("%d", hour)
+				i++
+				continue
+			}
+			if i+2 <= len(formatCode) && formatCode[i:i+2] == "ss" {
+				result += fmt.Sprintf("%02d", second)
+				i += 2
+				continue
+			}
+			if i < len(formatCode) && formatCode[i] == 's' {
+				result += fmt.Sprintf("%d", second)
+				i++
+				continue
+			}
+			result += string(formatCode[i])
+			i++
+		}
+		if result == formatCode {
+			if frac > 0 {
+				return fmt.Sprintf("%04d-%02d-%02d %02d:%02d:%02d", tt.Year(), tt.Month(), tt.Day(), hour, minute, second)
+			}
+			return fmt.Sprintf("%04d-%02d-%02d", tt.Year(), tt.Month(), tt.Day())
+		}
+		return result
+	}
+
+	// Number formatting: count decimal places
+	if strings.Contains(formatCode, ".") {
+		parts := strings.SplitN(formatCode, ".", 2)
+		decimals := 0
+		for _, ch := range parts[1] {
+			if ch == '0' || ch == '#' {
+				decimals++
+			} else {
+				break
+			}
+		}
+		var val float64
+		if _, err := fmt.Sscanf(raw, "%f", &val); err != nil {
+			return raw
+		}
+		return fmt.Sprintf("%.*f", decimals, val)
+	}
+	return raw
+}
+
 func parseXLSXSheets(data []byte) ([]xlsxSheet, error) {
 	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return nil, fmt.Errorf("xlsx is not a zip archive: %w", err)
 	}
+
+	// Parse styles for number format application.
+	xfNumFmt, numFmts := parseXLSXStyles(reader)
 
 	// Read shared strings.
 	shared := []string{}
@@ -1529,12 +1729,16 @@ func parseXLSXSheets(data []byte) ([]xlsxSheet, error) {
 				continue
 			}
 			var ref, t string
+			styleIdx := -1
 			for _, a := range se.Attr {
 				if a.Name.Local == "r" {
 					ref = a.Value
 				}
 				if a.Name.Local == "t" {
 					t = a.Value
+				}
+				if a.Name.Local == "s" {
+					styleIdx, _ = strconv.Atoi(a.Value)
 				}
 			}
 			var v, isText string
@@ -1610,6 +1814,17 @@ func parseXLSXSheets(data []byte) ([]xlsxSheet, error) {
 				value = isText
 			default:
 				value = v
+			}
+			// Apply number format if a style is present.
+			if styleIdx >= 0 && xfNumFmt != nil {
+				numFmtId, ok := xfNumFmt[styleIdx]
+				if ok {
+					formatCode := ""
+					if numFmts != nil {
+						formatCode = numFmts[numFmtId]
+					}
+					value = applyNumberFormat(value, formatCode)
+				}
 			}
 			rows[rowNum][colNum] = value
 		}
