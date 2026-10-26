@@ -23,7 +23,7 @@ evidence（比較に用いる根拠）の種類に応じてfeature（特徴）�
 
 ## 4. Fill facts
 
-review reason（確認理由）の分類に必要なprototype fill tone（試作表現における塗りつぶしの色調）は、approved Profileのcanonical featuresから取得する。
+review reason（確認理由）の分類に必要なprototype fill tone（照合の基準となるprototypeが持つ塗りつぶしの色調）は、approved Profileのcanonical featuresから取得する。
 その分類にraw baseline cell（基準シートの個々の生セル）やsnapshot全体を改めて用いる必要はない。
 
 meaningful fill fact（分類に使う塗りつぶしの特徴）は、header:dark-fill / header:gray-fill / header:light-fillとする。
