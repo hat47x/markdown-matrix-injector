@@ -1,5 +1,7 @@
 # Markdown Matrix Injector（MMI）
 
+![Markdown Matrix Injector（MMI）のブランディングイメージ](04_Documentation/assets/mmi-branding-image.png)
+
 > 本リポジトリは、生成AIを用いた初期開発中のソースコードを公開するものです。現時点で人的レビューを伴っておらず、仕様や実装は変更される場合があります。
 
 **ExcelやCSVで管理している表を、元ファイルを残したままMarkdown文書に表示するためのソフトウェアです。**
