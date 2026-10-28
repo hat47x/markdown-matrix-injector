@@ -8,6 +8,7 @@ import ts from 'typescript';
 
 import { verifyCliPackage } from './verify-cli-package.mjs';
 import { spawnPlan } from './npm-spawn.mjs';
+import { collectRuntimeClosure } from './runtime-closure.mjs';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_PROJECT_ROOT = path.resolve(SCRIPT_DIR, '..');
@@ -53,6 +54,28 @@ export function createCliPackageManifest(sourcePackage) {
     ],
     dependencies,
     bundleDependencies: true,
+  };
+}
+
+/**
+ * tarballの隣へ保存する、同梱物の機械可読な一覧（mmi.cli-package-manifest/v1）。
+ * 外部の配布マニフェスト（TAIのシリーズ配布など）が、同梱依存の版とライセンス、
+ * tarballのSHA-256、作成環境を手で転記せずに引けるようにする。
+ * 時刻は含めない。同じ入力からは同じ内容になる。
+ */
+export function createDistributionManifest({
+  sourcePackage,
+  lock,
+  tarballName,
+  digest,
+  environment = { node: process.version, platform: process.platform, arch: process.arch },
+}) {
+  return {
+    schema: 'mmi.cli-package-manifest/v1',
+    package: { name: sourcePackage.name, version: sourcePackage.version, license: sourcePackage.license },
+    tarball: { name: tarballName, sha256: digest.replace(/^sha256:/u, '') },
+    builtWith: { node: environment.node, platform: environment.platform, arch: environment.arch },
+    runtimeDependencies: collectRuntimeClosure(lock),
   };
 }
 
@@ -244,6 +267,22 @@ export function buildCliPackage(options = {}) {
     `${digest.slice('sha256:'.length)}  ${path.basename(tarballPath)}\n`,
   );
 
+  const manifestPath = `${tarballPath}.manifest.json`;
+  fs.writeFileSync(
+    manifestPath,
+    `${JSON.stringify(
+      createDistributionManifest({
+        sourcePackage: JSON.parse(staged.sourcePackageText),
+        lock: JSON.parse(fs.readFileSync(staged.sourceLockPath, 'utf8')),
+        tarballName: path.basename(tarballPath),
+        digest,
+      }),
+      null,
+      2,
+    )}
+`,
+  );
+
   let verification;
   try {
     verification = options.verify === false
@@ -261,6 +300,7 @@ export function buildCliPackage(options = {}) {
     tarballPath,
     digest,
     digestPath,
+    manifestPath,
     npmPackReport: report[0],
     ...(verification ? { verification } : {}),
   };
@@ -391,6 +431,7 @@ export function verifyTarballOrRemove(
   } catch (error) {
     fs.rmSync(tarballPath, { force: true });
     fs.rmSync(digestPath, { force: true });
+    fs.rmSync(`${tarballPath}.manifest.json`, { force: true });
     throw error;
   }
 }
@@ -435,6 +476,7 @@ if (isMainModule()) {
       `${JSON.stringify({
         tarball: result.tarballPath,
         sha256: result.digest,
+        manifest: result.manifestPath,
         runtimeFiles: result.runtimeFiles,
         bundled: result.npmPackReport?.bundled ?? [],
         verification: result.verification ?? null,
