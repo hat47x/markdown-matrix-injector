@@ -67,8 +67,8 @@
 | 要求 | 状態 | 現状 | 確認方法 |
 |---|---|---|---|
 | 作成者の環境情報を出さない | ● | 別紙カードは相対パスだけを出す。HTMLにも絶対パスと外部アプリ起動リンクを入れない | 単体テスト、HTMLとPDFの文字列検査 |
-| PDF/A（長期保存） | ◐ | WeasyPrintの`--pdf-variant pdf/a-2b`で生成できる。外部の検証ツールでは確かめていない | pdfinfo（XMP metadataあり） |
-| タグ付きPDF（読み上げ） | ◐ | `--pdf-tags`で生成できる。外部の検証ツールでは確かめていない | pdfinfo（Tagged: yes） |
+| PDF/A（長期保存） | ● | WeasyPrintの`--pdf-variant pdf/a-2b`または`pdf/a-2a`で生成する。見本（14）はveraPDF 1.30.3でPDF/A-2b（144規則）・PDF/A-2a（153規則）とも違反なし。[検証記録](#pdfa・タグ付きpdfの検証記録) | veraPDF |
+| タグ付きPDF（読み上げ） | ● | `--pdf-tags`で生成する。`pdf/ua-1`の指定で、見本（14）はveraPDFのPDF/UA-1（106規則）に違反なし。画像・数式・フォームを含む文書は未確認 | veraPDF |
 | パスワード・印刷禁止などのセキュリティ | — | 設定しない。公共の電子納品や機関リポジトリの規程では、セキュリティを設定しないよう求める例が多い | — |
 | 電子署名・タイムスタンプ | ○ | MMIの範囲外。署名ツールで付ける | — |
 | 透かし（DRAFT、社外秘） | ○ | なし | — |
@@ -81,6 +81,30 @@
 | 改訂箇所を示す（改訂マーク、新旧対照表） | ○ | なし |
 | 1回のコマンドでPDFまで作る、複数文書を一括で作る | ○ | `mmi render`とWeasyPrintを文書ごとに実行する |
 | 同じ版から同じPDFを再生成できる | ○ | 確かめていない。フォントや生成器の版で結果が変わりうる |
+
+## PDF/A・タグ付きPDFの検証記録
+
+2026-10-28、[veraPDF](https://verapdf.org/) 1.30.3（Dockerイメージ`verapdf/cli`）で、見本`14-delivery.pdf`の元のHTMLをWeasyPrint 69.0の3種類の指定でPDFにして検査した。
+
+| WeasyPrintの指定 | 検査した形式 | 結果 |
+|---|---|---|
+| `--pdf-variant pdf/a-2b --pdf-tags` | PDF/A-2b | 144規則に合格、違反0 |
+| `--pdf-variant pdf/a-2a --pdf-tags` | PDF/A-2a | 153規則に合格、違反0 |
+| `--pdf-variant pdf/ua-1 --pdf-tags` | PDF/UA-1 | 106規則に合格、違反0 |
+
+- 1つのPDFに書ける形式は、WeasyPrintでは1つだけである。PDF/Aの指定ではPDF/UAの識別情報が入らず、PDF/UAの指定ではPDF/Aの識別情報が入らない。保存とアクセシビリティの両方が必要な場合は、アクセシビリティも保てるPDF/A-2aを選ぶか、2つのPDFを作る。
+- この検査で、MMIの出力に直すべき点が1つ見つかった。表紙の文書名が`div`で、文書の最初の見出しが`h2`になるため、PDF/UA-1の見出しの規則（7.4.2）に違反していた。表紙の文書名を`h1`にして解消した。
+- 検査の対象は、画像・数式・フォームを含まない見本1点である。画像を含む文書は、代替テキストが必要になるため、別に確かめる。
+- veraPDFが確かめるのは、機械で判定できる規則だけである。読み上げの順序や代替テキストの内容など、人が確かめる項目は含まない。
+
+検査のコマンドは次のとおりである（DockerとWeasyPrintが要る）。
+
+```bash
+weasyprint --pdf-variant pdf/a-2a --pdf-tags 文書.html 文書.pdf
+docker run --rm -v "$PWD":/data verapdf/cli:latest -f 2a --format text /data/文書.pdf
+```
+
+`-f`には`2b`（PDF/A-2b）、`2a`（PDF/A-2a）、`ua1`（PDF/UA-1）を指定する。
 
 ## 実装の要点
 
@@ -95,7 +119,7 @@
 
 1. 顧客指定の様式に合わせる。CSSの追加とフォント・余白・綴じ代の指定は対応した（[#635](https://github.com/hat47x/markdown-matrix-injector/issues/635)）。表紙の差し替えが残っている。SIerの案件では、発注者の様式が決まっていることが多い。
 2. Word（.docx）で納品する。発注者が編集可能な形式を求める場合に必要になる。Pandocを使う経路の体裁を確かめるか、自前で出力するかを決める（[#636](https://github.com/hat47x/markdown-matrix-injector/issues/636)）。
-3. PDF/Aとタグ付きPDFの適合を確かめる。veraPDFなどで検査し、満たせない条件を利用者向けに書く。あわせて、PDFまで1回のコマンドで作る経路と、複数文書の一括出力を検討する（[#637](https://github.com/hat47x/markdown-matrix-injector/issues/637)）。
+3. PDFまで1回のコマンドで作る経路と、複数文書の一括出力を検討する。PDF/Aとタグ付きPDFの適合は見本1点で確かめた。画像を含む文書の確認が残っている（[#637](https://github.com/hat47x/markdown-matrix-injector/issues/637)）。
 4. 改訂箇所を示す。前の版との差分から、改訂マークや新旧対照表を作る（[#638](https://github.com/hat47x/markdown-matrix-injector/issues/638)）。
 5. 図表番号を自動で振り、相互参照にページ番号を添える（[#639](https://github.com/hat47x/markdown-matrix-injector/issues/639)）。表の通し番号とリンクのページ番号は対応し、WeasyPrint 69.0でのPDFでも確かめた（2026-10-27）。章別の番号（表1-1）が残る。
 

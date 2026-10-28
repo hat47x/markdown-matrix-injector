@@ -248,7 +248,7 @@
   thead { display: table-header-group; }
   tr { break-inside: avoid; page-break-inside: avoid; }
   blockquote { margin: 0.8em 0; padding: 0.2em 0.9em; border-left: 3pt solid #b0b0b0; color: #333; }
-  @page { size: A4; margin: 20mm 18mm 18mm;
+  @page { size: A4; margin: 20mm 18mm 18mm 18mm;
     @top-left { font-size: 8pt; color: #555; }
     @top-right { font-size: 8pt; }
     @bottom-left { font-size: 8pt; color: #555; }
@@ -267,7 +267,7 @@
   .mmi-cover__customer { margin-top: 18mm; font-size: 14pt; }
   .mmi-cover__main { margin-top: 45mm; text-align: center; }
   .mmi-cover__subtitle { font-size: 14pt; margin-bottom: 0.6em; }
-  .mmi-cover__title { font-size: 26pt; font-weight: 700; margin-bottom: 1.2em; }
+  .mmi-cover__title { font-size: 26pt; font-weight: 700; margin: 0 0 1.2em; }
   .mmi-cover__version, .mmi-cover__date { font-size: 12pt; }
   .mmi-cover__foot { margin-top: auto; padding-top: 30mm; text-align: center; }
   .mmi-cover__organization { font-size: 14pt; margin-bottom: 10mm; }
@@ -282,7 +282,8 @@
   .mmi-toc a { color: inherit; text-decoration: none; }
   .mmi-toc a::after { content: leader(".") target-counter(attr(href url), page); }
   @media screen { body { max-width: 1100px; margin: 32px auto; padding: 0 24px; } .mmi-cover { min-height: auto; border-bottom: 1px solid #ccc; padding-bottom: 24px; } }
-</style></head><body><section class="mmi-cover"><div class="mmi-cover__head"><div class="mmi-cover__number">SD-APP-0001</div><div class="mmi-cover__classification">社外秘</div></div><div class="mmi-cover__customer">架空商事株式会社 御中</div><div class="mmi-cover__main"><div class="mmi-cover__subtitle">申請・承認システム更改プロジェクト</div><div class="mmi-cover__title">申請システム 基本設計書</div><div class="mmi-cover__version">第1.2版</div><div class="mmi-cover__date">2026年10月21日</div></div><div class="mmi-cover__foot"><div class="mmi-cover__organization">架空システムズ株式会社</div><table class="mmi-cover__approvals"><tr><th>承認</th><th>審査</th><th>作成</th></tr><tr><td></td><td></td><td></td></tr></table></div></section><nav class="mmi-toc"><div class="mmi-toc__title">目次</div><ol><li class="mmi-toc__item mmi-toc__item--h2"><a href="#mmi-section-1">改訂履歴</a></li><li class="mmi-toc__item mmi-toc__item--h2"><a href="#mmi-section-2">1. レビューで残った項目</a></li><li class="mmi-toc__item mmi-toc__item--h2"><a href="#mmi-section-3">2. 状態遷移</a></li><li class="mmi-toc__item mmi-toc__item--h2"><a href="#mmi-section-4">3. 別紙</a></li></ol></nav><main class="mmi-doc-body"><h2 id="mmi-section-1">改訂履歴</h2>
+
+</style></head><body><section class="mmi-cover"><div class="mmi-cover__head"><div class="mmi-cover__number">SD-APP-0001</div><div class="mmi-cover__classification">社外秘</div></div><div class="mmi-cover__customer">架空商事株式会社 御中</div><div class="mmi-cover__main"><div class="mmi-cover__subtitle">申請・承認システム更改プロジェクト</div><h1 class="mmi-cover__title">申請システム 基本設計書</h1><div class="mmi-cover__version">第1.2版</div><div class="mmi-cover__date">2026年10月21日</div></div><div class="mmi-cover__foot"><div class="mmi-cover__organization">架空システムズ株式会社</div><table class="mmi-cover__approvals"><tr><th>承認</th><th>審査</th><th>作成</th></tr><tr><td></td><td></td><td></td></tr></table></div></section><nav class="mmi-toc"><div class="mmi-toc__title">目次</div><ol><li class="mmi-toc__item mmi-toc__item--h2"><a href="#mmi-section-1">改訂履歴</a></li><li class="mmi-toc__item mmi-toc__item--h2"><a href="#mmi-section-2">1. レビューで残った項目</a></li><li class="mmi-toc__item mmi-toc__item--h2"><a href="#mmi-section-3">2. 状態遷移</a></li><li class="mmi-toc__item mmi-toc__item--h2"><a href="#mmi-section-4">3. 別紙</a></li></ol></nav><main class="mmi-doc-body"><h2 id="mmi-section-1">改訂履歴</h2>
 <p>改訂履歴はExcelやCSVで管理している台帳をそのまま参照します。版を上げるときは台帳に1行足すだけで、この表も更新されます。</p>
 <figure class="mmi-embed" id="revisions"><figcaption class="mmi-embed__caption">表1　改訂履歴</figcaption><table class="mmi-table"><thead><tr><th>版数</th><th>改訂日</th><th>改訂箇所</th><th>改訂内容</th><th>作成</th><th>承認</th></tr></thead><tbody><tr class="mmi-table__row"><td class="mmi-table__cell">第1.0版</td><td class="mmi-table__cell">2026/09/30</td><td class="mmi-table__cell">全体</td><td class="mmi-table__cell">初版発行</td><td class="mmi-table__cell">山田</td><td class="mmi-table__cell">鈴木</td></tr><tr class="mmi-table__row"><td class="mmi-table__cell">第1.1版</td><td class="mmi-table__cell">2026/10/14</td><td class="mmi-table__cell">2章</td><td class="mmi-table__cell">状態遷移ST-11・ST-12を追加</td><td class="mmi-table__cell">山田</td><td class="mmi-table__cell">鈴木</td></tr><tr class="mmi-table__row"><td class="mmi-table__cell">第1.2版</td><td class="mmi-table__cell">2026/10/21</td><td class="mmi-table__cell">1章・別紙1</td><td class="mmi-table__cell">残件の判定を更新、別紙1を差し替え</td><td class="mmi-table__cell">佐藤</td><td class="mmi-table__cell">鈴木</td></tr></tbody></table></figure><h2 id="mmi-section-2">1. レビューで残った項目</h2>
 <p>判定台帳から「要確認」の3件を表示します。</p>

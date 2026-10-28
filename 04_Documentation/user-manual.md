@@ -333,11 +333,12 @@ Markdownの先頭に文書情報（front matter）を書くと、表紙・承認
 
 ```bash
 npm run mmi -- render ../04_Documentation/samples/practical/14-delivery.md --to html -o ../04_Documentation/samples/practical/14-delivery.html --root ../04_Documentation/samples/practical
-weasyprint --pdf-variant pdf/a-2b --pdf-tags ../04_Documentation/samples/practical/14-delivery.html ../04_Documentation/samples/practical/14-delivery.pdf
+weasyprint --pdf-variant pdf/a-2a --pdf-tags ../04_Documentation/samples/practical/14-delivery.html ../04_Documentation/samples/practical/14-delivery.pdf
 ```
 
-`--pdf-variant pdf/a-2b`は長期保存向けのPDF/A-2b形式、`--pdf-tags`は見出しや表の構造を読み上げソフトへ伝えるタグを付ける指定です。どちらもWeasyPrintの機能です。
-見本はこの指定で作りました。ただし、PDF/Aやアクセシビリティの適合は外部の検証ツールで確かめていません。発注者が適合を求める場合は、veraPDFやAcrobatの検査で確かめてください。
+`--pdf-variant pdf/a-2a`は長期保存向けのPDF/A-2a形式、`--pdf-tags`は見出しや表の構造を読み上げソフトへ伝えるタグを付ける指定です。どちらもWeasyPrintの機能です。
+見本は、veraPDF 1.30.3でPDF/A-2a（153規則）に違反がないことを確かめています。`--pdf-variant pdf/ua-1`で作ると、PDF/UA-1（アクセシビリティ）にも違反がありませんでした。ただし1つのPDFに指定できる形式は1つです。
+画像を含む文書では代替テキストが必要になり、この確認には含まれていません。発注者が適合を求める場合は、veraPDFなどで検査してください（手順は [納品用PDF出力](../02_Architecture/delivery-pdf-output.md#pdfa・タグ付きpdfの検証記録) にあります）。
 フォントはPDFに埋め込まれます。PDFにパスワードや印刷禁止などのセキュリティは設定しません。
 
 発注者が書体・余白・綴じ代を指定する場合は、front matterの`font`・`margin`・`gutter`で指定できます。それより細かい体裁は、CSSファイルを`css`または`mmi render --css <file>`で渡します（既定の体裁を上書きします）。
