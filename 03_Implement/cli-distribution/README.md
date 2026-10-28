@@ -14,6 +14,8 @@ npm run package:cli
 
 `npm run build`の後、compiled CLI entryから相対module依存を再帰追跡し、CLIから到達できるruntime moduleだけを`artifacts/cli-package-stage/`へ組み立てます。production依存はリポジトリの`package-lock.json`に固定されたgraphを`npm ci --omit=dev`で導入し、npmの`bundleDependencies`を使って1つの`.tgz`へまとめます。成果物とSHA-256は`artifacts/cli-package/`へ出力します。stageはpack後に削除します。pack後のoffline smokeでは、`mmi schema candidate` / `ledger` / `review-decisions`で3つの公開契約を取得できること、表の`check` / `render`、JSON / XML / YAML Treeと静的HTMLの`inspect` / `extract`、複数断片の読み取り専用`html-plan`、共通ledgerへの記録を確認します。
 
+tarballの隣へ、同梱したruntime依存の名前・版・ライセンス、tarballのSHA-256、作成時のNode.js版とOS・CPUを`*.tgz.manifest.json`（`mmi.cli-package-manifest/v1`）として保存します。時刻は含めません。シリーズ配布のマニフェストを作る側は、この一覧を転記せずに引けます。`THIRD_PARTY_NOTICES.md`の依存一覧は`package-lock.json`から導いた閉包と照合し、食い違うと`test:cli-distribution`が失敗します。
+
 配布artifactには、CLIから到達するコンパイル済みMMI runtime、`markdown-it`、HTML5解析用`parse5`（および依存する`entities`）、SheetJS CE、プレビュー用CSS、MMIのLICENSE、第三者ライセンス表示を含めます。VS Code extension entry、experimental code、開発依存、TypeScript source、test、計画文書は通常のpackage内容に含めません。相対moduleが見つからない場合やcompiled root外を参照する場合はpack前に失敗します。
 
 生成したtarballは、その場で空の専用npm cacheを使った`npm install --offline`へ通します。インストールした`mmi`で`--help`、`--version`、3種の`schema`、`check`、`render`、JSON / XML / YAML Treeと静的HTMLの`inspect` / `extract`、`html-plan`を実行し、いずれかが失敗した場合は`package:cli`自体を失敗させます。

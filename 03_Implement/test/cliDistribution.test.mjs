@@ -3,10 +3,14 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { collectRuntimeClosure, parseNoticeClosure } from '../scripts/runtime-closure.mjs';
 
 import {
   collectRuntimeModuleGraph,
   createCliPackageManifest,
+  createDistributionManifest,
   relativeModuleSpecifiers,
   stageCliPackage,
   verifyTarballOrRemove,
@@ -365,3 +369,63 @@ function write(filepath, text) {
 function writeJson(filepath, value) {
   write(filepath, `${JSON.stringify(value, null, 2)}\n`);
 }
+
+const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+function readProjectLock() {
+  return JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, 'package-lock.json'), 'utf8'));
+}
+
+test('THIRD_PARTY_NOTICES lists exactly the runtime closure derived from the lock', () => {
+  const notices = fs.readFileSync(
+    path.join(PROJECT_ROOT, 'cli-distribution/THIRD_PARTY_NOTICES.md'),
+    'utf8',
+  );
+  const listed = parseNoticeClosure(notices);
+  const derived = collectRuntimeClosure(readProjectLock());
+  assert.ok(derived.length > 0);
+  assert.deepEqual(
+    listed.map(({ name, version, license, path: p }) => `${p} ${name}@${version} ${license}`).sort(),
+    derived.map(({ name, version, license, path: p }) => `${p} ${name}@${version} ${license}`).sort(),
+  );
+});
+
+test('runtime closure keeps same-name packages of different versions apart', () => {
+  const lock = {
+    packages: {
+      '': { dependencies: { a: '1', b: '1' } },
+      'node_modules/a': { version: '1.0.0', license: 'MIT', dependencies: { e: '^4' } },
+      'node_modules/b': { version: '1.0.0', license: 'ISC', dependencies: { e: '^6' } },
+      'node_modules/e': { version: '4.0.0', license: 'BSD-2-Clause' },
+      'node_modules/b/node_modules/e': { version: '6.0.0', license: 'BSD-2-Clause' },
+      'node_modules/dev-only': { version: '1.0.0', license: 'MIT', dev: true },
+    },
+  };
+  const closure = collectRuntimeClosure(lock);
+  assert.deepEqual(
+    closure.map((c) => `${c.name}@${c.version}`),
+    ['a@1.0.0', 'b@1.0.0', 'e@6.0.0', 'e@4.0.0'],
+  );
+});
+
+test('distribution manifest records bundled dependencies, tarball digest and build environment', () => {
+  const manifest = createDistributionManifest({
+    sourcePackage: { name: 'markdown-matrix-injector', version: '0.2.0', license: 'MIT' },
+    lock: readProjectLock(),
+    tarballName: 'markdown-matrix-injector-0.2.0.tgz',
+    digest: 'sha256:' + 'ab'.repeat(32),
+    environment: { node: 'v22.0.0', platform: 'linux', arch: 'x64' },
+  });
+  assert.equal(manifest.schema, 'mmi.cli-package-manifest/v1');
+  assert.equal(manifest.tarball.sha256, 'ab'.repeat(32));
+  assert.deepEqual(manifest.builtWith, { node: 'v22.0.0', platform: 'linux', arch: 'x64' });
+  const names = manifest.runtimeDependencies.map((d) => d.name);
+  for (const required of ['markdown-it', 'parse5', 'saxes', 'xlsx', 'yaml', 'argparse']) {
+    assert.ok(names.includes(required), required);
+  }
+  assert.equal(
+    manifest.runtimeDependencies.find((d) => d.name === 'argparse').license,
+    'Python-2.0',
+  );
+  assert.ok(manifest.runtimeDependencies.every((d) => d.version && d.license !== 'UNKNOWN'));
+});
