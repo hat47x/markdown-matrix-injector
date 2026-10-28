@@ -202,3 +202,53 @@ test('parity fixture stays unchanged', () => {
   assert.deepEqual(fs.readFileSync(source), before);
   assert.deepEqual(fs.readFileSync(document), documentBefore);
 });
+
+test('select and find return the sourceDigest that inspect reports, and CLI and MCP agree', async () => {
+  const inspected = JSON.parse(runCli(['inspect', SOURCE, '--root', '.', '--json']).stdout);
+  const digests = new Set<string>(inspected.candidates.map((c: { locator: { sourceDigest: string } }) => c.locator.sourceDigest));
+  assert.equal(digests.size, 1);
+  const [digest] = [...digests];
+
+  const cli = runCli(['select', SOURCE, '--table', '機能一覧!A1:F11', '--json', '--root', '.']);
+  const mcp = JSON.parse(await callMcp('select', { source: SOURCE, table: '機能一覧!A1:F11' }));
+  assert.equal(mcp.sourceDigest, digest);
+  assert.deepEqual(mcp, JSON.parse(cli.stdout));
+
+  const found = JSON.parse(await callMcp('find', { query: '機能一覧' }));
+  const forSource = found.candidates.filter((c: { reference: string }) => c.reference.includes('基本設計.xlsx'));
+  assert.ok(forSource.length > 0);
+  for (const candidate of forSource) assert.equal(candidate.sourceDigest, digest);
+});
+
+test('expected source digest: a matching digest passes and a different one is refused, in CLI and MCP alike', async () => {
+  const digest: string = JSON.parse(await callMcp('select', { source: SOURCE, table: '機能一覧!A1:F11' })).sourceDigest;
+  const stale = `sha256:${'0'.repeat(64)}`;
+
+  const okCli = runCli(['select', SOURCE, '--table', '機能一覧!A1:F11', '--expected-source-digest', digest, '--json', '--root', '.']);
+  assert.equal(okCli.status, 0, okCli.stderr);
+  const okMcp = JSON.parse(await callMcp('select', { source: SOURCE, table: '機能一覧!A1:F11', expectedSourceDigest: digest }));
+  assert.equal(okMcp.result.ok, true);
+  assert.deepEqual(okMcp, JSON.parse(okCli.stdout));
+
+  const badCli = runCli(['select', SOURCE, '--table', '機能一覧!A1:F11', '--expected-source-digest', stale, '--json', '--root', '.']);
+  assert.equal(badCli.status, 1);
+  const badMcp = JSON.parse(await callMcp('select', { source: SOURCE, table: '機能一覧!A1:F11', expectedSourceDigest: stale }));
+  assert.deepEqual(badMcp, JSON.parse(badCli.stdout));
+  assert.equal(badMcp.result.ok, false);
+  assert.equal(badMcp.result.errors[0].code, 'SOURCE_DIGEST_MISMATCH');
+  assert.equal(badMcp.result.reference, undefined);
+  assert.equal(badMcp.sourceDigest, digest);
+
+  const inspectOk = JSON.parse(await callMcp('inspect', { source: SOURCE, expectedSourceDigest: digest }));
+  assert.deepEqual(inspectOk, JSON.parse(runCli(['inspect', SOURCE, '--root', '.', '--json', '--expected-source-digest', digest]).stdout));
+  await assert.rejects(callMcp('inspect', { source: SOURCE, expectedSourceDigest: stale }), /source digest mismatch/);
+  const inspectBad = runCli(['inspect', SOURCE, '--root', '.', '--json', '--expected-source-digest', stale]);
+  assert.equal(inspectBad.status, 1);
+  assert.equal(inspectBad.stdout, '');
+  assert.match(inspectBad.stderr, /source digest mismatch/);
+
+  // A malformed value is a usage error, not a mismatch.
+  assert.equal(runCli(['select', SOURCE, '--table', '機能一覧!A1:F11', '--expected-source-digest', 'abc', '--json', '--root', '.']).status, 2);
+  await assert.rejects(callMcp('select', { source: SOURCE, table: '機能一覧!A1:F11', expectedSourceDigest: 'abc' }), /SHA-256/);
+  await assert.rejects(callMcp('inspect', { source: SOURCE, expectedSourceDigest: 'abc' }), /SHA-256/);
+});
