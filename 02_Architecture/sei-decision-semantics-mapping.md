@@ -43,4 +43,5 @@ MMIの記録や責務の境界を、関連製品SEI（`hat47x/sei-cognition`）�
 - MMIのコード、テスト、配布物は、SEIの型やスキーマを読み込まない。対応が必要になったら、SEI側のadapterがMMIの出力（参照、診断、digest）を読む。
 - MMIは読み取り専用のままである。記法に新しいパラメータを加えず、コアはネットワークから取得せず、参照はワークスペース境界の中で解決する。
 - 認知機能の外部送信は、ADR-0018 D8のとおり明示的なopt-inのままとする。この対応は、SEIへの送信を求めない。
+- 判断記録の根拠（参照文字列、Source Identity v1、記法の版の組）が、正本を変えない場合は一致、変えた場合は不一致、移した場合は確かめられないになることは、`03_Implement/test/provenanceDecisionRecord.test.ts`が`mmi provenance`と同じ報告で確かめる。記法の版は報告に含まれないため、記録する側が添える。
 - 使い方は[記法仕様の付録](../04_Documentation/spec/mmi-notation-v1.md#付録-外部の判断記録で根拠を固定する非規範)、構造化資料の観測契約をv1へ上げる前の確認は[Structured Artifact Neutral Observation v0](structured-artifact-neutral-observation-v0.md)の§13、進め方は[issue-0192](https://github.com/hat47x/markdown-matrix-injector/issues/498)を参照する。
