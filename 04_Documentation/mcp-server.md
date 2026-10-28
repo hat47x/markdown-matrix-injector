@@ -70,6 +70,8 @@ MCP対応クライアントには、コマンドと引数を次の形で登録�
 | `validate-selection` | `proposal`（パスまたはJSON object）、`package` | `mmi validate-selection --json` |
 | `validate-transformation` | `proposal`（パスまたはJSON object）、`package`、`document` | `mmi validate-transformation --json` |
 
+`select`の`columns`と`in`は、原本の列記号（A、Cなど）ではなく、表の見出し名を受け取ります。`columns`は見出し名のカンマ区切り（例: `機能ID,機能名`）、`in`は`contains`を適用する見出し名1つで、`columns`で表示する列のいずれかでなければなりません。列記号を渡すと`COLUMN_NOT_FOUND`で失敗します。記法の`columns=A,C,F`が列記号を使うのとは別で、`mmi select --columns`・`--in`と同じ規則です。
+
 `inspect`は既定で構造だけを返します。セルの値が必要なときだけ`values`へ行数を指定します。これはCLIの`--values`と同じで、既定では値を含めません。
 
 `html-audit`は、既存の明示的な`html-commit`で使用したレビュー済みJSON計画を指定し、分割後の出力とLedgerを読み取り専用で再照合します。`complete/incomplete/stale/blocked`と各出力の診断を返します。`incomplete`はツール呼出しの失敗ではなく、有効な監査結果なので`isError=false`です。ワークスペース外のパス、不正な計画、解析不能なファイルはエラーとして扱います。保存用`html-commit`ツールは公開せず、`html-audit`に`commit`など未知の引数を渡した場合も拒否します。[CLIと手動確認手順](html-decomposition-audit.md)を参照してください。

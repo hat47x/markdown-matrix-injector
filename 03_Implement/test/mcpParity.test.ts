@@ -6,7 +6,7 @@ import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
-import { createMcpServer, MCP_PROTOCOL_VERSION } from '../src/cli/mcp.js';
+import { createMcpServer, MCP_PROTOCOL_VERSION, MCP_TOOL_NAMES } from '../src/cli/mcp.js';
 
 const KIT = fileURLToPath(new URL('../../04_Documentation/kits/basic-design', import.meta.url));
 const CLI = fileURLToPath(new URL('../src/cli/mmi.ts', import.meta.url));
@@ -106,6 +106,61 @@ test('select matches mmi select --json', async () => {
   assert.equal(cli.status, 0, cli.stderr);
   const mcp = await callMcp('select', { source: SOURCE, table: '機能一覧!A1:F11' });
   assert.deepEqual(JSON.parse(mcp), JSON.parse(cli.stdout));
+});
+
+test('select with columns, contains, in or first matches mmi select --json (headings, not letters)', async () => {
+  const cli = runCli([
+    'select', SOURCE, '--table', '機能一覧!A1:F11',
+    '--columns', '機能ID,機能名,概要', '--contains', 'ログイン', '--in', '機能名',
+    '--json', '--root', '.',
+  ]);
+  assert.equal(cli.status, 0, cli.stderr);
+  const mcp = await callMcp('select', {
+    source: SOURCE,
+    table: '機能一覧!A1:F11',
+    columns: '機能ID,機能名,概要',
+    contains: 'ログイン',
+    in: '機能名',
+  });
+  const parsed = JSON.parse(mcp);
+  assert.deepEqual(parsed, JSON.parse(cli.stdout));
+  assert.equal(parsed.result.ok, true);
+  assert.deepEqual(parsed.result.columns.map((c: { header: string }) => c.header), ['機能ID', '機能名', '概要']);
+  assert.ok(parsed.result.rows.shown >= 1);
+  const cliFirst = runCli(['select', SOURCE, '--table', '機能一覧!A1:F11', '--columns', '機能ID,機能名', '--first', '2', '--json', '--root', '.']);
+  assert.equal(cliFirst.status, 0, cliFirst.stderr);
+  const mcpFirst = JSON.parse(await callMcp('select', { source: SOURCE, table: '機能一覧!A1:F11', columns: '機能ID,機能名', first: 2 }));
+  assert.deepEqual(mcpFirst, JSON.parse(cliFirst.stdout));
+  assert.equal(mcpFirst.result.rows.shown, 2);
+});
+
+test('select rejects column letters the same way as the CLI, so the tools/list description must say headings', async () => {
+  const cli = runCli(['select', SOURCE, '--table', '機能一覧!A1:F11', '--columns', 'A,C', '--json', '--root', '.']);
+  const mcp = JSON.parse(await callMcp('select', { source: SOURCE, table: '機能一覧!A1:F11', columns: 'A,C' }));
+  assert.equal(mcp.result.ok, false);
+  assert.deepEqual(mcp, JSON.parse(cli.stdout));
+  const server = createMcpServer({ root: KIT, version: 'parity-test' });
+  await server.handleLine(JSON.stringify({ jsonrpc: '2.0', id: 1, method: 'initialize', params: { protocolVersion: MCP_PROTOCOL_VERSION, capabilities: {}, clientInfo: { name: 't', version: '0' } } }));
+  const listed = JSON.parse((await server.handleLine(JSON.stringify({ jsonrpc: '2.0', id: 2, method: 'tools/list' })))!);
+  const select = listed.result.tools.find((t: { name: string }) => t.name === 'select');
+  for (const key of ['columns', 'in']) {
+    const description: string = select.inputSchema.properties[key].description;
+    assert.match(description, /heading/i, `select.${key} description must say headings`);
+    assert.doesNotMatch(description, /source column letters?\./i);
+  }
+});
+
+test('tool names in tools/list, mcp-server.md and skills/mmi/SKILL.md agree', () => {
+  const root = fileURLToPath(new URL('../../', import.meta.url));
+  const names = [...MCP_TOOL_NAMES];
+  const doc = fs.readFileSync(path.join(root, '04_Documentation/mcp-server.md'), 'utf8');
+  const skill = fs.readFileSync(path.join(root, 'skills/mmi/SKILL.md'), 'utf8');
+  const docRows = [...doc.matchAll(/^\| `([a-z-]+)` \|/gm)].map((m) => m[1]);
+  assert.deepEqual([...new Set(docRows)].sort(), [...names].sort());
+  const line = skill.split(/\r?\n/).find((l) => l.startsWith('使えるのは'));
+  assert.ok(line, 'SKILL.md must list the available MCP tools');
+  const listed = [...line!.matchAll(/`([a-z-]+)`/g)].map((m) => m[1]);
+  for (const name of names) assert.ok(listed.includes(name), `SKILL.md misses tool ${name}`);
 });
 
 test('find matches mmi find --json', async () => {
