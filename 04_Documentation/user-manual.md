@@ -37,6 +37,8 @@ Excel・CSV・XMLの表を参照しながら、Markdownで設計書や運用手�
 元データの修正はExcelなど、普段使うツールで行います。原本を保存すると、開いているMarkdownがそのブックを参照している場合は、MMIがプレビューと診断を再確認します。表示が変わらないときは、コマンドパレットから`MMI: 参照中の表を再確認`を実行してください。詳しくは[Excelで保存した後に確認する](excel-markdown-authoring.md#excelで保存した後に確認する)に書いています。
 MMIには更新日時に基づく読み込みキャッシュがあります。正本と文書の変更を常時監視・自動通知する機能とは異なります。
 
+**改行コードと`sourceDigest`について。** `sourceDigest`は原本のbytesから取ります。改行を正規化しないため、同じ内容でもCRLFとLFのファイルでは別の値になります。Windowsの`core.autocrlf=true`で取得したチェックアウトでは、Gitが作業ツリーの改行をCRLFへ書き換えるため、リポジトリ内のLFのファイルとdigestが食い違うことがあります。同梱のサンプルとキット（`04_Documentation/kits`と`04_Documentation/samples`の`practical`・`sier-design`）は、`.gitattributes`で`eol=lf`を指定し、どの環境でも同じdigestになります。例外は`excel-cp932.csv`で、CP932とExcel由来のCRLFをそのまま保つため、このファイルだけ`-text`を指定しています。自分の原本（Excel・CSV・Markdown）を別の環境と照合するときは、改行が変わるとdigestも変わることを前提に、リポジトリ側で`.gitattributes`へ`eol=lf`を指定するか、digestを取った時点の版を記録してください。MMIは改行を正規化せず、原本を変更しません。
+
 ## 記法の基本
 
 ```md
