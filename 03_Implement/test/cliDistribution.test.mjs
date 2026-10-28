@@ -103,6 +103,7 @@ test('CLI distribution manifest contains runtime-only package contract', () => {
   assert.equal(manifest.bundleDependencies, true);
   assert.deepEqual(manifest.files, [
     'dist',
+    'build-identity.json',
     'media',
     'README.md',
     'LICENSE',
@@ -129,6 +130,16 @@ test('CLI staging copies compiled runtime and disclosure files, not extension ma
   });
 
   assert.equal(result.stageDirectory, stage);
+  const identity = JSON.parse(
+    fs.readFileSync(path.join(stage, 'build-identity.json'), 'utf8'),
+  );
+  assert.equal(identity.schema, 'mmi.build-identity/v1');
+  assert.equal(identity.distribution, 'tarball');
+  assert.ok(identity.commit === null || /^[0-9a-f]{40}$/u.test(identity.commit));
+  assert.ok(
+    identity.lockfileDigest === null
+      || /^sha256:[0-9a-f]{64}$/u.test(identity.lockfileDigest),
+  );
   assert.equal(fs.existsSync(path.join(stage, 'dist/src/cli/bootstrap.js')), true);
   assert.equal(fs.existsSync(path.join(stage, 'dist/src/cli/mcp.js')), true);
   assert.equal(fs.existsSync(path.join(stage, 'dist/src/cli/mmi.js')), true);
@@ -166,6 +177,7 @@ test('CLI staging copies compiled runtime and disclosure files, not extension ma
   assert.equal(manifest.bundleDependencies, true);
   assert.deepEqual(manifest.files, [
     'dist',
+    'build-identity.json',
     'media',
     'README.md',
     'LICENSE',
