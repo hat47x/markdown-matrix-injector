@@ -1,6 +1,6 @@
 # MCPサーバで読み取りと検証を提供する
 
-MMIは、利用者が選んだAIエージェントから読み取り・検証の操作を呼べるMCP（Model Context Protocol）サーバをstdioで提供します。サーバ名は`mmi-mcp`です。CLIと同じApplication層の関数を呼び、原本・台帳（ledger）・成果物を書き換えません。MMIから外部のLLMやネットワークへ送信する処理も持ちません。
+MMIは、利用者が選んだAIエージェントから読み取り・検証の操作を呼べるMCP（Model Context Protocol）サーバをstdioで提供します。起動コマンドは`mmi-mcp`で、`initialize`が返す`serverInfo.name`は`markdown-matrix-injector`です。CLIと同じApplication層の関数を呼び、原本・台帳（ledger）・成果物を書き換えません。MMIから外部のLLMやネットワークへ送信する処理も持ちません。
 
 この文書は実装済みの範囲を説明します。実際のAIエージェントからの接続と、基本設計書キットを使った価値の確認は未実施です（[#527](https://github.com/hat47x/markdown-matrix-injector/issues/527)）。読み取り専用にする設計判断は[ADR-0027](../01_Plans/adr/ADR-0027-read-only-mcp-agent-boundary.md)に記録しています。
 
@@ -22,7 +22,21 @@ mmi-mcp --root /path/to/workspace
 
 `--root`はワークスペースの境界です。省略すると起動時のカレントディレクトリになります。rootの外にあるパス、`..`による脱出、rootの外を指すsymlinkやjunctionは拒否します。
 
-`mmi-mcp --help`と`mmi-mcp --version`は、MCPの通信を始める前に結果を表示して終了します。
+`mmi-mcp --help`と`mmi-mcp --version`は、MCPの通信を始める前に結果を表示して終了します。`--version --json`は、次の「応答するビルドの識別」と同じ内容を1行のJSONで表示します。
+
+## 応答するビルドの識別
+
+接続側は、どのビルドに対して応答を得たかを`initialize`の結果から確かめられます。`result._meta["mmi/buildIdentity"]`が`mmi.build-identity/v1`を返します。`mmi --version --json`と`mmi-mcp --version --json`も同じ形です。
+
+| 項目 | 内容 |
+| --- | --- |
+| 版（`version`） | `package.json`の版。コミットごとには上がらないため、版番号だけではコミットを特定できません。 |
+| コミット（`commit`） | ビルド元のコミットSHA（40桁）。配布tarballは作成時のgit HEADを埋め込み、開発用チェックアウトは起動時の`git rev-parse HEAD`で求めます。取れないときは`null`です。チェックアウトでは未コミットの変更を反映しません。 |
+| lockfile digest（`lockfileDigest`） | `package-lock.json`の生バイト列のsha256（`sha256:<hex>`）。tarballは作成元のlockfileの値を埋め込みます。改行をCRLFへ変換したチェックアウトでは値が変わります。 |
+| Node.js（`node`） | 応答しているNode.jsの`version`と`major`。 |
+| 提供形態（`distribution`） | `tarball`（配布tarball）、`checkout`（開発用チェックアウト）、`unknown`。 |
+
+`serverInfo`は標準の`name`と`version`だけを返し、独自項目は`_meta`に置いています。Node.jsの対応版は`package.json`の`engines.node`（20以上）です。CIでの試験はNode.js 22です。
 
 ## クライアントの設定例
 

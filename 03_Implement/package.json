@@ -99,6 +99,7 @@
     "mmi-mcp": "./dist/src/cli/mcp.js"
   },
   "engines": {
+    "node": ">=20",
     "vscode": "^1.100.0"
   },
   "activationEvents": [
