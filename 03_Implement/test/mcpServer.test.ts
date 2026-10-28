@@ -10,6 +10,7 @@ import {
   MCP_PROTOCOL_VERSION,
   MCP_TOOL_NAMES,
   createMcpServer,
+  redactHostPaths,
   runMcpServer,
   type McpServer,
 } from '../src/cli/mcp.js';
@@ -338,4 +339,64 @@ test('runMcpServer reads one JSON message per line and writes one per response',
   assert.equal(lines.length, 2);
   assert.equal(lines[0].result.protocolVersion, '2024-11-05');
   assert.equal(lines[1].result.tools.some((tool: { name: string }) => tool.name === 'inspect'), true);
+});
+
+test('failed tool calls carry a structured code and no host absolute path', async () => {
+  const { root, document, outside } = fixture();
+  fs.writeFileSync(path.join(root, 'broken.json'), '{ not json');
+  const instance = server(root);
+  await initialize(instance);
+
+  const failure = (response: any): { code: string; message: string } => {
+    assert.equal(response.result.isError, true);
+    const detail = response.result.structuredContent;
+    assert.equal(detail.contract, 'mmi.mcp-error/v1');
+    assert.deepEqual(response.result._meta['mmi/error'], detail);
+    assert.equal(resultText(response), `mmi: ${detail.message}`);
+    // The workspace root and the temp directory are host paths.
+    assert.ok(!resultText(response).includes(root), 'root path leaked');
+    assert.ok(!resultText(response).includes(path.dirname(root)), 'host path leaked');
+    return detail;
+  };
+
+  const outsideRoot = failure(await call(instance, 'inspect', { source: '../outside.csv' }));
+  assert.equal(outsideRoot.code, 'outside-root');
+  assert.equal(failure(await call(instance, 'inspect', { source: outside })).code, 'outside-root');
+  assert.equal(failure(await call(instance, 'check', { paths: ['..'] })).code, 'outside-root');
+
+  const missing = failure(await call(instance, 'inspect', { source: 'data/nonexist.csv' }));
+  assert.equal(missing.code, 'not-found');
+  assert.match(missing.message, /nonexist\.csv/u);
+  assert.equal(failure(await call(instance, 'render', { document: 'nonexist.md' })).code, 'not-found');
+  assert.equal(failure(await call(instance, 'select', { source: 'data/nonexist.csv', table: 'A1:B2' })).code, 'not-found');
+
+  const broken = failure(await call(instance, 'validate-selection', {
+    proposal: 'broken.json',
+    package: 'broken.json',
+  }));
+  assert.equal(broken.code, 'parse-failed');
+
+  const stale = failure(await call(instance, 'inspect', {
+    source: 'data/roles.csv',
+    expectedSourceDigest: 'sha256:' + '0'.repeat(64),
+  }));
+  assert.equal(stale.code, 'digest-mismatch');
+
+  // A successful call carries no error detail.
+  const ok = await call(instance, 'inspect', { source: 'data/roles.csv', values: 1 });
+  assert.equal(ok.result.isError, false);
+  assert.equal(ok.result.structuredContent, undefined);
+  assert.ok(fs.existsSync(document));
+});
+
+test('redactHostPaths keeps root-relative paths and hides other absolute paths', () => {
+  const root = path.join(os.tmpdir(), 'ws');
+  assert.equal(
+    redactHostPaths(`ENOENT: no such file or directory, open '${path.join(root, 'data', 'a.csv')}'`, root),
+    "ENOENT: no such file or directory, open 'data" + path.sep + "a.csv'",
+  );
+  assert.equal(redactHostPaths("open 'C:\\Users\\y\\secret.csv'", root), "open '<path>'");
+  assert.equal(redactHostPaths("open '/home/x/secret.csv'", root), "open '<path>'");
+  assert.equal(redactHostPaths('Argument "source" is outside the MCP workspace root.', root),
+    'Argument "source" is outside the MCP workspace root.');
 });
