@@ -96,7 +96,7 @@
   "l10n": "./l10n",
   "bin": {
     "mmi": "./dist/src/cli/bootstrap.js",
-    "mmi-mcp": "./dist/src/cli/mcp.js"
+    "mmi-mcp": "./dist/src/cli/mcp-bootstrap.js"
   },
   "engines": {
     "node": ">=20",

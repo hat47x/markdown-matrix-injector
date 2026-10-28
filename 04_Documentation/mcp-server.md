@@ -22,6 +22,8 @@ mmi-mcp --root /path/to/workspace
 
 `--root`はワークスペースの境界です。省略すると起動時のカレントディレクトリになります。rootの外にあるパス、`..`による脱出、rootの外を指すsymlinkやjunctionは拒否します。
 
+`mmi-mcp`の入口は`dist/src/cli/mcp-bootstrap.js`です。Node.js 20未満で起動すると、SheetJS等の依存を読み込む前に、必要な版と現在の版を標準エラーへ出し、終了コード2で終わります。標準出力へは何も書きません。この版判定は`mmi`の入口（`bootstrap.js`）と同じ関数を使います。Node.js 18での実機の失敗内容は未確認で、偽の版番号を渡す単体テストで確認しています。
+
 `mmi-mcp --help`と`mmi-mcp --version`は、MCPの通信を始める前に結果を表示して終了します。`--version --json`は、次の「応答するビルドの識別」と同じ内容を1行のJSONで表示します。
 
 ## 応答するビルドの識別
