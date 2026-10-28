@@ -44,7 +44,7 @@ export function verifyCliPackage(tarballPath) {
   if (packageJson.bin?.mmi !== './dist/src/cli/bootstrap.js') {
     throw new Error('Installed CLI package does not expose the expected mmi binary.');
   }
-  if (packageJson.bin?.['mmi-mcp'] !== './dist/src/cli/mcp.js') {
+  if (packageJson.bin?.['mmi-mcp'] !== './dist/src/cli/mcp-bootstrap.js') {
     throw new Error('Installed CLI package does not expose the expected mmi-mcp binary.');
   }
 
@@ -446,7 +446,7 @@ ${versionJson.stderr || versionJson.stdout}`);
 
   // MCP smoke: initialize, tools/list and one read-only inspect, over the same
   // line-delimited stdio transport the installed package exposes.
-  const mcpEntry = path.join(packageRoot, 'dist', 'src', 'cli', 'mcp.js');
+  const mcpEntry = path.join(packageRoot, 'dist', 'src', 'cli', 'mcp-bootstrap.js');
   const mcp = runMcp(mcpEntry, [
     {
       jsonrpc: '2.0',

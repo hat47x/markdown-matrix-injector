@@ -35,7 +35,7 @@ export function createCliPackageManifest(sourcePackage) {
     type: 'module',
     bin: {
       mmi: './dist/src/cli/bootstrap.js',
-      'mmi-mcp': './dist/src/cli/mcp.js',
+      'mmi-mcp': './dist/src/cli/mcp-bootstrap.js',
     },
     engines: {
       node: '>=20',
@@ -104,7 +104,7 @@ export function stageCliPackage(options = {}) {
       `Compiled CLI bootstrap is missing: ${cliEntry}. Run npm run build:product first.`,
     );
   }
-  const mcpEntry = path.join(compiledRoot, 'cli', 'mcp.js');
+  const mcpEntry = path.join(compiledRoot, 'cli', 'mcp-bootstrap.js');
   if (!fs.existsSync(mcpEntry)) {
     throw new Error(
       `Compiled MCP entry is missing: ${mcpEntry}. Run npm run build:product first.`,
