@@ -83,6 +83,7 @@ test('cover, approvals, metadata and running header/footer come from front matte
   ].join('\n'));
   assert.match(html, /<section class="mmi-cover">/);
   assert.match(html, /<div class="mmi-cover__classification">社外秘<\/div>/);
+  assert.match(html, /<h1 class="mmi-cover__title">基本設計書<\/h1>/, 'the cover title is the first heading of the document (PDF/UA 7.4.2)');
   assert.match(html, /<table class="mmi-cover__approvals"><tr><th>承認<\/th><th>審査<\/th><th>作成<\/th><\/tr><tr><td><\/td><td><\/td><td><\/td><\/tr><\/table>/);
   assert.match(html, /<meta name="author" content="架空システムズ株式会社">/);
   assert.match(html, /<meta name="description" content="更改プロジェクト">/);

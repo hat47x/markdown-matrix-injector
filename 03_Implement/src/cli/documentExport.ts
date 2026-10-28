@@ -213,7 +213,7 @@ function renderCover(properties: DocumentProperties, title: string): string {
   return `<section class="mmi-cover">`
     + `<div class="mmi-cover__head">${field('mmi-cover__number', properties.documentNumber)}${field('mmi-cover__classification', properties.classification)}</div>`
     + field('mmi-cover__customer', properties.customer)
-    + `<div class="mmi-cover__main">${field('mmi-cover__subtitle', properties.subtitle)}${field('mmi-cover__title', title)}`
+    + `<div class="mmi-cover__main">${field('mmi-cover__subtitle', properties.subtitle)}${title ? `<h1 class="mmi-cover__title">${escapeHtml(title)}</h1>` : ''}`
     + `${field('mmi-cover__version', properties.version)}${field('mmi-cover__date', properties.date)}</div>`
     + `<div class="mmi-cover__foot">${field('mmi-cover__organization', properties.organization)}${approvals}</div>`
     + `</section>`;
@@ -284,7 +284,7 @@ function documentCss(properties: DocumentProperties, title: string): string {
   .mmi-cover__customer { margin-top: 18mm; font-size: 14pt; }
   .mmi-cover__main { margin-top: 45mm; text-align: center; }
   .mmi-cover__subtitle { font-size: 14pt; margin-bottom: 0.6em; }
-  .mmi-cover__title { font-size: 26pt; font-weight: 700; margin-bottom: 1.2em; }
+  .mmi-cover__title { font-size: 26pt; font-weight: 700; margin: 0 0 1.2em; }
   .mmi-cover__version, .mmi-cover__date { font-size: 12pt; }
   .mmi-cover__foot { margin-top: auto; padding-top: 30mm; text-align: center; }
   .mmi-cover__organization { font-size: 14pt; margin-bottom: 10mm; }
