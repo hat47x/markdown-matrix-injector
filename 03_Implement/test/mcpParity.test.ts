@@ -157,6 +157,15 @@ test('tool names in tools/list, mcp-server.md and skills/mmi/SKILL.md agree', ()
   const skill = fs.readFileSync(path.join(root, 'skills/mmi/SKILL.md'), 'utf8');
   const docRows = [...doc.matchAll(/^\| `([a-z-]+)` \|/gm)].map((m) => m[1]);
   assert.deepEqual([...new Set(docRows)].sort(), [...names].sort());
+  const adr = fs.readFileSync(path.join(root, '01_Plans/adr/ADR-0027-read-only-mcp-agent-boundary.md'), 'utf8');
+  const adrLine = adr.split(/\r?\n/).find((l) => l.startsWith('1. **書き込み系を公開しない。**'));
+  assert.ok(adrLine, 'ADR-0027 Decision 1 must list the exposed tools');
+  for (const name of names) {
+    const token = name.startsWith('validate-') ? '`validate-*`' : '`' + name + '`';
+    assert.ok(adrLine!.includes(token), `ADR-0027 Decision 1 misses tool ${name}`);
+  }
+  const plans = fs.readFileSync(path.join(root, '01_Plans/README.md'), 'utf8');
+  assert.ok(!/\d+ツール/.test(plans), '01_Plans/README.md must point to mcp-server.md, not state a tool count');
   const line = skill.split(/\r?\n/).find((l) => l.startsWith('使えるのは'));
   assert.ok(line, 'SKILL.md must list the available MCP tools');
   const listed = [...line!.matchAll(/`([a-z-]+)`/g)].map((m) => m[1]);
