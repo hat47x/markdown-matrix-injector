@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { readHtmlFragments } from '../adapters/htmlFragmentAdapter.js';
 import { readDocx, type DocxDiagnostic } from '../adapters/docxSourceAdapter.js';
-import { createSourceIdentityFromBytes } from '../core/sourceIdentity.js';
+import { checkExpectedSourceDigest, createSourceIdentityFromBytes } from '../core/sourceIdentity.js';
 import XLSX from 'xlsx';
 import { WorkbookCache } from '../cache/workbookCache.js';
 import { checkDetachedDocument } from '../application/detachCheck.js';
@@ -186,7 +186,7 @@ Commands:
       --include-values        with --cells, explicitly include raw/display values and saved formula text
       --header-range <A1:B2>  caller-selected header inside --range; no semantic inference
       --max-cells <n>         --cells output limit (default/maximum 4096)
-      --expected-source-digest <sha256:...>  require the inventory Source Identity before --cells parsing
+      --expected-source-digest <sha256:...>  refuse when the source digest differs (inspect, inspect --cells, select)
       --values <n>            also print the first n body rows of each region
       --from <doc.md>         write suggested references relative to this document
       --import-assist          also show grid-layout import roles, revalidated reference proposals and cautions
@@ -274,6 +274,7 @@ Commands:
       --candidate <sha256:...>  table Candidate fingerprint from inspect --json (instead of --table)
       --sheet <name>  --columns <h1,h2>  --contains <text> [--in <heading>]  --first <n>
       --from <doc.md>         write the reference relative to this document
+      --expected-source-digest <sha256:...>  refuse when the workbook digest differs from inspect's sourceDigest
   find <description...>     Search workbooks under --root for tables matching a description
   check <path...>           Validate MMI references in Markdown files or directories
                             (exit code 1 when any error is found)
@@ -433,7 +434,10 @@ export async function main(argv: string[]): Promise<number> {
   if (values.preview && command !== 'html-plan') {
     return usageError('--preview is supported only by html-plan --json');
   }
-  if ((values.cells || values['header-range'] || values['max-cells'] || values['expected-source-digest']) && command !== 'inspect') {
+  if ((values.cells || values['header-range'] || values['max-cells'] || values['expected-source-digest']) && command !== 'inspect' && command !== 'select') {
+    return usageError('--cells and its range options apply only to inspect');
+  }
+  if ((values.cells || values['header-range'] || values['max-cells']) && command !== 'inspect') {
     return usageError('--cells and its range options apply only to inspect');
   }
   const root = path.resolve(values.root ?? process.cwd());
@@ -824,8 +828,19 @@ export async function main(argv: string[]): Promise<number> {
         else process.stdout.write(text);
         return 0;
       }
-      if (values['header-range'] || values['max-cells'] || values['expected-source-digest']) return usageError('cell range options require --cells');
+      if (values['header-range'] || values['max-cells']) return usageError('cell range options require --cells');
       const absoluteSource = path.resolve(args[0]);
+      if (values['expected-source-digest'] !== undefined) {
+        try {
+          const check = checkExpectedSourceDigest(absoluteSource, values['expected-source-digest']);
+          if (!check.ok) {
+            console.error(`mmi: ${check.message}`);
+            return 1;
+          }
+        } catch (error) {
+          return usageError(error instanceof Error ? error.message : String(error));
+        }
+      }
       if (
         values['tree-method']
         && !/\.(txt|text|log)$/iu.test(absoluteSource)

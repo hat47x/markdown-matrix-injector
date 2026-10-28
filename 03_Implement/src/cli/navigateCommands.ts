@@ -7,11 +7,11 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import type { Candidate } from '../core/candidate.js';
-import { readSourceFileIdentity } from '../core/sourceIdentity.js';
+import { checkExpectedSourceDigest, readSourceFileIdentity } from '../core/sourceIdentity.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
 import { toRelativeSuggestion } from '../dx/vscodeAdapters.js';
 import { analyzeBook } from '../navigate/catalog.js';
-import { selectFromBook, type RowSelection, type SelectionResult } from '../navigate/select.js';
+import { SELECTION_SCHEMA, selectFromBook, type RowSelection, type SelectionResult } from '../navigate/select.js';
 import { fitLabel } from '../search/fitLabel.js';
 import { WorkspaceRegionIndex } from '../search/workspaceRegionIndex.js';
 
@@ -35,6 +35,8 @@ export interface NavigateOptions {
   from?: string;
   root?: string;
   json?: boolean;
+  /** `sha256:...` from inspect's locator.sourceDigest; select is refused when the source no longer has it. */
+  'expected-source-digest'?: string;
 }
 
 /** Returns an exit code: 0 ok, 1 not satisfiable, 2 usage error. */
@@ -48,6 +50,30 @@ export function runSelect(args: readonly string[], options: NavigateOptions, io:
     : options.first !== undefined ? { first: Number(options.first) } : undefined;
   const bookPath = path.resolve(io.cwd, file);
   const referencePath = options.from ? toRelativeSuggestion(path.resolve(io.cwd, options.from), bookPath) : `./${path.basename(bookPath)}`;
+  let sourceDigest: string;
+  const expected = options['expected-source-digest'];
+  if (expected !== undefined) {
+    let check;
+    try {
+      check = checkExpectedSourceDigest(bookPath, expected);
+    } catch (error) {
+      return usage(io, (error as Error).message);
+    }
+    sourceDigest = check.actual;
+    if (!check.ok) {
+      const result: SelectionResult = {
+        schema: SELECTION_SCHEMA,
+        ok: false,
+        errors: [{ code: 'SOURCE_DIGEST_MISMATCH', message: check.message }],
+        warnings: [],
+      };
+      if (options.json) io.out(JSON.stringify({ schema: NAVIGATE_SCHEMA, command: 'select', result, sourceDigest }, null, 2));
+      else io.err(`mmi: ${check.message}`);
+      return 1;
+    }
+  } else {
+    sourceDigest = readSourceFileIdentity(bookPath).digest;
+  }
   const workbook = loadWorkbook({ absolutePath: bookPath });
   let table = options.table;
   if (options.candidate) {
@@ -66,7 +92,7 @@ export function runSelect(args: readonly string[], options: NavigateOptions, io:
   });
   if (options.json) {
     const candidate = result.table ? candidateAt(bookPath, workbook, referencePath, result.table.sheet, result.table.range) : undefined;
-    io.out(JSON.stringify({ schema: NAVIGATE_SCHEMA, command: 'select', result, ...(candidate ? { candidate: candidateRef(candidate) } : {}) }, null, 2));
+    io.out(JSON.stringify({ schema: NAVIGATE_SCHEMA, command: 'select', result, sourceDigest, ...(candidate ? { candidate: candidateRef(candidate) } : {}) }, null, 2));
   } else {
     // stdout carries the reference alone so it can be pasted or piped; notes go to stderr.
     if (result.reference) io.out(result.reference);
@@ -99,7 +125,7 @@ export async function runFind(args: readonly string[], options: NavigateOptions,
     } catch {
       ref = undefined; // the book changed or became unreadable since indexing: no identity to offer
     }
-    return { reference: candidate.markdown, explanation: candidate.explanation, notes: candidate.notes, ...(candidate.fit !== undefined ? { fit: candidate.fit } : {}), ...(ref ? { candidate: ref } : {}) };
+    return { reference: candidate.markdown, explanation: candidate.explanation, notes: candidate.notes, ...(digestOf(bookPath) ? { sourceDigest: digestOf(bookPath) } : {}), ...(candidate.fit !== undefined ? { fit: candidate.fit } : {}), ...(ref ? { candidate: ref } : {}) };
   });
   if (options.json) {
     io.out(JSON.stringify({ schema: NAVIGATE_SCHEMA, command: 'find', status: result.status, reasons: result.reasons, candidates, requiresSelection: true }, null, 2));
@@ -107,6 +133,15 @@ export async function runFind(args: readonly string[], options: NavigateOptions,
     io.out([...candidates.map((c, i) => `${i + 1}. ${c.reference}\n   ${c.explanation}${c.fit !== undefined ? ` （${fitLabel(c.fit)}）` : ''}`), ...result.reasons.map((reason) => `理由: ${reason}`)].join('\n') || '候補はありません。');
   }
   return result.status === 'candidates' ? 0 : 1;
+}
+
+/** Digest of the source bytes, as inspect reports it in locator.sourceDigest; absent when the book became unreadable after indexing. */
+function digestOf(bookPath: string): string | undefined {
+  try {
+    return readSourceFileIdentity(bookPath).digest;
+  } catch {
+    return undefined;
+  }
 }
 
 /** The identity the Candidate contract, ledger and review use for a table (ADR-0019 D8), so a selection can be traced to it. */
