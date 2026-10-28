@@ -88,6 +88,30 @@ MCP対応クライアントには、コマンドと引数を次の形で登録�
 - 1メッセージの上限は8 MiBです。超えた行は`-32600`で拒否し、後続のメッセージは処理を続けます。巨大な入力や不正なJSONでサーバは終了しません。
 - `check`のエラー、`validate-*`の不受理、`select`・`find`の該当なしは、通信の失敗ではなくツール結果として返します。`tools/call`の`isError`が`true`になるのは、ファイル不在・境界外・解析失敗などツールを実行できなかった場合です。
 
+## ツール失敗の理由コード
+
+`isError`が`true`の応答には、失敗の種類を表す`code`を付けます。クライアントは、Node.jsの版やOSで変わる文言ではなく、この値で分岐してください。
+
+```json
+{
+  "content": [{ "type": "text", "text": "mmi: Argument \"source\" is outside the MCP workspace root." }],
+  "structuredContent": { "contract": "mmi.mcp-error/v1", "code": "outside-root", "message": "Argument \"source\" is outside the MCP workspace root." },
+  "_meta": { "mmi/error": { "contract": "mmi.mcp-error/v1", "code": "outside-root", "message": "Argument \"source\" is outside the MCP workspace root." } },
+  "isError": true
+}
+```
+
+- `outside-root`: 引数のパスやワークスペース内のリンクが、`--root`の外を指している。
+- `not-found`: 指定したファイルやディレクトリが存在しない。
+- `parse-failed`: ファイルはあるが、読み取りまたは解析に失敗した（JSONの不正を含む）。
+- `tool-failed`: 上記のどれにも当たらない、ツール実行中の失敗。
+
+本サーバが使うプロトコル版2024-11-05に`structuredContent`の定義はありません。同じ内容を、基本プロトコルが拡張用に予約している`_meta`の`mmi/error`にも置きます。新しい版のクライアントは`structuredContent`、古い版のクライアントは`_meta`を読めます。`text`は従来どおり`mmi: <メッセージ>`です。
+
+- `message`と`text`には、ホストの絶対パスを含めません。`--root`の下のパスはroot相対で示し、それ以外の絶対パスは`<path>`に置き換えます。
+- `code`の名前は`mmi.cli/v0`の診断コード（`MMI_*`）とは別の体系です。診断コードは文書の記法の問題、`code`はツールを実行できなかった理由を表します。成功した応答に`structuredContent`は付きません。
+- `code`の値を増やすことは、互換性を保つ変更として扱います。未知の`code`は`tool-failed`と同じに扱ってください。
+
 ## 読み取り専用の境界
 
 - `extract`・`import`・`materialize`・`html-commit`など、書き込みを伴う操作は公開しません。

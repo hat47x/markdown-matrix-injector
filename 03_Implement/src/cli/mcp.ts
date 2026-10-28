@@ -276,11 +276,63 @@ class InvalidParamsError extends Error {
   }
 }
 
+/**
+ * Machine-readable reason for a failed tool call. Clients can branch on the
+ * code instead of matching message text, which varies with Node.js and the OS.
+ * - outside-root: an argument or a link leaves the workspace root.
+ * - not-found: the file or directory does not exist.
+ * - parse-failed: the input exists but could not be read or parsed.
+ * - tool-failed: any other failure while running the tool.
+ */
+export type McpFailureCode = 'outside-root' | 'not-found' | 'parse-failed' | 'tool-failed';
+
+export const MCP_FAILURE_CODES: readonly McpFailureCode[] = [
+  'outside-root',
+  'not-found',
+  'parse-failed',
+  'tool-failed',
+];
+
+export const MCP_ERROR_CONTRACT = 'mmi.mcp-error/v1';
+
 class ToolFailure extends Error {
-  constructor(message: string) {
+  constructor(message: string, readonly code: McpFailureCode) {
     super(message);
     this.name = 'ToolFailure';
   }
+}
+
+/** Wrap a lower-level error, keeping ENOENT/ENOTDIR apart from other failures. */
+function wrapFailure(error: unknown, fallback: McpFailureCode = 'parse-failed'): ToolFailure {
+  if (error instanceof ToolFailure) return error;
+  const errno = isObject(error) ? error.code : undefined;
+  const code = errno === 'ENOENT' || errno === 'ENOTDIR' ? 'not-found' : fallback;
+  return new ToolFailure(messageOf(error), code);
+}
+
+/** Classify the stderr text of a CLI runner that reports failures as text. */
+function failureFromText(text: string, fallback: string): ToolFailure {
+  const message = text || fallback;
+  const code = /ENOENT|ENOTDIR|no such file or directory/iu.test(message)
+    ? 'not-found'
+    : 'tool-failed';
+  return new ToolFailure(message, code);
+}
+
+/**
+ * Remove host absolute paths from an error message. Paths under the workspace
+ * root become root-relative; any other absolute path becomes `<path>`.
+ */
+export function redactHostPaths(message: string, root: string): string {
+  let out = message;
+  for (const variant of new Set([root, root.replace(/\\/gu, '/')])) {
+    if (variant.length === 0) continue;
+    const escaped = variant.replace(/[.*+?^${}()|[\]\\]/gu, '\\$&');
+    out = out.replace(new RegExp(escaped + '[\\\\/]?', 'giu'), '');
+  }
+  out = out.replace(/[A-Za-z]:[\\/][^\s'"]*/gu, '<path>');
+  out = out.replace(/(?<=^|[\s'"(])\/(?:[^\s'"/]+\/)+[^\s'"]*/gu, '<path>');
+  return out;
 }
 
 function isObject(value: unknown): value is JsonObject {
@@ -507,8 +559,15 @@ class McpServerImplementation implements McpServer {
       });
     } catch (error) {
       if (error instanceof InvalidParamsError) throw error;
+      const failure = error instanceof ToolFailure ? error : wrapFailure(error, 'tool-failed');
+      const message = redactHostPaths(failure.message, this.root);
+      const detail = { contract: MCP_ERROR_CONTRACT, code: failure.code, message };
+      // 2024-11-05 has no structuredContent; _meta is the place the base
+      // protocol reserves for extra data. Newer clients read structuredContent.
       return rpcResult(requestId, {
-        content: [{ type: 'text', text: `mmi: ${messageOf(error)}` }],
+        content: [{ type: 'text', text: `mmi: ${message}` }],
+        structuredContent: detail,
+        _meta: { 'mmi/error': detail },
         isError: true,
       });
     }
@@ -596,7 +655,7 @@ class McpServerImplementation implements McpServer {
       // a non-complete status, not an RPC exception or implicit repair request.
       return JSON.stringify(report, null, 2);
     } catch (error) {
-      throw new ToolFailure(messageOf(error));
+      throw wrapFailure(error);
     }
   }
 
@@ -615,7 +674,7 @@ class McpServerImplementation implements McpServer {
     try {
       raw = inspectSource(source, values, from, undefined, undefined, this.displayCwd);
     } catch (error) {
-      throw new ToolFailure(messageOf(error));
+      throw wrapFailure(error);
     }
     const ledgerPath = ledgerOption
       ? this.resolveInsideRoot(ledgerOption, 'ledger')
@@ -642,7 +701,7 @@ class McpServerImplementation implements McpServer {
       try {
         collected = collectMarkdownFiles(target);
       } catch (error) {
-        throw new ToolFailure(messageOf(error));
+        throw wrapFailure(error);
       }
       // A directory walk can meet a symlinked Markdown file. Re-check every
       // collected file against the real root before reading it.
@@ -664,8 +723,7 @@ class McpServerImplementation implements McpServer {
         ? renderDocumentHtml({ markdownFilePath: document, workspaceRoot: this.root })
         : renderDocumentMarkdown({ markdownFilePath: document, workspaceRoot: this.root });
     } catch (error) {
-      if (error instanceof RenderError) throw new ToolFailure(error.message);
-      throw new ToolFailure(messageOf(error));
+      throw wrapFailure(error);
     }
   }
 
@@ -711,7 +769,7 @@ class McpServerImplementation implements McpServer {
       },
     );
     if (!out) {
-      throw new ToolFailure(err || `select failed with exit code ${code}.`);
+      throw failureFromText(err, `select failed with exit code ${code}.`);
     }
     return out;
   }
@@ -736,7 +794,7 @@ class McpServerImplementation implements McpServer {
       },
     );
     if (!out) {
-      throw new ToolFailure(err || `find failed with exit code ${code}.`);
+      throw failureFromText(err, `find failed with exit code ${code}.`);
     }
     return out;
   }
@@ -751,7 +809,7 @@ class McpServerImplementation implements McpServer {
     try {
       inspected = inspectSource(source, 0, document, undefined, undefined, this.displayCwd);
     } catch (error) {
-      throw new ToolFailure(messageOf(error));
+      throw wrapFailure(error);
     }
     const diagnostics = document
       ? await checkPaths([document], this.root, this.displayCwd)
@@ -780,7 +838,7 @@ class McpServerImplementation implements McpServer {
         workspaceRoot: this.root,
       });
     } catch (error) {
-      throw new ToolFailure(messageOf(error));
+      throw wrapFailure(error);
     }
     return JSON.stringify(validation, null, 2);
   }
@@ -794,7 +852,7 @@ class McpServerImplementation implements McpServer {
     try {
       validation = validateAiHandoffCandidateSelection(handoff, proposal);
     } catch (error) {
-      throw new ToolFailure(messageOf(error));
+      throw wrapFailure(error);
     }
     return JSON.stringify(validation, null, 2);
   }
@@ -814,7 +872,7 @@ class McpServerImplementation implements McpServer {
         workspaceRoot: this.root,
       });
     } catch (error) {
-      throw new ToolFailure(messageOf(error));
+      throw wrapFailure(error);
     }
     return JSON.stringify(validation, null, 2);
   }
@@ -832,7 +890,7 @@ class McpServerImplementation implements McpServer {
     try {
       return parseAiHandoffPackage(fs.readFileSync(packagePath, 'utf8'));
     } catch (error) {
-      throw new ToolFailure(messageOf(error));
+      throw wrapFailure(error);
     }
   }
 
@@ -841,12 +899,12 @@ class McpServerImplementation implements McpServer {
     try {
       text = fs.readFileSync(filepath, 'utf8');
     } catch (error) {
-      throw new ToolFailure(`${label}: ${messageOf(error)}`);
+      throw new ToolFailure(`${label}: ${messageOf(error)}`, wrapFailure(error).code);
     }
     try {
       return JSON.parse(text);
     } catch (error) {
-      throw new ToolFailure(`${label} is not valid JSON: ${messageOf(error)}`);
+      throw new ToolFailure(`${label} is not valid JSON: ${messageOf(error)}`, 'parse-failed');
     }
   }
 
@@ -876,6 +934,7 @@ class McpServerImplementation implements McpServer {
           if (!isPathWithinBoundary(realpathOrSelf(full), realRoot)) {
             throw new ToolFailure(
               `Workspace link resolves outside the MCP workspace root: ${path.relative(this.root, full)}`,
+              'outside-root',
             );
           }
           continue;
@@ -894,13 +953,14 @@ class McpServerImplementation implements McpServer {
   private resolveInsideRoot(value: string, label: string): string {
     const resolved = path.resolve(this.root, value);
     if (!isPathWithinBoundary(resolved, this.root)) {
-      throw new ToolFailure(`Argument "${label}" is outside the MCP workspace root.`);
+      throw new ToolFailure(`Argument "${label}" is outside the MCP workspace root.`, 'outside-root');
     }
     const realRoot = realpathOrSelf(this.root);
     const realTarget = realpathOfNearest(resolved);
     if (!isPathWithinBoundary(realTarget, realRoot)) {
       throw new ToolFailure(
         `Argument "${label}" resolves outside the MCP workspace root through a symbolic link.`,
+        'outside-root',
       );
     }
     return resolved;
