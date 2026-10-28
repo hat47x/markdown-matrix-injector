@@ -376,6 +376,12 @@ test('failed tool calls carry a structured code and no host absolute path', asyn
   }));
   assert.equal(broken.code, 'parse-failed');
 
+  const stale = failure(await call(instance, 'inspect', {
+    source: 'data/roles.csv',
+    expectedSourceDigest: 'sha256:' + '0'.repeat(64),
+  }));
+  assert.equal(stale.code, 'digest-mismatch');
+
   // A successful call carries no error detail.
   const ok = await call(instance, 'inspect', { source: 'data/roles.csv', values: 1 });
   assert.equal(ok.result.isError, false);

@@ -44,6 +44,27 @@ export function readSourceFileIdentity(
   );
 }
 
+export const SOURCE_DIGEST_PATTERN = /^sha256:[0-9a-f]{64}$/u;
+
+export type ExpectedSourceDigestCheck =
+  | { ok: true; actual: string }
+  | { ok: false; actual: string; message: string };
+
+/**
+ * Compares the digest of the file's bytes with the digest the caller saw earlier
+ * (`inspect`'s `locator.sourceDigest`). A malformed expected value throws; a
+ * different digest is returned as a mismatch so each caller can report it in its own shape.
+ */
+export function checkExpectedSourceDigest(absolutePath: string, expected: string): ExpectedSourceDigestCheck {
+  if (!SOURCE_DIGEST_PATTERN.test(expected)) {
+    throw new Error('expected source digest must be a SHA-256 Source Identity digest (sha256:<64 hex>)');
+  }
+  const actual = readSourceFileIdentity(absolutePath).digest;
+  return actual === expected
+    ? { ok: true, actual }
+    : { ok: false, actual, message: `source digest mismatch: expected ${expected} but the source is ${actual}; run inspect again and use the current digest` };
+}
+
 export function resolveContainedSourceIdentity(
   options: ResolveSourcePathOptions,
 ): ResolvedSourceIdentityV1 {

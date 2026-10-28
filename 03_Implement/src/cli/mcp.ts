@@ -32,6 +32,8 @@ import {
   inspectSource,
   readCliVersion,
 } from './mmi.js';
+import { readBuildIdentity } from './buildIdentity.js';
+import { checkExpectedSourceDigest } from '../core/sourceIdentity.js';
 import { runFind, runSelect } from './navigateCommands.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './render.js';
 
@@ -109,6 +111,7 @@ export const MCP_TOOLS: readonly McpToolDefinition[] = [
         },
         unimported: { type: 'boolean', description: 'Show only Candidates not yet in the ledger.' },
         excludeImported: { type: 'boolean', description: 'Exclude Candidates already in the ledger.' },
+        expectedSourceDigest: { type: 'string', description: 'Expected source digest (sha256:...) from inspect locator.sourceDigest. The call is refused when the source no longer has this digest. Same as mmi inspect --expected-source-digest.' },
       },
       required: ['source'],
       additionalProperties: false,
@@ -162,6 +165,7 @@ export const MCP_TOOLS: readonly McpToolDefinition[] = [
         in: { type: 'string', description: 'Column heading (header text, not a column letter) that contains is applied to. Must be one of the shown columns. Same as mmi select --in.' },
         first: { type: 'integer', minimum: 0, description: 'Keep the first N rows.' },
         from: { type: 'string', description: 'Markdown document the reference will be written into.' },
+        expectedSourceDigest: { type: 'string', description: 'Expected source digest (sha256:...) from inspect locator.sourceDigest. The call is refused when the source no longer has this digest. Same as mmi select --expected-source-digest.' },
       },
       required: ['source'],
       additionalProperties: false,
@@ -282,14 +286,21 @@ class InvalidParamsError extends Error {
  * - outside-root: an argument or a link leaves the workspace root.
  * - not-found: the file or directory does not exist.
  * - parse-failed: the input exists but could not be read or parsed.
+ * - digest-mismatch: the source no longer has the expectedSourceDigest the caller gave.
  * - tool-failed: any other failure while running the tool.
  */
-export type McpFailureCode = 'outside-root' | 'not-found' | 'parse-failed' | 'tool-failed';
+export type McpFailureCode =
+  | 'outside-root'
+  | 'not-found'
+  | 'parse-failed'
+  | 'digest-mismatch'
+  | 'tool-failed';
 
 export const MCP_FAILURE_CODES: readonly McpFailureCode[] = [
   'outside-root',
   'not-found',
   'parse-failed',
+  'digest-mismatch',
   'tool-failed',
 ];
 
@@ -313,9 +324,11 @@ function wrapFailure(error: unknown, fallback: McpFailureCode = 'parse-failed'):
 /** Classify the stderr text of a CLI runner that reports failures as text. */
 function failureFromText(text: string, fallback: string): ToolFailure {
   const message = text || fallback;
-  const code = /ENOENT|ENOTDIR|no such file or directory/iu.test(message)
+  const code: McpFailureCode = /ENOENT|ENOTDIR|no such file or directory/iu.test(message)
     ? 'not-found'
-    : 'tool-failed';
+    : /source digest mismatch/u.test(message)
+      ? 'digest-mismatch'
+      : 'tool-failed';
   return new ToolFailure(message, code);
 }
 
@@ -523,6 +536,7 @@ class McpServerImplementation implements McpServer {
       serverInfo: { name: SERVER_NAME, version: this.version },
       instructions: INSTRUCTIONS,
       _meta: {
+        'mmi/buildIdentity': readBuildIdentity(this.version),
         'mmi/protocolNegotiation': {
           requested,
           selected: MCP_PROTOCOL_VERSION,
@@ -670,6 +684,17 @@ class McpServerImplementation implements McpServer {
       throw new InvalidParamsError('Arguments "unimported" and "excludeImported" cannot be combined.');
     }
 
+    const expectedSourceDigest = optionalString(args, 'expectedSourceDigest');
+    if (expectedSourceDigest !== undefined) {
+      let check;
+      try {
+        check = checkExpectedSourceDigest(source, expectedSourceDigest);
+      } catch (error) {
+        throw new InvalidParamsError(messageOf(error));
+      }
+      if (!check.ok) throw new ToolFailure(check.message, 'digest-mismatch');
+    }
+
     let raw;
     try {
       raw = inspectSource(source, values, from, undefined, undefined, this.displayCwd);
@@ -746,6 +771,7 @@ class McpServerImplementation implements McpServer {
     const columns = optionalString(args, 'columns');
     const inColumn = optionalString(args, 'in');
     const from = this.resolveOptionalInsideRoot(args, 'from');
+    const expectedSourceDigest = optionalString(args, 'expectedSourceDigest');
 
     let out = '';
     let err = '';
@@ -760,6 +786,7 @@ class McpServerImplementation implements McpServer {
         ...(inColumn ? { in: inColumn } : {}),
         ...(first !== undefined ? { first: String(first) } : {}),
         ...(from ? { from } : {}),
+        ...(expectedSourceDigest !== undefined ? { 'expected-source-digest': expectedSourceDigest } : {}),
         json: true,
       },
       {
@@ -990,7 +1017,7 @@ export async function runMcpServer(options: RunMcpServerOptions): Promise<number
   return 0;
 }
 
-const USAGE = `Usage: mmi-mcp [--root <workspace>]
+const USAGE = `Usage: mmi-mcp [--root <workspace>] [--version [--json]]
 
 Starts a read-only MCP server on stdin/stdout. Messages are one JSON-RPC 2.0
 object per line (no Content-Length framing). The workspace root defaults to the
@@ -1006,10 +1033,15 @@ export async function main(argv: string[]): Promise<number> {
         root: { type: 'string' },
         help: { type: 'boolean', short: 'h', default: false },
         version: { type: 'boolean', short: 'v', default: false },
+        json: { type: 'boolean', default: false },
       },
     });
     if (values.version) {
-      console.log(readCliVersion());
+      console.log(
+        values.json
+          ? JSON.stringify(readBuildIdentity(readCliVersion()))
+          : readCliVersion(),
+      );
       return 0;
     }
     if (values.help) {
