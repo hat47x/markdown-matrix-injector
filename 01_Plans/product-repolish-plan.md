@@ -5,7 +5,7 @@
 - 終了条件: 命名の採否と各段階の残作業が関連Issue・ADR・現行文書へ反映され、この順序図を別に保守する必要がなくなったら削除する。
 - 状態: 提案。命名と価値の言い方は[ADR-0024](adr/ADR-0024-product-name-layers-and-value-statement.md)（Proposed）で採否を決める。不足機能の作業は、第7節の[GitHub Issues](https://github.com/hat47x/markdown-matrix-injector/issues)（#517〜#532、いずれもDraft）で扱う。
 - 基準: 価値と優先度の正本は[ADR-0019](adr/ADR-0019-ai-era-sier-document-value-and-policy.md)とする。到達点は[現在の作業](README.md)と、2026-10-17時点のコード・CLIの実行結果で確かめた。
-- 番号: 断りのないD0〜D15はADR-0019の決定を指す。ADR-0019にはD15が二つあり（[#416](https://github.com/hat47x/markdown-matrix-injector/issues/416)）、本書のD15は「MMIと生成AIの関係」を指す。
+- 番号: 断りのないD0〜D16はADR-0019の決定を指す。D15は「MMIと生成AIの関係」、D16は「配布は最小ランタイムを優先する」である（重複の整理は[#416](https://github.com/hat47x/markdown-matrix-injector/issues/416)）。
 
 本書は、MMIの名前、価値の言い方、不足する機能を一つの地図にまとめる。価値そのものはADR-0019のまま変えない。決めた価値を、名前・外向けの説明・機能へ行き渡らせる順序を示す。
 
@@ -387,6 +387,8 @@ D3は「安全にMMIを外せることも成功条件とする」と定めてい
 - 概要とpackage.jsonは、価値の正本をADR-0012として扱う。
 - Excel NoteのCandidate化は2026-10-08に実装されたが、[#471](https://github.com/hat47x/markdown-matrix-injector/issues/471)はOpenのままである。
 - 現在の作業の「開発環境」は、Windows側にNode.jsとPython 3が無いと書く。2026-10-17のこの環境ではNode v24.19.0とPython 3.12.10が使え、ビルド済みのCLIも動いた。WSLで入れた依存はWindowsで使えない場合があるため、両方の条件を書き分ける。
+
+2026-10-28の時点で、ADR-0019のD15重複（D16へ付け替え済み）、製品要求の重複節（「AI / LLMとの関係」へ一本化済み）、開発環境の記述（WindowsとWSLの両方を記載済み）、#471（Closed）は解消している。ADR-0014の欠番とADR-0017の番号重複は、番号を付け替えない方針を[ADR-0000](adr/ADR-0000-adr-governance.md)に記録した。ADR-0016のStatusはHuman Sponsorの判断待ちである。
 
 意味を変えずに番号と参照先を整え、実装済みのIssueを閉じる。[ギャップ分析](../02_Architecture/product-gap-analysis.md)は、Tree・Note・Shape・範囲画像の行が古かったため、本書とあわせて更新した。
 
