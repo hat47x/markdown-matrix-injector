@@ -23,7 +23,7 @@ CLIにはすでに読み取り・検証のコマンドがある。MCPのため�
 
 MCPサーバを**読み取り・検証専用**の入口として追加する。
 
-1. **書き込み系を公開しない。** MCPのtoolsは`schema`・`inspect`・`check`・`render`・`select`・`find`・`handoff`・`validate-*`に限る。`extract`・`import`・`materialize`・`html-commit`・`snapshot`は公開しない。抽出・取り込み・実体化は、利用者がCLIまたはVS Codeで明示的に行う。
+1. **書き込み系を公開しない。** MCPのtoolsは`schema`・`inspect`・`html-audit`・`check`・`render`・`select`・`find`・`handoff`・`validate-*`に限る。`html-audit`は、レビュー済みの計画で静的HTML分割後の出力とLedgerを再照合するだけの読み取りツールで、2026-10-25に追加した（Issue #704）。`extract`・`import`・`materialize`・`html-commit`・`snapshot`は公開しない。抽出・取り込み・実体化は、利用者がCLIまたはVS Codeで明示的に行う。
 2. **CLIと同じApplication層を呼ぶ。** MCPはCLIの`--json`またはテキストと同じ関数・同じ結果を使い、MCP専用の判定や権威を持つ層を作らない。parityを回帰テストで固定する。
 3. **workspace rootを起動時に固定する。** 呼び出しごとにrootを上書きさせない。パスはlexical pathとrealpathの両方で検査し、`..`・root外絶対パス・symlink/junction経由の脱出を拒否する。
 4. **ネットワークへ接続しない。** MCPサーバはstdioのみを使い、外部URLの取得・外部LLMへの送信・モデルの自動取得をしない。`handoff`はローカルのevidence packageを作るだけで、送信は利用者に委ねる。
