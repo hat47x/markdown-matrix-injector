@@ -45,6 +45,7 @@ export function createCliPackageManifest(sourcePackage) {
     homepage: sourcePackage.homepage,
     files: [
       'dist',
+      'build-identity.json',
       'media',
       'README.md',
       'LICENSE',
@@ -52,6 +53,35 @@ export function createCliPackageManifest(sourcePackage) {
     ],
     dependencies,
     bundleDependencies: true,
+  };
+}
+
+/**
+ * tarballへ埋め込むビルド識別（mmi.build-identity/v1の固定部分）。
+ * コミットは作成元のgit HEAD（取れなければ環境変数MMI_BUILD_COMMIT）、
+ * lock digestは作成元package-lock.jsonの生バイト列のsha256とする。
+ * 取れない項目はnullのまま残し、推測で埋めない。
+ */
+export function createBuildIdentity(projectRoot, lockPath) {
+  let commit = null;
+  const head = spawnSync('git', ['rev-parse', 'HEAD'], {
+    cwd: projectRoot,
+    encoding: 'utf8',
+    windowsHide: true,
+  });
+  if (head.status === 0 && /^[0-9a-f]{40}$/u.test(head.stdout.trim())) {
+    commit = head.stdout.trim();
+  } else if (/^[0-9a-f]{40}$/u.test(process.env.MMI_BUILD_COMMIT ?? '')) {
+    commit = process.env.MMI_BUILD_COMMIT;
+  }
+  const lockfileDigest = fs.existsSync(lockPath)
+    ? `sha256:${createHash('sha256').update(fs.readFileSync(lockPath)).digest('hex')}`
+    : null;
+  return {
+    schema: 'mmi.build-identity/v1',
+    commit,
+    lockfileDigest,
+    distribution: 'tarball',
   };
 }
 
@@ -120,6 +150,10 @@ export function stageCliPackage(options = {}) {
   fs.writeFileSync(
     path.join(stageDirectory, 'package.json'),
     `${JSON.stringify(manifest, null, 2)}\n`,
+  );
+  fs.writeFileSync(
+    path.join(stageDirectory, 'build-identity.json'),
+    `${JSON.stringify(createBuildIdentity(projectRoot, sourceLockPath), null, 2)}\n`,
   );
 
   return {

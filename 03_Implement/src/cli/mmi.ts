@@ -131,6 +131,7 @@ import {
   discoverLocalEmbeddingModels,
   runtimeManagedArtifactFromEmbeddingModel,
 } from '../search/semantic/runtimeDiscovery.js';
+import { readBuildIdentity } from './buildIdentity.js';
 import { runFind, runSelect } from './navigateCommands.js';
 import { cliErrorText, cliMessageLanguage } from './messageLanguage.js';
 import { extractImages, extractTable, formatImageDiagnostics } from './extract.js';
@@ -327,7 +328,8 @@ Common options:
   --json                    machine-readable output
   -o, --out <file>          write output to a file instead of stdout
   -h, --help
-  -v, --version            print the installed MMI package version`;
+  -v, --version            print the installed MMI package version
+                            with --json: mmi.build-identity/v1 (commit, lockfile digest, Node.js, distribution)`;
 
 export function readCliVersion(): string {
   const candidates = [
@@ -421,7 +423,11 @@ export async function main(argv: string[]): Promise<number> {
   });
   const [command, ...args] = positionals;
   if (values.version) {
-    console.log(readCliVersion());
+    console.log(
+      values.json
+        ? JSON.stringify(readBuildIdentity(readCliVersion()))
+        : readCliVersion(),
+    );
     return 0;
   }
   if (values.help || !command) {

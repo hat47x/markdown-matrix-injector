@@ -26,6 +26,7 @@ npm run package:cli
 npm install -g ./markdown-matrix-injector-0.2.0.tgz
 mmi --help
 mmi --version
+mmi --version --json   # コミット・lockfile digest・Node.js版・提供形態（mmi.build-identity/v1）
 mmi check docs/ --root .
 ```
 

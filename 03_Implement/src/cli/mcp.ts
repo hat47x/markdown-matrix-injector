@@ -32,6 +32,7 @@ import {
   inspectSource,
   readCliVersion,
 } from './mmi.js';
+import { readBuildIdentity } from './buildIdentity.js';
 import { checkExpectedSourceDigest } from '../core/sourceIdentity.js';
 import { runFind, runSelect } from './navigateCommands.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './render.js';
@@ -474,6 +475,7 @@ class McpServerImplementation implements McpServer {
       serverInfo: { name: SERVER_NAME, version: this.version },
       instructions: INSTRUCTIONS,
       _meta: {
+        'mmi/buildIdentity': readBuildIdentity(this.version),
         'mmi/protocolNegotiation': {
           requested,
           selected: MCP_PROTOCOL_VERSION,
@@ -946,7 +948,7 @@ export async function runMcpServer(options: RunMcpServerOptions): Promise<number
   return 0;
 }
 
-const USAGE = `Usage: mmi-mcp [--root <workspace>]
+const USAGE = `Usage: mmi-mcp [--root <workspace>] [--version [--json]]
 
 Starts a read-only MCP server on stdin/stdout. Messages are one JSON-RPC 2.0
 object per line (no Content-Length framing). The workspace root defaults to the
@@ -962,10 +964,15 @@ export async function main(argv: string[]): Promise<number> {
         root: { type: 'string' },
         help: { type: 'boolean', short: 'h', default: false },
         version: { type: 'boolean', short: 'v', default: false },
+        json: { type: 'boolean', default: false },
       },
     });
     if (values.version) {
-      console.log(readCliVersion());
+      console.log(
+        values.json
+          ? JSON.stringify(readBuildIdentity(readCliVersion()))
+          : readCliVersion(),
+      );
       return 0;
     }
     if (values.help) {
