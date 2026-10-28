@@ -54,9 +54,13 @@ jobs:
       # package:cli creates SHA256 evidence, installs the tarball with an empty
       # npm cache and --offline, and smokes both mmi and mmi-mcp. Run once per
       # PR on Linux to limit CI minutes; main's release-candidate job has its
-      # own packaging gate.
+      # own packaging gate. Windows runs the same acceptance on pushes to main
+      # and manual runs (#694), not on every PR.
       - name: Offline standalone CLI and MCP package acceptance (Linux PR)
         if: ${{ matrix.os == 'ubuntu-latest' && github.event_name == 'pull_request' }}
+        run: npm run package:cli
+      - name: Offline standalone CLI and MCP package acceptance (Windows, main and manual)
+        if: ${{ matrix.os == 'windows-latest' && github.event_name != 'pull_request' }}
         run: npm run package:cli
 
   # Research-layer tests (#519). Informational: known failures there must not hide product regressions.

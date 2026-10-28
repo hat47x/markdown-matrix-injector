@@ -160,7 +160,7 @@ MCP対応クライアントには、コマンドと引数を次の形で登録�
 - 1プロセスにつき1つのworkspace rootです。複数のrootを切り替える場合は、クライアント側でrootごとにサーバを起動します。
 - 書き込み系の操作をMCPへ加えるかは、初版の利用を見てから判断します（#527のRemaining work）。
 - 実際のMCPクライアント（AIエージェント）からの接続、基本設計書キットでの目録・参照・check・報告の一巡は未実施です。
-- Windowsでの配布tarballのMCP smokeは`npm run package:cli`の検証に含めますが、macOSとNode 20での確認は未実施です。
+- 配布tarballの導入と`mmi`・`mmi-mcp`のsmokeは`npm run package:cli`で検証します。PRではLinuxだけ、Windowsはmainへのpushと手動実行（`workflow_dispatch`）で実行します。macOSとNode 20での確認は未実施です。
 
 ## 検証
 
