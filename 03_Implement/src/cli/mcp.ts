@@ -33,6 +33,7 @@ import {
   readCliVersion,
 } from './mmi.js';
 import { readBuildIdentity } from './buildIdentity.js';
+import { checkExpectedSourceDigest } from '../core/sourceIdentity.js';
 import { runFind, runSelect } from './navigateCommands.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './render.js';
 
@@ -110,6 +111,7 @@ export const MCP_TOOLS: readonly McpToolDefinition[] = [
         },
         unimported: { type: 'boolean', description: 'Show only Candidates not yet in the ledger.' },
         excludeImported: { type: 'boolean', description: 'Exclude Candidates already in the ledger.' },
+        expectedSourceDigest: { type: 'string', description: 'Expected source digest (sha256:...) from inspect locator.sourceDigest. The call is refused when the source no longer has this digest. Same as mmi inspect --expected-source-digest.' },
       },
       required: ['source'],
       additionalProperties: false,
@@ -163,6 +165,7 @@ export const MCP_TOOLS: readonly McpToolDefinition[] = [
         in: { type: 'string', description: 'Column heading (header text, not a column letter) that contains is applied to. Must be one of the shown columns. Same as mmi select --in.' },
         first: { type: 'integer', minimum: 0, description: 'Keep the first N rows.' },
         from: { type: 'string', description: 'Markdown document the reference will be written into.' },
+        expectedSourceDigest: { type: 'string', description: 'Expected source digest (sha256:...) from inspect locator.sourceDigest. The call is refused when the source no longer has this digest. Same as mmi select --expected-source-digest.' },
       },
       required: ['source'],
       additionalProperties: false,
@@ -613,6 +616,17 @@ class McpServerImplementation implements McpServer {
       throw new InvalidParamsError('Arguments "unimported" and "excludeImported" cannot be combined.');
     }
 
+    const expectedSourceDigest = optionalString(args, 'expectedSourceDigest');
+    if (expectedSourceDigest !== undefined) {
+      let check;
+      try {
+        check = checkExpectedSourceDigest(source, expectedSourceDigest);
+      } catch (error) {
+        throw new InvalidParamsError(messageOf(error));
+      }
+      if (!check.ok) throw new ToolFailure(check.message);
+    }
+
     let raw;
     try {
       raw = inspectSource(source, values, from, undefined, undefined, this.displayCwd);
@@ -690,6 +704,7 @@ class McpServerImplementation implements McpServer {
     const columns = optionalString(args, 'columns');
     const inColumn = optionalString(args, 'in');
     const from = this.resolveOptionalInsideRoot(args, 'from');
+    const expectedSourceDigest = optionalString(args, 'expectedSourceDigest');
 
     let out = '';
     let err = '';
@@ -704,6 +719,7 @@ class McpServerImplementation implements McpServer {
         ...(inColumn ? { in: inColumn } : {}),
         ...(first !== undefined ? { first: String(first) } : {}),
         ...(from ? { from } : {}),
+        ...(expectedSourceDigest !== undefined ? { 'expected-source-digest': expectedSourceDigest } : {}),
         json: true,
       },
       {

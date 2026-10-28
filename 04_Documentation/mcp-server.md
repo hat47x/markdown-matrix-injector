@@ -73,11 +73,11 @@ MCP対応クライアントには、コマンドと引数を次の形で登録�
 | ツール | 主な引数 | 対応するCLI |
 | --- | --- | --- |
 | `schema` | `contract`（`candidate`・`ledger`・`review-decisions`） | `mmi schema <contract>` |
-| `inspect` | `source`、`values`、`from`、`ledger`、`unimported`、`excludeImported` | `mmi inspect --json` |
+| `inspect` | `source`、`values`、`from`、`ledger`、`unimported`、`excludeImported`、任意`expectedSourceDigest` | `mmi inspect --json` |
 | `html-audit` | `source`、`plan`、任意`ledger` | `mmi html-audit --json`（静的HTML分割後の監査のみ） |
 | `check` | `paths`（ファイルまたはディレクトリの配列） | `mmi check --json` |
 | `render` | `document`、`to`（`md`または`html`） | `mmi render` |
-| `select` | `source`、`table`または`candidate`、`sheet`、`columns`、`contains`、`in`、`first`、`from` | `mmi select --json` |
+| `select` | `source`、`table`または`candidate`、`sheet`、`columns`、`contains`、`in`、`first`、`from`、任意`expectedSourceDigest` | `mmi select --json` |
 | `find` | `query`、`from` | `mmi find --json` |
 | `handoff` | `source`、`task`、`document`、`includeValues` | `mmi handoff --json` |
 | `validate-proposal` | `notation`、`package`、`document` | `mmi validate-proposal --json` |
@@ -85,6 +85,10 @@ MCP対応クライアントには、コマンドと引数を次の形で登録�
 | `validate-transformation` | `proposal`（パスまたはJSON object）、`package`、`document` | `mmi validate-transformation --json` |
 
 `select`の`columns`と`in`は、原本の列記号（A、Cなど）ではなく、表の見出し名を受け取ります。`columns`は見出し名のカンマ区切り（例: `機能ID,機能名`）、`in`は`contains`を適用する見出し名1つで、`columns`で表示する列のいずれかでなければなりません。列記号を渡すと`COLUMN_NOT_FOUND`で失敗します。記法の`columns=A,C,F`が列記号を使うのとは別で、`mmi select --columns`・`--in`と同じ規則です。
+
+`select`と`find`の結果は、対象原本の`sourceDigest`を返します。`select`は結果の最上位（`candidate`と同じ階層）、`find`は各候補です。値は`inspect`が各Candidateの`locator.sourceDigest`で返すものと同じで、原本のbytesから取ります。選択結果がどの版の原本に対するものかを、この値で照合できます。`mmi.selection/v0`の本体は変えず、項目を足しただけなので、既存の読み手はそのまま使えます。`handoff`など他のツールの結果には付けていません。
+
+`inspect`と`select`は、任意の`expectedSourceDigest`（CLIでは`--expected-source-digest`）を受け取ります。原本のdigestが一致しなければ、原本を読む前に拒否します。`select`は`ok: false`・`SOURCE_DIGEST_MISMATCH`のツール結果で、実際のdigestを`sourceDigest`に添えて返します。`inspect`は`isError=true`のエラーです。`sha256:`と64桁の16進数でない値は、不一致ではなく引数の誤りとして`-32602`（CLIでは終了コード2）で拒否します。`find`は複数の原本を横断するため、この引数を持ちません。
 
 `inspect`は既定で構造だけを返します。セルの値が必要なときだけ`values`へ行数を指定します。これはCLIの`--values`と同じで、既定では値を含めません。
 
@@ -119,6 +123,7 @@ MCP対応クライアントには、コマンドと引数を次の形で登録�
 - `schema`と`mmi schema`
 - `select`と`mmi select --json`
 - `find`と`mmi find --json`
+- `select`・`find`が返す`sourceDigest`と、`expectedSourceDigest`の一致・不一致の扱い
 - `handoff`と`mmi handoff --json`
 - `html-audit`と`mmi html-audit --json`（専用fixture。正常・欠落・原本更新時のread-onlyパリティ）
 

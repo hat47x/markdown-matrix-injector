@@ -45,6 +45,7 @@ export interface SelectionIssue {
     | 'GREP_NOT_EXACT'
     | 'NO_ROWS_MATCH'
     | 'RENDER_FAILED'
+    | 'SOURCE_DIGEST_MISMATCH'
     | 'TABLE_CAUTION';
   message: string;
   suggestions?: string[];
