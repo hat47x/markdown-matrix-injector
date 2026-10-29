@@ -756,6 +756,12 @@ class McpServerImplementation implements McpServer {
 
   private renderTool(args: JsonObject): string {
     const document = this.resolveInsideRoot(requiredString(args, 'document'), 'document');
+    // render returns MMI-expanded Markdown. Refuse anything that is not a
+    // Markdown document so a raw file (xlsx bytes, .env) is never returned in
+    // the same success shape as an expansion result.
+    if (path.extname(document).toLowerCase() !== '.md') {
+      throw new InvalidParamsError('Argument "document" must be a Markdown file (.md).');
+    }
     const to = optionalString(args, 'to') ?? 'md';
     if (to !== 'md' && to !== 'html') {
       throw new InvalidParamsError('Argument "to" must be "md" or "html".');
