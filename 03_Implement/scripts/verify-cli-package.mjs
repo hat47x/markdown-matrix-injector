@@ -383,6 +383,7 @@ export function verifyCliPackage(tarballPath) {
       || identity.node?.version !== process.version
       || identity.node?.major !== Number.parseInt(process.versions.node, 10)
       || (identity.commit !== null && !/^[0-9a-f]{40}$/u.test(identity.commit))
+      || (identity.dirty !== null && typeof identity.dirty !== 'boolean')
     ) {
       throw new Error(`${label} did not return a valid tarball build identity: ${JSON.stringify(identity)}`);
     }

@@ -15,6 +15,11 @@ export interface BuildIdentity {
   commit: string | null;
   /** package-lock.json の生バイト列のsha256（`sha256:<hex>`）。確かめられないときはnull。 */
   lockfileDigest: string | null;
+  /**
+   * ビルド元に未コミットの変更（追跡対象外のファイルを含む。`git status --porcelain` が空でない）があるか。
+   * 取れないとき（gitがない・時間切れ・古いtarball）はnullで、推測でfalseにしない。
+   */
+  dirty: boolean | null;
   /** この応答を返しているNode.jsの版。 */
   node: { version: string; major: number };
   /** tarball: 配布tarball（作成時に埋め込み）、checkout: 開発用チェックアウト。 */
@@ -24,6 +29,7 @@ export interface BuildIdentity {
 interface EmbeddedIdentity {
   commit: string | null;
   lockfileDigest: string | null;
+  dirty: boolean | null;
 }
 
 const COMMIT_PATTERN = /^[0-9a-f]{40}$/u;
@@ -47,6 +53,7 @@ function readEmbedded(packageRoot: URL): EmbeddedIdentity | null {
         typeof parsed.lockfileDigest === 'string' && DIGEST_PATTERN.test(parsed.lockfileDigest)
           ? parsed.lockfileDigest
           : null,
+      dirty: typeof parsed.dirty === 'boolean' ? parsed.dirty : null,
     };
   } catch {
     return null;
@@ -65,6 +72,28 @@ function gitHead(cwd: URL): string | null {
     });
     const head = result.status === 0 ? result.stdout.trim() : '';
     return COMMIT_PATTERN.test(head) ? head : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * 作業ツリーに未コミットの変更があるかを返す。追跡対象外のファイルも数える
+ * （release-candidate.mjs の `git status --porcelain` と同じ基準）。
+ * gitが使えない・失敗・時間切れのときはnull。
+ */
+export function gitDirty(cwd: URL | string): boolean | null {
+  try {
+    const result = spawnSync('git', ['status', '--porcelain'], {
+      cwd,
+      encoding: 'utf8',
+      timeout: 3000,
+      windowsHide: true,
+      // statusが索引を更新しないよう、任意ロックを使わせない。
+      env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
+    });
+    if (result.status !== 0 || result.error) return null;
+    return result.stdout.trim().length > 0;
   } catch {
     return null;
   }
@@ -94,7 +123,7 @@ let cached: Omit<BuildIdentity, 'version' | 'node'> | undefined;
  * このプロセスが応答しているビルドの識別を返す。
  * 配布tarballでは作成時に埋め込んだ build-identity.json を読み、
  * 開発用チェックアウトではgitのHEADとpackage-lock.jsonから求める。
- * チェックアウトのコミットは、未コミットの変更を反映しない。
+ * チェックアウトのコミットは、未コミットの変更を反映しない。`dirty` がその有無を示す。
  */
 export function readBuildIdentity(version: string): BuildIdentity {
   if (!cached) {
@@ -107,6 +136,7 @@ export function readBuildIdentity(version: string): BuildIdentity {
         schema: BUILD_IDENTITY_SCHEMA,
         commit: gitHead(root),
         lockfileDigest: lockDigestOf(root),
+        dirty: gitDirty(root),
         distribution: 'checkout',
       };
     } else {
@@ -114,6 +144,7 @@ export function readBuildIdentity(version: string): BuildIdentity {
         schema: BUILD_IDENTITY_SCHEMA,
         commit: null,
         lockfileDigest: null,
+        dirty: null,
         distribution: 'unknown',
       };
     }
@@ -124,6 +155,7 @@ export function readBuildIdentity(version: string): BuildIdentity {
     version,
     commit: cached.commit,
     lockfileDigest: cached.lockfileDigest,
+    dirty: cached.dirty,
     node: { version: process.version, major },
     distribution: cached.distribution,
   };
