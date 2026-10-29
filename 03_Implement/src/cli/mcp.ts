@@ -10,7 +10,6 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
@@ -1008,12 +1007,53 @@ export async function runMcpServer(options: RunMcpServerOptions): Promise<number
   const server = createMcpServer(options);
   const input = options.input ?? process.stdin;
   const output = options.output ?? process.stdout;
-  const lines = readline.createInterface({ input, crlfDelay: Infinity });
-  for await (const line of lines) {
-    if (line.trim().length === 0) continue;
+  const emit = async (line: string): Promise<void> => {
+    if (line.trim().length === 0) return;
     const response = await server.handleLine(line);
     if (response !== undefined) output.write(`${response}\n`);
+  };
+  const rejectOversized = (): void => {
+    output.write(
+      `${rpcError(null, -32600, `Message exceeds the ${MCP_MAX_LINE_BYTES} byte stdin limit.`)}\n`,
+    );
+  };
+  const decode = (parts: Buffer[]): string =>
+    Buffer.concat(parts).toString('utf8').replace(/\r$/u, '');
+  // Split stdin on newlines by hand. readline buffers a whole line before
+  // handing it over, so a huge line without a newline would exhaust memory
+  // before the size limit could apply.
+  let pending: Buffer[] = [];
+  let pendingBytes = 0;
+  let discarding = false;
+  for await (const raw of input as AsyncIterable<Buffer | string>) {
+    let chunk = typeof raw === 'string' ? Buffer.from(raw, 'utf8') : raw;
+    while (chunk.length > 0) {
+      const newline = chunk.indexOf(0x0a);
+      const part = newline === -1 ? chunk : chunk.subarray(0, newline);
+      if (!discarding) {
+        pendingBytes += part.length;
+        // The +1 leaves room for a trailing CR that is not part of the message.
+        if (pendingBytes > MCP_MAX_LINE_BYTES + 1) {
+          discarding = true;
+          pending = [];
+          pendingBytes = 0;
+          rejectOversized();
+        } else {
+          pending.push(part);
+        }
+      }
+      if (newline === -1) break;
+      if (!discarding) {
+        const text = decode(pending);
+        pending = [];
+        pendingBytes = 0;
+        await emit(text);
+      }
+      discarding = false;
+      chunk = chunk.subarray(newline + 1);
+    }
   }
+  if (!discarding && pendingBytes > 0) await emit(decode(pending));
   return 0;
 }
 
