@@ -87,6 +87,8 @@ MCP対応クライアントには、コマンドと引数を次の形で登録�
 | `validate-selection` | `proposal`（パスまたはJSON object）、`package` | `mmi validate-selection --json` |
 | `validate-transformation` | `proposal`（パスまたはJSON object）、`package`、`document` | `mmi validate-transformation --json` |
 
+すべてのツールは、`tools/list`の`inputSchema.properties`にない引数名を`-32602`で拒否します。メッセージには未知の引数名と、受け付ける引数名の一覧を含めます。綴りを誤った`expectedSourceDigest`が黙って無視され、版を固定しないまま成功することを防ぐためです。将来の引数を先行して付ける接続側は、`tools/list`で宣言を確かめてから呼び出してください。
+
 `select`の`columns`と`in`は、原本の列記号（A、Cなど）ではなく、表の見出し名を受け取ります。`columns`は見出し名のカンマ区切り（例: `機能ID,機能名`）、`in`は`contains`を適用する見出し名1つで、`columns`で表示する列のいずれかでなければなりません。列記号を渡すと`COLUMN_NOT_FOUND`で失敗します。記法の`columns=A,C,F`が列記号を使うのとは別で、`mmi select --columns`・`--in`と同じ規則です。
 
 `select`と`find`の結果は、対象原本の`sourceDigest`を返します。`select`は結果の最上位（`candidate`と同じ階層）、`find`は各候補です。値は`inspect`が各Candidateの`locator.sourceDigest`で返すものと同じで、原本のbytesから取ります。選択結果がどの版の原本に対するものかを、この値で照合できます。`mmi.selection/v0`の本体は変えず、項目を足しただけなので、既存の読み手はそのまま使えます。`handoff`など他のツールの結果には付けていません。

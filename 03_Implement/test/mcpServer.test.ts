@@ -8,6 +8,7 @@ import { Readable, Writable } from 'node:stream';
 import {
   MCP_MAX_LINE_BYTES,
   MCP_PROTOCOL_VERSION,
+  MCP_TOOLS,
   MCP_TOOL_NAMES,
   createMcpServer,
   redactHostPaths,
@@ -127,6 +128,34 @@ test('tools/list exposes the read-only surface and no write tool', async () => {
     assert.equal(typeof tool.description, 'string');
   }
   assert.deepEqual(names, [...MCP_TOOL_NAMES]);
+});
+
+test('every tool rejects an argument its inputSchema does not declare', async () => {
+  const f = fixture();
+  const instance = server(f.root);
+  await initialize(instance);
+
+  for (const tool of MCP_TOOLS) {
+    const properties = Object.keys((tool.inputSchema.properties ?? {}) as Record<string, unknown>);
+    assert.equal(tool.inputSchema.additionalProperties, false, `${tool.name} declares no extras`);
+    const response = await call(instance, tool.name, { notAnArgument: 1 });
+    assert.equal(response.error.code, -32602, `${tool.name} must reject an unknown argument`);
+    assert.match(response.error.message, /Unknown argument "notAnArgument"/u);
+    for (const accepted of properties) {
+      assert.ok(response.error.message.includes(accepted), `${tool.name} lists ${accepted}`);
+    }
+  }
+
+  // A misspelled version pin must not be silently dropped into an unpinned success.
+  const fakeDigest = `sha256:${'0'.repeat(64)}`;
+  for (const typo of ['expectedSourceDigests', 'expectedSourcedigest']) {
+    const inspect = await call(instance, 'inspect', { source: 'data/roles.csv', [typo]: fakeDigest });
+    assert.equal(inspect.error.code, -32602, `inspect ${typo}`);
+    const select = await call(instance, 'select', {
+      source: 'data/roles.csv', table: 'Sheet1!A1:C3', [typo]: fakeDigest,
+    });
+    assert.equal(select.error.code, -32602, `select ${typo}`);
+  }
 });
 
 test('ping and unknown methods follow JSON-RPC errors', async () => {
