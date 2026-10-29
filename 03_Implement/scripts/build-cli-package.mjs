@@ -97,6 +97,15 @@ export function createBuildIdentity(projectRoot, lockPath) {
   } else if (/^[0-9a-f]{40}$/u.test(process.env.MMI_BUILD_COMMIT ?? '')) {
     commit = process.env.MMI_BUILD_COMMIT;
   }
+  // 未コミットの変更（追跡対象外を含む）の有無。gitで確かめられないときはnullのまま残す。
+  let dirty = null;
+  const status = spawnSync('git', ['status', '--porcelain'], {
+    cwd: projectRoot,
+    encoding: 'utf8',
+    windowsHide: true,
+    env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
+  });
+  if (status.status === 0 && !status.error) dirty = status.stdout.trim().length > 0;
   const lockfileDigest = fs.existsSync(lockPath)
     ? `sha256:${createHash('sha256').update(fs.readFileSync(lockPath)).digest('hex')}`
     : null;
@@ -104,6 +113,7 @@ export function createBuildIdentity(projectRoot, lockPath) {
     schema: 'mmi.build-identity/v1',
     commit,
     lockfileDigest,
+    dirty,
     distribution: 'tarball',
   };
 }
