@@ -12,7 +12,7 @@ MMI CLIの配布artifactには、runtime依存packageをnpmのbundleDependencies
 | argparse | 2.0.1 | Python-2.0 | node_modules/argparse |
 | entities | 4.5.0 | BSD-2-Clause | node_modules/entities |
 | linkify-it | 5.0.2 | MIT | node_modules/linkify-it |
-| markdown-it | 14.3.1 | MIT | node_modules/markdown-it |
+| markdown-it | 14.3.3 | MIT | node_modules/markdown-it |
 | mdurl | 2.0.0 | MIT | node_modules/mdurl |
 | parse5 | 7.3.0 | MIT | node_modules/parse5 |
 | entities | 6.0.1 | BSD-2-Clause | node_modules/parse5/node_modules/entities |
@@ -51,7 +51,7 @@ Licensed under the Apache License, Version 2.0.
 
 ## markdown-it
 
-- Version: 14.3.1
+- Version: 14.3.3
 - License: MIT
 - `markdown-it`はMMI CLIのruntime dependencyとして同梱します。著作権表示とライセンス本文は、同梱する`node_modules/markdown-it`内の配布物を正とします。
 - `markdown-it`に従属する次の6件も同梱します。
