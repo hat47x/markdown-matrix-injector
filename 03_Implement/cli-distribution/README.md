@@ -28,7 +28,7 @@ tarballの隣へ、同梱したruntime依存の名前・版・ライセンス、
 npm install -g ./markdown-matrix-injector-0.2.0.tgz
 mmi --help
 mmi --version
-mmi --version --json   # コミット・lockfile digest・Node.js版・提供形態（mmi.build-identity/v1）
+mmi --version --json   # コミット・lockfile digest・未コミット変更の有無(dirty)・Node.js版・提供形態（mmi.build-identity/v1）
 mmi check docs/ --root .
 ```
 

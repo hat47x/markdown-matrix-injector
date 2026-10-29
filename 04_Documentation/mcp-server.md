@@ -33,8 +33,9 @@ mmi-mcp --root /path/to/workspace
 | 項目 | 内容 |
 | --- | --- |
 | 版（`version`） | `package.json`の版。コミットごとには上がらないため、版番号だけではコミットを特定できません。 |
-| コミット（`commit`） | ビルド元のコミットSHA（40桁）。配布tarballは作成時のgit HEADを埋め込み、開発用チェックアウトは起動時の`git rev-parse HEAD`で求めます。取れないときは`null`です。チェックアウトでは未コミットの変更を反映しません。 |
+| コミット（`commit`） | ビルド元のコミットSHA（40桁）。配布tarballは作成時のgit HEADを埋め込み、開発用チェックアウトは起動時の`git rev-parse HEAD`で求めます。取れないときは`null`です。チェックアウトでは未コミットの変更を反映しないため、`dirty`と合わせて読みます。 |
 | lockfile digest（`lockfileDigest`） | `package-lock.json`の生バイト列のsha256（`sha256:<hex>`）。tarballは作成元のlockfileの値を埋め込みます。改行をCRLFへ変換したチェックアウトでは値が変わります。 |
+| 未コミットの変更（`dirty`） | ビルド元に未コミットの変更があるか（`true`/`false`）。追跡対象外のファイルも数え、リリース証跡（`release-evidence.json`）と同じく`git status --porcelain`が空でないかで判定します。チェックアウトは起動時に求め、tarballは作成時の値を埋め込みます。gitがない・3秒で終わらない・この項目を持たない旧tarballでは`null`で、`false`と推測しません。`commit`を版固定の証拠にするときは、`dirty: false`も確かめてください。 |
 | Node.js（`node`） | 応答しているNode.jsの`version`と`major`。 |
 | 提供形態（`distribution`） | `tarball`（配布tarball）、`checkout`（開発用チェックアウト）、`unknown`。 |
 

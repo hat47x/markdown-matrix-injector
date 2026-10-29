@@ -144,6 +144,7 @@ test('CLI staging copies compiled runtime and disclosure files, not extension ma
     identity.lockfileDigest === null
       || /^sha256:[0-9a-f]{64}$/u.test(identity.lockfileDigest),
   );
+  assert.ok(identity.dirty === null || typeof identity.dirty === 'boolean');
   assert.equal(fs.existsSync(path.join(stage, 'dist/src/cli/bootstrap.js')), true);
   assert.equal(fs.existsSync(path.join(stage, 'dist/src/cli/mcp-bootstrap.js')), true);
   assert.equal(fs.existsSync(path.join(stage, 'dist/src/cli/mmi.js')), true);
