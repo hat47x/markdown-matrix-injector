@@ -158,6 +158,27 @@ test('every tool rejects an argument its inputSchema does not declare', async ()
   }
 });
 
+test('render accepts only Markdown documents and never returns raw file content', async () => {
+  const f = fixture();
+  fs.writeFileSync(path.join(f.root, '.env'), 'SECRET=abc\n');
+  fs.writeFileSync(path.join(f.root, 'notes.txt'), 'plain text\n');
+  fs.writeFileSync(path.join(f.root, 'book.xlsx'), Buffer.from([0x50, 0x4b, 0x03, 0x04]));
+  fs.writeFileSync(path.join(f.root, 'UPPER.MD'), '# upper\n');
+  const instance = server(f.root);
+  await initialize(instance);
+
+  for (const document of ['.env', 'notes.txt', 'book.xlsx', 'data/roles.csv']) {
+    for (const to of ['md', 'html']) {
+      const response = await call(instance, 'render', { document, to });
+      assert.equal(response.error.code, -32602, `${document} (${to})`);
+      assert.match(response.error.message, /must be a Markdown file/u);
+      assert.ok(!JSON.stringify(response).includes('SECRET=abc'));
+    }
+  }
+  assert.equal((await call(instance, 'render', { document: 'spec.md' })).result.isError, false);
+  assert.equal((await call(instance, 'render', { document: 'UPPER.MD' })).result.isError, false);
+});
+
 test('ping and unknown methods follow JSON-RPC errors', async () => {
   const instance = server(fixture().root);
   await initialize(instance);
