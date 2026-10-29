@@ -257,6 +257,23 @@ export const MCP_TOOLS: readonly McpToolDefinition[] = [
 
 export const MCP_TOOL_NAMES: readonly string[] = MCP_TOOLS.map((tool) => tool.name);
 
+// tools/list declares additionalProperties:false. Enforce it at call time so a
+// misspelled pin such as "expectedSourceDigests" is rejected instead of being
+// silently ignored and returning an unpinned success.
+function rejectUnknownArguments(toolName: string, args: JsonObject): void {
+  const definition = MCP_TOOLS.find((tool) => tool.name === toolName);
+  const properties = definition?.inputSchema.properties;
+  if (!isObject(properties)) return;
+  const accepted = Object.keys(properties);
+  const unknown = Object.keys(args).filter((key) => !accepted.includes(key));
+  if (unknown.length > 0) {
+    throw new InvalidParamsError(
+      `Unknown argument ${unknown.map((key) => `"${key}"`).join(', ')} for tool ${toolName}. `
+      + `Accepted arguments: ${accepted.join(', ')}.`,
+    );
+  }
+}
+
 export interface McpServerOptions {
   /** Workspace boundary. Paths outside it are rejected. Defaults to process.cwd(). */
   root: string;
@@ -563,6 +580,7 @@ class McpServerImplementation implements McpServer {
     if (!MCP_TOOL_NAMES.includes(name)) {
       throw new InvalidParamsError(`Unknown tool: ${name}`);
     }
+    rejectUnknownArguments(name, args);
 
     try {
       const text = await this.invokeTool(name, args);
