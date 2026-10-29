@@ -76,7 +76,7 @@
     "test:cli-bundle": "node scripts/smoke-cli-bundle.mjs"
   },
   "dependencies": {
-    "markdown-it": "^14.1.0",
+    "markdown-it": "^14.3.3",
     "saxes": "6.0.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "yaml": "2.9.1",
