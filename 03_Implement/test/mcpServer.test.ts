@@ -341,6 +341,30 @@ test('runMcpServer reads one JSON message per line and writes one per response',
   assert.equal(lines[1].result.tools.some((tool: { name: string }) => tool.name === 'inspect'), true);
 });
 
+test('runMcpServer rejects a line over the limit without buffering it and keeps serving', async () => {
+  const { root } = fixture();
+  const responses: string[] = [];
+  const output = new Writable({
+    write(chunk, _encoding, callback) {
+      responses.push(chunk.toString());
+      callback();
+    },
+  });
+  const piece = Buffer.alloc(1024 * 1024, 0x78);
+  // About 700 MiB with no newline: far over the limit, streamed in 1 MiB pieces.
+  async function* chunks(): AsyncGenerator<Buffer> {
+    for (let index = 0; index < 700; index += 1) yield piece;
+    yield Buffer.from(`\n${JSON.stringify({ jsonrpc: '2.0', id: 7, method: 'ping' })}\n`);
+  }
+  await runMcpServer({ root, version: 'test-version', input: Readable.from(chunks()), output });
+  const lines = responses.join('').trim().split(/\r?\n/u).map((line) => JSON.parse(line));
+  assert.equal(lines.length, 2);
+  assert.equal(lines[0].error.code, -32600);
+  assert.equal(lines[0].id, null);
+  assert.equal(lines[1].id, 7);
+  assert.deepEqual(lines[1].result, {});
+});
+
 test('failed tool calls carry a structured code and no host absolute path', async () => {
   const { root, document, outside } = fixture();
   fs.writeFileSync(path.join(root, 'broken.json'), '{ not json');
