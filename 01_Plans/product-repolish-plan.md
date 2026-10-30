@@ -451,31 +451,32 @@ D3は「安全にMMIを外せることも成功条件とする」と定めてい
 2026-10-17にWindows（Node v24.19.0）で、ビルド済みのCLI 0.1.0を実行した。基本設計書キットでは、`mmi inspect --json`がTable Candidate 5件を返し、`mmi check`のエラーは0件だった。実行の前後で原本のSHA-256は変わらなかった。一時フォルダに置いたXML・JSON・YAML・フラットテキストでは、`mmi inspect --json`がTree Candidateを返した。XML・JSON・YAMLは`observed`、フラットテキストは`inferred`だった。
 
 名前の衝突は、同日にnpm・PyPI・GitHub・VS Code Marketplace・Open VSXで調べた。商標は調べていない。規模の数字は、行数・ファイル数の集計と、ファイル名による分類を含む。第5節の提案は、試作も利用者による確認もしていない。
+
 ## 10. 2026-10-30 横断追補：保存後の出典再解決（検証計画・未受入）
 
-本節は2026-10-17の本文を過去の基準として保持したまま追記する**検証計画**である。新しい公開契約、出典参照の統一方式、SHO/TEIによる業務意味受理を決めるものではない。照合mainは \`5b2777a53a9eea22e197691fe793c1cc999074a4\`（[CI SUCCESS](https://github.com/hat47x/markdown-matrix-injector/actions/runs/40897692128)）。
+本節は2026-10-17の本文を過去の基準として保持したまま追記する**検証計画**である。新しい公開契約、出典参照の統一方式、SHO/TEIによる業務意味受理を決めるものではない。照合mainは `5b2777a53a9eea22e197691fe793c1cc999074a4`（[CI SUCCESS](https://github.com/hat47x/markdown-matrix-injector/actions/runs/40897692128)）。
 
 ### 10.1 到達点と保証しない範囲
 
-- §3.2および§5.2(5)の2026-10-17時点の「Linkedの見直し記録と文書ごとの出典報告は無い」は**歴史的な記述**である。その後、\`mmi review-basis\`、\`mmi provenance\`（\`mmi.provenance-report/v1\`）が導入され、[ #522 ](https://github.com/hat47x/markdown-matrix-injector/issues/522)・[ #525 ](https://github.com/hat47x/markdown-matrix-injector/issues/525)に実装・試験記録がある。文書を保存・移動・再開したときの正しい出典の**実解決先**、実務上の価値は別途未受入である。
-- [PR #675](https://github.com/hat47x/markdown-matrix-injector/pull/675)（\`delivery-audit\`）と[PR #672](https://github.com/hat47x/markdown-matrix-injector/pull/672)（HTML \`html-audit\` CLI/MCP）はmain統合済み。前者の\`aligned\`は二つの独立観測集合の一致だけであり、契約上の納品完全性ではない。後者の\`complete\`は機械的なバッチ整合で、業務意味・表示再現・Detachedの受理を意味しない。#672のLinux空cacheオフライン配布検証は[CI #40215314680](https://github.com/hat47x/markdown-matrix-injector/actions/runs/40215314680)で実測済み。Windows配布と実AIクライアント接続は別証拠。
-- [PR #703](https://github.com/hat47x/markdown-matrix-injector/pull/703)の\`inspect\`/\`select\`の期待Source Digest照合は**内容の照合補助**であって、保存後の解決先Location確認を省略できない。また現行CLIの\`extract --table\`呼出しが\`expectedCandidate\`を渡すことは静的に確認できず、\`inspect\`→\`extract\`の間の再観測・比較を別に記録する。
+- §3.2および§5.2(5)の2026-10-17時点の「Linkedの見直し記録と文書ごとの出典報告は無い」は**歴史的な記述**である。その後、`mmi review-basis`、`mmi provenance`（`mmi.provenance-report/v1`）が導入され、[ #522 ](https://github.com/hat47x/markdown-matrix-injector/issues/522)・[ #525 ](https://github.com/hat47x/markdown-matrix-injector/issues/525)に実装・試験記録がある。文書を保存・移動・再開したときの正しい出典の**実解決先**、実務上の価値は別途未受入である。
+- [PR #675](https://github.com/hat47x/markdown-matrix-injector/pull/675)（`delivery-audit`）と[PR #672](https://github.com/hat47x/markdown-matrix-injector/pull/672)（HTML `html-audit` CLI/MCP）はmain統合済み。前者の`aligned`は二つの独立観測集合の一致だけであり、契約上の納品完全性ではない。後者の`complete`は機械的なバッチ整合で、業務意味・表示再現・Detachedの受理を意味しない。#672のLinux空cacheオフライン配布検証は[CI #40215314680](https://github.com/hat47x/markdown-matrix-injector/actions/runs/40215314680)で実測済み。Windows配布と実AIクライアント接続は別証拠。
+- [PR #703](https://github.com/hat47x/markdown-matrix-injector/pull/703)の`inspect`/`select`の期待Source Digest照合は**内容の照合補助**であって、保存後の解決先Location確認を省略できない。また現行CLIの`extract --table`呼出しが`expectedCandidate`を渡すことは静的に確認できず、`inspect`→`extract`の間の再観測・比較を別に記録する。
 
 ### 10.2 C-01/T2：CLI → VSCode → 共通基盤の順序
 
-**P0**：同一fixture（例：\`masters/design.xlsx\`→\`docs/spec.md\`）で、まず原本AだけのN1、次に\`docs/masters/design.xlsx\`へ異内容の同名Bを置くB1を扱う。同bytes別所在B2は補助負例、\`docs/review/spec.md\`と独立抽出資産のC1は第2段階。fixtureの原本bytes／digest、対象Sheet/Range、生成設定、実行mainを同一版で固定し、別担当による類似fixtureの独立生成を**同一基準**とみなさない。
+**P0**：同一fixture（例：`masters/design.xlsx`→`docs/spec.md`）で、まず原本AだけのN1、次に`docs/masters/design.xlsx`へ異内容の同名Bを置くB1を扱う。同bytes別所在B2は補助負例、`docs/review/spec.md`と独立抽出資産のC1は第2段階。fixtureの原本bytes／digest、対象Sheet/Range、生成設定、実行mainを同一版で固定し、別担当による類似fixtureの独立生成を**同一基準**とみなさない。
 
 | 段階・担当 | 残す証拠 | 合格判定と境界 |
 | --- | --- | --- |
 | G0：CLI | Source Location（実解決先realpath）・raw Source Digest、Candidate kind/occurrence/sheet/range/fingerprint/Claims、抽出ファイルdigest、Ledger sourceKey、命令/終了コード、期待・実際Extracted件数 | 期待Extracted=1は**未実行の仮説**。Candidateの同一性は参照文字列の単純一致ではなく根拠と対象の一致で評価する |
-| G1：VSCode | 同一fixtureとVSIX/Extension Host版、Candidate Review→採用→挿入→保存→再開、保存文書内Source Referenceの生文字列と文書相対の実解決先、Ledger、エラー/診断、原本不変 | 正しい原本Aへ解決すること。B1で誤原本Bが\`resolved\`でも不合格。CLI G0の基準受領前は正式比較をしない |
+| G1：VSCode | 同一fixtureとVSIX/Extension Host版、Candidate Review→採用→挿入→保存→再開、保存文書内Source Referenceの生文字列と文書相対の実解決先、Ledger、エラー/診断、原本不変 | 正しい原本Aへ解決すること。B1で誤原本Bが`resolved`でも不合格。CLI G0の基準受領前は正式比較をしない |
 | G2：共通基盤・方針 | G0/G1の同一SourceとCandidateの証拠、保存された参照先Locationとdigest、確認不能・不一致の原因、未実行項目 | **T1**（Candidate意味的一致）と**T2**（保存後の原本再解決）を独立PASS/FAIL/未確認で判定。CI成功やdigest一致だけでT2をPASSにしない |
 
-静的に確認できる区別：VSCode Candidate Reviewの\`sourceLabel\`はWorkspace相対、CLI \`extract --from\`の出典文字列は文書相対、現行\`provenance\`／Extracted鮮度検査のSource解決はMarkdown文書の親ディレクトリ相対である。**Source Identity（bytes）・Candidate Identity（kind/occurrence/fingerprint/Claims）・Source Reference（文字列/基準/実解決先）・抽出成果物Identity・Ledger/Reviewを分ける。** 独立抽出成果物と採用先文書は保存場所が異なるため、同じ相対参照を両方へ転記しても、それぞれ単独で原本を指せるとは限らない。これらは静的反例候補であり、製品CLIとVSCodeでの実証は未了である。
+静的に確認できる区別：VSCode Candidate Reviewの`sourceLabel`はWorkspace相対、CLI `extract --from`の出典文字列は文書相対、現行`provenance`／Extracted鮮度検査のSource解決はMarkdown文書の親ディレクトリ相対である。**Source Identity（bytes）・Candidate Identity（kind/occurrence/fingerprint/Claims）・Source Reference（文字列/基準/実解決先）・抽出成果物Identity・Ledger/Reviewを分ける。** 独立抽出成果物と採用先文書は保存場所が異なるため、同じ相対参照を両方へ転記しても、それぞれ単独で原本を指せるとは限らない。これらは静的反例候補であり、製品CLIとVSCodeでの実証は未了である。
 
 ### 10.3 独立して進める検証・Owner判断
 
-- **#658**：宣言した納品集合（Declared）、実際に観測したファイル集合（Observed）、外部要求があれば正式に要求された集合（Required）を混同しない。既存T6/T7の小fixture（コメント・インラインコード、破損Workbook、重複・同bytes別所在）から、各期待/実際・検査不能を記録。T8の対象の取り方はOwner未決。\`delivery-audit\`の再実装をしない。
+- **#658**：宣言した納品集合（Declared）、実際に観測したファイル集合（Observed）、外部要求があれば正式に要求された集合（Required）を混同しない。既存T6/T7の小fixture（コメント・インラインコード、破損Workbook、重複・同bytes別所在）から、各期待/実際・検査不能を記録。T8の対象の取り方はOwner未決。`delivery-audit`の再実装をしない。
 - **#672**：HTMLバッチの保存後監査・Linux配布証拠を再利用。C-01/T2のExcel参照再解決、#658の納品集合とは独立し、保存/監査の機械的成功を正式納品・業務意味受理に読み替えない。
 - **Owner Q1**：保存されたSource Referenceは文書相対で統一するか、別の明示参照基準を認めるか。**Q2**：抽出資産単体にも再解決可能な出典を要求するか（文書への採用時と区別）。**Q3**：#658のMarkdown参照を正式納品対象とみなす範囲、外部Required集合が無い場合の完結性の表現。
 - Owner回答前でもG0のfixture固定、G1の実操作、B1誤解決の観測を進められる。**回答・実測のない項目は契約採用／受入完了へ進めない。** 共通Host/Registry、新Ledger/Source Referenceスキーマ、TEIの意味受理を前提にしない。
