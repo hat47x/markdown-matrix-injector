@@ -468,6 +468,7 @@ D3は「安全にMMIを外せることも成功条件とする」と定めてい
 
 | 段階・担当 | 残す証拠 | 合格判定と境界 |
 | --- | --- | --- |
+| **G0-0：CLI主担当＋相互照合** | 採用する単一ZIPの全bytes digest、原本A/Bのraw SHA-256、Sheet・候補Range、保存Markdownの相対path、A/Bの実配置とrealpath、実行main・実行器版 | **G0-0一致まではG0 PASSおよびG1の正式比較を停止**。担当ごとの異なるfixtureを「同一入力」とみなさない |
 | G0：CLI | Source Location（実解決先realpath）・raw Source Digest、Candidate kind/occurrence/sheet/range/fingerprint/Claims、抽出ファイルdigest、Ledger sourceKey、命令/終了コード、期待・実際Extracted件数 | 期待Extracted=1は**未実行の仮説**。Candidateの同一性は参照文字列の単純一致ではなく根拠と対象の一致で評価する |
 | G1：VSCode | 同一fixtureとVSIX/Extension Host版、Candidate Review→採用→挿入→保存→再開、保存文書内Source Referenceの生文字列と文書相対の実解決先、Ledger、エラー/診断、原本不変 | 正しい原本Aへ解決すること。B1で誤原本Bが`resolved`でも不合格。CLI G0の基準受領前は正式比較をしない |
 | G2：共通基盤・方針 | G0/G1の同一SourceとCandidateの証拠、保存された参照先Locationとdigest、確認不能・不一致の原因、未実行項目 | **T1**（Candidate意味的一致）と**T2**（保存後の原本再解決）を独立PASS/FAIL/未確認で判定。CI成功やdigest一致だけでT2をPASSにしない |
@@ -483,3 +484,24 @@ D3は「安全にMMIを外せることも成功条件とする」と定めてい
 
 関連：[ #514 ](https://github.com/hat47x/markdown-matrix-injector/issues/514)（VSCode実操作）、[ #525 ](https://github.com/hat47x/markdown-matrix-injector/issues/525)（出典報告）、[ #658 ](https://github.com/hat47x/markdown-matrix-injector/issues/658)（納品集合）、[ #697 ](https://github.com/hat47x/markdown-matrix-injector/issues/697)（MCP provenanceはOwner/ADR未決）。SHO Composerでの人向け説明・納品固定版とTEIの意味受理は別段階とする。
 
+### 10.4 追加照合：G0-0入力一致・検査器の判定境界（2026-10-30、静的確認と未実行を区別）
+
+**新たに確認した不一致**：[#514の横断記録](https://github.com/hat47x/markdown-matrix-injector/issues/514#issuecomment-6516058753)では、CLI担当の暫定fixture AはSHA-256先頭 `ca21fed6…`、共通基盤担当の暫定fixture Aは `ae0c1dc3…` である。後者の保存済み検証ZIP内原本Aは本追補作業時に `ae0c1dc37f17a63dfed02299350c877f1591f523f6e68fc23b5f34cddd421f07` と独立照合した。Sheet/Rangeと検証mainも含め、同一の実行条件として引き渡された証拠は**未取得**。これを隠してT1/T2をPASSにしない。**どちらを正本に採るかの正式決定はしていない**。
+
+**G0-0の最小引渡し**：選択した**1件のZIP bytes**とSHA-256、展開後の原本A/BのSHA-256、`Sheet!Range`、各対象path、文書の配置、workspace root、`cwd`、main commit・CLI build identity、想定Candidate件数／Extracted件数（後二者は実行まで期待値）をCLIとVSCode・共通基盤が同一票で照合する。対象文書を`docs/spec.md`にするか`docs/review/spec.md`にするかで誤解決先Bの正しい配置が変わるため、Bのpathは固定した文書配置とセットで決める。**ZIP作成・Path-only検証は製品CLI試験ではない。** CLI実`inspect`/ `extract` / `provenance`がG0、VSIX/Extension Hostでの保存・再開がG1、その横断照合がG2。
+
+**G0/G2で個別に見る情報**：
+
+| 観測 | 今ある静的根拠 | 残る確認 |
+| --- | --- | --- |
+| Candidateの内容Fingerprint | `tableRegionAdapter.ts`は表の表示セル内容から`table-display-cells-v1`を生成し、場所は別のLocatorへ保持する | Fingerprint一致だけでSource LocationやSheet/Rangeを受理しない |
+| Candidate Reviewのセッション識別 | `candidateReviewSession.ts`のkeyは`locator.source`・Sheet・place・Fingerprint等を含む | CLI/VSCodeの異なるSource Labelを単純に同一keyへ正規化しない |
+| Linked参照の読取と出典報告 | `core/pathResolver.ts`は文書相対優先＋workspace相対fallback。対して`application/provenanceReport.ts`は文書相対から解決する | 同じ入力で`check`の診断、`provenance`のstatusと、意図したAのrealpathを別記録。Extracted表の表示だけでLinked resolverが使われたとは推定しない |
+| Extracted出典とLedger | `provenanceReport.ts`は文書相対で解決した原本のsourceKeyをLedgerへ突き合わせ、`freshness`は`fresh/stale/missing/untracked/unknown`で分類する | B1が誤解決されたときの`untracked`、missing、staleを実測して分ける |
+| 報告の終了コード | `mmi provenance --fail-on`が受け付けるのは`diagnostics,stale,review-stale,missing`で、`untracked`専用指定はない | `provenance`終了0や`resolved`のみをG2 PASSに使わない。必要なExpected Extracted=1と個別freshness、実解決先、Ledgerを照合する |
+
+**B1の独立性**：CLIが正しくAを抽出した後、保存コメントの出典だけを書き換えてBを模擬するケースは、検証器の**合成負例**としては使える。しかし、これで「VSCodeが誤った出典を生成した」とは実証できない。VSCodeが生成した生文字列はG1実機で採取する。原本Aを同じまま保持し、誤参照先Bの有無を変えるN1/B1を先行。B2（同bytes別所在）とC1（文書・独立資産の異なる参照基準）は後続に置く。
+
+**出力の分離と停止条件**：G0の`G0_CLI_PASS`（本体CLI成功）と`G0_EVIDENCE_CONSISTENT`（入力・結果・保存依存の独立照合）は同義ではない。G1の抽出・Ledger保存・Markdown挿入・ディスク保存・再開を別ステップに分ける。T1（Source/Candidateの意味的一致）とT2（保存後のAへの実解決）を独立判定する。欠落または不一致の証拠はSTOP/NOT RUNとして扱い、人の業務受理やOwner判断へ自動昇格させない。正式な共通Source Reference契約、asset単体出典の必須化、公開API追加は決めない。
+
+静的根拠：[ #514のG0-0票 ](https://github.com/hat47x/markdown-matrix-injector/issues/514#issuecomment-6516058753)、[ #525のCLI・検査器差分 ](https://github.com/hat47x/markdown-matrix-injector/issues/525#issuecomment-6516074087)。#658のT6/T7、#672のWindows配布・実AIクライアント接続は各独立レーンに残す。
