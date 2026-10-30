@@ -464,14 +464,18 @@ D3は「安全にMMIを外せることも成功条件とする」と定めてい
 
 ### 10.2 C-01/T2：CLI → VSCode → 共通基盤の順序
 
-**P0**：同一fixture（例：`masters/design.xlsx`→`docs/spec.md`）で、まず原本AだけのN1、次に`docs/masters/design.xlsx`へ異内容の同名Bを置くB1を扱う。同bytes別所在B2は補助負例、`docs/review/spec.md`と独立抽出資産のC1は第2段階。fixtureの原本bytes／digest、対象Sheet/Range、生成設定、実行mainを同一版で固定し、別担当による類似fixtureの独立生成を**同一基準**とみなさない。
+**P0**：同一fixture（原本A=`masters/design.xlsx`、保存文書=`docs/review/spec.md`、正しい文書相対参照=`../../masters/design.xlsx`）で、まず原本AだけのN1（CLI側の正常対照。VSCodeが成功することは仮定しない）、次に`docs/review/masters/design.xlsx`へ異内容の同名Bを置くB1を扱う。**このネストした文書配置をG0/G1の必須共通入力とする。** 同bytes別所在B2は追加負例、C1は同じ`docs/review/spec.md`とroot直下`assets/table-*.md`という**異なる保存先の抽出コメントを資産単体で再解決できるか**という第2段階であり、文書のネスト自体をC1の条件としない。fixtureの原本bytes／digest、対象Sheet/Range、生成設定、実行mainを同一版で固定し、別担当による類似fixtureの独立生成を**同一基準**とみなさない。
 
 | 段階・担当 | 残す証拠 | 合格判定と境界 |
 | --- | --- | --- |
 | **G0-0：CLI主担当＋相互照合** | 採用する単一ZIPの全bytes digest、原本A/Bのraw SHA-256、Sheet・候補Range、保存Markdownの相対path、A/Bの実配置とrealpath、実行main・実行器版 | **G0-0一致まではG0 PASSおよびG1の正式比較を停止**。担当ごとの異なるfixtureを「同一入力」とみなさない |
-| G0：CLI | Source Location（実解決先realpath）・raw Source Digest、Candidate kind/occurrence/sheet/range/fingerprint/Claims、抽出ファイルdigest、Ledger sourceKey、命令/終了コード、期待・実際Extracted件数 | 期待Extracted=1は**未実行の仮説**。Candidateの同一性は参照文字列の単純一致ではなく根拠と対象の一致で評価する |
+| G0：CLI | Source Location（実解決先realpath）・raw Source Digest、Candidate kind/occurrence/sheet/range/fingerprint/Claims、抽出ファイルdigest、Ledger sourceKey、命令/終了コード、期待・実際Extracted件数 | 期待Extracted=1は**未実行の仮説**。`extract --from`は保存文書への自動挿入ではないため、出典コメントを別途挿入・保存してから`provenance`で件数を確認する。Candidateの同一性は参照文字列の単純一致ではなく根拠と対象の一致で評価する |
 | G1：VSCode | 同一fixtureとVSIX/Extension Host版、Candidate Review→採用→挿入→保存→再開、保存文書内Source Referenceの生文字列と文書相対の実解決先、Ledger、エラー/診断、原本不変 | 正しい原本Aへ解決すること。B1で誤原本Bが`resolved`でも不合格。CLI G0の基準受領前は正式比較をしない |
 | G2：共通基盤・方針 | G0/G1の同一SourceとCandidateの証拠、保存された参照先Locationとdigest、確認不能・不一致の原因、未実行項目 | **T1**（Candidate意味的一致）と**T2**（保存後の原本再解決）を独立PASS/FAIL/未確認で判定。CI成功やdigest一致だけでT2をPASSにしない |
+
+**G0-0（G0/G1の停止条件）**：CLI・共通基盤の並行fixtureではA/Bのraw-byte digestとSheet/Rangeが異なるため、CLI担当が正本ZIPのSHA-256・A/B digest・構成・Sheet/Range・候補fingerprint・実行版を一つの引渡し票に固定し、共通基盤とVSCode担当が**同じbytes**を受領照合するまで、同一fixtureのG0 PASSやG1実施済みと記載しない。受領前にPATH-ONLYモデルや検証器の構文確認だけを製品実測へ昇格させない。
+
+**CLI報告の追加判定**：`provenance --fail-on`は`diagnostics,stale,review-stale,missing`のみを終了コード判定に使い、`untracked`単独の専用ゲートはない。B1で誤原本へ`resolved`／`untracked`と報告され、終了0となり得るので、`summary.extracted=1`・`extracted[].freshness/problems`・原本Aと実解決先のrealpath・Ledger sourceKeyを終了コードと**独立に**読む。`materialize`の`freshness.checked/errors/problems`、`written`、`detachable`も独立列とし、隔離workspaceで試す。
 
 静的に確認できる区別：VSCode Candidate Reviewの`sourceLabel`はWorkspace相対、CLI `extract --from`の出典文字列は文書相対、現行`provenance`／Extracted鮮度検査のSource解決はMarkdown文書の親ディレクトリ相対である。**Source Identity（bytes）・Candidate Identity（kind/occurrence/fingerprint/Claims）・Source Reference（文字列/基準/実解決先）・抽出成果物Identity・Ledger/Reviewを分ける。** 独立抽出成果物と採用先文書は保存場所が異なるため、同じ相対参照を両方へ転記しても、それぞれ単独で原本を指せるとは限らない。これらは静的反例候補であり、製品CLIとVSCodeでの実証は未了である。
 
