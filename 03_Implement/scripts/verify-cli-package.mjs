@@ -44,7 +44,7 @@ export function verifyCliPackage(tarballPath) {
   if (packageJson.bin?.mmi !== './dist/src/cli/bootstrap.js') {
     throw new Error('Installed CLI package does not expose the expected mmi binary.');
   }
-  if (packageJson.bin?.['mmi-mcp'] !== './dist/src/cli/mcp.js') {
+  if (packageJson.bin?.['mmi-mcp'] !== './dist/src/cli/mcp-bootstrap.js') {
     throw new Error('Installed CLI package does not expose the expected mmi-mcp binary.');
   }
 
@@ -120,6 +120,7 @@ export function verifyCliPackage(tarballPath) {
 
   const help = run(bin, ['--help'], workspace);
   const version = run(bin, ['--version'], workspace);
+  const versionJson = run(bin, ['--version', '--json'], workspace);
   const candidateSchema = run(
     bin,
     ['schema', 'candidate'],
@@ -373,6 +374,28 @@ export function verifyCliPackage(tarballPath) {
       `mmi --version did not match installed package version: expected ${packageJson.version}, got ${version.stdout.trim() || version.stderr.trim()}`,
     );
   }
+  const assertTarballIdentity = (identity, label) => {
+    if (
+      identity?.schema !== 'mmi.build-identity/v1'
+      || identity.version !== packageJson.version
+      || identity.distribution !== 'tarball'
+      || !/^sha256:[0-9a-f]{64}$/u.test(identity.lockfileDigest ?? '')
+      || identity.node?.version !== process.version
+      || identity.node?.major !== Number.parseInt(process.versions.node, 10)
+      || (identity.commit !== null && !/^[0-9a-f]{40}$/u.test(identity.commit))
+      || (identity.dirty !== null && typeof identity.dirty !== 'boolean')
+    ) {
+      throw new Error(`${label} did not return a valid tarball build identity: ${JSON.stringify(identity)}`);
+    }
+  };
+  let versionIdentity;
+  try {
+    versionIdentity = JSON.parse(versionJson.stdout);
+  } catch {
+    throw new Error(`mmi --version --json returned invalid JSON:
+${versionJson.stderr || versionJson.stdout}`);
+  }
+  assertTarballIdentity(versionIdentity, 'mmi --version --json');
   let parsedCandidateSchema;
   try {
     parsedCandidateSchema = JSON.parse(candidateSchema.stdout);
@@ -424,7 +447,7 @@ export function verifyCliPackage(tarballPath) {
 
   // MCP smoke: initialize, tools/list and one read-only inspect, over the same
   // line-delimited stdio transport the installed package exposes.
-  const mcpEntry = path.join(packageRoot, 'dist', 'src', 'cli', 'mcp.js');
+  const mcpEntry = path.join(packageRoot, 'dist', 'src', 'cli', 'mcp-bootstrap.js');
   const mcp = runMcp(mcpEntry, [
     {
       jsonrpc: '2.0',
@@ -473,6 +496,10 @@ export function verifyCliPackage(tarballPath) {
       `mmi-mcp initialize/tools/list failed:\n${mcp.stderr || mcp.stdout}`,
     );
   }
+  assertTarballIdentity(
+    initialized.result._meta?.['mmi/buildIdentity'],
+    'mmi-mcp initialize _meta',
+  );
   let inspectedByMcp;
   try {
     inspectedByMcp = JSON.parse(inspected?.result?.content?.[0]?.text ?? '');

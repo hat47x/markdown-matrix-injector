@@ -76,7 +76,7 @@
     "test:cli-bundle": "node scripts/smoke-cli-bundle.mjs"
   },
   "dependencies": {
-    "markdown-it": "^14.1.0",
+    "markdown-it": "^14.3.3",
     "saxes": "6.0.0",
     "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
     "yaml": "2.9.1",
@@ -88,17 +88,18 @@
     "@types/vscode": "^1.96.0",
     "@vscode/test-electron": "^2.5.2",
     "@vscode/vsce": "^3.6.2",
-    "tsx": "^4.20.5",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.2",
-    "esbuild": "^0.27.4"
+    "esbuild": "^0.28.2"
   },
   "main": "./dist/src/extension.js",
   "l10n": "./l10n",
   "bin": {
     "mmi": "./dist/src/cli/bootstrap.js",
-    "mmi-mcp": "./dist/src/cli/mcp.js"
+    "mmi-mcp": "./dist/src/cli/mcp-bootstrap.js"
   },
   "engines": {
+    "node": ">=20",
     "vscode": "^1.100.0"
   },
   "activationEvents": [

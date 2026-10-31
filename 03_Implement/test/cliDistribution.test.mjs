@@ -3,10 +3,14 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+
+import { collectRuntimeClosure, parseNoticeClosure } from '../scripts/runtime-closure.mjs';
 
 import {
   collectRuntimeModuleGraph,
   createCliPackageManifest,
+  createDistributionManifest,
   relativeModuleSpecifiers,
   stageCliPackage,
   verifyTarballOrRemove,
@@ -47,8 +51,8 @@ function fixture() {
     "#!/usr/bin/env node\nawait import('./mmi.js');\n",
   );
   write(
-    path.join(root, 'dist/src/cli/mcp.js'),
-    "#!/usr/bin/env node\nimport './mmi.js';\n",
+    path.join(root, 'dist/src/cli/mcp-bootstrap.js'),
+    "#!/usr/bin/env node\nawait import('./mmi.js');\n",
   );
   write(
     path.join(root, 'dist/src/cli/mmi.js'),
@@ -97,12 +101,13 @@ test('CLI distribution manifest contains runtime-only package contract', () => {
   assert.equal(manifest.version, '0.1.0');
   assert.deepEqual(manifest.bin, {
     mmi: './dist/src/cli/bootstrap.js',
-    'mmi-mcp': './dist/src/cli/mcp.js',
+    'mmi-mcp': './dist/src/cli/mcp-bootstrap.js',
   });
   assert.deepEqual(manifest.engines, { node: '>=20' });
   assert.equal(manifest.bundleDependencies, true);
   assert.deepEqual(manifest.files, [
     'dist',
+    'build-identity.json',
     'media',
     'README.md',
     'LICENSE',
@@ -129,8 +134,19 @@ test('CLI staging copies compiled runtime and disclosure files, not extension ma
   });
 
   assert.equal(result.stageDirectory, stage);
+  const identity = JSON.parse(
+    fs.readFileSync(path.join(stage, 'build-identity.json'), 'utf8'),
+  );
+  assert.equal(identity.schema, 'mmi.build-identity/v1');
+  assert.equal(identity.distribution, 'tarball');
+  assert.ok(identity.commit === null || /^[0-9a-f]{40}$/u.test(identity.commit));
+  assert.ok(
+    identity.lockfileDigest === null
+      || /^sha256:[0-9a-f]{64}$/u.test(identity.lockfileDigest),
+  );
+  assert.ok(identity.dirty === null || typeof identity.dirty === 'boolean');
   assert.equal(fs.existsSync(path.join(stage, 'dist/src/cli/bootstrap.js')), true);
-  assert.equal(fs.existsSync(path.join(stage, 'dist/src/cli/mcp.js')), true);
+  assert.equal(fs.existsSync(path.join(stage, 'dist/src/cli/mcp-bootstrap.js')), true);
   assert.equal(fs.existsSync(path.join(stage, 'dist/src/cli/mmi.js')), true);
   assert.equal(fs.existsSync(path.join(stage, 'dist/src/core/example.js')), true);
   assert.equal(fs.existsSync(path.join(stage, 'dist/src/core/nested.js')), true);
@@ -141,7 +157,7 @@ test('CLI staging copies compiled runtime and disclosure files, not extension ma
   );
   assert.deepEqual(result.runtimeFiles, [
     'cli/bootstrap.js',
-    'cli/mcp.js',
+    'cli/mcp-bootstrap.js',
     'cli/mmi.js',
     'core/example.js',
     'core/nested.js',
@@ -161,11 +177,12 @@ test('CLI staging copies compiled runtime and disclosure files, not extension ma
     fs.readFileSync(path.join(stage, 'package.json'), 'utf8'),
   );
   assert.equal(manifest.bin.mmi, './dist/src/cli/bootstrap.js');
-  assert.equal(manifest.bin['mmi-mcp'], './dist/src/cli/mcp.js');
+  assert.equal(manifest.bin['mmi-mcp'], './dist/src/cli/mcp-bootstrap.js');
   assert.equal(manifest.engines.node, '>=20');
   assert.equal(manifest.bundleDependencies, true);
   assert.deepEqual(manifest.files, [
     'dist',
+    'build-identity.json',
     'media',
     'README.md',
     'LICENSE',
@@ -300,7 +317,7 @@ test('CLI staging fails closed when compiled bootstrap is absent', () => {
 
 test('CLI staging fails closed when compiled MCP entry is absent', () => {
   const root = fixture();
-  fs.rmSync(path.join(root, 'dist/src/cli/mcp.js'));
+  fs.rmSync(path.join(root, 'dist/src/cli/mcp-bootstrap.js'));
 
   assert.throws(
     () => stageCliPackage({
@@ -353,3 +370,63 @@ function write(filepath, text) {
 function writeJson(filepath, value) {
   write(filepath, `${JSON.stringify(value, null, 2)}\n`);
 }
+
+const PROJECT_ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+function readProjectLock() {
+  return JSON.parse(fs.readFileSync(path.join(PROJECT_ROOT, 'package-lock.json'), 'utf8'));
+}
+
+test('THIRD_PARTY_NOTICES lists exactly the runtime closure derived from the lock', () => {
+  const notices = fs.readFileSync(
+    path.join(PROJECT_ROOT, 'cli-distribution/THIRD_PARTY_NOTICES.md'),
+    'utf8',
+  );
+  const listed = parseNoticeClosure(notices);
+  const derived = collectRuntimeClosure(readProjectLock());
+  assert.ok(derived.length > 0);
+  assert.deepEqual(
+    listed.map(({ name, version, license, path: p }) => `${p} ${name}@${version} ${license}`).sort(),
+    derived.map(({ name, version, license, path: p }) => `${p} ${name}@${version} ${license}`).sort(),
+  );
+});
+
+test('runtime closure keeps same-name packages of different versions apart', () => {
+  const lock = {
+    packages: {
+      '': { dependencies: { a: '1', b: '1' } },
+      'node_modules/a': { version: '1.0.0', license: 'MIT', dependencies: { e: '^4' } },
+      'node_modules/b': { version: '1.0.0', license: 'ISC', dependencies: { e: '^6' } },
+      'node_modules/e': { version: '4.0.0', license: 'BSD-2-Clause' },
+      'node_modules/b/node_modules/e': { version: '6.0.0', license: 'BSD-2-Clause' },
+      'node_modules/dev-only': { version: '1.0.0', license: 'MIT', dev: true },
+    },
+  };
+  const closure = collectRuntimeClosure(lock);
+  assert.deepEqual(
+    closure.map((c) => `${c.name}@${c.version}`),
+    ['a@1.0.0', 'b@1.0.0', 'e@6.0.0', 'e@4.0.0'],
+  );
+});
+
+test('distribution manifest records bundled dependencies, tarball digest and build environment', () => {
+  const manifest = createDistributionManifest({
+    sourcePackage: { name: 'markdown-matrix-injector', version: '0.2.0', license: 'MIT' },
+    lock: readProjectLock(),
+    tarballName: 'markdown-matrix-injector-0.2.0.tgz',
+    digest: 'sha256:' + 'ab'.repeat(32),
+    environment: { node: 'v22.0.0', platform: 'linux', arch: 'x64' },
+  });
+  assert.equal(manifest.schema, 'mmi.cli-package-manifest/v1');
+  assert.equal(manifest.tarball.sha256, 'ab'.repeat(32));
+  assert.deepEqual(manifest.builtWith, { node: 'v22.0.0', platform: 'linux', arch: 'x64' });
+  const names = manifest.runtimeDependencies.map((d) => d.name);
+  for (const required of ['markdown-it', 'parse5', 'saxes', 'xlsx', 'yaml', 'argparse']) {
+    assert.ok(names.includes(required), required);
+  }
+  assert.equal(
+    manifest.runtimeDependencies.find((d) => d.name === 'argparse').license,
+    'Python-2.0',
+  );
+  assert.ok(manifest.runtimeDependencies.every((d) => d.version && d.license !== 'UNKNOWN'));
+});

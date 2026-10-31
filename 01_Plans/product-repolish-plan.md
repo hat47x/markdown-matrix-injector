@@ -5,7 +5,7 @@
 - 終了条件: 命名の採否と各段階の残作業が関連Issue・ADR・現行文書へ反映され、この順序図を別に保守する必要がなくなったら削除する。
 - 状態: 提案。命名と価値の言い方は[ADR-0024](adr/ADR-0024-product-name-layers-and-value-statement.md)（Proposed）で採否を決める。不足機能の作業は、第7節の[GitHub Issues](https://github.com/hat47x/markdown-matrix-injector/issues)（#517〜#532、いずれもDraft）で扱う。
 - 基準: 価値と優先度の正本は[ADR-0019](adr/ADR-0019-ai-era-sier-document-value-and-policy.md)とする。到達点は[現在の作業](README.md)と、2026-10-17時点のコード・CLIの実行結果で確かめた。
-- 番号: 断りのないD0〜D15はADR-0019の決定を指す。ADR-0019にはD15が二つあり（[#416](https://github.com/hat47x/markdown-matrix-injector/issues/416)）、本書のD15は「MMIと生成AIの関係」を指す。
+- 番号: 断りのないD0〜D16はADR-0019の決定を指す。本書のD15は「MMIと生成AIの関係」を指す。作成時点ではD15が二つあったが、2026-10-17に「配布は最小ランタイムを優先する」をD16へ改め、解消した（[#416](https://github.com/hat47x/markdown-matrix-injector/issues/416)）。
 
 本書は、MMIの名前、価値の言い方、不足する機能を一つの地図にまとめる。価値そのものはADR-0019のまま変えない。決めた価値を、名前・外向けの説明・機能へ行き渡らせる順序を示す。
 
@@ -380,10 +380,10 @@ D3は「安全にMMIを外せることも成功条件とする」と定めてい
 
 次の不整合がある。
 
-- ADR-0019にD15が二つある（[#416](https://github.com/hat47x/markdown-matrix-injector/issues/416)）。
-- ADR-0017の番号が二つの文書で重なり、ADR-0014は欠番である。
+- ADR-0019にD15が二つあった（[#416](https://github.com/hat47x/markdown-matrix-injector/issues/416)）。D16への改番で解消済み。
+- ADR-0017の番号が二つの文書で重なり、ADR-0014は欠番である。番号は付け替えず、扱いを[ADR-0000](adr/ADR-0000-adr-governance.md)に記録した（2026-10-28）。
 - ADR-0016は、実装済みの内容を持ちながらProposedのままである。
-- 製品要求に「AI / LLMとの関係」と「AI・認知技術との3経路」が、ほぼ同じ内容で並ぶ。
+- 製品要求に「AI / LLMとの関係」と「AI・認知技術との3経路」が、ほぼ同じ内容で並んでいた。「AI / LLMとの関係」の一節に統合済み。
 - 概要とpackage.jsonは、価値の正本をADR-0012として扱う。
 - Excel NoteのCandidate化は2026-10-08に実装されたが、[#471](https://github.com/hat47x/markdown-matrix-injector/issues/471)はOpenのままである。
 - 現在の作業の「開発環境」は、Windows側にNode.jsとPython 3が無いと書く。2026-10-17のこの環境ではNode v24.19.0とPython 3.12.10が使え、ビルド済みのCLIも動いた。WSLで入れた依存はWindowsで使えない場合があるため、両方の条件を書き分ける。
@@ -451,3 +451,61 @@ D3は「安全にMMIを外せることも成功条件とする」と定めてい
 2026-10-17にWindows（Node v24.19.0）で、ビルド済みのCLI 0.1.0を実行した。基本設計書キットでは、`mmi inspect --json`がTable Candidate 5件を返し、`mmi check`のエラーは0件だった。実行の前後で原本のSHA-256は変わらなかった。一時フォルダに置いたXML・JSON・YAML・フラットテキストでは、`mmi inspect --json`がTree Candidateを返した。XML・JSON・YAMLは`observed`、フラットテキストは`inferred`だった。
 
 名前の衝突は、同日にnpm・PyPI・GitHub・VS Code Marketplace・Open VSXで調べた。商標は調べていない。規模の数字は、行数・ファイル数の集計と、ファイル名による分類を含む。第5節の提案は、試作も利用者による確認もしていない。
+
+## 10. 2026-10-30 横断追補：保存後の出典再解決（検証計画・未受入）
+
+本節は2026-10-17の本文を過去の基準として保持したまま追記する**検証計画**である。新しい公開契約、出典参照の統一方式、SHO/TEIによる業務意味受理を決めるものではない。照合mainは `5b2777a53a9eea22e197691fe793c1cc999074a4`（[CI SUCCESS](https://github.com/hat47x/markdown-matrix-injector/actions/runs/40897692128)）。
+
+### 10.1 到達点と保証しない範囲
+
+- §3.2および§5.2(5)の2026-10-17時点の「Linkedの見直し記録と文書ごとの出典報告は無い」は**歴史的な記述**である。その後、`mmi review-basis`、`mmi provenance`（`mmi.provenance-report/v1`）が導入され、[ #522 ](https://github.com/hat47x/markdown-matrix-injector/issues/522)・[ #525 ](https://github.com/hat47x/markdown-matrix-injector/issues/525)に実装・試験記録がある。文書を保存・移動・再開したときの正しい出典の**実解決先**、実務上の価値は別途未受入である。
+- [PR #675](https://github.com/hat47x/markdown-matrix-injector/pull/675)（`delivery-audit`）と[PR #672](https://github.com/hat47x/markdown-matrix-injector/pull/672)（HTML `html-audit` CLI/MCP）はmain統合済み。前者の`aligned`は二つの独立観測集合の一致だけであり、契約上の納品完全性ではない。後者の`complete`は機械的なバッチ整合で、業務意味・表示再現・Detachedの受理を意味しない。#672のLinux空cacheオフライン配布検証は[CI #40215314680](https://github.com/hat47x/markdown-matrix-injector/actions/runs/40215314680)で実測済み。Windows配布と実AIクライアント接続は別証拠。
+- [PR #703](https://github.com/hat47x/markdown-matrix-injector/pull/703)の`inspect`/`select`の期待Source Digest照合は**内容の照合補助**であって、保存後の解決先Location確認を省略できない。また現行CLIの`extract --table`呼出しが`expectedCandidate`を渡すことは静的に確認できず、`inspect`→`extract`の間の再観測・比較を別に記録する。
+
+### 10.2 C-01/T2：CLI → VSCode → 共通基盤の順序
+
+**P0**：同一fixture（原本A=`masters/design.xlsx`、保存文書=`docs/review/spec.md`、正しい文書相対参照=`../../masters/design.xlsx`）で、まず原本AだけのN1（CLI側の正常対照。VSCodeが成功することは仮定しない）、次に`docs/review/masters/design.xlsx`へ異内容の同名Bを置くB1を扱う。**このネストした文書配置をG0/G1の必須共通入力とする。** 同bytes別所在B2は追加負例、C1は同じ`docs/review/spec.md`とroot直下`assets/table-*.md`という**異なる保存先の抽出コメントを資産単体で再解決できるか**という第2段階であり、文書のネスト自体をC1の条件としない。fixtureの原本bytes／digest、対象Sheet/Range、生成設定、実行mainを同一版で固定し、別担当による類似fixtureの独立生成を**同一基準**とみなさない。
+
+| 段階・担当 | 残す証拠 | 合格判定と境界 |
+| --- | --- | --- |
+| **G0-0：CLI主担当＋相互照合** | 採用する単一ZIPの全bytes digest、原本A/Bのraw SHA-256、Sheet・候補Range、保存Markdownの相対path、A/Bの実配置とrealpath、実行main・実行器版 | **G0-0一致まではG0 PASSおよびG1の正式比較を停止**。担当ごとの異なるfixtureを「同一入力」とみなさない |
+| G0：CLI | Source Location（実解決先realpath）・raw Source Digest、Candidate kind/occurrence/sheet/range/fingerprint/Claims、抽出ファイルdigest、Ledger sourceKey、命令/終了コード、期待・実際Extracted件数 | 期待Extracted=1は**未実行の仮説**。`extract --from`は保存文書への自動挿入ではないため、出典コメントを別途挿入・保存してから`provenance`で件数を確認する。Candidateの同一性は参照文字列の単純一致ではなく根拠と対象の一致で評価する |
+| G1：VSCode | 同一fixtureとVSIX/Extension Host版、Candidate Review→採用→挿入→保存→再開、保存文書内Source Referenceの生文字列と文書相対の実解決先、Ledger、エラー/診断、原本不変 | 正しい原本Aへ解決すること。B1で誤原本Bが`resolved`でも不合格。CLI G0の基準受領前は正式比較をしない |
+| G2：共通基盤・方針 | G0/G1の同一SourceとCandidateの証拠、保存された参照先Locationとdigest、確認不能・不一致の原因、未実行項目 | **T1**（Candidate意味的一致）と**T2**（保存後の原本再解決）を独立PASS/FAIL/未確認で判定。CI成功やdigest一致だけでT2をPASSにしない |
+
+**G0-0（G0/G1の停止条件）**：CLI・共通基盤の並行fixtureではA/Bのraw-byte digestとSheet/Rangeが異なるため、CLI担当が正本ZIPのSHA-256・A/B digest・構成・Sheet/Range・候補fingerprint・実行版を一つの引渡し票に固定し、共通基盤とVSCode担当が**同じbytes**を受領照合するまで、同一fixtureのG0 PASSやG1実施済みと記載しない。受領前にPATH-ONLYモデルや検証器の構文確認だけを製品実測へ昇格させない。
+
+**CLI報告の追加判定**：`provenance --fail-on`は`diagnostics,stale,review-stale,missing`のみを終了コード判定に使い、`untracked`単独の専用ゲートはない。B1で誤原本へ`resolved`／`untracked`と報告され、終了0となり得るので、`summary.extracted=1`・`extracted[].freshness/problems`・原本Aと実解決先のrealpath・Ledger sourceKeyを終了コードと**独立に**読む。`materialize`の`freshness.checked/errors/problems`、`written`、`detachable`も独立列とし、隔離workspaceで試す。
+
+静的に確認できる区別：VSCode Candidate Reviewの`sourceLabel`はWorkspace相対、CLI `extract --from`の出典文字列は文書相対、現行`provenance`／Extracted鮮度検査のSource解決はMarkdown文書の親ディレクトリ相対である。**Source Identity（bytes）・Candidate Identity（kind/occurrence/fingerprint/Claims）・Source Reference（文字列/基準/実解決先）・抽出成果物Identity・Ledger/Reviewを分ける。** 独立抽出成果物と採用先文書は保存場所が異なるため、同じ相対参照を両方へ転記しても、それぞれ単独で原本を指せるとは限らない。これらは静的反例候補であり、製品CLIとVSCodeでの実証は未了である。
+
+### 10.3 独立して進める検証・Owner判断
+
+- **#658**：宣言した納品集合（Declared）、実際に観測したファイル集合（Observed）、外部要求があれば正式に要求された集合（Required）を混同しない。既存T6/T7の小fixture（コメント・インラインコード、破損Workbook、重複・同bytes別所在）から、各期待/実際・検査不能を記録。T8の対象の取り方はOwner未決。`delivery-audit`の再実装をしない。
+- **#672**：HTMLバッチの保存後監査・Linux配布証拠を再利用。C-01/T2のExcel参照再解決、#658の納品集合とは独立し、保存/監査の機械的成功を正式納品・業務意味受理に読み替えない。
+- **Owner Q1**：保存されたSource Referenceは文書相対で統一するか、別の明示参照基準を認めるか。**Q2**：抽出資産単体にも再解決可能な出典を要求するか（文書への採用時と区別）。**Q3**：#658のMarkdown参照を正式納品対象とみなす範囲、外部Required集合が無い場合の完結性の表現。
+- Owner回答前でもG0のfixture固定、G1の実操作、B1誤解決の観測を進められる。**回答・実測のない項目は契約採用／受入完了へ進めない。** 共通Host/Registry、新Ledger/Source Referenceスキーマ、TEIの意味受理を前提にしない。
+
+関連：[ #514 ](https://github.com/hat47x/markdown-matrix-injector/issues/514)（VSCode実操作）、[ #525 ](https://github.com/hat47x/markdown-matrix-injector/issues/525)（出典報告）、[ #658 ](https://github.com/hat47x/markdown-matrix-injector/issues/658)（納品集合）、[ #697 ](https://github.com/hat47x/markdown-matrix-injector/issues/697)（MCP provenanceはOwner/ADR未決）。SHO Composerでの人向け説明・納品固定版とTEIの意味受理は別段階とする。
+
+### 10.4 追加照合：G0-0入力一致・検査器の判定境界（2026-10-30、静的確認と未実行を区別）
+
+**新たに確認した不一致**：[#514の横断記録](https://github.com/hat47x/markdown-matrix-injector/issues/514#issuecomment-6516058753)では、CLI担当の暫定fixture AはSHA-256先頭 `ca21fed6…`、共通基盤担当の暫定fixture Aは `ae0c1dc3…` である。後者の保存済み検証ZIP内原本Aは本追補作業時に `ae0c1dc37f17a63dfed02299350c877f1591f523f6e68fc23b5f34cddd421f07` と独立照合した。Sheet/Rangeと検証mainも含め、同一の実行条件として引き渡された証拠は**未取得**。これを隠してT1/T2をPASSにしない。**どちらを正本に採るかの正式決定はしていない**。
+
+**G0-0の最小引渡し**：選択した**1件のZIP bytes**とSHA-256、展開後の原本A/BのSHA-256、`Sheet!Range`、各対象path、文書の配置、workspace root、`cwd`、main commit・CLI build identity、想定Candidate件数／Extracted件数（後二者は実行まで期待値）をCLIとVSCode・共通基盤が同一票で照合する。対象文書を`docs/spec.md`にするか`docs/review/spec.md`にするかで誤解決先Bの正しい配置が変わるため、Bのpathは固定した文書配置とセットで決める。**ZIP作成・Path-only検証は製品CLI試験ではない。** CLI実`inspect`/ `extract` / `provenance`がG0、VSIX/Extension Hostでの保存・再開がG1、その横断照合がG2。
+
+**G0/G2で個別に見る情報**：
+
+| 観測 | 今ある静的根拠 | 残る確認 |
+| --- | --- | --- |
+| Candidateの内容Fingerprint | `tableRegionAdapter.ts`は表の表示セル内容から`table-display-cells-v1`を生成し、場所は別のLocatorへ保持する | Fingerprint一致だけでSource LocationやSheet/Rangeを受理しない |
+| Candidate Reviewのセッション識別 | `candidateReviewSession.ts`のkeyは`locator.source`・Sheet・place・Fingerprint等を含む | CLI/VSCodeの異なるSource Labelを単純に同一keyへ正規化しない |
+| Linked参照の読取と出典報告 | `core/pathResolver.ts`は文書相対優先＋workspace相対fallback。対して`application/provenanceReport.ts`は文書相対から解決する | 同じ入力で`check`の診断、`provenance`のstatusと、意図したAのrealpathを別記録。Extracted表の表示だけでLinked resolverが使われたとは推定しない |
+| Extracted出典とLedger | `provenanceReport.ts`は文書相対で解決した原本のsourceKeyをLedgerへ突き合わせ、`freshness`は`fresh/stale/missing/untracked/unknown`で分類する | B1が誤解決されたときの`untracked`、missing、staleを実測して分ける |
+| 報告の終了コード | `mmi provenance --fail-on`が受け付けるのは`diagnostics,stale,review-stale,missing`で、`untracked`専用指定はない | `provenance`終了0や`resolved`のみをG2 PASSに使わない。必要なExpected Extracted=1と個別freshness、実解決先、Ledgerを照合する |
+
+**B1の独立性**：CLIが正しくAを抽出した後、保存コメントの出典だけを書き換えてBを模擬するケースは、検証器の**合成負例**としては使える。しかし、これで「VSCodeが誤った出典を生成した」とは実証できない。VSCodeが生成した生文字列はG1実機で採取する。原本Aを同じまま保持し、誤参照先Bの有無を変えるN1/B1を先行。B2（同bytes別所在）とC1（文書・独立資産の異なる参照基準）は後続に置く。
+
+**出力の分離と停止条件**：G0の`G0_CLI_PASS`（本体CLI成功）と`G0_EVIDENCE_CONSISTENT`（入力・結果・保存依存の独立照合）は同義ではない。G1の抽出・Ledger保存・Markdown挿入・ディスク保存・再開を別ステップに分ける。T1（Source/Candidateの意味的一致）とT2（保存後のAへの実解決）を独立判定する。欠落または不一致の証拠はSTOP/NOT RUNとして扱い、人の業務受理やOwner判断へ自動昇格させない。正式な共通Source Reference契約、asset単体出典の必須化、公開API追加は決めない。
+
+静的根拠：[ #514のG0-0票 ](https://github.com/hat47x/markdown-matrix-injector/issues/514#issuecomment-6516058753)、[ #525のCLI・検査器差分 ](https://github.com/hat47x/markdown-matrix-injector/issues/525#issuecomment-6516074087)。#658のT6/T7、#672のWindows配布・実AIクライアント接続は各独立レーンに残す。

@@ -45,6 +45,7 @@ export interface SelectionIssue {
     | 'GREP_NOT_EXACT'
     | 'NO_ROWS_MATCH'
     | 'RENDER_FAILED'
+    | 'SOURCE_DIGEST_MISMATCH'
     | 'TABLE_CAUTION';
   message: string;
   suggestions?: string[];
@@ -58,10 +59,17 @@ export interface SelectionResult {
   columns?: { header: string; letter: string }[];
   rows?: { mode: 'all' | 'contains' | 'first'; shown: number; ofTotal: number; exact: boolean };
   renderMode?: 'table' | 'card';
-  preview?: { headers?: string[]; rows: string[][] };
+  /**
+   * A sample for confirming the selection, not the whole range. `rows` holds at most
+   * `limit` (SELECTION_PREVIEW_ROW_LIMIT) rows; `truncated` says rows were left out.
+   */
+  preview?: { headers?: string[]; rows: string[][]; limit: number; shown: number; ofSelected: number; truncated: boolean };
   errors: SelectionIssue[];
   warnings: SelectionIssue[];
 }
+
+/** Rows `preview` carries. A selection of more rows is cut to this many and flagged by `preview.truncated`. */
+export const SELECTION_PREVIEW_ROW_LIMIT = 5;
 
 const MAX_TABLE_COLUMNS = 10;
 const MAX_TABLE_CELLS = 500;
@@ -177,7 +185,15 @@ export function selectFromBook(book: LoadedBook, referencePath: string, request:
       result.warnings.push({ code: 'NO_ROWS_MATCH', message: `「${grep}」を含む行がありません（表示は見出しだけになります）。` });
     }
     result.rows = { mode: grep !== undefined ? 'contains' : rows && 'first' in rows ? 'first' : 'all', shown: logical.bodyRows.length, ofTotal: rows && 'first' in rows ? info.bodyRows : total, exact };
-    result.preview = { headers: logical.headers, rows: logical.bodyRows.slice(0, 5) };
+    const previewRows = logical.bodyRows.slice(0, SELECTION_PREVIEW_ROW_LIMIT);
+    result.preview = {
+      headers: logical.headers,
+      rows: previewRows,
+      limit: SELECTION_PREVIEW_ROW_LIMIT,
+      shown: previewRows.length,
+      ofSelected: logical.bodyRows.length,
+      truncated: previewRows.length < logical.bodyRows.length,
+    };
     displayedHeaders = logical.headers;
   } catch (error) {
     result.errors.push({ code: 'RENDER_FAILED', message: `参照を描画できませんでした: ${(error as Error).message}` });

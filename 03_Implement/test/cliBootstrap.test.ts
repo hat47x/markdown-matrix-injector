@@ -38,3 +38,31 @@ test('unsupported Node exits before loading the MMI runtime graph', async () => 
   assert.match(errors[0], /Node\.js 20 or newer is required/u);
   assert.match(errors[0], /current runtime is 18\.20\.8/u);
 });
+
+test('mmi-mcp bootstrap exits 2 on stderr only before loading the MCP runtime graph', async () => {
+  const { bootstrapMcp } = await import('../src/cli/mcp-bootstrap.js');
+  const errors: string[] = [];
+  const writes: string[] = [];
+  const originalError = console.error;
+  const originalWrite = process.stdout.write;
+  console.error = (...args: unknown[]) => {
+    errors.push(args.map((value) => String(value)).join(' '));
+  };
+  process.stdout.write = ((chunk: unknown) => {
+    writes.push(String(chunk));
+    return true;
+  }) as typeof process.stdout.write;
+  try {
+    assert.equal(await bootstrapMcp(['--help'], '18.20.8'), 2);
+    assert.equal(await bootstrapMcp([], '19.9.0'), 2);
+    assert.equal(await bootstrapMcp([], 'not-a-version'), 2);
+  } finally {
+    console.error = originalError;
+    process.stdout.write = originalWrite;
+  }
+
+  assert.deepEqual(writes, []);
+  assert.equal(errors.length, 3);
+  assert.match(errors[0], /^mmi-mcp: Node\.js 20 or newer is required/u);
+  assert.match(errors[0], /current runtime is 18\.20\.8/u);
+});

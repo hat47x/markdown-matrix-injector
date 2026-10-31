@@ -67,7 +67,7 @@ MCP対応のAIエージェントからは、`mmi-mcp`がCLIと同じ読み取り
 }
 ```
 
-使えるのは`inspect`・`check`・`render`・`select`・`find`・`handoff`・`validate-proposal`・`validate-selection`・`validate-transformation`・`schema`である。`extract`・`import`・`materialize`などの書き込み系は公開しない。`inspect`は既定で構造だけを返すため、値が必要なときだけ`values`を行数で指定する。書き込みが要る作業はCLIへ戻り、利用者の確認を取る。設定と制限は[MCPサーバ](../../04_Documentation/mcp-server.md)を参照する。
+使えるのは`inspect`・`html-audit`・`check`・`render`・`select`・`find`・`handoff`・`validate-proposal`・`validate-selection`・`validate-transformation`・`schema`である。`extract`・`import`・`materialize`などの書き込み系は公開しない。`inspect`は既定で構造だけを返すため、値が必要なときだけ`values`を行数で指定する。書き込みが要る作業はCLIへ戻り、利用者の確認を取る。設定と制限は[MCPサーバ](../../04_Documentation/mcp-server.md)を参照する。
 
 ## 外部LLMへ相談する（MMIは送信しない）
 

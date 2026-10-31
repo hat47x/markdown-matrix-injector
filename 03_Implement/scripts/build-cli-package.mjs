@@ -8,6 +8,7 @@ import ts from 'typescript';
 
 import { verifyCliPackage } from './verify-cli-package.mjs';
 import { spawnPlan } from './npm-spawn.mjs';
+import { collectRuntimeClosure } from './runtime-closure.mjs';
 
 const SCRIPT_DIR = path.dirname(fileURLToPath(import.meta.url));
 export const DEFAULT_PROJECT_ROOT = path.resolve(SCRIPT_DIR, '..');
@@ -35,7 +36,7 @@ export function createCliPackageManifest(sourcePackage) {
     type: 'module',
     bin: {
       mmi: './dist/src/cli/bootstrap.js',
-      'mmi-mcp': './dist/src/cli/mcp.js',
+      'mmi-mcp': './dist/src/cli/mcp-bootstrap.js',
     },
     engines: {
       node: '>=20',
@@ -45,6 +46,7 @@ export function createCliPackageManifest(sourcePackage) {
     homepage: sourcePackage.homepage,
     files: [
       'dist',
+      'build-identity.json',
       'media',
       'README.md',
       'LICENSE',
@@ -52,6 +54,67 @@ export function createCliPackageManifest(sourcePackage) {
     ],
     dependencies,
     bundleDependencies: true,
+  };
+}
+
+/**
+ * tarballの隣へ保存する、同梱物の機械可読な一覧（mmi.cli-package-manifest/v1）。
+ * 外部の配布マニフェスト（TAIのシリーズ配布など）が、同梱依存の版とライセンス、
+ * tarballのSHA-256、作成環境を手で転記せずに引けるようにする。
+ * 時刻は含めない。同じ入力からは同じ内容になる。
+ */
+export function createDistributionManifest({
+  sourcePackage,
+  lock,
+  tarballName,
+  digest,
+  environment = { node: process.version, platform: process.platform, arch: process.arch },
+}) {
+  return {
+    schema: 'mmi.cli-package-manifest/v1',
+    package: { name: sourcePackage.name, version: sourcePackage.version, license: sourcePackage.license },
+    tarball: { name: tarballName, sha256: digest.replace(/^sha256:/u, '') },
+    builtWith: { node: environment.node, platform: environment.platform, arch: environment.arch },
+    runtimeDependencies: collectRuntimeClosure(lock),
+  };
+}
+
+/**
+ * tarballへ埋め込むビルド識別（mmi.build-identity/v1の固定部分）。
+ * コミットは作成元のgit HEAD（取れなければ環境変数MMI_BUILD_COMMIT）、
+ * lock digestは作成元package-lock.jsonの生バイト列のsha256とする。
+ * 取れない項目はnullのまま残し、推測で埋めない。
+ */
+export function createBuildIdentity(projectRoot, lockPath) {
+  let commit = null;
+  const head = spawnSync('git', ['rev-parse', 'HEAD'], {
+    cwd: projectRoot,
+    encoding: 'utf8',
+    windowsHide: true,
+  });
+  if (head.status === 0 && /^[0-9a-f]{40}$/u.test(head.stdout.trim())) {
+    commit = head.stdout.trim();
+  } else if (/^[0-9a-f]{40}$/u.test(process.env.MMI_BUILD_COMMIT ?? '')) {
+    commit = process.env.MMI_BUILD_COMMIT;
+  }
+  // 未コミットの変更（追跡対象外を含む）の有無。gitで確かめられないときはnullのまま残す。
+  let dirty = null;
+  const status = spawnSync('git', ['status', '--porcelain'], {
+    cwd: projectRoot,
+    encoding: 'utf8',
+    windowsHide: true,
+    env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
+  });
+  if (status.status === 0 && !status.error) dirty = status.stdout.trim().length > 0;
+  const lockfileDigest = fs.existsSync(lockPath)
+    ? `sha256:${createHash('sha256').update(fs.readFileSync(lockPath)).digest('hex')}`
+    : null;
+  return {
+    schema: 'mmi.build-identity/v1',
+    commit,
+    lockfileDigest,
+    dirty,
+    distribution: 'tarball',
   };
 }
 
@@ -74,7 +137,7 @@ export function stageCliPackage(options = {}) {
       `Compiled CLI bootstrap is missing: ${cliEntry}. Run npm run build:product first.`,
     );
   }
-  const mcpEntry = path.join(compiledRoot, 'cli', 'mcp.js');
+  const mcpEntry = path.join(compiledRoot, 'cli', 'mcp-bootstrap.js');
   if (!fs.existsSync(mcpEntry)) {
     throw new Error(
       `Compiled MCP entry is missing: ${mcpEntry}. Run npm run build:product first.`,
@@ -120,6 +183,10 @@ export function stageCliPackage(options = {}) {
   fs.writeFileSync(
     path.join(stageDirectory, 'package.json'),
     `${JSON.stringify(manifest, null, 2)}\n`,
+  );
+  fs.writeFileSync(
+    path.join(stageDirectory, 'build-identity.json'),
+    `${JSON.stringify(createBuildIdentity(projectRoot, sourceLockPath), null, 2)}\n`,
   );
 
   return {
@@ -210,6 +277,22 @@ export function buildCliPackage(options = {}) {
     `${digest.slice('sha256:'.length)}  ${path.basename(tarballPath)}\n`,
   );
 
+  const manifestPath = `${tarballPath}.manifest.json`;
+  fs.writeFileSync(
+    manifestPath,
+    `${JSON.stringify(
+      createDistributionManifest({
+        sourcePackage: JSON.parse(staged.sourcePackageText),
+        lock: JSON.parse(fs.readFileSync(staged.sourceLockPath, 'utf8')),
+        tarballName: path.basename(tarballPath),
+        digest,
+      }),
+      null,
+      2,
+    )}
+`,
+  );
+
   let verification;
   try {
     verification = options.verify === false
@@ -227,6 +310,7 @@ export function buildCliPackage(options = {}) {
     tarballPath,
     digest,
     digestPath,
+    manifestPath,
     npmPackReport: report[0],
     ...(verification ? { verification } : {}),
   };
@@ -357,6 +441,7 @@ export function verifyTarballOrRemove(
   } catch (error) {
     fs.rmSync(tarballPath, { force: true });
     fs.rmSync(digestPath, { force: true });
+    fs.rmSync(`${tarballPath}.manifest.json`, { force: true });
     throw error;
   }
 }
@@ -401,6 +486,7 @@ if (isMainModule()) {
       `${JSON.stringify({
         tarball: result.tarballPath,
         sha256: result.digest,
+        manifest: result.manifestPath,
         runtimeFiles: result.runtimeFiles,
         bundled: result.npmPackReport?.bundled ?? [],
         verification: result.verification ?? null,

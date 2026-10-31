@@ -12,3 +12,13 @@
 状態はDraft、Proposed、Accepted、Rejected、Supersededを使う。Proposedは採用済みではない。判断を変更するときは関連する仕様・計画も整合させる。
 
 [テンプレート](TEMPLATE.md)は記載の補助であり、不要な節は省略する。
+
+## 番号の扱い
+
+ADRの番号は、採用後に付け替えない。Issue、他文書、履歴資料がファイル名で参照しているためである。
+
+- ADR-0014は欠番とする。対応する判断は記録されていない。再利用しない。
+- ADR-0017は、`ADR-0017-windows-clipboard-provenance-bridge.md`と`ADR-0017-fly-inspired-format-deviation-assistance.md`の2文書が使っている。どちらも改名せず、参照は番号だけでなくファイル名のリンクで行う。
+- 新しいADRは、現在の最大番号の次を使う。
+
+同じ文書内のDecision番号（D0、D1など）は重複させない。重複に気付いた場合は、後から追加した側を付け替え、同じ変更で参照元を直す。

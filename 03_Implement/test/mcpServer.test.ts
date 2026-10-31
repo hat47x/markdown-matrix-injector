@@ -8,8 +8,10 @@ import { Readable, Writable } from 'node:stream';
 import {
   MCP_MAX_LINE_BYTES,
   MCP_PROTOCOL_VERSION,
+  MCP_TOOLS,
   MCP_TOOL_NAMES,
   createMcpServer,
+  redactHostPaths,
   runMcpServer,
   type McpServer,
 } from '../src/cli/mcp.js';
@@ -126,6 +128,55 @@ test('tools/list exposes the read-only surface and no write tool', async () => {
     assert.equal(typeof tool.description, 'string');
   }
   assert.deepEqual(names, [...MCP_TOOL_NAMES]);
+});
+
+test('every tool rejects an argument its inputSchema does not declare', async () => {
+  const f = fixture();
+  const instance = server(f.root);
+  await initialize(instance);
+
+  for (const tool of MCP_TOOLS) {
+    const properties = Object.keys((tool.inputSchema.properties ?? {}) as Record<string, unknown>);
+    assert.equal(tool.inputSchema.additionalProperties, false, `${tool.name} declares no extras`);
+    const response = await call(instance, tool.name, { notAnArgument: 1 });
+    assert.equal(response.error.code, -32602, `${tool.name} must reject an unknown argument`);
+    assert.match(response.error.message, /Unknown argument "notAnArgument"/u);
+    for (const accepted of properties) {
+      assert.ok(response.error.message.includes(accepted), `${tool.name} lists ${accepted}`);
+    }
+  }
+
+  // A misspelled version pin must not be silently dropped into an unpinned success.
+  const fakeDigest = `sha256:${'0'.repeat(64)}`;
+  for (const typo of ['expectedSourceDigests', 'expectedSourcedigest']) {
+    const inspect = await call(instance, 'inspect', { source: 'data/roles.csv', [typo]: fakeDigest });
+    assert.equal(inspect.error.code, -32602, `inspect ${typo}`);
+    const select = await call(instance, 'select', {
+      source: 'data/roles.csv', table: 'Sheet1!A1:C3', [typo]: fakeDigest,
+    });
+    assert.equal(select.error.code, -32602, `select ${typo}`);
+  }
+});
+
+test('render accepts only Markdown documents and never returns raw file content', async () => {
+  const f = fixture();
+  fs.writeFileSync(path.join(f.root, '.env'), 'SECRET=abc\n');
+  fs.writeFileSync(path.join(f.root, 'notes.txt'), 'plain text\n');
+  fs.writeFileSync(path.join(f.root, 'book.xlsx'), Buffer.from([0x50, 0x4b, 0x03, 0x04]));
+  fs.writeFileSync(path.join(f.root, 'UPPER.MD'), '# upper\n');
+  const instance = server(f.root);
+  await initialize(instance);
+
+  for (const document of ['.env', 'notes.txt', 'book.xlsx', 'data/roles.csv']) {
+    for (const to of ['md', 'html']) {
+      const response = await call(instance, 'render', { document, to });
+      assert.equal(response.error.code, -32602, `${document} (${to})`);
+      assert.match(response.error.message, /must be a Markdown file/u);
+      assert.ok(!JSON.stringify(response).includes('SECRET=abc'));
+    }
+  }
+  assert.equal((await call(instance, 'render', { document: 'spec.md' })).result.isError, false);
+  assert.equal((await call(instance, 'render', { document: 'UPPER.MD' })).result.isError, false);
 });
 
 test('ping and unknown methods follow JSON-RPC errors', async () => {
@@ -338,4 +389,88 @@ test('runMcpServer reads one JSON message per line and writes one per response',
   assert.equal(lines.length, 2);
   assert.equal(lines[0].result.protocolVersion, '2024-11-05');
   assert.equal(lines[1].result.tools.some((tool: { name: string }) => tool.name === 'inspect'), true);
+});
+
+test('runMcpServer rejects a line over the limit without buffering it and keeps serving', async () => {
+  const { root } = fixture();
+  const responses: string[] = [];
+  const output = new Writable({
+    write(chunk, _encoding, callback) {
+      responses.push(chunk.toString());
+      callback();
+    },
+  });
+  const piece = Buffer.alloc(1024 * 1024, 0x78);
+  // About 700 MiB with no newline: far over the limit, streamed in 1 MiB pieces.
+  async function* chunks(): AsyncGenerator<Buffer> {
+    for (let index = 0; index < 700; index += 1) yield piece;
+    yield Buffer.from(`\n${JSON.stringify({ jsonrpc: '2.0', id: 7, method: 'ping' })}\n`);
+  }
+  await runMcpServer({ root, version: 'test-version', input: Readable.from(chunks()), output });
+  const lines = responses.join('').trim().split(/\r?\n/u).map((line) => JSON.parse(line));
+  assert.equal(lines.length, 2);
+  assert.equal(lines[0].error.code, -32600);
+  assert.equal(lines[0].id, null);
+  assert.equal(lines[1].id, 7);
+  assert.deepEqual(lines[1].result, {});
+});
+
+test('failed tool calls carry a structured code and no host absolute path', async () => {
+  const { root, document, outside } = fixture();
+  fs.writeFileSync(path.join(root, 'broken.json'), '{ not json');
+  const instance = server(root);
+  await initialize(instance);
+
+  const failure = (response: any): { code: string; message: string } => {
+    assert.equal(response.result.isError, true);
+    const detail = response.result.structuredContent;
+    assert.equal(detail.contract, 'mmi.mcp-error/v1');
+    assert.deepEqual(response.result._meta['mmi/error'], detail);
+    assert.equal(resultText(response), `mmi: ${detail.message}`);
+    // The workspace root and the temp directory are host paths.
+    assert.ok(!resultText(response).includes(root), 'root path leaked');
+    assert.ok(!resultText(response).includes(path.dirname(root)), 'host path leaked');
+    return detail;
+  };
+
+  const outsideRoot = failure(await call(instance, 'inspect', { source: '../outside.csv' }));
+  assert.equal(outsideRoot.code, 'outside-root');
+  assert.equal(failure(await call(instance, 'inspect', { source: outside })).code, 'outside-root');
+  assert.equal(failure(await call(instance, 'check', { paths: ['..'] })).code, 'outside-root');
+
+  const missing = failure(await call(instance, 'inspect', { source: 'data/nonexist.csv' }));
+  assert.equal(missing.code, 'not-found');
+  assert.match(missing.message, /nonexist\.csv/u);
+  assert.equal(failure(await call(instance, 'render', { document: 'nonexist.md' })).code, 'not-found');
+  assert.equal(failure(await call(instance, 'select', { source: 'data/nonexist.csv', table: 'A1:B2' })).code, 'not-found');
+
+  const broken = failure(await call(instance, 'validate-selection', {
+    proposal: 'broken.json',
+    package: 'broken.json',
+  }));
+  assert.equal(broken.code, 'parse-failed');
+
+  const stale = failure(await call(instance, 'inspect', {
+    source: 'data/roles.csv',
+    expectedSourceDigest: 'sha256:' + '0'.repeat(64),
+  }));
+  assert.equal(stale.code, 'digest-mismatch');
+
+  // A successful call carries no error detail.
+  const ok = await call(instance, 'inspect', { source: 'data/roles.csv', values: 1 });
+  assert.equal(ok.result.isError, false);
+  assert.equal(ok.result.structuredContent, undefined);
+  assert.ok(fs.existsSync(document));
+});
+
+test('redactHostPaths keeps root-relative paths and hides other absolute paths', () => {
+  const root = path.join(os.tmpdir(), 'ws');
+  assert.equal(
+    redactHostPaths(`ENOENT: no such file or directory, open '${path.join(root, 'data', 'a.csv')}'`, root),
+    "ENOENT: no such file or directory, open 'data" + path.sep + "a.csv'",
+  );
+  assert.equal(redactHostPaths("open 'C:\\Users\\y\\secret.csv'", root), "open '<path>'");
+  assert.equal(redactHostPaths("open '/home/x/secret.csv'", root), "open '<path>'");
+  assert.equal(redactHostPaths('Argument "source" is outside the MCP workspace root.', root),
+    'Argument "source" is outside the MCP workspace root.');
 });

@@ -15,3 +15,26 @@
 # Frozen CPU-search evaluation inputs are identified by Git blob SHA: keep LF on every checkout.
 03_Implement/scripts/cpu-search-eval/queries.test*.json text eol=lf
 03_Implement/scripts/cpu-search-eval/dictionary.json text eol=lf
+
+# Sample and kit assets are hashed by byte (sourceDigest, #690). Keep LF on every
+# checkout so core.autocrlf=true on Windows does not change the digest.
+# The CP932 CSV above keeps its own bytes (-text); it must stay listed after these rules.
+04_Documentation/kits/**/*.md text eol=lf
+04_Documentation/kits/**/*.csv text eol=lf
+04_Documentation/kits/**/*.tsv text eol=lf
+04_Documentation/kits/**/*.json text eol=lf
+04_Documentation/kits/**/*.html text eol=lf
+04_Documentation/kits/**/*.xml text eol=lf
+04_Documentation/samples/practical/**/*.md text eol=lf
+04_Documentation/samples/practical/**/*.csv text eol=lf
+04_Documentation/samples/practical/**/*.tsv text eol=lf
+04_Documentation/samples/practical/**/*.json text eol=lf
+04_Documentation/samples/practical/**/*.html text eol=lf
+04_Documentation/samples/practical/**/*.xml text eol=lf
+04_Documentation/samples/sier-design/**/*.md text eol=lf
+04_Documentation/samples/sier-design/**/*.csv text eol=lf
+04_Documentation/samples/sier-design/**/*.tsv text eol=lf
+04_Documentation/samples/sier-design/**/*.json text eol=lf
+04_Documentation/samples/sier-design/**/*.html text eol=lf
+04_Documentation/samples/sier-design/**/*.xml text eol=lf
+04_Documentation/samples/practical/data/excel-cp932.csv -text -diff
