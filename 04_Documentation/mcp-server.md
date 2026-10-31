@@ -95,6 +95,8 @@ MCP対応クライアントには、コマンドと引数を次の形で登録�
 
 `select`と`find`の結果は、対象原本の`sourceDigest`を返します。`select`は結果の最上位（`candidate`と同じ階層）、`find`は各候補です。値は`inspect`が各Candidateの`locator.sourceDigest`で返すものと同じで、原本のbytesから取ります。選択結果がどの版の原本に対するものかを、この値で照合できます。`mmi.selection/v0`の本体は変えず、項目を足しただけなので、既存の読み手はそのまま使えます。`handoff`など他のツールの結果には付けていません。
 
+`select`の結果の`preview`は、選択の確認用の見本であり、選択した範囲の原本値の全量ではありません。載せる行は先頭5行までです。`preview.limit`が上限（5）、`preview.shown`が載せた行数、`preview.ofSelected`が選択した行数、`preview.truncated`が省略の有無を表します。`truncated`が`true`のとき、`preview.rows`は選択の一部です。`rows.shown`は参照が描画する行数で、`preview`に載せた行数とは別です。上限を変える引数はありません。これらは`preview`に足した項目で、既存の読み手はそのまま使えます。MCPで選択範囲の全行の原本値を取る手段は、現在ありません（[#739](https://github.com/hat47x/markdown-matrix-injector/issues/739)で、Ownerの判断を待って扱います）。
+
 `inspect`と`select`は、任意の`expectedSourceDigest`（CLIでは`--expected-source-digest`）を受け取ります。原本のdigestが一致しなければ、原本を読む前に拒否します。`select`は`ok: false`・`SOURCE_DIGEST_MISMATCH`のツール結果で、実際のdigestを`sourceDigest`に添えて返します。`inspect`は`isError=true`のエラーです。`sha256:`と64桁の16進数でない値は、不一致ではなく引数の誤りとして`-32602`（CLIでは終了コード2）で拒否します。`find`は複数の原本を横断するため、この引数を持ちません。
 
 `inspect`は既定で構造だけを返します。セルの値が必要なときだけ`values`へ行数を指定します。これはCLIの`--values`と同じで、既定では値を含めません。

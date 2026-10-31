@@ -128,6 +128,32 @@ test('select first: non-integer or negative is refused by MCP as invalid params'
   }
 });
 
+test('select preview says it is a sample and reports omitted rows, in both MCP and CLI', async () => {
+  // Whole table: more rows than the preview limit.
+  const cli = runCli(['select', SOURCE, '--table', '機能一覧!A1:F11', '--json', '--root', '.']);
+  assert.equal(cli.status, 0, cli.stderr);
+  const mcp = JSON.parse(await callMcp('select', { source: SOURCE, table: '機能一覧!A1:F11' }));
+  assert.deepEqual(mcp, JSON.parse(cli.stdout));
+  const { preview, rows } = mcp.result;
+  assert.ok(rows.shown > 5, 'fixture must select more rows than the preview limit');
+  assert.equal(preview.limit, 5);
+  assert.equal(preview.rows.length, 5);
+  assert.equal(preview.shown, 5);
+  assert.equal(preview.ofSelected, rows.shown);
+  assert.equal(preview.truncated, true);
+
+  // At or under the limit: nothing is omitted.
+  for (const first of [3, 5]) {
+    const cliSmall = runCli(['select', SOURCE, '--table', '機能一覧!A1:F11', '--first', String(first), '--json', '--root', '.']);
+    assert.equal(cliSmall.status, 0, cliSmall.stderr);
+    const mcpSmall = JSON.parse(await callMcp('select', { source: SOURCE, table: '機能一覧!A1:F11', first }));
+    assert.deepEqual(mcpSmall, JSON.parse(cliSmall.stdout));
+    assert.equal(mcpSmall.result.preview.shown, first);
+    assert.equal(mcpSmall.result.preview.ofSelected, first);
+    assert.equal(mcpSmall.result.preview.truncated, false);
+  }
+});
+
 test('select with columns, contains, in or first matches mmi select --json (headings, not letters)', async () => {
   const cli = runCli([
     'select', SOURCE, '--table', '機能一覧!A1:F11',
