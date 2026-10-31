@@ -461,6 +461,18 @@ test('failed tool calls carry a structured code and no host absolute path', asyn
   assert.equal(ok.result.isError, false);
   assert.equal(ok.result.structuredContent, undefined);
   assert.ok(fs.existsSync(document));
+
+  // A broken default ledger is a ledger failure, not an anonymous tool failure
+  // that looks like a problem with the source (#730). The tools that never read
+  // the ledger are unaffected.
+  fs.writeFileSync(path.join(root, 'mmi-ledger.json'), '{broken');
+  const ledgerBroken = failure(await call(instance, 'inspect', { source: 'data/roles.csv' }));
+  assert.equal(ledgerBroken.code, 'parse-failed');
+  assert.match(ledgerBroken.message, /ledger mmi-ledger.json could not be applied/u);
+  const select = await call(instance, 'select', { source: 'data/roles.csv', table: 'A1:B2' });
+  assert.equal(select.result.isError, false);
+  fs.rmSync(path.join(root, 'mmi-ledger.json'));
+  assert.equal((await call(instance, 'inspect', { source: 'data/roles.csv', values: 1 })).result.isError, false);
 });
 
 test('redactHostPaths keeps root-relative paths and hides other absolute paths', () => {
