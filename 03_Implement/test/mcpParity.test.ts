@@ -108,6 +108,26 @@ test('select matches mmi select --json', async () => {
   assert.deepEqual(JSON.parse(mcp), JSON.parse(cli.stdout));
 });
 
+test('select --first rejects values that are not non-negative integers with exit code 2', () => {
+  for (const bad of ['abc', '-1', '1.5', '', '1e2', ' ']) {
+    const cli = runCli(['select', SOURCE, '--table', '機能一覧!A1:F11', `--first=${bad}`, '--json', '--root', '.']);
+    assert.equal(cli.status, 2, `--first ${JSON.stringify(bad)}: ${cli.stderr}`);
+    assert.match(cli.stderr, /--first must be a non-negative integer/u);
+  }
+  for (const good of ['1', '3', '10', '11', '100']) {
+    const cli = runCli(['select', SOURCE, '--table', '機能一覧!A1:F11', `--first=${good}`, '--json', '--root', '.']);
+    assert.equal(cli.status, 0, `--first ${good}: ${cli.stderr}`);
+    const rows = JSON.parse(cli.stdout).result.rows;
+    assert.equal(rows.shown, Math.min(Number(good), 10), `--first ${good}`);
+  }
+});
+
+test('select first: non-integer or negative is refused by MCP as invalid params', async () => {
+  for (const bad of [-1, 1.5, 'abc']) {
+    await assert.rejects(callMcp('select', { source: SOURCE, table: '機能一覧!A1:F11', first: bad }), /first/u, `first ${JSON.stringify(bad)}`);
+  }
+});
+
 test('select with columns, contains, in or first matches mmi select --json (headings, not letters)', async () => {
   const cli = runCli([
     'select', SOURCE, '--table', '機能一覧!A1:F11',
