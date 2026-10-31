@@ -1,11 +1,17 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 
-import { BUILD_IDENTITY_SCHEMA, readBuildIdentity, sha256Digest } from '../src/cli/buildIdentity.js';
+import {
+  BUILD_IDENTITY_SCHEMA,
+  gitDirty,
+  readBuildIdentity,
+  sha256Digest,
+} from '../src/cli/buildIdentity.js';
 import { createMcpServer } from '../src/cli/mcp.js';
 import { readCliVersion } from '../src/cli/mmi.js';
 
@@ -25,6 +31,44 @@ test('開発用チェックアウトでは、gitのHEAD・lockfile digest・Node
   const head = spawnSync('git', ['rev-parse', 'HEAD'], { cwd: PROJECT_ROOT, encoding: 'utf8' });
   if (head.status === 0) assert.equal(identity.commit, head.stdout.trim());
   else assert.equal(identity.commit, null);
+});
+
+test('チェックアウトのdirtyは真偽値かnullで、gitHEADが取れるならnullでない', () => {
+  const identity = readBuildIdentity('9.9.9');
+  assert.ok(identity.dirty === null || typeof identity.dirty === 'boolean');
+  if (identity.commit !== null) assert.equal(typeof identity.dirty, 'boolean');
+});
+
+test('gitDirtyは、変更なし・変更あり・追跡対象外のファイル・git管理外を区別する', (t) => {
+  const git = (cwd: string, ...args: string[]) => spawnSync('git', args, { cwd, encoding: 'utf8' });
+  const probe = git(os.tmpdir(), '--version');
+  if (probe.status !== 0) {
+    t.skip('git is not available');
+    return;
+  }
+  const repo = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-dirty-'));
+  const plain = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-nogit-'));
+  try {
+    git(repo, 'init', '-q');
+    git(repo, 'config', 'user.email', 't@example.invalid');
+    git(repo, 'config', 'user.name', 't');
+    git(repo, 'config', 'commit.gpgsign', 'false');
+    fs.writeFileSync(path.join(repo, 'a.txt'), 'one\n');
+    git(repo, 'add', 'a.txt');
+    assert.equal(git(repo, 'commit', '-q', '-m', 'init').status, 0);
+    assert.equal(gitDirty(repo), false);
+    fs.writeFileSync(path.join(repo, 'a.txt'), 'two\n');
+    assert.equal(gitDirty(repo), true);
+    git(repo, 'checkout', '--', 'a.txt');
+    assert.equal(gitDirty(repo), false);
+    fs.writeFileSync(path.join(repo, 'untracked.txt'), 'x\n');
+    assert.equal(gitDirty(repo), true);
+    // 親にgitリポジトリが無い場所では、推測せずnullを返す。
+    assert.equal(gitDirty(plain), null);
+  } finally {
+    fs.rmSync(repo, { recursive: true, force: true });
+    fs.rmSync(plain, { recursive: true, force: true });
+  }
 });
 
 test('mmi --version --json は識別を返し、--versionだけなら版番号のみ返す', () => {

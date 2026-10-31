@@ -10,7 +10,6 @@
  */
 import fs from 'node:fs';
 import path from 'node:path';
-import readline from 'node:readline';
 import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 
@@ -257,6 +256,23 @@ export const MCP_TOOLS: readonly McpToolDefinition[] = [
 ];
 
 export const MCP_TOOL_NAMES: readonly string[] = MCP_TOOLS.map((tool) => tool.name);
+
+// tools/list declares additionalProperties:false. Enforce it at call time so a
+// misspelled pin such as "expectedSourceDigests" is rejected instead of being
+// silently ignored and returning an unpinned success.
+function rejectUnknownArguments(toolName: string, args: JsonObject): void {
+  const definition = MCP_TOOLS.find((tool) => tool.name === toolName);
+  const properties = definition?.inputSchema.properties;
+  if (!isObject(properties)) return;
+  const accepted = Object.keys(properties);
+  const unknown = Object.keys(args).filter((key) => !accepted.includes(key));
+  if (unknown.length > 0) {
+    throw new InvalidParamsError(
+      `Unknown argument ${unknown.map((key) => `"${key}"`).join(', ')} for tool ${toolName}. `
+      + `Accepted arguments: ${accepted.join(', ')}.`,
+    );
+  }
+}
 
 export interface McpServerOptions {
   /** Workspace boundary. Paths outside it are rejected. Defaults to process.cwd(). */
@@ -564,6 +580,7 @@ class McpServerImplementation implements McpServer {
     if (!MCP_TOOL_NAMES.includes(name)) {
       throw new InvalidParamsError(`Unknown tool: ${name}`);
     }
+    rejectUnknownArguments(name, args);
 
     try {
       const text = await this.invokeTool(name, args);
@@ -739,6 +756,12 @@ class McpServerImplementation implements McpServer {
 
   private renderTool(args: JsonObject): string {
     const document = this.resolveInsideRoot(requiredString(args, 'document'), 'document');
+    // render returns MMI-expanded Markdown. Refuse anything that is not a
+    // Markdown document so a raw file (xlsx bytes, .env) is never returned in
+    // the same success shape as an expansion result.
+    if (path.extname(document).toLowerCase() !== '.md') {
+      throw new InvalidParamsError('Argument "document" must be a Markdown file (.md).');
+    }
     const to = optionalString(args, 'to') ?? 'md';
     if (to !== 'md' && to !== 'html') {
       throw new InvalidParamsError('Argument "to" must be "md" or "html".');
@@ -1008,12 +1031,53 @@ export async function runMcpServer(options: RunMcpServerOptions): Promise<number
   const server = createMcpServer(options);
   const input = options.input ?? process.stdin;
   const output = options.output ?? process.stdout;
-  const lines = readline.createInterface({ input, crlfDelay: Infinity });
-  for await (const line of lines) {
-    if (line.trim().length === 0) continue;
+  const emit = async (line: string): Promise<void> => {
+    if (line.trim().length === 0) return;
     const response = await server.handleLine(line);
     if (response !== undefined) output.write(`${response}\n`);
+  };
+  const rejectOversized = (): void => {
+    output.write(
+      `${rpcError(null, -32600, `Message exceeds the ${MCP_MAX_LINE_BYTES} byte stdin limit.`)}\n`,
+    );
+  };
+  const decode = (parts: Buffer[]): string =>
+    Buffer.concat(parts).toString('utf8').replace(/\r$/u, '');
+  // Split stdin on newlines by hand. readline buffers a whole line before
+  // handing it over, so a huge line without a newline would exhaust memory
+  // before the size limit could apply.
+  let pending: Buffer[] = [];
+  let pendingBytes = 0;
+  let discarding = false;
+  for await (const raw of input as AsyncIterable<Buffer | string>) {
+    let chunk = typeof raw === 'string' ? Buffer.from(raw, 'utf8') : raw;
+    while (chunk.length > 0) {
+      const newline = chunk.indexOf(0x0a);
+      const part = newline === -1 ? chunk : chunk.subarray(0, newline);
+      if (!discarding) {
+        pendingBytes += part.length;
+        // The +1 leaves room for a trailing CR that is not part of the message.
+        if (pendingBytes > MCP_MAX_LINE_BYTES + 1) {
+          discarding = true;
+          pending = [];
+          pendingBytes = 0;
+          rejectOversized();
+        } else {
+          pending.push(part);
+        }
+      }
+      if (newline === -1) break;
+      if (!discarding) {
+        const text = decode(pending);
+        pending = [];
+        pendingBytes = 0;
+        await emit(text);
+      }
+      discarding = false;
+      chunk = chunk.subarray(newline + 1);
+    }
   }
+  if (!discarding && pendingBytes > 0) await emit(decode(pending));
   return 0;
 }
 

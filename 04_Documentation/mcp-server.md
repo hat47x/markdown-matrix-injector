@@ -33,8 +33,9 @@ mmi-mcp --root /path/to/workspace
 | 項目 | 内容 |
 | --- | --- |
 | 版（`version`） | `package.json`の版。コミットごとには上がらないため、版番号だけではコミットを特定できません。 |
-| コミット（`commit`） | ビルド元のコミットSHA（40桁）。配布tarballは作成時のgit HEADを埋め込み、開発用チェックアウトは起動時の`git rev-parse HEAD`で求めます。取れないときは`null`です。チェックアウトでは未コミットの変更を反映しません。 |
+| コミット（`commit`） | ビルド元のコミットSHA（40桁）。配布tarballは作成時のgit HEADを埋め込み、開発用チェックアウトは起動時の`git rev-parse HEAD`で求めます。取れないときは`null`です。チェックアウトでは未コミットの変更を反映しないため、`dirty`と合わせて読みます。 |
 | lockfile digest（`lockfileDigest`） | `package-lock.json`の生バイト列のsha256（`sha256:<hex>`）。tarballは作成元のlockfileの値を埋め込みます。改行をCRLFへ変換したチェックアウトでは値が変わります。 |
+| 未コミットの変更（`dirty`） | ビルド元に未コミットの変更があるか（`true`/`false`）。追跡対象外のファイルも数え、リリース証跡（`release-evidence.json`）と同じく`git status --porcelain`が空でないかで判定します。チェックアウトは起動時に求め、tarballは作成時の値を埋め込みます。gitがない・3秒で終わらない・この項目を持たない旧tarballでは`null`で、`false`と推測しません。`commit`を版固定の証拠にするときは、`dirty: false`も確かめてください。 |
 | Node.js（`node`） | 応答しているNode.jsの`version`と`major`。 |
 | 提供形態（`distribution`） | `tarball`（配布tarball）、`checkout`（開発用チェックアウト）、`unknown`。 |
 
@@ -85,6 +86,10 @@ MCP対応クライアントには、コマンドと引数を次の形で登録�
 | `validate-proposal` | `notation`、`package`、`document` | `mmi validate-proposal --json` |
 | `validate-selection` | `proposal`（パスまたはJSON object）、`package` | `mmi validate-selection --json` |
 | `validate-transformation` | `proposal`（パスまたはJSON object）、`package`、`document` | `mmi validate-transformation --json` |
+
+すべてのツールは、`tools/list`の`inputSchema.properties`にない引数名を`-32602`で拒否します。メッセージには未知の引数名と、受け付ける引数名の一覧を含めます。綴りを誤った`expectedSourceDigest`が黙って無視され、版を固定しないまま成功することを防ぐためです。将来の引数を先行して付ける接続側は、`tools/list`で宣言を確かめてから呼び出してください。
+
+`render`の`document`は拡張子`.md`（大文字小文字は区別しない）のMarkdown文書に限ります。xlsxや`.env`、`.txt`などを渡すと`-32602`で拒否し、バイト列や生の内容を展開結果の形で返しません。`.markdown`など他の拡張子は受け付けません。MMI記法を含まない`.md`は従来どおりそのまま返します。CLIの`mmi render`の入力検査は変えていません。
 
 `select`の`columns`と`in`は、原本の列記号（A、Cなど）ではなく、表の見出し名を受け取ります。`columns`は見出し名のカンマ区切り（例: `機能ID,機能名`）、`in`は`contains`を適用する見出し名1つで、`columns`で表示する列のいずれかでなければなりません。列記号を渡すと`COLUMN_NOT_FOUND`で失敗します。記法の`columns=A,C,F`が列記号を使うのとは別で、`mmi select --columns`・`--in`と同じ規則です。
 
