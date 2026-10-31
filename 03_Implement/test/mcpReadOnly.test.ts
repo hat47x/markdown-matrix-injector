@@ -185,6 +185,8 @@ test('every published MCP tool leaves a Git-managed workspace unchanged, .git in
     assert.equal(json(results.select).result.ok, true);
     assert.equal(json(results['html-audit']).status, 'complete');
     assert.equal(json(results['validate-selection']).status, 'accepted-for-review');
+    assert.equal(json(results['validate-proposal']).status, 'accepted');
+    assert.equal(json(results['validate-transformation']).status, 'accepted-for-review');
 
     assert.deepEqual([...called].sort(), [...MCP_TOOL_NAMES].sort(),
       'the read-only test must call every tool in MCP_TOOL_NAMES; add the new tool here');
