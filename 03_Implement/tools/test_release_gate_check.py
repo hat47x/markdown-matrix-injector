@@ -234,7 +234,7 @@ class ReleaseGateCheckTests(unittest.TestCase):
             "--format",
             "json",
         ]
-        completed = subprocess.run(command, check=False, capture_output=True, text=True)
+        completed = subprocess.run(command, check=False, capture_output=True, text=True, encoding="utf-8")
         payload = json.loads(completed.stdout)
         self.assertEqual(completed.returncode, 0)
         self.assertEqual([item["gate"] for item in payload], ["G1:Planning", "G2:Tests", "G3:Phase9Sync", "G4:Phase9GuideSync"])
@@ -257,7 +257,7 @@ class ReleaseGateCheckTests(unittest.TestCase):
             "--format",
             "json",
         ]
-        completed = subprocess.run(command, check=False, capture_output=True, text=True)
+        completed = subprocess.run(command, check=False, capture_output=True, text=True, encoding="utf-8")
         payload = json.loads(completed.stdout)
         self.assertEqual(completed.returncode, 0)
         phase9_gate = next(item for item in payload if item["gate"] == "G3:Phase9Sync")

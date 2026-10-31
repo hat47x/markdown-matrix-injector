@@ -28,5 +28,8 @@ if (!python) {
   process.exit(127);
 }
 const [command, ...prefix] = python;
-const result = spawnSync(command, [...prefix, ...process.argv.slice(2)], { stdio: 'inherit', shell: false });
+const result = spawnSync(command, [...prefix, ...process.argv.slice(2)], {
+  stdio: 'inherit', shell: false,
+  env: { ...process.env, PYTHONIOENCODING: 'utf-8' },
+});
 process.exit(result.status ?? 1);

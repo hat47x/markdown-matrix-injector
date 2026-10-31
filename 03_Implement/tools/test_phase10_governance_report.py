@@ -30,7 +30,7 @@ class Phase10GovernanceReportTests(unittest.TestCase):
             "--output",
             str(output_path),
         ]
-        return subprocess.run(command, check=False, capture_output=True, text=True)
+        return subprocess.run(command, check=False, capture_output=True, text=True, encoding="utf-8")
 
     def test_parse_input_rejects_missing_required_key(self) -> None:
         payload = {

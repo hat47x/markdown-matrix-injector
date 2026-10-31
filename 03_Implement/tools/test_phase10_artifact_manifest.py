@@ -24,7 +24,7 @@ class Phase10ArtifactManifestTests(unittest.TestCase):
         ]
         if markdown_path is not None:
             command.extend(["--markdown-output", str(markdown_path)])
-        return subprocess.run(command, check=False, capture_output=True, text=True)
+        return subprocess.run(command, check=False, capture_output=True, text=True, encoding="utf-8")
 
     def test_build_manifest_collects_checksums(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

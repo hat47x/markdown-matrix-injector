@@ -60,7 +60,7 @@ class CheckPhase9TemplateSyncTests(unittest.TestCase):
             command.append("--ignore-row-order")
         if output_format != "text":
             command.extend(["--format", output_format])
-        return subprocess.run(command, check=False, capture_output=True, text=True)
+        return subprocess.run(command, check=False, capture_output=True, text=True, encoding="utf-8")
 
     @staticmethod
     def parse_json_stdout(completed: subprocess.CompletedProcess[str]) -> dict[str, object]:

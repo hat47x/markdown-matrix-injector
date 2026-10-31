@@ -174,7 +174,7 @@ class GeneratePhase9PatternGuideTests(unittest.TestCase):
             str(Path(__file__).with_name("generate_phase9_pattern_guide.py")),
             *extra_args,
         ]
-        return subprocess.run(command, check=False, capture_output=True, text=True)
+        return subprocess.run(command, check=False, capture_output=True, text=True, encoding="utf-8")
 
 
 if __name__ == "__main__":

@@ -47,7 +47,7 @@ class Phase10BacklogEscalationTests(unittest.TestCase):
             command.extend(["--markdown-output", str(markdown_path)])
         if thresholds_path is not None:
             command.extend(["--thresholds", str(thresholds_path)])
-        return subprocess.run(command, check=False, capture_output=True, text=True)
+        return subprocess.run(command, check=False, capture_output=True, text=True, encoding="utf-8")
 
     def test_evaluate_candidates_returns_empty_when_all_metrics_within_threshold(self) -> None:
         payload = _valid_governance_payload()

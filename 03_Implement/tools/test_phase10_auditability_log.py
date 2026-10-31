@@ -35,7 +35,7 @@ class Phase10AuditabilityLogTests(unittest.TestCase):
         ]
         if markdown_path is not None:
             command.extend(["--markdown-output", str(markdown_path)])
-        return subprocess.run(command, check=False, capture_output=True, text=True)
+        return subprocess.run(command, check=False, capture_output=True, text=True, encoding="utf-8")
 
     def test_build_audit_log_maps_decisions_to_candidates(self) -> None:
         candidates = {"2026-W15-01": {"signal": "sla_breach_count", "summary": "SLA breach が検出された"}}

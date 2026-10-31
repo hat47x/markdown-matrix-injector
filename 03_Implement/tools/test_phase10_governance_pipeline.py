@@ -31,7 +31,7 @@ class Phase10GovernancePipelineTests(unittest.TestCase):
         ]
         if manual_kpis_path is not None:
             command.extend(["--manual-kpis-file", str(manual_kpis_path)])
-        return subprocess.run(command, check=False, capture_output=True, text=True)
+        return subprocess.run(command, check=False, capture_output=True, text=True, encoding="utf-8")
 
     def test_run_pipeline_generates_all_artifacts(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:

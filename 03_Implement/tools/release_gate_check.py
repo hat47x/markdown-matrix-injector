@@ -23,6 +23,8 @@ def run_command(cmd: list[str], cwd: Path, timeout_sec: int) -> subprocess.Compl
             cmd,
             cwd=cwd,
             text=True,
+            encoding="utf-8",
+            errors="replace",
             capture_output=True,
             check=False,
             timeout=timeout_sec,
