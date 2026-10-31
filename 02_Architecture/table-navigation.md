@@ -89,7 +89,7 @@ mmi render <md> [--root <フォルダ>] [--format md|html] [--out <ファイル>
 
 - 読み取り専用。どのコマンドも正本を変更しない。
 - 終了コード。`check`は参照にエラーがあれば1、`select`は選択できなければ1、使い方の誤りは2を返す。
-- 出力。`--json`では`schema`付きのJSON（`mmi.cli/v0`、`mmi.catalog/v0`、`mmi.selection/v0`）を返す。`select`の標準出力には参照だけを出し、補足情報は標準エラーへ出す。
+- 出力。`--json`では`schema`付きのJSON（`mmi.cli/v0`、`mmi.catalog/v0`、`mmi.selection/v0`）を返す。`select`の標準出力には参照だけを出し、補足情報は標準エラーへ出す。`mmi.selection/v0`の`preview`は確認用の見本で、先頭5行（`SELECTION_PREVIEW_ROW_LIMIT`）までを載せる。選択の全量ではなく、省略は`preview.truncated`・`preview.shown`・`preview.ofSelected`で読み取れる。
 - 検証。`check`は、VS CodeのProblemsパネルと同じ診断コードに加え、描画時に初めて判明する失敗（`MMI_RENDER_ERROR`）も報告する。
 - 読み戻し。`render --format md`は、参照を通常のMarkdown表へ展開する。AIはその結果を読み戻し、本文の主張と表の内容が矛盾しないか確認できる。
 
