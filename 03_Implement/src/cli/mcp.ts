@@ -729,9 +729,19 @@ class McpServerImplementation implements McpServer {
     const useLedger = Boolean(
       ledgerOption || unimported || excludeImported || fs.existsSync(ledgerPath),
     );
-    const result = useLedger
-      ? applyLedgerView(raw, source, ledgerPath, filter, undefined, this.displayCwd)
-      : raw;
+    let result;
+    try {
+      result = useLedger
+        ? applyLedgerView(raw, source, ledgerPath, filter, undefined, this.displayCwd)
+        : raw;
+    } catch (error) {
+      // The source was observed; the ledger is what failed. Say so, with the
+      // root-relative path, so a caller does not blame the source (#730).
+      const relative = path.relative(this.root, ledgerPath).split(path.sep).join('/');
+      const detail = error instanceof ToolFailure ? error.message : messageOf(error);
+      const code = wrapFailure(error).code === 'not-found' ? 'not-found' : 'parse-failed';
+      throw new ToolFailure(`ledger ${relative} could not be applied: ${detail}`, code);
+    }
     return JSON.stringify(result, null, 2);
   }
 

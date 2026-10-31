@@ -97,6 +97,8 @@ MCP対応クライアントには、コマンドと引数を次の形で登録�
 
 `select`の結果の`preview`は、選択の確認用の見本であり、選択した範囲の原本値の全量ではありません。載せる行は先頭5行までです。`preview.limit`が上限（5）、`preview.shown`が載せた行数、`preview.ofSelected`が選択した行数、`preview.truncated`が省略の有無を表します。`truncated`が`true`のとき、`preview.rows`は選択の一部です。`rows.shown`は参照が描画する行数で、`preview`に載せた行数とは別です。上限を変える引数はありません。これらは`preview`に足した項目で、既存の読み手はそのまま使えます。MCPで選択範囲の全行の原本値を取る手段は、現在ありません（[#739](https://github.com/hat47x/markdown-matrix-injector/issues/739)で、Ownerの判断を待って扱います）。
 
+`inspect`は、`ledger`を指定しなくても、`--root`直下に`mmi-ledger.json`があればそれを読んで、Candidateの取り込み状態に反映します。CLIの`mmi inspect`が台帳を渡したときと同じ経路です。この暗黙の読込みは現在の動作であり、適用した台帳のパスを結果に示す項目はありません（[#730](https://github.com/hat47x/markdown-matrix-injector/issues/730)の未決）。台帳が壊れている場合、`inspect`は`parse-failed`で失敗し、原本の問題と区別できます。台帳を読まない`select`・`check`などは影響を受けません。壊れた既定の台帳で、失敗とするか警告つきで継続するかは、Ownerの判断を待ちます。
+
 `inspect`と`select`は、任意の`expectedSourceDigest`（CLIでは`--expected-source-digest`）を受け取ります。原本のdigestが一致しなければ、原本を読む前に拒否します。`select`は`ok: false`・`SOURCE_DIGEST_MISMATCH`のツール結果で、実際のdigestを`sourceDigest`に添えて返します。`inspect`は`isError=true`のエラーです。`sha256:`と64桁の16進数でない値は、不一致ではなく引数の誤りとして`-32602`（CLIでは終了コード2）で拒否します。`find`は複数の原本を横断するため、この引数を持ちません。
 
 `inspect`は既定で構造だけを返します。セルの値が必要なときだけ`values`へ行数を指定します。これはCLIの`--values`と同じで、既定では値を含めません。
@@ -130,7 +132,7 @@ MCP対応クライアントには、コマンドと引数を次の形で登録�
 
 - `outside-root`: 引数のパスやワークスペース内のリンクが、`--root`の外を指している。
 - `not-found`: 指定したファイルやディレクトリが存在しない。
-- `parse-failed`: ファイルはあるが、読み取りまたは解析に失敗した（JSONの不正を含む）。
+- `parse-failed`: ファイルはあるが、読み取りまたは解析に失敗した（JSONの不正を含む）。`inspect`が台帳（ledger）を適用できなかった場合もこの`code`で、メッセージは`ledger <root相対パス> could not be applied: ...`の形で台帳が原因であることとそのパスを示す。
 - `digest-mismatch`: 呼出し側が渡した`expectedSourceDigest`と、原本の現在のダイジェストが一致しない。
 - `tool-failed`: 上記のどれにも当たらない、ツール実行中の失敗。
 
