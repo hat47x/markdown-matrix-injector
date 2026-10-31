@@ -32,7 +32,7 @@ class Phase10EvidenceHarvestTests(unittest.TestCase):
             command.extend(["--governance-output", str(governance_output_path)])
         if manual_kpis_path is not None:
             command.extend(["--manual-kpis-file", str(manual_kpis_path)])
-        return subprocess.run(command, check=False, capture_output=True, text=True)
+        return subprocess.run(command, check=False, capture_output=True, text=True, encoding="utf-8")
 
     def test_parse_records_applies_default_failure_and_persona(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
