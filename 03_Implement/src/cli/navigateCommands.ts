@@ -45,6 +45,11 @@ export function runSelect(args: readonly string[], options: NavigateOptions, io:
   if (!file || (!options.table && !options.candidate)) return usage(io, 'select needs a workbook and --table or --candidate');
   if (options.table && options.candidate) return usage(io, '--table and --candidate cannot be combined');
   if (options.contains !== undefined && options.first !== undefined) return usage(io, '--contains and --first cannot be combined');
+  // `--first` is a row count, same range as the MCP `first` argument (integer >= 0). NaN or a
+  // fraction would otherwise reach the range arithmetic and build a reference with a broken end row.
+  if (options.first !== undefined && !/^\d+$/.test(options.first.trim())) {
+    return usage(io, `--first must be a non-negative integer, got "${options.first}"`);
+  }
   const rows: RowSelection | undefined = options.contains !== undefined
     ? { contains: options.contains, ...(options.in ? { column: options.in } : {}) }
     : options.first !== undefined ? { first: Number(options.first) } : undefined;
