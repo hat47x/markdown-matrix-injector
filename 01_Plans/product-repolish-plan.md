@@ -509,3 +509,55 @@ D3は「安全にMMIを外せることも成功条件とする」と定めてい
 **出力の分離と停止条件**：G0の`G0_CLI_PASS`（本体CLI成功）と`G0_EVIDENCE_CONSISTENT`（入力・結果・保存依存の独立照合）は同義ではない。G1の抽出・Ledger保存・Markdown挿入・ディスク保存・再開を別ステップに分ける。T1（Source/Candidateの意味的一致）とT2（保存後のAへの実解決）を独立判定する。欠落または不一致の証拠はSTOP/NOT RUNとして扱い、人の業務受理やOwner判断へ自動昇格させない。正式な共通Source Reference契約、asset単体出典の必須化、公開API追加は決めない。
 
 静的根拠：[ #514のG0-0票 ](https://github.com/hat47x/markdown-matrix-injector/issues/514#issuecomment-6516058753)、[ #525のCLI・検査器差分 ](https://github.com/hat47x/markdown-matrix-injector/issues/525#issuecomment-6516074087)。#658のT6/T7、#672のWindows配布・実AIクライアント接続は各独立レーンに残す。
+
+## 11. 2026-11-01 横断追補：原資料R0→R1とレビュー判断の継続（検証計画・未受入）
+
+本節は§10の**保存後Source Reference再解決C-01/T2**を置換しない。§10のG0-0は単一fixtureのZIP・Source SHA・Sheet/Range・保存文書位置・実行版が担当間で一致するまで**未通過**であり、G0 CLI・G1 VSCode・G2横断受入も未完了。R0→R1は**別の独立合成fixture**でread-only観測から進められるが、両実証の同一入力による統合PASSやSHO製品受入を宣言しない。2026-10-31に[PR #735](https://github.com/hat47x/markdown-matrix-injector/pull/735)がmainへ統合済み。SHO Composerは独立製品としてMMIのCandidate・解析・参照・Provenanceを再利用する候補であり、既存コードの移動・複製、専用共通Host、第二のAcceptance Engineは前提にしない。
+
+### 11.1 「同じ／現在有効」の比較対象を分ける
+
+| 観測・判断単位 | 現行の材料 | 認められる主張／留保 |
+| --- | --- | --- |
+| 原資料の実bytes・所在 | `inventory`のSource Identity、各ファイルのpath/状態 | byte一致と意図した出典Location一致は別。資料集合は`per-file-observation`で原子的snapshotではない |
+| 選択した内容 | `inspect --cells`の`sourceIdentity`・Sheet/Range・値の由来、既存Candidate locator/fingerprint | 値・構造・座標の観測。行移動・属性同一性・NULL/0件の業務意味は推定として区別 |
+| Linkedの投影 | `review-basis`の**論理表**digest、`provenance`の解決結果 | `fresh/stale`は論理表との照合。セル観測、文書全体、本文各段落の判断の有効性とは別 |
+| 説明の実際の依存 | Markdown文書版、実消費した図・式macro・テンプレート・Target表示資産 | 文書原文byte不変でも表示・説明は変化し得る。実消費依存と表示Targetの範囲を説明する |
+| 人の説明・判断 | SHOのレビュー文書版、確認対象の節・主張、確認・保留・撤回の履歴 | 根拠が元のbytesへ戻る（ABA）ことは旧判断の自動復活を意味しない。レビューの正本・受理資格は用途ごとに別 |
+| 業務意味・実行 | TEI #267のOwner Acceptance、対象Targetと実証 | AI提案・MMIの機械的合格・SHOの文書確認から自動昇格しない |
+
+重要な粒度は**文書中の説明・判断（Claim）と、実際に利用した根拠の組**である。同一のMMI参照を複数節で用いても、片方の説明が確認済み、もう片方は保留という場合がある。現行`recordReviewBasis`は同じ参照文字列を重複除去し、文書pathごとに記録するため、**段落別の判断履歴そのものを代替しない**。当面は通常のレビューMarkdownに、確認した説明の所在・引用したSource/範囲・保留と撤回を人が読める形で保存する（新しい永続schemaは先行採用しない）。
+
+現在性は**主張に必要な入力集合に相対的**に判定する。作業途中の一般的な比較メモでは「各ファイル別観測・同時点未保証」を明示して継続できる。一方、同一時点の在庫・財務確定値を断定する説明では、R0/R1混在から強いsnapshotを推定せず、Providerの保証がなければ現在確定値と表示しない。未観測・空文字・欠損・明示NULL・解決不能も同一の「なし」にしない。TEI [#2505](https://github.com/hat47x/tei-platform/issues/2505)の版内厳密参照／版間対応候補、[#2497](https://github.com/hat47x/tei-platform/issues/2497)のProjection損失、[#1803](https://github.com/hat47x/tei-platform/issues/1803)の文書表示依存は**消費側の別責務**であり、MMIにその第二正本を作らない。
+
+### 11.2 最小の一往復（独立fixture・新MCPを必須にしない）
+
+1. **R0固定**：合成Excelと選択シート・範囲を用意し、`inventory`→`inspect --cells --expected-source-digest --include-values`で観測。CLI実行結果／出力実bytes・digest／観測できない範囲を保存。R0レビューMarkdownに「確認した説明」「保留事項」「対象の出典」「確認の範囲」を記録する。R0を後日完全再生する必要がある場合は、観測JSONとは別に原資料版を保全する。
+2. **R1変更**：行の挿入によるセル移動と、丸め方法`half-even`の追記を与える。通貨・数量単位・単価参照時点は未記載に保つ。R1を同じ手段で別ファイルへ観測し、座標外へ移動した対象があれば利用者が範囲を再選択する。R0観測とR1観測、実際のSource版を混同しない。
+3. **AI比較（候補）**：R0/R1観測JSONとR0レビューを通常のファイル読取で渡し、`Observed / Inferred / Unresolved / Review Questions`へ分類。実際に渡した入力版を確認できなければ`delivered=unobserved`相当で記録。MMI MCP `handoff`はCandidate受渡しであり、任意のセル観測・判断継続の総合機構とは呼ばない。
+4. **人のR1確認と保存**：R0文書を保持し、R1レビューを別版として明示保存→再読取。AI応答の作成時と保存時に文書・根拠が変われば再比較。保存・Ledger・出典解決・人の判断・TEI受理の成功を一つの終了コードへまとめない。
+5. **比較評価**：直接AIに原資料を渡す方式と、MMI観測＋過去レビューを渡す方式で、出典に戻れない候補数、根拠なき保留解消、対応項目の誤認、確認工数、値の開示範囲、処理コストを比較する。両方式の期待値はAI出力とは独立した小さなoracleで固定する。
+
+### 11.3 正例・負例と判定票（いずれも提案、NOT RUN）
+
+| ID | 入力差分・操作 | 合格条件 |
+| --- | --- | --- |
+| RR-01 | R0からR1へ行を挿入。選択範囲外に項目が移動 | 物理座標の一致から項目の意味同一性を確定しない。見落とした範囲を再観測または未観測と表示 |
+| RR-02 | R1に丸め規則追記。通貨・単位等は不明 | 追記を観測しつつ、適用業務・Owner受理・通貨等の保留を残す |
+| RR-03 | 原資料とLinked論理表は不変、人の確認だけが撤回 | `review-basis=fresh`を「判断が現在も有効」へ昇格しない |
+| RR-04 | R0→R1→R0相当の元bytesへ戻す | Source digest再一致から撤回済み判断を自動復活させない |
+| RR-05 | 同一表参照が文書内2節に登場し、一方は確認済み・他方は保留 | `review-basis`の参照重複除去とは独立して、節・主張ごとの判断を区別 |
+| RR-06 | 文書Markdownは同bytes、参照図または数式macroの実効定義だけ変更 | 文書本文一致、表示依存の変化、説明の再確認候補を別列にし、TEI意味版を自動変更しない |
+| RR-07 | `review-basis --write`を人の確認より先に実行、またはR0とは別pathへ文書を移動 | 「論理表の記録がある」と「人が判断を確認した」「旧文書版と比較した」を区別 |
+| RR-08 | `inventory`一部観測・複数資料は別時点 | 失敗・未観測の集合を残し、同時点が必要な主張は現在確定として扱わない |
+
+実証票は**fixture版／実CLI版／Expected／Actual／個別の結果／未観測／人の確認／Owner未決**を分離する。既存の[MMI #498](https://github.com/hat47x/markdown-matrix-injector/issues/498)の同一／不一致／確認不能、[ #522 ](https://github.com/hat47x/markdown-matrix-injector/issues/522)のLinked鮮度、[ #525 ](https://github.com/hat47x/markdown-matrix-injector/issues/525)のprovenanceを再利用する。R0→R1の実AIクライアントE2E・SHO編集UI・顧客資料・正式Owner判断・TEI Source変更・Target実効果は**未実施**。
+
+### 11.4 製品境界・引渡し
+
+- **MMI**：Source観測・構造・Candidate・参照・各種鮮度と未観測範囲を提供。CLI既存経路で初回実証する。MCPの`provenance`公開は[#697](https://github.com/hat47x/markdown-matrix-injector/issues/697)、選択範囲の値取得は[#739](https://github.com/hat47x/markdown-matrix-injector/issues/739)のOwner未決として独立。
+- **SHO Composer**：文書の読みやすさ、文書構成、過去版・現在版、説明ごとの確認・保留・撤回、固定納品と作業版、表示・納品を担う構想。既存MMIコードを複製せず、新repoに公開契約／製品入口を検討する。SHO repoへの書込みや製品実装は本追補の対象外。
+- **SEI/TAIおよび外部ハーネス**：必要な根拠と判断の経緯を扱うConsumer。評価・文書生成が**実際に同じ観測集合**を消費したかは受取側で検査し、MMI digest存在のみから同一入力保証を推定しない（[TAI #28](https://github.com/hat47x/tai-pleroma/issues/28)）。
+- **TEI**：人が選択した候補からModelRefへ対応付け、未解決を保持し、既存[#267](https://github.com/hat47x/tei-platform/issues/267)で意味受理。設計成果物の生成・依存・レビューは[#1803](https://github.com/hat47x/tei-platform/issues/1803)に接続。SHOの説明確認をOwner Acceptance／Target実行資格へ昇格しない。
+- **Owner待ち**：文書内の説明ごとのレビュー状態をSHO標準の保存対象とする範囲、判断撤回・再確認の責任、固定納品時に要求する同時点整合、参照済み表示依存の必須証拠。§10のQ1〜Q3（Reference基準／抽出資産／納品集合）は独立のまま維持する。
+
+この計画の追補は、既存の#514 G0-0→G2や#658 T6/T7、#672配布受入の試験合格と読み替えない。R0→R1の小さな独立fixtureによる**人が判断を継続できるか**という利用価値の実測を先行させ、具体的に不足した時点でUI・契約・保存機構の採否を決める。
