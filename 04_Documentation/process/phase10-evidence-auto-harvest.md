@@ -35,7 +35,7 @@ python3 03_Implement/tools/phase10_evidence_harvest.py \
   --manual-kpis-file 04_Documentation/samples/phase10-manual-kpis.sample.json
 ```
 
-`--output` を省略した場合は `query-evidence/phase10-evidence-harvest-<timestamp>.json` へ保存される。
+`--output` を省略した場合は `query-evidence/phase10-evidence-harvest-<timestamp>.json（`<timestamp>`はUTCの`YYYY-MM-DDTHHMMSSZ`。Windowsのファイル名で使えない`:`は除く）` へ保存される。
 `--manual-kpis-file` は省略可能で、`--governance-output` を指定した場合のみ意味を持つ。
 
 以下はコマンドの期待動作です。今回の文章修正に伴い、実際にコマンドを再実行した結果ではありません。
