@@ -153,3 +153,31 @@ SHO側へ渡す際は、必要な元データの**表示投影**と、実際の�
 固定納品版r1は「r1の当時の入力、出力、表示依存、検査とレビュー」を保持する候補である。作業版r2やTEI受理モデルのr2が生じたことのみを理由に旧版r1を自動失効させず、r2へ旧レビューを自動転用しない。**TEIのモデル意味受理、SHOの文章・納品版、MMIの観測証拠はそれぞれの正本側で扱う。**
 
 **段階の出口**：T6の現在の誤抽出は現行CLIで実測し、必要なら小さな修正へ進める。T7は構造を別検査、T8はRequiredをOwner未設定のまま維持、T12/T13はMMIの独立検証、S1引渡しと固定納品版はSHOの別受入へ渡す。設計追補のCI成功はこれらの実行済み・製品受入を意味しない。
+
+### 2026-11-02 第3追補：母集団・公開一式・比較基準を固定する（計画候補）
+
+本節の対象は**MMIが観測したファイル集合からどこまで結論できるか**である。[MMI製品改善計画 Draft #753](https://github.com/hat47x/markdown-matrix-injector/pull/753) §11.10–11.11の版間Claim・公開Consumer検証、[TEI #2604](https://github.com/hat47x/tei-platform/issues/2604)の一式公開、[TEI Draft #2615](https://github.com/hat47x/tei-platform/pull/2615)の版間候補、[SHO #9](https://github.com/hat47x/sho-composer/issues/9)のPlain-text Benchmarkを参照する。ここでは**物理公開実装・版間意味対応・論文研究のBenchmarkを再起票しない**。#753はOpen/Draft、#2604はOpen、#2615はOpen/Draftであり、各計画を製品の実装・受理済み契約と扱わない。
+
+#### 母集団の閉じ方と比較可能性
+
+「すべて揃った」の**すべて**を判定するには、少なくとも**母集団の出所・範囲・版・時点・列挙の十分性**が必要である。比較を次の三つに分ける。
+
+1. **観測集合の整合（現在の#658）**：指定した`inventoryScope`内の実所在Oと、Markdownから抽出したDeclared Dとの二方向比較。`aligned`は対象として認識したExcel whole-file参照がOと照合できたこと。Oが部分観測なら`indeterminate`の区別を残す。**同じ対象外ファイルがDとOの両方から欠ける**反例を検出できない。
+2. **要求集合の被覆（後続D4）**：外部の契約・要求・Owner判断で根拠と版が定まったRequired Rの各**要求項目**について、採用された対応先のDelivered資産・出力版・受入根拠を示せるか。R→Deliveredは**多対多対応**を許し、ファイル数や同digestを単純比較しない。Rの出所が不明、要求範囲がopen-world、または対応が未承認なら「契約完結」を`pass`にしない。
+3. **納品版の一式性（SHO側/TEI公開Ownerへ接続）**：固定版の列挙・実収録物・最終閲覧/Consumerが**実際に使用したbytes**を区別。Manifestの一致だけでは未列挙の旧ファイル残存や、Manifest読取り後の差替えを排除できない。物理上の余剰ファイルがただちに契約違反であるとも判断しない。製品のGeneration公開・atomicityはTEI #2604、SHO固定版の受理と表示はSHO #1/#4がOwner。
+
+**根拠を持つcoverage witness（受入票の概念、公開Schemaではない）**：`requirement/source-version-and-scope → declared occurrence(s) → selected delivered artifact revision(s) → inspected consumed bytes → verification result → owner decision`。参照が存在する、関係候補が到達可能である、対象版で構造解析できる、Claimが成立する、公開してよい、を一つのブール値に折り畳まない。新資料が加われば旧Source bytesが不変でも全称Claimの被覆は再確認候補であり、旧固定納品の履歴を自動失効させない。
+
+#### T14～T16：現行PoC固有の追加負例と価値測定
+
+| ID | 入力・刺激 | 期待と所属する実証 |
+| --- | --- | --- |
+| **T14：Declared=ObservedでもRequiredが欠落** | 外部要求表に`screen`/`data`/`test`の3要求項目。Markdownと対象Excelフォルダーには`screen`/`data`の2件だけを入れる。 | 既存`delivery-audit`の`alignment=aligned`を対照として保存。**Requiredが3である事実**は独立Oracleから読む。要求3件目の被覆は未成立と記録。要求表が無い条件ではRequired自体を`not_evaluated`とする。外部要求の業務役割→成果物の対応の採否はOwner判断。 |
+| **T15：固定版の列挙と物理余剰、Consumer読取** | 旧固定r1にA/B、次のr2にAのみを列挙。旧Bが物理フォルダーに残り、別の閲覧処理がBを読んだ場合と読まない場合を分ける。 | #658の目録は物理Bを`inventory-unreferenced`候補として観測できても、**r2の構成不備か単なる保管物か**は確定しない。列挙したDeliveredとConsumerが読んだ実bytesを別票に記録。TEI #2604のPublish実装やSHOの固定納品実証をMMI試験で代替しない。 |
+| **T16：単純な方法との比較** | 同じ16件の正常XLSXとT6/T7/T8/T14の合成負例について、A=Markdown手書き一覧＋一般的なファイル列挙/digestスクリプト、B=既存`mmi delivery-audit`。同じ入力情報、権限、期待値を与える。 | **正検出・誤検出・未確認の明示・Source非改変・再現に要する操作/時間・スクリプト保守費**を記録。Aを不当に弱くせず、Bの増分効果と導入負担を両方測る。広域の研究索引・論文→コードの比較はSHO #9へ残し、MMI側は納品集合という狭いユースケースの評価とする。 |
+
+**合格と終了条件**：T14は外部Requiredの不足を機械的`aligned`に隠さず示せれば「判定境界が説明できた」とする。T15は固定版の列挙と物理実所在と実消費を独立に記録する**検査票の作成**までを本PoCの出口とし、原子的公開の保証・正式納品検収を含めない。T16は差がない結果・MMIが不利な結果も保存し、**単なる情報の増量ではなく同情報での誤主張・手戻り・作業負担を比較**する。失敗例を修正するか、対象外と明示するかをデータから選ぶ。
+
+**段階整合**：D0にRの要求票とOwner判断有無・対象母集団のscope/版を追加する。D1にDeclared/Observed/Requiredの異なる母集団の照合を追加し、元CLIの実JSONを改変しない。D3にT16の公平なA/B対照を追加する。D4でDeliveredと実Consumer bytesの対応票を試し、固定納品採否はSHO側Ownerへ委ねる。C-01/T2のG0-0停止条件とTEI #2604の実製品検証Ownerは変更しない。
+
+**状態**：この追補は仕様・検証計画のみ。T14～T16のfixture・CLI/Consumer実行、要求表の業務受理、正式Publish、ユーザー試験、Plain-textに対する優位性実証は**NOT RUN**。現行MMI、SHO、TEIの公開契約・実装・正本を変更しない。
