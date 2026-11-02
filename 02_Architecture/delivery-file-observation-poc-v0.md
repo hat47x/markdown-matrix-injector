@@ -197,3 +197,24 @@ SHO側へ渡す際は、必要な元データの**表示投影**と、実際の�
 [Draft #755](https://github.com/hat47x/markdown-matrix-injector/pull/755) head `2eaea49ba7152c4750a27104fdfb3ab4bbb125ba` の[CI #41443225210](https://github.com/hat47x/markdown-matrix-injector/actions/runs/41443225210)は **Ubuntu・Windows製品、research-testsすべてSUCCESS**（release-candidateはPR条件でskipped）。Ubuntuの製品テスト実ログで追加T6の**ApplicationテストとCLIテストが個別に `ok`**、製品テスト総数 **1323 pass / 0 fail** を確認した。修正前の同二テストは **2 fail**。これにより、**合成fixture上のT6再現→限定修正→回帰PASS**を証拠付きで確認した。
 
 **現在の出口**：#755はDraft／未マージ。MMI mainでの採用済み修正・顧客実務資料・全Markdown構文・SHO実機・契約Requiredの網羅性・Owner受理を実証したわけではない。計画におけるT6の状態は**「指定した合成負例で修正PRの製品CI PASS、レビュー・main統合・実務受入待ち」**であり、T7～T16やC-01/T2 G0-0の状態は変更しない。
+
+### 2026-11-02 第4追補：検査入力の版・実消費版・固定納品版の三者を結ぶ
+
+[SHO #4](https://github.com/hat47x/sho-composer/issues/4)の「編集バッファ／保存済み原文／固定納品r1」を分けるFR-01～08、[SHO #3](https://github.com/hat47x/sho-composer/issues/3)のCLI起動証拠、[TEI #2604](https://github.com/hat47x/tei-platform/issues/2604)の公開世代一式と実Consumer読取を照合した。**#658のファイル一覧照合が一度成功した事実だけでは、文書のどの版を検査したか、表示側がその版を使用したか、納品固定版に入ったかを保証しない。**
+
+**現行コードから確定できる境界**：`auditDeliveryReferences`は`fs.readFileSync(markdownPath, 'utf8')`で**ディスク上に保存されたMarkdown**を読む。編集者の未保存バッファを読むものではない。`mmi.delivery-audit/v0`の上位結果は`document`（Workspace相対パス）、`delivery`、`inventory`、`comparison`を保持するが、**Markdown入力本体のraw-byte digestをトップレベルに保持していない**。一方、`inventory.collectionDigest`は目録観測の集合・scope・policyのdigestであり、Markdown原文の版や全ファイル一斉snapshotの証明ではない。**この不足を埋めるためだけに、公開Schemaへ新フィールドを即追加しない。** まず外側の試験receiptに原文digest・実読取版・実行器版を記録する。
+
+**T13拡張：Document Snapshotの最小対照（MMI単独read-only試験候補）**
+
+| 刺激 | 期待する観測と主張の限界 |
+| --- | --- |
+| **S13-1：未保存D1** | ディスクD0はExcel Aだけを宣言し`aligned`、エディタの未保存D1は欠落Bの参照を追加。再度CLIを実行しても**D0を検査する**。CLI成功を未保存D1の完成と表示しない。UI側はバッファ版とディスク版を別に見せる。 |
+| **S13-2：保存D1** | D1を実際にディスクへ保存してからCLIを再実行。欠落Bを`reference-missing`として報告し、`alignment=differences`。S13-1の旧JSONから現在のD1へ受入を継承しない。 |
+| **S13-3：報告後変更** | D1を検査して結果JSON R1を保持した後、MarkdownだけをD2へ変更。R1の`document`パスは同じでも入力raw SHA-256は違う。**R1には入力原文の版を証明する情報が足りない**ため、外側receiptを使いR1の現在資格を未確認とする。 |
+| **S13-4：Consumerの別byte** | D0の参照検査後にExcel Aを差し替え、後続の抽出／表示がA2を読む。検査時A1 digest・抽出時A2実bytes/実行条件を別票に残し、検査時`aligned`を後続処理の入力一致としない。 |
+
+**最小receipt（試験票、公開Schemaではない）**：`document disk-relative path + SHA-256(raw bytes) + input source revision/time + workspace root/scope + CLI build identity + argv/cwd + inventory collectionDigest + independent-observations + actual consumed input bytes/digests where available + JSON result/exit + outstanding`。Markdownの保存済み/未保存、ファイル原本/依存表示、各Producer→Transfer→Consume→Render→Save→Deliverの時点を混同せず、**同一byteの受渡しを実測した範囲**だけ一致とする。raw bytesの外部AI送信は別のDisclosure資格であり、read-only結果の表示許可から推定しない。
+
+**作業順序とOwner**：まずS13-1～3をMMI CLI単独の小fixtureで実証し、S13-4は既存T13のSource消費時点差として観測。SHO実Editorバッファ/固定文書の保存再開は[SHO #4](https://github.com/hat47x/sho-composer/issues/4)、TEIの公開原子性は#2604、MMI×SHOの出典再解決はC-01/T2 G0-0後のOwnerが担当する。今回の検討は**NOT RUN**、CLIの現行I/O動作に対する静的所見である。
+
+**T7の試験着手**：[独立Draft #760](https://github.com/hat47x/markdown-matrix-injector/pull/760)は正常XLSXと明らかな非OOXMLの`.xlsx`を同じ資料集合で参照し、`alignment=aligned`と別Oracleでの構造異常を**独立に**記録するテスト追加である。既存`inventory`の`inspectionRequested=false`を期待し、`inspect`があらゆる破損を必ず拒否するとは扱わない。#760のテスト結果は当該CIを見てから更新し、ここで実行済みとは宣言しない。
