@@ -40,6 +40,10 @@ mmi delivery-audit ./docs/delivery.md ./excel --root . --json
 
 専用テストでは、実際のOOXML構造を持つ小さなXLSXを16件生成し、正常、未列挙、参照切れ、重複、同内容別所在、サイズによる除外、対象範囲の違い、空宣言、Workspace外参照、原本非改変を検証します。テスト用のWorkbookは生成物であり、実案件のExcel設計書や検収記録ではありません。
 
+**Excelの構造検査は行いません。** `delivery-audit`の`aligned`は、拡張子が`.xlsx`であるファイルの実体と参照先がbyte単位で照合できたことを表します。`.xlsx`という名前の非OOXMLテキストでも、指定した参照と目録のbyteが一致すれば`aligned`になり得ます。Excelとして読み取れるか、必要なSheet/Rangeや設計情報を含むかは、別途構造・内容検査が必要です。`--inspect`はこのコマンドで使えず、`inventory --inspect`や`inspect`の能力・限界は別に確認します。
+
+**検査したMarkdownの版にも注意が必要です。** このCLIが読むのは**ディスクに保存済み**のMarkdownであり、編集者の未保存バッファではありません。JSON内の`document`は相対パスで、入力Markdown原文のraw byte digestは報告上位にはありません。報告を後から証拠として使うときは、外側の記録に原文byte SHA-256・実行版・scope/条件・観測時点を関連付けてください。`inventory.collectionDigest`は、Markdown原文の版や後続の表示・抽出が実際に使ったbyteを保証しません。
+
 これは複数の既存Application関数を組み合わせるPoCで、恒久的な公開API・納品承認ルールとしての受理は行っていません。原本バイトを読み取る`observeDeliveryFiles`側の容量上限、観測中の更新、Markdown一般構文の完全解析、シンボリックリンク等の競合状態、納品版資産の固定・再現性、Excel固有の意味の理解は追加評価を要します。
 
 **検収済み納品可能版**を管理する場合は、原本・付帯資産・出力成果物・使用した条件・検査記録を含めて固定できるかを別途検証します。作業中のWorking Treeと最後の検収版を区別する必要があります。
