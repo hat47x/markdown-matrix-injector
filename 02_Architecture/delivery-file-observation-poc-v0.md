@@ -12,11 +12,29 @@
 | --- | --- | --- |
 | **T6 参照文法** | [Draft #755](https://github.com/hat47x/markdown-matrix-injector/pull/755)で修正前に新規2件FAIL、修正後に両件PASS。Ubuntu・Windows製品CIとresearch SUCCESS。**main未統合**。 | main統合後の回帰、実務Markdown・対象外構文の確認 |
 | **T7 Byteと形式** | [Draft #760](https://github.com/hat47x/markdown-matrix-injector/pull/760)の前head `959daee17e02d2114a4cde0613f6fb821a510553`、[CI #41464902366](https://github.com/hat47x/markdown-matrix-injector/actions/runs/41464902366)はUbuntu/Windows/research全SUCCESS。非OOXMLの`.xlsx`を含んでも`aligned`になり得ることを合成CLIで確認。**main未統合**。 | 完全なExcel構造検査の独立Oracle・実原本は別担当 |
-| **T13 保存文書と実消費版** | 同じ#760の新head `be8a2339e438efdb746f092be09e42e3c51d3b57`へS13-1～4の独立3テストを追加。**新headのCIは作成時点queuedで、未確認**。 | 同headの実テストログ、SHO実Editor/Renderer読取は別Owner |
-| **T8・T9～T12・T14～T16** | T8の一部は既存テスト、残る実務/Owner条件と他の負例・比較は計画段階。 | 機械観測／人の受理／外部Requiredを独立に取得 |
+| **T13 保存文書と実消費版** | #760現head `6d221552ade309b7c3360d26b81700cbe760f40c`の[CI #41503089669](https://github.com/hat47x/markdown-matrix-injector/actions/runs/41503089669)で**Windows製品ジョブSUCCESS**。S13-1/2、S13-3、S13-4の3件が個別`ok`。**Ubuntu/researchジョブは2026-11-03照合時queued**、main未統合。 | Ubuntu/research同head CI結果、実SHO Editor・RendererのConsumer証拠は別Owner |
+| **T8・T14：件数とRequired** | `deliveryAudit.test.ts`の既存重複試験は**参照3・matched3・実所在2・duplicate1・同内容別所在1**を検証し、上記Windows CI #41503089669で個別`ok`。**Requiredとの項目別被覆は未実証**。 | 同byteの2所在を必要2成果物へ自動換算しない。外部Required 3件に対する不足の独立OracleとOwner採否を別票へ |
+| **T9～T12・T15～T16** | 対象位置・容量・Occurrence・納品世代・普通のMarkdown対照は試験計画。 | 各レーンの固定入力・実測・Owner境界 |
 | **C-01/T2** | G0-0（同一fixture・Source SHA・Sheet/Range）未通過。 | MMI×SHO出典再接続の統合PASSはSTOP。SHO単独M0-EXは別レーン |
 
 > この表は**設計追補PRに残す実証台帳**であり、実装PRのCI成功やDraftの存在をmain採用・Owner検収・実利用資格に昇格させない。旧節にある「T6はNOT RUN」「T7はCI未確認」は当時の履歴であり、更新事実は本表を優先する。
+
+### 2026-11-03 判定の再利用条件：件数が一致しても同じ文書・根拠ではない
+
+[SHO #2のM0-EX負例](https://github.com/hat47x/sho-composer/issues/2#issuecomment-6585279784)は、Markdownの**Link数とURL候補数が不変でも**、参照定義の変更で実効href、字下げ変更で親子関係、Parser profile変更で解釈が変わり得ると整理した。SHO側のPython局所probeは実SHO Node/VS Code製品のPASSではない。MMI #658のWhole-File参照は一般Markdownリンクとは**別の文法**だが、**集計件数から現在の適用資格を導けない**原則は共通する。
+
+| 判定対象 | 既存#658の証拠 | 結果再利用を保留する条件 |
+| --- | --- | --- |
+| **文書入力版** | JSONのdocumentはパスのみでraw Markdown digestなし（T13 S13-3）。 | 保存済み原文が変更、未保存バッファ、Parser条件が未確認。**同じJSONでも現在の原文を検査済みとはしない**。 |
+| **Source所在とByte** | resolvedPath/digest、目録digest。T8は参照3回と実所在2件が共存。 | 同pathの内容変更、同byte別所在、root/scope変更、後続Consumerが実際に読んだbyteが不明。 |
+| **解析・表示** | Excel拡張子とbyte集合照合（T7非OOXML負例）、MMI Whole-File参照抽出（T6限定修正）。 | XLSX構造、Sheet/Range、hidden/veryHidden、復号条件、実Rendererの読取が未確認。 |
+| **要求・受理** | DeclaredとObservedのalignment、参照出現・目録件数。 | Required集合の版/Scope、要求と納品物の多対多対応、固定Delivered、Review/Owner/開示資格が未確認。 |
+
+**T8/T14の次段**：既存の参照3出現・実所在2・同一byte digestの合成テストを再利用し、別の外部Required表（3要求項目中、test用成果物1件欠落）を**試験Oracleとしてのみ**追加する。機械的なalignmentがalignedでもRequired被覆は未成立と示す。新しい公開Schemaや業務上の必要件数規則は先に決めず、対応候補とOwnerの業務受理を別欄にする。既存テストと同じものを新PRで再起票しない。
+
+**SHOの後着応答**：遅延して届くD0監査結果を、現在編集しているD1の資格へ自動転用しない。入力Document Revision・Parser profile・Source実所在/実byte・表示実消費/Review・要求用途の対応が実証できた範囲だけ利用する。#658の現行JSONだけではこれらを一式証明できない。SHO M0-EXは独立実証、MMI×SHO出典再接続はC-01/T2 G0-0→G2の停止条件を維持する。
+
+**状態**：T13のWindows 3件PASS、既存T8の機械重複テストPASSは実測。T13 Ubuntu/research、外部Requiredの業務受理、SHO製品Reader/Renderer、現時点のレビュー資格は未確認。PRのDraft CI成功をmain採用へ昇格しない。
 
 ## 最小利用例
 
