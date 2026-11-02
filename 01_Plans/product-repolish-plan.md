@@ -615,3 +615,35 @@ D3は「安全にMMIを外せることも成功条件とする」と定めてい
 品質は単一PASSに潰さず、**D0:文書保存・再開、D1:出典への再到達、D2:意味・数値のProjection忠実度、D3:Claimの比較可能性と現在有効性、D4:レビュー済み固定納品/開示資格**を別欄で示す（本節内の暫定評価軸でありTEIの公式Gate名ではない）。D0/D1成功からD2〜D4成功を推定しない。人の確認工数と未解決の残余、AI・決定的baselineの過剰一般化件数、非公開情報の漏出有無を別々に測定する。
 
 **変更範囲・実績**：2026-11-02の追加追補は計画文書のみ。TEI #1803はClosedとなったため、後続の横断Consumer契約はOpenの#2516/#2586へリンクを更新する。SHO repoのS0〜S5・PV系計画、TEI・SEI各Issueへ同じ表を複製しない。新しいMMI機能、SHO実装、Cross-Consumer実実行、独立OS機密試験、Owner業務受理は実施していない。
+
+### 11.8 R0→R1レビューの再利用資格：「特定の説明・出現・利用条件」へ結び付ける（2026-11-02横断追補／未受入）
+
+SHO [#4](https://github.com/hat47x/sho-composer/issues/4)のDocument Occurrence保存・編集、[#6](https://github.com/hat47x/sho-composer/issues/6)のPV4（局所上書きで上流差分が見えない）、[SHO #1](https://github.com/hat47x/sho-composer/issues/1)のDocument/Reference/Review/Delivery独立評価が進んだ。**本MMI計画が追加所有するのはSHO側のUIや保存形式ではなく、原資料R0→R1のとき「過去の人のレビューを現在の説明に適用できる」と述べるために必要な、観測可能な条件と反例の受け渡し**である。C-01/T2はMMI、Occurrence編集はSHO #4、Projection/逆写像はTEI #2497、版間Source対応はTEI #2505、Meaning AcceptanceはTEI #267の既存Ownerを維持する。
+
+**検証票の比較対象（新しい恒久ID／公開schemaではない）**：説明Cの意味対象・命題・対象集合・粒度・時点・用途・読者、Document Occurrence Oと周辺文脈、Source AのLocation/実bytes・Candidate・参照、観測済/未観測の根拠、Projection Rule/Template/macroと著者の局所編集、人のReviewイベントと対象版・withdraw履歴。Source digest・論理表fresh・表示byte一致のどれか一つだけから旧レビューの現在有効性は導かない。
+
+**最小三者比較**：
+1. 旧根拠版R0から導出した**基準投影P0**、同じOccurrenceに著者が施した**局所編集後本文O0**、現在の根拠版R1から導出した**新基準投影P1**を区別。R0↔R1のSource/Model対応が曖昧なら未解決とする。
+2. P0↔P1の差（上流変更）、P0↔O0の差（作者の局所変更）、O0と現在の表示の差（可視変更）を別に把握する。表示が同じでも上流変更が覆い隠され得る。必要な参照図・数式macro・Target依存は実消費した入力で固定して検証する。
+3. **旧Review履歴の保存**、**旧Review対象と現Occurrence/Claimの対応**、**現在の説明への再利用候補**、**外部への公開・送出資格**を別欄で判定。依存の変更を認識しても、過去の人の確認を「本人がwithdrawした」と勝手に変更しない。一度撤回したReviewは、原bytesへの復帰で自動復活させない。
+4. 結果は「依存範囲の一致による再利用候補」「局所再確認候補」「対応曖昧・必要根拠未観測」「歴史的判断は撤回済み」などの**説明理由**とし、公開状態enumや承認engineは導入前にSHO側Ownerへ戻す。
+
+**根拠の十分性**：既知依存の差分が局所的なら、確認対象も局所化できる。一方、「すべて」「例外なし」「否定研究は存在しない」のような広いClaimは、旧Sourceが不変でも新規規則・新論文や未探索資料によって再確認が必要になり得る。確認済み資料集合を閉じた範囲として宣言した場合と、追加資料が到着し得るopen-worldの調査を区別する。無限の不存在証明は要求せず、探索範囲と未観測残余を示す（本節のRR-12/14/15を再利用）。
+
+### 11.9 RR-18〜RR-24：Occurrence別レビュー、局所編集、論文から設計へ（追加合成反例／全てNOT RUN）
+
+| ID | R0→R1の変更 | 期待する検査と責務 |
+| --- | --- | --- |
+| RR-18 | 同じTEI意味KをO1/O2へ投影。O1だけ著者が単位表示を「箱」へ上書き。元モデルが「個」→「件」へ変化してもO1の見た目は不変 | O1の表示一致から意味無変更とは言わない。O2の新基準、O1の旧基準・上書き、レビュー対象を区別。SHO #6 PV4の実証Ownerへ |
+| RR-19 | O1をO3にコピーし、同じ出典・同じ文言でも読者・節の前提が異なる | O3のSource対応は候補になり得るが、O1の確認をO3の現在Reviewへ自動継承しない。コピー時ID/編集履歴はSHO #4のOwner |
+| RR-20 | O1を別節へ移動。元本文は同じだが章の条件が「通常のみ」から「例外を含む」へ変わる | Occurrenceの位置移動とClaim Scopeの変更を分ける。内容digest一致から旧レビュー適用性を確定しない |
+| RR-21 | 同じClaimの参照資料と宣言した依存範囲・時点は不変。他の無関係な節のみ改稿、旧Reviewにwithdrawなし | 必要条件を満たせば局所再利用候補を提示し、不必要な全章再確認を測定。ただし自動Meaning Acceptanceとはしない |
+| RR-22 | 論文3リンクのURL・並び・字下げだけを変更。本文/PDFは未取得 | **研究リンク整理としての保存再開**は成立。原典を読んだ／文献主張を確認したとは扱わない。SHO [#7](https://github.com/hat47x/sho-composer/issues/7)のL0を参照 |
+| RR-23 | 論文A v1を根拠にした設計・コードがあり、v2訂正または新論文Bの反例が加わる。旧コードのunit testはPASS | 既存コードの実テストと新版論文の再現を区別。原典Claim・AI解釈・Design Assumption・人の判断・独立Oracleを局所追跡。工程OwnerはSHO [#8](https://github.com/hat47x/sho-composer/issues/8) |
+| RR-24 | 文書O1は保存済み、固定HTMLに必要な図/脚注が未列挙。Preview後に外部AI送信Policy失効 | 文書作業は保存継続。固定納品・外部送出を必要なTarget資産集合・受取者/Policy・実生成/送信bytesに相対的に判定。SHO #1 RC-SHO-01のOwner |
+
+**評価のための対照列**：old-review-target / new-target-correspondence / intended-Source-Location+actual-bytes / Occurrence+surrounding-context / P0-O0-P1 / declared-dependencies+unobserved / review-history / review-reuse-candidate-and-reason / recipient+actual-outbound-bytes-if-observed。これはテスト票用の列であり、MMIのCLI/MCPの公開契約を拡張する要求ではない。**履歴保持、対応同定、再利用候補、本人の再確認、納品・送出可否は独立の判定**として保持する。
+
+**最初の受入順序**：RR-18/19/21はR0→R1のP0-Bへ小さな合成Markdownと独立期待値で追加。RR-20は周辺文脈の変化を調べる後続。RR-22はSHO単体L0の独立価値として実証し、RR-23は[SHO #9](https://github.com/hat47x/sho-composer/issues/9)のPlain-text BenchmarkでA0/A1/A2とB0/B1/B2の別指標へ接続する。リンク集の価値と論文→コードの改善は異なる仮説であり、構造化へ費やした人/AIの時間・費用も測定する。MMI C-01/T2のG0-0未通過は出典を実再解決した統合PASSだけに影響し、単独SHOのL0や独立R0/R1の考察まで停止させない。
+
+**状態**：上記は独立した対照fixtureと検証手順の設計。SHO CLI/Editor・実論文取得・Paper→Program・実TEI再接続・実Target/AI送信・Owner受理は未実行。新Review Schema、共通Host、第二SSOT、承認engineを採用せず、各既存Issueへ実証Ownerを残す。
