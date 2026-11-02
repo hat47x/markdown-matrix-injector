@@ -175,3 +175,29 @@ test('the reference scan reports Workspace-escaping Excel paths without exposing
   assert.equal(report.comparison.counts['reference-blocked'], 1);
   assert.equal(report.comparison.counts['inventory-unreferenced'], 1);
 });
+
+test('T7: byte-aligned delivery can include a non-OOXML file named xlsx', (t) => {
+  const f = fixture(t);
+  const invalid = Buffer.from('NOT-AN-OOXML-WORKBOOK\\n', 'utf8');
+  fs.writeFileSync(f.files[0], invalid);
+  f.write(f.references());
+
+  // Independent minimal negative oracle: these are plain text bytes, not an
+  // OOXML ZIP package. This does not claim to implement XLSX validation.
+  const zipLocalFileHeader = Buffer.from([0x50, 0x4b, 0x03, 0x04]);
+  assert.notDeepEqual(invalid.subarray(0, 4), zipLocalFileHeader);
+  assert.deepEqual(fs.readFileSync(f.files[1]).subarray(0, 4), zipLocalFileHeader);
+
+  const before = f.files.map(file => fs.readFileSync(file));
+  const result = f.cli([]);
+  assert.equal(result.status, 0, result.stderr);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.comparison.alignment, 'aligned');
+  assert.equal(report.comparison.counts.matched, 2);
+  assert.equal(report.delivery.counts.resolved, 2);
+  assert.equal(report.inventory.status, 'complete');
+  assert.equal(report.inventory.inspectionRequested, false);
+  assert.equal(report.inventory.entries[0].state, 'identified');
+  assert.equal(report.inventory.entries[0].identity.digest, report.delivery.references[0].digest);
+  assert.deepEqual(f.files.map(file => fs.readFileSync(file)), before);
+});
