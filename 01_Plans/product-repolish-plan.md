@@ -647,3 +647,42 @@ SHO [#4](https://github.com/hat47x/sho-composer/issues/4)のDocument Occurrence�
 **最初の受入順序**：RR-18/19/21はR0→R1のP0-Bへ小さな合成Markdownと独立期待値で追加。RR-20は周辺文脈の変化を調べる後続。RR-22はSHO単体L0の独立価値として実証し、RR-23は[SHO #9](https://github.com/hat47x/sho-composer/issues/9)のPlain-text BenchmarkでA0/A1/A2とB0/B1/B2の別指標へ接続する。リンク集の価値と論文→コードの改善は異なる仮説であり、構造化へ費やした人/AIの時間・費用も測定する。MMI C-01/T2のG0-0未通過は出典を実再解決した統合PASSだけに影響し、単独SHOのL0や独立R0/R1の考察まで停止させない。
 
 **状態**：上記は独立した対照fixtureと検証手順の設計。SHO CLI/Editor・実論文取得・Paper→Program・実TEI再接続・実Target/AI送信・Owner受理は未実行。新Review Schema、共通Host、第二SSOT、承認engineを採用せず、各既存Issueへ実証Ownerを残す。
+
+### 11.10 Source改版候補からSHO実読取までの五段階：改版追跡と公開一式の保証を分離（2026-11-02追加差分）
+
+新たな横断証拠：[TEI Draft PR #2615](https://github.com/hat47x/tei-platform/pull/2615)はSource版A→B→Cの候補対応・Consumer別影響を整理し、[TEI #2604](https://github.com/hat47x/tei-platform/issues/2604)はArtifact群の物理公開とConsumerが実際に読んだ版の一式性を別に検証する。MMI本計画の目的は、**保存済みSHOレビューがどの事実を引用・再利用できるか**を検証すること。TEI側のSource差分器、Manifest公開処理、SHOの文書保存を重複実装しない。
+
+旧R0レビューを現R1へ継続する判断で使う証拠を、五段階として区別する。区分はTEI Draft #2615の設計仮説をConsumer視点へ読み替えた検証票であり、現時点の正式共通Contractではない。
+
+| 段階 | 確認した実体 | 次へ進んでも残る未保証 |
+| --- | --- | --- |
+| **S: Source** | 旧／新のSource packet、実取得bytes、Location、viewと一版内locator、観測範囲 | ZIPやSource digestが同一でも業務的意味の同一性は未確定 |
+| **C: Correspondence candidate** | 旧→新Sourceの理由付き候補辺、重複/欠損、分割・統合・多対多・経由版と未解決 | A→B、B→Cの候補合成はA→Cの意味同一性ではない |
+| **M: Accepted meaning** | 対応するTEIの受理済み意味版・Scope・未決 | 意味受理があっても全Target生成・外部Hostでの実効果やSHO説明レビューは未保証 |
+| **G: Generated set** | 生成時のMeaning/Template/Generator版、Artifact実bytes、Manifest、CheckSet/Unresolved | 生成物・Manifestの内部整合だけでは旧世代ファイル残存、途中上書き、名前衝突、同世代の公開を保証しない |
+| **P: Published/Consumed set** | 一つの公開世代に含まれる実ファイル集合、Manifest列挙、Consumerの読取bytes/時点・Recipient/Scope | SHO読取成功は著者の説明妥当性・過去Reviewの現在適用・納品/外部AI送信許可とは別 |
+
+**重要な追加点**：SHO文書の出典Aが正しく解決され、TEI Accepted Modelの改版も正しい場合であっても、SHOが読んだ設計成果物の一部だけが新世代であれば「同一版の設計説明を確認した」とは言えない。逆に、Sourceだけが改版されても、旧SHOの固定納品版と当時の一式実bytes・Reviewは歴史的な完成物として維持可能である。現在利用可能かは別審査。
+
+**物理一式の具体的な競合**：旧Manifest R1はA.md/B.mdのdigestを列挙。新世代R2への更新中、A.mdだけ上書きされManifest R1が残ると、Manifest↔実A.mdは不一致。R2 ManifestにA.mdのみ列挙しても、旧B.mdが物理ディレクトリに残り、SHOやAIがディレクトリ全件走査するとR1/B.mdを「現行R2」と誤認し得る。Manifest読取後にA.mdが更新される競合も同様。既存TEI #2604のAP-01/02/06が**実製品テストOwner**であり、MMIは実観測と別Source/出典の識別を支援するのみ。
+
+**A→B→Cの候補の曖昧性**：旧a1/a2→中間b→新c1/c2の候補関係なら、経由候補の到達経路が複数ある。旧a1の根拠を新c1と確定して旧SHO Reviewを自動再利用してはいけない。候補対応のOwnerはTEI #2505/PR #2615、人のDocument OccurrenceとReviewはSHO #4/#6。MMIのSource Identityは一版内の観測を保持し、版間意味対応を独断で確定しない。
+
+### 11.11 RR-25〜RR-30：公開・Consumer読取とレビュー再利用の非同一性（合成受入、製品E2E NOT RUN）
+
+| ID | 合成変更・実Consumer状態 | 言えること／言えないこと |
+| --- | --- | --- |
+| **RR-25 多版対応** | Source Aにa1/a2、Bではb、Cではc1/c2。A→BとB→Cの候補辺を連結 | 候補経路と多対多の曖昧性を報告できる。A→Cの確定1:1対応、意味受理、旧Reviewの現在適用とはしない |
+| **RR-26 途中公開** | 旧Manifest R1（A/B）を残したまま新R2のAだけ上書き後に故障 | Manifestに含む実A byteと一致しなければ現公開世代の整合は未成立。旧SHOレビューを新Aの確認へ流用しない |
+| **RR-27 旧残存資産** | R1 A/BからR2 Aのみへ再生成。ManifestからBを外したが物理ディレクトリに旧Bが残る | Manifest上の列挙と物理全件は異なる。Consumerが何を実取得したかを記録し、旧BをR2出典に見なさない |
+| **RR-28 読取中の版切替** | SHOがManifest R1を読み、A取得前にR2のAが公開される | 同一時点の文字列として表示できても同一世代のbyteを消費した証拠ではない。検証済み固定版への再取得または確認不能扱い |
+| **RR-29 テンプレートだけ変更** | Accepted Meaning M1は同じ。Template T1→T2で設計書bytesだけ変更 | TEIの意味改版なし／生成物改版ありを区別。変更後のSHO説明・表示のReview適用性は独立。旧固定納品R1を無断上書きしない |
+| **RR-30 異世代説明** | SH0文書のOccurrence O1はAccepted M1の旧Artifact G1を引用。Source/Meaning候補がM2へ移ったが公開P2と実読取を確認できない | O1の歴史的出典・Reviewを保存し、現在性は「根拠の候補対応あり、実Consumer版未確認」として表現。生成実行成功・Manifest digestのみで現在確認済みとしない |
+
+**小規模の独立実行事実**：Python 3標準ライブラリの合成filesystemモデルで、(a)旧Manifest＋新Aの混在、(b)Manifestにない旧Bの残存、(c)Manifest読取後のA更新、(d)意味ラベル同一・Template差に伴う出力byte差、(e)A→B→Cの候補経路非一意という**5つのtoy unittestがPASS**。これは上表の前提を理解するための独立合成試験であり、TEI #2604の実製品コード、MMI CLI、SHO Consumer、Go CI、Windows原子的公開、Owner受理の実測ではない。toyで「不整合を検出できた」ことを製品に既にその検査が存在する証拠にしない。PRにはtoyの実装を含めず、テスト手順のOwnerは#2604/#2505へ維持する。
+
+**統合の最小の一歩**：RR-26〜28のどれか一件について、TEI #2604が観測した`PublishedGeneration / Manifest / actual member bytes`を、SHO #6のread-only説明Consumerが**実際に受け取った証拠**として比較。MMIのC-01/T2 G0-0未通過はそのSource Referenceを通じた統合PASSだけを止め、合成の公開一式Consumer試験は独立に進められる。成功を主張する単位は「そのManifestに対応したこの実byteをSHOが読んだ」という狭い条件から始める。
+
+**受入票への追記列（新schemaではない）**：`source version / correspondence candidate & ambiguity / accepted meaning revision / generator + template version / manifest + member digest / published generation / consumed byte digest per occurrence / review target / current review reuse evidence / disclosure scope / unresolved`。Pが未確認ならD0（文書保存）は評価できてもD2（説明投影）・D3（レビュー現在性）・D4（納品/外部送信）は独立して未確認を保持。TEI #1803 Closedや#2604 Open等のIssue状態自体を、当該Consumerの実証結果の代用にしない。
+
+**今回の採否と実証境界**：#2505/PR #2615がSource版間候補、#2482が設計Artifact内部整合、#2604が物理公開、SHO #4/#6が読取文書・レビュー・公開、MMI #514/#525がSource参照実観測のOwner。TEI #2615はDraft設計1文書・Go合成PoC計15試験PASSの報告（コードは同PRへ未コミット）。この横断ケースは公開Source/生成物の匿名合成入力だけで検証し、非公開原参照モデルの本文・Source locator・個別hashを転載しない。RR-25〜30の実TEI/M MI/SHO製品E2Eは**NOT RUN**で、Owner意味受理・正式なStage→Publish方式は未決。
