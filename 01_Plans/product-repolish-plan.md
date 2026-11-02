@@ -677,7 +677,7 @@ SHO [#4](https://github.com/hat47x/sho-composer/issues/4)のDocument Occurrence�
 | **RR-27 旧残存資産** | R1 A/BからR2 Aのみへ再生成。ManifestからBを外したが物理ディレクトリに旧Bが残る | Manifest上の列挙と物理全件は異なる。Consumerが何を実取得したかを記録し、旧BをR2出典に見なさない |
 | **RR-28 読取中の版切替** | SHOがManifest R1を読み、A取得前にR2のAが公開される | 同一時点の文字列として表示できても同一世代のbyteを消費した証拠ではない。検証済み固定版への再取得または確認不能扱い |
 | **RR-29 テンプレートだけ変更** | Accepted Meaning M1は同じ。Template T1→T2で設計書bytesだけ変更 | TEIの意味改版なし／生成物改版ありを区別。変更後のSHO説明・表示のReview適用性は独立。旧固定納品R1を無断上書きしない |
-| **RR-30 異世代説明** | SH0文書のOccurrence O1はAccepted M1の旧Artifact G1を引用。Source/Meaning候補がM2へ移ったが公開P2と実読取を確認できない | O1の歴史的出典・Reviewを保存し、現在性は「根拠の候補対応あり、実Consumer版未確認」として表現。生成実行成功・Manifest digestのみで現在確認済みとしない |
+| **RR-30 異世代説明** | SHO文書のOccurrence O1はAccepted M1の旧Artifact G1を引用。Source/Meaning候補がM2へ移ったが公開P2と実読取を確認できない | O1の歴史的出典・Reviewを保存し、現在性は「根拠の候補対応あり、実Consumer版未確認」として表現。生成実行成功・Manifest digestのみで現在確認済みとしない |
 
 **小規模の独立実行事実**：Python 3標準ライブラリの合成filesystemモデルで、(a)旧Manifest＋新Aの混在、(b)Manifestにない旧Bの残存、(c)Manifest読取後のA更新、(d)意味ラベル同一・Template差に伴う出力byte差、(e)A→B→Cの候補経路非一意という**5つのtoy unittestがPASS**。これは上表の前提を理解するための独立合成試験であり、TEI #2604の実製品コード、MMI CLI、SHO Consumer、Go CI、Windows原子的公開、Owner受理の実測ではない。toyで「不整合を検出できた」ことを製品に既にその検査が存在する証拠にしない。PRにはtoyの実装を含めず、テスト手順のOwnerは#2604/#2505へ維持する。
 
@@ -685,4 +685,4 @@ SHO [#4](https://github.com/hat47x/sho-composer/issues/4)のDocument Occurrence�
 
 **受入票への追記列（新schemaではない）**：`source version / correspondence candidate & ambiguity / accepted meaning revision / generator + template version / manifest + member digest / published generation / consumed byte digest per occurrence / review target / current review reuse evidence / disclosure scope / unresolved`。Pが未確認ならD0（文書保存）は評価できてもD2（説明投影）・D3（レビュー現在性）・D4（納品/外部送信）は独立して未確認を保持。TEI #1803 Closedや#2604 Open等のIssue状態自体を、当該Consumerの実証結果の代用にしない。
 
-**今回の採否と実証境界**：#2505/PR #2615がSource版間候補、#2482が設計Artifact内部整合、#2604が物理公開、SHO #4/#6が読取文書・レビュー・公開、MMI #514/#525がSource参照実観測のOwner。TEI #2615はDraft設計1文書・Go合成PoC計15試験PASSの報告（コードは同PRへ未コミット）。この横断ケースは公開Source/生成物の匿名合成入力だけで検証し、非公開原参照モデルの本文・Source locator・個別hashを転載しない。RR-25〜30の実TEI/M MI/SHO製品E2Eは**NOT RUN**で、Owner意味受理・正式なStage→Publish方式は未決。
+**今回の採否と実証境界**：#2505/PR #2615がSource版間候補、#2482が設計Artifact内部整合、#2604が物理公開、SHO #4/#6が読取文書・レビュー・公開、MMI #514/#525がSource参照実観測のOwner。TEI #2615はDraft設計1文書・Go合成PoC計15試験PASSの報告（コードは同PRへ未コミット）。この横断ケースは公開Source/生成物の匿名合成入力だけで検証し、非公開原参照モデルの本文・Source locator・個別hashを転載しない。RR-25〜30の実TEI/MMI/SHO製品E2Eは**NOT RUN**で、Owner意味受理・正式なStage→Publish方式は未決。
