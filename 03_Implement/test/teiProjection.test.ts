@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 
 import { parseFormatProfileProjection } from "../src/teiProjection.js";
@@ -45,4 +46,14 @@ test("rejects an invalid status", () => {
 test("rejects a missing profile id", () => {
   const broken = { ...artifact, profile: { ...artifact.profile, id: "" } };
   assert.throws(() => parseFormatProfileProjection(broken));
+});
+
+test("parses the real artifact when provided", (t) => {
+  const path = process.env.TEI_MMI_PROJECTION_ARTIFACT;
+  if (!path) {
+    t.skip("TEI_MMI_PROJECTION_ARTIFACT is not set");
+    return;
+  }
+  const parsed = parseFormatProfileProjection(JSON.parse(readFileSync(path, "utf8")));
+  assert.ok(parsed.profile.id.length > 0);
 });
