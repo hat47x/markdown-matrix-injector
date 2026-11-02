@@ -181,3 +181,13 @@ SHO側へ渡す際は、必要な元データの**表示投影**と、実際の�
 **段階整合**：D0にRの要求票とOwner判断有無・対象母集団のscope/版を追加する。D1にDeclared/Observed/Requiredの異なる母集団の照合を追加し、元CLIの実JSONを改変しない。D3にT16の公平なA/B対照を追加する。D4でDeliveredと実Consumer bytesの対応票を試し、固定納品採否はSHO側Ownerへ委ねる。C-01/T2のG0-0停止条件とTEI #2604の実製品検証Ownerは変更しない。
 
 **状態**：この追補は仕様・検証計画のみ。T14～T16のfixture・CLI/Consumer実行、要求表の業務受理、正式Publish、ユーザー試験、Plain-textに対する優位性実証は**NOT RUN**。現行MMI、SHO、TEIの公開契約・実装・正本を変更しない。
+
+### 2026-11-02 T6実測開始：修正前の失敗を固定
+
+この時点の追補は、前節にある「T6は静的反例候補／NOT RUN」という過去記録より新しい。初回の再現結果を[専用 Draft PR #755](https://github.com/hat47x/markdown-matrix-injector/pull/755)で取得した。
+
+- **固定入力**：ApplicationのT6新規テストで、複数行HTMLコメント・コメント内の`~~~`・インラインコード・実コードフェンス・正規参照を併置。正規参照の期待値は行9・13の`a.xlsx`2出現。CLIテストは実XLSXを使い、参考用ファイルを対象scopeから外し、正規`final.xlsx`だけを`matched=1`と期待。
+- **実測したFAIL**：修正前head `f001afda1bf4aba9720a66f3e3899f478481feec`、[CI #41442885494](https://github.com/hat47x/markdown-matrix-injector/actions/runs/41442885494)。**Ubuntu/Windowsの製品ジョブはfailure**。Ubuntuログでは**新規T6 2テストが双方`not ok`**、総fail 2。Applicationの実際の参照はコメント内の行2・4の`b.xlsx`2出現で、コメント内フェンスが後続の有効参照を隠した。CLIは終了1（期待0）。既存設計上の誤抽出の懸念が**合成fixture実測の失敗**になった。
+- **修正候補**：[Draft #755](https://github.com/hat47x/markdown-matrix-injector/pull/755) head `2eaea49ba7152c4750a27104fdfb3ab4bbb125ba`。`observeDeliveryFiles`内で既存の`stripInlineCode`と複数行HTMLコメント状態を用い、フェンス解釈と参照抽出の前に例示を除外する。Source Identity／Resolver／`check`／`manifest`／`inventory`の公開処理を変更しない。
+- **未確認の出口**：修正headの[CI #41443225210](https://github.com/hat47x/markdown-matrix-injector/actions/runs/41443225210)はこの記録時点でqueued。修正のUbuntu/Windows PASS、実業務MarkdownでのT6、Markdown全構文の解析保証、契約納品受理を主張しない。
+- **受入の単位**：①修正前FAIL、②修正後のT6個別PASS、③Ubuntu/Windowsの既存製品回帰、④対象外Markdown構文の追加探索、⑤実務での価値確認を別列にする。②③が未確認の間、Issue #658の受入条件を完了にしない。T7～T16は従来どおり未実証の計画として維持する。
