@@ -557,7 +557,61 @@ D3は「安全にMMIを外せることも成功条件とする」と定めてい
 - **MMI**：Source観測・構造・Candidate・参照・各種鮮度と未観測範囲を提供。CLI既存経路で初回実証する。MCPの`provenance`公開は[#697](https://github.com/hat47x/markdown-matrix-injector/issues/697)、選択範囲の値取得は[#739](https://github.com/hat47x/markdown-matrix-injector/issues/739)のOwner未決として独立。
 - **SHO Composer**：文書の読みやすさ、文書構成、過去版・現在版、説明ごとの確認・保留・撤回、固定納品と作業版、表示・納品を担う構想。既存MMIコードを複製せず、新repoに公開契約／製品入口を検討する。SHO repoへの書込みや製品実装は本追補の対象外。
 - **SEI/TAIおよび外部ハーネス**：必要な根拠と判断の経緯を扱うConsumer。評価・文書生成が**実際に同じ観測集合**を消費したかは受取側で検査し、MMI digest存在のみから同一入力保証を推定しない（[TAI #28](https://github.com/hat47x/tai-pleroma/issues/28)）。
-- **TEI**：人が選択した候補からModelRefへ対応付け、未解決を保持し、既存[#267](https://github.com/hat47x/tei-platform/issues/267)で意味受理。設計成果物の生成・依存・レビューは[#1803](https://github.com/hat47x/tei-platform/issues/1803)に接続。SHOの説明確認をOwner Acceptance／Target実行資格へ昇格しない。
+- **TEI**：人が選択した候補からModelRefへ対応付け、未解決を保持し、既存[#267](https://github.com/hat47x/tei-platform/issues/267)で意味受理。設計成果物の既存完了範囲は[TEI #1803](https://github.com/hat47x/tei-platform/issues/1803)（2026-11-02時点Closed）を歴史的根拠として参照し、現在の用途相対Projectionと文書Consumer接続は[TEI #2516](https://github.com/hat47x/tei-platform/issues/2516)、Claim→Patternのheadless縦断は[#2586](https://github.com/hat47x/tei-platform/issues/2586)、SHO側の説明・Reviewは[SHO #6](https://github.com/hat47x/sho-composer/issues/6)を優先して照合する。SHOの説明確認をOwner Acceptance／Target実行資格へ昇格しない。
 - **Owner待ち**：文書内の説明ごとのレビュー状態をSHO標準の保存対象とする範囲、判断撤回・再確認の責任、固定納品時に要求する同時点整合、参照済み表示依存の必須証拠。§10のQ1〜Q3（Reference基準／抽出資産／納品集合）は独立のまま維持する。
 
 この計画の追補は、既存の#514 G0-0→G2や#658 T6/T7、#672配布受入の試験合格と読み替えない。R0→R1の小さな独立fixtureによる**人が判断を継続できるか**という利用価値の実測を先行させ、具体的に不足した時点でUI・契約・保存機構の採否を決める。
+
+### 11.5 主張の比較可能性・根拠十分性・開示資格（2026-11-02横断差分、未受入）
+
+**重要な追加境界**：R0とR1の観測値が等しいか、同じ見た目で表示できるかだけでは、SHOが利用者に示す「一つの主張C」を継続してよいとは言えない。TEI [#2516](https://github.com/hat47x/tei-platform/issues/2516) W8-CC、[#2586](https://github.com/hat47x/tei-platform/issues/2586)のQuery→Context→Claim、[#2497](https://github.com/hat47x/tei-platform/issues/2497)の情報損失、SEI [#767](https://github.com/hat47x/sei-cognition/issues/767)の根拠十分性を**別Ownerの既存検討**として参照し、MMIのSource/Candidate/Provenanceに意味的Comparatorを追加する設計ではない。
+
+一つの説明・判断について、既存証拠を用いて次の問いを人間可読な対照票で照合する（**新しい永続Claim SchemaやAcceptance Gateの採用ではない**）。
+
+| 問い／比較軸 | 必要な根拠 | 早計な結論の反例 |
+| --- | --- | --- |
+| **何を主張しているか** | 命題、対象の意味・役割、用途、前提・例外 | 同じ数値・同じ表示文字列だけから同じ命題とする |
+| **どの集合について言えるか** | 対象集合、適用範囲、粒度、重複、complete/partial/unknown、Queryの実効条件 | 選択範囲に無い規則を「存在しない」、一部の0件を全件0件とする |
+| **どの時点で言えるか** | Source/Query/Rule版、観測時点、対象の有効時点、epoch、同時点整合の要求 | 各原資料のdigestを照合しただけで混在R0/R1を一つの時点の確定事実とする |
+| **どの表現を消費したか** | source bytes、Candidate/occurrence、セル/式の原文とcached valueの区別、投影・Renderer・macro/asset実消費入力 | もとの整数が正確でもfloat64化で桁落ちした文書値を「同値」とする |
+| **誰へ何を示せるか** | Reader/ConsumerのScope、閲覧と外部送信の資格、実際に開示されたProjection | 情報の不開示・取得不能から「秘匿された行は存在する／存在しない」と推定する |
+| **人が現在どう判断しているか** | 文書版・節/Claimの所在、対象根拠、review/withdraw/未決、固定納品か作業版か | 論理表`fresh`、過去の確認、受理済みTEIモデルを現在の著者確認と一括同一視する |
+
+**同値と比較可能は異なる。** 同じ値200でも注文集合D1の合計と別のScope/Grainの結果なら、同じClaimの一致とは言えない。異なる値15と7.5も、閲覧可能部分集合の平均と全体平均なら双方が正しい場合がある。さらに、同一Scope/Grain/版/時間/計算条件/開示資格が揃ったうえで200と201が出た場合に限り、**比較可能な不一致候補**として独立Oracleと両Consumerの実際の入力へ戻る。どちらが正しいかを多数決やAI自信度で決めない。
+
+**「不足」の区分**：①取得可能だが対象範囲未観測、②形式/Provider障害で取得不能、③構造は観測済みだが意味対応が曖昧、④Projectionで情報が失われた、⑤受取者へ開示できない、⑥確認が撤回され現在の適用判断が無い、を区別して記録する。各区分は比較票上の説明であり、MMIの現行status enumやCLI exitにそのまま追加しない。特に低権限Consumer向け説明では、非公開データの存在・件数・Policy詳細を反証理由として漏らさず、許された範囲で「現在の表示からは確認できない」と説明する。
+
+**変更影響の二方向**：既知の依存入力が変化したら、関係するClaimの再レビュー候補を局所提示する。一方、既知の参照表が不変でも、新たに追加された規則資料や未観測のSourceが旧主張を反証し得るため、局所digest一致を「対象集合全体を調べた」証拠とは扱わない。ここで求めるのは無限の不存在証明ではなく、宣言した資料集合・対象範囲に相対的な観測範囲と未確認領域の説明である（MMI #618/#658を再利用）。
+
+### 11.6 追加反例RR-09〜RR-17（独立Oracleを持つ合成素材・NOT RUN）
+
+| ID | 合成入力／変更 | 独立期待値と検査すべき誤り |
+| --- | --- | --- |
+| RR-09 | 異なるScope/Grainの二集計が偶然ともに200 | **値一致でも異なるClaim**。同一Source/同値だけでレビューを転用しない |
+| RR-10 | 可視部分集合のAVG=15、内部全体のAVG=7.5 | **異値でも双方が正しい**。外部Consumerへ内部母集団の存在・値・件数を開示する説明を出さない |
+| RR-11 | 注文2件各100に配送3件がJOINし、誤ってSUM=600。元注文のみでは200 | 行粒度とJOIN行増幅を保全。見かけ上の数式一致・生成成功を業務合計の適合へ昇格しない |
+| RR-12 | 一部だけ検索して0件、完全な母集団では未取得があり得る。また取得資格で見えない行がある | 「現在観測範囲で0」と「全対象で不存在」を区別。認可拒否から秘密の有無を推定/開示しない |
+| RR-13 | Excelに正確な整数`9007199254740993`相当の値を保持する合成例を作り、途中のfloat64変換で`9007199254740992`へ丸める | Source bytes/文書値/TEI数値Projectionの一致を別確認。原資料の格納型・実読み出し値がこのケースを表現できたかも観測し、未表現なら入力fixtureを補正して記録 |
+| RR-14 | 選択した論理表はR0/R1で不変だが、対象規則を例外化する**別文書**がR1で追加 | `review-basis=fresh`でも「承認不要」など全対象の一般命題は自動継続しない。追加資料の探索範囲と当該Claimの依存不足を明示 |
+| RR-15 | 同一Snapshotの非負部分集合だけ得た場合にSUM下界候補を提示し、負値・JOIN重複・訂正・削除を別入力で与える | 単調性・同一Unit/Identity/重複なし・append-only等の前提付きの局所結論だけ許容。前提不成立時に下界を撤回/未解決へ戻す |
+| RR-16 | 遅着の訂正・TOP-N変動で旧R0 Claimが失効。過去の固定納品文書は残る | 作業版の現在性と固定納品版の当時の証拠・著者Reviewを分ける。旧版を上書きせず、現在確定と再利用しない |
+| RR-17 | Excelのセル・Markdown引用にAIへ作業指示する文字列があり、外部Harnessにはその原本の送信権限がない | 文書内容は観測データとして扱い、命令として実行しない。閲覧資格と外部送信資格を分け、実送信bytesを受取側で検証。OS/Host隔離の実効性は既存TEI #2515/TAI #232がOwner |
+
+**優先実行**：RR-09/10/11/12/14を、同じ合成資料の決定的比較票で先に検証する。RR-13/15/16/17は型・時間・秘匿・AI連携の独立レーンとし、実TargetやOS拒否が未確認の段階では説明上の期待値と実装PASSを区別する。比較の対象・期待値はAI候補から独立に固定し、**異なるConsumerに同じ開示権限を仮定してはいけない**。
+
+### 11.7 段階・優先順位・受入証拠の拡張
+
+| レーン | 今できること／先行条件 | 予定する成果とOwner |
+| --- | --- | --- |
+| **P0-A 出典再解決** | §10 C-01/T2の**G0-0共通fixture未一致**を先に解消。G0 CLI→G1 VSCode→G2横断 | MMI #514/#525。実原本Aと保存後参照のLocation/bytes/Candidate/asset/Ledgerを独立照合 |
+| **P0-B 判断継続** | P0-Aと独立したR0/R1合成fixture。MMI CLIの既存観測→人のR0レビュー→R1差分 | 本PRのRR-01〜08。R0の保留・撤回を失わずR1へ再開する。SHO製品UIは未完成でもread-only比較可能 |
+| **P0-C Claim比較可能性** | RR-09〜12/14を既存の合成表・数値・scope/粒度で決定的に評価。P0-A未完でも可 | MMIは原資料の観測範囲を提供、TEI #2516/#2586が意味・用途相対Projection、SEI #767が認知的な根拠十分性、SHO #6が人の説明とレビューを扱う |
+| **P1 多Target・増分** | 型の表示損失・数式macro・文書依存asset・R0/R1の版間対応 | SHO #1/#4/#6、MMI #736、TEI #2505/#2497。再描画・再レビュー候補は消費依存相対に説明 |
+| **P1 AI/機密/実受渡し** | 同一観測集合を決定的比較・外部AI候補で評価し、受渡しと実送信範囲を別記録 | TAI #28/TEI #2515/SEI #767。直接AI原資料投入方式との比較では情報持出し許可・入力byte・根拠探索負担を揃える |
+| **後続 TEI正式採用** | 候補とTEI ModelRefの対応を別途確認し、既存#267のOwner受理経路へ | 統合SHO文書の確認をTEIモデルの意味受理、外部Hostロード、DB効果、納品公開許可に自動昇格しない |
+
+観測票に加える**比較のための列**は`Claim / semantic subject / Scope+Grain+Completeness / version+time+snapshot demand / evidence consumed / projection loss / allowed recipient / review state / independent expected / actual / unresolved`で足りるか先に評価する。これを公開Schemaや第二正本へ直ちに昇格しない。
+
+品質は単一PASSに潰さず、**D0:文書保存・再開、D1:出典への再到達、D2:意味・数値のProjection忠実度、D3:Claimの比較可能性と現在有効性、D4:レビュー済み固定納品/開示資格**を別欄で示す（本節内の暫定評価軸でありTEIの公式Gate名ではない）。D0/D1成功からD2〜D4成功を推定しない。人の確認工数と未解決の残余、AI・決定的baselineの過剰一般化件数、非公開情報の漏出有無を別々に測定する。
+
+**変更範囲・実績**：2026-11-02の追加追補は計画文書のみ。TEI #1803はClosedとなったため、後続の横断Consumer契約はOpenの#2516/#2586へリンクを更新する。SHO repoのS0〜S5・PV系計画、TEI・SEI各Issueへ同じ表を複製しない。新しいMMI機能、SHO実装、Cross-Consumer実実行、独立OS機密試験、Owner業務受理は実施していない。
