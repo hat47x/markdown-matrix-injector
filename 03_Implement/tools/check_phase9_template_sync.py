@@ -289,7 +289,7 @@ def format_cli_exception(exc: Exception) -> str:
     if isinstance(exc, FileNotFoundError):
         target = exc.filename or str(exc)
         return f"input file not found: {target}"
-    if isinstance(exc, IsADirectoryError):
+    if _is_directory_error(exc):
         target = exc.filename or str(exc)
         return f"input path is a directory: {target}"
     if isinstance(exc, PermissionError):
@@ -302,6 +302,15 @@ def format_cli_exception(exc: Exception) -> str:
     return str(exc)
 
 
+def _is_directory_error(exc: Exception) -> bool:
+    """True for IsADirectoryError, and for the PermissionError Windows raises when opening a directory."""
+    if isinstance(exc, IsADirectoryError):
+        return True
+    if isinstance(exc, PermissionError) and exc.filename:
+        return Path(str(exc.filename)).is_dir()
+    return False
+
+
 def classify_exception_code(exc: Exception) -> str:
     if isinstance(exc, EmptyCsvError):
         return "empty_csv"
@@ -311,7 +320,7 @@ def classify_exception_code(exc: Exception) -> str:
         return "missing_header_name"
     if isinstance(exc, FileNotFoundError):
         return "file_not_found"
-    if isinstance(exc, IsADirectoryError):
+    if _is_directory_error(exc):
         return "is_directory"
     if isinstance(exc, PermissionError):
         return "permission_denied"
