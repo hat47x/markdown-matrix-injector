@@ -801,3 +801,20 @@ SHO [#4](https://github.com/hat47x/sho-composer/issues/4)のDocument Occurrence�
 4. **外部AI/納品**：#2516とTAI #232/#270の用途別開示、MMI #658/#754のRequired/Delivered、SHO #1/#4/#10の実表示・送出を別証拠として評価。合成値が`fixture_consistent`でも外部への引用許可は独立。
 
 **判断状態**：今回の16件は**独立合成試験のみ**。Owner意味受理、正式Rowset証人/DB Snapshot、実メタデータ契約、現行C-01/T2 G0-0、実SHO/TEI Provider/AI利用はNOT RUN。関数/値/Readの一致条件を明文化するだけで、旧Reviewの失効・撤回やSource意味変更を機械的に確定しない。新Runtime/Schema/Host/Policy Engineは採用しない。
+
+### 11.18 実証済み境界の採用順：T6製品CI、Operation候補消失、ArtifactSet用途相対の網羅（2026-11-02）
+
+**目的**：RR-01〜37、RWL-01〜06、RCP-01〜08の新ケースを増やす代わりに、他製品で進んだ実装・試験と未採用の設計を区別し、既存受入票の**次に実行すべき工程**へ接続する。
+
+| 担当・課題 | 確認した実証／限界 | 次の検収条件 |
+| --- | --- | --- |
+| **MMI #658 T6・Draft #755** | 修正前test-only head f001afdaで新2件FAIL（[CI #41442885494](https://github.com/hat47x/markdown-matrix-injector/actions/runs/41442885494)）。修正候補head 2eaea49bでは[CI #41443225210](https://github.com/hat47x/markdown-matrix-injector/actions/runs/41443225210)のUbuntu/Windows/researchがSUCCESS、Ubuntu製品1323 pass/0 fail、新T6 2件PASS。**Open/Draft・未merge** | #755のOwnerレビュー、採用時のmain exact-head回帰。その後T7〜T16、実顧客Required、C-01/T2 G0-0、SHO実消費を別検収 |
+| **TEI #2611・stacked Draft #2632** | [PR #2587](https://github.com/hat47x/tei-platform/pull/2587)の未統合DeriveOperationSurfaceに、異DB/Mappingで同じSemantic Dataを扱う4つの実Go Characterization testを追加。**候補ID衝突により辞書順先頭AliasだけがBasisを決めるリスク**、Alias改名だけでOperation.ID不変・BasisとInputs変更、後続Mapping変更の候補Surfaceへの不可視化をテストで固定。**#2632 exact-head CI/実行は未確認**、World Validatorの合法性も未確認 | #2632の実Go/CI→合法WorldかのValidator確認→候補保全/明示Conflict/拒否のOwner判断。#2598の実Requestと#1174のHost Grant/Effectは別 |
+| **TEI #2482/#2604・Draft #2630** | Generic ManifestとCheckSetが内部整合しても、**特定Application・Consumerに必要なArtifact Kind/Subjectの集合**を充足したとは限らない。Draft #2630のAS-01〜10は設計票、実Go/Consumer試験NOT RUN | ProducerのGenerated/Manifest member、Consumer相対のExpected/Required、PublishedSetと実Consumer read byteを別々に観測。MMI #658/#754のRequired/Observed/Deliveredの既存票へ照合 |
+| **SHO #1/#4/#6・TAI Draft #270** | R0固定版、R1作業版、TEI生成Artifact、外部AI Contextではそれぞれ必要な根拠が異なる。生成・実読取・著者Review・固定納品/外部送信は別資格 | 1文書・2 Occurrence・1合成Claimのread-only受渡しで、Source/Artifact世代・実Consumed bytes・Required集合・Reviewer/Recipient/Policyを局所対応づける。SHO L0はMMI G0-0と並行可能 |
+
+**認定の単位を変更**：RWL-02は「実CLI未実施」という旧計画表記から、**特定Draft headで限定T6実製品回帰PASS**へ更新。ただしmainへのMergeと業務納品受理は独立。RCP-01〜08で使うOperation IDについては#2632が示した複数Mappingリスクが解消されるまで、同じIDから物理DB/Request対象の安定性を推論しない。Manifest Completeが真でも、Consumer Required集合が未定義なら納品の網羅性はunknownのまま保持する。
+
+**実行順（既存Ownerの役割）**：MMI #755のOwner採否/製品CI→#658独立T7〜T16と、G0-0解消後のC-01/T2 CLI/VSIX受入。TEI #2632 Go/World Validator→#2598 Request→#1174 Effectの段階とは並列に進める。#2630のAS-01/02を既存#2587のArtifact fixtureで測定後、SHO #4/#6の文書Occurrenceと実読取member/Requiredの接合へ渡す。テスト結果・入力版・実Consumer・Owner判断を同一のEvidence Packetに記載し、別PRのPASSを合算して製品E2E PASSとは呼ばない。
+
+**今回の状態**：既存テストに直接接続した計画更新であり、追加のRR/RCPケース、公開Schema、横断Runner/Host/Registry、TEI意味正本の増設なし。#755は限定T6の製品CIまで実証済み、#2632と#2630の製品受入・SHO実利用・Owner受理はNOT RUNまたは未確認。C-01/T2 G0-0は継続して未通過。
