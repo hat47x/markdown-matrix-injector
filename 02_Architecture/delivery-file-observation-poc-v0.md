@@ -107,3 +107,49 @@
 3. 固定納品版に必要な原本・依存・出力・検査記録・レビューの保持範囲と、採用済み版への遡及的な失効条件。
 
 これらの判断は提案として保持し、**本追補の作成、CI成功、byte一致、AIによる判断をOwner受理へ昇格させない**。
+
+### 2026-11-02 追加横断結論：Document Occurrence・証拠・納品版を別に結ぶ（設計候補）
+
+この節は [SHO Composer #1](https://github.com/hat47x/sho-composer/issues/1) のS0/S1、[#4](https://github.com/hat47x/sho-composer/issues/4) の文書保存・引用・再開、[#3](https://github.com/hat47x/sho-composer/issues/3) のCLI証拠境界と突き合わせた**MMI #658側の引渡し条件**である。SHO側のDocument ID、Source Referenceの正式規約、Graph DB、新しいMMI公開Schemaの採用ではない。既存のOwner判断は上記のまま保持する。
+
+#### 参照の出現（Occurrence）と原本・レビューの同一性
+
+- 現在の`DeliveryFileReference.line`と`headings`は、**そのMarkdown観測時の位置**であって安定した文書内Occurrence IDではない。章の移動や改行挿入で位置が変化する。同じ原本が複数回使われ、別原本が同一byte digestを持つ場合、path／digest／lineを一つの永続IDとみなさない。
+- **Source Location**（意図された原所在と実際のrealpath）、**Source Identity**（読んだbytes）、**Candidate Identity**（種別・位置・fingerprint・Claims）、**Document Occurrence/Revision**（どの文書版のどの使用箇所か）、**Reviewの現在適用性**をそれぞれ別の確認対象とする。#658のファイル全体参照にはCandidateが存在しない場合があり、その場合は`not_applicable`であって`missing`ではない。
+- MMIは既存の生参照・その行／見出し・観測digest・診断を返す。SHO側が文書の章・段落・図表・引用の編集・保存・移動・複製の履歴を所有する。SHOが同じ参照を別章へ移した場合、MMIの新しいlineから、旧レビューの同じ対象だと**自動確定しない**。
+- 同byte別所在はSource Identityの一致のみ、同所在別byteはSource変更の候補、旧固定版r1と作業版r2の差分は対象版の相違として提示する。Reviewを撤回した後に原bytesへ戻っても、撤回されたレビューを自動復活させない。
+
+#### 検査の主張と結果を分離する（受入票用。公開JSONではない）
+
+| 独立軸 | ここでの観測例 | PASSから追加して主張できないこと |
+| --- | --- | --- |
+| **文書作業** | 文書版の保存→再開、本文・出現・編集履歴 | 出典の現在性、納品資格 |
+| **出典と表示** | 参照解決Location、bytes一致、表示に実際に使ったSource/Asset | Excel構造・表示の意味正しさ |
+| **主張とレビュー** | 説明の対象版、必要根拠、レビュー履歴と適用可能性 | TEI意味モデルAccepted、公開許可 |
+| **納品・外部利用** | Requiredとの照合、固定版のDelivered資産、外部開示条件 | 自動Owner検収、別環境での再現性 |
+
+各判定は**`pass`／`fail`／`indeterminate`／`not_evaluated`／`not_applicable`**を独立に持つ候補とする（#658の既存`alignment`値は変更しない）。`not_evaluated`は検査未実行、`indeterminate`は実行したが十分な根拠がない、`not_applicable`は当該対象の性質から検査対象外であることを意味する。0件・未実施・構造未対応をPASSとして集約せず、`fail`が無くても未確認を維持する。
+
+**二方向の検査**を混同しない：Declared→Observedは「宣言された参照が取得できるか」、Observed→Declaredは「物理資料に宣言があるか」であり、いずれもRequired→Deliveredの「要求成果物が固定納品版に対応付くか」とは別の照合である。外部Requiredが無い場合、最後の関係は`not_evaluated`または`indeterminate`のまま扱い、`aligned`を受理印にしない。
+
+#### 追加引渡し用の反例（MMI単独とSHO依存を区別）
+
+| ケース | 刺激と確認する誤推論 | 実証レーン・停止条件 |
+| --- | --- | --- |
+| **T12：行位置とOccurrence** | 文書内の有効な`![[...]]`を別の章へ移し、上に段落を挿入する。同じSource digestのまま`line/headings`が変わる。旧行番号一致を文書内出現の同一性と推定したり、移動しただけでSource変更と断定したりしない。 | **MMI単独**では観測JSON差分まで先行可能。SHOのOccurrence履歴とレビュー適用性は [SHO #4](https://github.com/hat47x/sho-composer/issues/4)の独立S0/S1で比較し、正式な永続IDは未決。 |
+| **T13：読んだbytesと使ったbytes** | `delivery-audit`後に原本を更新してから`render`／`extract`する。古いaudit digestが一致していたことから、新たに消費・表示した内容まで同じと推定しない。再読込の実bytes、観測時点と各実行版を分ける。 | **MMI単独**の逐次反例は実施可能。ただし同時snapshot・transaction保証や外部Provider整合性の成立を仮定しない。 |
+| **S1引渡し：固定文書と画像** | 旧固定版のMarkdown Dが不変で参照SVG EだけがE1→E2となる場合、Dの同一性、Eの表示差分、著者説明のレビュー資格、固定納品版の再現を別々に報告する。 | **SHO依存**：[SHO #1](https://github.com/hat47x/sho-composer/issues/1)／[#4](https://github.com/hat47x/sho-composer/issues/4)のS1レーン。#658のExcel集合監査のPASSへは算入しない。保存後出典のMMI×SHO統合受入はC-01/T2 G0-0完了後に限定する。 |
+
+#### 共有できる証拠の最小単位と開示
+
+各試験の**人が読む受入票**には、`testCase`、固定した入力文書bytes/digest、実行したdocument revision、Workspace相対の参照とinventory scope、**当該環境内**の実解決realpath、Source byte digest、MMI build identity／実argv／cwd／終了コード、実JSONの契約名・件数・個別findings、実行前後の原本digest、期待と実際、上記独立軸の判定、未確認理由を添える。実realpathは環境依存の証拠であり、他ホストへ移した後も同じ出典IDとはみなさない。
+
+SHO側へ渡す際は、必要な元データの**表示投影**と、実際の生bytes・Claim値・パスを外部AIへ送る許可を分ける。read-only CLI/MCPであっても公開してよい範囲の自動認可ではない。原本や顧客情報を伴うケースの実送信は専用の権限・開示試験へ分離し、#658の`aligned`のみで許可しない。
+
+#### 再編成した成果物を検収するための最小対応表（後続D4）
+
+将来、Excelを抽出・分割・統合・別紙化して最終成果物へ置き換える場合、**Required（外部要求項目）→利用者が選択したDeclared／原資料の根拠→実際に出力したDelivered資産と版→検査証拠→Owner判断**の対応を、一要求項目ずつ確認する。これは新たな必須DSLや第二の納品台帳を直ちに設ける提案ではなく、案件の既存要求表・レビュー記録に対する**対応表の検証**から始める。複数資料の統合は一対一のファイル数比較では表現しきれず、説明対象の欠落・変更を独立して人が確認する。
+
+固定納品版r1は「r1の当時の入力、出力、表示依存、検査とレビュー」を保持する候補である。作業版r2やTEI受理モデルのr2が生じたことのみを理由に旧版r1を自動失効させず、r2へ旧レビューを自動転用しない。**TEIのモデル意味受理、SHOの文章・納品版、MMIの観測証拠はそれぞれの正本側で扱う。**
+
+**段階の出口**：T6の現在の誤抽出は現行CLIで実測し、必要なら小さな修正へ進める。T7は構造を別検査、T8はRequiredをOwner未設定のまま維持、T12/T13はMMIの独立検証、S1引渡しと固定納品版はSHOの別受入へ渡す。設計追補のCI成功はこれらの実行済み・製品受入を意味しない。
