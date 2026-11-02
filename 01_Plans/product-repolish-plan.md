@@ -723,3 +723,35 @@ SHO [#4](https://github.com/hat47x/sho-composer/issues/4)のDocument Occurrence�
 **初回の受渡し評価単位**：既存各Ownerの試験から、匿名合成Attempt一件について`input revision / producer attempt / output digest+size / claim acknowledgement / body availability / actual receiver bytes+attempt / actual consumer read / declared-required-delivered scope / authority at egress / unresolved`を**証拠の比較票**として繋ぐ。未観測項目をfalse・空集合・0件の実値に詰めない。Attempt receiptの形式、配送保証、開示Policy、納品受理は各製品の現在契約へ戻す。強い成功主張は、関係する下位実観測が取得できた範囲でのみ行う。
 
 **計画上の優先順**：P0-A C-01/T2 G0-0解消と、P0-B/Cの独立read-only比較を引き続き並列化。非同期受渡し・Output BodyはEKI #465、集合作成/契約網羅はMMI #658/#754、SHO内の保存/レビュー/外部送出はSHO #1/#3/#6、TEI生成物世代は#2604、Harnessのツール・回答本体までの実受渡しはTAI Draft #270のOwnerに留める。**本追補は新規共通Gate・実装・意味受理を宣言しない。**
+
+### 11.14 Authoring Dataから外部Consumerまでの「観測された作用」（2026-11-02 Everything is Data／Provider-read横断追補）
+
+**今回の設計上の増分**：[TEI #2619](https://github.com/hat47x/tei-platform/issues/2619)／[Draft #2623](https://github.com/hat47x/tei-platform/pull/2623)は「Markdown表・コード・図・DSLを構造化できること」と「正式なRole/Meaning/Scriptとして扱えること」を区別。[TEI Draft #2624](https://github.com/hat47x/tei-platform/pull/2624)はFunction Data Contextの**宣言したRead範囲とResult集合の実完全性**、[Draft #2628](https://github.com/hat47x/tei-platform/pull/2628)は**宣言Read／Providerへ依頼したRead／実Adapterで観測されたRead／Result／外部開示**を別資格とした。MMIの本計画はこの区別を、SHOの文書・レビューと外部Harnessへ渡す**根拠の過大主張を避ける検証票**として取り込む。TEI/Provider/OSの検査器をMMIへ複製しない。
+
+| 層 | 何を観測できるか | 次の層へ自動昇格しないこと |
+| --- | --- | --- |
+| **A Authoring** | Excel/Markdown/論文の元bytes、出現箇所、SyntaxのRole候補 | 説明中の表や文字列をFunction/Test/Scriptの正式定義と認定しない |
+| **R Role/Mapping** | 受理Source・Role/Operator版、Functionの明示Data Context（必要Relation/Field/Scope） | Mappingに書かれないFieldの取得が実際にゼロだったと宣言しない |
+| **Q Requested** | Providerへ発行したRequest/Query、Projection、Binding、対象粒度・時点 | Queryが狭いことだけでProviderの内部I/OやQuery結果の全件性を保証しない |
+| **W Witness** | 実Adapter/Providerの観測可能なRead trace・返却byte/行/Field、観測できない境界 | Trace上の狭さから下位DB物理I/O/OS漏出ゼロを断言しない |
+| **V View/Consumer** | 実結果Slice、文書に表示した値・欠損、AI/SHOへ渡した実bytes | 出力に秘密Fieldが無いことから、途中で秘密Fieldを読んでいないとは推定しない |
+| **E Egress/Delivery** | Recipient・用途・送出時のPolicy、実送達・実利用、Required/Delivered | read-only Tool、ローカル可視、Digest一致だけで外部送出/納品資格を得ない |
+
+**MMI現行コードの限定静的事実**（mainにあるBlobの直接照合）：[sourceIdentity.ts](https://github.com/hat47x/markdown-matrix-injector/blob/main/03_Implement/src/core/sourceIdentity.ts)の`readSourceFileIdentity(absolutePath)`は`fs.readFileSync(absolutePath)`で**ファイル全体のbytes**を読み、SHA-256を作る。[deliveryFileObservation.ts](https://github.com/hat47x/markdown-matrix-injector/blob/main/03_Implement/src/application/deliveryFileObservation.ts)ではファイル単位Excel参照に対してこれを呼ぶ。これは当該操作のローカルreadであり、Sourceの全セルが外部AIへ渡された証拠ではない。一方、`sourceDigest`は「選択したFieldだけを物理的に読んだ」証拠でもない。[MMI #739](https://github.com/hat47x/markdown-matrix-injector/issues/739)のMCP選択範囲値取得はOwner未決であり、単にDigestを持つことから選択原文の取得経路が実装済みとも言えない。
+
+**Authoringの誤分類も独立問題**：同じ`![[../excel/a.xlsx]]`でも、有効MMI参照・インラインコードの説明・HTMLコメント・引用例を区別する。現`observeDeliveryFiles`はコードフェンスをスキップする一方、各非フェンス行へ`extractEmbedQueries(line)`を適用しており、そこでinline code/HTMLコメントの除去をしていない（静的所見）。`provenanceReport.linkedRecords`は`stripInlineCode`を通すため、両者の対象Occurrenceが異なる可能性がある。[MMI #658](https://github.com/hat47x/markdown-matrix-injector/issues/658)／[Draft #754](https://github.com/hat47x/markdown-matrix-injector/pull/754)の**既存T6**で実CLI・コメント/inline codeの正負を検証し、専用Markdown Parserや新しいDelivery正本を本PRへ導入しない。文書内`role: trusted-script`等の文字列も、信頼されたRole Binding/Host Grantを構成しない（TEI #2623 B01〜B03、[SHO #7](https://github.com/hat47x/sho-composer/issues/7)のIndex-onlyを再利用）。
+
+### 11.15 最小の横断判別RWL-01〜RWL-06（新Schemaではなく各Ownerへの受入引渡し）
+
+| ケース | 比較対象 | 判別点・実証担当 |
+| --- | --- | --- |
+| **RWL-01 Source引用とRole** | 同じ`op=delete`を説明文と明示受理されたDefinitionへ配置 | Source/Parser可観測性とRole/Owner採用・Host Grantを分離。#2620/#2623の既存B01〜03を参照 |
+| **RWL-02 MMI参照の発生源** | 有効Excel Embed／inline code／HTML comment／fenced code | どのSyntax Occurrenceが参照候補かを一致させる。T6の既存実CLI負例を再利用し、新パーサー実装は#658のOwner判断 |
+| **RWL-03 全体Source digest対部分値** | 同一ファイルで1範囲の出力を提示し全体Source bytesをdigest計算 | Whole-file local read、選択値のReturn、外部送出は別。実CLI/Provider/OS read traceはこの静的照合だけでは未保証 |
+| **RWL-04 同値Result／異なるRead** | 有効なOrder合計の同じ数値を、Narrow readと未選択Payment/秘密Fieldも含むOverfetchから導出 | Resultだけでは実Readの同値・最小性を証明できない。TEI #2628 RW合成12試験PASSの既存証拠を再利用し、実Provider確認は別 |
+| **RWL-05 宣言all／実取得unknown** | Context要求`scope=all_for_selected`に対してProviderの全件性証拠が欠ける | 宣言Scopeと実Observed completeを区別（TEI #2624の20件合成試験報告を再利用）。SHOで全称/不存在Claimを現在確定としない |
+| **RWL-06 取得可能／外部送出不可** | ローカルToolはSourceを読めるが外部AIには部分Projectionのみ許可。送信直前にGrantが変化 | 実Tool可用性・ローカルread・実Network bytes/Policy/Result受渡しを別評価。TAI #232／SHO #10のOwner、実OS/Networkは未実施 |
+
+**着手順**：MMI #658 T6の独立現行CLI観測（RWL-02）と、TEI #2628 RWの保存済み合成Oracle（RWL-04）を**異なるProvider/Parser Ownerのまま並列**に扱う。その後、SHO #4/#6/#10・TAI #270から、文書出現・実使用Source・読み取りを許された範囲・実外部送信を固定した一Consumerの**read-only比較票**を接合。MMI C-01/T2 G0-0不成立は原本Aへの統合Source再解決の保証のみ留保し、SHO単独Index-onlyやTEIの合成Provider試験を停止させない。
+
+**成果と未実証**：TEI #2624は限定Python 20/20、#2628は限定Python 12/12をそれぞれDraft内の保存済みfixtureで実測したとの報告がある。MMIの`fs.readFileSync`/embed列挙はこの節で直接静的照合した。**MMI T6実CLI、実TEI Query/DB Providerの物理Read、SHO/TAIの実Tool/AI/OS送出、現在のRole/意味受理・業務完了は全てNOT RUN**。合成Fixture PASSから物理DB I/Oや秘匿保証へ昇格させず、実Traceでどこまで見えるかを明示して評価する。
