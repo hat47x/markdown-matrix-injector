@@ -755,3 +755,49 @@ SHO [#4](https://github.com/hat47x/sho-composer/issues/4)のDocument Occurrence�
 **着手順**：MMI #658 T6の独立現行CLI観測（RWL-02）と、TEI #2628 RWの保存済み合成Oracle（RWL-04）を**異なるProvider/Parser Ownerのまま並列**に扱う。その後、SHO #4/#6/#10・TAI #270から、文書出現・実使用Source・読み取りを許された範囲・実外部送信を固定した一Consumerの**read-only比較票**を接合。MMI C-01/T2 G0-0不成立は原本Aへの統合Source再解決の保証のみ留保し、SHO単独Index-onlyやTEIの合成Provider試験を停止させない。
 
 **成果と未実証**：TEI #2624は限定Python 20/20、#2628は限定Python 12/12をそれぞれDraft内の保存済みfixtureで実測したとの報告がある。MMIの`fs.readFileSync`/embed列挙はこの節で直接静的照合した。**MMI T6実CLI、実TEI Query/DB Providerの物理Read、SHO/TAIの実Tool/AI/OS送出、現在のRole/意味受理・業務完了は全てNOT RUN**。合成Fixture PASSから物理DB I/Oや秘匿保証へ昇格させず、実Traceでどこまで見えるかを明示して評価する。
+
+### 11.16 Claimを再利用する前に必要なRead Cohort証拠：Snapshot token／Row／Field／合成文を分ける（2026-11-02）
+
+**前節からの新規差分**：§11.14〜11.15ではRole・Requested Read・実Read・開示を独立させた。今回は[TEI Draft #2627](https://github.com/hat47x/tei-platform/pull/2627)（複数Provider経路とRead CohortのGo合成32件PASS）、[SHO #6 S3-JC1〜6](https://github.com/hat47x/sho-composer/issues/6#issuecomment-6576789496)（それぞれ正しい事実を合成しても文書上の結論が成立するとは限らない）、[TEI SQL Draft #2388 §7.20](https://github.com/hat47x/tei-platform/pull/2388)（非表示FieldへのFilter/Sort/JOIN依存、限定SQLite 12件PASS）を受け、**R0→R1レビューの現在適用性を判定する前の入力資格**を具体化した。
+
+**一つのEvidence Packetとして比較する項目（作業用比較票、公開Schema/新同一性Registryではない）**：
+
+| 比較軸 | 記録する実観測 | 成立させない推論 |
+| --- | --- | --- |
+| Source/Meaning | 実Source revision・対象のRole/Meaning版・対応候補とOwner状態 | 同Source文字列/同URL/同digestで現在のMeaningが一意・受理済み |
+| Query/Route | Query contract、Function Data Context・必要Relation/Field、Provider/Endpoint/Mapping revision | 同Semantic Subjectなら物理経路が単一、Provider alias一致で同内容 |
+| Time/Cohort | Snapshot issuer/token、取得時点、Read Scope、**独立した共有Cohortの成立根拠** | **二Providerのtoken文字列が両方`s7`なら同一Snapshot** |
+| Population/Presence | 行全集合の被覆、必要Fieldの観測状態（`value`/`null`/`absent`）、row identity・bag multiplicity、単位/粒度 | Rows completeならFieldも全値取得済、`absent`＝SQL NULL、重複行数をset化 |
+| Dependency/Interpretation | SELECT返却列だけでなくFilter/Sort/EXISTS/JOIN等が実際に要求したField、採用Rule/演算順 | 出力列にないFieldは使われなかった、数値同値なら依存も同値 |
+| Document/Delivery | Document Occurrence・著者の合成Claim・元Review/withdraw、実Consumer読取bytes、Recipientと現Policy | 個別根拠PASSのAND⇒合成結論PASS、文書保存⇒公開/送信可 |
+
+**二種類の「現在性」**：個別Factは当時の時点で正しかったという**歴史的Review**を維持できる。一方、SHOの文章で「同時に」「全件」「Aに対して」と組合せた新しいClaimには、対象・Scope/Grain・必要Field・共通Read Cohort・合成Rule・現在版の根拠が別途必要。Snapshotの表示名、Provider候補の一意性、片方のSource digest一致を独立の同時点証人の代用にしない。資料が同時刻に取得されても、ProviderのSnapshot整合契約が無ければ同じ対象集合の証拠にはならない。
+
+**Observationの境界**：[TEI #2627](https://github.com/hat47x/tei-platform/pull/2627)の`CompareReadSlices`は、独立fixtureが共有Cohortを明示した**有限合成世界でのbag一致**を`fixture_consistent`と呼び、実Providerによる整合保証と区別する。`absent`は必要Fieldが未観測という意味であり、両Sliceとも行集合completeかつ両者とも`absent`であっても、値の一致は`not_established`。明示NULL対absentも同様。**両者とも実観測NULL**であり他の比較条件が揃う場合は、有限fixtureで整合候補を示せる。値が異なる・bag重複が異なる場合に`contradicted`と言えるのも、独立の共有Cohortが前提である。
+
+**Hidden Readの境界**：SQLの`SELECT amount FROM orders WHERE internal_flag=1`で`internal_flag`が返却列に無くても、出力の行所属は内部列に依存する。[TEI #2388 QX-25](https://github.com/hat47x/tei-platform/pull/2388)はSQLite authorizerのprepare時`SQLITE_READ`参照を観測したもので、実DB物理Read/OSの機密境界そのものの証明ではない。MMIの`fs.readFileSync`によるSource digest計算と、外部AIに送信した実bytesを同じ「読んだ」という列に押し込まない。Read witnessが欠ける場合は「読まなかった」ではなく「観測範囲不足」を残す。
+
+### 11.17 独立ミニ実証RCP-01〜RCP-08と次の製品受入への接合
+
+**RCPはRR-01〜37・RWL-01〜06を置き換えない**。それらから独立に、合成Read CohortとSHOの合成Claimについて誤った「現在PASS」を防ぐ**一つの小さな再現手順**。新しいProduct Contractを制定しない。
+
+| 対照 | 合成条件 | 期待する判断 |
+| --- | --- | --- |
+| **RCP-01** | primary/replicaでSnapshot tokenが同じ`s7`、独立Cohort証人なし | `not_established`。同名tokenを共通版と推定しない |
+| **RCP-02** | 独立fixtureがCohort共通と明示、完全な同じBag/Scope/Grain/Query/Source revision | `fixture_consistent`のみ。製品Provider/Owner受理とは呼ばない |
+| **RCP-03** | 共通Cohortあり、重複行数または観測NULL/値が相違 | 独立fixture条件の下で`contradicted`。Setの重複消去を避ける |
+| **RCP-04** | complete行集合でも必要Fieldが`absent`、あるいは一方のRowsetはpartial | `not_established`。Field未観測とNULLを区別 |
+| **RCP-05** | Aの金額200はR0、Aの配送3件はR1。各Factだけは歴史的にPASS | 「同時に200かつ3」を現在成立としない。元Factの履歴を保存 |
+| **RCP-06** | R1の同Scope/Subjectで額220・配送3、独立共通Cohortと明示結合Ruleがある／片方無い | **ある場合だけ**閉じた合成世界で合成主張を支持。新たな因果/平均/Effectは別 |
+| **RCP-07** | Returned valueは200で一致、内部filter`internal_flag`のReadあり/無しを比較 | 値同値からRead同値・機密安全を推定しない。実Traceの対象範囲を明記 |
+| **RCP-08** | ローカル原本digestは計算済、外部AIへの送出は未許可／Review失効 | Sourceの履歴・ローカル検査は保持。外部送信・現行レビューの資格は個別に再確認 |
+
+**今回実行した独立合成スクリプト**：隔離Python 3・stdlib `unittest` **16件PASS**、`py_compile` PASS。SHA256 `0a3c6dd0c798808da118b9e702887cd340532888ed4ee860884d751a07c1bfce`、10,787 bytes。RCP-01〜08を細分化し、同`NULL`正例、同`s7`異版、Provider Trace不可を追加検証している。**このスクリプトは本Draft PRへ未コミット（別途会話内の再現用ファイル）**。自作Comparatorと事前Expectedの有限試験であり、TEI製品・MMI CLI・SHO GUI/文書、Provider/DB、OSHarness、Reader/Recipientの実測結果ではない。
+
+**受入へ還流する順序**：
+1. **MMI側P0-B/C**：既存R0→R1 Document/Review対照に、個別Claim C1/C2と合成Claim J、必要なScope/Presence/Cohortが未確認の状態を添え、歴史的Reviewと現在の採用可否を別に示す。原資料の同一fixtureが必要な統合Source再解決は既存C-01/T2 G0-0未通過の間STOP。
+2. **TEI既存Owner**：#2627の局所ReadSlice Oracleと#2624/#2628のData footprint/#2388 Query依存を、#2586 HJ-02〜05の同じFunction実出力へ段階的に接合。Source mapping/provider/snapshotのいずれか未接続なら現行可用を確定しない。
+3. **SHO既存Owner**：[SHO #6 JC1〜6](https://github.com/hat47x/sho-composer/issues/6#issuecomment-6576789496)の独立合成文Jの読者向け説明・Review対象を使用し、新しいClaim ValidatorやSource DBをSHOへ増設しない。
+4. **外部AI/納品**：#2516とTAI #232/#270の用途別開示、MMI #658/#754のRequired/Delivered、SHO #1/#4/#10の実表示・送出を別証拠として評価。合成値が`fixture_consistent`でも外部への引用許可は独立。
+
+**判断状態**：今回の16件は**独立合成試験のみ**。Owner意味受理、正式Rowset証人/DB Snapshot、実メタデータ契約、現行C-01/T2 G0-0、実SHO/TEI Provider/AI利用はNOT RUN。関数/値/Readの一致条件を明文化するだけで、旧Reviewの失効・撤回やSource意味変更を機械的に確定しない。新Runtime/Schema/Host/Policy Engineは採用しない。
