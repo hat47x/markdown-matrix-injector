@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { parseFormatProfileProjection } from "../src/teiProjection";
+import { parseFormatProfileProjection } from "../src/teiProjection.js";
 
 const artifact = {
   schema: "tai.reference.tei-mmi-format-profile-projection/v0",
