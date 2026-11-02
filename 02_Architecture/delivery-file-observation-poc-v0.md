@@ -6,6 +6,18 @@
 - テスト：`03_Implement/test/deliveryFileObservation.test.ts`
 - 公開契約：**未採用**。CLI／VS Codeコマンド／既存 `mmi manifest` の挙動は変更しない
 
+## 2026-11-03 実証現在地（以下の過去追補より優先）
+
+| 範囲 | 検証事実と制限 | 次に必要な証拠 |
+| --- | --- | --- |
+| **T6 参照文法** | [Draft #755](https://github.com/hat47x/markdown-matrix-injector/pull/755)で修正前に新規2件FAIL、修正後に両件PASS。Ubuntu・Windows製品CIとresearch SUCCESS。**main未統合**。 | main統合後の回帰、実務Markdown・対象外構文の確認 |
+| **T7 Byteと形式** | [Draft #760](https://github.com/hat47x/markdown-matrix-injector/pull/760)の前head `959daee17e02d2114a4cde0613f6fb821a510553`、[CI #41464902366](https://github.com/hat47x/markdown-matrix-injector/actions/runs/41464902366)はUbuntu/Windows/research全SUCCESS。非OOXMLの`.xlsx`を含んでも`aligned`になり得ることを合成CLIで確認。**main未統合**。 | 完全なExcel構造検査の独立Oracle・実原本は別担当 |
+| **T13 保存文書と実消費版** | 同じ#760の新head `be8a2339e438efdb746f092be09e42e3c51d3b57`へS13-1～4の独立3テストを追加。**新headのCIは作成時点queuedで、未確認**。 | 同headの実テストログ、SHO実Editor/Renderer読取は別Owner |
+| **T8・T9～T12・T14～T16** | T8の一部は既存テスト、残る実務/Owner条件と他の負例・比較は計画段階。 | 機械観測／人の受理／外部Requiredを独立に取得 |
+| **C-01/T2** | G0-0（同一fixture・Source SHA・Sheet/Range）未通過。 | MMI×SHO出典再接続の統合PASSはSTOP。SHO単独M0-EXは別レーン |
+
+> この表は**設計追補PRに残す実証台帳**であり、実装PRのCI成功やDraftの存在をmain採用・Owner検収・実利用資格に昇格させない。旧節にある「T6はNOT RUN」「T7はCI未確認」は当時の履歴であり、更新事実は本表を優先する。
+
 ## 最小利用例
 
 ```markdown
@@ -218,3 +230,28 @@ SHO側へ渡す際は、必要な元データの**表示投影**と、実際の�
 **作業順序とOwner**：まずS13-1～3をMMI CLI単独の小fixtureで実証し、S13-4は既存T13のSource消費時点差として観測。SHO実Editorバッファ/固定文書の保存再開は[SHO #4](https://github.com/hat47x/sho-composer/issues/4)、TEIの公開原子性は#2604、MMI×SHOの出典再解決はC-01/T2 G0-0後のOwnerが担当する。今回の検討は**NOT RUN**、CLIの現行I/O動作に対する静的所見である。
 
 **T7の試験着手**：[独立Draft #760](https://github.com/hat47x/markdown-matrix-injector/pull/760)は正常XLSXと明らかな非OOXMLの`.xlsx`を同じ資料集合で参照し、`alignment=aligned`と別Oracleでの構造異常を**独立に**記録するテスト追加である。既存`inventory`の`inspectionRequested=false`を期待し、`inspect`があらゆる破損を必ず拒否するとは扱わない。#760のテスト結果は当該CIを見てから更新し、ここで実行済みとは宣言しない。
+
+### 2026-11-03 第5追補：Evidence Bindingの強さとSource表示・開示の別資格
+
+[SHOのM0-EX→M1-EX→M2-EX計画](https://github.com/hat47x/sho-composer/issues/2)と[SHOの固定版・出典とレビュー](https://github.com/hat47x/sho-composer/issues/4)、[MMI #756](https://github.com/hat47x/markdown-matrix-injector/issues/756)のhidden/veryHidden Excel、[#758](https://github.com/hat47x/markdown-matrix-injector/issues/758)のCSV復号方式を参照した追加整理。**T7/13の目的を「byteが一致すると何が証明されるか」の境界を測ることに固定**し、SHO用新Source Schema・専用Host・納品判定Engineを先行実装しない。
+
+#### レシートの強度を三段階にする（検証票の語彙、公開APIではない）
+
+| 強度 | 根拠 | この根拠のみでは言えないこと |
+| --- | --- | --- |
+| **E0: observation only** | 現行`mmi.delivery-audit/v0`：文書相対path、参照の実Source digest、目録collectionDigest、比較・終了コード | 入力Markdown自体のraw bytes版、後続Rendererの消費版、Required/Deliveredの網羅 |
+| **E1: externally guarded** | CLI実行前後の**別読込み**でMarkdown raw digestとSource bytesを記録し、build/argv/cwd/scope/実行結果と照合 | 前後のhashが一致しても、実行中に一時的に異なるbyteが読まれて戻る競合を**原理的に否定できない**。「CLIがまさにこのbyteを消費した」という強い証明にはならない |
+| **E2: consumed-byte-bound** | 将来、監査で**実際に受け取ったbyte**からdigestを計算し、その同じbyteを構文解析・表示・変換へ引き渡した範囲を検証。あるいは入力を不変の固定版として明示的に取得・照合する | 引用の業務意味、Hidden情報の表示/送信許可、Provider/外部Consumerによる同じ世代の読取、契約・Owner受理は別の証拠 |
+
+**E1はPoCの記録改善として試行可能だが、E2の原子的read・snapshot・正式入力契約を既存CLIが備えるとは主張しない。** 現行`delivery-audit`の同一path／同一JSONが、同一Markdown raw bytesを保証しないことはT13 S13-3の狙いである。原文のplain proseを一箇所編集しても参照の件数・見出し・digestが不変なら、結果JSONの全体が同じになり得る。
+
+#### Source原本と表示・外部送信は別の検査面
+
+- **原本存在/一致**：#658はExcelファイル全体の所在・byte一致を評価するが、見えないシートや行列の読み取り可否を検査しない。
+- **解析・Projection**：[#756](https://github.com/hat47x/markdown-matrix-injector/issues/756)はhidden/veryHidden内容が`inspect/render`で可視と同様に返る**実測**を持つ。隠し属性から作成者の秘匿意図は断言しないが、利用者の明示確認なしに最終文書やAIへ露出させてよいとは推定しない。仕様と実装受入は#756側。
+- **復号条件**：[#758](https://github.com/hat47x/markdown-matrix-injector/issues/758)はCSVの実bytesとUTF-8/CP932等の復号選択が結果上では分離できない問題。現行#658はCSVをWhole-File納品参照として扱わず、T7の`.xlsx`否定OracleをCSVの復号保証へ転用しない。
+- **描画・保存・外部開示**：SHOの文書保存、表示に消費したSource/Asset、外部AIへの実送信raw bytes・宛先・権限はそれぞれ別レーン。ローカルの`read-only`成功も、非公開メタデータの外部送信許可ではない。実Egressや秘匿の保証は専任Ownerの証拠で判断。
+
+**最初の統合導線**：SHOはまず[独立M0-EX](https://github.com/hat47x/sho-composer/issues/2)で保存・再開・Occurrenceと未保存バッファを実証する。MMI #658側ではT7/T13のCLIの限界を固定し、SHO接続M2-EXは従来どおりG0-0→G2後。TEIの生成物一式Publish・実Consumer読取は[TEI #2604](https://github.com/hat47x/tei-platform/issues/2604)のOwnerへ委ねる。T8/Required/Deliveredも外部要求と人の判断が無ければ未確認であり、`aligned`から実納品を確定しない。
+
+**状態**：この追補のE0/E1/E2は検証票の設計仮説であり、MMIの公開Schema変更・SHOの製品CLI・TEI Publish・Egress実測・Owner受理を示さない。#760の新head T13テストはCI確認前のコミットとして扱い、成功した旧head T7 CIを新headへ転用しない。
