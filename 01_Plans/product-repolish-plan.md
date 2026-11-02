@@ -686,3 +686,40 @@ SHO [#4](https://github.com/hat47x/sho-composer/issues/4)のDocument Occurrence�
 **受入票への追記列（新schemaではない）**：`source version / correspondence candidate & ambiguity / accepted meaning revision / generator + template version / manifest + member digest / published generation / consumed byte digest per occurrence / review target / current review reuse evidence / disclosure scope / unresolved`。Pが未確認ならD0（文書保存）は評価できてもD2（説明投影）・D3（レビュー現在性）・D4（納品/外部送信）は独立して未確認を保持。TEI #1803 Closedや#2604 Open等のIssue状態自体を、当該Consumerの実証結果の代用にしない。
 
 **今回の採否と実証境界**：#2505/PR #2615がSource版間候補、#2482が設計Artifact内部整合、#2604が物理公開、SHO #4/#6が読取文書・レビュー・公開、MMI #514/#525がSource参照実観測のOwner。TEI #2615はDraft設計1文書・Go合成PoC計15試験PASSの報告（コードは同PRへ未コミット）。この横断ケースは公開Source/生成物の匿名合成入力だけで検証し、非公開原参照モデルの本文・Source locator・個別hashを転載しない。RR-25〜30の実TEI/MMI/SHO製品E2Eは**NOT RUN**で、Owner意味受理・正式なStage→Publish方式は未決。
+
+### 11.12 「読めた」から「届いた」までの証拠連鎖：ACK・Body・Consumer・納品要件の非同一性（2026-11-02横断追補）
+
+§11.10のS/C/M/G/PはTEI生成物の同一世代Consumer実読取までを整理した。今回の差分は、**Pの後に非同期Harness・配送・保存・固定納品がある場合、Producerの成功と相手の実受領を分ける**こと。既存[EKI #465](https://github.com/hat47x/eki-fabric/issues/465)の実コード静的所見（値レシーバー・別Runnerインスタンス・Claim ACK後のBody未送信可能性）、[TAI Draft #270](https://github.com/hat47x/tai-pleroma/pull/270) SK-Jの受渡し反例、[SHO #3](https://github.com/hat47x/sho-composer/issues/3)のCLI部分保存・Tool委譲実効果、[MMI Draft #754](https://github.com/hat47x/markdown-matrix-injector/pull/754)のDeclared/Observed/Required/Consumed/Deliveredを**各Ownerの実証として接合**する。MMI/SHOに新しいQueue、Artifact Publisher、Agent Host、横断Receipt Registryを作る計画ではない。
+
+**どの成果を「完了」と言えるかは観測境界ごとに限定する。**
+
+| 実際に確認できた境界 | 機械的に主張できること | これだけでは主張できないこと |
+| --- | --- | --- |
+| 生成開始・操作Attemptと入力版が記録された | この版に対して操作を試みた | 実効果・成果物・後続への送達 |
+| Producerの出力bytes・digestとClaim/Manifestが得られた | その出力が当該Attemptで生成された候補 | 同AttemptのBody取得可能性・実送信 |
+| Claim ACK・CLI exit 0・Task完了が観測された | その契約範囲で受理通知や終了状態があった | Body受領、添付、納品一式、DB Commit |
+| 同じAttemptのBodyを実Receiverが取得・保存した | そのBodyがReceiverに届いた（Receiverの観測範囲） | SHOが内容を読み解き、説明へ実利用したこと |
+| SHO/AI Consumerが実際に使用した入力bytesと版を観測できた | 特定の説明/評価入力を同定できる | 開示資格、回答本体の利用者への送達、レビュー・Owner意味受理 |
+| 固定納品・外部送出でRecipient/Policy/Target別Requiredと実Deliveredを比較した | 指定したRequired集合と実送達・生成結果の対応候補 | Required不明の場合の契約完結性、許可のない外部送信、業務完了 |
+
+**非同期と再試行**：Attempt Xの出力を保存・送信する際、後続Attempt Yの「最新output」と取り違えない。Claim ACKだけ残りBodyが欠落した場合、元のAttempt Xに対するBody再送の可否と、実ビジネスOperation再実行の可否を分ける。**再送許可の判断とExactly-onceは各実Runner/Host契約の責務**であり、SHOやMMIが独断で再Submitしない。空bytesの正当な出力と、Bodyが欠落/未提供であることも区別。配送・保存・Manifest参照間に内容が変わるなら、検査済みdigestを次段へそのまま転用せず、**相手が実読込したbytes**へ再照合する。
+
+**納品集合の五つの問い**（MMI #658／Draft #754と重複実装しない）：(1)要求されるRequiredは何か、(2)作成者がDeclaredしたものは何か、(3)観測できたObservedは何か、(4)生成・SHOが実際に使ったConsumedは何か、(5)送出・納品先で確認できたDeliveredは何か。Declared=DeliveredでもRequiredが未知なら完全性は不明。Document Occurrenceの出現数、異所在同bytesファイル数、実納品物件数を同じカウンターへ潰さない。送信の権限は**実送出時点のReader/Recipient・内容・Policy**に相対的に判定し、ローカル閲覧可から外部送出可を推論しない（[TAI #232](https://github.com/hat47x/tai-pleroma/issues/232)、[SHO #6](https://github.com/hat47x/sho-composer/issues/6)）。
+
+### 11.13 RR-31〜RR-37：受渡し・納品の最終段を独立観測する（製品試験NOT RUN）
+
+| ID | 合成入力 | 独立に判別すべき状態 |
+| --- | --- | --- |
+| RR-31 | Attempt XのClaim ACK済み、Body未取得 | Producer側完了通知とReceiver実受領を別記。空の納品を成功と推定しない |
+| RR-32 | Attempt XのClaimとYのBody。bytesが偶然同じ | 同じdigestだけでAttemptを合成せず、誤帰属を検出 |
+| RR-33 | XのBodyは送信側に保持、SHO/AI Consumerの実読込は未観測 | Body availableと実消費の差をunknownのまま保持 |
+| RR-34 | 送信Bodyはabc、実消費BodyはabX | 受信・消費byte不一致。Producer Claimの一致をConsumer入力一致へ昇格しない |
+| RR-35 | 出力が正当に0 byte、別AttemptではBody欠落 | 明示emptyとmissing/未取得を区別。必要な成果物内容の有無は別 |
+| RR-36 | Preview後、外部送出資格が失効。bytesは不変 | 既存の内部保存を保持し、現在の実送信資格を別判定 |
+| RR-37 | Declared={A}、Delivered={A}、Requiredは未確定、後にRequired={A,B}と判明 | 集合の機械的一致と契約要求の充足を区別。A納品成功≠一式完了 |
+
+**独立toy実証（実製品E2Eと別）**：2026-11-02にPython標準ライブラリの合成Handoff判定と7件のunittestを実行し全7件PASS。RR-31〜37に対応するACK/Body欠落、Attempt相違、Producer/Consumerのbytes差、empty/missing、Policy失効、Required未知を確認した。これは純粋関数の期待条件確認であり、EKI実Runner、TAI Skill実ロード、SHO保存・納品、MMI CLI、TEI生成器、実Network・Recipient/OS/DBを**実測したものではない**。本Draftにtoyプログラムはコミットしない。EKI #465のAB-1〜5、TEI #2604 AP-01〜07、SHO #1/#3/#6の実試験を先行する。
+
+**初回の受渡し評価単位**：既存各Ownerの試験から、匿名合成Attempt一件について`input revision / producer attempt / output digest+size / claim acknowledgement / body availability / actual receiver bytes+attempt / actual consumer read / declared-required-delivered scope / authority at egress / unresolved`を**証拠の比較票**として繋ぐ。未観測項目をfalse・空集合・0件の実値に詰めない。Attempt receiptの形式、配送保証、開示Policy、納品受理は各製品の現在契約へ戻す。強い成功主張は、関係する下位実観測が取得できた範囲でのみ行う。
+
+**計画上の優先順**：P0-A C-01/T2 G0-0解消と、P0-B/Cの独立read-only比較を引き続き並列化。非同期受渡し・Output BodyはEKI #465、集合作成/契約網羅はMMI #658/#754、SHO内の保存/レビュー/外部送出はSHO #1/#3/#6、TEI生成物世代は#2604、Harnessのツール・回答本体までの実受渡しはTAI Draft #270のOwnerに留める。**本追補は新規共通Gate・実装・意味受理を宣言しない。**
