@@ -108,6 +108,7 @@ docker run --rm -v "$PWD":/data verapdf/cli:latest -f 2a --format text /data/文
 
 ## 実装の要点
 
+- `mmi pdf`（`03_Implement/src/cli/pdf.ts`）は、書き出したHTMLを標準入力でWeasyPrintへ渡す。文書の場所を`--base-url`にするので、相対パスの画像やリンクも解決する。出力は一時ファイルへ書いてから置き換え、失敗しても前のPDFを壊さない。WeasyPrintはMMIに同梱しない。
 - front matterの読み取り、表紙、目次、柱、文書プロパティは`03_Implement/src/cli/documentExport.ts`にある。値はYAMLのfailsafe schemaで読み、すべて文字列のまま扱う。CSSの文字列へ入れる値は、`<`もエスケープして`<style>`を閉じられないようにした。
 - 別紙カードの出力は`03_Implement/src/core/renderCard.ts`の`forExport`で切り替える。VS Codeのプレビューは外部アプリで開く機能のために従来どおり絶対パスを持つ。
 - 印刷用CSSのうちプレビューと共通の部分（表題と表の分離防止、強調行の罫線、背景色、別紙のパス）は`03_Implement/media/markdown-matrix.css`にある。
@@ -119,7 +120,7 @@ docker run --rm -v "$PWD":/data verapdf/cli:latest -f 2a --format text /data/文
 
 1. 顧客指定の様式に合わせる。CSSの追加とフォント・余白・綴じ代の指定は対応した（[#635](https://github.com/hat47x/markdown-matrix-injector/issues/635)）。表紙の差し替えが残っている。SIerの案件では、発注者の様式が決まっていることが多い。
 2. Word（.docx）で納品する。発注者が編集可能な形式を求める場合に必要になる。Pandocを使う経路の体裁を確かめるか、自前で出力するかを決める（[#636](https://github.com/hat47x/markdown-matrix-injector/issues/636)）。
-3. PDFまで1回のコマンドで作る経路と、複数文書の一括出力を検討する。PDF/Aとタグ付きPDFの適合は見本1点で確かめた。画像を含む文書の確認が残っている（[#637](https://github.com/hat47x/markdown-matrix-injector/issues/637)）。
+3. PDFまで1回のコマンドで作る経路と複数文書の一括出力は`mmi pdf`で対応した。PDF/Aとタグ付きPDFの適合は見本1点で確かめた。画像を含む文書の確認が残っている（[#637](https://github.com/hat47x/markdown-matrix-injector/issues/637)）。
 4. 改訂箇所を示す。前の版との差分から、改訂マークや新旧対照表を作る（[#638](https://github.com/hat47x/markdown-matrix-injector/issues/638)）。
 5. 図表番号を自動で振り、相互参照にページ番号を添える（[#639](https://github.com/hat47x/markdown-matrix-injector/issues/639)）。表の通し番号とリンクのページ番号は対応し、WeasyPrint 69.0でのPDFでも確かめた（2026-10-27）。章別の番号（表1-1）が残る。
 
