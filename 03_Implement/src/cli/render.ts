@@ -15,7 +15,8 @@ import { getImmediateSmartFallbackDecision, getSmartFallbackDecisionAfterLoad } 
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
 import { extractEmbedQueries, type EmbedQuery } from '../parser/embedSyntax.js';
 import { markdownMatrixPlugin } from '../plugin/markdownMatrixPlugin.js';
-import { buildDocumentHtml, FrontMatterError } from './documentExport.js';
+import { buildDocumentHtml, FrontMatterError, readFrontMatter } from './documentExport.js';
+import { markRevisions } from './revisionMarks.js';
 import { cliErrorText } from './messageLanguage.js';
 
 export interface RenderOptions {
@@ -24,9 +25,25 @@ export interface RenderOptions {
   cache?: WorkbookCache<WorkbookData>;
   /** Extra style sheets (`mmi render --css`), appended after the defaults and the front matter `css`. */
   userCss?: string[];
+  /** Previous version to compare against (`mmi render --base`); changed blocks are marked in the HTML. */
+  base?: { markdownFilePath: string; workspaceRoot: string; label: string };
 }
 
 export class RenderError extends Error {}
+
+/** The body of a document as the export would render it, without cover and table of contents (for comparison). */
+function renderBodyHtml(source: { markdownFilePath: string; workspaceRoot: string }): string {
+  const md = new MarkdownIt({ html: true }).use(markdownMatrixPlugin, {
+    markdownFilePath: source.markdownFilePath,
+    workspaceRoot: source.workspaceRoot,
+    cache: new WorkbookCache(),
+    forExport: true,
+  });
+  const body = readFrontMatter(fs.readFileSync(source.markdownFilePath, 'utf8')).body;
+  const html = md.render(body);
+  if (html.includes('class="mmi-error"')) throw new RenderError(`The comparison base ${source.markdownFilePath} has MMI reference errors. Run \`mmi check\` on it, or pass --base-root for its data.`);
+  return html;
+}
 
 export function renderDocumentHtml(options: RenderOptions): string {
   const md = new MarkdownIt({ html: true }).use(markdownMatrixPlugin, {
@@ -43,7 +60,8 @@ export function renderDocumentHtml(options: RenderOptions): string {
   const css = cssUrl ? fs.readFileSync(cssUrl, 'utf8') : '';
   let html: string;
   try {
-    html = buildDocumentHtml(md, fs.readFileSync(options.markdownFilePath, 'utf8'), {}, css, (refs) => loadUserCss(options, refs));
+    html = buildDocumentHtml(md, fs.readFileSync(options.markdownFilePath, 'utf8'), {}, css, (refs) => loadUserCss(options, refs),
+      options.base ? (current) => markRevisions(renderBodyHtml(options.base!), current, options.base!.label) : undefined);
   } catch (error) {
     if (error instanceof FrontMatterError) throw new RenderError(error.message);
     throw error;

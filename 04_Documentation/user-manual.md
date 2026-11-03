@@ -339,6 +339,17 @@ npm run mmi -- pdf 設計書A.md 設計書B.md -o 納品/ --variant pdf/ua-1
 
 複数の文書を渡すと、文書ごとに`<文書名>.pdf`を作ります。1つが失敗しても残りは作り、終了コードは1になります。WeasyPrintが失敗したときは、途中までのPDFを残さず、前のPDFも変えません。次の「納品用の体裁にする」の手順と同じ結果になります。
 
+### 前の版からの変更箇所を示す
+
+改訂版を納品するときは、前の版を渡すと、変更した箇所に印が付き、最後に「改訂箇所の一覧」が付きます（[見本](samples/revision/v2-with-revisions.pdf)）。
+
+```bash
+npm run mmi -- pdf 設計書.md -o 設計書.pdf --base-rev v1.0
+npm run mmi -- pdf 設計書.md -o 設計書.pdf --base 前の版/設計書.md --base-root 前の版
+```
+
+`--base-rev`にはgitのタグやコミットを指定します。表の元データも、その版のものと比べます。仕様は [リファレンス](reference.md#改訂箇所の表示) を参照してください。
+
 ### 納品用の体裁にする
 
 Markdownの先頭に文書情報（front matter）を書くと、表紙・承認欄・ページ番号付きの目次・ヘッダーとフッター・PDFの文書プロパティが付きます。

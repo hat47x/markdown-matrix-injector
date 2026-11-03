@@ -142,8 +142,9 @@ import {
   extractXmlTree,
   extractYamlTree,
 } from './extractTree.js';
+import { resolveBase } from './gitBase.js';
 import { PDF_VARIANTS, buildPdf, type PdfVariant } from './pdf.js';
-import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './render.js';
+import { RenderError, renderDocumentHtml, renderDocumentMarkdown, type RenderOptions } from './render.js';
 
 export const SEMANTIC_CANDIDATE_SCHEMA_NAME =
   SEMANTIC_CANDIDATE_CONTRACT;
@@ -283,11 +284,14 @@ Commands:
   render <doc.md>           Expand references into Markdown tables (default) or HTML
       --to md|html
       --css <file>            html: add a style sheet after the defaults (repeatable; inside --root, no @import or external url())
+      --base <prev.md>        html: mark what changed against this previous version (--base-root <dir> for its data)
+      --base-rev <git-rev>    html: same, with the previous version read from a git revision
                             html: YAML front matter adds cover, approvals, TOC, header/footer (reference.md)
   pdf <doc.md...>           Render documents to PDF in one step (needs WeasyPrint)
       -o, --out <file|dir>    one .pdf file, or a directory when several documents are given (inside --root; required)
       --variant <name>        pdf/a-2a (default), pdf/a-2b, pdf/ua-1 or none
       --css <file>            add a style sheet, as for render --to html
+      --base, --base-root, --base-rev  mark revisions, as for render --to html
       --weasyprint <path>     WeasyPrint executable (default: weasyprint on PATH, or MMI_WEASYPRINT)
   materialize <doc.md>      Write a source-independent Markdown projection for detaching
       -o, --out <file>        detached Markdown output (required; must differ from source)
@@ -378,6 +382,9 @@ export async function main(argv: string[]): Promise<number> {
       to: { type: 'string', default: 'md' },
       css: { type: 'string', multiple: true },
       variant: { type: 'string' },
+      base: { type: 'string' },
+      'base-root': { type: 'string' },
+      'base-rev': { type: 'string' },
       weasyprint: { type: 'string' },
       values: { type: 'string', default: '0' },
       from: { type: 'string' },
@@ -1399,13 +1406,22 @@ export async function main(argv: string[]): Promise<number> {
       if (args.length !== 1) return usageError('render takes one Markdown file');
       if (values.to !== 'md' && values.to !== 'html') return usageError('--to must be md or html');
       if (values.css?.length && values.to !== 'html') return usageError('--css applies to --to html');
-      const options = { markdownFilePath: path.resolve(args[0]), workspaceRoot: root, userCss: values.css };
+      if ((values.base || values['base-root'] || values['base-rev']) && values.to !== 'html') return usageError('--base, --base-root and --base-rev apply to --to html');
+      const options: RenderOptions = { markdownFilePath: path.resolve(args[0]), workspaceRoot: root, userCss: values.css };
+      let cleanup = (): void => {};
       try {
+        const selected = resolveBase({ base: values.base, baseRoot: values['base-root'], baseRev: values['base-rev'] }, options.markdownFilePath, root);
+        if (selected) {
+          options.base = selected.base;
+          cleanup = selected.cleanup;
+        }
         emit(values.to === 'html' ? renderDocumentHtml(options) : renderDocumentMarkdown(options));
       } catch (error) {
         if (!(error instanceof RenderError)) throw error;
         console.error(error.message);
         return 1;
+      } finally {
+        cleanup();
       }
       return 0;
     }
@@ -1425,9 +1441,12 @@ export async function main(argv: string[]): Promise<number> {
       if (!single) fs.mkdirSync(target, { recursive: true });
       let failures = 0;
       for (const [index, arg] of args.entries()) {
+        let cleanup = (): void => {};
         try {
+          const selected = resolveBase({ base: values.base, baseRoot: values['base-root'], baseRev: values['base-rev'] }, path.resolve(arg), root);
+          if (selected) cleanup = selected.cleanup;
           const warnings = buildPdf({
-            markdownFilePath: path.resolve(arg), workspaceRoot: root, userCss: values.css,
+            markdownFilePath: path.resolve(arg), workspaceRoot: root, userCss: values.css, base: selected?.base,
             output: outputs[index], variant: variant as PdfVariant, weasyprint: values.weasyprint,
           });
           for (const warning of warnings) console.error(`${arg}: ${warning}`);
@@ -1436,6 +1455,8 @@ export async function main(argv: string[]): Promise<number> {
           if (!(error instanceof RenderError)) throw error;
           console.error(`${arg}: ${error.message}`);
           failures += 1;
+        } finally {
+          cleanup();
         }
       }
       return failures > 0 ? 1 : 0;
