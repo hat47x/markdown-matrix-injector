@@ -164,9 +164,10 @@ test('mmi render --base-rev compares with a git revision, including its data, wi
   fs.writeFileSync(path.join(root, 'docs/spec.md'), DOC('備考を追記した'));
   const outFile = path.join(root, 'docs/out.html');
   const err = console.error;
-  console.error = () => {};
+  const messages: string[] = [];
+  console.error = (...args: unknown[]) => { messages.push(args.join(' ')); };
   try {
-    assert.equal(await main(['render', path.join(root, 'docs/spec.md'), '--to', 'html', '--base-rev', 'HEAD', '--root', path.join(root, 'docs'), '-o', outFile]), 0);
+    assert.equal(await main(['render', path.join(root, 'docs/spec.md'), '--to', 'html', '--base-rev', 'HEAD', '--root', path.join(root, 'docs'), '-o', outFile]), 0, messages.join('\n'));
     assert.equal(await main(['render', path.join(root, 'docs/spec.md'), '--to', 'html', '--base-rev', 'no-such-rev', '--root', path.join(root, 'docs')]), 1);
     assert.equal(await main(['render', path.join(root, 'docs/spec.md'), '--to', 'html', '--base-rev=--output=x', '--root', path.join(root, 'docs')]), 1);
   } finally {

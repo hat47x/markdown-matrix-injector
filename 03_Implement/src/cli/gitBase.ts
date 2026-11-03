@@ -26,11 +26,14 @@ function git(cwd: string, args: string[]): Buffer {
 
 export function exportRevision(markdownFilePath: string, workspaceRoot: string, revision: string): RevisionExport {
   if (!revision || revision.startsWith('-')) throw new RenderError('--base-rev needs a git revision such as HEAD~1, a tag or a commit');
-  const documentDirectory = path.dirname(path.resolve(markdownFilePath));
-  const top = path.resolve(git(documentDirectory, ['rev-parse', '--show-toplevel']).toString('utf8').trim());
+  // Real paths on both sides: git reports the long form of a path where a temporary folder may be given in its
+  // 8.3 short form (Windows), and the repository-relative path must not depend on which form was used.
+  const realPath = (value: string): string => fs.realpathSync.native(path.resolve(value));
+  const documentDirectory = path.dirname(realPath(markdownFilePath));
+  const top = realPath(git(documentDirectory, ['rev-parse', '--show-toplevel']).toString('utf8').trim());
   const commit = git(top, ['rev-parse', '--verify', '--end-of-options', `${revision}^{commit}`]).toString('utf8').trim();
-  const relativeRoot = path.relative(top, path.resolve(workspaceRoot)) || '.';
-  const relativeDocument = path.relative(top, path.resolve(markdownFilePath));
+  const relativeRoot = path.relative(top, realPath(workspaceRoot)) || '.';
+  const relativeDocument = path.relative(top, realPath(markdownFilePath));
   if (relativeRoot.startsWith('..') || path.isAbsolute(relativeRoot) || relativeDocument.startsWith('..')) {
     throw new RenderError('--base-rev needs the document and --root to be inside one git repository');
   }
