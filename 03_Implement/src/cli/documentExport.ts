@@ -12,6 +12,7 @@ import type MarkdownIt from 'markdown-it';
 import type Token from 'markdown-it/lib/token.mjs';
 import { parse as parseYaml } from 'yaml';
 import { escapeHtml } from '../core/html.js';
+import { REVISION_CSS, type RevisionResult } from './revisionMarks.js';
 import { extractEmbedQueries } from '../parser/embedSyntax.js';
 import { CROSS_REFERENCE_CSS, numberCaptions } from './captionNumbers.js';
 
@@ -171,13 +172,17 @@ export function buildDocumentHtml(
   env: Record<string, unknown>,
   moduleCss: string,
   loadUserCss: (frontMatterRefs: string[]) => string = () => '',
+  revise?: (renderedHtml: string) => RevisionResult,
 ): string {
   const { properties, body } = readFrontMatter(markdown);
   const tokens = md.parse(body, env);
   keepHeadingsWithEmbeds(tokens);
   const toc = properties.toc ? collectHeadings(tokens) : [];
   const renderedHtml = md.renderer.render(tokens, md.options, env);
-  const bodyHtml = properties.captionNumbers ? numberCaptions(renderedHtml).html : renderedHtml;
+  // Revisions are compared before the tables are numbered, so inserting a table does not mark every later caption.
+  const revision = revise?.(renderedHtml);
+  const revisedHtml = revision?.html ?? renderedHtml;
+  const bodyHtml = (properties.captionNumbers ? numberCaptions(revisedHtml).html : revisedHtml) + (revision?.appendixHtml ?? '');
   const title = properties.title ?? firstHeading(tokens) ?? '';
   const parts = [
     properties.cover ? renderCover(properties, title) : '',
@@ -188,6 +193,7 @@ export function buildDocumentHtml(
 ${moduleCss}
 ${documentCss(properties, title)}${properties.captionNumbers ? `
 ${CROSS_REFERENCE_CSS}` : ''}
+${revision ? REVISION_CSS : ''}
 ${loadUserCss(properties.css)}
 </style></head><body>${parts.join('')}</body></html>`;
 }

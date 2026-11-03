@@ -78,7 +78,7 @@
 | 要求 | 状態 | 現状 |
 |---|---|---|
 | Word（.docx）で納品する | ○ | `mmi render --to md`の結果をPandocへ渡せるが、表の体裁は確かめていない |
-| 改訂箇所を示す（改訂マーク、新旧対照表） | ○ | なし |
+| 改訂箇所を示す（改訂マーク、新旧対照表） | ◐ | `--base`・`--base-rev`で前の版と比べ、変更箇所に印を付け、削除した内容を一覧にする。新旧対照表の形は未対応 |
 | 1回のコマンドでPDFまで作る、複数文書を一括で作る | ○ | `mmi render`とWeasyPrintを文書ごとに実行する |
 | 同じ版から同じPDFを再生成できる | ○ | 確かめていない。フォントや生成器の版で結果が変わりうる |
 
@@ -121,7 +121,7 @@ docker run --rm -v "$PWD":/data verapdf/cli:latest -f 2a --format text /data/文
 1. 顧客指定の様式に合わせる。CSSの追加とフォント・余白・綴じ代の指定は対応した（[#635](https://github.com/hat47x/markdown-matrix-injector/issues/635)）。表紙の差し替えが残っている。SIerの案件では、発注者の様式が決まっていることが多い。
 2. Word（.docx）で納品する。発注者が編集可能な形式を求める場合に必要になる。Pandocを使う経路の体裁を確かめるか、自前で出力するかを決める（[#636](https://github.com/hat47x/markdown-matrix-injector/issues/636)）。
 3. PDFまで1回のコマンドで作る経路と複数文書の一括出力は`mmi pdf`で対応した。PDF/Aとタグ付きPDFの適合は見本1点で確かめた。画像を含む文書の確認が残っている（[#637](https://github.com/hat47x/markdown-matrix-injector/issues/637)）。
-4. 改訂箇所を示す。前の版との差分から、改訂マークや新旧対照表を作る（[#638](https://github.com/hat47x/markdown-matrix-injector/issues/638)）。
+4. 改訂箇所を示す。改訂マークと削除の一覧は対応した。新旧対照表の形が残っている（[#638](https://github.com/hat47x/markdown-matrix-injector/issues/638)）。
 5. 図表番号を自動で振り、相互参照にページ番号を添える（[#639](https://github.com/hat47x/markdown-matrix-injector/issues/639)）。表の通し番号とリンクのページ番号は対応し、WeasyPrint 69.0でのPDFでも確かめた（2026-10-27）。章別の番号（表1-1）が残る。
 
 ## 参考
