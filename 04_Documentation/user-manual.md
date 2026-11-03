@@ -239,6 +239,7 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 | `mmi import <ブック> --draft <下書き.md>` | 既存ブックを1回でモダナイズ用の下書きへ整理する。表は元ブックへ追従する参照のまま残し、.xlsx / .xlsmの埋込画像はcontent-addressedな画像ファイルとして取り込む。AutoShape/コネクタは変換せず、原本から読めた名前・テキスト・形状・位置を観測情報として下書きに残す。既存の却下・保留判断があるShapeは通常表示とshape由来のsnapshot候補から外す。Excelのlist入力規則も観測情報として下書きに残す。inline値と、安全に解決できる同一ブックA1範囲参照は選択肢を表示する。それ以外の参照式は評価せず、式を確認事項として残す。ワークスペース外の原本は`--copy-source <保存先>`でproject内へ同一bytesのsourceとして取り込める。表でない領域や、取り込めない画像・図形、読み切れない選択肢は確認事項として残す。注意があっても下書き作成に成功すれば終了コードは0で、JSONの`status`は`created-with-warnings`になる。下書き・sourceコピー・assets・台帳の書込先は`--root`内に限定し、既存ファイルを異なる内容で上書きしない |
 | `mmi check <文書またはフォルダー>` | 参照の誤りを「問題」パネルと同じ診断コードで表示。誤りがあれば終了コード1 |
 | `mmi render <文書>` | 参照を展開したMarkdownを出力。`--to html`でPDF変換用のHTML |
+| `mmi pdf <文書...> -o <出力>` | 参照を展開してPDFまで1回で作る（WeasyPrintが必要）。`-o`は1文書なら`.pdf`ファイル、複数文書ならフォルダー。`--variant`は`pdf/a-2a`（既定）・`pdf/a-2b`・`pdf/ua-1`・`none`。`--css`と`--weasyprint <実行ファイル>`も指定できる。出力先は`--root`内に限り、既存のPDFだけを上書きする |
 | `mmi materialize <文書> -o <出力.md>` | 原本を外すためのMarkdownを生成する。小表は本文へ、別紙相当表は`mmi-materialized/`へ、ローカル画像は`mmi-assets/`へcontent-addressedで実体化する。provenance付きで採用済みのExtracted表・画像・Treeは現在sourceとledgerへfreshness照合し、変更・stale・未追跡なら終了コード1 |
 | `mmi detach-check <文書>` | Detached成果物にMMI参照、未実体化marker、旧「別紙」カード、壊れたローカルリンク、ワークスペース外へのローカルリンクが残っていないか検査する。問題があれば終了コード1 |
 | `mmi manifest <文書>` | 別紙カードになる参照の一覧をCSVで出力 |
@@ -326,6 +327,17 @@ WindowsのフォントをWSLから指定した手順は [検証記録](release-v
 これらはプレビュー画面を紙のページに区切る機能ではありません。
 別のPDF生成器を使う場合は表の展開・改ページ・用紙の向きまで確認してください。
 VS Codeの「Markdown PDF」拡張からの直接出力は、今回の検証済み経路に含みません。
+
+### PDFを1回のコマンドで作る
+
+HTMLを経由せずにPDFまで作るには、`mmi pdf`を使います。WeasyPrintがPATHにあるか、`--weasyprint <実行ファイル>`または環境変数`MMI_WEASYPRINT`で指定してください。
+
+```bash
+npm run mmi -- pdf ../04_Documentation/samples/practical/14-delivery.md -o ../04_Documentation/samples/practical/14-delivery.pdf --root ../04_Documentation/samples/practical
+npm run mmi -- pdf 設計書A.md 設計書B.md -o 納品/ --variant pdf/ua-1
+```
+
+複数の文書を渡すと、文書ごとに`<文書名>.pdf`を作ります。1つが失敗しても残りは作り、終了コードは1になります。WeasyPrintが失敗したときは、途中までのPDFを残さず、前のPDFも変えません。次の「納品用の体裁にする」の手順と同じ結果になります。
 
 ### 納品用の体裁にする
 

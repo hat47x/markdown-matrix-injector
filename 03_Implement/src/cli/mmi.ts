@@ -142,6 +142,7 @@ import {
   extractXmlTree,
   extractYamlTree,
 } from './extractTree.js';
+import { PDF_VARIANTS, buildPdf, type PdfVariant } from './pdf.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './render.js';
 
 export const SEMANTIC_CANDIDATE_SCHEMA_NAME =
@@ -283,6 +284,11 @@ Commands:
       --to md|html
       --css <file>            html: add a style sheet after the defaults (repeatable; inside --root, no @import or external url())
                             html: YAML front matter adds cover, approvals, TOC, header/footer (reference.md)
+  pdf <doc.md...>           Render documents to PDF in one step (needs WeasyPrint)
+      -o, --out <file|dir>    one .pdf file, or a directory when several documents are given (inside --root; required)
+      --variant <name>        pdf/a-2a (default), pdf/a-2b, pdf/ua-1 or none
+      --css <file>            add a style sheet, as for render --to html
+      --weasyprint <path>     WeasyPrint executable (default: weasyprint on PATH, or MMI_WEASYPRINT)
   materialize <doc.md>      Write a source-independent Markdown projection for detaching
       -o, --out <file>        detached Markdown output (required; must differ from source)
       --attachments-dir <dir> directory for card-sized table attachments
@@ -371,6 +377,8 @@ export async function main(argv: string[]): Promise<number> {
       out: { type: 'string', short: 'o' },
       to: { type: 'string', default: 'md' },
       css: { type: 'string', multiple: true },
+      variant: { type: 'string' },
+      weasyprint: { type: 'string' },
       values: { type: 'string', default: '0' },
       from: { type: 'string' },
       image: { type: 'string' },
@@ -1400,6 +1408,37 @@ export async function main(argv: string[]): Promise<number> {
         return 1;
       }
       return 0;
+    }
+    case 'pdf': {
+      if (args.length < 1) return usageError('pdf takes one or more Markdown files');
+      if (!values.out) return usageError('pdf needs -o, --out <file|dir>');
+      const variant = values.variant ?? 'pdf/a-2a';
+      if (!(PDF_VARIANTS as readonly string[]).includes(variant)) return usageError(`--variant must be one of ${PDF_VARIANTS.join(', ')}`);
+      const target = path.resolve(values.out);
+      if (!pathWithinBoundaryForWrite(target, root)) return usageError('pdf output must be inside --root');
+      const single = args.length === 1 && target.toLowerCase().endsWith('.pdf');
+      const outputs = args.map((arg) => (single ? target : path.join(target, `${path.basename(arg).replace(/\.[^.]*$/, '')}.pdf`)));
+      if (new Set(outputs.map((output) => output.toLowerCase())).size !== outputs.length) return usageError('pdf: two documents would write the same PDF name');
+      for (const output of outputs) {
+        if (fs.existsSync(output) && !(fs.statSync(output).isFile() && output.toLowerCase().endsWith('.pdf'))) return usageError(`pdf will not overwrite ${output}`);
+      }
+      if (!single) fs.mkdirSync(target, { recursive: true });
+      let failures = 0;
+      for (const [index, arg] of args.entries()) {
+        try {
+          const warnings = buildPdf({
+            markdownFilePath: path.resolve(arg), workspaceRoot: root, userCss: values.css,
+            output: outputs[index], variant: variant as PdfVariant, weasyprint: values.weasyprint,
+          });
+          for (const warning of warnings) console.error(`${arg}: ${warning}`);
+          console.log(`wrote ${outputs[index]}`);
+        } catch (error) {
+          if (!(error instanceof RenderError)) throw error;
+          console.error(`${arg}: ${error.message}`);
+          failures += 1;
+        }
+      }
+      return failures > 0 ? 1 : 0;
     }
     case 'materialize': {
       if (args.length !== 1) return usageError('materialize takes one Markdown file');
