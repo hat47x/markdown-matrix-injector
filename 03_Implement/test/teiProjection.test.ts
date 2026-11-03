@@ -25,6 +25,8 @@ const artifact = {
     status: "candidate",
     featureVersion: "1.0.0",
     sourceProfileId: "profile-base",
+    features: ["table"],
+    sourceEvidence: ["structure"],
   },
 };
 
@@ -32,6 +34,8 @@ test("parses a valid projection", () => {
   const parsed = parseFormatProfileProjection(artifact);
   assert.equal(parsed.profile.id, "profile-a");
   assert.equal(parsed.profile.status, "candidate");
+  assert.deepEqual(parsed.profile.features, ["table"]);
+  assert.deepEqual(parsed.profile.sourceEvidence, ["structure"]);
 });
 
 test("rejects a wrong schema", () => {

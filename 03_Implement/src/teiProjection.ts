@@ -31,6 +31,8 @@ export interface FormatProfile {
   status: "candidate" | "approved";
   featureVersion: string;
   sourceProfileId: string;
+  features: string[];
+  sourceEvidence: string[];
 }
 
 export interface FormatProfileProjection {
@@ -45,6 +47,13 @@ function requireString(value: unknown, field: string): string {
     throw new Error(`${field} must be a non-empty string`);
   }
   return value;
+}
+
+function requireStringArray(value: unknown, field: string): string[] {
+  if (!Array.isArray(value) || value.length === 0) {
+    throw new Error(`${field} must be a non-empty array`);
+  }
+  return value.map((item, index) => requireString(item, `${field}[${index}]`));
 }
 
 export function parseFormatProfileProjection(value: unknown): FormatProfileProjection {
@@ -80,6 +89,8 @@ export function parseFormatProfileProjection(value: unknown): FormatProfileProje
       status,
       featureVersion: requireString(profile?.featureVersion, "profile.featureVersion"),
       sourceProfileId: requireString(profile?.sourceProfileId, "profile.sourceProfileId"),
+      features: requireStringArray(profile?.features, "profile.features"),
+      sourceEvidence: requireStringArray(profile?.sourceEvidence, "profile.sourceEvidence"),
     },
   };
 }
