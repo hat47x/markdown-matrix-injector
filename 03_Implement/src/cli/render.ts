@@ -119,14 +119,21 @@ export function renderDocumentMarkdown(options: RenderOptions): string {
   return out.join('\n').replace(/\n{3,}/g, '\n\n');
 }
 
-function expandEmbed(embed: EmbedQuery, options: RenderOptions, cache: WorkbookCache<WorkbookData>): string {
+export interface EmbedParts {
+  kind: 'table' | 'card';
+  caption?: string;
+  /** The table as a GFM table, or the 別紙 reference line of a card. */
+  body: string;
+}
+
+/** What one reference expands to; `renderDocumentMarkdown` and `mmi docx` both build on it. */
+export function expandEmbedParts(embed: EmbedQuery, options: RenderOptions, cache: WorkbookCache<WorkbookData>): EmbedParts {
   const absolutePath = resolveSourcePath({
     markdownFilePath: options.markdownFilePath,
     sourcePath: embed.filepath,
     workspaceRoot: options.workspaceRoot,
   });
-  const caption = embed.params.get('caption')?.trim();
-  const captionLine = caption ? `**${escapeMarkdownTableCell(caption)}**\n\n` : '';
+  const caption = embed.params.get('caption')?.trim() || undefined;
   let decision = getImmediateSmartFallbackDecision(embed);
   let workbook: WorkbookData | undefined;
   if (decision.renderMode !== 'card') {
@@ -135,9 +142,17 @@ function expandEmbed(embed: EmbedQuery, options: RenderOptions, cache: WorkbookC
   }
   if (decision.renderMode === 'card' || !workbook) {
     const location = [embed.target, embed.range].filter(Boolean).join('!');
-    return `${captionLine}> 別紙: ${embed.filepath}${location ? ` (${location})` : ''}`;
+    return { kind: 'card', caption, body: `> 別紙: ${embed.filepath}${location ? ` (${location})` : ''}` };
   }
-  return captionLine + toGfmTable(buildLogicalTable(embed, workbook));
+  return { kind: 'table', caption, body: toGfmTable(buildLogicalTable(embed, workbook)) };
+}
+
+function expandEmbed(embed: EmbedQuery, options: RenderOptions, cache: WorkbookCache<WorkbookData>): string {
+  const parts = expandEmbedParts(embed, options, cache);
+  const captionLine = parts.caption ? `**${escapeMarkdownTableCell(parts.caption)}**
+
+` : '';
+  return captionLine + parts.body;
 }
 
 export function defaultWorkspaceRoot(markdownFilePath: string): string {
