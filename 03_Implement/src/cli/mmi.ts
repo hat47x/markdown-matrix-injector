@@ -285,6 +285,7 @@ Commands:
   render <doc.md>           Expand references into Markdown tables (default) or HTML
       --to md|html
       --css <file>            html: add a style sheet after the defaults (repeatable; inside --root, no @import or external url())
+      --cover <file.html>     html: use this cover page instead of the built-in one ({{title}}, {{version}}, {{approvals}} ...)
       --base <prev.md>        html: mark what changed against this previous version (--base-root <dir> for its data)
       --base-rev <git-rev>    html: same, with the previous version read from a git revision
                             html: YAML front matter adds cover, approvals, TOC, header/footer (reference.md)
@@ -292,7 +293,7 @@ Commands:
       -o, --out <file|dir>    one .pdf file, or a directory when several documents are given (inside --root; required)
       --variant <name>        pdf/a-2a (default), pdf/a-2b, pdf/ua-1 or none
       --css <file>            add a style sheet, as for render --to html
-      --base, --base-root, --base-rev  mark revisions, as for render --to html
+      --cover, --base, --base-root, --base-rev  cover page and revision marks, as for render --to html
       --weasyprint <path>     WeasyPrint executable (default: weasyprint on PATH, or MMI_WEASYPRINT)
   docx <doc.md...>          Render documents to Word (.docx) through Pandoc (needs Pandoc)
       -o, --out <file|dir>    one .docx file, or a directory when several documents are given (inside --root; required)
@@ -386,6 +387,7 @@ export async function main(argv: string[]): Promise<number> {
       out: { type: 'string', short: 'o' },
       to: { type: 'string', default: 'md' },
       css: { type: 'string', multiple: true },
+      cover: { type: 'string' },
       variant: { type: 'string' },
       base: { type: 'string' },
       'base-root': { type: 'string' },
@@ -1414,7 +1416,8 @@ export async function main(argv: string[]): Promise<number> {
       if (values.to !== 'md' && values.to !== 'html') return usageError('--to must be md or html');
       if (values.css?.length && values.to !== 'html') return usageError('--css applies to --to html');
       if ((values.base || values['base-root'] || values['base-rev']) && values.to !== 'html') return usageError('--base, --base-root and --base-rev apply to --to html');
-      const options: RenderOptions = { markdownFilePath: path.resolve(args[0]), workspaceRoot: root, userCss: values.css };
+      if (values.cover && values.to !== 'html') return usageError('--cover applies to --to html');
+      const options: RenderOptions = { markdownFilePath: path.resolve(args[0]), workspaceRoot: root, userCss: values.css, coverTemplate: values.cover };
       let cleanup = (): void => {};
       try {
         const selected = resolveBase({ base: values.base, baseRoot: values['base-root'], baseRev: values['base-rev'] }, options.markdownFilePath, root);
@@ -1453,7 +1456,7 @@ export async function main(argv: string[]): Promise<number> {
           const selected = resolveBase({ base: values.base, baseRoot: values['base-root'], baseRev: values['base-rev'] }, path.resolve(arg), root);
           if (selected) cleanup = selected.cleanup;
           const warnings = buildPdf({
-            markdownFilePath: path.resolve(arg), workspaceRoot: root, userCss: values.css, base: selected?.base,
+            markdownFilePath: path.resolve(arg), workspaceRoot: root, userCss: values.css, coverTemplate: values.cover, base: selected?.base,
             output: outputs[index], variant: variant as PdfVariant, weasyprint: values.weasyprint,
           });
           for (const warning of warnings) console.error(`${arg}: ${warning}`);

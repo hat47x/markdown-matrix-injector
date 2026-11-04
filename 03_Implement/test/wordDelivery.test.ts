@@ -234,6 +234,12 @@ test('buildDocx asks Pandoc for its reference, converts with MMI\'s own, and wri
   assert.ok(!fs.existsSync(`${output}.mmi-tmp`));
 });
 
+test('an HTML cover template is not used for Word, and the export says so', () => {
+  const { root, doc } = workspace({ 'spec.md': '---\ncoverTemplate: ./c.html\n---\n本文\n', 'c.html': '<p>x</p>' });
+  const warnings = buildDocx({ markdownFilePath: doc(), workspaceRoot: root, output: path.join(root, 'o.docx') }, fakePandoc([]));
+  assert.match(warnings[0], /coverTemplate is for the HTML\/PDF export.*--reference-doc/);
+});
+
 test('a reference document of your own replaces MMI\'s and Pandoc is not asked for its default', () => {
   const { root, doc } = workspace({ 'spec.md': '本文\n', 'ref.docx': 'not read by the fake' });
   const calls: Call[] = [];

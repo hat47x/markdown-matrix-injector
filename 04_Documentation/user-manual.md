@@ -383,6 +383,9 @@ weasyprint --pdf-variant pdf/a-2a --pdf-tags ../04_Documentation/samples/practic
 画像を含む文書では代替テキストが必要になり、この確認には含まれていません。発注者が適合を求める場合は、veraPDFなどで検査してください（手順は [納品用PDF出力](../02_Architecture/delivery-pdf-output.md#pdfa・タグ付きpdfの検証記録) にあります）。
 フォントはPDFに埋め込まれます。PDFにパスワードや印刷禁止などのセキュリティは設定しません。
 
+発注者が表紙の様式を決めている場合は、表紙をHTMLで書いて`coverTemplate`（または`--cover <file>`）で渡します。front matterの値を`{{title}}`などで差し込めます。
+書き方と、書けないものは [リファレンス](reference.md#顧客指定の表紙) を参照してください（[見本](samples/cover/spec.md)）。
+
 発注者が書体・余白・綴じ代を指定する場合は、front matterの`font`・`margin`・`gutter`で指定できます。それより細かい体裁は、CSSファイルを`css`または`mmi render --css <file>`で渡します（既定の体裁を上書きします）。
 CSSは作業フォルダーの中に置き、`@import`と外部URLの`url()`は使えません。
 
