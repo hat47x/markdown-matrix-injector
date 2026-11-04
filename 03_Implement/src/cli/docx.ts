@@ -76,7 +76,10 @@ export function buildDocx(options: DocxOptions, run: PandocRunner = runWithSpawn
     const finished = finishDocx(fs.readFileSync(convertedPath), { properties: word.properties, title: word.title, hasFields: word.hasFields, now: options.now ?? new Date() });
     fs.writeFileSync(temporary, finished);
     fs.renameSync(temporary, options.output);
-    return result.stderr.split(/\r?\n/).filter((line) => line.trim());
+    const notes = word.properties.coverTemplate
+      ? ['coverTemplate is for the HTML/PDF export; the Word file uses the built-in cover (a customer cover goes in through --reference-doc)']
+      : [];
+    return [...notes, ...result.stderr.split(/\r?\n/).filter((line) => line.trim())];
   } finally {
     fs.rmSync(temporary, { force: true });
     fs.rmSync(temporaryDirectory, { recursive: true, force: true });

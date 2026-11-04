@@ -36,7 +36,7 @@
 | 改訂履歴 | ● | ExcelやCSVの台帳をMMI参照で表示する。新しい機能は足していない | 14のPDF |
 | 図表番号と相互参照 | ● | `captionNumbers: true`で、表題のある表に「表1」から番号を振る。`[](#id)`はその番号になり、リンクには「（p.12）」を添える。ページ番号はWeasyPrintなどCSS Paged Mediaの生成器だけで出る。「表1-1」の章別形式は未対応 | 単体テストと、WeasyPrint 69.0・游ゴシックで作った4ページのPDF（表の番号、リンクの「（p.N）」、フッターの「n / N」が実際のページと一致） |
 | 前付けをローマ数字にし、本文を1ページから数える | ○ | 物理ページ番号との一致を優先した | — |
-| 会社指定の様式（ロゴ、表紙の罫線枠、承認欄の位置） | ◐ | CSSを追加で渡して上書きできる（`css`・`--css`）。表紙の構成の差し替えは未対応 | 単体テスト |
+| 会社指定の様式（ロゴ、表紙の罫線枠、承認欄の位置） | ● | CSSの追加（`css`・`--css`）と、顧客指定の表紙のHTML（`coverTemplate`・`--cover`）で対応する。Wordは`--reference-doc`で様式を渡す。表紙のHTMLはWordには使えない | 単体テスト、PDFを画像で確認 |
 
 ### 印刷と組版
 
@@ -155,7 +155,7 @@ docker run --rm -v "$PWD":/data verapdf/cli:latest -f 2a --format text /data/文
 
 優先度の高い順に並べる。受入条件と進行状況は、各GitHub Issueを正本とする。
 
-1. 顧客指定の様式に合わせる。CSSの追加とフォント・余白・綴じ代の指定は対応した（[#635](https://github.com/hat47x/markdown-matrix-injector/issues/635)）。表紙の差し替えが残っている。SIerの案件では、発注者の様式が決まっていることが多い。
+1. 顧客指定の様式に合わせる。CSS・書体・余白・綴じ代と、顧客指定の表紙は対応した（[#635](https://github.com/hat47x/markdown-matrix-injector/issues/635)）。Wordの表紙をテンプレートから差し替えることは、`--reference-doc`の様式の範囲でしか対応していない。SIerの案件では、発注者の様式が決まっていることが多い。
 2. Word（.docx）で納品する。`mmi docx`で対応した。Word 16.0.19127で確認した。変更箇所の表示と別紙カードの体裁が残っている（[#636](https://github.com/hat47x/markdown-matrix-injector/issues/636)）。
 3. PDFまで1回のコマンドで作る経路と複数文書の一括出力は`mmi pdf`で対応した。PDF/Aとタグ付きPDFの適合は見本1点で確かめた。画像を含む文書の確認が残っている（[#637](https://github.com/hat47x/markdown-matrix-injector/issues/637)）。
 4. 改訂箇所を示す。改訂マークと削除の一覧は対応した。新旧対照表の形が残っている（[#638](https://github.com/hat47x/markdown-matrix-injector/issues/638)）。
