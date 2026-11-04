@@ -39,4 +39,4 @@ MMIの利用者は、一つの文書が何を参照し、何を取り込み、�
 ## Traceability
 
 - Related Issues: [#525](https://github.com/hat47x/markdown-matrix-injector/issues/525)、[#522](https://github.com/hat47x/markdown-matrix-injector/issues/522)、[#515](https://github.com/hat47x/markdown-matrix-injector/issues/515)
-- Related Docs: [Semantic Candidate契約 v1](../../02_Architecture/candidate-contract-v1.md)、[取り込み台帳](../../02_Architecture/import-ledger.md)
+- Related Docs: [Semantic Candidate契約 v1](../../02_Architecture/candidate-contract-v1.md)（取り込み台帳との結合を含む）
