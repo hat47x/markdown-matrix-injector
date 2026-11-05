@@ -1,7 +1,8 @@
 # ADR-0028: 文書ごとの出典報告を、内容を写さない版付き契約として出す
 
-- Status: Proposed
+- Status: Accepted
 - Date: 2026-10-20
+- Acceptance note: 2026-11-05、origin/main `060811537149c84c88831aa43441b8b6f83da916` で、Decision 1〜7の全項目が実装と一致することを照合した（[照合結果](https://github.com/hat47x/markdown-matrix-injector/issues/769#issuecomment-6647530706)）。採否はOwnerがこの変更のmergeで決める。
 - Deciders: MMI Lead Agent（実装案の提示。採否はHuman Sponsor）
 - Scope: `src/application`（報告の組み立て）、`src/core`（公開JSON Schema）、`src/cli`（`provenance`）、利用者・CI向け文書
 - Related: [ADR-0019](ADR-0019-ai-era-sier-document-value-and-policy.md) D3・D8・D11、[ADR-0021](ADR-0021-candidate-cognition-lifecycle-reproducibility.md)、[ADR-0026](ADR-0026-word-source-adapter-read-only-boundary.md)、Issue #525・#522・#515
