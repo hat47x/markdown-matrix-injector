@@ -145,6 +145,7 @@ import {
 import { resolveBase } from './gitBase.js';
 import { buildDocx } from './docx.js';
 import { PDF_VARIANTS, buildPdf, type PdfVariant } from './pdf.js';
+import { parseSourceDate, SourceDateError } from './sourceDate.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown, type RenderOptions } from './render.js';
 
 export const SEMANTIC_CANDIDATE_SCHEMA_NAME =
@@ -295,10 +296,12 @@ Commands:
       --css <file>            add a style sheet, as for render --to html
       --cover, --base, --base-root, --base-rev  cover page and revision marks, as for render --to html
       --weasyprint <path>     WeasyPrint executable (default: weasyprint on PATH, or MMI_WEASYPRINT)
+      --source-date <when>    creation time as epoch seconds, YYYY-MM-DD or ISO date-time: the same document then gives the same PDF bytes
   docx <doc.md...>          Render documents to Word (.docx) through Pandoc (needs Pandoc)
       -o, --out <file|dir>    one .docx file, or a directory when several documents are given (inside --root; required)
       --pandoc <path>         Pandoc executable (default: pandoc on PATH, or MMI_PANDOC)
       --reference-doc <docx>  styles, header/footer and page setup from this Word file instead of MMI's own (inside --root)
+      --source-date <when>    document time as epoch seconds, YYYY-MM-DD or ISO date-time: the same document then gives the same .docx bytes
   materialize <doc.md>      Write a source-independent Markdown projection for detaching
       -o, --out <file>        detached Markdown output (required; must differ from source)
       --attachments-dir <dir> directory for card-sized table attachments
@@ -394,6 +397,7 @@ export async function main(argv: string[]): Promise<number> {
       'base-rev': { type: 'string' },
       weasyprint: { type: 'string' },
       pandoc: { type: 'string' },
+      'source-date': { type: 'string' },
       'reference-doc': { type: 'string' },
       values: { type: 'string', default: '0' },
       from: { type: 'string' },
@@ -1438,6 +1442,13 @@ export async function main(argv: string[]): Promise<number> {
     case 'pdf': {
       if (args.length < 1) return usageError('pdf takes one or more Markdown files');
       if (!values.out) return usageError('pdf needs -o, --out <file|dir>');
+      let sourceDateEpoch: number | undefined;
+      try {
+        if (values['source-date']) sourceDateEpoch = parseSourceDate(values['source-date']);
+      } catch (error) {
+        if (error instanceof SourceDateError) return usageError(error.message);
+        throw error;
+      }
       const variant = values.variant ?? 'pdf/a-2a';
       if (!(PDF_VARIANTS as readonly string[]).includes(variant)) return usageError(`--variant must be one of ${PDF_VARIANTS.join(', ')}`);
       const target = path.resolve(values.out);
@@ -1457,7 +1468,7 @@ export async function main(argv: string[]): Promise<number> {
           if (selected) cleanup = selected.cleanup;
           const warnings = buildPdf({
             markdownFilePath: path.resolve(arg), workspaceRoot: root, userCss: values.css, coverTemplate: values.cover, base: selected?.base,
-            output: outputs[index], variant: variant as PdfVariant, weasyprint: values.weasyprint,
+            output: outputs[index], variant: variant as PdfVariant, weasyprint: values.weasyprint, sourceDateEpoch,
           });
           for (const warning of warnings) console.error(`${arg}: ${warning}`);
           console.log(`wrote ${outputs[index]}`);
@@ -1476,6 +1487,13 @@ export async function main(argv: string[]): Promise<number> {
       if (!values.out) return usageError('docx needs -o, --out <file|dir>');
       const target = path.resolve(values.out);
       if (!pathWithinBoundaryForWrite(target, root)) return usageError('docx output must be inside --root');
+      let sourceDateEpoch: number | undefined;
+      try {
+        if (values['source-date']) sourceDateEpoch = parseSourceDate(values['source-date']);
+      } catch (error) {
+        if (error instanceof SourceDateError) return usageError(error.message);
+        throw error;
+      }
       let referenceDoc: string | undefined;
       if (values['reference-doc']) {
         referenceDoc = path.resolve(values['reference-doc']);
@@ -1491,7 +1509,7 @@ export async function main(argv: string[]): Promise<number> {
       let failures = 0;
       for (const [index, arg] of args.entries()) {
         try {
-          const warnings = buildDocx({ markdownFilePath: path.resolve(arg), workspaceRoot: root, output: outputs[index], pandoc: values.pandoc, referenceDoc });
+          const warnings = buildDocx({ markdownFilePath: path.resolve(arg), workspaceRoot: root, output: outputs[index], pandoc: values.pandoc, referenceDoc, now: sourceDateEpoch === undefined ? undefined : new Date(sourceDateEpoch * 1000) });
           for (const warning of warnings) console.error(`${arg}: ${warning}`);
           console.log(`wrote ${outputs[index]}`);
         } catch (error) {
