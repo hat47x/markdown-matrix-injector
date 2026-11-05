@@ -14,6 +14,7 @@ import { buildLogicalTable } from '../core/renderTable.js';
 import { getImmediateSmartFallbackDecision, getSmartFallbackDecisionAfterLoad } from '../core/smartFallback.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
 import { extractEmbedQueries, type EmbedQuery } from '../parser/embedSyntax.js';
+import { FootnoteError, footnotePlugin } from '../plugin/footnotePlugin.js';
 import { markdownMatrixPlugin } from '../plugin/markdownMatrixPlugin.js';
 import { CoverTemplateError } from './coverTemplate.js';
 import { buildDocumentHtml, FrontMatterError, readFrontMatter } from './documentExport.js';
@@ -36,7 +37,7 @@ export class RenderError extends Error {}
 
 /** The body of a document as the export would render it, without cover and table of contents (for comparison). */
 function renderBodyHtml(source: { markdownFilePath: string; workspaceRoot: string }): string {
-  const md = new MarkdownIt({ html: true }).use(markdownMatrixPlugin, {
+  const md = new MarkdownIt({ html: true }).use(footnotePlugin).use(markdownMatrixPlugin, {
     markdownFilePath: source.markdownFilePath,
     workspaceRoot: source.workspaceRoot,
     cache: new WorkbookCache(),
@@ -48,24 +49,8 @@ function renderBodyHtml(source: { markdownFilePath: string; workspaceRoot: strin
   return html;
 }
 
-/**
- * The export does not support footnotes: markdown-it reads "[^1]: note" as a link definition, so the note text would
- * vanish and "[^1]" would print as a stray link. A document with a footnote definition is refused instead. Only a
- * definition line counts, so "[^0-9]" in a sentence about a pattern is left alone.
- */
-export function findFootnoteDefinitions(markdown: string): number[] {
-  const lines = markdown.split(/\r?\n/);
-  const found: number[] = [];
-  let inFence = false;
-  lines.forEach((line, index) => {
-    if (/^\s*(```|~~~)/.test(line)) inFence = !inFence;
-    else if (!inFence && /^ {0,3}\[\^[^\]\s]+\]:/.test(line)) found.push(index + 1);
-  });
-  return found;
-}
-
 export function renderDocumentHtml(options: RenderOptions): string {
-  const md = new MarkdownIt({ html: true }).use(markdownMatrixPlugin, {
+  const md = new MarkdownIt({ html: true }).use(footnotePlugin).use(markdownMatrixPlugin, {
     markdownFilePath: options.markdownFilePath,
     workspaceRoot: options.workspaceRoot,
     cache: options.cache ?? new WorkbookCache(),
@@ -78,17 +63,13 @@ export function renderDocumentHtml(options: RenderOptions): string {
   if (!cssUrl) console.error('mmi: media/markdown-matrix.css not found next to the CLI; the HTML will be unstyled.');
   const css = cssUrl ? fs.readFileSync(cssUrl, 'utf8') : '';
   const source = fs.readFileSync(options.markdownFilePath, 'utf8');
-  const footnotes = findFootnoteDefinitions(source);
-  if (footnotes.length > 0) {
-    throw new RenderError(`Footnotes are not supported in the HTML/PDF export (line ${footnotes.slice(0, 5).join(', ')}): the note text would be lost. Write the note as a paragraph or a table, or use mmi docx, which converts footnotes.`);
-  }
   let html: string;
   try {
     html = buildDocumentHtml(md, source, {}, css, (refs) => loadUserCss(options, refs),
       options.base ? (current) => markRevisions(renderBodyHtml(options.base!), current, options.base!.label) : undefined,
       (ref) => loadCoverTemplate(options, ref));
   } catch (error) {
-    if (error instanceof FrontMatterError || error instanceof CoverTemplateError) throw new RenderError(error.message);
+    if (error instanceof FrontMatterError || error instanceof CoverTemplateError || error instanceof FootnoteError) throw new RenderError(error.message);
     throw error;
   }
   if (html.includes('class="mmi-error"')) throw new RenderError('MMI reference errors must be resolved before export. Run `mmi check`.');
