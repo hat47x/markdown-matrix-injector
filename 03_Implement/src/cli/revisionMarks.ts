@@ -4,7 +4,7 @@
  * A reviser hands the customer a new version of a document and the customer asks what changed. This module
  * compares the previous and the current rendering of a document block by block (heading, paragraph, list item,
  * table row, table caption, 別紙 card) and marks the current HTML: `data-mmi-rev="added|changed"` on the block, and
- * a list of deleted blocks for an appendix. Tables are compared after MMI expanded them, so a changed value in the
+ * an old/new comparison table (新旧対照表) of every change for an appendix. Tables are compared after MMI expanded them, so a changed value in the
  * referenced Excel or CSV shows up as a changed row when the previous version is rendered from its own data.
  *
  * The comparison is a reading aid for the reviewer. It decides nothing about acceptance, and a block that only moved
@@ -111,10 +111,20 @@ export function extractUnits(html: string): Unit[] {
   return units;
 }
 
+/** One difference, in document order: what a block was before and what it is now. */
+export interface Change {
+  kind: 'added' | 'changed' | 'deleted';
+  /** The block of the previous version (changed, deleted). */
+  previous?: Unit;
+  /** The index of the block in the current version (added, changed). */
+  currentIndex?: number;
+}
+
 export interface RevisionDiff {
   /** Marks for the current units, by index. */
   marks: Map<number, RevisionState>;
   deleted: Unit[];
+  changes: Change[];
 }
 
 /** Longest common subsequence over the blocks that differ after the shared head and tail are dropped. */
@@ -136,6 +146,7 @@ export function diffUnits(previous: Unit[], current: Unit[]): RevisionDiff {
   }
   const marks = new Map<number, RevisionState>();
   const deleted: Unit[] = [];
+  const changes: Change[] = [];
   let i = 0;
   let j = 0;
   let removed: Unit[] = [];
@@ -145,6 +156,9 @@ export function diffUnits(previous: Unit[], current: Unit[]): RevisionDiff {
     // additions and deletions, so a new section next to a deleted line is not reported as an edit of that line.
     // When the same number of blocks was removed and added between identical neighbours, they are edits in place.
     const inPlace = removed.length === added.length;
+    // Within one run of differences the deletions are listed first, then the changes and additions in order.
+    const gone: Change[] = [];
+    const others: Change[] = [];
     let next = 0;
     for (const index of added) {
       let match = -1;
@@ -156,13 +170,22 @@ export function diffUnits(previous: Unit[], current: Unit[]): RevisionDiff {
       }
       if (match < 0) {
         marks.set(index, 'added');
+        others.push({ kind: 'added', currentIndex: index });
       } else {
-        deleted.push(...removed.slice(next, match));
+        for (const skipped of removed.slice(next, match)) {
+          deleted.push(skipped);
+          gone.push({ kind: 'deleted', previous: skipped });
+        }
         marks.set(index, 'changed');
+        others.push({ kind: 'changed', previous: removed[match], currentIndex: index });
         next = match + 1;
       }
     }
-    deleted.push(...removed.slice(next));
+    for (const left of removed.slice(next)) {
+      deleted.push(left);
+      gone.push({ kind: 'deleted', previous: left });
+    }
+    changes.push(...gone, ...others);
     removed = [];
     added = [];
   };
@@ -180,7 +203,7 @@ export function diffUnits(previous: Unit[], current: Unit[]): RevisionDiff {
     }
   }
   flush();
-  return { marks, deleted };
+  return { marks, deleted, changes };
 }
 
 export interface RevisionResult {
@@ -196,7 +219,7 @@ export interface RevisionResult {
 export function markRevisions(previousHtml: string, currentHtml: string, baseLabel: string): RevisionResult {
   const previous = extractUnits(previousHtml);
   const current = extractUnits(currentHtml);
-  const { marks, deleted } = diffUnits(previous, current);
+  const { marks, deleted, changes } = diffUnits(previous, current);
   const inserts = [...marks.entries()].map(([index, state]) => ({
     at: current[index].tagEnd,
     text: current[index].caption ? ` data-mmi-rev-caption="${state}"` : ` data-mmi-rev="${state}"`,
@@ -212,18 +235,27 @@ export function markRevisions(previousHtml: string, currentHtml: string, baseLab
     changed: [...marks.values()].filter((state) => state === 'changed').length,
     deleted: deleted.length,
   };
-  return { html, appendixHtml: renderAppendix(baseLabel, counts, deleted), counts };
+  return { html, appendixHtml: renderAppendix(baseLabel, counts, changes, current), counts };
 }
 
-function renderAppendix(baseLabel: string, counts: RevisionResult['counts'], deleted: Unit[]): string {
+const KIND_LABEL: Record<Change['kind'], string> = { added: '追加', changed: '変更', deleted: '削除' };
+
+/** The old/new comparison table (新旧対照表): every change with what the block said before and what it says now. */
+function renderAppendix(baseLabel: string, counts: RevisionResult['counts'], changes: Change[], current: Unit[]): string {
   const summary = `追加${counts.added}件・変更${counts.changed}件・削除${counts.deleted}件`;
-  const rows = deleted
-    .map((unit) => `<tr><td>${escapeHtml(unit.heading)}</td><td>${escapeHtml(unit.key)}</td></tr>`)
+  const cell = (text: string | undefined): string => (text === undefined ? '―' : escapeHtml(text));
+  const rows = changes
+    .map((change) => {
+      const now = change.currentIndex === undefined ? undefined : current[change.currentIndex];
+      const heading = (now ?? change.previous)?.heading ?? '';
+      return `<tr class="mmi-revisions__${change.kind}"><td>${escapeHtml(heading)}</td><td>${KIND_LABEL[change.kind]}</td>`
+        + `<td>${cell(change.previous?.key)}</td><td>${cell(now?.key)}</td></tr>`;
+    })
     .join('');
-  const table = deleted.length
-    ? `<table class="mmi-revisions__deleted"><thead><tr><th>見出し</th><th>削除した内容</th></tr></thead><tbody>${rows}</tbody></table>`
-    : '<p>削除した内容はありません。</p>';
-  return `<section class="mmi-revisions"><div class="mmi-revisions__title">改訂箇所の一覧</div>`
+  const table = changes.length
+    ? `<table class="mmi-revisions__table"><thead><tr><th>見出し</th><th>区分</th><th>変更前</th><th>変更後</th></tr></thead><tbody>${rows}</tbody></table>`
+    : '<p>前の版からの変更はありません。</p>';
+  return `<section class="mmi-revisions"><div class="mmi-revisions__title">改訂箇所の一覧（新旧対照表）</div>`
     + `<p>比較元: ${escapeHtml(baseLabel)}　${summary}</p>`
     + '<p>本文の左端の実線は追加した箇所、二重線は変更した箇所を表します。移動した箇所は、削除と追加として示します。</p>'
     + `${table}</section>`;
@@ -239,4 +271,8 @@ export const REVISION_CSS = `
   [data-mmi-rev-caption="changed"] > figcaption { border-left: 4pt double #c00000; padding-left: 0.5em; }
   .mmi-revisions { break-before: page; }
   .mmi-revisions__title { font-size: 14pt; font-weight: 700; margin-bottom: 0.8em; bookmark-level: 2; bookmark-label: "改訂箇所の一覧"; }
-  .mmi-revisions__deleted { width: 100%; }`;
+  .mmi-revisions__table { width: 100%; table-layout: fixed; }
+  .mmi-revisions__table th:nth-child(1) { width: 20%; }
+  .mmi-revisions__table th:nth-child(2) { width: 9%; }
+  .mmi-revisions__table td:nth-child(2) { text-align: center; white-space: nowrap; }
+  .mmi-revisions__table td { overflow-wrap: anywhere; }`;
