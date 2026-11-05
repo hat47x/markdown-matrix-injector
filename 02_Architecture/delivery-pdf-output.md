@@ -67,7 +67,7 @@
 | 要求 | 状態 | 現状 | 確認方法 |
 |---|---|---|---|
 | 作成者の環境情報を出さない | ● | 別紙カードは相対パスだけを出す。HTMLにも絶対パスと外部アプリ起動リンクを入れない | 単体テスト、HTMLとPDFの文字列検査 |
-| PDF/A（長期保存） | ● | WeasyPrintの`--pdf-variant pdf/a-2b`または`pdf/a-2a`で生成する。見本（14）はveraPDF 1.30.3でPDF/A-2b（144規則）・PDF/A-2a（153規則）とも違反なし。[検証記録](#pdfa・タグ付きpdfの検証記録) | veraPDF |
+| PDF/A（長期保存） | ● | WeasyPrintの`--pdf-variant pdf/a-2b`または`pdf/a-2a`で生成する。見本（14）はveraPDF 1.30.3でPDF/A-2b（144規則）・PDF/A-2a（153規則）とも違反なし。[検証記録](#pdfaタグ付きpdfの検証記録) | veraPDF |
 | タグ付きPDF（読み上げ） | ● | `--pdf-tags`で生成する。`pdf/ua-1`の指定で、見本（14）はveraPDFのPDF/UA-1（106規則）に違反なし。画像・数式・フォームを含む文書は未確認 | veraPDF |
 | パスワード・印刷禁止などのセキュリティ | — | 設定しない。公共の電子納品や機関リポジトリの規程では、セキュリティを設定しないよう求める例が多い | — |
 | 電子署名・タイムスタンプ | ○ | MMIの範囲外。署名ツールで付ける | — |
@@ -157,7 +157,7 @@ docker run --rm -v "$PWD":/data verapdf/cli:latest -f 2a --format text /data/文
 
 1. 顧客指定の様式に合わせる。CSS・書体・余白・綴じ代と、顧客指定の表紙は対応した（[#635](https://github.com/hat47x/markdown-matrix-injector/issues/635)）。Wordの表紙をテンプレートから差し替えることは、`--reference-doc`の様式の範囲でしか対応していない。SIerの案件では、発注者の様式が決まっていることが多い。
 2. Word（.docx）で納品する。`mmi docx`で対応した。Word 16.0.19127で確認した。変更箇所の表示と別紙カードの体裁が残っている（[#636](https://github.com/hat47x/markdown-matrix-injector/issues/636)）。
-3. PDFまで1回のコマンドで作る経路と複数文書の一括出力は`mmi pdf`で対応した。PDF/Aとタグ付きPDFの適合は見本1点で確かめた。画像を含む文書の確認が残っている（[#637](https://github.com/hat47x/markdown-matrix-injector/issues/637)）。
+3. PDFまで1回のコマンドで作る経路と複数文書の一括出力は`mmi pdf`で対応した。PDF/Aとタグ付きPDFの適合は見本1点で確かめた。ここまでは[#637](https://github.com/hat47x/markdown-matrix-injector/issues/637)で対応した。画像を含む文書の確認が残っている（[#771](https://github.com/hat47x/markdown-matrix-injector/issues/771)）。
 4. 改訂箇所を示す。改訂マークと削除の一覧は対応した。新旧対照表の形が残っている（[#638](https://github.com/hat47x/markdown-matrix-injector/issues/638)）。
 5. 図表番号を自動で振り、相互参照にページ番号を添える（[#639](https://github.com/hat47x/markdown-matrix-injector/issues/639)）。表の通し番号とリンクのページ番号は対応し、WeasyPrint 69.0でのPDFでも確かめた（2026-10-27）。章別の番号（表1-1）が残る。
 

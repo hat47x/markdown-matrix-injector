@@ -27,6 +27,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Boundary diagnostics** (#599, ADR-0030, notation `1.0.0-draft.2`): a reference whose resolution candidates are all lexically outside the workspace now reports `MMI_PATH_OUTSIDE_BOUNDARY` before any existence check. The old behavior reported `MMI_FILE_NOT_FOUND` when the outside file happened to be absent, which let a document author probe the filesystem and made the same typo OS-dependent. The code name is unchanged; the meaning change is recorded before the v1.0.0 freeze.
 - **Region snapshot freshness** (#530, ADR-0019 D0・D3・D14): `checkExtractedProvenanceFreshness()` now recognizes `mmi:region-snapshot` provenance, so `materialize` checks the source digest, the renderer identity recorded in the ledger, and the rendered artifact digest. A changed source or an edited SVG/PNG makes the adopted snapshot stale instead of silently reusing it. Renderers are compared by identity, never treated as interchangeable.
 
+### Fixed
+- **MCP input line limit** (#717): `mmi-mcp` no longer buffers a whole stdin line before checking the 8 MiB limit. A line over the limit is discarded as it streams in, answered once with `-32600`, and processing resumes after the next newline, so a huge line without a newline no longer ends the server with an out-of-memory error.
+
 ## [0.2.0] - 2026-10-20
 
 Verification release (ADR-0025): distributed as a VSIX and a self-contained CLI tarball with release evidence. Extension and package identifiers are unchanged and may still move before the first Marketplace / npm registry release (#504, #517). The notation (MMI Notation v1, Draft), `MMI_*` diagnostic codes and `mmi.*` contract names are unchanged.
@@ -44,7 +47,6 @@ Verification release (ADR-0025): distributed as a VSIX and a self-contained CLI 
 - `npm run release:candidate`: builds a candidate from one commit (version consistency, full type check, product tests, VSIX audit including the runtime module closure, offline CLI install check, optional Extension Host E2E) and writes `release-evidence.json`, `SHA256SUMS` and release notes bound to the commit and artifact hashes (ADR-0025).
 
 ### Fixed
-- **MCP input line limit** (#717): `mmi-mcp` no longer buffers a whole stdin line before checking the 8 MiB limit. A line over the limit is discarded as it streams in, answered once with `-32600`, and processing resumes after the next newline, so a huge line without a newline no longer ends the server with an out-of-memory error.
 - Quick fixes on the line being typed are offered from the light bulb again: diagnostics held back from the Problems panel while typing (ADR-0019 D13) still feed code actions (#579).
 - Path containment: a file whose name starts with `..` (e.g. `..notes.csv`) inside the workspace is no longer rejected, and a workspace reached through a symlinked or junctioned directory is compared by its real path.
 - The documented minimum VS Code version is 1.100.0, matching `engines.vscode` (ESM extension); README and tutorial said 1.96.0.

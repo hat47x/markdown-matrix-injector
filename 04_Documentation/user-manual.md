@@ -380,7 +380,7 @@ weasyprint --pdf-variant pdf/a-2a --pdf-tags ../04_Documentation/samples/practic
 
 `--pdf-variant pdf/a-2a`は長期保存向けのPDF/A-2a形式、`--pdf-tags`は見出しや表の構造を読み上げソフトへ伝えるタグを付ける指定です。どちらもWeasyPrintの機能です。
 見本は、veraPDF 1.30.3でPDF/A-2a（153規則）に違反がないことを確かめています。`--pdf-variant pdf/ua-1`で作ると、PDF/UA-1（アクセシビリティ）にも違反がありませんでした。ただし1つのPDFに指定できる形式は1つです。
-画像を含む文書では代替テキストが必要になり、この確認には含まれていません。発注者が適合を求める場合は、veraPDFなどで検査してください（手順は [納品用PDF出力](../02_Architecture/delivery-pdf-output.md#pdfa・タグ付きpdfの検証記録) にあります）。
+画像を含む文書では代替テキストが必要になり、この確認には含まれていません。発注者が適合を求める場合は、veraPDFなどで検査してください（手順は [納品用PDF出力](../02_Architecture/delivery-pdf-output.md#pdfaタグ付きpdfの検証記録) にあります）。
 フォントはPDFに埋め込まれます。PDFにパスワードや印刷禁止などのセキュリティは設定しません。
 
 発注者が表紙の様式を決めている場合は、表紙をHTMLで書いて`coverTemplate`（または`--cover <file>`）で渡します。front matterの値を`{{title}}`などで差し込めます。
