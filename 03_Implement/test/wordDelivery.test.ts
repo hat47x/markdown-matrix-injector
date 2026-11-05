@@ -107,6 +107,14 @@ test('every table gets a repeating header row and rows that are not split, once'
   assert.equal(twice.match(/<w:tblHeader\/>/g)?.length, 1, 'finishing again does not repeat it');
 });
 
+test('Pandoc 3 already marks the header row: it is kept once and only the missing cantSplit is added', () => {
+  const pandoc3 = '<w:tbl><w:tblPr><w:tblStyle w:val="Table" /></w:tblPr><w:tblGrid><w:gridCol w:w="1320" /></w:tblGrid><w:tr><w:trPr><w:tblHeader w:val="on" /></w:trPr><w:tc><w:p /></w:tc></w:tr><w:tr><w:tc><w:p /></w:tc></w:tr></w:tbl>';
+  const document = partsOf(finishDocx(pandocOutput(pandoc3), { properties: properties('title: x'), title: 'x', hasFields: false, now: new Date(0) })).get('word/document.xml') as string;
+  assert.equal(document.match(/<w:tblHeader/g)?.length, 1);
+  assert.match(document, /<w:tr><w:trPr><w:tblHeader w:val="on" \/><w:cantSplit\/><\/w:trPr>/);
+  assert.equal(document.match(/<w:cantSplit\/>/g)?.length, 2);
+});
+
 test('the document properties come from front matter, and fields are updated on opening only when there are any', () => {
   const finish = (hasFields: boolean) => partsOf(finishDocx(pandocOutput('<w:p/>'), {
     properties: properties('documentNumber: SD-1\nversion: 第1.2版\nclassification: 社外秘\norganization: A社\nsubtitle: 案件<名>'), title: '設計書', hasFields, now: new Date('2026-11-05T09:30:12.345Z'),

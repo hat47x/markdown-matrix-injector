@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-11-05
+
 ### Added
 - **Select preview truncation is observable** (#737): `mmi.selection/v0` `preview` gains `limit`, `shown`, `ofSelected` and `truncated`, so a selection of more than 5 rows no longer looks like the whole range. The 5-row limit is now the named constant `SELECTION_PREVIEW_ROW_LIMIT`; existing fields are unchanged.
 - **MCP server** (`mmi-mcp`, ADR-0027, #527): a read-only, stdio-only MCP server that exposes the CLI's read and validation commands to AI agents (`schema`, `inspect`, `html-audit`, `check`, `render`, `select`, `find`, `handoff`, `validate-proposal`, `validate-selection`, `validate-transformation`). It never writes sources, ledgers or artifacts, fixes the workspace root at startup, and returns the same results as the CLI `--json` output. `html-audit` re-checks a statically decomposed HTML output against its reviewed plan without writing. The tool list in `mcp-server.md` is the contract; a test compares it with `tools/list`.

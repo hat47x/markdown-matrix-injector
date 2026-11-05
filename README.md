@@ -36,7 +36,7 @@ MMIでは、ExcelやCSVの表を文書に貼り付ける代わりに、**参照�
 
 ## インストール
 
-現在の検証版は、[GitHub Releasesのpre-release v0.2.0](https://github.com/hat47x/markdown-matrix-injector/releases/tag/v0.2.0)にあるVSIXファイルからインストールします。同じリリースにはコマンドライン版もあります。アクセスできるリリース資産を確認してください。
+現在の検証版は、[GitHub Releasesのpre-release v0.3.0](https://github.com/hat47x/markdown-matrix-injector/releases/tag/v0.3.0)にあるVSIXファイルからインストールします。同じリリースにはコマンドライン版もあります。アクセスできるリリース資産を確認してください。
 
 VS Codeで`Ctrl+Shift+P`を押し、`Extensions: Install from VSIX...`を選択してMMIの`.vsix`を指定します。更新後はVS Codeのウィンドウを再読み込みしてください。拡張を使用するだけなら、Node.jsを別途インストールする必要はありません。
 
@@ -89,7 +89,7 @@ CSVはUTF-8で読み込みます。XMLはXML Spreadsheet 2003に対応してい�
 
 外部アプリで開けるのは、信頼済みのローカルワークスペース内の表データです。貼り付けやドラッグ＆ドロップでは、元のアプリから渡された情報だけを使うため、セルのコピーから元ファイルを必ず特定できるわけではありません。
 
-配布中の0.2.0検証版の証拠（`release-evidence.json`）は[v0.2.0のpre-release](https://github.com/hat47x/markdown-matrix-injector/releases/tag/v0.2.0)に添付し、実機確認は[#597](https://github.com/hat47x/markdown-matrix-injector/issues/597)に記録しています（[ADR-0025](01_Plans/adr/ADR-0025-release-candidate-evidence-and-channels.md)）。0.2.0より前（0.1.0の候補）の環境、実機確認、テスト結果、未確認事項は [リリース準備の検証記録](04_Documentation/release-validation-2026-09-08.md) にまとめています。
+配布中の0.3.0検証版の証拠（`release-evidence.json`）は[v0.3.0のpre-release](https://github.com/hat47x/markdown-matrix-injector/releases/tag/v0.3.0)に添付しています。0.3.0の実機確認はまだ行っていません。0.2.0の実機確認は[#597](https://github.com/hat47x/markdown-matrix-injector/issues/597)に記録しています（[ADR-0025](01_Plans/adr/ADR-0025-release-candidate-evidence-and-channels.md)）。0.2.0より前（0.1.0の候補）の環境、実機確認、テスト結果、未確認事項は [リリース準備の検証記録](04_Documentation/release-validation-2026-09-08.md) にまとめています。
 ドキュメントの整備やローカルでの検証は、Marketplace公開や正式リリースの承認とは別の作業です。
 
 ## 詳しい資料
