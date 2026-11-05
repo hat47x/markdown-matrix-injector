@@ -143,6 +143,7 @@ import {
   extractYamlTree,
 } from './extractTree.js';
 import { resolveBase } from './gitBase.js';
+import { buildDocx } from './docx.js';
 import { PDF_VARIANTS, buildPdf, type PdfVariant } from './pdf.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown, type RenderOptions } from './render.js';
 
@@ -284,6 +285,7 @@ Commands:
   render <doc.md>           Expand references into Markdown tables (default) or HTML
       --to md|html
       --css <file>            html: add a style sheet after the defaults (repeatable; inside --root, no @import or external url())
+      --cover <file.html>     html: use this cover page instead of the built-in one ({{title}}, {{version}}, {{approvals}} ...)
       --base <prev.md>        html: mark what changed against this previous version (--base-root <dir> for its data)
       --base-rev <git-rev>    html: same, with the previous version read from a git revision
                             html: YAML front matter adds cover, approvals, TOC, header/footer (reference.md)
@@ -291,8 +293,12 @@ Commands:
       -o, --out <file|dir>    one .pdf file, or a directory when several documents are given (inside --root; required)
       --variant <name>        pdf/a-2a (default), pdf/a-2b, pdf/ua-1 or none
       --css <file>            add a style sheet, as for render --to html
-      --base, --base-root, --base-rev  mark revisions, as for render --to html
+      --cover, --base, --base-root, --base-rev  cover page and revision marks, as for render --to html
       --weasyprint <path>     WeasyPrint executable (default: weasyprint on PATH, or MMI_WEASYPRINT)
+  docx <doc.md...>          Render documents to Word (.docx) through Pandoc (needs Pandoc)
+      -o, --out <file|dir>    one .docx file, or a directory when several documents are given (inside --root; required)
+      --pandoc <path>         Pandoc executable (default: pandoc on PATH, or MMI_PANDOC)
+      --reference-doc <docx>  styles, header/footer and page setup from this Word file instead of MMI's own (inside --root)
   materialize <doc.md>      Write a source-independent Markdown projection for detaching
       -o, --out <file>        detached Markdown output (required; must differ from source)
       --attachments-dir <dir> directory for card-sized table attachments
@@ -381,11 +387,14 @@ export async function main(argv: string[]): Promise<number> {
       out: { type: 'string', short: 'o' },
       to: { type: 'string', default: 'md' },
       css: { type: 'string', multiple: true },
+      cover: { type: 'string' },
       variant: { type: 'string' },
       base: { type: 'string' },
       'base-root': { type: 'string' },
       'base-rev': { type: 'string' },
       weasyprint: { type: 'string' },
+      pandoc: { type: 'string' },
+      'reference-doc': { type: 'string' },
       values: { type: 'string', default: '0' },
       from: { type: 'string' },
       image: { type: 'string' },
@@ -1407,7 +1416,8 @@ export async function main(argv: string[]): Promise<number> {
       if (values.to !== 'md' && values.to !== 'html') return usageError('--to must be md or html');
       if (values.css?.length && values.to !== 'html') return usageError('--css applies to --to html');
       if ((values.base || values['base-root'] || values['base-rev']) && values.to !== 'html') return usageError('--base, --base-root and --base-rev apply to --to html');
-      const options: RenderOptions = { markdownFilePath: path.resolve(args[0]), workspaceRoot: root, userCss: values.css };
+      if (values.cover && values.to !== 'html') return usageError('--cover applies to --to html');
+      const options: RenderOptions = { markdownFilePath: path.resolve(args[0]), workspaceRoot: root, userCss: values.css, coverTemplate: values.cover };
       let cleanup = (): void => {};
       try {
         const selected = resolveBase({ base: values.base, baseRoot: values['base-root'], baseRev: values['base-rev'] }, options.markdownFilePath, root);
@@ -1446,7 +1456,7 @@ export async function main(argv: string[]): Promise<number> {
           const selected = resolveBase({ base: values.base, baseRoot: values['base-root'], baseRev: values['base-rev'] }, path.resolve(arg), root);
           if (selected) cleanup = selected.cleanup;
           const warnings = buildPdf({
-            markdownFilePath: path.resolve(arg), workspaceRoot: root, userCss: values.css, base: selected?.base,
+            markdownFilePath: path.resolve(arg), workspaceRoot: root, userCss: values.css, coverTemplate: values.cover, base: selected?.base,
             output: outputs[index], variant: variant as PdfVariant, weasyprint: values.weasyprint,
           });
           for (const warning of warnings) console.error(`${arg}: ${warning}`);
@@ -1457,6 +1467,37 @@ export async function main(argv: string[]): Promise<number> {
           failures += 1;
         } finally {
           cleanup();
+        }
+      }
+      return failures > 0 ? 1 : 0;
+    }
+    case 'docx': {
+      if (args.length < 1) return usageError('docx takes one or more Markdown files');
+      if (!values.out) return usageError('docx needs -o, --out <file|dir>');
+      const target = path.resolve(values.out);
+      if (!pathWithinBoundaryForWrite(target, root)) return usageError('docx output must be inside --root');
+      let referenceDoc: string | undefined;
+      if (values['reference-doc']) {
+        referenceDoc = path.resolve(values['reference-doc']);
+        if (!pathWithinBoundaryForWrite(referenceDoc, root) || !fs.statSync(referenceDoc, { throwIfNoEntry: false })?.isFile()) return usageError('--reference-doc must be a file inside --root');
+      }
+      const single = args.length === 1 && target.toLowerCase().endsWith('.docx');
+      const outputs = args.map((arg) => (single ? target : path.join(target, `${path.basename(arg).replace(/\.[^.]*$/, '')}.docx`)));
+      if (new Set(outputs.map((output) => output.toLowerCase())).size !== outputs.length) return usageError('docx: two documents would write the same .docx name');
+      for (const output of outputs) {
+        if (fs.existsSync(output) && !(fs.statSync(output).isFile() && output.toLowerCase().endsWith('.docx'))) return usageError(`docx will not overwrite ${output}`);
+      }
+      if (!single) fs.mkdirSync(target, { recursive: true });
+      let failures = 0;
+      for (const [index, arg] of args.entries()) {
+        try {
+          const warnings = buildDocx({ markdownFilePath: path.resolve(arg), workspaceRoot: root, output: outputs[index], pandoc: values.pandoc, referenceDoc });
+          for (const warning of warnings) console.error(`${arg}: ${warning}`);
+          console.log(`wrote ${outputs[index]}`);
+        } catch (error) {
+          if (!(error instanceof RenderError)) throw error;
+          console.error(`${arg}: ${error.message}`);
+          failures += 1;
         }
       }
       return failures > 0 ? 1 : 0;

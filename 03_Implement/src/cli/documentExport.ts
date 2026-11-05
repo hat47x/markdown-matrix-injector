@@ -12,6 +12,7 @@ import type MarkdownIt from 'markdown-it';
 import type Token from 'markdown-it/lib/token.mjs';
 import { parse as parseYaml } from 'yaml';
 import { escapeHtml } from '../core/html.js';
+import { COVER_TEMPLATE_CSS, renderCoverTemplate } from './coverTemplate.js';
 import { REVISION_CSS, type RevisionResult } from './revisionMarks.js';
 import { extractEmbedQueries } from '../parser/embedSyntax.js';
 import { CROSS_REFERENCE_CSS, numberCaptions } from './captionNumbers.js';
@@ -36,6 +37,8 @@ export interface DocumentProperties {
   margin?: string;
   gutter?: string;
   css: string[];
+  /** A customer's HTML cover page (relative to the document); it replaces the built-in cover. */
+  coverTemplate?: string;
 }
 
 const TEXT_KEYS = ['title', 'subtitle', 'documentNumber', 'version', 'date', 'customer', 'organization', 'author', 'classification'] as const;
@@ -82,6 +85,10 @@ export function readFrontMatter(markdown: string): { properties: DocumentPropert
   if (record.font !== undefined) properties.font = readFontFamilies(record.font);
   if (record.margin !== undefined) properties.margin = readLengths(record.margin, 'margin', 1, 4);
   if (record.gutter !== undefined) properties.gutter = readLengths(record.gutter, 'gutter', 1, 1);
+  if (record.coverTemplate !== undefined) {
+    if (typeof record.coverTemplate !== 'string' || !record.coverTemplate.trim()) throw new FrontMatterError('front matter "coverTemplate" must be the path of an HTML file');
+    properties.coverTemplate = record.coverTemplate.trim();
+  }
   properties.cover = readFlag(record, 'cover');
   properties.toc = readFlag(record, 'toc');
   properties.captionNumbers = readFlag(record, 'captionNumbers');
@@ -173,6 +180,8 @@ export function buildDocumentHtml(
   moduleCss: string,
   loadUserCss: (frontMatterRefs: string[]) => string = () => '',
   revise?: (renderedHtml: string) => RevisionResult,
+  /** Reads a cover template: the front matter path, or the `--cover` file when one was given. */
+  loadCoverTemplate: (frontMatterRef: string | undefined) => string | undefined = () => undefined,
 ): string {
   const { properties, body } = readFrontMatter(markdown);
   const tokens = md.parse(body, env);
@@ -184,8 +193,9 @@ export function buildDocumentHtml(
   const revisedHtml = revision?.html ?? renderedHtml;
   const bodyHtml = (properties.captionNumbers ? numberCaptions(revisedHtml).html : revisedHtml) + (revision?.appendixHtml ?? '');
   const title = properties.title ?? firstHeading(tokens) ?? '';
+  const coverTemplate = loadCoverTemplate(properties.coverTemplate);
   const parts = [
-    properties.cover ? renderCover(properties, title) : '',
+    coverTemplate !== undefined ? renderCoverTemplate(coverTemplate, properties, title) : properties.cover ? renderCover(properties, title) : '',
     properties.toc ? renderToc(toc) : '',
     `<main class="mmi-doc-body">${bodyHtml}</main>`,
   ];
@@ -193,7 +203,7 @@ export function buildDocumentHtml(
 ${moduleCss}
 ${documentCss(properties, title)}${properties.captionNumbers ? `
 ${CROSS_REFERENCE_CSS}` : ''}
-${revision ? REVISION_CSS : ''}
+${revision ? REVISION_CSS : ''}${coverTemplate !== undefined ? COVER_TEMPLATE_CSS : ''}
 ${loadUserCss(properties.css)}
 </style></head><body>${parts.join('')}</body></html>`;
 }

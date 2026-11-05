@@ -15,6 +15,7 @@ import { getImmediateSmartFallbackDecision, getSmartFallbackDecisionAfterLoad } 
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
 import { extractEmbedQueries, type EmbedQuery } from '../parser/embedSyntax.js';
 import { markdownMatrixPlugin } from '../plugin/markdownMatrixPlugin.js';
+import { CoverTemplateError } from './coverTemplate.js';
 import { buildDocumentHtml, FrontMatterError, readFrontMatter } from './documentExport.js';
 import { markRevisions } from './revisionMarks.js';
 import { cliErrorText } from './messageLanguage.js';
@@ -25,6 +26,8 @@ export interface RenderOptions {
   cache?: WorkbookCache<WorkbookData>;
   /** Extra style sheets (`mmi render --css`), appended after the defaults and the front matter `css`. */
   userCss?: string[];
+  /** A customer's HTML cover page (`mmi render --cover`); it takes precedence over the front matter `coverTemplate`. */
+  coverTemplate?: string;
   /** Previous version to compare against (`mmi render --base`); changed blocks are marked in the HTML. */
   base?: { markdownFilePath: string; workspaceRoot: string; label: string };
 }
@@ -61,9 +64,10 @@ export function renderDocumentHtml(options: RenderOptions): string {
   let html: string;
   try {
     html = buildDocumentHtml(md, fs.readFileSync(options.markdownFilePath, 'utf8'), {}, css, (refs) => loadUserCss(options, refs),
-      options.base ? (current) => markRevisions(renderBodyHtml(options.base!), current, options.base!.label) : undefined);
+      options.base ? (current) => markRevisions(renderBodyHtml(options.base!), current, options.base!.label) : undefined,
+      (ref) => loadCoverTemplate(options, ref));
   } catch (error) {
-    if (error instanceof FrontMatterError) throw new RenderError(error.message);
+    if (error instanceof FrontMatterError || error instanceof CoverTemplateError) throw new RenderError(error.message);
     throw error;
   }
   if (html.includes('class="mmi-error"')) throw new RenderError('MMI reference errors must be resolved before export. Run `mmi check`.');
@@ -97,6 +101,24 @@ function loadUserCss(options: RenderOptions, frontMatterRefs: string[]): string 
   }).join('\n');
 }
 
+const COVER_TEMPLATE_MAX_BYTES = 256 * 1024;
+
+/** Reads the customer's cover template; like customer CSS it must be a small file inside the workspace. */
+function loadCoverTemplate(options: RenderOptions, frontMatterRef: string | undefined): string | undefined {
+  const ref = options.coverTemplate ?? frontMatterRef;
+  if (ref === undefined) return undefined;
+  const base = options.coverTemplate === undefined ? options.markdownFilePath : path.join(options.workspaceRoot, '__mmi_cover__.md');
+  let file: string;
+  try {
+    file = resolveSourcePath({ markdownFilePath: base, sourcePath: ref, workspaceRoot: options.workspaceRoot });
+  } catch (error) {
+    throw new RenderError(`cover template ${ref}: ${cliErrorText(error)}`);
+  }
+  const stat = fs.statSync(file);
+  if (!stat.isFile() || stat.size > COVER_TEMPLATE_MAX_BYTES) throw new RenderError(`cover template ${ref}: must be a regular file of at most ${COVER_TEMPLATE_MAX_BYTES / 1024} KB`);
+  return fs.readFileSync(file, 'utf8').replace(/^﻿/, '');
+}
+
 export function renderDocumentMarkdown(options: RenderOptions): string {
   const cache = options.cache ?? new WorkbookCache<WorkbookData>();
   const errors: string[] = [];
@@ -119,14 +141,21 @@ export function renderDocumentMarkdown(options: RenderOptions): string {
   return out.join('\n').replace(/\n{3,}/g, '\n\n');
 }
 
-function expandEmbed(embed: EmbedQuery, options: RenderOptions, cache: WorkbookCache<WorkbookData>): string {
+export interface EmbedParts {
+  kind: 'table' | 'card';
+  caption?: string;
+  /** The table as a GFM table, or the 別紙 reference line of a card. */
+  body: string;
+}
+
+/** What one reference expands to; `renderDocumentMarkdown` and `mmi docx` both build on it. */
+export function expandEmbedParts(embed: EmbedQuery, options: RenderOptions, cache: WorkbookCache<WorkbookData>): EmbedParts {
   const absolutePath = resolveSourcePath({
     markdownFilePath: options.markdownFilePath,
     sourcePath: embed.filepath,
     workspaceRoot: options.workspaceRoot,
   });
-  const caption = embed.params.get('caption')?.trim();
-  const captionLine = caption ? `**${escapeMarkdownTableCell(caption)}**\n\n` : '';
+  const caption = embed.params.get('caption')?.trim() || undefined;
   let decision = getImmediateSmartFallbackDecision(embed);
   let workbook: WorkbookData | undefined;
   if (decision.renderMode !== 'card') {
@@ -135,9 +164,17 @@ function expandEmbed(embed: EmbedQuery, options: RenderOptions, cache: WorkbookC
   }
   if (decision.renderMode === 'card' || !workbook) {
     const location = [embed.target, embed.range].filter(Boolean).join('!');
-    return `${captionLine}> 別紙: ${embed.filepath}${location ? ` (${location})` : ''}`;
+    return { kind: 'card', caption, body: `> 別紙: ${embed.filepath}${location ? ` (${location})` : ''}` };
   }
-  return captionLine + toGfmTable(buildLogicalTable(embed, workbook));
+  return { kind: 'table', caption, body: toGfmTable(buildLogicalTable(embed, workbook)) };
+}
+
+function expandEmbed(embed: EmbedQuery, options: RenderOptions, cache: WorkbookCache<WorkbookData>): string {
+  const parts = expandEmbedParts(embed, options, cache);
+  const captionLine = parts.caption ? `**${escapeMarkdownTableCell(parts.caption)}**
+
+` : '';
+  return captionLine + parts.body;
 }
 
 export function defaultWorkspaceRoot(markdownFilePath: string): string {
