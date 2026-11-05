@@ -78,7 +78,7 @@
 | 要求 | 状態 | 現状 |
 |---|---|---|
 | Word（.docx）で納品する | ● | `mmi docx`でPandoc経由。見本（14）をWord 16.0.19127で開いて確認した。[検証記録](#word納品の検証記録) |
-| 改訂箇所を示す（改訂マーク、新旧対照表） | ◐ | `--base`・`--base-rev`で前の版と比べ、変更箇所に印を付け、削除した内容を一覧にする。新旧対照表の形は未対応 |
+| 改訂箇所を示す（改訂マーク、新旧対照表） | ● | `--base`・`--base-rev`で前の版と比べ、変更箇所に印を付け、最後に変更ごとの変更前・変更後の新旧対照表を付ける | 単体テスト、PDFを画像で確認 |
 | 1回のコマンドでPDFまで作る、複数文書を一括で作る | ○ | `mmi render`とWeasyPrintを文書ごとに実行する |
 | 同じ版から同じPDFを再生成できる | ○ | 確かめていない。フォントや生成器の版で結果が変わりうる |
 
@@ -115,7 +115,7 @@
 
 **限界。**
 
-- Pandocは2.9.2.1でだけ確かめた。それより新しい版では、表のXMLの形が変わっている可能性がある。表の見出し行は、すでに`tblHeader`がある場合に重ねて入れない。
+- Pandocは2.9.2.1と3.11で確かめた（見本をWordで開いてPDFに書き出し、表紙・目次・ヘッダーとフッター・表・横向きのページが同じに再現された）。3.11では、Pandoc自身が表の見出し行（`tblHeader`）を付け、表は固定レイアウトで列幅が等分になる（2.9.2.1は自動幅）。MMIは見出し行を重ねて入れず、行を分割しない指定だけを足す。列幅が等分のため、短い列でも文字が折り返されることがある。その間の版は未確認である。
 - 目次とページ番号のフィールドは、Wordが更新する。開いたときの確認ダイアログは避けられない。
 - 実機で確かめたのはWindowsのWord 1版だけで、macOS版Wordやブラウザー版は確かめていない。
 
@@ -174,7 +174,7 @@ docker run --rm -v "$PWD":/data verapdf/cli:latest -f 2a --format text /data/文
 1. 顧客指定の様式に合わせる。CSS・書体・余白・綴じ代と、顧客指定の表紙は対応した（[#635](https://github.com/hat47x/markdown-matrix-injector/issues/635)）。Wordの表紙をテンプレートから差し替えることは、`--reference-doc`の様式の範囲でしか対応していない。SIerの案件では、発注者の様式が決まっていることが多い。
 2. Word（.docx）で納品する。`mmi docx`で対応した。Word 16.0.19127で確認した。変更箇所の表示と別紙カードの体裁が残っている（[#636](https://github.com/hat47x/markdown-matrix-injector/issues/636)）。
 3. PDFまで1回のコマンドで作る経路と複数文書の一括出力は`mmi pdf`で対応した。PDF/Aとタグ付きPDFの適合は見本1点で確かめた。ここまでは[#637](https://github.com/hat47x/markdown-matrix-injector/issues/637)で対応した。画像を含む文書は見本（15）で確かめた（2026-11-05、[#771](https://github.com/hat47x/markdown-matrix-injector/issues/771)）。PDF/Aの指定のときにMMIが画像の補間を既定で切るかは決めていない。
-4. 改訂箇所を示す。改訂マークと削除の一覧は対応した。新旧対照表の形が残っている（[#638](https://github.com/hat47x/markdown-matrix-injector/issues/638)）。
+4. 改訂箇所を示す。改訂マークと新旧対照表は対応した（[#638](https://github.com/hat47x/markdown-matrix-injector/issues/638)）。Wordの出力（`mmi docx`）では、まだ変更箇所を示せない。
 5. 図表番号を自動で振り、相互参照にページ番号を添える（[#639](https://github.com/hat47x/markdown-matrix-injector/issues/639)）。表の通し番号とリンクのページ番号は対応し、WeasyPrint 69.0でのPDFでも確かめた（2026-10-27）。章別の番号（表1-1）が残る。
 
 ## 参考

@@ -358,7 +358,7 @@ npm run mmi -- docx ../04_Documentation/samples/practical/14-delivery.md -o ../0
 
 ### 前の版からの変更箇所を示す
 
-改訂版を納品するときは、前の版を渡すと、変更した箇所に印が付き、最後に「改訂箇所の一覧」が付きます（[見本](samples/revision/v2-with-revisions.pdf)）。
+改訂版を納品するときは、前の版を渡すと、変更した箇所に印が付き、最後に変更ごとの変更前・変更後を並べた「改訂箇所の一覧（新旧対照表）」が付きます（[見本](samples/revision/v2-with-revisions.pdf)）。
 
 ```bash
 npm run mmi -- pdf 設計書.md -o 設計書.pdf --base-rev v1.0
