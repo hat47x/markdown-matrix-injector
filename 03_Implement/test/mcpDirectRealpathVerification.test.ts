@@ -96,3 +96,16 @@ test('MCP find fails closed when workspace enumeration is unknown', async (t) =>
   }) as typeof fs.readdirSync);
   assertUnverified(await x.call('find', { query: 'something' }), x.base, x.outside);
 });
+
+test('MCP find refuses a link whose realpath cannot be verified', async (t) => {
+  const x = await setup(t); if (!x) return;
+  const baseline = await x.call('find', { query: 'something' });
+  assert.equal(baseline.result?.structuredContent?.code, 'outside-root');
+  const link = path.join(x.root, 'link');
+  const original = fs.realpathSync.bind(fs);
+  t.mock.method(fs, 'realpathSync', ((p: fs.PathLike, options?: unknown) => {
+    if (path.resolve(String(p)) === path.resolve(link)) throw Object.assign(new Error('synthetic denied'), { code: 'EACCES' });
+    return original(p, options as never);
+  }) as typeof fs.realpathSync);
+  assertUnverified(await x.call('find', { query: 'something' }), x.base, x.outside);
+});
