@@ -2,7 +2,7 @@
   "name": "markdown-matrix-injector",
   "displayName": "Markdown Matrix Injector (MMI)",
   "description": "Declarative, read-only table references from Markdown to Excel/CSV/XML — a governance boundary between source-of-truth data and text documents",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "hat47x",
   "license": "MIT",
   "type": "module",
