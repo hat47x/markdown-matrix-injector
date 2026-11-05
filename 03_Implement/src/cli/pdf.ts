@@ -19,6 +19,8 @@ export interface PdfOptions extends RenderOptions {
   variant: PdfVariant;
   /** WeasyPrint executable (default `weasyprint` from PATH). */
   weasyprint?: string;
+  /** Epoch seconds for the PDF's creation time (`SOURCE_DATE_EPOCH`); the same inputs then give the same bytes. */
+  sourceDateEpoch?: number;
 }
 
 export interface PdfRunResult {
@@ -27,10 +29,10 @@ export interface PdfRunResult {
   error?: Error;
 }
 
-export type PdfRunner = (command: string, args: string[], html: string) => PdfRunResult;
+export type PdfRunner = (command: string, args: string[], html: string, env?: Record<string, string>) => PdfRunResult;
 
-const runWithSpawn: PdfRunner = (command, args, html) => {
-  const result = spawnSync(command, args, { input: html, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, windowsHide: true });
+const runWithSpawn: PdfRunner = (command, args, html, env) => {
+  const result = spawnSync(command, args, { input: html, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, windowsHide: true, env: env ? { ...process.env, ...env } : process.env });
   return { status: result.status, stderr: result.stderr ?? '', error: result.error };
 };
 
@@ -45,7 +47,7 @@ export function buildPdf(options: PdfOptions, run: PdfRunner = runWithSpawn): st
   const baseUrl = `${pathToFileURL(path.dirname(path.resolve(options.markdownFilePath))).href}/`;
   const args = ['-', temporary, '--base-url', baseUrl];
   if (options.variant !== 'none') args.push('--pdf-variant', options.variant, '--pdf-tags');
-  const result = run(command, args, html);
+  const result = run(command, args, html, options.sourceDateEpoch === undefined ? undefined : { SOURCE_DATE_EPOCH: String(options.sourceDateEpoch) });
   if (result.error) {
     fs.rmSync(temporary, { force: true });
     const missing = (result.error as NodeJS.ErrnoException).code === 'ENOENT';
