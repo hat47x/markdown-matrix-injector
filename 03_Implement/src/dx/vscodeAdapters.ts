@@ -173,9 +173,14 @@ export async function createDiagnosticsForDocument(
       containmentOk = isPathWithinBoundary(checkPath, realBoundary);
     }
 
-    const xmlMode = fileExists ? await detectXmlMode(resolvedFilepath, dependencies) : 'none';
-    const sheetNames = fileExists && match.target ? await readSheetNames(resolvedFilepath, dependencies) : undefined;
-    const sheetExists = sheetNames && match.target ? sheetNames.includes(match.target) : fileExists && match.target ? false : undefined;
+    // A file whose real path leaves the boundary (a junction or symlink inside
+    // the workspace) is reported as outside and never read: reading it would
+    // put outside content, such as its sheet names, into the diagnostics
+    // (#776, ADR-0030 D2, ADR-0027 D3).
+    const readable = fileExists && containmentOk !== false;
+    const xmlMode = readable ? await detectXmlMode(resolvedFilepath, dependencies) : 'none';
+    const sheetNames = readable && match.target ? await readSheetNames(resolvedFilepath, dependencies) : undefined;
+    const sheetExists = sheetNames && match.target ? sheetNames.includes(match.target) : readable && match.target ? false : undefined;
     const parsedQuery = extractEmbedQueries(match.raw)[0];
     const embedDiagnostics = validateEmbedDiagnostics({
       query: {

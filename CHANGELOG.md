@@ -30,6 +30,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 - **MCP input line limit** (#717): `mmi-mcp` no longer buffers a whole stdin line before checking the 8 MiB limit. A line over the limit is discarded as it streams in, answered once with `-32600`, and processing resumes after the next newline, so a huge line without a newline no longer ends the server with an out-of-memory error.
 
+### Security
+- **No outside content through in-workspace links** (#776, ADR-0030 D2, ADR-0027 D3): a reference that resolves through a junction or symlink inside the workspace to a workbook outside it now reports only `MMI_PATH_OUTSIDE_BOUNDARY` in `mmi check`, MCP `check` and the VS Code Problems panel. The outside file is no longer read, so `MMI_SHEET_NOT_FOUND` with the outside workbook's sheet names and `MMI_INVALID_XML` are no longer reported for it.
+
 ## [0.2.0] - 2026-10-20
 
 Verification release (ADR-0025): distributed as a VSIX and a self-contained CLI tarball with release evidence. Extension and package identifiers are unchanged and may still move before the first Marketplace / npm registry release (#504, #517). The notation (MMI Notation v1, Draft), `MMI_*` diagnostic codes and `mmi.*` contract names are unchanged.
