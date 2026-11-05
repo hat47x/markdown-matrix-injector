@@ -31,7 +31,20 @@ test('an added, an edited and a removed block are told apart, and unchanged bloc
   assert.equal(result.html, '<p>変わらない</p><p data-mmi-rev="changed">新しい文</p><p>間</p><p>末尾</p><p data-mmi-rev="added">追加した文</p>');
   assert.deepEqual(result.counts, { added: 1, changed: 1, deleted: 1 });
   assert.match(result.appendixHtml, /比較元: 前版\.md　追加1件・変更1件・削除1件/);
-  assert.match(result.appendixHtml, /<td>消える文<\/td>/);
+  assert.match(result.appendixHtml, /<td>削除<\/td><td>消える文<\/td><td>―<\/td>/);
+});
+
+test('the appendix is an old/new comparison table: every change with its heading, kind, before and after', () => {
+  const previous = '<h2>運用</h2><p>稼働は8時から20時です。</p><p>連絡はメールです。</p><h2>問い合わせ</h2><p>受付は9時からです。</p>';
+  const current = '<h2>運用</h2><p>稼働は8時から22時です。</p><p>連絡はメールです。</p><h2>問い合わせ</h2><h2>緊急連絡</h2><p>当番表に従います。</p>';
+  const rows = [...markRevisions(previous, current, 'v1').appendixHtml.matchAll(/<tr class="mmi-revisions__(\w+)"><td>([^<]*)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><td>([^<]*)<\/td><\/tr>/g)]
+    .map((match) => match.slice(1));
+  assert.deepEqual(rows, [
+    ['changed', '運用', '変更', '稼働は8時から20時です。', '稼働は8時から22時です。'],
+    ['deleted', '問い合わせ', '削除', '受付は9時からです。', '―'],
+    ['added', '緊急連絡', '追加', '―', '緊急連絡'],
+    ['added', '緊急連絡', '追加', '―', '当番表に従います。'],
+  ]);
 });
 
 test('a table row that changed is marked on the row, not on the whole table', () => {
@@ -52,7 +65,7 @@ test('a changed caption is marked on the figure by a separate attribute and the 
 test('a new section next to a deleted line is not reported as an edit of that line', () => {
   const result = markRevisions('<p>残す</p><p>受付時間は、平日9時から17時までです。</p>', '<p>残す</p><h2>4. 緊急時の連絡</h2><p>夜間・休日の緊急連絡先は、当番表に従います。</p>', 'x');
   assert.deepEqual(result.counts, { added: 2, changed: 0, deleted: 1 });
-  assert.match(result.appendixHtml, /<td>受付時間は、平日9時から17時までです。<\/td>/);
+  assert.match(result.appendixHtml, /<td>削除<\/td><td>受付時間は、平日9時から17時までです。<\/td><td>―<\/td>/);
 });
 
 test('a block that only moved is reported as deleted and added', () => {
@@ -65,7 +78,7 @@ test('identical documents produce no marks and an empty list', () => {
   const result = markRevisions(html, html, 'x');
   assert.equal(result.html, html);
   assert.deepEqual(result.counts, { added: 0, changed: 0, deleted: 0 });
-  assert.match(result.appendixHtml, /削除した内容はありません/);
+  assert.match(result.appendixHtml, /前の版からの変更はありません/);
 });
 
 test('deleted text is escaped in the appendix', () => {
