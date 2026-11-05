@@ -269,7 +269,7 @@ function documentCss(properties: DocumentProperties, title: string): string {
     color: #1a1a1a; }
   body { line-height: 1.65; font-size: 10pt; }
   code, pre, kbd, samp { font-family: "Noto Sans Mono CJK JP", Consolas, "BIZ UDGothic", "MS Gothic", "DejaVu Sans Mono", monospace; }
-  h1 { font-size: 20pt; } h2 { font-size: 14pt; margin-top: 1.5em; } h3 { font-size: 12pt; }
+  h1 { font-size: 20pt; } h2 { font-size: 14pt; margin-top: 1.5em; } h3 { font-size: 12pt; } h4 { font-size: 11pt; } h5 { font-size: 10.5pt; } h6 { font-size: 10pt; }
   h1, h2, h3, h4, h5, h6 { break-after: avoid; page-break-after: avoid; break-inside: avoid; }
   a { color: #0b5394; } code { overflow-wrap: anywhere; } pre { white-space: pre-wrap; }
   [data-mmi-break="before"] { break-before: page; page-break-before: always; }
