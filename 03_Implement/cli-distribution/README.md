@@ -25,7 +25,7 @@ tarballの隣へ、同梱したruntime依存の名前・版・ライセンス、
 ローカルまたは社内配布されたtarballはnpmで直接インストールできます。
 
 ```sh
-npm install -g ./markdown-matrix-injector-0.2.0.tgz
+npm install -g ./markdown-matrix-injector-0.3.0.tgz
 mmi --help
 mmi --version
 mmi --version --json   # コミット・lockfile digest・未コミット変更の有無(dirty)・Node.js版・提供形態（mmi.build-identity/v1）
@@ -35,7 +35,7 @@ mmi check docs/ --root .
 一時利用ではnpm package specとしてtarballを指定できます。
 
 ```sh
-npm exec --yes --package ./markdown-matrix-injector-0.2.0.tgz -- \
+npm exec --yes --package ./markdown-matrix-injector-0.3.0.tgz -- \
   mmi check docs/ --root .
 ```
 

@@ -35,7 +35,7 @@ jobs:
       - name: Install MMI CLI
         run: |
           # 例: リリースから取得したtarballを導入する
-          npm install --global ./markdown-matrix-injector-0.2.0.tgz
+          npm install --global ./markdown-matrix-injector-0.3.0.tgz
 
       - name: MMI check
         uses: hat47x/markdown-matrix-injector/.github/actions/mmi-check@main
