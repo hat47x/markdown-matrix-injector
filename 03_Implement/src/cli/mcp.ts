@@ -32,6 +32,7 @@ import {
   readCliVersion,
 } from './mmi.js';
 import { readBuildIdentity } from './buildIdentity.js';
+import { buildMcpSurface } from './mcpSurface.js';
 import { checkExpectedSourceDigest } from '../core/sourceIdentity.js';
 import { runFind, runSelect } from './navigateCommands.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './render.js';
@@ -256,6 +257,17 @@ export const MCP_TOOLS: readonly McpToolDefinition[] = [
 ];
 
 export const MCP_TOOL_NAMES: readonly string[] = MCP_TOOLS.map((tool) => tool.name);
+
+/**
+ * Tools audited as read-only. A tool missing from this list is declared
+ * `readOnly: false` in the surface declaration, which fails test/mcpSurface.test.ts.
+ */
+export const MCP_READ_ONLY_TOOL_NAMES: ReadonlySet<string> = new Set([
+  'schema', 'inspect', 'check', 'render', 'select', 'find', 'handoff',
+  'validate-proposal', 'validate-selection', 'validate-transformation', 'html-audit',
+]);
+
+export const MCP_SURFACE = buildMcpSurface(MCP_TOOLS, (name) => MCP_READ_ONLY_TOOL_NAMES.has(name));
 
 // tools/list declares additionalProperties:false. Enforce it at call time so a
 // misspelled pin such as "expectedSourceDigests" is rejected instead of being
@@ -523,7 +535,7 @@ class McpServerImplementation implements McpServer {
         );
       }
       if (method === 'tools/list') {
-        return rpcResult(requestId, { tools: MCP_TOOLS });
+        return rpcResult(requestId, { tools: MCP_TOOLS, _meta: { 'mmi/surface': MCP_SURFACE } });
       }
       if (method === 'tools/call') {
         return await this.callTool(requestId, message.params);
@@ -553,6 +565,7 @@ class McpServerImplementation implements McpServer {
       instructions: INSTRUCTIONS,
       _meta: {
         'mmi/buildIdentity': readBuildIdentity(this.version),
+        'mmi/surface': { contract: MCP_SURFACE.contract, readOnly: MCP_SURFACE.readOnly, digest: MCP_SURFACE.digest },
         'mmi/protocolNegotiation': {
           requested,
           selected: MCP_PROTOCOL_VERSION,
