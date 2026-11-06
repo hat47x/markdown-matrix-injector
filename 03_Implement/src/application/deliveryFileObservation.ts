@@ -2,6 +2,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 
 import { LocalizedError } from '../core/messages/index.js';
+import { stripInlineCode } from '../core/markdownLinks.js';
 import {
   PathContainmentError,
   isPathWithinBoundary,
@@ -59,6 +60,27 @@ export interface ObserveDeliveryFilesOptions {
   workspaceRoot: string;
 }
 
+/** Exclude HTML comment bodies across lines without altering the source or line numbers. */
+function withoutHtmlComments(line: string, state: { open: boolean }): string {
+  let at = 0;
+  let visible = '';
+  while (at < line.length) {
+    if (state.open) {
+      const end = line.indexOf('-->', at);
+      if (end < 0) return visible;
+      state.open = false;
+      at = end + 3;
+    } else {
+      const start = line.indexOf('<!--', at);
+      if (start < 0) return visible + line.slice(at);
+      visible += line.slice(at, start);
+      state.open = true;
+      at = start + 4;
+    }
+  }
+  return visible;
+}
+
 /**
  * The first #658 slice: file-only Excel MMI embeds in a single root Markdown.
  * Reuses the existing parser, containment resolver and source identity.
@@ -81,26 +103,35 @@ export function observeDeliveryFiles(
   const firstDigest = new Map<string, { canonicalPath: string; line: number }>();
   let fence: { marker: string; width: number } | undefined;
 
+  const htmlComment = { open: false };
   for (const [index, line] of options.markdownText.split(/\r?\n/u).entries()) {
-    const marker = line.match(/^ {0,3}((?:\x60){3,}|~{3,})/u)?.[1];
-    if (marker) {
-      if (!fence) {
-        fence = { marker: marker[0], width: marker.length };
-      } else if (fence.marker === marker[0] && marker.length >= fence.width) {
+    // A comment containing a fence-looking line must not open a real code fence.
+    // Conversely, comment tokens inside a real code fence have no document effect.
+    if (fence) {
+      const closing = line.match(/^ {0,3}((?:\x60){3,}|~{3,})/u)?.[1];
+      if (closing && fence.marker === closing[0] && closing.length >= fence.width) {
         fence = undefined;
       }
       continue;
     }
-    if (fence) continue;
 
-    const heading = line.match(/^ {0,3}(#{1,6})[ \t]+(.+?)\s*#*\s*$/u);
+    // Code-spans are examples, not deliverable declarations. Mask them before
+    // handling comments so a literal `<!--` does not swallow later references.
+    const visible = withoutHtmlComments(stripInlineCode(line), htmlComment);
+    const marker = visible.match(/^ {0,3}((?:\x60){3,}|~{3,})/u)?.[1];
+    if (marker) {
+      fence = { marker: marker[0], width: marker.length };
+      continue;
+    }
+
+    const heading = visible.match(/^ {0,3}(#{1,6})[ \t]+(.+?)\s*#*\s*$/u);
     if (heading) {
       const depth = heading[1].length;
       headings.splice(depth - 1);
       headings[depth - 1] = heading[2];
     }
 
-    for (const embed of extractEmbedQueries(line)) {
+    for (const embed of extractEmbedQueries(visible)) {
       // Only whole-workbook MMI references are provisional delivery entries.
       // An inline table, a plain Markdown link and non-Excel embeds are not.
       if (embed.target || embed.range || !/\.(?:xlsx|xlsm|xls)$/iu.test(embed.filepath)) {
