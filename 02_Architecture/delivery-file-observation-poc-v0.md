@@ -6,6 +6,37 @@
 - テスト：`03_Implement/test/deliveryFileObservation.test.ts`
 - 公開契約：**未採用**。CLI／VS Codeコマンド／既存 `mmi manifest` の挙動は変更しない
 
+## 2026-11-03 実証現在地（以下の過去追補より優先）
+
+| 範囲 | 検証事実と制限 | 次に必要な証拠 |
+| --- | --- | --- |
+| **T6 参照文法** | [Draft #755](https://github.com/hat47x/markdown-matrix-injector/pull/755)で修正前に新規2件FAIL、修正後に両件PASS。Ubuntu・Windows製品CIとresearch SUCCESS。**main未統合**。 | main統合後の回帰、実務Markdown・対象外構文の確認 |
+| **T7 Byteと形式** | [Draft #760](https://github.com/hat47x/markdown-matrix-injector/pull/760)の前head `959daee17e02d2114a4cde0613f6fb821a510553`、[CI #41464902366](https://github.com/hat47x/markdown-matrix-injector/actions/runs/41464902366)はUbuntu/Windows/research全SUCCESS。非OOXMLの`.xlsx`を含んでも`aligned`になり得ることを合成CLIで確認。**main未統合**。 | 完全なExcel構造検査の独立Oracle・実原本は別担当 |
+| **T13 保存文書と実消費版** | #760現head `6d221552ade309b7c3360d26b81700cbe760f40c`の[CI #41503089669](https://github.com/hat47x/markdown-matrix-injector/actions/runs/41503089669)で**Windows製品ジョブSUCCESS**。S13-1/2、S13-3、S13-4の3件が個別`ok`。**同headのUbuntu/Windows/research全ジョブSUCCESS**（release-candidateはPR条件でskipped）、main未統合。 | main統合後回帰、実SHO Editor／Rendererの実消費byteとOwnerレビューは別検証 |
+| **T8 重複出現／所在／内容** | 既存`deliveryAudit.test.ts`で**参照3・matched3・実所在2・duplicate1・同内容別所在1**。#760現headのWindows個別`ok`、全ジョブSUCCESS。 | 実案件での3参照の役割とRequiredの件数は未判断。追加重複テストは不要。 |
+| **T14 外部Requiredの別母集団** | [独立Draft #761](https://github.com/hat47x/markdown-matrix-injector/pull/761)に、Required R0=2項目→R1=3項目（test不足1）の変更だけでは`delivery-audit aligned`とJSON全体が変わらない合成CLIテストを追加。**当初head `717c5db25262a0f13d900ad2d166a50cc49f2c60`のCIは追補時点でqueued**。 | 同headの実OSテスト。業務上の契約要求／多対多対応／Owner受理は別の判定。 |
+| **T9～T12・T15～T16** | 対象位置・容量・Occurrence・納品世代・普通のMarkdown対照は試験計画。 | 各レーンの固定入力・実測・Owner境界 |
+| **C-01/T2** | G0-0（同一fixture・Source SHA・Sheet/Range）未通過。 | MMI×SHO出典再接続の統合PASSはSTOP。SHO単独M0-EXは別レーン |
+
+> この表は**設計追補PRに残す実証台帳**であり、実装PRのCI成功やDraftの存在をmain採用・Owner検収・実利用資格に昇格させない。旧節にある「T6はNOT RUN」「T7はCI未確認」は当時の履歴であり、更新事実は本表を優先する。
+
+### 2026-11-03 判定の再利用条件：件数が一致しても同じ文書・根拠ではない
+
+[SHO #2のM0-EX負例](https://github.com/hat47x/sho-composer/issues/2#issuecomment-6585279784)は、Markdownの**Link数とURL候補数が不変でも**、参照定義の変更で実効href、字下げ変更で親子関係、Parser profile変更で解釈が変わり得ると整理した。SHO側のPython局所probeは実SHO Node/VS Code製品のPASSではない。MMI #658のWhole-File参照は一般Markdownリンクとは**別の文法**だが、**集計件数から現在の適用資格を導けない**原則は共通する。
+
+| 判定対象 | 既存#658の証拠 | 結果再利用を保留する条件 |
+| --- | --- | --- |
+| **文書入力版** | JSONのdocumentはパスのみでraw Markdown digestなし（T13 S13-3）。 | 保存済み原文が変更、未保存バッファ、Parser条件が未確認。**同じJSONでも現在の原文を検査済みとはしない**。 |
+| **Source所在とByte** | resolvedPath/digest、目録digest。T8は参照3回と実所在2件が共存。 | 同pathの内容変更、同byte別所在、root/scope変更、後続Consumerが実際に読んだbyteが不明。 |
+| **解析・表示** | Excel拡張子とbyte集合照合（T7非OOXML負例）、MMI Whole-File参照抽出（T6限定修正）。 | XLSX構造、Sheet/Range、hidden/veryHidden、復号条件、実Rendererの読取が未確認。 |
+| **要求・受理** | DeclaredとObservedのalignment、参照出現・目録件数。 | Required集合の版/Scope、要求と納品物の多対多対応、固定Delivered、Review/Owner/開示資格が未確認。 |
+
+**T8/T14の分離**：T8は既存の参照3・所在2の検査を維持する。T14は**別fixture**でMarkdown/Excel各2件を固定し、外部RequiredのみR0=screen/data→R1=screen/data/testへ増やす。外部Oracleは合成Requiredに指定したexpectedArtifactと監査済みmatched pathを照合するだけで、業務意味上の受理判定を実装しない。R0/R1で監査JSONが同じでも、Required coverageは変化する。正式な要求の出所・Scope・版と多対多対応はOwner未採用。
+
+**SHOの後着応答**：遅延して届くD0監査結果を、現在編集しているD1の資格へ自動転用しない。入力Document Revision・Parser profile・Source実所在/実byte・表示実消費/Review・要求用途の対応が実証できた範囲だけ利用する。#658の現行JSONだけではこれらを一式証明できない。SHO M0-EXは独立実証、MMI×SHO出典再接続はC-01/T2 G0-0→G2の停止条件を維持する。
+
+**状態**：T13のWindows/Ubuntu/research製品CIは同headで全SUCCESS、T8重複参照は既存PASS、T14は新Draft #761のテスト追加段階でOS結果未確認。外部Requiredの業務受理、SHO製品Reader/Renderer、現在Review資格は未確認。Draft CI成功をmain採用へ昇格しない。
+
 ## 最小利用例
 
 ```markdown
@@ -51,3 +82,216 @@
 5. 実務観測は [#524](https://github.com/hat47x/markdown-matrix-injector/issues/524) へ接続する。
 
 本メモは正式な仕様・受入済み機能・Wails本流製品の実装完了を主張するものではない。
+
+---
+
+## 2026-11-02 追補：#658 独立受入の実証計画（提案・未実行）
+
+### 実装と証拠の基準
+
+- 照合main：`e293927e7decb548c9662c4a19a140c1d017a1a8`（[push CI #41268645261](https://github.com/hat47x/markdown-matrix-injector/actions/runs/41268645261) SUCCESS）。[`delivery-audit` PR #675](https://github.com/hat47x/markdown-matrix-injector/pull/675)はmainへ統合済み。上段の「CLIは変更しない」は初期縦切りの履歴であり、**現時点のCLI未実装を意味しない**。
+- 既存`deliveryAudit.test.ts`の16件XLSX・9ケースは、合成Workbooksの集合照合・コマンドの既存証拠。**T6/T7/T8の個別受入、顧客原本、VS Code実操作、納品検収はこれに含まれない**。本追補は追加実行結果ではない。
+- 上位の順序は[`01_Plans/product-repolish-plan.md` §10.3](../01_Plans/product-repolish-plan.md)と[Issue #658](https://github.com/hat47x/markdown-matrix-injector/issues/658)を参照。本節には#658固有の小fixtureと合否の計算法だけを置く。#525のC-01/T2と#672のHTML監査の受入表を複製しない。
+
+### 評価対象の集合と数え方
+
+- **Declared**：納品構成Markdownで有効な**ファイル全体のMMI Excel参照**として検出した出現。参考説明、インラインコード、コメント、Sheet/Range埋込みは区別して観測する。
+- **Observed**：指定フォルダーの`inventory`が確認できた物理エントリ。除外・読込不能・サイズ上限超過などは独立した未観測要素。
+- **Required**：契約やOwner判断により必要とされた成果物。外部要求集合の入力がない場合は**不明**とし、Declared=Observedから契約網羅性を導かない。
+- **Consumed**：表示や再構成に用いられたSource/Region/Assetの実依存。**Delivered**：固定納品版に実際に含めた資産。現行`delivery-audit`の対象外で、SHO Composer側の文書編纂・固定納品版の計画と接続する後段。
+- **出現数／重複を除いた実所在数／異なるbyte digest数／Requiredの件数**は独立に表示・評価する。現在の`matched`は参照出現ごとの一致件数であり、物理ファイル数や契約要求件数と同一ではない。
+
+### T6～T8 最小反例と機械的期待値
+
+| ケース | 固定する入力・期待値 | 現状の根拠と受入に必要な証拠 |
+| --- | --- | --- |
+| **T6：Markdown上の納品宣言** | `docs/delivery.md` に①複数行HTMLコメントの `![[../excel/samples/comment.xlsx]]`、②インラインコードの `![[../excel/samples/example.xlsx]]`、③コードフェンス内の記法、④**有効な** `![[../excel/delivery/current.xlsx]]` を置く。Excel実体は`excel/samples/`と`excel/delivery/`に分離する。`observeDeliveryFiles.references`は④の**1出現のみ**、`delivery-audit`のinventory scopeを`excel/delivery`にした比較は`matched=1`、`aligned`を期待する。 | 現行`extractEmbedQueries(line)`は行内のMMI文字列を拾い、`deliveryFileObservation.ts`はフェンス以外のコード・コメントを明示除去しない。**静的反例候補**として、修正前CLIのJSON件数・行番号を保存し、同一fixtureに対する修正後を別headで確認。既存`markdownLinks.ts`の`FenceTracker`／`stripInlineCode`を参考に、複数行コメント・一行内の複数参照・フェンス境界も検証する。 |
+| **T7：bytesと構造の分離** | 同じ相対pathを指す実体に①小さな正当XLSXと②破損／非OOXMLの`.xlsx`を用意。双方ともDeclaredとObservedのbyte digestが一致し、**集合照合が`aligned`になり得る**。その後、別のWorkbook構造検査を行い、構造未確認／失敗を区別して記録する。 | 既存`delivery-audit`はファイル集合とSource Identityの照合であり、Excel内部構造は保証しない。`inspect`等を使う場合も実際の解析結果を収集し、**「破損なら必ず既存inspectが拒否する」ことは事前仮定にしない**。必要なら構造診断の契約範囲を別に明示する。原本の意味的有用性はさらに独立した受入。 |
+| **T8：重複とRequiredの分離** | 同じXLSXを2箇所から参照し、別pathの同bytes複製を1箇所から参照する。期待するのは**参照出現3、実所在2、異なるbytes 1**。 `duplicateReferences=1`、`sameContentDifferentFiles=1`、比較上`matched=3`は共存可能。 | 現行合成テストはこの区別の一部を既に確認。追加の受入票では**Requiredの件数は未設定／未確認**とし、3件を3納品物と推定しない。参考資料か正式納品対象かはOwner判断。 |
+
+**結果の表現**：`aligned`／`differences`／`indeterminate`は「選択された二観測の比較結果」である。T7で`aligned`でも構造診断が未実施なら`structure=not-checked`を**受入票の別欄**として残す（既存JSONスキーマに新フィールドを先行追加する提案ではない）。T8でも`required=unknown`を受入票に残す。0件や未実行を「検査済みOK」に変換しない。
+
+### 後続の追加負例（T6～T8より後）
+
+- **T9：実解決Location**：同じ`design.xlsx`が文書相対位置とWorkspace相対位置に存在する場合、現行`resolveSourcePath`の候補順により意図と異なるSourceを指す可能性を観測する。参照文字列、参照基準、実realpath、Source Digestを別欄に記録する。これは**#658の集合照合の負例**であり、[#525](https://github.com/hat47x/markdown-matrix-injector/issues/525) C-01/T2のCandidate Review→保存後再解決と同じ合格にはしない。
+- **T10：読取資源と観測時刻**：`inventory`の`--max-bytes`は目録側を制限する一方、現在の`observeDeliveryFiles`は`readSourceFileIdentity`経由で対象ファイルを一括読込みする。この非対称性の上限・失敗分類と、独立した二回の読込み間の変更を検証する。容量超過・読込み競合を成功にせず、OS間のsymlink/TOCTOU保証を実証なしに断言しない。最初は安全な小fixtureや注入可能なテスト手段で観測する。
+- **T11：未参照の非Excel・除外集合**：`inventory.status=partial`がExcel以外の除外資料に由来する場合、Excel参照の一致と、**指定ディレクトリ全体の目録の不完全性**の両方を表示する。対象スコープを変えて数字が変わることを明示する。
+
+### 実行・昇格の順序
+
+1. **D0：fixture固定**。T6/T7/T8それぞれの入力ファイル、Markdown生bytes、配置、期待参照出現、期待資料集合と実行main SHAを残す。T7は正当XLSXと破損XLSXを別bytesとし、byte digestも記録する。
+2. **D1：既存CLIでの負例観測**。改変前の`mmi delivery-audit <doc> <directory> --root ... --json`と終了コード、JSON各件数・status・行番号・対象scopeを保存する。静的推定と実測結果を区別する。
+3. **D2：必要最小の修正／回帰**。T6の参照抽出が予想と違った場合は既存Markdown解析機構を再利用して修正し、対象外の通常`check`／`manifest`等への影響を確認する。T7のファイル集合検査へExcel全体の業務意味受理を混ぜない。T8は既存重複テストを起点に件数表示・受入票を補う。
+4. **D3：配布・実務の別証拠**。Linux/Windows製品テスト、同じ条件でのCLI出力と原本非改変、実案件相当のExcel、可能なら利用者の誤読・手戻りの観察を分離する。通常CI成功をVSCode実機・実案件の受入へ昇格しない。
+5. **D4：固定納品版の別レーン**。必要なRequired集合が与えられた場合の照合、Consumed/Delivered・依存画像と変換版、納品時の検査レシートとOwner受理を検証する。作業版との分離と再現性はMMI #658だけの合格条件としない。
+
+### 横断接続と停止条件
+
+- [#525](https://github.com/hat47x/markdown-matrix-injector/issues/525)の**C-01/T2はG0-0未通過**（CLI/共通基盤でfixtureのSHAおよびSheet/Rangeが未一致）。共有ZIP・A/B digest・原本のrealpath・同一候補の照合を先に済ませ、G0 CLI→G1 VSCode→G2横断受入の順序を維持する。**SHO×MMIの保存後出典統合実証はG0-0を満たしてから**実施する。#658のT6～T8は独立したread-only MMI試験として並行可能。
+- [#672](https://github.com/hat47x/markdown-matrix-injector/pull/672)のHTML保存後監査とLinuxオフラインtarball配布検査は既存の独立証拠を利用し、#658のExcel納品集合やC-01/T2の再解決PASSに読み替えない。Windows tarball配布・実AIクライアント受入は別扱い。
+- 責任分担は**MMI＝Source/Identity/Candidate/出典と観測、SHO Composer＝文書編纂と納品版の表現・人のレビュー、TEI＝受理された意味モデル**。同じ原本・レビュー記録の二重正本、新しいGraph DBや汎用Hostを本PoCの前提にしない。
+
+### Owner判断待ち
+
+1. ファイル全体のMMI参照のうち、どれを**正式納品対象**とみなし、参考用参照とどう区別するか。外部Requiredが無い場合、どの表現までを「網羅」と呼んでよいか。
+2. T8の複数参照、同内容別ファイルを**必要納品物数**へ換算する業務規則。
+3. 固定納品版に必要な原本・依存・出力・検査記録・レビューの保持範囲と、採用済み版への遡及的な失効条件。
+
+これらの判断は提案として保持し、**本追補の作成、CI成功、byte一致、AIによる判断をOwner受理へ昇格させない**。
+
+### 2026-11-02 追加横断結論：Document Occurrence・証拠・納品版を別に結ぶ（設計候補）
+
+この節は [SHO Composer #1](https://github.com/hat47x/sho-composer/issues/1) のS0/S1、[#4](https://github.com/hat47x/sho-composer/issues/4) の文書保存・引用・再開、[#3](https://github.com/hat47x/sho-composer/issues/3) のCLI証拠境界と突き合わせた**MMI #658側の引渡し条件**である。SHO側のDocument ID、Source Referenceの正式規約、Graph DB、新しいMMI公開Schemaの採用ではない。既存のOwner判断は上記のまま保持する。
+
+#### 参照の出現（Occurrence）と原本・レビューの同一性
+
+- 現在の`DeliveryFileReference.line`と`headings`は、**そのMarkdown観測時の位置**であって安定した文書内Occurrence IDではない。章の移動や改行挿入で位置が変化する。同じ原本が複数回使われ、別原本が同一byte digestを持つ場合、path／digest／lineを一つの永続IDとみなさない。
+- **Source Location**（意図された原所在と実際のrealpath）、**Source Identity**（読んだbytes）、**Candidate Identity**（種別・位置・fingerprint・Claims）、**Document Occurrence/Revision**（どの文書版のどの使用箇所か）、**Reviewの現在適用性**をそれぞれ別の確認対象とする。#658のファイル全体参照にはCandidateが存在しない場合があり、その場合は`not_applicable`であって`missing`ではない。
+- MMIは既存の生参照・その行／見出し・観測digest・診断を返す。SHO側が文書の章・段落・図表・引用の編集・保存・移動・複製の履歴を所有する。SHOが同じ参照を別章へ移した場合、MMIの新しいlineから、旧レビューの同じ対象だと**自動確定しない**。
+- 同byte別所在はSource Identityの一致のみ、同所在別byteはSource変更の候補、旧固定版r1と作業版r2の差分は対象版の相違として提示する。Reviewを撤回した後に原bytesへ戻っても、撤回されたレビューを自動復活させない。
+
+#### 検査の主張と結果を分離する（受入票用。公開JSONではない）
+
+| 独立軸 | ここでの観測例 | PASSから追加して主張できないこと |
+| --- | --- | --- |
+| **文書作業** | 文書版の保存→再開、本文・出現・編集履歴 | 出典の現在性、納品資格 |
+| **出典と表示** | 参照解決Location、bytes一致、表示に実際に使ったSource/Asset | Excel構造・表示の意味正しさ |
+| **主張とレビュー** | 説明の対象版、必要根拠、レビュー履歴と適用可能性 | TEI意味モデルAccepted、公開許可 |
+| **納品・外部利用** | Requiredとの照合、固定版のDelivered資産、外部開示条件 | 自動Owner検収、別環境での再現性 |
+
+各判定は**`pass`／`fail`／`indeterminate`／`not_evaluated`／`not_applicable`**を独立に持つ候補とする（#658の既存`alignment`値は変更しない）。`not_evaluated`は検査未実行、`indeterminate`は実行したが十分な根拠がない、`not_applicable`は当該対象の性質から検査対象外であることを意味する。0件・未実施・構造未対応をPASSとして集約せず、`fail`が無くても未確認を維持する。
+
+**二方向の検査**を混同しない：Declared→Observedは「宣言された参照が取得できるか」、Observed→Declaredは「物理資料に宣言があるか」であり、いずれもRequired→Deliveredの「要求成果物が固定納品版に対応付くか」とは別の照合である。外部Requiredが無い場合、最後の関係は`not_evaluated`または`indeterminate`のまま扱い、`aligned`を受理印にしない。
+
+#### 追加引渡し用の反例（MMI単独とSHO依存を区別）
+
+| ケース | 刺激と確認する誤推論 | 実証レーン・停止条件 |
+| --- | --- | --- |
+| **T12：行位置とOccurrence** | 文書内の有効な`![[...]]`を別の章へ移し、上に段落を挿入する。同じSource digestのまま`line/headings`が変わる。旧行番号一致を文書内出現の同一性と推定したり、移動しただけでSource変更と断定したりしない。 | **MMI単独**では観測JSON差分まで先行可能。SHOのOccurrence履歴とレビュー適用性は [SHO #4](https://github.com/hat47x/sho-composer/issues/4)の独立S0/S1で比較し、正式な永続IDは未決。 |
+| **T13：読んだbytesと使ったbytes** | `delivery-audit`後に原本を更新してから`render`／`extract`する。古いaudit digestが一致していたことから、新たに消費・表示した内容まで同じと推定しない。再読込の実bytes、観測時点と各実行版を分ける。 | **MMI単独**の逐次反例は実施可能。ただし同時snapshot・transaction保証や外部Provider整合性の成立を仮定しない。 |
+| **S1引渡し：固定文書と画像** | 旧固定版のMarkdown Dが不変で参照SVG EだけがE1→E2となる場合、Dの同一性、Eの表示差分、著者説明のレビュー資格、固定納品版の再現を別々に報告する。 | **SHO依存**：[SHO #1](https://github.com/hat47x/sho-composer/issues/1)／[#4](https://github.com/hat47x/sho-composer/issues/4)のS1レーン。#658のExcel集合監査のPASSへは算入しない。保存後出典のMMI×SHO統合受入はC-01/T2 G0-0完了後に限定する。 |
+
+#### 共有できる証拠の最小単位と開示
+
+各試験の**人が読む受入票**には、`testCase`、固定した入力文書bytes/digest、実行したdocument revision、Workspace相対の参照とinventory scope、**当該環境内**の実解決realpath、Source byte digest、MMI build identity／実argv／cwd／終了コード、実JSONの契約名・件数・個別findings、実行前後の原本digest、期待と実際、上記独立軸の判定、未確認理由を添える。実realpathは環境依存の証拠であり、他ホストへ移した後も同じ出典IDとはみなさない。
+
+SHO側へ渡す際は、必要な元データの**表示投影**と、実際の生bytes・Claim値・パスを外部AIへ送る許可を分ける。read-only CLI/MCPであっても公開してよい範囲の自動認可ではない。原本や顧客情報を伴うケースの実送信は専用の権限・開示試験へ分離し、#658の`aligned`のみで許可しない。
+
+#### 再編成した成果物を検収するための最小対応表（後続D4）
+
+将来、Excelを抽出・分割・統合・別紙化して最終成果物へ置き換える場合、**Required（外部要求項目）→利用者が選択したDeclared／原資料の根拠→実際に出力したDelivered資産と版→検査証拠→Owner判断**の対応を、一要求項目ずつ確認する。これは新たな必須DSLや第二の納品台帳を直ちに設ける提案ではなく、案件の既存要求表・レビュー記録に対する**対応表の検証**から始める。複数資料の統合は一対一のファイル数比較では表現しきれず、説明対象の欠落・変更を独立して人が確認する。
+
+固定納品版r1は「r1の当時の入力、出力、表示依存、検査とレビュー」を保持する候補である。作業版r2やTEI受理モデルのr2が生じたことのみを理由に旧版r1を自動失効させず、r2へ旧レビューを自動転用しない。**TEIのモデル意味受理、SHOの文章・納品版、MMIの観測証拠はそれぞれの正本側で扱う。**
+
+**段階の出口**：T6の現在の誤抽出は現行CLIで実測し、必要なら小さな修正へ進める。T7は構造を別検査、T8はRequiredをOwner未設定のまま維持、T12/T13はMMIの独立検証、S1引渡しと固定納品版はSHOの別受入へ渡す。設計追補のCI成功はこれらの実行済み・製品受入を意味しない。
+
+### 2026-11-02 第3追補：母集団・公開一式・比較基準を固定する（計画候補）
+
+本節の対象は**MMIが観測したファイル集合からどこまで結論できるか**である。[MMI製品改善計画 Draft #753](https://github.com/hat47x/markdown-matrix-injector/pull/753) §11.10–11.11の版間Claim・公開Consumer検証、[TEI #2604](https://github.com/hat47x/tei-platform/issues/2604)の一式公開、[TEI Draft #2615](https://github.com/hat47x/tei-platform/pull/2615)の版間候補、[SHO #9](https://github.com/hat47x/sho-composer/issues/9)のPlain-text Benchmarkを参照する。ここでは**物理公開実装・版間意味対応・論文研究のBenchmarkを再起票しない**。#753はOpen/Draft、#2604はOpen、#2615はOpen/Draftであり、各計画を製品の実装・受理済み契約と扱わない。
+
+#### 母集団の閉じ方と比較可能性
+
+「すべて揃った」の**すべて**を判定するには、少なくとも**母集団の出所・範囲・版・時点・列挙の十分性**が必要である。比較を次の三つに分ける。
+
+1. **観測集合の整合（現在の#658）**：指定した`inventoryScope`内の実所在Oと、Markdownから抽出したDeclared Dとの二方向比較。`aligned`は対象として認識したExcel whole-file参照がOと照合できたこと。Oが部分観測なら`indeterminate`の区別を残す。**同じ対象外ファイルがDとOの両方から欠ける**反例を検出できない。
+2. **要求集合の被覆（後続D4）**：外部の契約・要求・Owner判断で根拠と版が定まったRequired Rの各**要求項目**について、採用された対応先のDelivered資産・出力版・受入根拠を示せるか。R→Deliveredは**多対多対応**を許し、ファイル数や同digestを単純比較しない。Rの出所が不明、要求範囲がopen-world、または対応が未承認なら「契約完結」を`pass`にしない。
+3. **納品版の一式性（SHO側/TEI公開Ownerへ接続）**：固定版の列挙・実収録物・最終閲覧/Consumerが**実際に使用したbytes**を区別。Manifestの一致だけでは未列挙の旧ファイル残存や、Manifest読取り後の差替えを排除できない。物理上の余剰ファイルがただちに契約違反であるとも判断しない。製品のGeneration公開・atomicityはTEI #2604、SHO固定版の受理と表示はSHO #1/#4がOwner。
+
+**根拠を持つcoverage witness（受入票の概念、公開Schemaではない）**：`requirement/source-version-and-scope → declared occurrence(s) → selected delivered artifact revision(s) → inspected consumed bytes → verification result → owner decision`。参照が存在する、関係候補が到達可能である、対象版で構造解析できる、Claimが成立する、公開してよい、を一つのブール値に折り畳まない。新資料が加われば旧Source bytesが不変でも全称Claimの被覆は再確認候補であり、旧固定納品の履歴を自動失効させない。
+
+#### T14～T16：現行PoC固有の追加負例と価値測定
+
+| ID | 入力・刺激 | 期待と所属する実証 |
+| --- | --- | --- |
+| **T14：Declared=ObservedでもRequiredが欠落** | 外部要求表に`screen`/`data`/`test`の3要求項目。Markdownと対象Excelフォルダーには`screen`/`data`の2件だけを入れる。 | 既存`delivery-audit`の`alignment=aligned`を対照として保存。**Requiredが3である事実**は独立Oracleから読む。要求3件目の被覆は未成立と記録。要求表が無い条件ではRequired自体を`not_evaluated`とする。外部要求の業務役割→成果物の対応の採否はOwner判断。 |
+| **T15：固定版の列挙と物理余剰、Consumer読取** | 旧固定r1にA/B、次のr2にAのみを列挙。旧Bが物理フォルダーに残り、別の閲覧処理がBを読んだ場合と読まない場合を分ける。 | #658の目録は物理Bを`inventory-unreferenced`候補として観測できても、**r2の構成不備か単なる保管物か**は確定しない。列挙したDeliveredとConsumerが読んだ実bytesを別票に記録。TEI #2604のPublish実装やSHOの固定納品実証をMMI試験で代替しない。 |
+| **T16：単純な方法との比較** | 同じ16件の正常XLSXとT6/T7/T8/T14の合成負例について、A=Markdown手書き一覧＋一般的なファイル列挙/digestスクリプト、B=既存`mmi delivery-audit`。同じ入力情報、権限、期待値を与える。 | **正検出・誤検出・未確認の明示・Source非改変・再現に要する操作/時間・スクリプト保守費**を記録。Aを不当に弱くせず、Bの増分効果と導入負担を両方測る。広域の研究索引・論文→コードの比較はSHO #9へ残し、MMI側は納品集合という狭いユースケースの評価とする。 |
+
+**合格と終了条件**：T14は外部Requiredの不足を機械的`aligned`に隠さず示せれば「判定境界が説明できた」とする。T15は固定版の列挙と物理実所在と実消費を独立に記録する**検査票の作成**までを本PoCの出口とし、原子的公開の保証・正式納品検収を含めない。T16は差がない結果・MMIが不利な結果も保存し、**単なる情報の増量ではなく同情報での誤主張・手戻り・作業負担を比較**する。失敗例を修正するか、対象外と明示するかをデータから選ぶ。
+
+**段階整合**：D0にRの要求票とOwner判断有無・対象母集団のscope/版を追加する。D1にDeclared/Observed/Requiredの異なる母集団の照合を追加し、元CLIの実JSONを改変しない。D3にT16の公平なA/B対照を追加する。D4でDeliveredと実Consumer bytesの対応票を試し、固定納品採否はSHO側Ownerへ委ねる。C-01/T2のG0-0停止条件とTEI #2604の実製品検証Ownerは変更しない。
+
+**状態**：この追補は仕様・検証計画のみ。T14～T16のfixture・CLI/Consumer実行、要求表の業務受理、正式Publish、ユーザー試験、Plain-textに対する優位性実証は**NOT RUN**。現行MMI、SHO、TEIの公開契約・実装・正本を変更しない。
+
+### 2026-11-02 T6実測開始：修正前の失敗を固定
+
+この時点の追補は、前節にある「T6は静的反例候補／NOT RUN」という過去記録より新しい。初回の再現結果を[専用 Draft PR #755](https://github.com/hat47x/markdown-matrix-injector/pull/755)で取得した。
+
+- **固定入力**：ApplicationのT6新規テストで、複数行HTMLコメント・コメント内の`~~~`・インラインコード・実コードフェンス・正規参照を併置。正規参照の期待値は行9・13の`a.xlsx`2出現。CLIテストは実XLSXを使い、参考用ファイルを対象scopeから外し、正規`final.xlsx`だけを`matched=1`と期待。
+- **実測したFAIL**：修正前head `f001afda1bf4aba9720a66f3e3899f478481feec`、[CI #41442885494](https://github.com/hat47x/markdown-matrix-injector/actions/runs/41442885494)。**Ubuntu/Windowsの製品ジョブはfailure**。Ubuntuログでは**新規T6 2テストが双方`not ok`**、総fail 2。Applicationの実際の参照はコメント内の行2・4の`b.xlsx`2出現で、コメント内フェンスが後続の有効参照を隠した。CLIは終了1（期待0）。既存設計上の誤抽出の懸念が**合成fixture実測の失敗**になった。
+- **修正候補**：[Draft #755](https://github.com/hat47x/markdown-matrix-injector/pull/755) head `2eaea49ba7152c4750a27104fdfb3ab4bbb125ba`。`observeDeliveryFiles`内で既存の`stripInlineCode`と複数行HTMLコメント状態を用い、フェンス解釈と参照抽出の前に例示を除外する。Source Identity／Resolver／`check`／`manifest`／`inventory`の公開処理を変更しない。
+- **未確認の出口**：修正headの[CI #41443225210](https://github.com/hat47x/markdown-matrix-injector/actions/runs/41443225210)はこの記録時点でqueued。修正のUbuntu/Windows PASS、実業務MarkdownでのT6、Markdown全構文の解析保証、契約納品受理を主張しない。
+- **受入の単位**：①修正前FAIL、②修正後のT6個別PASS、③Ubuntu/Windowsの既存製品回帰、④対象外Markdown構文の追加探索、⑤実務での価値確認を別列にする。②③が未確認の間、Issue #658の受入条件を完了にしない。T7～T16は従来どおり未実証の計画として維持する。
+
+#### 修正後の製品回帰結果（2026-11-02 更新）
+
+[Draft #755](https://github.com/hat47x/markdown-matrix-injector/pull/755) head `2eaea49ba7152c4750a27104fdfb3ab4bbb125ba` の[CI #41443225210](https://github.com/hat47x/markdown-matrix-injector/actions/runs/41443225210)は **Ubuntu・Windows製品、research-testsすべてSUCCESS**（release-candidateはPR条件でskipped）。Ubuntuの製品テスト実ログで追加T6の**ApplicationテストとCLIテストが個別に `ok`**、製品テスト総数 **1323 pass / 0 fail** を確認した。修正前の同二テストは **2 fail**。これにより、**合成fixture上のT6再現→限定修正→回帰PASS**を証拠付きで確認した。
+
+**現在の出口**：#755はDraft／未マージ。MMI mainでの採用済み修正・顧客実務資料・全Markdown構文・SHO実機・契約Requiredの網羅性・Owner受理を実証したわけではない。計画におけるT6の状態は**「指定した合成負例で修正PRの製品CI PASS、レビュー・main統合・実務受入待ち」**であり、T7～T16やC-01/T2 G0-0の状態は変更しない。
+
+### 2026-11-02 第4追補：検査入力の版・実消費版・固定納品版の三者を結ぶ
+
+[SHO #4](https://github.com/hat47x/sho-composer/issues/4)の「編集バッファ／保存済み原文／固定納品r1」を分けるFR-01～08、[SHO #3](https://github.com/hat47x/sho-composer/issues/3)のCLI起動証拠、[TEI #2604](https://github.com/hat47x/tei-platform/issues/2604)の公開世代一式と実Consumer読取を照合した。**#658のファイル一覧照合が一度成功した事実だけでは、文書のどの版を検査したか、表示側がその版を使用したか、納品固定版に入ったかを保証しない。**
+
+**現行コードから確定できる境界**：`auditDeliveryReferences`は`fs.readFileSync(markdownPath, 'utf8')`で**ディスク上に保存されたMarkdown**を読む。編集者の未保存バッファを読むものではない。`mmi.delivery-audit/v0`の上位結果は`document`（Workspace相対パス）、`delivery`、`inventory`、`comparison`を保持するが、**Markdown入力本体のraw-byte digestをトップレベルに保持していない**。一方、`inventory.collectionDigest`は目録観測の集合・scope・policyのdigestであり、Markdown原文の版や全ファイル一斉snapshotの証明ではない。**この不足を埋めるためだけに、公開Schemaへ新フィールドを即追加しない。** まず外側の試験receiptに原文digest・実読取版・実行器版を記録する。
+
+**T13拡張：Document Snapshotの最小対照（MMI単独read-only試験候補）**
+
+| 刺激 | 期待する観測と主張の限界 |
+| --- | --- |
+| **S13-1：未保存D1** | ディスクD0はExcel Aだけを宣言し`aligned`、エディタの未保存D1は欠落Bの参照を追加。再度CLIを実行しても**D0を検査する**。CLI成功を未保存D1の完成と表示しない。UI側はバッファ版とディスク版を別に見せる。 |
+| **S13-2：保存D1** | D1を実際にディスクへ保存してからCLIを再実行。欠落Bを`reference-missing`として報告し、`alignment=differences`。S13-1の旧JSONから現在のD1へ受入を継承しない。 |
+| **S13-3：報告後変更** | D1を検査して結果JSON R1を保持した後、MarkdownだけをD2へ変更。R1の`document`パスは同じでも入力raw SHA-256は違う。**R1には入力原文の版を証明する情報が足りない**ため、外側receiptを使いR1の現在資格を未確認とする。 |
+| **S13-4：Consumerの別byte** | D0の参照検査後にExcel Aを差し替え、後続の抽出／表示がA2を読む。検査時A1 digest・抽出時A2実bytes/実行条件を別票に残し、検査時`aligned`を後続処理の入力一致としない。 |
+
+**最小receipt（試験票、公開Schemaではない）**：`document disk-relative path + SHA-256(raw bytes) + input source revision/time + workspace root/scope + CLI build identity + argv/cwd + inventory collectionDigest + independent-observations + actual consumed input bytes/digests where available + JSON result/exit + outstanding`。Markdownの保存済み/未保存、ファイル原本/依存表示、各Producer→Transfer→Consume→Render→Save→Deliverの時点を混同せず、**同一byteの受渡しを実測した範囲**だけ一致とする。raw bytesの外部AI送信は別のDisclosure資格であり、read-only結果の表示許可から推定しない。
+
+**作業順序とOwner**：まずS13-1～3をMMI CLI単独の小fixtureで実証し、S13-4は既存T13のSource消費時点差として観測。SHO実Editorバッファ/固定文書の保存再開は[SHO #4](https://github.com/hat47x/sho-composer/issues/4)、TEIの公開原子性は#2604、MMI×SHOの出典再解決はC-01/T2 G0-0後のOwnerが担当する。今回の検討は**NOT RUN**、CLIの現行I/O動作に対する静的所見である。
+
+**T7の試験着手**：[独立Draft #760](https://github.com/hat47x/markdown-matrix-injector/pull/760)は正常XLSXと明らかな非OOXMLの`.xlsx`を同じ資料集合で参照し、`alignment=aligned`と別Oracleでの構造異常を**独立に**記録するテスト追加である。既存`inventory`の`inspectionRequested=false`を期待し、`inspect`があらゆる破損を必ず拒否するとは扱わない。#760のテスト結果は当該CIを見てから更新し、ここで実行済みとは宣言しない。
+
+### 2026-11-03 第5追補：Evidence Bindingの強さとSource表示・開示の別資格
+
+[SHOのM0-EX→M1-EX→M2-EX計画](https://github.com/hat47x/sho-composer/issues/2)と[SHOの固定版・出典とレビュー](https://github.com/hat47x/sho-composer/issues/4)、[MMI #756](https://github.com/hat47x/markdown-matrix-injector/issues/756)のhidden/veryHidden Excel、[#758](https://github.com/hat47x/markdown-matrix-injector/issues/758)のCSV復号方式を参照した追加整理。**T7/13の目的を「byteが一致すると何が証明されるか」の境界を測ることに固定**し、SHO用新Source Schema・専用Host・納品判定Engineを先行実装しない。
+
+#### レシートの強度を三段階にする（検証票の語彙、公開APIではない）
+
+| 強度 | 根拠 | この根拠のみでは言えないこと |
+| --- | --- | --- |
+| **E0: observation only** | 現行`mmi.delivery-audit/v0`：文書相対path、参照の実Source digest、目録collectionDigest、比較・終了コード | 入力Markdown自体のraw bytes版、後続Rendererの消費版、Required/Deliveredの網羅 |
+| **E1: externally guarded** | CLI実行前後の**別読込み**でMarkdown raw digestとSource bytesを記録し、build/argv/cwd/scope/実行結果と照合 | 前後のhashが一致しても、実行中に一時的に異なるbyteが読まれて戻る競合を**原理的に否定できない**。「CLIがまさにこのbyteを消費した」という強い証明にはならない |
+| **E2: consumed-byte-bound** | 将来、監査で**実際に受け取ったbyte**からdigestを計算し、その同じbyteを構文解析・表示・変換へ引き渡した範囲を検証。あるいは入力を不変の固定版として明示的に取得・照合する | 引用の業務意味、Hidden情報の表示/送信許可、Provider/外部Consumerによる同じ世代の読取、契約・Owner受理は別の証拠 |
+
+**E1はPoCの記録改善として試行可能だが、E2の原子的read・snapshot・正式入力契約を既存CLIが備えるとは主張しない。** 現行`delivery-audit`の同一path／同一JSONが、同一Markdown raw bytesを保証しないことはT13 S13-3の狙いである。原文のplain proseを一箇所編集しても参照の件数・見出し・digestが不変なら、結果JSONの全体が同じになり得る。
+
+#### Source原本と表示・外部送信は別の検査面
+
+- **原本存在/一致**：#658はExcelファイル全体の所在・byte一致を評価するが、見えないシートや行列の読み取り可否を検査しない。
+- **解析・Projection**：[#756](https://github.com/hat47x/markdown-matrix-injector/issues/756)はhidden/veryHidden内容が`inspect/render`で可視と同様に返る**実測**を持つ。隠し属性から作成者の秘匿意図は断言しないが、利用者の明示確認なしに最終文書やAIへ露出させてよいとは推定しない。仕様と実装受入は#756側。
+- **復号条件**：[#758](https://github.com/hat47x/markdown-matrix-injector/issues/758)はCSVの実bytesとUTF-8/CP932等の復号選択が結果上では分離できない問題。現行#658はCSVをWhole-File納品参照として扱わず、T7の`.xlsx`否定OracleをCSVの復号保証へ転用しない。
+- **描画・保存・外部開示**：SHOの文書保存、表示に消費したSource/Asset、外部AIへの実送信raw bytes・宛先・権限はそれぞれ別レーン。ローカルの`read-only`成功も、非公開メタデータの外部送信許可ではない。実Egressや秘匿の保証は専任Ownerの証拠で判断。
+
+**最初の統合導線**：SHOはまず[独立M0-EX](https://github.com/hat47x/sho-composer/issues/2)で保存・再開・Occurrenceと未保存バッファを実証する。MMI #658側ではT7/T13のCLIの限界を固定し、SHO接続M2-EXは従来どおりG0-0→G2後。TEIの生成物一式Publish・実Consumer読取は[TEI #2604](https://github.com/hat47x/tei-platform/issues/2604)のOwnerへ委ねる。T8/Required/Deliveredも外部要求と人の判断が無ければ未確認であり、`aligned`から実納品を確定しない。
+
+**状態**：この追補のE0/E1/E2は検証票の設計仮説であり、MMIの公開Schema変更・SHOの製品CLI・TEI Publish・Egress実測・Owner受理を示さない。#760の新head T13テストはCI確認前のコミットとして扱い、成功した旧head T7 CIを新headへ転用しない。
+
+### 2026-11-03 第6追補：Required版の変更と失敗後の残存成果物を別に検収する
+
+[SHO #13](https://github.com/hat47x/sho-composer/pull/13)の独立Python M0-EX Spikeでは、元文書を維持した別作業コピー作成後のSource変更、出力の部分書込、再読取失敗を、**処理終了／作成済みartifact／再照合要否**に分けた。これは同PRのローカル合成Probeの限定結果であり、SHO製品CI、atomic rename、クラッシュ耐性、正式exitコードの受理ではない。#658では同種の失敗を**納品集合の合格**と混同しない設計上の接続条件に留める。
+
+#### T14の最小実行と外部Required oracle
+
+- [Draft #761](https://github.com/hat47x/markdown-matrix-injector/pull/761)では正常XLSX二件・Markdown二参照を不変とし、外部の**合成要求表だけ**R0（二項目）→R1（三項目）に切り替える。`delivery-audit`は両時点で`matched=2`/`aligned`/JSON全体同一となるはずだが、テスト用の独立Required→matched path対応ではR1の`test`が未被覆になる。**これは契約の意味を自動解釈した実装ではなく、決め打ちで明示された合成対応の回帰**である。
+- 原本Markdown/XLSXを不変、`contract/requirements.json`を目録scope（`excel/`）の外側に置き、Required版の変更が監査結果に黙って反映されないことを確認する。入力原文hash・要求表raw bytes/version・目録scope・実CLI version/argv/JSON/exit・外部Oracleの期待/実際を**別の受入票**に記録する。R0/R1は試験名であり公開Required Schemaではない。
+- **T8の役割**は出現3/物理所在2/同bytesを区別する機械観測で、**T14の役割**は外部Requiredの追加が`aligned`へ伝播しないことを示す。両者を同じ合成fixtureへ無理にまとめず、二つの独立試験の関係を受入票で照合する。
+
+#### 作業保存・固定納品・再実行の出口
+
+- **保存作業**：元ファイルの不変と別に、試験途中で出力ファイルが部分的に存在し得る。`exit ≠ 0`だけから「副作用0件」「安全に再試行可能」と判断しない。発見した残存物と書込後の再照合要否を別の観測として記録する。SHOの保存実証は[SHO #4](https://github.com/hat47x/sho-composer/issues/4)／[#13](https://github.com/hat47x/sho-composer/pull/13)側で行い、read-onlyのMMI `delivery-audit`に作業保存責務を追加しない。
+- **固定納品**：Required Rの版と対応資料の役割、Deliveredの列挙・実物、生成・表示で実際に読んだbytes、失敗/部分作用の解消、Review/Owner判断を別に照合する。R1で不足があれば、旧R0の`aligned`が残っていてもR1の完全性をPASSにしない。旧固定納品R0を自動失効させる判断にも使わない。
+- **再実行**：Required・Source・文書・モデル・テンプレート等のどの境界が変化したかを示す。再実行前後のhashだけではABA差替えや内部実消費の保証にならず、E0/E1/E2に従って**再検証が必要な範囲**を明示する。業務Ownerが受理しない限り、残存artifactを自動的にDeliveredとして扱わない。
+
+**優先順**：#761 T14の単独CI→必要なら同fixtureのCLIログを固定→既存T8の重複証拠と別票で照合→実務RequiredとOwnerの判断へ移行。C-01/T2 G0-0とSHO M0-EXの別レーン条件は維持。現段階のT14合成表による`notCovered`は製品が出力する結果ではない。
+
+**状態**：この追補は検証受入とSHO側部分作用設計の接続であり、MMI公開Schema、Required判定エンジン、新Host/Registry、SHOの実保存、顧客の納品契約は採用/実証していない。 #761はDraft／CI検証中。
+
