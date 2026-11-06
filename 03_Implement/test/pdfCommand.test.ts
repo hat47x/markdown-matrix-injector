@@ -8,7 +8,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { main } from '../src/cli/mmi.js';
-import { buildPdf, type PdfRunner } from '../src/cli/pdf.js';
+import { buildPdf, PDFA_IMAGE_CSS, type PdfRunner } from '../src/cli/pdf.js';
 import { RenderError } from '../src/cli/render.js';
 
 type Call = { command: string; args: string[]; html: string };
@@ -48,6 +48,23 @@ test('variant none adds no PDF variant or tag options', () => {
   const calls: Call[] = [];
   buildPdf({ markdownFilePath: doc, workspaceRoot: root, output: path.join(root, 'o.pdf'), variant: 'none' }, fakeWeasyPrint(calls));
   assert.equal(calls[0].args.length, 4);
+});
+
+test('PDF/A variants turn off image interpolation before the user CSS; other variants do not (#788)', () => {
+  const { root, doc } = workspace('---\ntitle: 図\ncss: user.css\n---\n## 図\n\n![棒グラフ](chart.png)\n');
+  fs.writeFileSync(path.join(root, 'user.css'), 'img { image-rendering: auto; }');
+  for (const variant of ['pdf/a-2a', 'pdf/a-2b', 'pdf/ua-1', 'none'] as const) {
+    const calls: Call[] = [];
+    buildPdf({ markdownFilePath: doc, workspaceRoot: root, output: path.join(root, 'out.pdf'), variant }, fakeWeasyPrint(calls));
+    const html = calls[0].html;
+    const ours = html.indexOf(PDFA_IMAGE_CSS);
+    if (variant.startsWith('pdf/a-')) {
+      assert.ok(ours > html.indexOf('<style>'), `${variant}: the rule is inside the document stylesheet`);
+      assert.ok(ours < html.indexOf('img { image-rendering: auto; }'), `${variant}: the user CSS comes later and can override it`);
+    } else {
+      assert.equal(ours, -1, `${variant}: no PDF/A rule`);
+    }
+  }
 });
 
 test('a failed WeasyPrint run leaves no partial PDF, keeps the earlier one, and reports its message', () => {

@@ -395,7 +395,7 @@ weasyprint --pdf-variant pdf/a-2a --pdf-tags ../04_Documentation/samples/practic
 画像を含む文書では、次の2点に注意してください（[検証記録](../02_Architecture/delivery-pdf-output.md#画像を含む文書)）。
 
 - 画像には必ず代替テキストを書きます（`![月別の申請件数の棒グラフ](images/chart.png)`）。代替テキストが無いと、PDF/UA-1に違反します。
-- PNGやJPEGの画像を含む文書をPDF/Aにすると、WeasyPrintが画像に補間の指定を書くため、PDF/A-2a・2bに違反します。`img { image-rendering: crisp-edges; }`と書いたCSSを`--css`で渡すと違反しません。SVGの図では起きません。
+- PNGやJPEGの画像には、WeasyPrintが補間の指定を書き、そのままではPDF/A-2a・2bに違反します。`mmi pdf`はPDF/Aを指定したとき`img { image-rendering: crisp-edges; }`を加えるので、利用者の操作は要りません。PDFを拡大したときに画像が粗く見えることがあります。HTMLを書き出してWeasyPrintを直接使う場合は、このCSSを自分で加えてください。
 
 発注者が適合を求める場合は、veraPDFなどで検査してください（手順は [納品用PDF出力](../02_Architecture/delivery-pdf-output.md#pdfaタグ付きpdfの検証記録) にあります）。
 フォントはPDFに埋め込まれます。PDFにパスワードや印刷禁止などのセキュリティは設定しません。
