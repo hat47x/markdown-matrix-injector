@@ -68,8 +68,8 @@
 | 要求 | 状態 | 現状 | 確認方法 |
 |---|---|---|---|
 | 作成者の環境情報を出さない | ● | 別紙カードは相対パスだけを出す。HTMLにも絶対パスと外部アプリ起動リンクを入れない | 単体テスト、HTMLとPDFの文字列検査 |
-| PDF/A（長期保存） | ● | WeasyPrintの`--pdf-variant pdf/a-2b`または`pdf/a-2a`で生成する。見本（14）はveraPDF 1.30.3でPDF/A-2b（144規則）・PDF/A-2a（153規則）とも違反なし。[検証記録](#pdfaタグ付きpdfの検証記録) | veraPDF |
-| タグ付きPDF（読み上げ） | ● | `--pdf-tags`で生成する。`pdf/ua-1`の指定で、見本（14）はveraPDFのPDF/UA-1（106規則）に違反なし。画像・数式・フォームを含む文書は未確認 | veraPDF |
+| PDF/A（長期保存） | ● | WeasyPrintの`--pdf-variant pdf/a-2b`または`pdf/a-2a`で生成する。見本（14）はveraPDF 1.30.3でPDF/A-2b（144規則）・PDF/A-2a（153規則）とも違反なし。PNGを含む見本（15）は、WeasyPrintが画像に補間の指定（`Interpolate true`）を書くため、どちらも6.2.8に1件違反する。`img { image-rendering: crisp-edges; }`のCSSで解消する。[検証記録](#pdfaタグ付きpdfの検証記録) | veraPDF |
+| タグ付きPDF（読み上げ） | ● | `--pdf-tags`で生成する。`pdf/ua-1`の指定で、見本（14）はveraPDFのPDF/UA-1（106規則）に違反なし。画像を含む見本（15）も、代替テキストがあれば違反なし。代替テキストの無い画像は7.3に違反する。数式・フォームを含む文書は未確認 | veraPDF |
 | パスワード・印刷禁止などのセキュリティ | — | 設定しない。公共の電子納品や機関リポジトリの規程では、セキュリティを設定しないよう求める例が多い | — |
 | 電子署名・タイムスタンプ | ○ | MMIの範囲外。署名ツールで付ける | — |
 | 透かし（DRAFT、社外秘） | ○ | なし | — |
@@ -132,8 +132,24 @@
 
 - 1つのPDFに書ける形式は、WeasyPrintでは1つだけである。PDF/Aの指定ではPDF/UAの識別情報が入らず、PDF/UAの指定ではPDF/Aの識別情報が入らない。保存とアクセシビリティの両方が必要な場合は、アクセシビリティも保てるPDF/A-2aを選ぶか、2つのPDFを作る。
 - この検査で、MMIの出力に直すべき点が1つ見つかった。表紙の文書名が`div`で、文書の最初の見出しが`h2`になるため、PDF/UA-1の見出しの規則（7.4.2）に違反していた。表紙の文書名を`h1`にして解消した。
-- 検査の対象は、画像・数式・フォームを含まない見本1点である。画像を含む文書は、代替テキストが必要になるため、別に確かめる。
+- 検査の対象は、画像・数式・フォームを含まない見本1点である。画像を含む文書は、下の「画像を含む文書」で確かめた。
 - veraPDFが確かめるのは、機械で判定できる規則だけである。読み上げの順序や代替テキストの内容など、人が確かめる項目は含まない。
+
+### 画像を含む文書
+
+2026-11-05、veraPDF 1.30.3（Dockerイメージ`verapdf/cli:latest`、image id `sha256:d74b7026c18a0f171e73c153b617fe6520e1511feb24ca98a348b2bb897669fb`）で検査した。PDFはWSL2（Ubuntu）のWeasyPrint 69.0で、MMI main `4b182d2c1239584dcc47a74b904a0c705903c92a`の`mmi pdf --variant <形式>`を使って作った。見本は[15 画像を含む文書](../04_Documentation/samples/practical/15-images.md)で、SVGの流れ図とPNGの棒グラフを1つずつ含む。代替テキストを付けた版と、2つとも代替テキストを空にした版（`![](...)`、リポジトリには置いていない）を検査した。
+
+| 形式 | 代替テキストあり | 代替テキストなし |
+|---|---|---|
+| PDF/A-2b | 143規則に合格、1規則に違反（6.2.8 テスト3、1件） | 同じ（6.2.8 テスト3、1件） |
+| PDF/A-2a | 152規則に合格、1規則に違反（6.2.8 テスト3、1件） | 同じ（6.2.8 テスト3、1件） |
+| PDF/UA-1 | 106規則に合格、違反0 | 105規則に合格、1規則に違反（7.3 テスト1、2件） |
+| PDF/A-2b・2a（`--css`で`img { image-rendering: crisp-edges; }`を追加） | どちらも合格、違反0 | 未検査 |
+
+- PDF/Aの違反は、PNGの画像辞書に`Interpolate true`が入ることによる（ISO 19005-2 6.2.8「Interpolateはfalseとする」）。WeasyPrintは、CSSの`image-rendering`が`auto`（既定）のとき補間を指定する。SVGは画像辞書を作らないので、この違反は出ない。`image-rendering: crisp-edges`を指定すると補間の指定が外れて合格する。補間を切ると、PDFの閲覧ソフトで拡大したときに画素が粗く見えることがある。
+- PDF/UA-1の違反は、代替テキストの無い画像のFigureタグ（ISO 14289-1 7.3）で、SVGとPNGの2件である。
+- 代替テキストが無いとき、WeasyPrintはPNGについてだけ`ERROR: Image "images/15-chart.png" has no required alt description`と出す。SVGについては出さない。`mmi pdf`はこの行を警告として表示し、PDFを書いて正常に終わる。
+- 代替テキストはMMIでは補わない。文書の書き手が`![説明](画像)`の説明を書く。
 
 検査のコマンドは次のとおりである（DockerとWeasyPrintが要る）。
 
@@ -158,7 +174,7 @@ docker run --rm -v "$PWD":/data verapdf/cli:latest -f 2a --format text /data/文
 
 1. 顧客指定の様式に合わせる。CSS・書体・余白・綴じ代と、顧客指定の表紙は対応した（[#635](https://github.com/hat47x/markdown-matrix-injector/issues/635)）。Wordの表紙をテンプレートから差し替えることは、`--reference-doc`の様式の範囲でしか対応していない。SIerの案件では、発注者の様式が決まっていることが多い。
 2. Word（.docx）で納品する。`mmi docx`で対応した。Word 16.0.19127で確認した。変更箇所の表示と別紙カードの体裁が残っている（[#636](https://github.com/hat47x/markdown-matrix-injector/issues/636)）。
-3. PDFまで1回のコマンドで作る経路と複数文書の一括出力は`mmi pdf`で対応した。PDF/Aとタグ付きPDFの適合は見本1点で確かめた。ここまでは[#637](https://github.com/hat47x/markdown-matrix-injector/issues/637)で対応した。画像を含む文書の確認が残っている（[#771](https://github.com/hat47x/markdown-matrix-injector/issues/771)）。
+3. PDFまで1回のコマンドで作る経路と複数文書の一括出力は`mmi pdf`で対応した。PDF/Aとタグ付きPDFの適合は見本1点で確かめた。ここまでは[#637](https://github.com/hat47x/markdown-matrix-injector/issues/637)で対応した。画像を含む文書は見本（15）で確かめた（2026-11-05、[#771](https://github.com/hat47x/markdown-matrix-injector/issues/771)）。PDF/Aの指定のときにMMIが画像の補間を既定で切るかは決めていない。
 4. 改訂箇所を示す。改訂マークと新旧対照表は対応した（[#638](https://github.com/hat47x/markdown-matrix-injector/issues/638)）。Wordの出力（`mmi docx`）では、まだ変更箇所を示せない。
 5. 図表番号を自動で振り、相互参照にページ番号を添える（[#639](https://github.com/hat47x/markdown-matrix-injector/issues/639)）。表の通し番号とリンクのページ番号は対応し、WeasyPrint 69.0でのPDFでも確かめた（2026-10-27）。章別の番号（表1-1）が残る。
 
