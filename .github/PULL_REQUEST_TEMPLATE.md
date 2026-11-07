@@ -18,23 +18,18 @@
 - [ ] Refactoring (no functional change)
 - [ ] CI / infrastructure change
 
-## Checklist
-
-- [ ] `npm run build` succeeds
-- [ ] `npm test` passes (all unit + Phase 9 sync + conformance)
-- [ ] New tests added for new functionality
-- [ ] Related documentation updated (README, ADR, tutorial, etc.)
-- [ ] Release gate check passes (`npm run release:gate:full`)
-- [ ] VSIX packaging succeeds (`npm run package`)
-
 ## Verification
 
-<!-- How did you verify this change works? -->
+<!-- 変更範囲に応じた検証を選んで記録します。すべての項目を満たす必要はありません。 -->
 
-- [ ] Unit tests
-- [ ] Manual E2E (VS Code preview)
-- [ ] CI (all gates green)
+- 実行した検証と結果:
+- 実行できなかった検証と、その理由・残る危険性:
 
-## Additional context
+## Notes
+
+- 変更の目的・境界は、PR 作成後に追記しても構いません。
+- Draft は作業中の表示です。内容が揃ったら解除して統合します。
+- 人が確認するのは、外部へ取り消せない効果を出す場合（秘密情報・顧客データの外部送信、本番配備、外部システムの削除や破壊的移行、第三者ライセンスの法的判断、対外公開）だけです。
+- 並行作業と衝突した場合は、その変更だけを保留し、衝突の内容をこの PR に記録して他の作業を続けます。
 
 <!-- Any other information reviewers should know -->
