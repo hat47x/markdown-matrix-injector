@@ -27,7 +27,9 @@ import { validateAiHandoffTransformationProposal } from '../dx/aiHandoffTransfor
 import {
   applyLedgerView,
   checkPaths,
+  checkedSummary,
   collectMarkdownFiles,
+  partitionCheckFiles,
   inspectSource,
   readCliVersion,
 } from './mmi.js';
@@ -782,9 +784,10 @@ class McpServerImplementation implements McpServer {
       // collected file against the real root before reading it.
       return collected.map((file) => this.resolveInsideRoot(file, 'paths'));
     });
-    const problems = await checkPaths(files, this.root, this.displayCwd);
+    const { files: markdown, skipped } = partitionCheckFiles(files);
+    const problems = await checkPaths(markdown, this.root, this.displayCwd);
     const errors = problems.filter((problem) => problem.severity === 'error').length;
-    return JSON.stringify({ errors, problems }, null, 2);
+    return JSON.stringify({ errors, problems, ...checkedSummary(markdown, skipped, this.displayCwd) }, null, 2);
   }
 
   private renderTool(args: JsonObject): string {

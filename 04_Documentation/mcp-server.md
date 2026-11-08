@@ -115,6 +115,8 @@ MCP対応クライアントには、コマンドと引数を次の形で登録�
 
 `select`と`find`の結果は、対象原本の`sourceDigest`を返します。`select`は結果の最上位（`candidate`と同じ階層）、`find`は各候補です。値は`inspect`が各Candidateの`locator.sourceDigest`で返すものと同じで、原本のbytesから取ります。選択結果がどの版の原本に対するものかを、この値で照合できます。`mmi.selection/v0`の本体は変えず、項目を足しただけなので、既存の読み手はそのまま使えます。`handoff`など他のツールの結果には付けていません。
 
+`check`の結果は、`errors`と`problems`に加えて、実際に検査したファイルを返します。`filesChecked`が検査したMarkdownの件数、`files`がその相対パスの一覧です。`filesChecked`が0のときは、`errors: 0`でも何も検査していません。「エラー0件」を検査の成立とみなす前に、この件数を確かめてください。ディレクトリを渡したときは、拡張子が`.md`のファイルだけを集め、名前が`.`で始まるものと`node_modules`は集めません。明示した単一のファイルが`.md`でないときは、読まずに`skipped`へ`{ "file": ..., "reason": "not-markdown" }`として載せ、失敗にはしません。これらは`mmi check --json`にも同じ形で加えた項目で、既存の読み手はそのまま使えます（[#731](https://github.com/hat47x/markdown-matrix-injector/issues/731)）。
+
 `select`の結果の`preview`は、選択の確認用の見本であり、選択した範囲の原本値の全量ではありません。載せる行は先頭5行までです。`preview.limit`が上限（5）、`preview.shown`が載せた行数、`preview.ofSelected`が選択した行数、`preview.truncated`が省略の有無を表します。`truncated`が`true`のとき、`preview.rows`は選択の一部です。`rows.shown`は参照が描画する行数で、`preview`に載せた行数とは別です。上限を変える引数はありません。これらは`preview`に足した項目で、既存の読み手はそのまま使えます。MCPで選択範囲の全行の原本値を取る手段は、現在ありません（[#739](https://github.com/hat47x/markdown-matrix-injector/issues/739)で、Ownerの判断を待って扱います）。
 
 `inspect`は、`ledger`を指定しなくても、`--root`直下に`mmi-ledger.json`があればそれを読んで、Candidateの取り込み状態に反映します。CLIの`mmi inspect`が台帳を渡したときと同じ経路です。この暗黙の読込みは現在の動作であり、適用した台帳のパスを結果に示す項目はありません（[#730](https://github.com/hat47x/markdown-matrix-injector/issues/730)の未決）。台帳が壊れている場合、`inspect`は`parse-failed`で失敗し、原本の問題と区別できます。台帳を読まない`select`・`check`などは影響を受けません。壊れた既定の台帳で、失敗とするか警告つきで継続するかは、Ownerの判断を待ちます。

@@ -1408,10 +1408,15 @@ export async function main(argv: string[]): Promise<number> {
       return runFind(args, { ...values, json: values.json }, { out: emit, err: (text) => console.error(text), cwd: process.cwd() });
     case 'check': {
       if (args.length === 0) return usageError('check needs at least one file or directory');
-      const problems = await checkPaths(args.flatMap(collectMarkdownFiles), root);
+      const { files: markdown, skipped } = partitionCheckFiles(args.flatMap(collectMarkdownFiles));
+      const problems = await checkPaths(markdown, root);
       const errors = problems.filter((problem) => problem.severity === 'error').length;
+      if (!values.json) {
+        for (const file of skipped) console.error(`mmi: warning: ${file} is not a Markdown file; skipped`);
+        if (markdown.length === 0) console.error('mmi: warning: no Markdown files were checked');
+      }
       emit(values.json
-        ? JSON.stringify({ errors, problems }, null, 2)
+        ? JSON.stringify({ errors, problems, ...checkedSummary(markdown, skipped, process.cwd()) }, null, 2)
         : problems.map((p) => `${p.file}:${p.line}:${p.column} ${p.severity} ${p.code} ${p.message}`).concat(`${errors} error(s), ${problems.length - errors} other problem(s)`).join('\n'));
       return errors > 0 ? 1 : 0;
     }
@@ -2923,6 +2928,34 @@ export async function checkPaths(files: string[], root: string, displayCwd = pro
     }
   }
   return problems;
+}
+
+/**
+ * Splits the files a `check` run collected into the ones it reads and the ones
+ * it skips. A directory walk yields only `.md` files; a non-Markdown file can
+ * reach here only when it was named explicitly (#731).
+ */
+export function partitionCheckFiles(collected: string[]): { files: string[]; skipped: string[] } {
+  const files: string[] = [];
+  const skipped: string[] = [];
+  for (const file of collected) {
+    (path.extname(file).toLowerCase() === '.md' ? files : skipped).push(file);
+  }
+  return { files, skipped };
+}
+
+/** The part of a `check` result that says what was actually inspected (#731). */
+export function checkedSummary(
+  files: string[],
+  skipped: string[],
+  displayCwd: string,
+): { filesChecked: number; files: string[]; skipped: Array<{ file: string; reason: 'not-markdown' }> } {
+  const display = (file: string): string => path.relative(displayCwd, path.resolve(file)).split(path.sep).join('/');
+  return {
+    filesChecked: files.length,
+    files: files.map(display),
+    skipped: skipped.map((file) => ({ file: display(file), reason: 'not-markdown' as const })),
+  };
 }
 
 export function collectMarkdownFiles(target: string): string[] {

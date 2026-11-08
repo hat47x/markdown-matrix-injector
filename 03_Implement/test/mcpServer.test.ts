@@ -269,6 +269,44 @@ test('check returns the CLI JSON shape', async () => {
   assert.equal(result.problems[0].file, 'spec.md');
 });
 
+test('check names the Markdown files it inspected (#731)', async () => {
+  const { root } = fixture('# 仕様\n');
+  fs.mkdirSync(path.join(root, 'sub'));
+  fs.writeFileSync(path.join(root, 'sub', 'b.md'), '# b\n');
+  fs.mkdirSync(path.join(root, 'node_modules'));
+  fs.writeFileSync(path.join(root, 'node_modules', 'skip.md'), '# skip\n');
+  fs.writeFileSync(path.join(root, '.hidden.md'), '# hidden\n');
+  const instance = server(root);
+  await initialize(instance);
+  const result = JSON.parse(resultText(await call(instance, 'check', { paths: ['.'] })));
+  assert.equal(result.errors, 0);
+  assert.equal(result.filesChecked, 2);
+  assert.deepEqual([...result.files].sort(), ['spec.md', 'sub/b.md']);
+  assert.deepEqual(result.skipped, []);
+});
+
+test('check separates a pass over zero Markdown files from a pass over some (#731)', async () => {
+  const { root } = fixture('# 仕様\n');
+  const instance = server(root);
+  await initialize(instance);
+  const empty = JSON.parse(resultText(await call(instance, 'check', { paths: ['data'] })));
+  assert.equal(empty.errors, 0);
+  assert.equal(empty.filesChecked, 0);
+  assert.deepEqual(empty.files, []);
+});
+
+test('check skips and reports an explicit non-Markdown file instead of passing it (#731)', async () => {
+  const { root } = fixture('# 仕様\n');
+  fs.writeFileSync(path.join(root, '.env'), 'TOKEN=secret\n');
+  const instance = server(root);
+  await initialize(instance);
+  const result = JSON.parse(resultText(await call(instance, 'check', { paths: ['.env', 'spec.md'] })));
+  assert.equal(result.errors, 0);
+  assert.equal(result.filesChecked, 1);
+  assert.deepEqual(result.files, ['spec.md']);
+  assert.deepEqual(result.skipped, [{ file: '.env', reason: 'not-markdown' }]);
+});
+
 test('check reports only containment for a reference through an in-root link to an outside book (#776)', async (t) => {
   const { root } = fixture('![[./linked/book.xml#NoSuchSheet|A1:B2]]\n\n![[./linked/broken.xml#Sheet1|A1:B2]]\n');
   const outsideDir = path.join(path.dirname(root), 'outside-books');
