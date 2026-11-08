@@ -175,3 +175,31 @@ test('the reference scan reports Workspace-escaping Excel paths without exposing
   assert.equal(report.comparison.counts['reference-blocked'], 1);
   assert.equal(report.comparison.counts['inventory-unreferenced'], 1);
 });
+
+test('T6 CLI: comment/code examples outside the inventory scope do not spoil an aligned delivery set', (t) => {
+  const f = fixture(t);
+  const delivery = path.join(f.excel, 'delivered');
+  fs.mkdirSync(delivery);
+  const onlyFile = path.join(delivery, 'final.xlsx');
+  fs.copyFileSync(f.files[0], onlyFile);
+  const before = fs.readFileSync(onlyFile);
+  f.write([
+    '# Delivery',
+    `<!-- ![[../excel/${path.basename(f.files[0])}]] -->`,
+    `Example: \`![[../excel/${path.basename(f.files[1])}]]\``,
+    '<!--',
+    `![[../excel/${path.basename(f.files[1])}]]`,
+    '-->',
+    '![[../excel/delivered/final.xlsx]]',
+  ].join('\n'));
+  const result = spawnSync(process.execPath, [
+    '--import', 'tsx', 'src/cli/bootstrap.ts', 'delivery-audit', f.markdownFilePath,
+    delivery, '--root', f.root, '--json',
+  ], { encoding: 'utf8' });
+  assert.equal(result.status, 0, result.stderr);
+  const report = JSON.parse(result.stdout);
+  assert.equal(report.delivery.counts.references, 1);
+  assert.equal(report.comparison.counts.matched, 1);
+  assert.equal(report.comparison.alignment, 'aligned');
+  assert.deepEqual(fs.readFileSync(onlyFile), before);
+});
