@@ -1,0 +1,21 @@
+<style>
+  .company-cover { box-sizing: border-box; height: 240mm; border: 2.5pt double #1f3864; padding: 14mm 12mm; display: flex; flex-direction: column; text-align: center; }
+  .company-cover__logo { align-self: flex-start; width: 46mm; height: 12mm; }
+  .company-cover__no { align-self: flex-end; font-size: 10pt; margin-top: 4mm; }
+  .company-cover__customer { margin-top: 24mm; font-size: 15pt; text-align: left; }
+  .company-cover__name { margin: 38mm 0 8mm; font-size: 27pt; font-weight: 700; color: #1f3864; border-top: 1pt solid #1f3864; border-bottom: 1pt solid #1f3864; padding: 8mm 0; }
+  .company-cover__sub { font-size: 14pt; margin-bottom: 4mm; }
+  .company-cover__meta { font-size: 12pt; line-height: 1.9; }
+  .company-cover__foot { margin-top: auto; font-size: 13pt; }
+  .company-cover .mmi-cover__approvals { margin: 6mm 0 0 auto; border-collapse: collapse; }
+  .company-cover .mmi-cover__approvals th, .company-cover .mmi-cover__approvals td { border: 0.75pt solid #1f3864; width: 22mm; font-weight: 400; font-size: 9pt; }
+  .company-cover .mmi-cover__approvals td { height: 20mm; }
+</style>
+<div class="company-cover">
+  <img class="company-cover__logo" alt="" src="data:image/svg+xml;utf8,%3Csvg xmlns='http://www.w3.org/2000/svg' width='184' height='48'%3E%3Crect width='184' height='48' fill='%231f3864'/%3E%3Ctext x='92' y='31' font-size='18' fill='white' text-anchor='middle'%3ECOMPANY%3C/text%3E%3C/svg%3E">
+  <div class="company-cover__no">文書番号　{{documentNumber}}　／　{{classification}}</div>
+  <div class="company-cover__customer">{{customer}}</div>
+  <div class="company-cover__name"><div class="company-cover__sub">{{subtitle}}</div><h1 style="margin:0;font-size:inherit">{{title}}</h1></div>
+  <div class="company-cover__meta">{{version}}<br>{{date}}</div>
+  <div class="company-cover__foot">{{organization}}{{approvals}}</div>
+</div>
