@@ -65,6 +65,33 @@ jobs:
         if: ${{ matrix.os == 'windows-latest' && github.event_name != 'pull_request' }}
         run: npm run package:cli
 
+  # The declared minimum Node.js (engines.node >=20, MINIMUM_NODE_MAJOR 20) is
+  # verified here with a real Node.js 20 runtime (#723). Runs on pushes to main
+  # and manual runs only, not on every PR, to limit Actions minutes (ADR-0025 D4).
+  # Development and the other jobs use Node.js 22; users of the CLI/MCP tarball
+  # only need Node.js 20 or later.
+  node20-minimum:
+    if: ${{ vars.MMI_ACTIONS_ENABLED == 'true' && github.event_name != 'pull_request' }}
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: 03_Implement
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: 03_Implement/package-lock.json
+      - name: Install dependencies
+        run: npm ci
+      - name: Type check and build (whole project)
+        run: npm run build
+      - name: Product unit tests
+        run: npm run test:unit
+      - name: Offline standalone CLI and MCP package acceptance
+        run: npm run package:cli
+
   # Research-layer tests (#519). Informational: known failures there must not hide product regressions.
   research-tests:
     if: ${{ vars.MMI_ACTIONS_ENABLED == 'true' }}
