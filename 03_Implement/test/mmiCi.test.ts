@@ -13,6 +13,7 @@ const ci = await import(new URL('../scripts/ci/mmi-ci.mjs', import.meta.url).hre
   };
   renderSummary: (result: unknown) => string;
   runMmiCi: (options: Record<string, unknown>) => number;
+  parseArgs: (argv: string[]) => Record<string, unknown>;
 };
 
 function workspace(): string {
@@ -107,4 +108,141 @@ test('runMmiCi invokes the CLI, aggregates provenance and fails the opt-in gate'
   } finally {
     fs.rmSync(root, { recursive: true, force: true });
   }
+});
+
+const COMMIT = 'a8addd1a8addd1a8addd1a8addd1a8addd1a8add';
+const LOCK = `sha256:${'b'.repeat(64)}`;
+
+function identityJson(overrides: Record<string, unknown> = {}): string {
+  return JSON.stringify({
+    schema: 'mmi.build-identity/v1',
+    version: '0.3.0',
+    commit: COMMIT,
+    lockfileDigest: LOCK,
+    dirty: false,
+    node: { version: '22.1.0', major: 22 },
+    distribution: 'tarball',
+    ...overrides,
+  });
+}
+
+/** A fake mmi whose `--version --json` output comes from FAKE_MMI_VERSION; `check` records that it ran. */
+function fakeMmi(root: string): { fake: string; ranCheck: () => boolean } {
+  const fake = path.join(root, 'fake-mmi.mjs');
+  const marker = path.join(root, 'ran-check');
+  fs.writeFileSync(fake, `
+    import fs from 'node:fs';
+    const command = process.argv[2];
+    if (command === '--version') {
+      if (process.env.FAKE_MMI_VERSION === 'fail') process.exit(2);
+      console.log(process.env.FAKE_MMI_VERSION);
+      process.exit(0);
+    }
+    if (command === 'check') {
+      fs.writeFileSync(${JSON.stringify(marker)}, 'x');
+      console.log(JSON.stringify({ errors: 0, problems: [] }));
+      process.exit(0);
+    }
+    if (command === 'provenance') {
+      console.log(JSON.stringify({
+        summary: { linked: 0, extracted: 0, diagnostics: 0, stale: 0, missingSources: 0, reviewStale: 0, reviewUnrecorded: 0 },
+        diagnostics: [], extracted: [], review: { references: [] },
+      }));
+      process.exit(0);
+    }
+    process.exit(2);
+  `);
+  return { fake, ranCheck: () => fs.existsSync(marker) };
+}
+
+function runWithVersion(version: string, extra: Record<string, unknown>): { status: number; summary: string; ranCheck: boolean } {
+  const root = workspace();
+  const previousSummary = process.env.GITHUB_STEP_SUMMARY;
+  const previousVersion = process.env.FAKE_MMI_VERSION;
+  try {
+    fs.writeFileSync(path.join(root, 'doc.md'), '# doc\n');
+    const { fake, ranCheck } = fakeMmi(root);
+    const summary = path.join(root, 'summary.md');
+    delete process.env.GITHUB_STEP_SUMMARY;
+    process.env.FAKE_MMI_VERSION = version;
+    const status = ci.runMmiCi({
+      root,
+      paths: ['doc.md'],
+      ledger: 'mmi-ledger.json',
+      reviewBasis: 'mmi-review-basis.json',
+      failOn: ['diagnostics'],
+      mmi: process.execPath,
+      mmiArgs: [fake],
+      summary,
+      ...extra,
+    });
+    return { status, summary: fs.readFileSync(summary, 'utf8'), ranCheck: ranCheck() };
+  } finally {
+    if (previousSummary === undefined) delete process.env.GITHUB_STEP_SUMMARY;
+    else process.env.GITHUB_STEP_SUMMARY = previousSummary;
+    if (previousVersion === undefined) delete process.env.FAKE_MMI_VERSION;
+    else process.env.FAKE_MMI_VERSION = previousVersion;
+    fs.rmSync(root, { recursive: true, force: true });
+  }
+}
+
+test('parseArgs validates the version pin values', () => {
+  const parsed = ci.parseArgs(['--expect-commit', COMMIT, '--expect-lock-digest', LOCK, '--expect-node-major', '22']);
+  assert.equal(parsed.expectCommit, COMMIT);
+  assert.equal(parsed.expectLockDigest, LOCK);
+  assert.equal(parsed.expectNodeMajor, 22);
+  assert.throws(() => ci.parseArgs(['--expect-commit', 'a8addd1']), /40-digit/u);
+  assert.throws(() => ci.parseArgs(['--expect-lock-digest', 'abc']), /sha256:/u);
+  assert.throws(() => ci.parseArgs(['--expect-node-major', '22.1']), /positive integer/u);
+});
+
+test('without a pin the summary records the build and says the version is unpinned', () => {
+  const result = runWithVersion(identityJson(), {});
+  assert.equal(result.status, 0);
+  assert.equal(result.ranCheck, true);
+  assert.match(result.summary, /## MMI build/u);
+  assert.ok(result.summary.includes(COMMIT));
+  assert.ok(result.summary.includes(LOCK));
+  assert.match(result.summary, /版は未固定/u);
+});
+
+test('a matching pin runs the check and reports the match', () => {
+  const result = runWithVersion(identityJson(), { expectCommit: COMMIT, expectLockDigest: LOCK, expectNodeMajor: 22 });
+  assert.equal(result.status, 0);
+  assert.equal(result.ranCheck, true);
+  assert.match(result.summary, /版の固定: 一致/u);
+});
+
+test('a mismatching pin fails before the check runs', () => {
+  const result = runWithVersion(identityJson(), { expectCommit: 'c'.repeat(40), expectNodeMajor: 22 });
+  assert.equal(result.status, 1);
+  assert.equal(result.ranCheck, false);
+  assert.match(result.summary, /不一致。検査を実行していません/u);
+  assert.match(result.summary, /commit \| c{40} \| a8addd1/u);
+});
+
+test('a pin the build cannot confirm fails: unreported value and uncommitted changes', () => {
+  const unreported = runWithVersion(identityJson({ lockfileDigest: null }), { expectLockDigest: LOCK });
+  assert.equal(unreported.status, 1);
+  assert.equal(unreported.ranCheck, false);
+  assert.match(unreported.summary, /mmi did not report this value/u);
+  const dirty = runWithVersion(identityJson({ dirty: true }), { expectCommit: COMMIT });
+  assert.equal(dirty.status, 1);
+  assert.equal(dirty.ranCheck, false);
+  assert.match(dirty.summary, /uncommitted changes/u);
+});
+
+test('an identity that cannot be read is recorded when unpinned and fails when pinned', () => {
+  const unpinned = runWithVersion('fail', {});
+  assert.equal(unpinned.status, 0);
+  assert.equal(unpinned.ranCheck, true);
+  assert.match(unpinned.summary, /ビルド識別を取得できませんでした/u);
+  assert.match(unpinned.summary, /版は未固定/u);
+  const notIdentity = runWithVersion('not json', {});
+  assert.equal(notIdentity.status, 0);
+  assert.match(notIdentity.summary, /ビルド識別を取得できませんでした/u);
+  const pinned = runWithVersion('fail', { expectNodeMajor: 22 });
+  assert.equal(pinned.status, 1);
+  assert.equal(pinned.ranCheck, false);
+  assert.match(pinned.summary, /build identity unavailable/u);
 });

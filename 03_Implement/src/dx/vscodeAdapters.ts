@@ -1,11 +1,10 @@
 import { parameterIssues } from './parameterDiagnostics.js';
 import path from 'node:path';
-import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import { type AutocompleteCandidate } from './autocompleteProvider.js';
 import { validateEmbedDiagnostics, type EmbedDiagnostic, type XmlMode } from './diagnostics.js';
 import { extractEmbedQueries, parseEmbedSyntax } from '../parser/embedSyntax.js';
-import { isPathWithinBoundary } from '../core/pathResolver.js';
+import { isPathWithinBoundary, verifiedRealPath } from '../core/pathResolver.js';
 import { bindingSeverity, checkExpectedBindings, describeBinding } from '../core/expectedBinding.js';
 import { belowSeverity, checkExpectedBelow, describeBelowChange } from '../core/expectedBelow.js';
 import { checkExpectedHeaders, describeHeaderMismatch } from '../core/expectedHeaders.js';
@@ -166,10 +165,8 @@ export async function createDiagnosticsForDocument(
     if (lexicalCandidates.length === 0) {
       containmentOk = false;
     } else if (fileExists) {
-      let checkPath = resolvedFilepath;
-      let realBoundary = boundary;
-      try { checkPath = fs.realpathSync(resolvedFilepath); } catch { /* best-effort */ }
-      try { realBoundary = fs.realpathSync(boundary); } catch { /* best-effort */ }
+      const checkPath = verifiedRealPath(resolvedFilepath);
+      const realBoundary = verifiedRealPath(boundary);
       containmentOk = isPathWithinBoundary(checkPath, realBoundary);
     }
 

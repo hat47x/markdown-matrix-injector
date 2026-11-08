@@ -158,3 +158,32 @@ test('a changed source gets a changed digest without modifying the file', (t) =>
   assert.notEqual(first.references[0].digest, second.references[0].digest);
   assert.equal(fs.readFileSync(path.join(f.excel, 'a.xlsx'), 'utf8'), 'fictional updated content');
 });
+
+test('T6: examples in HTML comments and inline/fenced code are not delivery declarations', (t) => {
+  const f = fixture();
+  t.after(() => fs.rmSync(f.root, { recursive: true, force: true }));
+  const markdownText = [
+    '# Delivery',
+    '<!-- ![[../excel/b.xlsx]] -->',
+    '<!--',
+    '![[../excel/b.xlsx]]',
+    '~~~markdown',
+    '![[../excel/b.xlsx]]',
+    '-->',
+    'Example: `![[../excel/b.xlsx]]` is not a delivery item.',
+    '`<!--` ![[../excel/a.xlsx]]',
+    '```markdown',
+    '![[../excel/b.xlsx]]',
+    '```',
+    '![[../excel/a.xlsx]]',
+  ].join('\n');
+  const result = observeDeliveryFiles({ ...f, markdownText });
+
+  assert.deepEqual(result.references.map(ref => [ref.line, ref.sourcePath]), [
+    [9, '../excel/a.xlsx'],
+    [13, '../excel/a.xlsx'],
+  ]);
+  assert.equal(result.referentialCompleteness, 'complete');
+  assert.equal(result.counts.references, 2);
+  assert.equal(result.counts.duplicateReferences, 1);
+});
