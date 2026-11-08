@@ -6,6 +6,7 @@ import * as vscode from 'vscode';
 import * as XLSX from 'xlsx';
 import { WorkbookCache } from './cache/workbookCache.js';
 import { validateOpenSourcePath } from './core/openSourcePath.js';
+import { PathVerificationError } from './core/pathResolver.js';
 import { loadWorkbook, type WorkbookData } from './core/workbookLoader.js';
 import { cellRangeToA1 } from './core/tableGeometry.js';
 import { buildDeliveryManifestCsv } from './manifest/collectDeliveryManifest.js';
@@ -1488,24 +1489,40 @@ async function refreshDiagnosticsForDocument(
 
   const workspaceFolder = vscode.workspace.getWorkspaceFolder(document.uri);
   const workspaceRoot = workspaceFolder?.uri.fsPath;
-  const items = await createDiagnosticsForDocument(document.getText(), document.uri.fsPath, workspaceRoot, {
-    fileExists: async (filepath) => {
-      try {
-        await fs.access(filepath);
-        return true;
-      } catch {
-        return false;
-      }
-    },
-    readFile: (filepath) => fs.readFile(filepath),
-    readWorkbookSheetNames: async (filepath) => {
-      const workbook = XLSX.read(await fs.readFile(filepath), { type: 'buffer', dense: true, bookSheets: true });
-      return [...workbook.SheetNames];
-    },
-    loadWorkbook: (filepath) => loadWorkbook({ absolutePath: filepath, cache: previewRenderCache }),
-    loadStructure: (filepath, workbook) => readWorkbookStructure(filepath, workbook),
-    locale: currentMessageLanguage(),
-  });
+  let items: DocumentDiagnosticItem[];
+  try {
+    items = await createDiagnosticsForDocument(document.getText(), document.uri.fsPath, workspaceRoot, {
+      fileExists: async (filepath) => {
+        try {
+          await fs.access(filepath);
+          return true;
+        } catch {
+          return false;
+        }
+      },
+      readFile: (filepath) => fs.readFile(filepath),
+      readWorkbookSheetNames: async (filepath) => {
+        const workbook = XLSX.read(await fs.readFile(filepath), { type: 'buffer', dense: true, bookSheets: true });
+        return [...workbook.SheetNames];
+      },
+      loadWorkbook: (filepath) => loadWorkbook({ absolutePath: filepath, cache: previewRenderCache }),
+      loadStructure: (filepath, workbook) => readWorkbookStructure(filepath, workbook),
+      locale: currentMessageLanguage(),
+    });
+  } catch (error) {
+    if (!(error instanceof PathVerificationError)) throw error;
+    // A failed realpath is not proof of a missing or outside file. Replace
+    // stale diagnostics and held-back fixes with an explicit unverified state.
+    heldBackByDocument.delete(document.uri.toString());
+    const diagnostic = new vscode.Diagnostic(
+      new vscode.Range(0, 0, 0, 0),
+      uiText('Unable to verify workspace boundary for source.'),
+      vscode.DiagnosticSeverity.Error,
+    );
+    diagnostic.source = 'markdown-matrix-injector';
+    diagnostics.set(document.uri, [diagnostic]);
+    return;
+  }
 
   const editor = vscode.window.visibleTextEditors.find((candidate) => candidate.document === document);
   const cursorLine = editor?.selection.active.line;

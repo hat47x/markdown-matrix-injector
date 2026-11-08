@@ -386,22 +386,32 @@ function messageOf(error: unknown): string {
   return error instanceof Error ? error.message : String(error);
 }
 
-function realpathOrSelf(target: string): string {
+function verifiedRealPath(target: string): string {
   try {
     return fs.realpathSync(target);
   } catch {
-    return target;
+    throw new ToolFailure('Unable to verify workspace boundary for path.', 'tool-failed');
   }
 }
 
-/** Real path of the target, or of the nearest existing ancestor for a new path. */
+/** Real path of the target, or of the nearest verifiably existing ancestor. */
 function realpathOfNearest(target: string): string {
   let current = target;
   for (;;) {
-    if (fs.existsSync(current)) return realpathOrSelf(current);
-    const parent = path.dirname(current);
-    if (parent === current) return target;
-    current = parent;
+    try {
+      fs.lstatSync(current);
+      return verifiedRealPath(current);
+    } catch (error) {
+      const errno = isObject(error) ? error.code : undefined;
+      if (errno !== 'ENOENT' && errno !== 'ENOTDIR') {
+        throw new ToolFailure('Unable to verify workspace boundary for path.', 'tool-failed');
+      }
+      const parent = path.dirname(current);
+      if (parent === current) {
+        throw new ToolFailure('Unable to verify workspace boundary for path.', 'tool-failed');
+      }
+      current = parent;
+    }
   }
 }
 
@@ -995,19 +1005,19 @@ class McpServerImplementation implements McpServer {
    * root instead of letting that walk read outside the workspace.
    */
   private assertNoEscapingLinks(): void {
-    const realRoot = realpathOrSelf(this.root);
+    const realRoot = verifiedRealPath(this.root);
     const walk = (directory: string): void => {
       let entries: fs.Dirent[];
       try {
         entries = fs.readdirSync(directory, { withFileTypes: true });
       } catch {
-        return;
+        throw new ToolFailure('Unable to verify workspace contents.', 'tool-failed');
       }
       for (const entry of entries) {
         if (entry.name.startsWith('.') || entry.name === 'node_modules') continue;
         const full = path.join(directory, entry.name);
         if (entry.isSymbolicLink()) {
-          if (!isPathWithinBoundary(realpathOrSelf(full), realRoot)) {
+          if (!isPathWithinBoundary(verifiedRealPath(full), realRoot)) {
             throw new ToolFailure(
               `Workspace link resolves outside the MCP workspace root: ${path.relative(this.root, full)}`,
               'outside-root',
@@ -1031,7 +1041,7 @@ class McpServerImplementation implements McpServer {
     if (!isPathWithinBoundary(resolved, this.root)) {
       throw new ToolFailure(`Argument "${label}" is outside the MCP workspace root.`, 'outside-root');
     }
-    const realRoot = realpathOrSelf(this.root);
+    const realRoot = verifiedRealPath(this.root);
     const realTarget = realpathOfNearest(resolved);
     if (!isPathWithinBoundary(realTarget, realRoot)) {
       throw new ToolFailure(

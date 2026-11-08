@@ -36,7 +36,8 @@ export function auditDeliveryReferences(options: DeliveryAuditOptions) {
   }
 
   // The inventory implementation handles directory realpath and symlink policy.
-  // The source observation validates every workbook before reading its bytes.
+  // Source observation checks reference containment and the file kind before hashing.
+  // It does not parse or validate OOXML workbook structure.
   const markdownText = fs.readFileSync(markdownPath, 'utf8');
   const delivery = observeDeliveryFiles({
     markdownText,
