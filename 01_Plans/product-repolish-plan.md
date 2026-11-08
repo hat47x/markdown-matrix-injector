@@ -509,3 +509,312 @@ D3は「安全にMMIを外せることも成功条件とする」と定めてい
 **出力の分離と停止条件**：G0の`G0_CLI_PASS`（本体CLI成功）と`G0_EVIDENCE_CONSISTENT`（入力・結果・保存依存の独立照合）は同義ではない。G1の抽出・Ledger保存・Markdown挿入・ディスク保存・再開を別ステップに分ける。T1（Source/Candidateの意味的一致）とT2（保存後のAへの実解決）を独立判定する。欠落または不一致の証拠はSTOP/NOT RUNとして扱い、人の業務受理やOwner判断へ自動昇格させない。正式な共通Source Reference契約、asset単体出典の必須化、公開API追加は決めない。
 
 静的根拠：[ #514のG0-0票 ](https://github.com/hat47x/markdown-matrix-injector/issues/514#issuecomment-6516058753)、[ #525のCLI・検査器差分 ](https://github.com/hat47x/markdown-matrix-injector/issues/525#issuecomment-6516074087)。#658のT6/T7、#672のWindows配布・実AIクライアント接続は各独立レーンに残す。
+
+## 11. 2026-11-01 横断追補：原資料R0→R1とレビュー判断の継続（検証計画・未受入）
+
+本節は§10の**保存後Source Reference再解決C-01/T2**を置換しない。§10のG0-0は単一fixtureのZIP・Source SHA・Sheet/Range・保存文書位置・実行版が担当間で一致するまで**未通過**であり、G0 CLI・G1 VSCode・G2横断受入も未完了。R0→R1は**別の独立合成fixture**でread-only観測から進められるが、両実証の同一入力による統合PASSやSHO製品受入を宣言しない。2026-10-31に[PR #735](https://github.com/hat47x/markdown-matrix-injector/pull/735)がmainへ統合済み。SHO Composerは独立製品としてMMIのCandidate・解析・参照・Provenanceを再利用する候補であり、既存コードの移動・複製、専用共通Host、第二のAcceptance Engineは前提にしない。
+
+### 11.1 「同じ／現在有効」の比較対象を分ける
+
+| 観測・判断単位 | 現行の材料 | 認められる主張／留保 |
+| --- | --- | --- |
+| 原資料の実bytes・所在 | `inventory`のSource Identity、各ファイルのpath/状態 | byte一致と意図した出典Location一致は別。資料集合は`per-file-observation`で原子的snapshotではない |
+| 選択した内容 | `inspect --cells`の`sourceIdentity`・Sheet/Range・値の由来、既存Candidate locator/fingerprint | 値・構造・座標の観測。行移動・属性同一性・NULL/0件の業務意味は推定として区別 |
+| Linkedの投影 | `review-basis`の**論理表**digest、`provenance`の解決結果 | `fresh/stale`は論理表との照合。セル観測、文書全体、本文各段落の判断の有効性とは別 |
+| 説明の実際の依存 | Markdown文書版、実消費した図・式macro・テンプレート・Target表示資産 | 文書原文byte不変でも表示・説明は変化し得る。実消費依存と表示Targetの範囲を説明する |
+| 人の説明・判断 | SHOのレビュー文書版、確認対象の節・主張、確認・保留・撤回の履歴 | 根拠が元のbytesへ戻る（ABA）ことは旧判断の自動復活を意味しない。レビューの正本・受理資格は用途ごとに別 |
+| 業務意味・実行 | TEI #267のOwner Acceptance、対象Targetと実証 | AI提案・MMIの機械的合格・SHOの文書確認から自動昇格しない |
+
+重要な粒度は**文書中の説明・判断（Claim）と、実際に利用した根拠の組**である。同一のMMI参照を複数節で用いても、片方の説明が確認済み、もう片方は保留という場合がある。現行`recordReviewBasis`は同じ参照文字列を重複除去し、文書pathごとに記録するため、**段落別の判断履歴そのものを代替しない**。当面は通常のレビューMarkdownに、確認した説明の所在・引用したSource/範囲・保留と撤回を人が読める形で保存する（新しい永続schemaは先行採用しない）。
+
+現在性は**主張に必要な入力集合に相対的**に判定する。作業途中の一般的な比較メモでは「各ファイル別観測・同時点未保証」を明示して継続できる。一方、同一時点の在庫・財務確定値を断定する説明では、R0/R1混在から強いsnapshotを推定せず、Providerの保証がなければ現在確定値と表示しない。未観測・空文字・欠損・明示NULL・解決不能も同一の「なし」にしない。TEI [#2505](https://github.com/hat47x/tei-platform/issues/2505)の版内厳密参照／版間対応候補、[#2497](https://github.com/hat47x/tei-platform/issues/2497)のProjection損失、[#1803](https://github.com/hat47x/tei-platform/issues/1803)の文書表示依存は**消費側の別責務**であり、MMIにその第二正本を作らない。
+
+### 11.2 最小の一往復（独立fixture・新MCPを必須にしない）
+
+1. **R0固定**：合成Excelと選択シート・範囲を用意し、`inventory`→`inspect --cells --expected-source-digest --include-values`で観測。CLI実行結果／出力実bytes・digest／観測できない範囲を保存。R0レビューMarkdownに「確認した説明」「保留事項」「対象の出典」「確認の範囲」を記録する。R0を後日完全再生する必要がある場合は、観測JSONとは別に原資料版を保全する。
+2. **R1変更**：行の挿入によるセル移動と、丸め方法`half-even`の追記を与える。通貨・数量単位・単価参照時点は未記載に保つ。R1を同じ手段で別ファイルへ観測し、座標外へ移動した対象があれば利用者が範囲を再選択する。R0観測とR1観測、実際のSource版を混同しない。
+3. **AI比較（候補）**：R0/R1観測JSONとR0レビューを通常のファイル読取で渡し、`Observed / Inferred / Unresolved / Review Questions`へ分類。実際に渡した入力版を確認できなければ`delivered=unobserved`相当で記録。MMI MCP `handoff`はCandidate受渡しであり、任意のセル観測・判断継続の総合機構とは呼ばない。
+4. **人のR1確認と保存**：R0文書を保持し、R1レビューを別版として明示保存→再読取。AI応答の作成時と保存時に文書・根拠が変われば再比較。保存・Ledger・出典解決・人の判断・TEI受理の成功を一つの終了コードへまとめない。
+5. **比較評価**：直接AIに原資料を渡す方式と、MMI観測＋過去レビューを渡す方式で、出典に戻れない候補数、根拠なき保留解消、対応項目の誤認、確認工数、値の開示範囲、処理コストを比較する。両方式の期待値はAI出力とは独立した小さなoracleで固定する。
+
+### 11.3 正例・負例と判定票（いずれも提案、NOT RUN）
+
+| ID | 入力差分・操作 | 合格条件 |
+| --- | --- | --- |
+| RR-01 | R0からR1へ行を挿入。選択範囲外に項目が移動 | 物理座標の一致から項目の意味同一性を確定しない。見落とした範囲を再観測または未観測と表示 |
+| RR-02 | R1に丸め規則追記。通貨・単位等は不明 | 追記を観測しつつ、適用業務・Owner受理・通貨等の保留を残す |
+| RR-03 | 原資料とLinked論理表は不変、人の確認だけが撤回 | `review-basis=fresh`を「判断が現在も有効」へ昇格しない |
+| RR-04 | R0→R1→R0相当の元bytesへ戻す | Source digest再一致から撤回済み判断を自動復活させない |
+| RR-05 | 同一表参照が文書内2節に登場し、一方は確認済み・他方は保留 | `review-basis`の参照重複除去とは独立して、節・主張ごとの判断を区別 |
+| RR-06 | 文書Markdownは同bytes、参照図または数式macroの実効定義だけ変更 | 文書本文一致、表示依存の変化、説明の再確認候補を別列にし、TEI意味版を自動変更しない |
+| RR-07 | `review-basis --write`を人の確認より先に実行、またはR0とは別pathへ文書を移動 | 「論理表の記録がある」と「人が判断を確認した」「旧文書版と比較した」を区別 |
+| RR-08 | `inventory`一部観測・複数資料は別時点 | 失敗・未観測の集合を残し、同時点が必要な主張は現在確定として扱わない |
+
+実証票は**fixture版／実CLI版／Expected／Actual／個別の結果／未観測／人の確認／Owner未決**を分離する。既存の[MMI #498](https://github.com/hat47x/markdown-matrix-injector/issues/498)の同一／不一致／確認不能、[ #522 ](https://github.com/hat47x/markdown-matrix-injector/issues/522)のLinked鮮度、[ #525 ](https://github.com/hat47x/markdown-matrix-injector/issues/525)のprovenanceを再利用する。R0→R1の実AIクライアントE2E・SHO編集UI・顧客資料・正式Owner判断・TEI Source変更・Target実効果は**未実施**。
+
+### 11.4 製品境界・引渡し
+
+- **MMI**：Source観測・構造・Candidate・参照・各種鮮度と未観測範囲を提供。CLI既存経路で初回実証する。MCPの`provenance`公開は[#697](https://github.com/hat47x/markdown-matrix-injector/issues/697)、選択範囲の値取得は[#739](https://github.com/hat47x/markdown-matrix-injector/issues/739)のOwner未決として独立。
+- **SHO Composer**：文書の読みやすさ、文書構成、過去版・現在版、説明ごとの確認・保留・撤回、固定納品と作業版、表示・納品を担う構想。既存MMIコードを複製せず、新repoに公開契約／製品入口を検討する。SHO repoへの書込みや製品実装は本追補の対象外。
+- **SEI/TAIおよび外部ハーネス**：必要な根拠と判断の経緯を扱うConsumer。評価・文書生成が**実際に同じ観測集合**を消費したかは受取側で検査し、MMI digest存在のみから同一入力保証を推定しない（[TAI #28](https://github.com/hat47x/tai-pleroma/issues/28)）。
+- **TEI**：人が選択した候補からModelRefへ対応付け、未解決を保持し、既存[#267](https://github.com/hat47x/tei-platform/issues/267)で意味受理。設計成果物の既存完了範囲は[TEI #1803](https://github.com/hat47x/tei-platform/issues/1803)（2026-11-02時点Closed）を歴史的根拠として参照し、現在の用途相対Projectionと文書Consumer接続は[TEI #2516](https://github.com/hat47x/tei-platform/issues/2516)、Claim→Patternのheadless縦断は[#2586](https://github.com/hat47x/tei-platform/issues/2586)、SHO側の説明・Reviewは[SHO #6](https://github.com/hat47x/sho-composer/issues/6)を優先して照合する。SHOの説明確認をOwner Acceptance／Target実行資格へ昇格しない。
+- **Owner待ち**：文書内の説明ごとのレビュー状態をSHO標準の保存対象とする範囲、判断撤回・再確認の責任、固定納品時に要求する同時点整合、参照済み表示依存の必須証拠。§10のQ1〜Q3（Reference基準／抽出資産／納品集合）は独立のまま維持する。
+
+この計画の追補は、既存の#514 G0-0→G2や#658 T6/T7、#672配布受入の試験合格と読み替えない。R0→R1の小さな独立fixtureによる**人が判断を継続できるか**という利用価値の実測を先行させ、具体的に不足した時点でUI・契約・保存機構の採否を決める。
+
+### 11.5 主張の比較可能性・根拠十分性・開示資格（2026-11-02横断差分、未受入）
+
+**重要な追加境界**：R0とR1の観測値が等しいか、同じ見た目で表示できるかだけでは、SHOが利用者に示す「一つの主張C」を継続してよいとは言えない。TEI [#2516](https://github.com/hat47x/tei-platform/issues/2516) W8-CC、[#2586](https://github.com/hat47x/tei-platform/issues/2586)のQuery→Context→Claim、[#2497](https://github.com/hat47x/tei-platform/issues/2497)の情報損失、SEI [#767](https://github.com/hat47x/sei-cognition/issues/767)の根拠十分性を**別Ownerの既存検討**として参照し、MMIのSource/Candidate/Provenanceに意味的Comparatorを追加する設計ではない。
+
+一つの説明・判断について、既存証拠を用いて次の問いを人間可読な対照票で照合する（**新しい永続Claim SchemaやAcceptance Gateの採用ではない**）。
+
+| 問い／比較軸 | 必要な根拠 | 早計な結論の反例 |
+| --- | --- | --- |
+| **何を主張しているか** | 命題、対象の意味・役割、用途、前提・例外 | 同じ数値・同じ表示文字列だけから同じ命題とする |
+| **どの集合について言えるか** | 対象集合、適用範囲、粒度、重複、complete/partial/unknown、Queryの実効条件 | 選択範囲に無い規則を「存在しない」、一部の0件を全件0件とする |
+| **どの時点で言えるか** | Source/Query/Rule版、観測時点、対象の有効時点、epoch、同時点整合の要求 | 各原資料のdigestを照合しただけで混在R0/R1を一つの時点の確定事実とする |
+| **どの表現を消費したか** | source bytes、Candidate/occurrence、セル/式の原文とcached valueの区別、投影・Renderer・macro/asset実消費入力 | もとの整数が正確でもfloat64化で桁落ちした文書値を「同値」とする |
+| **誰へ何を示せるか** | Reader/ConsumerのScope、閲覧と外部送信の資格、実際に開示されたProjection | 情報の不開示・取得不能から「秘匿された行は存在する／存在しない」と推定する |
+| **人が現在どう判断しているか** | 文書版・節/Claimの所在、対象根拠、review/withdraw/未決、固定納品か作業版か | 論理表`fresh`、過去の確認、受理済みTEIモデルを現在の著者確認と一括同一視する |
+
+**同値と比較可能は異なる。** 同じ値200でも注文集合D1の合計と別のScope/Grainの結果なら、同じClaimの一致とは言えない。異なる値15と7.5も、閲覧可能部分集合の平均と全体平均なら双方が正しい場合がある。さらに、同一Scope/Grain/版/時間/計算条件/開示資格が揃ったうえで200と201が出た場合に限り、**比較可能な不一致候補**として独立Oracleと両Consumerの実際の入力へ戻る。どちらが正しいかを多数決やAI自信度で決めない。
+
+**「不足」の区分**：①取得可能だが対象範囲未観測、②形式/Provider障害で取得不能、③構造は観測済みだが意味対応が曖昧、④Projectionで情報が失われた、⑤受取者へ開示できない、⑥確認が撤回され現在の適用判断が無い、を区別して記録する。各区分は比較票上の説明であり、MMIの現行status enumやCLI exitにそのまま追加しない。特に低権限Consumer向け説明では、非公開データの存在・件数・Policy詳細を反証理由として漏らさず、許された範囲で「現在の表示からは確認できない」と説明する。
+
+**変更影響の二方向**：既知の依存入力が変化したら、関係するClaimの再レビュー候補を局所提示する。一方、既知の参照表が不変でも、新たに追加された規則資料や未観測のSourceが旧主張を反証し得るため、局所digest一致を「対象集合全体を調べた」証拠とは扱わない。ここで求めるのは無限の不存在証明ではなく、宣言した資料集合・対象範囲に相対的な観測範囲と未確認領域の説明である（MMI #618/#658を再利用）。
+
+### 11.6 追加反例RR-09〜RR-17（独立Oracleを持つ合成素材・NOT RUN）
+
+| ID | 合成入力／変更 | 独立期待値と検査すべき誤り |
+| --- | --- | --- |
+| RR-09 | 異なるScope/Grainの二集計が偶然ともに200 | **値一致でも異なるClaim**。同一Source/同値だけでレビューを転用しない |
+| RR-10 | 可視部分集合のAVG=15、内部全体のAVG=7.5 | **異値でも双方が正しい**。外部Consumerへ内部母集団の存在・値・件数を開示する説明を出さない |
+| RR-11 | 注文2件各100に配送3件がJOINし、誤ってSUM=600。元注文のみでは200 | 行粒度とJOIN行増幅を保全。見かけ上の数式一致・生成成功を業務合計の適合へ昇格しない |
+| RR-12 | 一部だけ検索して0件、完全な母集団では未取得があり得る。また取得資格で見えない行がある | 「現在観測範囲で0」と「全対象で不存在」を区別。認可拒否から秘密の有無を推定/開示しない |
+| RR-13 | Excelに正確な整数`9007199254740993`相当の値を保持する合成例を作り、途中のfloat64変換で`9007199254740992`へ丸める | Source bytes/文書値/TEI数値Projectionの一致を別確認。原資料の格納型・実読み出し値がこのケースを表現できたかも観測し、未表現なら入力fixtureを補正して記録 |
+| RR-14 | 選択した論理表はR0/R1で不変だが、対象規則を例外化する**別文書**がR1で追加 | `review-basis=fresh`でも「承認不要」など全対象の一般命題は自動継続しない。追加資料の探索範囲と当該Claimの依存不足を明示 |
+| RR-15 | 同一Snapshotの非負部分集合だけ得た場合にSUM下界候補を提示し、負値・JOIN重複・訂正・削除を別入力で与える | 単調性・同一Unit/Identity/重複なし・append-only等の前提付きの局所結論だけ許容。前提不成立時に下界を撤回/未解決へ戻す |
+| RR-16 | 遅着の訂正・TOP-N変動で旧R0 Claimが失効。過去の固定納品文書は残る | 作業版の現在性と固定納品版の当時の証拠・著者Reviewを分ける。旧版を上書きせず、現在確定と再利用しない |
+| RR-17 | Excelのセル・Markdown引用にAIへ作業指示する文字列があり、外部Harnessにはその原本の送信権限がない | 文書内容は観測データとして扱い、命令として実行しない。閲覧資格と外部送信資格を分け、実送信bytesを受取側で検証。OS/Host隔離の実効性は既存TEI #2515/TAI #232がOwner |
+
+**優先実行**：RR-09/10/11/12/14を、同じ合成資料の決定的比較票で先に検証する。RR-13/15/16/17は型・時間・秘匿・AI連携の独立レーンとし、実TargetやOS拒否が未確認の段階では説明上の期待値と実装PASSを区別する。比較の対象・期待値はAI候補から独立に固定し、**異なるConsumerに同じ開示権限を仮定してはいけない**。
+
+### 11.7 段階・優先順位・受入証拠の拡張
+
+| レーン | 今できること／先行条件 | 予定する成果とOwner |
+| --- | --- | --- |
+| **P0-A 出典再解決** | §10 C-01/T2の**G0-0共通fixture未一致**を先に解消。G0 CLI→G1 VSCode→G2横断 | MMI #514/#525。実原本Aと保存後参照のLocation/bytes/Candidate/asset/Ledgerを独立照合 |
+| **P0-B 判断継続** | P0-Aと独立したR0/R1合成fixture。MMI CLIの既存観測→人のR0レビュー→R1差分 | 本PRのRR-01〜08。R0の保留・撤回を失わずR1へ再開する。SHO製品UIは未完成でもread-only比較可能 |
+| **P0-C Claim比較可能性** | RR-09〜12/14を既存の合成表・数値・scope/粒度で決定的に評価。P0-A未完でも可 | MMIは原資料の観測範囲を提供、TEI #2516/#2586が意味・用途相対Projection、SEI #767が認知的な根拠十分性、SHO #6が人の説明とレビューを扱う |
+| **P1 多Target・増分** | 型の表示損失・数式macro・文書依存asset・R0/R1の版間対応 | SHO #1/#4/#6、MMI #736、TEI #2505/#2497。再描画・再レビュー候補は消費依存相対に説明 |
+| **P1 AI/機密/実受渡し** | 同一観測集合を決定的比較・外部AI候補で評価し、受渡しと実送信範囲を別記録 | TAI #28/TEI #2515/SEI #767。直接AI原資料投入方式との比較では情報持出し許可・入力byte・根拠探索負担を揃える |
+| **後続 TEI正式採用** | 候補とTEI ModelRefの対応を別途確認し、既存#267のOwner受理経路へ | 統合SHO文書の確認をTEIモデルの意味受理、外部Hostロード、DB効果、納品公開許可に自動昇格しない |
+
+観測票に加える**比較のための列**は`Claim / semantic subject / Scope+Grain+Completeness / version+time+snapshot demand / evidence consumed / projection loss / allowed recipient / review state / independent expected / actual / unresolved`で足りるか先に評価する。これを公開Schemaや第二正本へ直ちに昇格しない。
+
+品質は単一PASSに潰さず、**D0:文書保存・再開、D1:出典への再到達、D2:意味・数値のProjection忠実度、D3:Claimの比較可能性と現在有効性、D4:レビュー済み固定納品/開示資格**を別欄で示す（本節内の暫定評価軸でありTEIの公式Gate名ではない）。D0/D1成功からD2〜D4成功を推定しない。人の確認工数と未解決の残余、AI・決定的baselineの過剰一般化件数、非公開情報の漏出有無を別々に測定する。
+
+**変更範囲・実績**：2026-11-02の追加追補は計画文書のみ。TEI #1803はClosedとなったため、後続の横断Consumer契約はOpenの#2516/#2586へリンクを更新する。SHO repoのS0〜S5・PV系計画、TEI・SEI各Issueへ同じ表を複製しない。新しいMMI機能、SHO実装、Cross-Consumer実実行、独立OS機密試験、Owner業務受理は実施していない。
+
+### 11.8 R0→R1レビューの再利用資格：「特定の説明・出現・利用条件」へ結び付ける（2026-11-02横断追補／未受入）
+
+SHO [#4](https://github.com/hat47x/sho-composer/issues/4)のDocument Occurrence保存・編集、[#6](https://github.com/hat47x/sho-composer/issues/6)のPV4（局所上書きで上流差分が見えない）、[SHO #1](https://github.com/hat47x/sho-composer/issues/1)のDocument/Reference/Review/Delivery独立評価が進んだ。**本MMI計画が追加所有するのはSHO側のUIや保存形式ではなく、原資料R0→R1のとき「過去の人のレビューを現在の説明に適用できる」と述べるために必要な、観測可能な条件と反例の受け渡し**である。C-01/T2はMMI、Occurrence編集はSHO #4、Projection/逆写像はTEI #2497、版間Source対応はTEI #2505、Meaning AcceptanceはTEI #267の既存Ownerを維持する。
+
+**検証票の比較対象（新しい恒久ID／公開schemaではない）**：説明Cの意味対象・命題・対象集合・粒度・時点・用途・読者、Document Occurrence Oと周辺文脈、Source AのLocation/実bytes・Candidate・参照、観測済/未観測の根拠、Projection Rule/Template/macroと著者の局所編集、人のReviewイベントと対象版・withdraw履歴。Source digest・論理表fresh・表示byte一致のどれか一つだけから旧レビューの現在有効性は導かない。
+
+**最小三者比較**：
+1. 旧根拠版R0から導出した**基準投影P0**、同じOccurrenceに著者が施した**局所編集後本文O0**、現在の根拠版R1から導出した**新基準投影P1**を区別。R0↔R1のSource/Model対応が曖昧なら未解決とする。
+2. P0↔P1の差（上流変更）、P0↔O0の差（作者の局所変更）、O0と現在の表示の差（可視変更）を別に把握する。表示が同じでも上流変更が覆い隠され得る。必要な参照図・数式macro・Target依存は実消費した入力で固定して検証する。
+3. **旧Review履歴の保存**、**旧Review対象と現Occurrence/Claimの対応**、**現在の説明への再利用候補**、**外部への公開・送出資格**を別欄で判定。依存の変更を認識しても、過去の人の確認を「本人がwithdrawした」と勝手に変更しない。一度撤回したReviewは、原bytesへの復帰で自動復活させない。
+4. 結果は「依存範囲の一致による再利用候補」「局所再確認候補」「対応曖昧・必要根拠未観測」「歴史的判断は撤回済み」などの**説明理由**とし、公開状態enumや承認engineは導入前にSHO側Ownerへ戻す。
+
+**根拠の十分性**：既知依存の差分が局所的なら、確認対象も局所化できる。一方、「すべて」「例外なし」「否定研究は存在しない」のような広いClaimは、旧Sourceが不変でも新規規則・新論文や未探索資料によって再確認が必要になり得る。確認済み資料集合を閉じた範囲として宣言した場合と、追加資料が到着し得るopen-worldの調査を区別する。無限の不存在証明は要求せず、探索範囲と未観測残余を示す（本節のRR-12/14/15を再利用）。
+
+### 11.9 RR-18〜RR-24：Occurrence別レビュー、局所編集、論文から設計へ（追加合成反例／全てNOT RUN）
+
+| ID | R0→R1の変更 | 期待する検査と責務 |
+| --- | --- | --- |
+| RR-18 | 同じTEI意味KをO1/O2へ投影。O1だけ著者が単位表示を「箱」へ上書き。元モデルが「個」→「件」へ変化してもO1の見た目は不変 | O1の表示一致から意味無変更とは言わない。O2の新基準、O1の旧基準・上書き、レビュー対象を区別。SHO #6 PV4の実証Ownerへ |
+| RR-19 | O1をO3にコピーし、同じ出典・同じ文言でも読者・節の前提が異なる | O3のSource対応は候補になり得るが、O1の確認をO3の現在Reviewへ自動継承しない。コピー時ID/編集履歴はSHO #4のOwner |
+| RR-20 | O1を別節へ移動。元本文は同じだが章の条件が「通常のみ」から「例外を含む」へ変わる | Occurrenceの位置移動とClaim Scopeの変更を分ける。内容digest一致から旧レビュー適用性を確定しない |
+| RR-21 | 同じClaimの参照資料と宣言した依存範囲・時点は不変。他の無関係な節のみ改稿、旧Reviewにwithdrawなし | 必要条件を満たせば局所再利用候補を提示し、不必要な全章再確認を測定。ただし自動Meaning Acceptanceとはしない |
+| RR-22 | 論文3リンクのURL・並び・字下げだけを変更。本文/PDFは未取得 | **研究リンク整理としての保存再開**は成立。原典を読んだ／文献主張を確認したとは扱わない。SHO [#7](https://github.com/hat47x/sho-composer/issues/7)のL0を参照 |
+| RR-23 | 論文A v1を根拠にした設計・コードがあり、v2訂正または新論文Bの反例が加わる。旧コードのunit testはPASS | 既存コードの実テストと新版論文の再現を区別。原典Claim・AI解釈・Design Assumption・人の判断・独立Oracleを局所追跡。工程OwnerはSHO [#8](https://github.com/hat47x/sho-composer/issues/8) |
+| RR-24 | 文書O1は保存済み、固定HTMLに必要な図/脚注が未列挙。Preview後に外部AI送信Policy失効 | 文書作業は保存継続。固定納品・外部送出を必要なTarget資産集合・受取者/Policy・実生成/送信bytesに相対的に判定。SHO #1 RC-SHO-01のOwner |
+
+**評価のための対照列**：old-review-target / new-target-correspondence / intended-Source-Location+actual-bytes / Occurrence+surrounding-context / P0-O0-P1 / declared-dependencies+unobserved / review-history / review-reuse-candidate-and-reason / recipient+actual-outbound-bytes-if-observed。これはテスト票用の列であり、MMIのCLI/MCPの公開契約を拡張する要求ではない。**履歴保持、対応同定、再利用候補、本人の再確認、納品・送出可否は独立の判定**として保持する。
+
+**最初の受入順序**：RR-18/19/21はR0→R1のP0-Bへ小さな合成Markdownと独立期待値で追加。RR-20は周辺文脈の変化を調べる後続。RR-22はSHO単体L0の独立価値として実証し、RR-23は[SHO #9](https://github.com/hat47x/sho-composer/issues/9)のPlain-text BenchmarkでA0/A1/A2とB0/B1/B2の別指標へ接続する。リンク集の価値と論文→コードの改善は異なる仮説であり、構造化へ費やした人/AIの時間・費用も測定する。MMI C-01/T2のG0-0未通過は出典を実再解決した統合PASSだけに影響し、単独SHOのL0や独立R0/R1の考察まで停止させない。
+
+**状態**：上記は独立した対照fixtureと検証手順の設計。SHO CLI/Editor・実論文取得・Paper→Program・実TEI再接続・実Target/AI送信・Owner受理は未実行。新Review Schema、共通Host、第二SSOT、承認engineを採用せず、各既存Issueへ実証Ownerを残す。
+
+### 11.10 Source改版候補からSHO実読取までの五段階：改版追跡と公開一式の保証を分離（2026-11-02追加差分）
+
+新たな横断証拠：[TEI Draft PR #2615](https://github.com/hat47x/tei-platform/pull/2615)はSource版A→B→Cの候補対応・Consumer別影響を整理し、[TEI #2604](https://github.com/hat47x/tei-platform/issues/2604)はArtifact群の物理公開とConsumerが実際に読んだ版の一式性を別に検証する。MMI本計画の目的は、**保存済みSHOレビューがどの事実を引用・再利用できるか**を検証すること。TEI側のSource差分器、Manifest公開処理、SHOの文書保存を重複実装しない。
+
+旧R0レビューを現R1へ継続する判断で使う証拠を、五段階として区別する。区分はTEI Draft #2615の設計仮説をConsumer視点へ読み替えた検証票であり、現時点の正式共通Contractではない。
+
+| 段階 | 確認した実体 | 次へ進んでも残る未保証 |
+| --- | --- | --- |
+| **S: Source** | 旧／新のSource packet、実取得bytes、Location、viewと一版内locator、観測範囲 | ZIPやSource digestが同一でも業務的意味の同一性は未確定 |
+| **C: Correspondence candidate** | 旧→新Sourceの理由付き候補辺、重複/欠損、分割・統合・多対多・経由版と未解決 | A→B、B→Cの候補合成はA→Cの意味同一性ではない |
+| **M: Accepted meaning** | 対応するTEIの受理済み意味版・Scope・未決 | 意味受理があっても全Target生成・外部Hostでの実効果やSHO説明レビューは未保証 |
+| **G: Generated set** | 生成時のMeaning/Template/Generator版、Artifact実bytes、Manifest、CheckSet/Unresolved | 生成物・Manifestの内部整合だけでは旧世代ファイル残存、途中上書き、名前衝突、同世代の公開を保証しない |
+| **P: Published/Consumed set** | 一つの公開世代に含まれる実ファイル集合、Manifest列挙、Consumerの読取bytes/時点・Recipient/Scope | SHO読取成功は著者の説明妥当性・過去Reviewの現在適用・納品/外部AI送信許可とは別 |
+
+**重要な追加点**：SHO文書の出典Aが正しく解決され、TEI Accepted Modelの改版も正しい場合であっても、SHOが読んだ設計成果物の一部だけが新世代であれば「同一版の設計説明を確認した」とは言えない。逆に、Sourceだけが改版されても、旧SHOの固定納品版と当時の一式実bytes・Reviewは歴史的な完成物として維持可能である。現在利用可能かは別審査。
+
+**物理一式の具体的な競合**：旧Manifest R1はA.md/B.mdのdigestを列挙。新世代R2への更新中、A.mdだけ上書きされManifest R1が残ると、Manifest↔実A.mdは不一致。R2 ManifestにA.mdのみ列挙しても、旧B.mdが物理ディレクトリに残り、SHOやAIがディレクトリ全件走査するとR1/B.mdを「現行R2」と誤認し得る。Manifest読取後にA.mdが更新される競合も同様。既存TEI #2604のAP-01/02/06が**実製品テストOwner**であり、MMIは実観測と別Source/出典の識別を支援するのみ。
+
+**A→B→Cの候補の曖昧性**：旧a1/a2→中間b→新c1/c2の候補関係なら、経由候補の到達経路が複数ある。旧a1の根拠を新c1と確定して旧SHO Reviewを自動再利用してはいけない。候補対応のOwnerはTEI #2505/PR #2615、人のDocument OccurrenceとReviewはSHO #4/#6。MMIのSource Identityは一版内の観測を保持し、版間意味対応を独断で確定しない。
+
+### 11.11 RR-25〜RR-30：公開・Consumer読取とレビュー再利用の非同一性（合成受入、製品E2E NOT RUN）
+
+| ID | 合成変更・実Consumer状態 | 言えること／言えないこと |
+| --- | --- | --- |
+| **RR-25 多版対応** | Source Aにa1/a2、Bではb、Cではc1/c2。A→BとB→Cの候補辺を連結 | 候補経路と多対多の曖昧性を報告できる。A→Cの確定1:1対応、意味受理、旧Reviewの現在適用とはしない |
+| **RR-26 途中公開** | 旧Manifest R1（A/B）を残したまま新R2のAだけ上書き後に故障 | Manifestに含む実A byteと一致しなければ現公開世代の整合は未成立。旧SHOレビューを新Aの確認へ流用しない |
+| **RR-27 旧残存資産** | R1 A/BからR2 Aのみへ再生成。ManifestからBを外したが物理ディレクトリに旧Bが残る | Manifest上の列挙と物理全件は異なる。Consumerが何を実取得したかを記録し、旧BをR2出典に見なさない |
+| **RR-28 読取中の版切替** | SHOがManifest R1を読み、A取得前にR2のAが公開される | 同一時点の文字列として表示できても同一世代のbyteを消費した証拠ではない。検証済み固定版への再取得または確認不能扱い |
+| **RR-29 テンプレートだけ変更** | Accepted Meaning M1は同じ。Template T1→T2で設計書bytesだけ変更 | TEIの意味改版なし／生成物改版ありを区別。変更後のSHO説明・表示のReview適用性は独立。旧固定納品R1を無断上書きしない |
+| **RR-30 異世代説明** | SHO文書のOccurrence O1はAccepted M1の旧Artifact G1を引用。Source/Meaning候補がM2へ移ったが公開P2と実読取を確認できない | O1の歴史的出典・Reviewを保存し、現在性は「根拠の候補対応あり、実Consumer版未確認」として表現。生成実行成功・Manifest digestのみで現在確認済みとしない |
+
+**小規模の独立実行事実**：Python 3標準ライブラリの合成filesystemモデルで、(a)旧Manifest＋新Aの混在、(b)Manifestにない旧Bの残存、(c)Manifest読取後のA更新、(d)意味ラベル同一・Template差に伴う出力byte差、(e)A→B→Cの候補経路非一意という**5つのtoy unittestがPASS**。これは上表の前提を理解するための独立合成試験であり、TEI #2604の実製品コード、MMI CLI、SHO Consumer、Go CI、Windows原子的公開、Owner受理の実測ではない。toyで「不整合を検出できた」ことを製品に既にその検査が存在する証拠にしない。PRにはtoyの実装を含めず、テスト手順のOwnerは#2604/#2505へ維持する。
+
+**統合の最小の一歩**：RR-26〜28のどれか一件について、TEI #2604が観測した`PublishedGeneration / Manifest / actual member bytes`を、SHO #6のread-only説明Consumerが**実際に受け取った証拠**として比較。MMIのC-01/T2 G0-0未通過はそのSource Referenceを通じた統合PASSだけを止め、合成の公開一式Consumer試験は独立に進められる。成功を主張する単位は「そのManifestに対応したこの実byteをSHOが読んだ」という狭い条件から始める。
+
+**受入票への追記列（新schemaではない）**：`source version / correspondence candidate & ambiguity / accepted meaning revision / generator + template version / manifest + member digest / published generation / consumed byte digest per occurrence / review target / current review reuse evidence / disclosure scope / unresolved`。Pが未確認ならD0（文書保存）は評価できてもD2（説明投影）・D3（レビュー現在性）・D4（納品/外部送信）は独立して未確認を保持。TEI #1803 Closedや#2604 Open等のIssue状態自体を、当該Consumerの実証結果の代用にしない。
+
+**今回の採否と実証境界**：#2505/PR #2615がSource版間候補、#2482が設計Artifact内部整合、#2604が物理公開、SHO #4/#6が読取文書・レビュー・公開、MMI #514/#525がSource参照実観測のOwner。TEI #2615はDraft設計1文書・Go合成PoC計15試験PASSの報告（コードは同PRへ未コミット）。この横断ケースは公開Source/生成物の匿名合成入力だけで検証し、非公開原参照モデルの本文・Source locator・個別hashを転載しない。RR-25〜30の実TEI/MMI/SHO製品E2Eは**NOT RUN**で、Owner意味受理・正式なStage→Publish方式は未決。
+
+### 11.12 「読めた」から「届いた」までの証拠連鎖：ACK・Body・Consumer・納品要件の非同一性（2026-11-02横断追補）
+
+§11.10のS/C/M/G/PはTEI生成物の同一世代Consumer実読取までを整理した。今回の差分は、**Pの後に非同期Harness・配送・保存・固定納品がある場合、Producerの成功と相手の実受領を分ける**こと。既存[EKI #465](https://github.com/hat47x/eki-fabric/issues/465)の実コード静的所見（値レシーバー・別Runnerインスタンス・Claim ACK後のBody未送信可能性）、[TAI Draft #270](https://github.com/hat47x/tai-pleroma/pull/270) SK-Jの受渡し反例、[SHO #3](https://github.com/hat47x/sho-composer/issues/3)のCLI部分保存・Tool委譲実効果、[MMI Draft #754](https://github.com/hat47x/markdown-matrix-injector/pull/754)のDeclared/Observed/Required/Consumed/Deliveredを**各Ownerの実証として接合**する。MMI/SHOに新しいQueue、Artifact Publisher、Agent Host、横断Receipt Registryを作る計画ではない。
+
+**どの成果を「完了」と言えるかは観測境界ごとに限定する。**
+
+| 実際に確認できた境界 | 機械的に主張できること | これだけでは主張できないこと |
+| --- | --- | --- |
+| 生成開始・操作Attemptと入力版が記録された | この版に対して操作を試みた | 実効果・成果物・後続への送達 |
+| Producerの出力bytes・digestとClaim/Manifestが得られた | その出力が当該Attemptで生成された候補 | 同AttemptのBody取得可能性・実送信 |
+| Claim ACK・CLI exit 0・Task完了が観測された | その契約範囲で受理通知や終了状態があった | Body受領、添付、納品一式、DB Commit |
+| 同じAttemptのBodyを実Receiverが取得・保存した | そのBodyがReceiverに届いた（Receiverの観測範囲） | SHOが内容を読み解き、説明へ実利用したこと |
+| SHO/AI Consumerが実際に使用した入力bytesと版を観測できた | 特定の説明/評価入力を同定できる | 開示資格、回答本体の利用者への送達、レビュー・Owner意味受理 |
+| 固定納品・外部送出でRecipient/Policy/Target別Requiredと実Deliveredを比較した | 指定したRequired集合と実送達・生成結果の対応候補 | Required不明の場合の契約完結性、許可のない外部送信、業務完了 |
+
+**非同期と再試行**：Attempt Xの出力を保存・送信する際、後続Attempt Yの「最新output」と取り違えない。Claim ACKだけ残りBodyが欠落した場合、元のAttempt Xに対するBody再送の可否と、実ビジネスOperation再実行の可否を分ける。**再送許可の判断とExactly-onceは各実Runner/Host契約の責務**であり、SHOやMMIが独断で再Submitしない。空bytesの正当な出力と、Bodyが欠落/未提供であることも区別。配送・保存・Manifest参照間に内容が変わるなら、検査済みdigestを次段へそのまま転用せず、**相手が実読込したbytes**へ再照合する。
+
+**納品集合の五つの問い**（MMI #658／Draft #754と重複実装しない）：(1)要求されるRequiredは何か、(2)作成者がDeclaredしたものは何か、(3)観測できたObservedは何か、(4)生成・SHOが実際に使ったConsumedは何か、(5)送出・納品先で確認できたDeliveredは何か。Declared=DeliveredでもRequiredが未知なら完全性は不明。Document Occurrenceの出現数、異所在同bytesファイル数、実納品物件数を同じカウンターへ潰さない。送信の権限は**実送出時点のReader/Recipient・内容・Policy**に相対的に判定し、ローカル閲覧可から外部送出可を推論しない（[TAI #232](https://github.com/hat47x/tai-pleroma/issues/232)、[SHO #6](https://github.com/hat47x/sho-composer/issues/6)）。
+
+### 11.13 RR-31〜RR-37：受渡し・納品の最終段を独立観測する（製品試験NOT RUN）
+
+| ID | 合成入力 | 独立に判別すべき状態 |
+| --- | --- | --- |
+| RR-31 | Attempt XのClaim ACK済み、Body未取得 | Producer側完了通知とReceiver実受領を別記。空の納品を成功と推定しない |
+| RR-32 | Attempt XのClaimとYのBody。bytesが偶然同じ | 同じdigestだけでAttemptを合成せず、誤帰属を検出 |
+| RR-33 | XのBodyは送信側に保持、SHO/AI Consumerの実読込は未観測 | Body availableと実消費の差をunknownのまま保持 |
+| RR-34 | 送信Bodyはabc、実消費BodyはabX | 受信・消費byte不一致。Producer Claimの一致をConsumer入力一致へ昇格しない |
+| RR-35 | 出力が正当に0 byte、別AttemptではBody欠落 | 明示emptyとmissing/未取得を区別。必要な成果物内容の有無は別 |
+| RR-36 | Preview後、外部送出資格が失効。bytesは不変 | 既存の内部保存を保持し、現在の実送信資格を別判定 |
+| RR-37 | Declared={A}、Delivered={A}、Requiredは未確定、後にRequired={A,B}と判明 | 集合の機械的一致と契約要求の充足を区別。A納品成功≠一式完了 |
+
+**独立toy実証（実製品E2Eと別）**：2026-11-02にPython標準ライブラリの合成Handoff判定と7件のunittestを実行し全7件PASS。RR-31〜37に対応するACK/Body欠落、Attempt相違、Producer/Consumerのbytes差、empty/missing、Policy失効、Required未知を確認した。これは純粋関数の期待条件確認であり、EKI実Runner、TAI Skill実ロード、SHO保存・納品、MMI CLI、TEI生成器、実Network・Recipient/OS/DBを**実測したものではない**。本Draftにtoyプログラムはコミットしない。EKI #465のAB-1〜5、TEI #2604 AP-01〜07、SHO #1/#3/#6の実試験を先行する。
+
+**初回の受渡し評価単位**：既存各Ownerの試験から、匿名合成Attempt一件について`input revision / producer attempt / output digest+size / claim acknowledgement / body availability / actual receiver bytes+attempt / actual consumer read / declared-required-delivered scope / authority at egress / unresolved`を**証拠の比較票**として繋ぐ。未観測項目をfalse・空集合・0件の実値に詰めない。Attempt receiptの形式、配送保証、開示Policy、納品受理は各製品の現在契約へ戻す。強い成功主張は、関係する下位実観測が取得できた範囲でのみ行う。
+
+**計画上の優先順**：P0-A C-01/T2 G0-0解消と、P0-B/Cの独立read-only比較を引き続き並列化。非同期受渡し・Output BodyはEKI #465、集合作成/契約網羅はMMI #658/#754、SHO内の保存/レビュー/外部送出はSHO #1/#3/#6、TEI生成物世代は#2604、Harnessのツール・回答本体までの実受渡しはTAI Draft #270のOwnerに留める。**本追補は新規共通Gate・実装・意味受理を宣言しない。**
+
+### 11.14 Authoring Dataから外部Consumerまでの「観測された作用」（2026-11-02 Everything is Data／Provider-read横断追補）
+
+**今回の設計上の増分**：[TEI #2619](https://github.com/hat47x/tei-platform/issues/2619)／[Draft #2623](https://github.com/hat47x/tei-platform/pull/2623)は「Markdown表・コード・図・DSLを構造化できること」と「正式なRole/Meaning/Scriptとして扱えること」を区別。[TEI Draft #2624](https://github.com/hat47x/tei-platform/pull/2624)はFunction Data Contextの**宣言したRead範囲とResult集合の実完全性**、[Draft #2628](https://github.com/hat47x/tei-platform/pull/2628)は**宣言Read／Providerへ依頼したRead／実Adapterで観測されたRead／Result／外部開示**を別資格とした。MMIの本計画はこの区別を、SHOの文書・レビューと外部Harnessへ渡す**根拠の過大主張を避ける検証票**として取り込む。TEI/Provider/OSの検査器をMMIへ複製しない。
+
+| 層 | 何を観測できるか | 次の層へ自動昇格しないこと |
+| --- | --- | --- |
+| **A Authoring** | Excel/Markdown/論文の元bytes、出現箇所、SyntaxのRole候補 | 説明中の表や文字列をFunction/Test/Scriptの正式定義と認定しない |
+| **R Role/Mapping** | 受理Source・Role/Operator版、Functionの明示Data Context（必要Relation/Field/Scope） | Mappingに書かれないFieldの取得が実際にゼロだったと宣言しない |
+| **Q Requested** | Providerへ発行したRequest/Query、Projection、Binding、対象粒度・時点 | Queryが狭いことだけでProviderの内部I/OやQuery結果の全件性を保証しない |
+| **W Witness** | 実Adapter/Providerの観測可能なRead trace・返却byte/行/Field、観測できない境界 | Trace上の狭さから下位DB物理I/O/OS漏出ゼロを断言しない |
+| **V View/Consumer** | 実結果Slice、文書に表示した値・欠損、AI/SHOへ渡した実bytes | 出力に秘密Fieldが無いことから、途中で秘密Fieldを読んでいないとは推定しない |
+| **E Egress/Delivery** | Recipient・用途・送出時のPolicy、実送達・実利用、Required/Delivered | read-only Tool、ローカル可視、Digest一致だけで外部送出/納品資格を得ない |
+
+**MMI現行コードの限定静的事実**（mainにあるBlobの直接照合）：[sourceIdentity.ts](https://github.com/hat47x/markdown-matrix-injector/blob/main/03_Implement/src/core/sourceIdentity.ts)の`readSourceFileIdentity(absolutePath)`は`fs.readFileSync(absolutePath)`で**ファイル全体のbytes**を読み、SHA-256を作る。[deliveryFileObservation.ts](https://github.com/hat47x/markdown-matrix-injector/blob/main/03_Implement/src/application/deliveryFileObservation.ts)ではファイル単位Excel参照に対してこれを呼ぶ。これは当該操作のローカルreadであり、Sourceの全セルが外部AIへ渡された証拠ではない。一方、`sourceDigest`は「選択したFieldだけを物理的に読んだ」証拠でもない。[MMI #739](https://github.com/hat47x/markdown-matrix-injector/issues/739)のMCP選択範囲値取得はOwner未決であり、単にDigestを持つことから選択原文の取得経路が実装済みとも言えない。
+
+**Authoringの誤分類：静的所見から製品回帰試験へ進展（2026-11-02更新）**：Excel Embedの実参照とinline code/HTMLコメント中の例を区別する問題は、[MMI Draft PR #755](https://github.com/hat47x/markdown-matrix-injector/pull/755)で**実Application＋CLIのT6新規2テストが修正前CIでFAIL**と確認された。修正候補head 2eaea49ba7152c4750a27104fdfb3ab4bbb125baでは、observeDeliveryFilesへコメント状態追跡と既存stripInlineCodeを導入し、[CI #41443225210](https://github.com/hat47x/markdown-matrix-injector/actions/runs/41443225210)のUbuntu/Windows/researchがSUCCESS。Ubuntu製品は1323 PASS/0 FAILで、新T6 2件もPASS。**PR #755はDraft・未merge**であり、通常mainでの修正完了、全CommonMark、SHO実統合や業務納品受理とは別。provenanceReport側の別Scanと同一挙動とも見なさず、必要な比較は既存[MMI #658](https://github.com/hat47x/markdown-matrix-injector/issues/658)／[Draft #754](https://github.com/hat47x/markdown-matrix-injector/pull/754)へ。文書のrole: trusted-script等も正式Role/Host Grantにはならない（TEI #2623、SHO #7）。
+
+### 11.15 最小の横断判別RWL-01〜RWL-06（新Schemaではなく各Ownerへの受入引渡し）
+
+| ケース | 比較対象 | 判別点・実証担当 |
+| --- | --- | --- |
+| **RWL-01 Source引用とRole** | 同じ`op=delete`を説明文と明示受理されたDefinitionへ配置 | Source/Parser可観測性とRole/Owner採用・Host Grantを分離。#2620/#2623の既存B01〜03を参照 |
+| **RWL-02 MMI参照の発生源** | 有効Excel Embed／inline code／HTML comment／fenced code | **#755限定T6は修正前2 FAIL→修正後2 PASS（実製品CI）**。次はOwnerレビュー・merge後main exact-head回帰、他Readerとの観測差と実SHO/VSCodeの別検証。一般Markdown全構文や業務納品受理は未実証 |
+| **RWL-03 全体Source digest対部分値** | 同一ファイルで1範囲の出力を提示し全体Source bytesをdigest計算 | Whole-file local read、選択値のReturn、外部送出は別。実CLI/Provider/OS read traceはこの静的照合だけでは未保証 |
+| **RWL-04 同値Result／異なるRead** | 有効なOrder合計の同じ数値を、Narrow readと未選択Payment/秘密Fieldも含むOverfetchから導出 | Resultだけでは実Readの同値・最小性を証明できない。TEI #2628 RW合成12試験PASSの既存証拠を再利用し、実Provider確認は別 |
+| **RWL-05 宣言all／実取得unknown** | Context要求`scope=all_for_selected`に対してProviderの全件性証拠が欠ける | 宣言Scopeと実Observed completeを区別（TEI #2624の20件合成試験報告を再利用）。SHOで全称/不存在Claimを現在確定としない |
+| **RWL-06 取得可能／外部送出不可** | ローカルToolはSourceを読めるが外部AIには部分Projectionのみ許可。送信直前にGrantが変化 | 実Tool可用性・ローカルread・実Network bytes/Policy/Result受渡しを別評価。TAI #232／SHO #10のOwner、実OS/Networkは未実施 |
+
+**着手順（2026-11-02更新）**：MMI #658 T6はDraft #755で限定Fixtureの**失敗再現→修正候補の製品CI PASS**まで到達した。次はOwnerレビュー／統合判断／main exact-head再確認。T7〜T16は独立に継続する。TEI #2628 Read Witnessの合成Oracleは別Ownerのまま保持し、SHO #4/#6/#10・TAI #270から文書出現・実使用Source・開示/実送達のread-only比較票を接合する。MMI C-01/T2 G0-0未通過は原本Aの統合Source再解決のみ保留し、SHO単独Index-onlyとTEI独立Provider検証は並行可能。
+
+**成果と未実証（時点更新）**：TEI #2624の限定Python 20/20、#2628の12/12はそれぞれ独立合成報告。MMIのSource digest用の全ファイル読取はmainコードを静的照合済み。**MMI #755修正候補のT6 Application/CLIはUbuntu/Windows製品CIでPASS確認済み**。ただし#755のmain統合、実顧客Markdown、T7〜T16、実TEI Query/DB物理Read、SHO/TAI実Tool/AI/OS送出、現在のRole/意味受理・業務完了は**NOT RUN／未受入**。局所PASSを物理I/Oや機密保持・契約完結の保証へ昇格させない。
+
+### 11.16 Claimを再利用する前に必要なRead Cohort証拠：Snapshot token／Row／Field／合成文を分ける（2026-11-02）
+
+**前節からの新規差分**：§11.14〜11.15ではRole・Requested Read・実Read・開示を独立させた。今回は[TEI Draft #2627](https://github.com/hat47x/tei-platform/pull/2627)（複数Provider経路とRead CohortのGo合成32件PASS）、[SHO #6 S3-JC1〜6](https://github.com/hat47x/sho-composer/issues/6#issuecomment-6576789496)（それぞれ正しい事実を合成しても文書上の結論が成立するとは限らない）、[TEI SQL Draft #2388 §7.20](https://github.com/hat47x/tei-platform/pull/2388)（非表示FieldへのFilter/Sort/JOIN依存、限定SQLite 12件PASS）を受け、**R0→R1レビューの現在適用性を判定する前の入力資格**を具体化した。
+
+**一つのEvidence Packetとして比較する項目（作業用比較票、公開Schema/新同一性Registryではない）**：
+
+| 比較軸 | 記録する実観測 | 成立させない推論 |
+| --- | --- | --- |
+| Source/Meaning | 実Source revision・対象のRole/Meaning版・対応候補とOwner状態 | 同Source文字列/同URL/同digestで現在のMeaningが一意・受理済み |
+| Query/Route | Query contract、Function Data Context・必要Relation/Field、Provider/Endpoint/Mapping revision | 同Semantic Subjectなら物理経路が単一、Provider alias一致で同内容 |
+| Time/Cohort | Snapshot issuer/token、取得時点、Read Scope、**独立した共有Cohortの成立根拠** | **二Providerのtoken文字列が両方`s7`なら同一Snapshot** |
+| Population/Presence | 行全集合の被覆、必要Fieldの観測状態（`value`/`null`/`absent`）、row identity・bag multiplicity、単位/粒度 | Rows completeならFieldも全値取得済、`absent`＝SQL NULL、重複行数をset化 |
+| Dependency/Interpretation | SELECT返却列だけでなくFilter/Sort/EXISTS/JOIN等が実際に要求したField、採用Rule/演算順 | 出力列にないFieldは使われなかった、数値同値なら依存も同値 |
+| Document/Delivery | Document Occurrence・著者の合成Claim・元Review/withdraw、実Consumer読取bytes、Recipientと現Policy | 個別根拠PASSのAND⇒合成結論PASS、文書保存⇒公開/送信可 |
+
+**二種類の「現在性」**：個別Factは当時の時点で正しかったという**歴史的Review**を維持できる。一方、SHOの文章で「同時に」「全件」「Aに対して」と組合せた新しいClaimには、対象・Scope/Grain・必要Field・共通Read Cohort・合成Rule・現在版の根拠が別途必要。Snapshotの表示名、Provider候補の一意性、片方のSource digest一致を独立の同時点証人の代用にしない。資料が同時刻に取得されても、ProviderのSnapshot整合契約が無ければ同じ対象集合の証拠にはならない。
+
+**Observationの境界**：[TEI #2627](https://github.com/hat47x/tei-platform/pull/2627)の`CompareReadSlices`は、独立fixtureが共有Cohortを明示した**有限合成世界でのbag一致**を`fixture_consistent`と呼び、実Providerによる整合保証と区別する。`absent`は必要Fieldが未観測という意味であり、両Sliceとも行集合completeかつ両者とも`absent`であっても、値の一致は`not_established`。明示NULL対absentも同様。**両者とも実観測NULL**であり他の比較条件が揃う場合は、有限fixtureで整合候補を示せる。値が異なる・bag重複が異なる場合に`contradicted`と言えるのも、独立の共有Cohortが前提である。
+
+**Hidden Readの境界**：SQLの`SELECT amount FROM orders WHERE internal_flag=1`で`internal_flag`が返却列に無くても、出力の行所属は内部列に依存する。[TEI #2388 QX-25](https://github.com/hat47x/tei-platform/pull/2388)はSQLite authorizerのprepare時`SQLITE_READ`参照を観測したもので、実DB物理Read/OSの機密境界そのものの証明ではない。MMIの`fs.readFileSync`によるSource digest計算と、外部AIに送信した実bytesを同じ「読んだ」という列に押し込まない。Read witnessが欠ける場合は「読まなかった」ではなく「観測範囲不足」を残す。
+
+### 11.17 独立ミニ実証RCP-01〜RCP-08と次の製品受入への接合
+
+**RCPはRR-01〜37・RWL-01〜06を置き換えない**。それらから独立に、合成Read CohortとSHOの合成Claimについて誤った「現在PASS」を防ぐ**一つの小さな再現手順**。新しいProduct Contractを制定しない。
+
+| 対照 | 合成条件 | 期待する判断 |
+| --- | --- | --- |
+| **RCP-01** | primary/replicaでSnapshot tokenが同じ`s7`、独立Cohort証人なし | `not_established`。同名tokenを共通版と推定しない |
+| **RCP-02** | 独立fixtureがCohort共通と明示、完全な同じBag/Scope/Grain/Query/Source revision | `fixture_consistent`のみ。製品Provider/Owner受理とは呼ばない |
+| **RCP-03** | 共通Cohortあり、重複行数または観測NULL/値が相違 | 独立fixture条件の下で`contradicted`。Setの重複消去を避ける |
+| **RCP-04** | complete行集合でも必要Fieldが`absent`、あるいは一方のRowsetはpartial | `not_established`。Field未観測とNULLを区別 |
+| **RCP-05** | Aの金額200はR0、Aの配送3件はR1。各Factだけは歴史的にPASS | 「同時に200かつ3」を現在成立としない。元Factの履歴を保存 |
+| **RCP-06** | R1の同Scope/Subjectで額220・配送3、独立共通Cohortと明示結合Ruleがある／片方無い | **ある場合だけ**閉じた合成世界で合成主張を支持。新たな因果/平均/Effectは別 |
+| **RCP-07** | Returned valueは200で一致、内部filter`internal_flag`のReadあり/無しを比較 | 値同値からRead同値・機密安全を推定しない。実Traceの対象範囲を明記 |
+| **RCP-08** | ローカル原本digestは計算済、外部AIへの送出は未許可／Review失効 | Sourceの履歴・ローカル検査は保持。外部送信・現行レビューの資格は個別に再確認 |
+
+**今回実行した独立合成スクリプト**：隔離Python 3・stdlib `unittest` **16件PASS**、`py_compile` PASS。SHA256 `0a3c6dd0c798808da118b9e702887cd340532888ed4ee860884d751a07c1bfce`、10,787 bytes。RCP-01〜08を細分化し、同`NULL`正例、同`s7`異版、Provider Trace不可を追加検証している。**このスクリプトは本Draft PRへ未コミット（別途会話内の再現用ファイル）**。自作Comparatorと事前Expectedの有限試験であり、TEI製品・MMI CLI・SHO GUI/文書、Provider/DB、OSHarness、Reader/Recipientの実測結果ではない。
+
+**受入へ還流する順序**：
+1. **MMI側P0-B/C**：既存R0→R1 Document/Review対照に、個別Claim C1/C2と合成Claim J、必要なScope/Presence/Cohortが未確認の状態を添え、歴史的Reviewと現在の採用可否を別に示す。原資料の同一fixtureが必要な統合Source再解決は既存C-01/T2 G0-0未通過の間STOP。
+2. **TEI既存Owner**：#2627の局所ReadSlice Oracleと#2624/#2628のData footprint/#2388 Query依存を、#2586 HJ-02〜05の同じFunction実出力へ段階的に接合。Source mapping/provider/snapshotのいずれか未接続なら現行可用を確定しない。
+3. **SHO既存Owner**：[SHO #6 JC1〜6](https://github.com/hat47x/sho-composer/issues/6#issuecomment-6576789496)の独立合成文Jの読者向け説明・Review対象を使用し、新しいClaim ValidatorやSource DBをSHOへ増設しない。
+4. **外部AI/納品**：#2516とTAI #232/#270の用途別開示、MMI #658/#754のRequired/Delivered、SHO #1/#4/#10の実表示・送出を別証拠として評価。合成値が`fixture_consistent`でも外部への引用許可は独立。
+
+**判断状態**：今回の16件は**独立合成試験のみ**。Owner意味受理、正式Rowset証人/DB Snapshot、実メタデータ契約、現行C-01/T2 G0-0、実SHO/TEI Provider/AI利用はNOT RUN。関数/値/Readの一致条件を明文化するだけで、旧Reviewの失効・撤回やSource意味変更を機械的に確定しない。新Runtime/Schema/Host/Policy Engineは採用しない。
+
+### 11.18 実証済み境界の採用順：T6製品CI、Operation候補消失、ArtifactSet用途相対の網羅（2026-11-02）
+
+**目的**：RR-01〜37、RWL-01〜06、RCP-01〜08の新ケースを増やす代わりに、他製品で進んだ実装・試験と未採用の設計を区別し、既存受入票の**次に実行すべき工程**へ接続する。
+
+| 担当・課題 | 確認した実証／限界 | 次の検収条件 |
+| --- | --- | --- |
+| **MMI #658 T6・Draft #755** | 修正前test-only head f001afdaで新2件FAIL（[CI #41442885494](https://github.com/hat47x/markdown-matrix-injector/actions/runs/41442885494)）。修正候補head 2eaea49bでは[CI #41443225210](https://github.com/hat47x/markdown-matrix-injector/actions/runs/41443225210)のUbuntu/Windows/researchがSUCCESS、Ubuntu製品1323 pass/0 fail、新T6 2件PASS。**Open/Draft・未merge** | #755のOwnerレビュー、採用時のmain exact-head回帰。その後T7〜T16、実顧客Required、C-01/T2 G0-0、SHO実消費を別検収 |
+| **TEI #2611・stacked Draft #2632** | [PR #2587](https://github.com/hat47x/tei-platform/pull/2587)の未統合DeriveOperationSurfaceに対し、**PM-M1-01〜07の実Go Characterization testを保存**（最新確認head dc6d4e90）。同一Semantic Dataの複数DB/MappingではID衝突と辞書順先頭Aliasによる経路選択があり、Alias改名だけで同IDのBasis/Inputsが変化し得る。さらに**選択MappingにColumn追加→Basis不変でInputs変更、Storage Int64→Varchar→純粋Surface不変、Table変更→Basis変化**という依存差がテストで記述された。**実Goテスト/CIはNOT RUN、正式World Validator・物理Target・全Build Cacheは未実証** | #2632のexact-head Go/CI→World Validator・Column/Storage合法性→候補保全/明示Conflict/RejectのOwner判断→#2600の実消費依存・再生成省略と全再生成の比較。#2598実Request、#1174 Host Grant/Effectは別 |
+| **TEI #2482/#2604・Draft #2630** | Generic ManifestとCheckSetが内部整合しても、**特定Application・Consumerに必要なArtifact Kind/Subjectの集合**を充足したとは限らない。Draft #2630のAS-01〜10は設計票、実Go/Consumer試験NOT RUN | ProducerのGenerated/Manifest member、Consumer相対のExpected/Required、PublishedSetと実Consumer read byteを別々に観測。MMI #658/#754のRequired/Observed/Deliveredの既存票へ照合 |
+| **SHO #1/#4/#6・TAI Draft #270** | R0固定版、R1作業版、TEI生成Artifact、外部AI Contextではそれぞれ必要な根拠が異なる。生成・実読取・著者Review・固定納品/外部送信は別資格 | 1文書・2 Occurrence・1合成Claimのread-only受渡しで、Source/Artifact世代・実Consumed bytes・Required集合・Reviewer/Recipient/Policyを局所対応づける。SHO L0はMMI G0-0と並行可能 |
+
+**認定の単位を変更**：RWL-02は「実CLI未実施」という旧計画表記から、**特定Draft headで限定T6実製品回帰PASS**へ更新。ただしmainへのMergeと業務納品受理は独立。RCP-01〜08で使うOperation IDについては#2632が示した複数Mappingリスクが解消されるまで、同じIDから物理DB/Request対象の安定性を推論しない。Manifest Completeが真でも、Consumer Required集合が未定義なら納品の網羅性はunknownのまま保持する。
+
+**実行順（既存Ownerの役割）**：MMI #755のOwner採否/製品CI→#658独立T7〜T16と、G0-0解消後のC-01/T2 CLI/VSIX受入。TEI #2632 Go/World Validator→#2598 Request→#1174 Effectの段階とは並列に進める。#2630のAS-01/02を既存#2587のArtifact fixtureで測定後、SHO #4/#6の文書Occurrenceと実読取member/Requiredの接合へ渡す。テスト結果・入力版・実Consumer・Owner判断を同一のEvidence Packetに記載し、別PRのPASSを合算して製品E2E PASSとは呼ばない。
+
+**今回の状態**：既存テストに直接接続した計画更新であり、追加のRR/RCPケース、公開Schema、横断Runner/Host/Registry、TEI意味正本の増設なし。#755は限定T6の製品CIまで実証済み、#2632と#2630の製品受入・SHO実利用・Owner受理はNOT RUNまたは未確認。C-01/T2 G0-0は継続して未通過。
