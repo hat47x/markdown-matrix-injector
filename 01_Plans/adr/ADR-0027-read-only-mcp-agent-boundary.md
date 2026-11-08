@@ -40,4 +40,4 @@ MCPサーバを**読み取り・検証専用**の入口として追加する。
 ## Traceability
 
 - Related Issues: [#527](https://github.com/hat47x/markdown-matrix-injector/issues/527)
-- Related Docs: [MCPサーバ](../04_Documentation/mcp-server.md)、[Semantic Candidate契約 v1](../../02_Architecture/candidate-contract-v1.md)
+- Related Docs: [MCPサーバ](../../04_Documentation/mcp-server.md)、[Semantic Candidate契約 v1](../../02_Architecture/candidate-contract-v1.md)

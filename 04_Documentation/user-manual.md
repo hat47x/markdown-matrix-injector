@@ -239,6 +239,8 @@ CSVにはファイルパス、シート、範囲、カード化の理由、表�
 | `mmi import <ブック> --draft <下書き.md>` | 既存ブックを1回でモダナイズ用の下書きへ整理する。表は元ブックへ追従する参照のまま残し、.xlsx / .xlsmの埋込画像はcontent-addressedな画像ファイルとして取り込む。AutoShape/コネクタは変換せず、原本から読めた名前・テキスト・形状・位置を観測情報として下書きに残す。既存の却下・保留判断があるShapeは通常表示とshape由来のsnapshot候補から外す。Excelのlist入力規則も観測情報として下書きに残す。inline値と、安全に解決できる同一ブックA1範囲参照は選択肢を表示する。それ以外の参照式は評価せず、式を確認事項として残す。ワークスペース外の原本は`--copy-source <保存先>`でproject内へ同一bytesのsourceとして取り込める。表でない領域や、取り込めない画像・図形、読み切れない選択肢は確認事項として残す。注意があっても下書き作成に成功すれば終了コードは0で、JSONの`status`は`created-with-warnings`になる。下書き・sourceコピー・assets・台帳の書込先は`--root`内に限定し、既存ファイルを異なる内容で上書きしない |
 | `mmi check <文書またはフォルダー>` | 参照の誤りを「問題」パネルと同じ診断コードで表示。誤りがあれば終了コード1 |
 | `mmi render <文書>` | 参照を展開したMarkdownを出力。`--to html`でPDF変換用のHTML |
+| `mmi docx <文書...> -o <出力>` | 参照を展開した文書をWord（.docx）で出す（Pandocが必要）。`-o`は1文書なら`.docx`ファイル、複数文書ならフォルダー。`--pandoc <実行ファイル>`、`--reference-doc <Wordファイル>`（様式を差し替える）も指定できる。出力先は`--root`内に限り、既存の`.docx`だけを上書きする |
+| `mmi pdf <文書...> -o <出力>` | 参照を展開してPDFまで1回で作る（WeasyPrintが必要）。`-o`は1文書なら`.pdf`ファイル、複数文書ならフォルダー。`--variant`は`pdf/a-2a`（既定）・`pdf/a-2b`・`pdf/ua-1`・`none`。`--css`と`--weasyprint <実行ファイル>`も指定できる。出力先は`--root`内に限り、既存のPDFだけを上書きする |
 | `mmi materialize <文書> -o <出力.md>` | 原本を外すためのMarkdownを生成する。小表は本文へ、別紙相当表は`mmi-materialized/`へ、ローカル画像は`mmi-assets/`へcontent-addressedで実体化する。provenance付きで採用済みのExtracted表・画像・Treeは現在sourceとledgerへfreshness照合し、変更・stale・未追跡なら終了コード1 |
 | `mmi detach-check <文書>` | Detached成果物にMMI参照、未実体化marker、旧「別紙」カード、壊れたローカルリンク、ワークスペース外へのローカルリンクが残っていないか検査する。問題があれば終了コード1 |
 | `mmi manifest <文書>` | 別紙カードになる参照の一覧をCSVで出力 |
@@ -327,6 +329,56 @@ WindowsのフォントをWSLから指定した手順は [検証記録](release-v
 別のPDF生成器を使う場合は表の展開・改ページ・用紙の向きまで確認してください。
 VS Codeの「Markdown PDF」拡張からの直接出力は、今回の検証済み経路に含みません。
 
+### PDFを1回のコマンドで作る
+
+HTMLを経由せずにPDFまで作るには、`mmi pdf`を使います。WeasyPrintがPATHにあるか、`--weasyprint <実行ファイル>`または環境変数`MMI_WEASYPRINT`で指定してください。
+
+```bash
+npm run mmi -- pdf ../04_Documentation/samples/practical/14-delivery.md -o ../04_Documentation/samples/practical/14-delivery.pdf --root ../04_Documentation/samples/practical
+npm run mmi -- pdf 設計書A.md 設計書B.md -o 納品/ --variant pdf/ua-1
+```
+
+複数の文書を渡すと、文書ごとに`<文書名>.pdf`を作ります。1つが失敗しても残りは作り、終了コードは1になります。WeasyPrintが失敗したときは、途中までのPDFを残さず、前のPDFも変えません。次の「納品用の体裁にする」の手順と同じ結果になります。
+
+### Word（.docx）で納品する
+
+発注者が編集できる形式を求める場合は、`mmi docx`でWordファイルを作ります。MMIが参照を展開して表紙・目次・表題・改ページ・横向きのページを書き、Pandocが変換します。Pandocは同梱していないので、先に入れてください（[導入方法](https://pandoc.org/installing.html)）。
+
+```bash
+npm run mmi -- docx ../04_Documentation/samples/practical/14-delivery.md -o ../04_Documentation/samples/practical/14-delivery.docx --root ../04_Documentation/samples/practical
+```
+
+[見本](samples/practical/14-delivery.docx)は、PDFの見本と同じ文書です。front matterの`cover`・`toc`・`captionNumbers`・`approvals`・`paper`・`margin`・`font`は、Wordでも同じ意味で使えます。
+
+- **目次と「（p.12）」のページ番号は、Wordで開くときに更新します。** 「フィールドを更新しますか」と聞かれたら「はい」を選びます。「いいえ」の場合、目次は見出しの一覧だけ、ページ番号は「?」のままです。
+- ヘッダーとフッターには、文書のプロパティが入ります。左上が文書名、右上が機密区分、左下が文書番号と版数、中央下が「現在のページ / 総ページ数」です。プロパティは「ファイル」→「情報」で確かめられます。
+- 書体は、front matterの`font`の先頭（既定は`Yu Gothic`）をWordの指定にします。その書体が入っていない環境では、Wordが別の書体で表示します。
+- 会社の様式（書体・余白・見出し・ヘッダーとフッター）がある場合は、その様式を持つWordファイルを`--reference-doc`で渡します。MMIの既定の様式は使いません。
+- 再現できない項目は、[納品用PDF出力](../02_Architecture/delivery-pdf-output.md#word納品の検証記録)の表にあります。主なものは、前の版との変更箇所の表示（`--base`）、別紙カードの体裁、表紙の差し替え、PDF/A・タグ付きPDFです。
+
+### 前の版からの変更箇所を示す
+
+改訂版を納品するときは、前の版を渡すと、変更した箇所に印が付き、最後に変更ごとの変更前・変更後を並べた「改訂箇所の一覧（新旧対照表）」が付きます（[見本](samples/revision/v2-with-revisions.pdf)）。
+
+```bash
+npm run mmi -- pdf 設計書.md -o 設計書.pdf --base-rev v1.0
+npm run mmi -- pdf 設計書.md -o 設計書.pdf --base 前の版/設計書.md --base-root 前の版
+```
+
+`--base-rev`にはgitのタグやコミットを指定します。表の元データも、その版のものと比べます。仕様は [リファレンス](reference.md#改訂箇所の表示) を参照してください。
+
+### 同じ版から同じファイルを作る
+
+納品したPDFやWordファイルの検証値（SHA-256など）を控えておき、あとで作り直して照合したい場合は、`--source-date`で作成時刻を決めます。付けないと、作成時刻が毎回変わり、同じ文書でもバイト列が一致しません。
+
+```bash
+npm run mmi -- pdf 設計書.md -o 設計書.pdf --source-date 2026-10-21
+npm run mmi -- docx 設計書.md -o 設計書.docx --source-date 2026-10-21T09:00:00+09:00
+```
+
+指定できるのは、エポック秒（9〜11桁）、`YYYY-MM-DD`（UTCの0時）、ゾーンつきのISO日時です。ゾーンのない日時は、PCごとに結果が変わるため受け付けません。
+同じバイト列になる条件は、文書と元データ、MMI・WeasyPrint・Pandocの版、フォントが同じことです。確認できたのは、WeasyPrint 69.0の小さな文書（時刻の指定あり）と、Pandoc 2.9.2.1による見本の`mmi docx`です。環境が違うPCで一致するかは確かめていません。
+
 ### 納品用の体裁にする
 
 Markdownの先頭に文書情報（front matter）を書くと、表紙・承認欄・ページ番号付きの目次・ヘッダーとフッター・PDFの文書プロパティが付きます。
@@ -340,8 +392,17 @@ weasyprint --pdf-variant pdf/a-2a --pdf-tags ../04_Documentation/samples/practic
 
 `--pdf-variant pdf/a-2a`は長期保存向けのPDF/A-2a形式、`--pdf-tags`は見出しや表の構造を読み上げソフトへ伝えるタグを付ける指定です。どちらもWeasyPrintの機能です。
 見本は、veraPDF 1.30.3でPDF/A-2a（153規則）に違反がないことを確かめています。`--pdf-variant pdf/ua-1`で作ると、PDF/UA-1（アクセシビリティ）にも違反がありませんでした。ただし1つのPDFに指定できる形式は1つです。
-画像を含む文書では代替テキストが必要になり、この確認には含まれていません。発注者が適合を求める場合は、veraPDFなどで検査してください（手順は [納品用PDF出力](../02_Architecture/delivery-pdf-output.md#pdfa・タグ付きpdfの検証記録) にあります）。
+画像を含む文書でも、PDF/A-2a・2bの規則に違反がないことを、試験文書で確かめました。ただし、画像の代替テキスト（PDF/UA）の確認は含まれていません。発注者が適合を求める場合は、veraPDFなどで検査してください（手順は [納品用PDF出力](../02_Architecture/delivery-pdf-output.md#pdfa・タグ付きpdfの検証記録) にあります）。
+画像を含む文書では、次の2点に注意してください（[検証記録](../02_Architecture/delivery-pdf-output.md#画像を含む文書)）。
+
+- 画像には必ず代替テキストを書きます（`![月別の申請件数の棒グラフ](images/chart.png)`）。代替テキストが無いと、PDF/UA-1に違反します。
+- PNGやJPEGの画像には、WeasyPrintが補間の指定を書き、そのままではPDF/A-2a・2bに違反します。`mmi pdf`はPDF/Aを指定したとき`img { image-rendering: crisp-edges; }`を加えるので、利用者の操作は要りません。PDFを拡大したときに画像が粗く見えることがあります。HTMLを書き出してWeasyPrintを直接使う場合は、このCSSを自分で加えてください。
+
+発注者が適合を求める場合は、veraPDFなどで検査してください（手順は [納品用PDF出力](../02_Architecture/delivery-pdf-output.md#pdfaタグ付きpdfの検証記録) にあります）。
 フォントはPDFに埋め込まれます。PDFにパスワードや印刷禁止などのセキュリティは設定しません。
+
+発注者が表紙の様式を決めている場合は、表紙をHTMLで書いて`coverTemplate`（または`--cover <file>`）で渡します。front matterの値を`{{title}}`などで差し込めます。
+書き方と、書けないものは [リファレンス](reference.md#顧客指定の表紙) を参照してください（[見本](samples/cover/spec.md)）。
 
 発注者が書体・余白・綴じ代を指定する場合は、front matterの`font`・`margin`・`gutter`で指定できます。それより細かい体裁は、CSSファイルを`css`または`mmi render --css <file>`で渡します（既定の体裁を上書きします）。
 CSSは作業フォルダーの中に置き、`@import`と外部URLの`url()`は使えません。

@@ -79,6 +79,9 @@ npm run test:e2e
 # リリースゲートツールのテスト
 npm run test:release-gate-tools
 
+# tools/test_*.py のうち上記に含まれないもの（自動検出。新規追加も対象）
+npm run test:python-tools
+
 # 全テスト（unit + Phase 9 sync + Phase 9 guide sync）
 npm test
 ```

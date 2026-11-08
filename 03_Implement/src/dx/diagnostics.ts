@@ -95,7 +95,8 @@ export function validateEmbedDiagnostics(input: ValidateEmbedDiagnosticsInput): 
     );
   }
 
-  if (input.xmlMode === 'invalid') {
+  // Nothing about an outside file is reported beyond its containment (#776).
+  if (!outsideBoundary && input.xmlMode === 'invalid') {
     diagnostics.push(
       createDiagnostic(
         'MMI_INVALID_XML',
@@ -105,7 +106,7 @@ export function validateEmbedDiagnostics(input: ValidateEmbedDiagnosticsInput): 
     );
   }
 
-  if (input.query.target && input.sheetExists === false) {
+  if (!outsideBoundary && input.query.target && input.sheetExists === false) {
     diagnostics.push(
       createDiagnostic(
         'MMI_SHEET_NOT_FOUND',

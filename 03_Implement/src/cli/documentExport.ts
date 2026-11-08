@@ -12,6 +12,9 @@ import type MarkdownIt from 'markdown-it';
 import type Token from 'markdown-it/lib/token.mjs';
 import { parse as parseYaml } from 'yaml';
 import { escapeHtml } from '../core/html.js';
+import { FOOTNOTE_CSS } from '../plugin/footnotePlugin.js';
+import { COVER_TEMPLATE_CSS, renderCoverTemplate } from './coverTemplate.js';
+import { REVISION_CSS, type RevisionResult } from './revisionMarks.js';
 import { extractEmbedQueries } from '../parser/embedSyntax.js';
 import { CROSS_REFERENCE_CSS, numberCaptions } from './captionNumbers.js';
 
@@ -35,6 +38,8 @@ export interface DocumentProperties {
   margin?: string;
   gutter?: string;
   css: string[];
+  /** A customer's HTML cover page (relative to the document); it replaces the built-in cover. */
+  coverTemplate?: string;
 }
 
 const TEXT_KEYS = ['title', 'subtitle', 'documentNumber', 'version', 'date', 'customer', 'organization', 'author', 'classification'] as const;
@@ -81,6 +86,10 @@ export function readFrontMatter(markdown: string): { properties: DocumentPropert
   if (record.font !== undefined) properties.font = readFontFamilies(record.font);
   if (record.margin !== undefined) properties.margin = readLengths(record.margin, 'margin', 1, 4);
   if (record.gutter !== undefined) properties.gutter = readLengths(record.gutter, 'gutter', 1, 1);
+  if (record.coverTemplate !== undefined) {
+    if (typeof record.coverTemplate !== 'string' || !record.coverTemplate.trim()) throw new FrontMatterError('front matter "coverTemplate" must be the path of an HTML file');
+    properties.coverTemplate = record.coverTemplate.trim();
+  }
   properties.cover = readFlag(record, 'cover');
   properties.toc = readFlag(record, 'toc');
   properties.captionNumbers = readFlag(record, 'captionNumbers');
@@ -171,16 +180,23 @@ export function buildDocumentHtml(
   env: Record<string, unknown>,
   moduleCss: string,
   loadUserCss: (frontMatterRefs: string[]) => string = () => '',
+  revise?: (renderedHtml: string) => RevisionResult,
+  /** Reads a cover template: the front matter path, or the `--cover` file when one was given. */
+  loadCoverTemplate: (frontMatterRef: string | undefined) => string | undefined = () => undefined,
 ): string {
   const { properties, body } = readFrontMatter(markdown);
   const tokens = md.parse(body, env);
   keepHeadingsWithEmbeds(tokens);
   const toc = properties.toc ? collectHeadings(tokens) : [];
   const renderedHtml = md.renderer.render(tokens, md.options, env);
-  const bodyHtml = properties.captionNumbers ? numberCaptions(renderedHtml).html : renderedHtml;
+  // Revisions are compared before the tables are numbered, so inserting a table does not mark every later caption.
+  const revision = revise?.(renderedHtml);
+  const revisedHtml = revision?.html ?? renderedHtml;
+  const bodyHtml = (properties.captionNumbers ? numberCaptions(revisedHtml).html : revisedHtml) + (revision?.appendixHtml ?? '');
   const title = properties.title ?? firstHeading(tokens) ?? '';
+  const coverTemplate = loadCoverTemplate(properties.coverTemplate);
   const parts = [
-    properties.cover ? renderCover(properties, title) : '',
+    coverTemplate !== undefined ? renderCoverTemplate(coverTemplate, properties, title) : properties.cover ? renderCover(properties, title) : '',
     properties.toc ? renderToc(toc) : '',
     `<main class="mmi-doc-body">${bodyHtml}</main>`,
   ];
@@ -188,6 +204,7 @@ export function buildDocumentHtml(
 ${moduleCss}
 ${documentCss(properties, title)}${properties.captionNumbers ? `
 ${CROSS_REFERENCE_CSS}` : ''}
+${revision ? REVISION_CSS : ''}${coverTemplate !== undefined ? COVER_TEMPLATE_CSS : ''}${renderedHtml.includes('class="mmi-footnote"') ? FOOTNOTE_CSS : ''}
 ${loadUserCss(properties.css)}
 </style></head><body>${parts.join('')}</body></html>`;
 }
@@ -253,7 +270,7 @@ function documentCss(properties: DocumentProperties, title: string): string {
     color: #1a1a1a; }
   body { line-height: 1.65; font-size: 10pt; }
   code, pre, kbd, samp { font-family: "Noto Sans Mono CJK JP", Consolas, "BIZ UDGothic", "MS Gothic", "DejaVu Sans Mono", monospace; }
-  h1 { font-size: 20pt; } h2 { font-size: 14pt; margin-top: 1.5em; } h3 { font-size: 12pt; }
+  h1 { font-size: 20pt; } h2 { font-size: 14pt; margin-top: 1.5em; } h3 { font-size: 12pt; } h4 { font-size: 11pt; } h5 { font-size: 10.5pt; } h6 { font-size: 10pt; }
   h1, h2, h3, h4, h5, h6 { break-after: avoid; page-break-after: avoid; break-inside: avoid; }
   a { color: #0b5394; } code { overflow-wrap: anywhere; } pre { white-space: pre-wrap; }
   [data-mmi-break="before"] { break-before: page; page-break-before: always; }
@@ -262,6 +279,8 @@ function documentCss(properties: DocumentProperties, title: string): string {
   [data-mmi-break] + .mmi-embed[data-page-break="before"] { break-before: auto; page-break-before: auto; }
   [data-mmi-break] + .mmi-embed[data-page-break="both"] { break-before: auto; page-break-before: auto; }
   img { max-width: 100%; height: auto; }
+  /* PDF/A forbids /Interpolate true, which WeasyPrint writes for image-rendering: auto. */
+  @media print { img { image-rendering: crisp-edges; } }
   table { border-collapse: collapse; margin: 0.5em 0; }
   th, td { border: 0.75pt solid #808080; padding: 0.25em 0.5em; vertical-align: top; overflow-wrap: break-word; }
   thead th { background: #e8e8e8; -webkit-print-color-adjust: exact; print-color-adjust: exact; }

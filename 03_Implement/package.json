@@ -2,7 +2,7 @@
   "name": "markdown-matrix-injector",
   "displayName": "Markdown Matrix Injector (MMI)",
   "description": "Declarative, read-only table references from Markdown to Excel/CSV/XML — a governance boundary between source-of-truth data and text documents",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "hat47x",
   "license": "MIT",
   "type": "module",
@@ -65,6 +65,7 @@
     "release:gate:full": "npm run release:gate:clean && npm run release:gate:artifacts && node scripts/run-python.mjs tools/release_gate_metrics.py --input-file ../artifacts/release-gate.json --output-file ../artifacts/release-gate-metrics.csv && npm run docs:phase7-rollup && npm run release:gate:assert",
     "release:gate:clean": "node scripts/run-python.mjs tools/release_gate_clean.py --repo-root ..",
     "test:release-gate-tools": "node scripts/run-python.mjs tools/test_check_plans_layout.py && node scripts/run-python.mjs tools/test_release_gate_check.py && node scripts/run-python.mjs tools/test_release_gate_metrics.py && node scripts/run-python.mjs tools/test_release_gate_clean.py && node scripts/run-python.mjs tools/test_phase7_issue_rollup.py && node scripts/run-python.mjs tools/test_release_gate_assert_artifacts.py",
+    "test:python-tools": "node scripts/run-python-tool-tests.mjs",
     "docs:phase7-rollup": "node scripts/run-python.mjs tools/phase7_issue_rollup.py --repo-root .. --output-file artifacts/phase7-issue-rollup.md",
     "release:gate:assert": "node scripts/run-python.mjs tools/release_gate_assert_artifacts.py --repo-root ..",
     "package": "vsce package",
@@ -526,5 +527,8 @@
         }
       }
     }
+  },
+  "overrides": {
+    "minimatch": "^11.0.1"
   }
 }

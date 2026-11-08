@@ -32,4 +32,4 @@ CIのために別の検査器やサーバを追加すると、CLIとCIで結果�
 ## Traceability
 
 - Related Issues: [#526](https://github.com/hat47x/markdown-matrix-injector/issues/526)、[#500](https://github.com/hat47x/markdown-matrix-injector/issues/500)、[#522](https://github.com/hat47x/markdown-matrix-injector/issues/522)
-- Related Docs: [CIでの検査](../04_Documentation/ci.md)、[文書ごとの出典報告](../04_Documentation/provenance-report.md)
+- Related Docs: [CIでの検査](../../04_Documentation/ci.md)、[文書ごとの出典報告](../../04_Documentation/provenance-report.md)

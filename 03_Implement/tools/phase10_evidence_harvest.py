@@ -183,7 +183,9 @@ def main() -> int:
 
     input_paths = [Path(raw) for raw in args.inputs]
     timestamp = _now_iso()
-    output_path = Path(args.output) if args.output else Path("query-evidence") / f"phase10-evidence-harvest-{timestamp}.json"
+    # ":" is not allowed in Windows file names, so the default name drops it (#757).
+    file_stamp = timestamp.replace(":", "")
+    output_path = Path(args.output) if args.output else Path("query-evidence") / f"phase10-evidence-harvest-{file_stamp}.json"
 
     try:
         artifact = harvest(input_paths, collected_at=timestamp)

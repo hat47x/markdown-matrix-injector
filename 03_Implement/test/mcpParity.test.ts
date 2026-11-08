@@ -201,7 +201,12 @@ test('tool names in tools/list, mcp-server.md and skills/mmi/SKILL.md agree', ()
   const names = [...MCP_TOOL_NAMES];
   const doc = fs.readFileSync(path.join(root, '04_Documentation/mcp-server.md'), 'utf8');
   const skill = fs.readFileSync(path.join(root, 'skills/mmi/SKILL.md'), 'utf8');
-  const docRows = [...doc.matchAll(/^\| `([a-z-]+)` \|/gm)].map((m) => m[1]);
+  // The document lists the tools table first; other tables in the same file
+  // (e.g. the `_meta["mmi/surface"]` fields) are not tool names, so the rows
+  // are read only from the table under the "提供するツール" heading.
+  const toolsSection = doc.split(/^## /m).find((section) => section.startsWith('提供するツール'));
+  assert.ok(toolsSection, 'mcp-server.md must have a 提供するツール section');
+  const docRows = [...toolsSection.matchAll(/^\| `([a-z-]+)` \|/gm)].map((m) => m[1]);
   assert.deepEqual([...new Set(docRows)].sort(), [...names].sort());
   const adr = fs.readFileSync(path.join(root, '01_Plans/adr/ADR-0027-read-only-mcp-agent-boundary.md'), 'utf8');
   const adrLine = adr.split(/\r?\n/).find((l) => l.startsWith('1. **書き込み系を公開しない。**'));

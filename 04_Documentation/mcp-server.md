@@ -41,6 +41,26 @@ mmi-mcp --root /path/to/workspace
 
 `serverInfo`は標準の`name`と`version`だけを返し、独自項目は`_meta`に置いています。Node.jsの対応版は`package.json`の`engines.node`（20以上）です。CIでの試験はNode.js 22です。
 
+## 公開面の宣言（読み取り専用と版）
+
+`tools/list`の結果は、ツールの配列に加えて、結果の`_meta["mmi/surface"]`に公開面の宣言（`mmi.mcp-surface/v1`）を返します。プロトコル版2024-11-05に`annotations`の定義がないため、基本プロトコルが拡張用に予約している`_meta`を使い、プロトコル版は上げていません。各ツールの項目（`name`・`description`・`inputSchema`）は従来どおりで、増やしていません。
+
+| 項目 | 内容 |
+| --- | --- |
+| `contract` | `mmi.mcp-surface/v1`。 |
+| `readOnly` | 全ツールが読み取り専用と宣言されているとき`true`。 |
+| `tools[]` | ツールごとの`name`と`readOnly`。 |
+| `digest` | 公開面のダイジェスト（`sha256:<hex>`）。 |
+| `digestScope` | `name+inputSchema`。ダイジェストの対象を表します。 |
+
+`initialize`の`_meta["mmi/surface"]`は、`contract`・`readOnly`・`digest`だけを返します。接続側は、ツール一覧を取る前に、固定した版の公開面と同じかを比べられます。
+
+- ダイジェストは、ツールを名前順に並べ、各ツールの`name`と`inputSchema`だけを、オブジェクトのキーを辞書順にしたJSONへ直して、sha256を取った値です。`description`の文言修正では変わりません。ツールの追加・削除、引数の追加・変更では変わります。
+- 同じ入力から同じ値になります。値は`test/mcpSurface.test.ts`が固定します。
+- 互換の扱い: `_meta`の項目を足すことは互換変更です。未知の項目は無視してください。`contract`の版が上がった場合は、意味が変わりうるため読み直してください。
+
+この宣言はMMI自身の主張です。宣言と実装が食い違っても、接続側はこの値だけでは検出できません。裏付けは、`test/mcpReadOnly.test.ts`（全ツールを呼び、`.git`を含む全ファイルの前後一致を確かめる）の範囲に限ります。`test/mcpSurface.test.ts`は、監査済みの読み取り専用ツール名の一覧に無いツールが公開されると、宣言が`readOnly: false`になり、失敗します。新しいツールを足す場合は、読み取り専用であることを確かめたうえで`MCP_READ_ONLY_TOOL_NAMES`へ加えてください。
+
 ## クライアントの設定例
 
 MCP対応クライアントには、コマンドと引数を次の形で登録します。パスは環境に合わせて変えてください。
