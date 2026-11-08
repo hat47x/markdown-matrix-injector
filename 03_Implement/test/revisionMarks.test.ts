@@ -10,6 +10,7 @@ import path from 'node:path';
 import { main } from '../src/cli/mmi.js';
 import { diffUnits, extractUnits, markRevisions } from '../src/cli/revisionMarks.js';
 import { RenderError, renderDocumentHtml } from '../src/cli/render.js';
+import { exportRevision } from '../src/cli/gitBase.js';
 
 const TABLE = (rows: string[][]): string => `<table class="mmi-table"><tbody>${rows.map((row) => `<tr>${row.map((cell) => `<td>${cell}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
 
@@ -192,4 +193,30 @@ test('mmi render --base-rev compares with a git revision, including its data, wi
   assert.match(html, /比較元: HEAD（[0-9a-f]{8}）/);
   assert.equal(fs.readFileSync(path.join(root, 'docs/data/gate.csv'), 'utf8'), 'ID,判定\nREL-01,完了\nREL-02,完了\n');
   assert.equal(fs.readdirSync(os.tmpdir()).filter((name) => name.startsWith('mmi-base-') && fs.existsSync(path.join(os.tmpdir(), name, 'docs'))).length, 0, 'the exported revision is removed');
+});
+
+test('exportRevision exports the committed bytes: export-ignore, export-subst, eol and text attributes do not change them (#793)', (t) => {
+  if (spawnSync('git', ['--version']).status !== 0) return t.skip('git is not available');
+  const root = workspace({
+    '.gitattributes': 'docs/data/big.csv export-ignore\n*.md eol=crlf\n*.txt text eol=crlf\ndocs/ver.txt export-subst\n',
+    'docs/spec.md': '# t\n',
+    'docs/data/big.csv': 'a,b\n1,2\n',
+    'docs/note.txt': 'x\ny\n',
+    'docs/ver.txt': '$Format:%H$\n',
+  });
+  git(root, 'init', '-q');
+  git(root, 'config', 'core.autocrlf', 'false');
+  git(root, 'add', '-A');
+  git(root, 'commit', '-q', '-m', 'v1');
+  const exported = exportRevision(path.join(root, 'docs/spec.md'), path.join(root, 'docs'), 'HEAD');
+  try {
+    const read = (name: string): string => fs.readFileSync(path.join(exported.workspaceRoot, name), 'utf8');
+    assert.equal(read('data/big.csv'), 'a,b\n1,2\n', 'a file marked export-ignore is still in the previous version');
+    assert.equal(read('spec.md'), '# t\n');
+    assert.equal(read('note.txt'), 'x\ny\n');
+    assert.equal(read('ver.txt'), '$Format:%H$\n', 'export-subst is not expanded');
+    assert.equal(fs.existsSync(path.join(exported.workspaceRoot, '..', '.gitattributes')), false, 'files outside --root are not exported');
+  } finally {
+    exported.cleanup();
+  }
 });

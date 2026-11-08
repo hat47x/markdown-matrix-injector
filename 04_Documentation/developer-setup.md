@@ -60,7 +60,7 @@ npm run release:candidate -- --e2e   # Extension Host E2Eを、開発中のフ�
 
 結果は`artifacts/release/<version>/`に出ます。VSIX、CLI tarball、`SHA256SUMS`、`RELEASE_NOTES.md`、`release-evidence.json`の5種類です。未コミットの変更があると失敗します。`--allow-dirty`を付けると予行演習として最後まで実行しますが、その候補は常にリリース不可と記録されます。
 
-版を上げるときは、`package.json`の`version`と、`package-lock.json`の`version`（先頭と`packages[""]`の2か所）を書き換え、CHANGELOGに日付付きの節を書きます。npm 11の`npm version`は、lockfileから実行時の依存（`yaml`）を落とすことがあったため使いません。READMEの最低対応VS Codeは`engines.vscode`と一致させます。どれかがずれていると、`release:candidate`は最初の検査で止まります。
+版を上げるときは、`package.json`の`version`と、`package-lock.json`の`version`（先頭と`packages[""]`の2か所）を書き換え、CHANGELOGに日付付きの節を書きます。節を書く前に、`git log --first-parent <前の版のタグ>..origin/main`で、前の版以降にマージされた利用者向けの変更が`[Unreleased]`に載っているかを突き合わせます。突き合わせは機械検査にしていません。何が利用者向けかはコミットの題名から決められず、検査を作ると文書だけの変更も拾って誤検知が続くためです。npm 11の`npm version`は、lockfileから実行時の依存（`yaml`）を落とすことがあったため使いません。READMEの最低対応VS Codeは`engines.vscode`と一致させます。どれかがずれていると、`release:candidate`は最初の検査で止まります。
 
 `release-evidence.json`の`manualChecks`には、ADR-0010のG1〜G4など、人が実機で見る確認が`not-run`として並びます。自動の検査に合格しても、これらは確認済みになりません。実機で確かめたら、版とSHA-256を添えて検証記録に残します。タグ・GitHub Release・Marketplaceへの公開は、Human Sponsorが行う別の操作です。
 

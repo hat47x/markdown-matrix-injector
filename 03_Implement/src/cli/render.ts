@@ -14,6 +14,7 @@ import { buildLogicalTable } from '../core/renderTable.js';
 import { getImmediateSmartFallbackDecision, getSmartFallbackDecisionAfterLoad } from '../core/smartFallback.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
 import { extractEmbedQueries, type EmbedQuery } from '../parser/embedSyntax.js';
+import { FootnoteError, footnotePlugin } from '../plugin/footnotePlugin.js';
 import { markdownMatrixPlugin } from '../plugin/markdownMatrixPlugin.js';
 import { CoverTemplateError } from './coverTemplate.js';
 import { buildDocumentHtml, FrontMatterError, readFrontMatter } from './documentExport.js';
@@ -36,7 +37,7 @@ export class RenderError extends Error {}
 
 /** The body of a document as the export would render it, without cover and table of contents (for comparison). */
 function renderBodyHtml(source: { markdownFilePath: string; workspaceRoot: string }): string {
-  const md = new MarkdownIt({ html: true }).use(markdownMatrixPlugin, {
+  const md = new MarkdownIt({ html: true }).use(footnotePlugin).use(markdownMatrixPlugin, {
     markdownFilePath: source.markdownFilePath,
     workspaceRoot: source.workspaceRoot,
     cache: new WorkbookCache(),
@@ -49,7 +50,7 @@ function renderBodyHtml(source: { markdownFilePath: string; workspaceRoot: strin
 }
 
 export function renderDocumentHtml(options: RenderOptions): string {
-  const md = new MarkdownIt({ html: true }).use(markdownMatrixPlugin, {
+  const md = new MarkdownIt({ html: true }).use(footnotePlugin).use(markdownMatrixPlugin, {
     markdownFilePath: options.markdownFilePath,
     workspaceRoot: options.workspaceRoot,
     cache: options.cache ?? new WorkbookCache(),
@@ -61,13 +62,14 @@ export function renderDocumentHtml(options: RenderOptions): string {
     .find((url) => fs.existsSync(url));
   if (!cssUrl) console.error('mmi: media/markdown-matrix.css not found next to the CLI; the HTML will be unstyled.');
   const css = cssUrl ? fs.readFileSync(cssUrl, 'utf8') : '';
+  const source = fs.readFileSync(options.markdownFilePath, 'utf8');
   let html: string;
   try {
-    html = buildDocumentHtml(md, fs.readFileSync(options.markdownFilePath, 'utf8'), {}, css, (refs) => loadUserCss(options, refs),
+    html = buildDocumentHtml(md, source, {}, css, (refs) => loadUserCss(options, refs),
       options.base ? (current) => markRevisions(renderBodyHtml(options.base!), current, options.base!.label) : undefined,
       (ref) => loadCoverTemplate(options, ref));
   } catch (error) {
-    if (error instanceof FrontMatterError || error instanceof CoverTemplateError) throw new RenderError(error.message);
+    if (error instanceof FrontMatterError || error instanceof CoverTemplateError || error instanceof FootnoteError) throw new RenderError(error.message);
     throw error;
   }
   if (html.includes('class="mmi-error"')) throw new RenderError('MMI reference errors must be resolved before export. Run `mmi check`.');

@@ -12,6 +12,7 @@ import type MarkdownIt from 'markdown-it';
 import type Token from 'markdown-it/lib/token.mjs';
 import { parse as parseYaml } from 'yaml';
 import { escapeHtml } from '../core/html.js';
+import { FOOTNOTE_CSS } from '../plugin/footnotePlugin.js';
 import { COVER_TEMPLATE_CSS, renderCoverTemplate } from './coverTemplate.js';
 import { REVISION_CSS, type RevisionResult } from './revisionMarks.js';
 import { extractEmbedQueries } from '../parser/embedSyntax.js';
@@ -203,7 +204,7 @@ export function buildDocumentHtml(
 ${moduleCss}
 ${documentCss(properties, title)}${properties.captionNumbers ? `
 ${CROSS_REFERENCE_CSS}` : ''}
-${revision ? REVISION_CSS : ''}${coverTemplate !== undefined ? COVER_TEMPLATE_CSS : ''}
+${revision ? REVISION_CSS : ''}${coverTemplate !== undefined ? COVER_TEMPLATE_CSS : ''}${renderedHtml.includes('class="mmi-footnote"') ? FOOTNOTE_CSS : ''}
 ${loadUserCss(properties.css)}
 </style></head><body>${parts.join('')}</body></html>`;
 }
@@ -269,7 +270,7 @@ function documentCss(properties: DocumentProperties, title: string): string {
     color: #1a1a1a; }
   body { line-height: 1.65; font-size: 10pt; }
   code, pre, kbd, samp { font-family: "Noto Sans Mono CJK JP", Consolas, "BIZ UDGothic", "MS Gothic", "DejaVu Sans Mono", monospace; }
-  h1 { font-size: 20pt; } h2 { font-size: 14pt; margin-top: 1.5em; } h3 { font-size: 12pt; }
+  h1 { font-size: 20pt; } h2 { font-size: 14pt; margin-top: 1.5em; } h3 { font-size: 12pt; } h4 { font-size: 11pt; } h5 { font-size: 10.5pt; } h6 { font-size: 10pt; }
   h1, h2, h3, h4, h5, h6 { break-after: avoid; page-break-after: avoid; break-inside: avoid; }
   a { color: #0b5394; } code { overflow-wrap: anywhere; } pre { white-space: pre-wrap; }
   [data-mmi-break="before"] { break-before: page; page-break-before: always; }
@@ -278,6 +279,8 @@ function documentCss(properties: DocumentProperties, title: string): string {
   [data-mmi-break] + .mmi-embed[data-page-break="before"] { break-before: auto; page-break-before: auto; }
   [data-mmi-break] + .mmi-embed[data-page-break="both"] { break-before: auto; page-break-before: auto; }
   img { max-width: 100%; height: auto; }
+  /* PDF/A forbids /Interpolate true, which WeasyPrint writes for image-rendering: auto. */
+  @media print { img { image-rendering: crisp-edges; } }
   table { border-collapse: collapse; margin: 0.5em 0; }
   th, td { border: 0.75pt solid #808080; padding: 0.25em 0.5em; vertical-align: top; overflow-wrap: break-word; }
   thead th { background: #e8e8e8; -webkit-print-color-adjust: exact; print-color-adjust: exact; }

@@ -367,6 +367,18 @@ npm run mmi -- pdf 設計書.md -o 設計書.pdf --base 前の版/設計書.md -
 
 `--base-rev`にはgitのタグやコミットを指定します。表の元データも、その版のものと比べます。仕様は [リファレンス](reference.md#改訂箇所の表示) を参照してください。
 
+### 同じ版から同じファイルを作る
+
+納品したPDFやWordファイルの検証値（SHA-256など）を控えておき、あとで作り直して照合したい場合は、`--source-date`で作成時刻を決めます。付けないと、作成時刻が毎回変わり、同じ文書でもバイト列が一致しません。
+
+```bash
+npm run mmi -- pdf 設計書.md -o 設計書.pdf --source-date 2026-10-21
+npm run mmi -- docx 設計書.md -o 設計書.docx --source-date 2026-10-21T09:00:00+09:00
+```
+
+指定できるのは、エポック秒（9〜11桁）、`YYYY-MM-DD`（UTCの0時）、ゾーンつきのISO日時です。ゾーンのない日時は、PCごとに結果が変わるため受け付けません。
+同じバイト列になる条件は、文書と元データ、MMI・WeasyPrint・Pandocの版、フォントが同じことです。確認できたのは、WeasyPrint 69.0の小さな文書（時刻の指定あり）と、Pandoc 2.9.2.1による見本の`mmi docx`です。環境が違うPCで一致するかは確かめていません。
+
 ### 納品用の体裁にする
 
 Markdownの先頭に文書情報（front matter）を書くと、表紙・承認欄・ページ番号付きの目次・ヘッダーとフッター・PDFの文書プロパティが付きます。
@@ -380,7 +392,13 @@ weasyprint --pdf-variant pdf/a-2a --pdf-tags ../04_Documentation/samples/practic
 
 `--pdf-variant pdf/a-2a`は長期保存向けのPDF/A-2a形式、`--pdf-tags`は見出しや表の構造を読み上げソフトへ伝えるタグを付ける指定です。どちらもWeasyPrintの機能です。
 見本は、veraPDF 1.30.3でPDF/A-2a（153規則）に違反がないことを確かめています。`--pdf-variant pdf/ua-1`で作ると、PDF/UA-1（アクセシビリティ）にも違反がありませんでした。ただし1つのPDFに指定できる形式は1つです。
-画像を含む文書では代替テキストが必要になり、この確認には含まれていません。発注者が適合を求める場合は、veraPDFなどで検査してください（手順は [納品用PDF出力](../02_Architecture/delivery-pdf-output.md#pdfaタグ付きpdfの検証記録) にあります）。
+画像を含む文書でも、PDF/A-2a・2bの規則に違反がないことを、試験文書で確かめました。ただし、画像の代替テキスト（PDF/UA）の確認は含まれていません。発注者が適合を求める場合は、veraPDFなどで検査してください（手順は [納品用PDF出力](../02_Architecture/delivery-pdf-output.md#pdfa・タグ付きpdfの検証記録) にあります）。
+画像を含む文書では、次の2点に注意してください（[検証記録](../02_Architecture/delivery-pdf-output.md#画像を含む文書)）。
+
+- 画像には必ず代替テキストを書きます（`![月別の申請件数の棒グラフ](images/chart.png)`）。代替テキストが無いと、PDF/UA-1に違反します。
+- PNGやJPEGの画像には、WeasyPrintが補間の指定を書き、そのままではPDF/A-2a・2bに違反します。`mmi pdf`はPDF/Aを指定したとき`img { image-rendering: crisp-edges; }`を加えるので、利用者の操作は要りません。PDFを拡大したときに画像が粗く見えることがあります。HTMLを書き出してWeasyPrintを直接使う場合は、このCSSを自分で加えてください。
+
+発注者が適合を求める場合は、veraPDFなどで検査してください（手順は [納品用PDF出力](../02_Architecture/delivery-pdf-output.md#pdfaタグ付きpdfの検証記録) にあります）。
 フォントはPDFに埋め込まれます。PDFにパスワードや印刷禁止などのセキュリティは設定しません。
 
 発注者が表紙の様式を決めている場合は、表紙をHTMLで書いて`coverTemplate`（または`--cover <file>`）で渡します。front matterの値を`{{title}}`などで差し込めます。
