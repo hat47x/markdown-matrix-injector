@@ -15,6 +15,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Old/new comparison table for revisions** (#638, #794): the appendix of a document compared with `--base` / `--base-rev` lists every change with its heading, kind (追加/変更/削除), the previous text and the current text. Before, only deleted content was listed.
 
 ### Changed
+- **`--base-rev` exports the committed bytes** (#793): `mmi render`/`mmi pdf --base-rev` now writes the blobs of the revision (`git ls-tree` and `git cat-file --batch`) instead of `git archive`, so files marked `export-ignore` are no longer missing from the previous version and `export-subst`, `eol` and `text` conversions no longer apply. Symbolic links and submodules are not exported; Git LFS files are read as pointer text.
 - **PDF/A output turns off image interpolation** (#788, #771): `mmi pdf --variant pdf/a-2a` (the default) and `pdf/a-2b` now add `img { image-rendering: crisp-edges; }` at the start of the document stylesheet, because WeasyPrint writes `Interpolate true` for raster images, which PDF/A forbids (ISO 19005-2 6.2.8). A document with a PNG now passes veraPDF 1.30.3 for PDF/A-2a and 2b; raster images may look coarser when zoomed. A user `--css` or front matter `css` comes later and can override it. `pdf/ua-1` and `none` are unchanged.
 
 ## [0.3.0] - 2026-11-05
