@@ -8,6 +8,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **MCP `tools/list` declares read-only and a surface digest** (#721): the `tools/list` result carries `_meta["mmi/surface"]` (`mmi.mcp-surface/v1`) with per-tool `readOnly` and a `sha256` digest over tool names and `inputSchema` (descriptions excluded); `initialize` repeats `contract`, `readOnly` and `digest`. Tool entries and the protocol version are unchanged. See `04_Documentation/mcp-server.md`.
+
+- **`--source-date` for reproducible PDF and Word output** (#794, PR #786): `mmi pdf --source-date <value>` and `mmi docx --source-date <value>` fix the creation time, so a delivered file can be rebuilt and compared by SHA-256. Accepted forms are epoch seconds (9 to 11 digits), `YYYY-MM-DD` (00:00 UTC) and an ISO date-time with a zone; a date-time without a zone is refused because it would differ per machine. The bytes match only when the document, the source data, the MMI/WeasyPrint/Pandoc versions and the fonts are the same. Checked with a small document under WeasyPrint 69.0 and the sample `mmi docx` under Pandoc 2.9.2.1; a match across different machines is not checked. See `04_Documentation/user-manual.md`.
+- **Footnotes in HTML/PDF output** (#794): `text[^1]` with `[^1]: note` now becomes a footnote placed at the foot of the page by WeasyPrint, numbered in order of reference. Before, an export with a footnote definition was refused. A note is one paragraph; an unused note, a note referenced twice and a note defined twice still stop the export; `[^0-9]` in prose and code stays text. `mmi docx` leaves footnotes to Pandoc. See `04_Documentation/reference.md`.
+- **Old/new comparison table for revisions** (#638, #794): the appendix of a document compared with `--base` / `--base-rev` lists every change with its heading, kind (追加/変更/削除), the previous text and the current text. Before, only deleted content was listed.
+
+### Changed
+- **`--base-rev` exports the committed bytes** (#793): `mmi render`/`mmi pdf --base-rev` now writes the blobs of the revision (`git ls-tree` and `git cat-file --batch`) instead of `git archive`, so files marked `export-ignore` are no longer missing from the previous version and `export-subst`, `eol` and `text` conversions no longer apply. Symbolic links and submodules are not exported; Git LFS files are read as pointer text.
+- **PDF/A output turns off image interpolation** (#788, #771): `mmi pdf --variant pdf/a-2a` (the default) and `pdf/a-2b` now add `img { image-rendering: crisp-edges; }` at the start of the document stylesheet, because WeasyPrint writes `Interpolate true` for raster images, which PDF/A forbids (ISO 19005-2 6.2.8). A document with a PNG now passes veraPDF 1.30.3 for PDF/A-2a and 2b; raster images may look coarser when zoomed. A user `--css` or front matter `css` comes later and can override it. `pdf/ua-1` and `none` are unchanged.
+
+## [0.3.0] - 2026-11-05
+
+### Added
 - **Select preview truncation is observable** (#737): `mmi.selection/v0` `preview` gains `limit`, `shown`, `ofSelected` and `truncated`, so a selection of more than 5 rows no longer looks like the whole range. The 5-row limit is now the named constant `SELECTION_PREVIEW_ROW_LIMIT`; existing fields are unchanged.
 - **MCP server** (`mmi-mcp`, ADR-0027, #527): a read-only, stdio-only MCP server that exposes the CLI's read and validation commands to AI agents (`schema`, `inspect`, `html-audit`, `check`, `render`, `select`, `find`, `handoff`, `validate-proposal`, `validate-selection`, `validate-transformation`). It never writes sources, ledgers or artifacts, fixes the workspace root at startup, and returns the same results as the CLI `--json` output. `html-audit` re-checks a statically decomposed HTML output against its reviewed plan without writing. The tool list in `mcp-server.md` is the contract; a test compares it with `tools/list`.
 - **MCP failure reason codes** (#693): a failed tool call (`isError: true`) now carries `code` (`outside-root`, `not-found`, `parse-failed`, `digest-mismatch`, `tool-failed`) in `structuredContent` and in `_meta['mmi/error']` (the 2024-11-05 protocol has no `structuredContent`), contract `mmi.mcp-error/v1`. Messages no longer contain host absolute paths: paths under `--root` are root-relative and others become `<path>`. The `text` form stays `mmi: <message>`.
@@ -27,6 +40,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Boundary diagnostics** (#599, ADR-0030, notation `1.0.0-draft.2`): a reference whose resolution candidates are all lexically outside the workspace now reports `MMI_PATH_OUTSIDE_BOUNDARY` before any existence check. The old behavior reported `MMI_FILE_NOT_FOUND` when the outside file happened to be absent, which let a document author probe the filesystem and made the same typo OS-dependent. The code name is unchanged; the meaning change is recorded before the v1.0.0 freeze.
 - **Region snapshot freshness** (#530, ADR-0019 D0・D3・D14): `checkExtractedProvenanceFreshness()` now recognizes `mmi:region-snapshot` provenance, so `materialize` checks the source digest, the renderer identity recorded in the ledger, and the rendered artifact digest. A changed source or an edited SVG/PNG makes the adopted snapshot stale instead of silently reusing it. Renderers are compared by identity, never treated as interchangeable.
 
+### Fixed
+- **MCP input line limit** (#717): `mmi-mcp` no longer buffers a whole stdin line before checking the 8 MiB limit. A line over the limit is discarded as it streams in, answered once with `-32600`, and processing resumes after the next newline, so a huge line without a newline no longer ends the server with an out-of-memory error.
+
+### Security
+- **No outside content through in-workspace links** (#776, ADR-0030 D2, ADR-0027 D3): a reference that resolves through a junction or symlink inside the workspace to a workbook outside it now reports only `MMI_PATH_OUTSIDE_BOUNDARY` in `mmi check`, MCP `check` and the VS Code Problems panel. The outside file is no longer read, so `MMI_SHEET_NOT_FOUND` with the outside workbook's sheet names and `MMI_INVALID_XML` are no longer reported for it.
+
 ## [0.2.0] - 2026-10-20
 
 Verification release (ADR-0025): distributed as a VSIX and a self-contained CLI tarball with release evidence. Extension and package identifiers are unchanged and may still move before the first Marketplace / npm registry release (#504, #517). The notation (MMI Notation v1, Draft), `MMI_*` diagnostic codes and `mmi.*` contract names are unchanged.
@@ -44,7 +63,6 @@ Verification release (ADR-0025): distributed as a VSIX and a self-contained CLI 
 - `npm run release:candidate`: builds a candidate from one commit (version consistency, full type check, product tests, VSIX audit including the runtime module closure, offline CLI install check, optional Extension Host E2E) and writes `release-evidence.json`, `SHA256SUMS` and release notes bound to the commit and artifact hashes (ADR-0025).
 
 ### Fixed
-- **MCP input line limit** (#717): `mmi-mcp` no longer buffers a whole stdin line before checking the 8 MiB limit. A line over the limit is discarded as it streams in, answered once with `-32600`, and processing resumes after the next newline, so a huge line without a newline no longer ends the server with an out-of-memory error.
 - Quick fixes on the line being typed are offered from the light bulb again: diagnostics held back from the Problems panel while typing (ADR-0019 D13) still feed code actions (#579).
 - Path containment: a file whose name starts with `..` (e.g. `..notes.csv`) inside the workspace is no longer rejected, and a workspace reached through a symlinked or junctioned directory is compared by its real path.
 - The documented minimum VS Code version is 1.100.0, matching `engines.vscode` (ESM extension); README and tutorial said 1.96.0.

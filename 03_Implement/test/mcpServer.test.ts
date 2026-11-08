@@ -269,6 +269,42 @@ test('check returns the CLI JSON shape', async () => {
   assert.equal(result.problems[0].file, 'spec.md');
 });
 
+test('check reports only containment for a reference through an in-root link to an outside book (#776)', async (t) => {
+  const { root } = fixture('![[./linked/book.xml#NoSuchSheet|A1:B2]]\n\n![[./linked/broken.xml#Sheet1|A1:B2]]\n');
+  const outsideDir = path.join(path.dirname(root), 'outside-books');
+  fs.mkdirSync(outsideDir, { recursive: true });
+  fs.writeFileSync(
+    path.join(outsideDir, 'book.xml'),
+    '<?xml version="1.0"?>\n<?mso-application progid="Excel.Sheet"?>\n'
+      + '<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet">'
+      + '<Worksheet ss:Name="SecretSheetName" xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet">'
+      + '<Table><Row><Cell><Data ss:Type="String">secret</Data></Cell></Row></Table></Worksheet></Workbook>',
+  );
+  fs.writeFileSync(path.join(outsideDir, 'broken.xml'), 'SecretSheetName is not a workbook');
+  // A junction needs no elevation on Windows; elsewhere the type is ignored
+  // and a directory symlink is made.
+  try {
+    fs.symlinkSync(outsideDir, path.join(root, 'linked'), 'junction');
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code;
+    if (code === 'EPERM' || code === 'EACCES') {
+      t.skip('symlink creation is not permitted in this environment');
+      return;
+    }
+    throw error;
+  }
+  const instance = server(root);
+  await initialize(instance);
+  const response = await call(instance, 'check', { paths: ['spec.md'] });
+  const text = resultText(response);
+  const result = JSON.parse(text);
+  assert.deepEqual(
+    result.problems.map((problem: { code: string }) => problem.code),
+    ['MMI_PATH_OUTSIDE_BOUNDARY', 'MMI_PATH_OUTSIDE_BOUNDARY'],
+  );
+  assert.doesNotMatch(text, /SecretSheetName/u);
+});
+
 test('schema returns a public contract and rejects an unknown contract', async () => {
   const instance = server(fixture().root);
   await initialize(instance);

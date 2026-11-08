@@ -27,6 +27,18 @@ inputs:
     description: MMI executable available on PATH (for example mmi or npx).
     required: false
     default: mmi
+  expect-commit:
+    description: Expected MMI build commit (40 hex digits). A different build stops the job before any check runs. Empty means not pinned.
+    required: false
+    default: ''
+  expect-lock-digest:
+    description: Expected package-lock.json digest of the MMI build (sha256:<64 hex digits>). Empty means not pinned.
+    required: false
+    default: ''
+  expect-node-major:
+    description: Expected Node.js major version that runs MMI (for example 22). Empty means not pinned.
+    required: false
+    default: ''
 
 runs:
   using: composite
@@ -40,9 +52,15 @@ runs:
         MMI_REVIEW_BASIS: ${{ inputs.review-basis }}
         MMI_FAIL_ON: ${{ inputs.fail-on }}
         MMI_COMMAND: ${{ inputs.mmi }}
+        MMI_EXPECT_COMMIT: ${{ inputs.expect-commit }}
+        MMI_EXPECT_LOCK_DIGEST: ${{ inputs.expect-lock-digest }}
+        MMI_EXPECT_NODE_MAJOR: ${{ inputs.expect-node-major }}
       run: |
         set -euo pipefail
         args=(--mmi "$MMI_COMMAND" --root "$MMI_ROOT" --ledger "$MMI_LEDGER" --review-basis "$MMI_REVIEW_BASIS" --fail-on "$MMI_FAIL_ON")
+        if [ -n "$MMI_EXPECT_COMMIT" ]; then args+=(--expect-commit "$MMI_EXPECT_COMMIT"); fi
+        if [ -n "$MMI_EXPECT_LOCK_DIGEST" ]; then args+=(--expect-lock-digest "$MMI_EXPECT_LOCK_DIGEST"); fi
+        if [ -n "$MMI_EXPECT_NODE_MAJOR" ]; then args+=(--expect-node-major "$MMI_EXPECT_NODE_MAJOR"); fi
         IFS=',' read -r -a paths <<< "$MMI_PATHS"
         for item in "${paths[@]}"; do
           args+=(--paths "$item")

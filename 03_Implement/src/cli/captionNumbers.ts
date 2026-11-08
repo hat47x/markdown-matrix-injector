@@ -18,7 +18,7 @@
 import { escapeHtml } from '../core/html.js';
 
 /** A caption that already starts with its own number ("表1　残件一覧", "図 2") is the author's and is left alone. */
-const HAND_NUMBERED = /^\s*[表図]\s*[0-9０-９]/u;
+export const HAND_NUMBERED = /^\s*[表図]\s*[0-9０-９]/u;
 
 const TABLE_FIGURE = /<figure (class="mmi-embed"[^>]*)><figcaption class="mmi-embed__caption">([^<]*)<\/figcaption>(<table class="mmi-table")/gu;
 const EMBED_FIGURE = /<figure class="mmi-embed"([^>]*)>/gu;

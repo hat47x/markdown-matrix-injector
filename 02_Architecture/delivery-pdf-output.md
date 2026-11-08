@@ -36,7 +36,7 @@
 | 改訂履歴 | ● | ExcelやCSVの台帳をMMI参照で表示する。新しい機能は足していない | 14のPDF |
 | 図表番号と相互参照 | ● | `captionNumbers: true`で、表題のある表に「表1」から番号を振る。`[](#id)`はその番号になり、リンクには「（p.12）」を添える。ページ番号はWeasyPrintなどCSS Paged Mediaの生成器だけで出る。「表1-1」の章別形式は未対応 | 単体テストと、WeasyPrint 69.0・游ゴシックで作った4ページのPDF（表の番号、リンクの「（p.N）」、フッターの「n / N」が実際のページと一致） |
 | 前付けをローマ数字にし、本文を1ページから数える | ○ | 物理ページ番号との一致を優先した | — |
-| 会社指定の様式（ロゴ、表紙の罫線枠、承認欄の位置） | ◐ | CSSを追加で渡して上書きできる（`css`・`--css`）。表紙の構成の差し替えは未対応 | 単体テスト |
+| 会社指定の様式（ロゴ、表紙の罫線枠、承認欄の位置） | ● | CSSの追加（`css`・`--css`）と、顧客指定の表紙のHTML（`coverTemplate`・`--cover`）で対応する。Wordは`--reference-doc`で様式を渡す。表紙のHTMLはWordには使えない | 単体テスト、PDFを画像で確認 |
 
 ### 印刷と組版
 
@@ -50,6 +50,7 @@
 | 英単語を途中で折り返さない | ● | セルからはみ出すときだけ折り返す | sier-designのPDFで退行を確認して修正 |
 | 両面印刷の綴じ代（左右の余白の入れ替え） | ● | front matterの`gutter`と`margin`で指定する | 単体テスト |
 | 「以下余白」「本ページは白紙」 | ○ | 「以上」は本文に書ける | — |
+| 脚注（注1） | ● | `本文[^1]`と`[^1]: 注記`で、ページの下に注記が入る（CSSの`float: footnote`）。注記が消える・重複する書き方はエラーにする。Wordの出力はPandocが変換する | 組版の試験文書で、注記が消えることを見つけて対応。WeasyPrintのPDFを画像で確認、veraPDFでPDF/A-2a |
 
 ### 文字とフォント
 
@@ -67,8 +68,8 @@
 | 要求 | 状態 | 現状 | 確認方法 |
 |---|---|---|---|
 | 作成者の環境情報を出さない | ● | 別紙カードは相対パスだけを出す。HTMLにも絶対パスと外部アプリ起動リンクを入れない | 単体テスト、HTMLとPDFの文字列検査 |
-| PDF/A（長期保存） | ● | WeasyPrintの`--pdf-variant pdf/a-2b`または`pdf/a-2a`で生成する。見本（14）はveraPDF 1.30.3でPDF/A-2b（144規則）・PDF/A-2a（153規則）とも違反なし。[検証記録](#pdfa・タグ付きpdfの検証記録) | veraPDF |
-| タグ付きPDF（読み上げ） | ● | `--pdf-tags`で生成する。`pdf/ua-1`の指定で、見本（14）はveraPDFのPDF/UA-1（106規則）に違反なし。画像・数式・フォームを含む文書は未確認 | veraPDF |
+| PDF/A（長期保存） | ● | WeasyPrintの`--pdf-variant pdf/a-2b`または`pdf/a-2a`で生成する。見本（14）はveraPDF 1.30.3でPDF/A-2b（144規則）・PDF/A-2a（153規則）とも違反なし。PNGを含む見本（15）は、WeasyPrintが画像に補間の指定（`Interpolate true`）を書くため、6.2.8に1件違反していた。`mmi pdf`はPDF/Aの指定のとき`img { image-rendering: crisp-edges; }`を加えるので、見本（15）も両形式で違反なし（[#788](https://github.com/hat47x/markdown-matrix-injector/issues/788)）。[検証記録](#pdfaタグ付きpdfの検証記録) | veraPDF |
+| タグ付きPDF（読み上げ） | ● | `--pdf-tags`で生成する。`pdf/ua-1`の指定で、見本（14）はveraPDFのPDF/UA-1（106規則）に違反なし。画像を含む見本（15）も、代替テキストがあれば違反なし。代替テキストの無い画像は7.3に違反する。数式・フォームを含む文書は未確認 | veraPDF |
 | パスワード・印刷禁止などのセキュリティ | — | 設定しない。公共の電子納品や機関リポジトリの規程では、セキュリティを設定しないよう求める例が多い | — |
 | 電子署名・タイムスタンプ | ○ | MMIの範囲外。署名ツールで付ける | — |
 | 透かし（DRAFT、社外秘） | ○ | なし | — |
@@ -77,10 +78,47 @@
 
 | 要求 | 状態 | 現状 |
 |---|---|---|
-| Word（.docx）で納品する | ○ | `mmi render --to md`の結果をPandocへ渡せるが、表の体裁は確かめていない |
-| 改訂箇所を示す（改訂マーク、新旧対照表） | ○ | なし |
+| Word（.docx）で納品する | ● | `mmi docx`でPandoc経由。見本（14）をWord 16.0.19127で開いて確認した。[検証記録](#word納品の検証記録) |
+| 改訂箇所を示す（改訂マーク、新旧対照表） | ● | `--base`・`--base-rev`で前の版と比べ、変更箇所に印を付け、最後に変更ごとの変更前・変更後の新旧対照表を付ける | 単体テスト、PDFを画像で確認 |
 | 1回のコマンドでPDFまで作る、複数文書を一括で作る | ○ | `mmi render`とWeasyPrintを文書ごとに実行する |
-| 同じ版から同じPDFを再生成できる | ○ | 確かめていない。フォントや生成器の版で結果が変わりうる |
+| 同じ版から同じファイルを再生成できる | ● | `--source-date`を付けると、同じ文書・同じ生成器の版・同じフォントから同じバイト列になる。付けないと作成時刻が毎回変わる。確認: WeasyPrint 69.0（小さな文書を2回、`SOURCE_DATE_EPOCH`あり・なし）、Pandoc 2.9.2.1と見本の`mmi docx`（2秒あけて2回）。見本の`mmi pdf`の2回比較と、別のPCへの移し替えは未確認 | 実測（バイト比較） |
+
+## Word納品の検証記録
+
+2026-11-04、Pandoc 2.9.2.1とMicrosoft Word 16.0.19127.20860（Windows 11）で、見本`14-delivery`ほかを`mmi docx`で作り、Wordで開いてPDFに書き出して確認した。
+
+**決めたこと。** 経路は、Pandoc経由の`mmi docx`とした。`mmi render --to md`の結果をPandocに渡すだけでは、表に罫線がなく、見出し行も繰り返されず、改ページ・横向き・表紙・ヘッダーとフッターがすべて落ちる。Pandocは「Markdownから文書へ」の変換器で、納品文書の体裁を持たないためである。そこでMMIが、Pandocの生のOOXML（`raw_attribute`）と、MMI専用の参照用Wordファイル（`--reference-doc`）で、不足を足す。Wordファイルの書き出しをMMIが一から作る案は、Pandocの変換（表・画像・書式）を作り直すことになるため採らなかった。会社の様式がある場合は、利用者の参照用Wordファイルに差し替えられる。
+
+| 項目 | 結果 | 確認 |
+|---|---|---|
+| 見出し・段落・箇条書き・表 | 再現 | Word |
+| 表の罫線、見出し行の網掛けと太字 | 再現 | Word |
+| 見出し行を各ページで繰り返す | 再現（60行の表が3ページにまたがり、2・3ページ目に見出し行） | Word |
+| 表の行をページの途中で切らない | 設定した（`cantSplit`） | XML・単体テスト |
+| 表題（Captionスタイル、表と同じページ） | 再現 | Word |
+| 表題の自動番号と「表3（p.12）」の相互参照 | 再現。ページ番号はWordの更新で入る | Word |
+| 改ページ（`pageBreak=before`・`after`・`both`） | 再現 | Word |
+| 横向きのページ（`orientation=landscape`） | 再現。同じ向きの表が続くときは1つの区切りを共有する | Word |
+| 表紙（文書番号・機密区分・宛先・案件名・文書名・版数・日付・発行者・承認欄） | 再現 | Word |
+| 目次（ページ番号付き） | 再現。Wordで開くときのフィールド更新が要る | Word |
+| ヘッダー・フッター（文書名・機密区分・文書番号・版数・ページ番号） | 再現。文書のプロパティのフィールドで入れる | Word |
+| 文書のプロパティ（タイトル・件名・作成者・キーワード） | 再現 | Word（ヘッダーのフィールド） |
+| 用紙（A4・A3）・余白 | 再現（front matterの`paper`・`margin`） | XML・単体テスト |
+| 書体 | `font`の先頭を指定。その書体のない環境では別の書体になる | XML・単体テスト |
+| 別紙カード | 引用の段落になる。枠付きのカードにはならない | Word |
+| 変更箇所の表示（`--base`） | 未対応 | — |
+| `--css`（顧客指定のCSS） | 使えない。Wordでは`--reference-doc`で様式を渡す | — |
+| PDF/A・タグ付きPDF | 対象外（Wordの「PDFとして保存」で別に作る） | — |
+| 綴じ代（`gutter`） | 余白の「とじしろ」として入る。奇数・偶数ページで左右を入れ替えない | XML |
+| Word以外のビューア（LibreOfficeなど） | 未確認 | — |
+
+**見つかった不具合。** Wordが「ファイルが壊れている可能性があります」と開けなかった。原因は、Pandocが変換のときにヘッダーとフッターの関係ID（`rId`）を振り直すのに対して、MMIが書いた区切りの生のOOXMLが古いIDを参照していたことだった。区切りは目印だけを書き、Pandocの変換後に、出力にある最後のセクションの設定から、実際のIDを入れる方式にした。Wordのような厳密なビューアで開かないと分からない種類の不具合なので、Wordでの確認を省けない。
+
+**限界。**
+
+- Pandocは2.9.2.1と3.11で確かめた（見本をWordで開いてPDFに書き出し、表紙・目次・ヘッダーとフッター・表・横向きのページが同じに再現された）。3.11では、Pandoc自身が表の見出し行（`tblHeader`）を付け、表は固定レイアウトで列幅が等分になる（2.9.2.1は自動幅）。MMIは見出し行を重ねて入れず、行を分割しない指定だけを足す。列幅が等分のため、短い列でも文字が折り返されることがある。その間の版は未確認である。
+- 目次とページ番号のフィールドは、Wordが更新する。開いたときの確認ダイアログは避けられない。
+- 実機で確かめたのはWindowsのWord 1版だけで、macOS版Wordやブラウザー版は確かめていない。
 
 ## PDF/A・タグ付きPDFの検証記録
 
@@ -94,8 +132,26 @@
 
 - 1つのPDFに書ける形式は、WeasyPrintでは1つだけである。PDF/Aの指定ではPDF/UAの識別情報が入らず、PDF/UAの指定ではPDF/Aの識別情報が入らない。保存とアクセシビリティの両方が必要な場合は、アクセシビリティも保てるPDF/A-2aを選ぶか、2つのPDFを作る。
 - この検査で、MMIの出力に直すべき点が1つ見つかった。表紙の文書名が`div`で、文書の最初の見出しが`h2`になるため、PDF/UA-1の見出しの規則（7.4.2）に違反していた。表紙の文書名を`h1`にして解消した。
-- 検査の対象は、画像・数式・フォームを含まない見本1点である。画像を含む文書は、代替テキストが必要になるため、別に確かめる。
+- 検査の対象は、見本`14-delivery`と、組版の試験文書（脚注・幅の広い表・長いコード・入れ子の一覧・大きな画像を含む）である。試験文書の画像で、PDF/A（2a・2b）に違反する指定が見つかった。WeasyPrintは、`image-rendering`が`auto`の画像に`/Interpolate true`を書き、PDF/Aの6.2.8-3に違反する。印刷用のCSSで`image-rendering: crisp-edges`にして解消し、PDF/A-2aの153規則・PDF/A-2bの144規則に違反なしになった。画像の代替テキスト（PDF/UA）、数式、フォームは未確認である。
+- 検査の対象は、画像・数式・フォームを含まない見本1点である。画像を含む文書は、下の「画像を含む文書」で確かめた。
 - veraPDFが確かめるのは、機械で判定できる規則だけである。読み上げの順序や代替テキストの内容など、人が確かめる項目は含まない。
+
+### 画像を含む文書
+
+2026-11-05、veraPDF 1.30.3（Dockerイメージ`verapdf/cli:latest`、image id `sha256:d74b7026c18a0f171e73c153b617fe6520e1511feb24ca98a348b2bb897669fb`）で検査した。PDFはWSL2（Ubuntu）のWeasyPrint 69.0で、MMI main `4b182d2c1239584dcc47a74b904a0c705903c92a`の`mmi pdf --variant <形式>`を使って作った。見本は[15 画像を含む文書](../04_Documentation/samples/practical/15-images.md)で、SVGの流れ図とPNGの棒グラフを1つずつ含む。代替テキストを付けた版と、2つとも代替テキストを空にした版（`![](...)`、リポジトリには置いていない）を検査した。
+
+| 形式 | 代替テキストあり | 代替テキストなし |
+|---|---|---|
+| PDF/A-2b | 143規則に合格、1規則に違反（6.2.8 テスト3、1件） | 同じ（6.2.8 テスト3、1件） |
+| PDF/A-2a | 152規則に合格、1規則に違反（6.2.8 テスト3、1件） | 同じ（6.2.8 テスト3、1件） |
+| PDF/UA-1 | 106規則に合格、違反0 | 105規則に合格、1規則に違反（7.3 テスト1、2件） |
+| PDF/A-2b・2a（`--css`で`img { image-rendering: crisp-edges; }`を追加） | どちらも合格、違反0 | 未検査 |
+| PDF/A-2b・2a・PDF/UA-1（#788の後の`mmi pdf`。`--css`なし、2026-11-06） | PDF/A-2b 144規則・PDF/A-2a 153規則・PDF/UA-1 106規則に合格、違反0 | 未検査 |
+
+- PDF/Aの違反は、PNGの画像辞書に`Interpolate true`が入ることによる（ISO 19005-2 6.2.8「Interpolateはfalseとする」）。WeasyPrintは、CSSの`image-rendering`が`auto`（既定）のとき補間を指定する。SVGは画像辞書を作らないので、この違反は出ない。`image-rendering: crisp-edges`を指定すると補間の指定が外れて合格する。補間を切ると、PDFの閲覧ソフトで拡大したときに画素が粗く見えることがある。#788で、`mmi pdf`はPDF/Aの指定（`pdf/a-2a`・`pdf/a-2b`）のときにこのCSSを文書のスタイルの先頭へ加えるようにした。利用者の`--css`やfront matterの`css`は後に来るので、`image-rendering`を指定し直せる。PDF/UA-1と`none`には加えない。見本（14）もPDF/A-2aで違反なしのままである。
+- PDF/UA-1の違反は、代替テキストの無い画像のFigureタグ（ISO 14289-1 7.3）で、SVGとPNGの2件である。
+- 代替テキストが無いとき、WeasyPrintはPNGについてだけ`ERROR: Image "images/15-chart.png" has no required alt description`と出す。SVGについては出さない。`mmi pdf`はこの行を警告として表示し、PDFを書いて正常に終わる。
+- 代替テキストはMMIでは補わない。文書の書き手が`![説明](画像)`の説明を書く。
 
 検査のコマンドは次のとおりである（DockerとWeasyPrintが要る）。
 
@@ -108,6 +164,7 @@ docker run --rm -v "$PWD":/data verapdf/cli:latest -f 2a --format text /data/文
 
 ## 実装の要点
 
+- `mmi pdf`（`03_Implement/src/cli/pdf.ts`）は、書き出したHTMLを標準入力でWeasyPrintへ渡す。文書の場所を`--base-url`にするので、相対パスの画像やリンクも解決する。出力は一時ファイルへ書いてから置き換え、失敗しても前のPDFを壊さない。WeasyPrintはMMIに同梱しない。
 - front matterの読み取り、表紙、目次、柱、文書プロパティは`03_Implement/src/cli/documentExport.ts`にある。値はYAMLのfailsafe schemaで読み、すべて文字列のまま扱う。CSSの文字列へ入れる値は、`<`もエスケープして`<style>`を閉じられないようにした。
 - 別紙カードの出力は`03_Implement/src/core/renderCard.ts`の`forExport`で切り替える。VS Codeのプレビューは外部アプリで開く機能のために従来どおり絶対パスを持つ。
 - 印刷用CSSのうちプレビューと共通の部分（表題と表の分離防止、強調行の罫線、背景色、別紙のパス）は`03_Implement/media/markdown-matrix.css`にある。
@@ -117,10 +174,10 @@ docker run --rm -v "$PWD":/data verapdf/cli:latest -f 2a --format text /data/文
 
 優先度の高い順に並べる。受入条件と進行状況は、各GitHub Issueを正本とする。
 
-1. 顧客指定の様式に合わせる。CSSの追加とフォント・余白・綴じ代の指定は対応した（[#635](https://github.com/hat47x/markdown-matrix-injector/issues/635)）。表紙の差し替えが残っている。SIerの案件では、発注者の様式が決まっていることが多い。
-2. Word（.docx）で納品する。発注者が編集可能な形式を求める場合に必要になる。Pandocを使う経路の体裁を確かめるか、自前で出力するかを決める（[#636](https://github.com/hat47x/markdown-matrix-injector/issues/636)）。
-3. PDFまで1回のコマンドで作る経路と、複数文書の一括出力を検討する。PDF/Aとタグ付きPDFの適合は見本1点で確かめた。画像を含む文書の確認が残っている（[#637](https://github.com/hat47x/markdown-matrix-injector/issues/637)）。
-4. 改訂箇所を示す。前の版との差分から、改訂マークや新旧対照表を作る（[#638](https://github.com/hat47x/markdown-matrix-injector/issues/638)）。
+1. 顧客指定の様式に合わせる。CSS・書体・余白・綴じ代と、顧客指定の表紙は対応した（[#635](https://github.com/hat47x/markdown-matrix-injector/issues/635)）。Wordの表紙をテンプレートから差し替えることは、`--reference-doc`の様式の範囲でしか対応していない。SIerの案件では、発注者の様式が決まっていることが多い。
+2. Word（.docx）で納品する。`mmi docx`で対応した。Word 16.0.19127で確認した。変更箇所の表示と別紙カードの体裁が残っている（[#636](https://github.com/hat47x/markdown-matrix-injector/issues/636)）。
+3. PDFまで1回のコマンドで作る経路と複数文書の一括出力は`mmi pdf`で対応した。PDF/Aとタグ付きPDFの適合は見本1点で確かめた。ここまでは[#637](https://github.com/hat47x/markdown-matrix-injector/issues/637)で対応した。画像を含む文書は見本（15）で確かめた（2026-11-05、[#771](https://github.com/hat47x/markdown-matrix-injector/issues/771)）。PDF/Aの指定のとき、`mmi pdf`は画像の補間を切る（[#788](https://github.com/hat47x/markdown-matrix-injector/issues/788)）。
+4. 改訂箇所を示す。改訂マークと新旧対照表は対応した（[#638](https://github.com/hat47x/markdown-matrix-injector/issues/638)）。Wordの出力（`mmi docx`）では、まだ変更箇所を示せない。
 5. 図表番号を自動で振り、相互参照にページ番号を添える（[#639](https://github.com/hat47x/markdown-matrix-injector/issues/639)）。表の通し番号とリンクのページ番号は対応し、WeasyPrint 69.0でのPDFでも確かめた（2026-10-27）。章別の番号（表1-1）が残る。
 
 ## 参考
