@@ -50,9 +50,23 @@ test('the surface digest is stable across calls and servers, ignores description
   const reworded = MCP_TOOLS.map((tool) => ({ ...tool, description: `${tool.description} (reworded)` }));
   assert.equal(mcpSurfaceDigest(reworded), a);
 
+  // Reverse the key order of every object recursively. JSON.stringify's
+  // replacer array would drop keys that are not in the array at each level,
+  // which changes the schema instead of only reordering it.
+  const reverseKeys = (value: unknown): unknown => {
+    if (Array.isArray(value)) return value.map(reverseKeys);
+    if (value !== null && typeof value === 'object') {
+      const out: Record<string, unknown> = {};
+      for (const key of Object.keys(value as Record<string, unknown>).reverse()) {
+        out[key] = reverseKeys((value as Record<string, unknown>)[key]);
+      }
+      return out;
+    }
+    return value;
+  };
   const reordered = [...MCP_TOOLS].reverse().map((tool) => ({
     name: tool.name,
-    inputSchema: JSON.parse(JSON.stringify(tool.inputSchema, Object.keys(tool.inputSchema).sort().reverse())),
+    inputSchema: reverseKeys(tool.inputSchema),
   }));
   assert.equal(mcpSurfaceDigest(reordered), a);
 });
