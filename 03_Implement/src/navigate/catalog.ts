@@ -14,7 +14,7 @@ import path from 'node:path';
 import { cellRangeToA1, indexToColumn } from '../core/tableGeometry.js';
 import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
 import { analyzeSheetForImport, type ImportCandidate } from '../importAssist/importCandidates.js';
-import { readWorkbookStructure, type DefinedName, type WorkbookStructure } from '../importAssist/workbookStructure.js';
+import { readWorkbookStructure, readWorkbookStructureFromBytes, type DefinedName, type WorkbookStructure } from '../importAssist/workbookStructure.js';
 
 export const CATALOG_SCHEMA = 'mmi.catalog/v0';
 
@@ -95,12 +95,15 @@ export interface LoadedBook {
 }
 
 /** Loads and analyzes a book once; `describeWorkbook` and `selectFromBook` share the result. */
-export function analyzeBook(absolutePath: string, referencePath: string, options: Pick<CatalogOptions, 'workbook' | 'structure'> = {}): LoadedBook {
+export function analyzeBook(absolutePath: string, referencePath: string, options: Pick<CatalogOptions, 'workbook' | 'structure'> & { bytes?: Uint8Array } = {}): LoadedBook {
   const workbook = options.workbook ?? loadWorkbook({ absolutePath });
   let structure = options.structure;
   if (!structure) {
     try {
-      structure = readWorkbookStructure(absolutePath, workbook);
+      // With the caller's bytes the declared structure comes from the same read as the cells (#744).
+      structure = options.bytes
+        ? readWorkbookStructureFromBytes(absolutePath, options.bytes, workbook)
+        : readWorkbookStructure(absolutePath, workbook);
     } catch {
       structure = undefined; // declared structure is optional evidence
     }

@@ -7,8 +7,8 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import type { Candidate } from '../core/candidate.js';
-import { checkExpectedSourceDigest, readSourceFileIdentity } from '../core/sourceIdentity.js';
-import { loadWorkbook, type WorkbookData } from '../core/workbookLoader.js';
+import { checkExpectedSourceDigestOfBytes, createSourceIdentityFromBytes } from '../core/sourceIdentity.js';
+import { loadWorkbookFromBytes, type WorkbookData } from '../core/workbookLoader.js';
 import { toRelativeSuggestion } from '../dx/vscodeAdapters.js';
 import { analyzeBook } from '../navigate/catalog.js';
 import { SELECTION_SCHEMA, selectFromBook, type RowSelection, type SelectionResult } from '../navigate/select.js';
@@ -55,16 +55,17 @@ export function runSelect(args: readonly string[], options: NavigateOptions, io:
     : options.first !== undefined ? { first: Number(options.first) } : undefined;
   const bookPath = path.resolve(io.cwd, file);
   const referencePath = options.from ? toRelativeSuggestion(path.resolve(io.cwd, options.from), bookPath) : `./${path.basename(bookPath)}`;
-  let sourceDigest: string;
+  // One read: the digest, the pin check and the workbook all come from these bytes (#744).
+  const sourceBytes = fs.readFileSync(bookPath);
+  const sourceDigest = createSourceIdentityFromBytes(sourceBytes).digest;
   const expected = options['expected-source-digest'];
   if (expected !== undefined) {
     let check;
     try {
-      check = checkExpectedSourceDigest(bookPath, expected);
+      check = checkExpectedSourceDigestOfBytes(sourceBytes, expected);
     } catch (error) {
       return usage(io, (error as Error).message);
     }
-    sourceDigest = check.actual;
     if (!check.ok) {
       const result: SelectionResult = {
         schema: SELECTION_SCHEMA,
@@ -76,27 +77,25 @@ export function runSelect(args: readonly string[], options: NavigateOptions, io:
       else io.err(`mmi: ${check.message}`);
       return 1;
     }
-  } else {
-    sourceDigest = readSourceFileIdentity(bookPath).digest;
   }
-  const workbook = loadWorkbook({ absolutePath: bookPath });
+  const workbook = loadWorkbookFromBytes(bookPath, sourceBytes);
   let table = options.table;
   if (options.candidate) {
-    const found = findCandidate(bookPath, workbook, referencePath, options.candidate);
+    const found = findCandidate(workbook, sourceDigest, referencePath, options.candidate);
     if (typeof found === 'string') {
       io.err('mmi: ' + found);
       return 1;
     }
     table = found.locator.sheet + '!' + found.locator.range;
   }
-  const result = selectFromBook(analyzeBook(bookPath, referencePath, { workbook }), referencePath, {
+  const result = selectFromBook(analyzeBook(bookPath, referencePath, { workbook, bytes: sourceBytes }), referencePath, {
     table: table!,
     ...(options.sheet ? { sheet: options.sheet } : {}),
     ...(options.columns ? { columns: options.columns.split(',').map((column) => column.trim()).filter(Boolean) } : {}),
     ...(rows ? { rows } : {}),
   });
   if (options.json) {
-    const candidate = result.table ? candidateAt(bookPath, workbook, referencePath, result.table.sheet, result.table.range) : undefined;
+    const candidate = result.table ? candidateAt(workbook, sourceDigest, referencePath, result.table.sheet, result.table.range) : undefined;
     io.out(JSON.stringify({ schema: NAVIGATE_SCHEMA, command: 'select', result, sourceDigest, ...(candidate ? { candidate: candidateRef(candidate) } : {}) }, null, 2));
   } else {
     // stdout carries the reference alone so it can be pasted or piped; notes go to stderr.
@@ -111,8 +110,16 @@ export async function runFind(args: readonly string[], options: NavigateOptions,
   const text = args.join(' ').trim();
   if (!text) return usage(io, 'find needs a description');
   const root = path.resolve(io.cwd, options.root ?? '.');
+  // The digest of the bytes each workbook was last parsed from. A candidate's sourceDigest and
+  // identity are offered only while the file still has that digest (#744).
+  const parsedDigests = new Map<string, string>();
   const index = new WorkspaceRegionIndex({
-    loadWorkbook: (file) => loadWorkbook({ absolutePath: file }),
+    loadWorkbook: (file) => {
+      const bytes = fs.readFileSync(file);
+      const workbook = loadWorkbookFromBytes(file, bytes);
+      parsedDigests.set(file, createSourceIdentityFromBytes(bytes).digest);
+      return workbook;
+    },
     statFile: (file) => {
       const stat = fs.statSync(file);
       return { mtimeMs: stat.mtimeMs, size: stat.size };
@@ -124,29 +131,28 @@ export async function runFind(args: readonly string[], options: NavigateOptions,
   const candidates = result.candidates.map((candidate) => {
     const bookPath = candidate.region.bookPath;
     let ref: ReturnType<typeof candidateRef> | undefined;
+    let sourceDigest: string | undefined;
     try {
-      const found = candidateAt(bookPath, loadWorkbook({ absolutePath: bookPath }), toRelativeSuggestion(docPath, bookPath), candidate.region.sheet, candidate.region.a1);
-      ref = found ? candidateRef(found) : undefined;
+      // One read per candidate: the digest and the identity come from the same bytes.
+      const bytes = fs.readFileSync(bookPath);
+      const digest = createSourceIdentityFromBytes(bytes).digest;
+      if (digest === parsedDigests.get(bookPath)) {
+        sourceDigest = digest;
+        const found = candidateAt(loadWorkbookFromBytes(bookPath, bytes), digest, toRelativeSuggestion(docPath, bookPath), candidate.region.sheet, candidate.region.a1);
+        ref = found ? candidateRef(found) : undefined;
+      }
     } catch {
+      sourceDigest = undefined;
       ref = undefined; // the book changed or became unreadable since indexing: no identity to offer
     }
-    return { reference: candidate.markdown, explanation: candidate.explanation, notes: candidate.notes, ...(digestOf(bookPath) ? { sourceDigest: digestOf(bookPath) } : {}), ...(candidate.fit !== undefined ? { fit: candidate.fit } : {}), ...(ref ? { candidate: ref } : {}) };
+    return { reference: candidate.markdown, explanation: candidate.explanation, notes: candidate.notes, ...(sourceDigest ? { sourceDigest } : {}), ...(candidate.fit !== undefined ? { fit: candidate.fit } : {}), ...(ref ? { candidate: ref } : {}) };
   });
   if (options.json) {
     io.out(JSON.stringify({ schema: NAVIGATE_SCHEMA, command: 'find', status: result.status, reasons: result.reasons, candidates, requiresSelection: true }, null, 2));
   } else {
-    io.out([...candidates.map((c, i) => `${i + 1}. ${c.reference}\n   ${c.explanation}${c.fit !== undefined ? ` （${fitLabel(c.fit)}）` : ''}`), ...result.reasons.map((reason) => `理由: ${reason}`)].join('\n') || '候補はありません。');
+    io.out([...candidates.map((c, i) => `${i + 1}. ${c.reference}\n   ${c.explanation}${c.fit !== undefined ? ` （${fitLabel(c.fit)}）` : ''}`), ...result.reasons.map((reason) => `理由: ${reason}`)].join('\n') ||'候補はありません。');
   }
   return result.status === 'candidates' ? 0 : 1;
-}
-
-/** Digest of the source bytes, as inspect reports it in locator.sourceDigest; absent when the book became unreadable after indexing. */
-function digestOf(bookPath: string): string | undefined {
-  try {
-    return readSourceFileIdentity(bookPath).digest;
-  } catch {
-    return undefined;
-  }
 }
 
 /** The identity the Candidate contract, ledger and review use for a table (ADR-0019 D8), so a selection can be traced to it. */
@@ -154,18 +160,17 @@ function candidateRef(candidate: Candidate): { fingerprint: string; sheet?: stri
   return { fingerprint: candidate.fingerprint.digest, ...(candidate.locator.sheet ? { sheet: candidate.locator.sheet } : {}), ...(candidate.locator.range ? { range: candidate.locator.range } : {}), status: candidate.status };
 }
 
-function candidatesOf(bookPath: string, workbook: WorkbookData, source: string): Candidate[] {
-  const sourceDigest = readSourceFileIdentity(bookPath).digest;
+function candidatesOf(workbook: WorkbookData, sourceDigest: string, source: string): Candidate[] {
   return Object.entries(workbook.sheets).flatMap(([sheetName, sheet]) => tableCandidates({ source, sourceDigest, sheetName, sheet }));
 }
 
-function candidateAt(bookPath: string, workbook: WorkbookData, source: string, sheet: string, range: string): Candidate | undefined {
-  return candidatesOf(bookPath, workbook, source).find((candidate) => candidate.locator.sheet === sheet && candidate.locator.range === range);
+function candidateAt(workbook: WorkbookData, sourceDigest: string, source: string, sheet: string, range: string): Candidate | undefined {
+  return candidatesOf(workbook, sourceDigest, source).find((candidate) => candidate.locator.sheet === sheet && candidate.locator.range === range);
 }
 
 /** A string is the reason the fingerprint selects nothing usable. */
-function findCandidate(bookPath: string, workbook: WorkbookData, source: string, fingerprint: string): Candidate | string {
-  const matches = candidatesOf(bookPath, workbook, source).filter((candidate) => candidate.fingerprint.digest === fingerprint);
+function findCandidate(workbook: WorkbookData, sourceDigest: string, source: string, fingerprint: string): Candidate | string {
+  const matches = candidatesOf(workbook, sourceDigest, source).filter((candidate) => candidate.fingerprint.digest === fingerprint);
   if (matches.length === 1) return matches[0];
   if (matches.length === 0) return 'no table Candidate with fingerprint ' + fingerprint + '; the source may have changed -- run mmi inspect --json again';
   return matches.length + ' table Candidates have identical content (' + matches.map((m) => m.locator.sheet + '!' + m.locator.range).join(', ') + '); use --sheet and --table';
