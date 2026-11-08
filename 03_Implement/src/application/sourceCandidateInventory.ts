@@ -11,7 +11,11 @@ import { readXmlTree } from '../adapters/xmlTreeAdapter.js';
 import { readYamlTree } from '../adapters/yamlTreeAdapter.js';
 import type { Candidate } from '../core/candidate.js';
 import { decodeJsonUtf8 } from '../core/jsonFormat.js';
-import { createSourceIdentityFromBytes } from '../core/sourceIdentity.js';
+import {
+  checkExpectedSourceDigestOfBytes,
+  createSourceIdentityFromBytes,
+  SourceDigestMismatchError,
+} from '../core/sourceIdentity.js';
 import {
   decodeGenericXmlUtf8,
   isXmlSpreadsheet2003Bytes,
@@ -45,6 +49,16 @@ export interface StandaloneTreeCandidateInventory {
   ambiguous?: boolean;
 }
 
+/** Reads the source once; with an expected digest, refuses bytes that do not have it (#744). */
+function readVerifiedBytes(sourcePath: string, expectedSourceDigest: string | undefined): Buffer {
+  const bytes = fs.readFileSync(sourcePath);
+  if (expectedSourceDigest !== undefined) {
+    const check = checkExpectedSourceDigestOfBytes(bytes, expectedSourceDigest);
+    if (!check.ok) throw new SourceDigestMismatchError(check.message, check.actual);
+  }
+  return bytes;
+}
+
 /**
  * Enumerate Candidate identity/provenance for standalone structured sources.
  *
@@ -60,9 +74,10 @@ export function collectStandaloneTreeCandidates(
   sourceLabel: string,
   flatTextMethods:
     readonly FlatTextTreeMethod[] = DEFAULT_FLAT_TEXT_TREE_METHODS,
+  expectedSourceDigest?: string,
 ): StandaloneTreeCandidateInventory | undefined {
   if (/\.json$/iu.test(sourcePath)) {
-    const sourceBytes = fs.readFileSync(sourcePath);
+    const sourceBytes = readVerifiedBytes(sourcePath, expectedSourceDigest);
     const sourceDigest =
       createSourceIdentityFromBytes(sourceBytes).digest;
     const tree = readJsonTree(
@@ -84,7 +99,7 @@ export function collectStandaloneTreeCandidates(
   }
 
   if (/\.ya?ml$/iu.test(sourcePath)) {
-    const sourceBytes = fs.readFileSync(sourcePath);
+    const sourceBytes = readVerifiedBytes(sourcePath, expectedSourceDigest);
     const sourceDigest =
       createSourceIdentityFromBytes(sourceBytes).digest;
     const tree = readYamlTree(
@@ -106,7 +121,7 @@ export function collectStandaloneTreeCandidates(
   }
 
   if (/\.xml$/iu.test(sourcePath)) {
-    const sourceBytes = fs.readFileSync(sourcePath);
+    const sourceBytes = readVerifiedBytes(sourcePath, expectedSourceDigest);
     if (isXmlSpreadsheet2003Bytes(sourceBytes)) return undefined;
 
     const sourceDigest =
@@ -135,7 +150,7 @@ export function collectStandaloneTreeCandidates(
   }
 
   if (/\.(txt|text|log)$/iu.test(sourcePath)) {
-    const sourceBytes = fs.readFileSync(sourcePath);
+    const sourceBytes = readVerifiedBytes(sourcePath, expectedSourceDigest);
     const sourceDigest =
       createSourceIdentityFromBytes(sourceBytes).digest;
     const tree = readFlatTextTree(

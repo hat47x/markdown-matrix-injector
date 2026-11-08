@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { readHtmlFragments } from '../adapters/htmlFragmentAdapter.js';
 import { readDocx, type DocxDiagnostic } from '../adapters/docxSourceAdapter.js';
-import { checkExpectedSourceDigest, createSourceIdentityFromBytes } from '../core/sourceIdentity.js';
+import { assertExpectedSourceDigestFormat, assertSourceBytesDigest, createSourceIdentityFromBytes, SourceDigestMismatchError } from '../core/sourceIdentity.js';
 import XLSX from 'xlsx';
 import { WorkbookCache } from '../cache/workbookCache.js';
 import { checkDetachedDocument } from '../application/detachCheck.js';
@@ -866,11 +866,7 @@ export async function main(argv: string[]): Promise<number> {
       const absoluteSource = path.resolve(args[0]);
       if (values['expected-source-digest'] !== undefined) {
         try {
-          const check = checkExpectedSourceDigest(absoluteSource, values['expected-source-digest']);
-          if (!check.ok) {
-            console.error(`mmi: ${check.message}`);
-            return 1;
-          }
+          assertExpectedSourceDigestFormat(values['expected-source-digest']);
         } catch (error) {
           return usageError(error instanceof Error ? error.message : String(error));
         }
@@ -906,13 +902,25 @@ export async function main(argv: string[]): Promise<number> {
           error instanceof Error ? error.message : String(error),
         );
       }
-      const raw = inspectSource(
-        absoluteSource,
-        Number(values.values) || 0,
-        values.from,
-        flatTextMethods,
-        tabularHierarchy,
-      );
+      let raw: InspectResult;
+      try {
+        // The expected digest is checked on the bytes the result is built from, not on a separate read (#744).
+        raw = inspectSource(
+          absoluteSource,
+          Number(values.values) || 0,
+          values.from,
+          flatTextMethods,
+          tabularHierarchy,
+          undefined,
+          values['expected-source-digest'],
+        );
+      } catch (error) {
+        if (error instanceof SourceDigestMismatchError) {
+          console.error(`mmi: ${error.message}`);
+          return 1;
+        }
+        throw error;
+      }
       if (values['import-assist']) {
         if (raw.trees !== undefined || raw.htmlFragments !== undefined) {
           return usageError(
@@ -2262,6 +2270,7 @@ export function inspectSource(
   flatTextMethods: readonly FlatTextTreeMethod[] = DEFAULT_FLAT_TEXT_TREE_METHODS,
   tabularHierarchy?: TabularHierarchyConfig,
   baseDirectory = process.cwd(),
+  expectedSourceDigest?: string,
 ): InspectResult {
   const base = fromDocument ? path.dirname(path.resolve(fromDocument)) : baseDirectory;
   let relative = path.relative(base, absolutePath).split(path.sep).join('/');
@@ -2269,6 +2278,7 @@ export function inspectSource(
 
   if (/\.html?$/iu.test(absolutePath)) {
     const bytes = fs.readFileSync(absolutePath);
+    assertSourceBytesDigest(bytes, expectedSourceDigest);
     const text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
     const parsed = readHtmlFragments(
       text,
@@ -2298,6 +2308,7 @@ export function inspectSource(
 
   if (/\.docx$/iu.test(absolutePath)) {
     const bytes = fs.readFileSync(absolutePath);
+    assertSourceBytesDigest(bytes, expectedSourceDigest);
     const parsed = readDocx(bytes, relative);
     return {
       source: relative,
@@ -2360,6 +2371,7 @@ export function inspectSource(
     absolutePath,
     relative,
     flatTextMethods,
+    expectedSourceDigest,
   );
   if (standaloneTree) {
     return {
@@ -2396,6 +2408,7 @@ export function inspectSource(
     relative,
     {
       ...(tabularHierarchy ? { tabularHierarchy } : {}),
+      ...(expectedSourceDigest !== undefined ? { expectedSourceDigest } : {}),
     },
   );
   const {

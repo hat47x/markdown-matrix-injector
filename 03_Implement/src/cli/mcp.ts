@@ -33,7 +33,7 @@ import {
 } from './mmi.js';
 import { readBuildIdentity } from './buildIdentity.js';
 import { buildMcpSurface } from './mcpSurface.js';
-import { checkExpectedSourceDigest } from '../core/sourceIdentity.js';
+import { assertExpectedSourceDigestFormat, SourceDigestMismatchError } from '../core/sourceIdentity.js';
 import { runFind, runSelect } from './navigateCommands.js';
 import { RenderError, renderDocumentHtml, renderDocumentMarkdown } from './render.js';
 
@@ -716,19 +716,19 @@ class McpServerImplementation implements McpServer {
 
     const expectedSourceDigest = optionalString(args, 'expectedSourceDigest');
     if (expectedSourceDigest !== undefined) {
-      let check;
       try {
-        check = checkExpectedSourceDigest(source, expectedSourceDigest);
+        assertExpectedSourceDigestFormat(expectedSourceDigest);
       } catch (error) {
         throw new InvalidParamsError(messageOf(error));
       }
-      if (!check.ok) throw new ToolFailure(check.message, 'digest-mismatch');
     }
 
     let raw;
     try {
-      raw = inspectSource(source, values, from, undefined, undefined, this.displayCwd);
+      // The digest is checked on the bytes the result is built from, not on a separate read (#744).
+      raw = inspectSource(source, values, from, undefined, undefined, this.displayCwd, expectedSourceDigest);
     } catch (error) {
+      if (error instanceof SourceDigestMismatchError) throw new ToolFailure(error.message, 'digest-mismatch');
       throw wrapFailure(error);
     }
     const ledgerPath = ledgerOption

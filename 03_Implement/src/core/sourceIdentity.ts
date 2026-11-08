@@ -56,13 +56,42 @@ export type ExpectedSourceDigestCheck =
  * different digest is returned as a mismatch so each caller can report it in its own shape.
  */
 export function checkExpectedSourceDigest(absolutePath: string, expected: string): ExpectedSourceDigestCheck {
+  assertExpectedSourceDigestFormat(expected);
+  return checkExpectedSourceDigestOfBytes(fs.readFileSync(absolutePath), expected);
+}
+
+/** Throws when the caller's expected digest is not a SHA-256 Source Identity digest. */
+export function assertExpectedSourceDigestFormat(expected: string): void {
   if (!SOURCE_DIGEST_PATTERN.test(expected)) {
     throw new Error('expected source digest must be a SHA-256 Source Identity digest (sha256:<64 hex>)');
   }
-  const actual = readSourceFileIdentity(absolutePath).digest;
+}
+
+/**
+ * Same comparison as `checkExpectedSourceDigest`, on bytes the caller already read.
+ * Parsing the same bytes keeps the digest and the values it vouches for from two different reads (#744).
+ */
+export function checkExpectedSourceDigestOfBytes(bytes: Uint8Array, expected: string): ExpectedSourceDigestCheck {
+  assertExpectedSourceDigestFormat(expected);
+  const actual = createSourceIdentityFromBytes(bytes).digest;
   return actual === expected
     ? { ok: true, actual }
     : { ok: false, actual, message: `source digest mismatch: expected ${expected} but the source is ${actual}; run inspect again and use the current digest` };
+}
+
+/** Throws SourceDigestMismatchError unless the bytes the caller already read have the expected digest. */
+export function assertSourceBytesDigest(bytes: Uint8Array, expected: string | undefined): void {
+  if (expected === undefined) return;
+  const check = checkExpectedSourceDigestOfBytes(bytes, expected);
+  if (!check.ok) throw new SourceDigestMismatchError(check.message, check.actual);
+}
+
+/** A pinned `expectedSourceDigest` did not match the bytes that were read. */
+export class SourceDigestMismatchError extends Error {
+  constructor(message: string, readonly actual: string) {
+    super(message);
+    this.name = 'SourceDigestMismatchError';
+  }
 }
 
 export function resolveContainedSourceIdentity(

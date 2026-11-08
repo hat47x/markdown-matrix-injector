@@ -28,9 +28,13 @@ import {
   type TabularHierarchyResult,
 } from '../adapters/tabularHierarchyAdapter.js';
 import type { Candidate } from '../core/candidate.js';
-import { readSourceFileIdentity } from '../core/sourceIdentity.js';
 import {
-  loadWorkbook,
+  checkExpectedSourceDigestOfBytes,
+  createSourceIdentityFromBytes,
+  SourceDigestMismatchError,
+} from '../core/sourceIdentity.js';
+import {
+  loadWorkbookFromBytes,
   type WorkbookData,
 } from '../core/workbookLoader.js';
 import { detectTableRegions } from '../importAssist/tableRegions.js';
@@ -53,6 +57,8 @@ export interface WorkbookCandidateInventoryOptions {
   hierarchySheets?: readonly string[];
   /** Skip base Candidate generation when a host only needs hierarchy review. */
   hierarchyOnly?: boolean;
+  /** Refuse (SourceDigestMismatchError) unless the bytes read have this digest; checked on the same read the result is built from. */
+  expectedSourceDigest?: string;
 }
 
 export interface WorkbookDetectedSheet {
@@ -107,8 +113,14 @@ export function collectWorkbookCandidates(
   sourceLabel: string,
   options: WorkbookCandidateInventoryOptions = {},
 ): WorkbookCandidateInventory {
-  const sourceDigest = readSourceFileIdentity(sourcePath).digest;
-  const workbook = loadWorkbook({ absolutePath: sourcePath });
+  // One read: the digest, the parsed workbook and the package parts all come from these bytes (#744).
+  const sourceBytes = fs.readFileSync(sourcePath);
+  const sourceDigest = createSourceIdentityFromBytes(sourceBytes).digest;
+  if (options.expectedSourceDigest !== undefined) {
+    const check = checkExpectedSourceDigestOfBytes(sourceBytes, options.expectedSourceDigest);
+    if (!check.ok) throw new SourceDigestMismatchError(check.message, check.actual);
+  }
+  const workbook = loadWorkbookFromBytes(sourcePath, sourceBytes);
 
   const requestedHierarchySheets = options.tabularHierarchy
     ? options.hierarchySheets ?? Object.keys(workbook.sheets)
@@ -197,9 +209,7 @@ export function collectWorkbookCandidates(
     }));
 
   const isPackage = /\.(xlsx|xlsm)$/iu.test(sourcePath);
-  const packageBytes = isPackage
-    ? fs.readFileSync(sourcePath)
-    : undefined;
+  const packageBytes = isPackage ? sourceBytes : undefined;
   const imageRead = packageBytes
     ? readExcelImages(packageBytes)
     : emptyImageRead(sourcePath);
