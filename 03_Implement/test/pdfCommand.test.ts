@@ -53,14 +53,19 @@ test('variant none adds no PDF variant or tag options', () => {
 test('PDF/A variants turn off image interpolation before the user CSS; other variants do not (#788)', () => {
   const { root, doc } = workspace('---\ntitle: 図\ncss: user.css\n---\n## 図\n\n![棒グラフ](chart.png)\n');
   fs.writeFileSync(path.join(root, 'user.css'), 'img { image-rendering: auto; }');
+  // The base stylesheet already carries an `@media print` fallback for
+  // `image-rendering`, so the assertion targets the PDF/A-only injection
+  // marker rather than the CSS text itself.
+  const marker = '/* PDF/A: no image interpolation (#788) */';
   for (const variant of ['pdf/a-2a', 'pdf/a-2b', 'pdf/ua-1', 'none'] as const) {
     const calls: Call[] = [];
     buildPdf({ markdownFilePath: doc, workspaceRoot: root, output: path.join(root, 'out.pdf'), variant }, fakeWeasyPrint(calls));
     const html = calls[0].html;
-    const ours = html.indexOf(PDFA_IMAGE_CSS);
+    const ours = html.indexOf(marker);
     if (variant.startsWith('pdf/a-')) {
       assert.ok(ours > html.indexOf('<style>'), `${variant}: the rule is inside the document stylesheet`);
       assert.ok(ours < html.indexOf('img { image-rendering: auto; }'), `${variant}: the user CSS comes later and can override it`);
+      assert.ok(html.indexOf(PDFA_IMAGE_CSS) > -1, `${variant}: the PDF/A rule is present`);
     } else {
       assert.equal(ours, -1, `${variant}: no PDF/A rule`);
     }
