@@ -1,4 +1,5 @@
 {
+  "Unable to verify workspace boundary for source.": "参照先が作業フォルダーの範囲内か確認できません。",
   " (with header)": "（見出しあり）",
   "Renders as a table: {0} body rows × {1} columns{2}": "表として表示: 本体{0}行 × {1}列{2}",
   "Renders as a table: 0 matching rows ({0} columns). No row matched the grep condition.": "表として表示: 該当行0件（{0}列。grepに一致する行がありません）",

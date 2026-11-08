@@ -24,12 +24,21 @@ export function isPathWithinBoundary(candidate: string, boundary: string): boole
   return rel !== '..' && !rel.startsWith(`..${path.sep}`) && !path.isAbsolute(rel);
 }
 
-function realpathOrSelf(filePath: string): string {
+/** A real path was required for containment but could not be established. */
+export class PathVerificationError extends Error {
+  constructor() {
+    super('Unable to verify workspace boundary for source.');
+    this.name = 'PathVerificationError';
+  }
+}
+
+export function verifiedRealPath(filePath: string): string {
   try {
     return fs.realpathSync(filePath);
   } catch {
-    // realpathSync can fail on broken symlinks etc. — best-effort.
-    return filePath;
+    // A lexical path cannot establish containment through a link. Do not
+    // report the file as outside or missing when its real path is unknown.
+    throw new PathVerificationError();
   }
 }
 
@@ -54,10 +63,6 @@ export function resolveSourcePath(options: ResolveSourcePathOptions): string {
     ? path.resolve(options.workspaceRoot)
     : path.resolve(path.dirname(options.markdownFilePath));
 
-  // The workspace itself may sit behind a symlink (macOS /tmp → /private/tmp),
-  // so compare real paths with the real boundary.
-  const realBoundary = realpathOrSelf(boundary);
-
   // Decide containment lexically before touching the disk. Otherwise a
   // reference that leaves the workspace reports "file not found" when the
   // outside file happens to be absent, and "outside boundary" when it exists:
@@ -72,7 +77,8 @@ export function resolveSourcePath(options: ResolveSourcePathOptions): string {
   for (const candidate of lexicalCandidates) {
     if (fs.existsSync(candidate)) {
       // Defeat symlink bypass: resolve to real path before containment check
-      const checkPath = realpathOrSelf(candidate);
+      const realBoundary = verifiedRealPath(boundary);
+      const checkPath = verifiedRealPath(candidate);
       if (!isPathWithinBoundary(checkPath, realBoundary)) {
         throw new PathContainmentError(options.sourcePath, checkPath, boundary);
       }
