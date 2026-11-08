@@ -19,6 +19,8 @@ export interface PdfOptions extends RenderOptions {
   variant: PdfVariant;
   /** WeasyPrint executable (default `weasyprint` from PATH). */
   weasyprint?: string;
+  /** Epoch seconds for the PDF's creation time (`SOURCE_DATE_EPOCH`); the same inputs then give the same bytes. */
+  sourceDateEpoch?: number;
 }
 
 export interface PdfRunResult {
@@ -27,25 +29,37 @@ export interface PdfRunResult {
   error?: Error;
 }
 
-export type PdfRunner = (command: string, args: string[], html: string) => PdfRunResult;
+export type PdfRunner = (command: string, args: string[], html: string, env?: Record<string, string>) => PdfRunResult;
 
-const runWithSpawn: PdfRunner = (command, args, html) => {
-  const result = spawnSync(command, args, { input: html, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, windowsHide: true });
+const runWithSpawn: PdfRunner = (command, args, html, env) => {
+  const result = spawnSync(command, args, { input: html, encoding: 'utf8', maxBuffer: 64 * 1024 * 1024, windowsHide: true, env: env ? { ...process.env, ...env } : process.env });
   return { status: result.status, stderr: result.stderr ?? '', error: result.error };
 };
 
 // Properties MMI's own CSS uses for other engines; WeasyPrint reports them as ignored and they change nothing.
 const KNOWN_NOISE = /Ignored `(?:print-color-adjust|overflow-x)/;
 
+/**
+ * PDF/A forbids `Interpolate true` on image dictionaries (ISO 19005-2 6.2.8), and WeasyPrint writes it for raster
+ * images while `image-rendering` is `auto`. Put first in the document's stylesheet, so a user's `--css` can still
+ * override it (#788).
+ */
+export const PDFA_IMAGE_CSS = 'img { image-rendering: crisp-edges; }';
+
+function withPdfaImageCss(html: string, variant: PdfVariant): string {
+  if (!variant.startsWith('pdf/a-')) return html;
+  return html.replace('<style>', `<style>\n/* PDF/A: no image interpolation (#788) */\n${PDFA_IMAGE_CSS}`);
+}
+
 /** Writes the PDF and returns WeasyPrint's warnings (for example glyphs missing from the fonts). */
 export function buildPdf(options: PdfOptions, run: PdfRunner = runWithSpawn): string[] {
-  const html = renderDocumentHtml(options);
+  const html = withPdfaImageCss(renderDocumentHtml(options), options.variant);
   const command = options.weasyprint ?? process.env.MMI_WEASYPRINT ?? 'weasyprint';
   const temporary = `${options.output}.mmi-tmp`;
   const baseUrl = `${pathToFileURL(path.dirname(path.resolve(options.markdownFilePath))).href}/`;
   const args = ['-', temporary, '--base-url', baseUrl];
   if (options.variant !== 'none') args.push('--pdf-variant', options.variant, '--pdf-tags');
-  const result = run(command, args, html);
+  const result = run(command, args, html, options.sourceDateEpoch === undefined ? undefined : { SOURCE_DATE_EPOCH: String(options.sourceDateEpoch) });
   if (result.error) {
     fs.rmSync(temporary, { force: true });
     const missing = (result.error as NodeJS.ErrnoException).code === 'ENOENT';

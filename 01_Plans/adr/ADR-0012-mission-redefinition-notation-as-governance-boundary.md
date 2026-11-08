@@ -1,5 +1,7 @@
 # ADR-0012: ミッション再定義 — 「正本参照規約」としての MMI (Notation as Governance Boundary)
 
+> 2026-10-01更新: 「製品の価値を表参照規約へ限定する」部分は [ADR-0019](ADR-0019-ai-era-sier-document-value-and-policy.md) に置き換えられました。MMI Notation v1、Read-only、Determinism、Containment、Stable diagnosticsの規範は継続します。
+
 - Status: Accepted
 - Date: 2026-07-08
 - Deciders: Human Sponsor（方向性承認済み）+ MMI Lead Agent
