@@ -110,7 +110,7 @@ MMIはVS Code拡張に加えて、`![[...]]`の公開規約と適合試験を管
 
 ## 開発に参加する
 
-Node.js 22以上とnpmを使います。
+開発とCIの主要ジョブにはNode.js 22以上とnpmを使います。配布するCLI・MCPのtarballを使うだけの利用者は、Node.js 20以上で足ります。20での動作は、mainへのpushと手動実行のCIで確かめます。
 
 ```bash
 cd 03_Implement
