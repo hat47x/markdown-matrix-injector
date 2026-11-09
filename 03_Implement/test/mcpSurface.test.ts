@@ -92,3 +92,22 @@ test('a tool outside the audited read-only list makes the declaration false', ()
   // The published surface must stay all-true: adding a tool without auditing it fails here.
   assert.equal(MCP_SURFACE.readOnly, true);
 });
+
+// Issue #804: the digest covers name+inputSchema only. These tests fix what it
+// does NOT detect, so a later change of the scope must update the documentation
+// (mcp-server.md) and `digestScope` together.
+test('changing a tool readOnly value does not change the digest, but is visible in tools[]', () => {
+  const allReadOnly = buildMcpSurface(MCP_TOOLS, () => true);
+  const oneWritable = buildMcpSurface(MCP_TOOLS, (name) => name !== MCP_TOOLS[0].name);
+  assert.equal(oneWritable.digest, allReadOnly.digest);
+  assert.equal(oneWritable.digestScope, 'name+inputSchema');
+  assert.equal(oneWritable.readOnly, false);
+  assert.equal(oneWritable.tools[0].readOnly, false);
+  assert.notDeepEqual(oneWritable.tools, allReadOnly.tools);
+});
+
+test('changing a tool description or adding a result-shape field outside inputSchema does not change the digest', () => {
+  const base = mcpSurfaceDigest(MCP_TOOLS);
+  const withExtraKeys = MCP_TOOLS.map((tool) => ({ ...tool, resultContract: 'mmi.selection/v1', failureCodes: ['x'] }));
+  assert.equal(mcpSurfaceDigest(withExtraKeys), base);
+});
