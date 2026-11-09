@@ -12,8 +12,13 @@ export type { CellRange, SheetSource, SourceCell, SourceCellType } from './sheet
 /** A dense display matrix -- only ever the *result* of slicing a `SheetSource` (see `tableGeometry.ts#sliceRegion`), never the storage shape for a whole sheet. */
 export type SheetMatrix = string[][];
 
+/** Character encoding adopted to decode a CSV source (#758). */
+export type CsvSourceEncoding = 'utf-8' | 'utf-8-bom' | 'cp932';
+
 export interface WorkbookData {
   sheets: Record<string, SheetSource>;
+  /** Set for CSV sources only: the encoding the bytes were decoded with. Absent for xlsx/xml. */
+  sourceEncoding?: CsvSourceEncoding;
 }
 
 export interface LoadWorkbookOptions {
@@ -53,10 +58,12 @@ export function loadWorkbookFromBytes(absolutePath: string, bytes: Buffer): Work
     // RFC4180 text has no "used range" distinct from "everything that was
     // written", and no physical-coordinate problem: the parser is already
     // A1-origin and dense. Wrapping it is enough; see sheetSource.ts.
+    const decoded = decodeCsv(bytes);
     return {
       sheets: {
-        Sheet1: sheetSourceFromMatrix(parseCsv(decodeCsv(bytes))),
+        Sheet1: sheetSourceFromMatrix(parseCsv(decoded.text)),
       },
+      sourceEncoding: decoded.encoding,
     };
   }
 
@@ -197,19 +204,20 @@ function fallbackCellText(value: string | number | boolean | Date | null): strin
   return time === '00:00:00' ? date : `${date} ${time}`;
 }
 
-function decodeCsv(bytes: Uint8Array): string {
+function decodeCsv(bytes: Uint8Array): { text: string; encoding: CsvSourceEncoding } {
   const hasUtf8Bom = bytes[0] === 0xef && bytes[1] === 0xbb && bytes[2] === 0xbf;
   if ((bytes[0] === 0xff && bytes[1] === 0xfe) || (bytes[0] === 0xfe && bytes[1] === 0xff)) {
     throw new LocalizedError('csvUtf16', {});
   }
   try {
-    return new TextDecoder('utf-8', { fatal: true }).decode(bytes);
+    // UTF-8 is tried first, so bytes valid as both UTF-8 and CP932 are reported as UTF-8 (#758).
+    return { text: new TextDecoder('utf-8', { fatal: true }).decode(bytes), encoding: hasUtf8Bom ? 'utf-8-bom' : 'utf-8' };
   } catch {
     if (hasUtf8Bom) throw new LocalizedError('csvInvalidUtf8', {});
   }
   try {
     // WHATWG shift_jis includes the Windows-31J extensions used by Excel.
-    return new TextDecoder('shift_jis', { fatal: true }).decode(bytes);
+    return { text: new TextDecoder('shift_jis', { fatal: true }).decode(bytes), encoding: 'cp932' };
   } catch {
     throw new LocalizedError('csvUnreadableEncoding', {});
   }

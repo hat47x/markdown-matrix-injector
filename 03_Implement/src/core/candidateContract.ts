@@ -52,6 +52,7 @@ export const semanticCandidateJsonSchema = {
       properties: {
         source: { type: 'string', minLength: 1 },
         sourceDigest: { type: 'string', pattern: sha256Pattern },
+        sourceEncoding: { enum: ['utf-8', 'utf-8-bom', 'cp932'] },
         sheet: { type: 'string' },
         range: { type: 'string' },
         structuralPath: { type: 'string' },

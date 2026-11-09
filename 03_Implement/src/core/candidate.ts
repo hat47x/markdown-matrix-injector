@@ -82,6 +82,8 @@ export interface SourceLocator {
   source: string;
   /** Digest of the source bytes the candidate was derived from (SourceIdentity v1). */
   sourceDigest: string;
+  /** CSV only: the encoding the source bytes were decoded with (`utf-8`, `utf-8-bom`, `cp932`). Absent for other formats. */
+  sourceEncoding?: 'utf-8' | 'utf-8-bom' | 'cp932';
   sheet?: string;
   /** A1 range of the candidate in the source (physical coordinates). */
   range?: string;
