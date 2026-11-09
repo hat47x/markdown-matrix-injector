@@ -10,6 +10,7 @@
  */
 import { parseFragment, type DefaultTreeAdapterMap } from 'parse5';
 import { escapeHtml } from '../core/html.js';
+import { hasExternalCssReference } from './cssExternalRefs.js';
 import type { DocumentProperties } from './documentExport.js';
 
 type Node = DefaultTreeAdapterMap['node'];
@@ -30,7 +31,7 @@ function isExternal(value: string): boolean {
   if (url.startsWith('#') || /^data:(?:image|font)\//iu.test(url)) return false;
   return /^[a-z][a-z0-9+.-]*:/iu.test(url) || url.startsWith('//');
 }
-const EXTERNAL_CSS = /@import\b|url\(\s*['"]?\s*(?:[a-z][a-z0-9+.-]*:(?!image\/|font\/|application\/font)|\/\/)/iu;
+const EXTERNAL_CSS = { test: hasExternalCssReference };
 
 function check(node: Node, template: string): void {
   if ('tagName' in node) {
