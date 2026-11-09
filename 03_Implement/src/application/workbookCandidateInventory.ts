@@ -31,6 +31,8 @@ import type { Candidate } from '../core/candidate.js';
 import {
   checkExpectedSourceDigestOfBytes,
   createSourceIdentityFromBytes,
+  sourceIdentityRefOf,
+  type SourceIdentityRef,
   SourceDigestMismatchError,
 } from '../core/sourceIdentity.js';
 import {
@@ -68,6 +70,8 @@ export interface WorkbookDetectedSheet {
 
 export interface WorkbookCandidateInventory {
   sourceDigest: string;
+  /** Algorithm, representation and byte length of the bytes `sourceDigest` covers. */
+  sourceIdentity: SourceIdentityRef;
   workbook: WorkbookData;
   isPackage: boolean;
   detected: readonly WorkbookDetectedSheet[];
@@ -115,7 +119,8 @@ export function collectWorkbookCandidates(
 ): WorkbookCandidateInventory {
   // One read: the digest, the parsed workbook and the package parts all come from these bytes (#744).
   const sourceBytes = fs.readFileSync(sourcePath);
-  const sourceDigest = createSourceIdentityFromBytes(sourceBytes).digest;
+  const sourceIdentity = createSourceIdentityFromBytes(sourceBytes);
+  const sourceDigest = sourceIdentity.digest;
   if (options.expectedSourceDigest !== undefined) {
     const check = checkExpectedSourceDigestOfBytes(sourceBytes, options.expectedSourceDigest);
     if (!check.ok) throw new SourceDigestMismatchError(check.message, check.actual);
@@ -147,6 +152,7 @@ export function collectWorkbookCandidates(
     const empty = emptyImageRead(sourcePath);
     return {
       sourceDigest,
+      sourceIdentity: sourceIdentityRefOf(sourceIdentity),
       workbook,
       isPackage: /\.(xlsx|xlsm)$/iu.test(sourcePath),
       detected: [],
@@ -253,6 +259,7 @@ export function collectWorkbookCandidates(
 
   return {
     sourceDigest,
+    sourceIdentity: sourceIdentityRefOf(sourceIdentity),
     workbook,
     isPackage,
     detected,
