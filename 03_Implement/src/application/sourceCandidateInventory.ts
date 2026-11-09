@@ -14,6 +14,8 @@ import { decodeJsonUtf8 } from '../core/jsonFormat.js';
 import {
   checkExpectedSourceDigestOfBytes,
   createSourceIdentityFromBytes,
+  sourceIdentityRefOf,
+  type SourceIdentityRef,
   SourceDigestMismatchError,
 } from '../core/sourceIdentity.js';
 import {
@@ -43,6 +45,8 @@ export interface StandaloneTreeHypothesis {
 }
 
 export interface StandaloneTreeCandidateInventory {
+  /** Algorithm, representation and byte length of the bytes the candidates' `sourceDigest` covers. */
+  sourceIdentity: SourceIdentityRef;
   candidates: readonly Candidate[];
   nodes: readonly StandaloneTreeNode[];
   hypotheses?: readonly StandaloneTreeHypothesis[];
@@ -78,14 +82,15 @@ export function collectStandaloneTreeCandidates(
 ): StandaloneTreeCandidateInventory | undefined {
   if (/\.json$/iu.test(sourcePath)) {
     const sourceBytes = readVerifiedBytes(sourcePath, expectedSourceDigest);
-    const sourceDigest =
-      createSourceIdentityFromBytes(sourceBytes).digest;
+    const identity = createSourceIdentityFromBytes(sourceBytes);
+    const sourceDigest = identity.digest;
     const tree = readJsonTree(
       decodeJsonUtf8(sourceBytes),
       sourceLabel,
       sourceDigest,
     );
     return {
+      sourceIdentity: sourceIdentityRefOf(identity),
       candidates: tree.candidates,
       nodes: tree.nodes.map((node) => ({
         candidate: node.candidate,
@@ -100,14 +105,15 @@ export function collectStandaloneTreeCandidates(
 
   if (/\.ya?ml$/iu.test(sourcePath)) {
     const sourceBytes = readVerifiedBytes(sourcePath, expectedSourceDigest);
-    const sourceDigest =
-      createSourceIdentityFromBytes(sourceBytes).digest;
+    const identity = createSourceIdentityFromBytes(sourceBytes);
+    const sourceDigest = identity.digest;
     const tree = readYamlTree(
       decodeYamlUtf8(sourceBytes),
       sourceLabel,
       sourceDigest,
     );
     return {
+      sourceIdentity: sourceIdentityRefOf(identity),
       candidates: tree.candidates,
       nodes: tree.nodes.map((node) => ({
         candidate: node.candidate,
@@ -124,14 +130,15 @@ export function collectStandaloneTreeCandidates(
     const sourceBytes = readVerifiedBytes(sourcePath, expectedSourceDigest);
     if (isXmlSpreadsheet2003Bytes(sourceBytes)) return undefined;
 
-    const sourceDigest =
-      createSourceIdentityFromBytes(sourceBytes).digest;
+    const identity = createSourceIdentityFromBytes(sourceBytes);
+    const sourceDigest = identity.digest;
     const tree = readXmlTree(
       decodeGenericXmlUtf8(sourceBytes),
       sourceLabel,
       sourceDigest,
     );
     return {
+      sourceIdentity: sourceIdentityRefOf(identity),
       candidates: tree.candidates,
       nodes: tree.nodes.map((node) => ({
         candidate: node.candidate,
@@ -151,8 +158,8 @@ export function collectStandaloneTreeCandidates(
 
   if (/\.(txt|text|log)$/iu.test(sourcePath)) {
     const sourceBytes = readVerifiedBytes(sourcePath, expectedSourceDigest);
-    const sourceDigest =
-      createSourceIdentityFromBytes(sourceBytes).digest;
+    const identity = createSourceIdentityFromBytes(sourceBytes);
+    const sourceDigest = identity.digest;
     const tree = readFlatTextTree(
       decodeFlatTextUtf8(sourceBytes),
       sourceLabel,
@@ -160,6 +167,7 @@ export function collectStandaloneTreeCandidates(
       { methods: flatTextMethods },
     );
     return {
+      sourceIdentity: sourceIdentityRefOf(identity),
       candidates: tree.candidates,
       nodes: tree.hypotheses.flatMap((hypothesis) =>
         hypothesis.nodes.map((node) => ({
