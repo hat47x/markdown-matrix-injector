@@ -18,6 +18,7 @@ import { FootnoteError, footnotePlugin } from '../plugin/footnotePlugin.js';
 import { markdownMatrixPlugin } from '../plugin/markdownMatrixPlugin.js';
 import { CoverTemplateError } from './coverTemplate.js';
 import { buildDocumentHtml, FrontMatterError, readFrontMatter } from './documentExport.js';
+import { hasExternalCssReference } from './cssExternalRefs.js';
 import { markRevisions } from './revisionMarks.js';
 import { cliErrorText } from './messageLanguage.js';
 
@@ -95,7 +96,7 @@ function loadUserCss(options: RenderOptions, frontMatterRefs: string[]): string 
     const stat = fs.statSync(file);
     if (!stat.isFile() || stat.size > USER_CSS_MAX_BYTES) throw new RenderError(`css ${ref}: must be a regular file of at most ${USER_CSS_MAX_BYTES / 1024} KB`);
     const text = fs.readFileSync(file, 'utf8').replace(/^﻿/, '');
-    if (/@import\b/i.test(text) || /url\(\s*['"]?\s*(?:[a-z][a-z0-9+.-]*:(?!image\/|font\/|application\/font)|\/\/)/i.test(text)) {
+    if (hasExternalCssReference(text)) {
       throw new RenderError(`css ${ref}: @import and external url() are not allowed; use a data: URI or install the font`);
     }
     if (/<\/style/i.test(text)) throw new RenderError(`css ${ref}: must not contain </style`);
