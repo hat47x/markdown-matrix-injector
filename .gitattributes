@@ -40,3 +40,7 @@
 04_Documentation/samples/sier-design/**/*.html text eol=lf
 04_Documentation/samples/sier-design/**/*.xml text eol=lf
 04_Documentation/samples/practical/data/excel-cp932.csv -text -diff
+
+# lockfileDigest (MCP/CLI build identity, #820) hashes the raw bytes of package-lock.json.
+# Keep LF on every checkout so core.autocrlf=true on Windows matches the Linux digest.
+03_Implement/package-lock.json text eol=lf
