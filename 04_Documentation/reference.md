@@ -143,7 +143,7 @@
 
 ### columns / transpose / grep
 - 正常系挙動は次のとおりです。
-  - `columns=A,C,F` は指定列のみ抽出する。
+  - `columns=A,C,F` は指定列のみ抽出する。列文字は原本の列記号ではなく、range の先頭列を`A`とした相対位置である。`B1:E3?columns=A,C`は原本のB列とD列を返す。range の幅を超える列文字は、診断なしに空の列になる（[#812](https://github.com/hat47x/markdown-matrix-injector/issues/812)）。
   - `transpose=true` は行列を反転する。
   - `grep=<keyword>` はキーワード一致行だけを残す。
 - 代表的失敗ケースは次のとおりです。

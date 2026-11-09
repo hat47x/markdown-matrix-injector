@@ -76,7 +76,7 @@ params      = URL クエリ文字列（application/x-www-form-urlencoded）
 決定論（P3）のため、論理表は以下の順で構成しなければならない (MUST, in this exact order):
 
 1. **slice**: `range` があればA1範囲で行列を切り出す（単一セル指定は1×1）。
-2. **columns**: `columns=A,C,F`（A1列文字、大文字小文字不問）で指定列のみ抽出。欠損セルは空文字。
+2. **columns**: `columns=A,C,F`（列文字、大文字小文字不問）で指定列のみ抽出。欠損セルは空文字。**列文字は、原本の列記号ではなく、range の先頭列を`A`とした相対位置である。** `B1:E3?columns=A,C`は原本のB列とD列を返し、range の外にある位置（行の幅を超える列文字）は空の列になる。現行の実装はこの診断を出さない（[#812](https://github.com/hat47x/markdown-matrix-injector/issues/812)）。range の起点を変えると同じ`columns`が別の原本列を指すので、列の入替えの検出には実験キー`x-headers`を併用する。列文字を原本の列記号へ変えるか、範囲外を警告にするかは、#528の枠組みでOwnerが決める。
 3. **transpose**: `transpose=true` で行列反転（最長行に合わせ空文字補完）。
 4. **header分離**: `header=first` は先頭行、`header=<n>`（1始まり）は変換後の第n行をヘッダとし本体から除く。`header=none`／未指定はヘッダなし。範囲外の `<n>` は可視エラー。
 5. **grep**: `grep=<kw>` は本体行のうち、いずれかのセルに `<kw>` を大文字小文字不問の部分一致で含む行のみ残す。結果0行はエラーではなく空の本体 (MUST)。
