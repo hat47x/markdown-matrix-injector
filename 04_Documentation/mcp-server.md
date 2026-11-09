@@ -128,6 +128,16 @@ MCP対応クライアントには、コマンドと引数を次の形で登録�
 
 `sourceDigest`は、`select`・`inspect`・`find`が値や範囲を取り出したbytesそのもののdigestです。各呼出しは原本を1回だけ読み、そのbytesから`sourceDigest`の計算と解析を行うので、読込みの間に原本が差し替わっても、返った`sourceDigest`と内容が別の版になることはありません。`find`は索引の作成と鮮度確認で解析した版と、候補ごとに読み直した版のdigestが同じ場合にだけ、候補の`sourceDigest`と`candidate`を返します。索引の後に原本が変わっていれば、どちらも付けません。
 
+`find`の結果には、探した範囲を示す`coverage`が付きます。`status`が`no-match`でも、これは「探した範囲に該当がない」ことしか意味しません。`coverage`の項目は次のとおりです。
+
+- `booksListed`・`booksIndexed`: `--root`以下で見つけたブック数と、索引に入ったブック数。
+- `unreadable[]`: 読めなかったブックの、`--root`からの相対パスと理由（`password-protected`・`empty`・`not-a-workbook`・`unreadable`）。理由はコードで返し、ホストの絶対パスやファイルの中身は含めません。
+- `indexCapped`: 索引の上限に達し、残りのブックを探さずに打ち切ったか。
+- `cancelled`: 取込みが中断されたか。
+- `candidatesTruncated`・`maxCandidates`: 該当が上限（5件）を超え、候補を切り詰めたか。
+
+`unreadable`が空で、`indexCapped`・`cancelled`がともに`false`なら、`--root`以下の全ブックを探した結果です。`status`の値と既存の項目は変えていません。項目を足しただけの互換変更です。
+
 `check`の結果は、`errors`と`problems`に加えて、実際に検査したファイルを返します。`filesChecked`が検査したMarkdownの件数、`files`がその相対パスの一覧です。`filesChecked`が0のときは、`errors: 0`でも何も検査していません。「エラー0件」を検査の成立とみなす前に、この件数を確かめてください。ディレクトリを渡したときは、拡張子が`.md`のファイルだけを集め、名前が`.`で始まるものと`node_modules`は集めません。明示した単一のファイルが`.md`でないときは、読まずに`skipped`へ`{ "file": ..., "reason": "not-markdown" }`として載せ、失敗にはしません。これらは`mmi check --json`にも同じ形で加えた項目で、既存の読み手はそのまま使えます（[#731](https://github.com/hat47x/markdown-matrix-injector/issues/731)）。
 
 CSVを読んだときは、復号に使った文字コードを`sourceEncoding`で返します。`inspect`は各Candidateの`locator.sourceEncoding`、`select`は結果の最上位（`sourceDigest`と同じ階層）、`find`は各候補です。値は`utf-8`、`utf-8-bom`、`cp932`のいずれかで、xlsxなどCSV以外の原本には付きません。判定は、UTF-8として厳密に復号できればUTF-8（先頭がBOMなら`utf-8-bom`）、できなければShift_JIS（Windows-31J拡張を含む）で復号する順です。ASCIIだけのCSVのように、UTF-8としてもCP932としても読めるbytesは`utf-8`になります。`sourceDigest`はbytesに結び付くため、同じdigestでも復号の規則が変われば値が変わりえます。この項目で、どの文字コードで復号した値かを確かめられます。文字コードを指定する引数はありません。`mmi.semantic-candidate/v1`の`locator`に任意項目を足しただけなので、既存の読み手はそのまま使えます（[#758](https://github.com/hat47x/markdown-matrix-injector/issues/758)）。
