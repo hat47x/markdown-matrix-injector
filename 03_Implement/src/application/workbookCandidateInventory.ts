@@ -200,6 +200,7 @@ export function collectWorkbookCandidates(
     tableCandidates({
       source: sourceLabel,
       sourceDigest,
+      ...(workbook.sourceEncoding ? { sourceEncoding: workbook.sourceEncoding } : {}),
       sheetName,
       sheet,
     }).map((candidate) => {
