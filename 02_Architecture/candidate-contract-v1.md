@@ -34,7 +34,7 @@ run       deterministic       { inputDigest, config, implementationVersion }
 ```
 
 - `kind`はADR-0019 D4の種別（`table-range`・`image`・`region-snapshot`・`shape`・`diagram`・`tree`・`choice-list`・`note`・`link`・`section`）。Excelオブジェクト型と同一視しない。
-- `locator`は原本パスと原本のsha256（SourceIdentity v1）を必須とし、セル系ではシート・A1範囲、構造化データではJSON Pointer等の`structuralPath`を持てる。
+- `locator`は原本パスと原本のsha256（SourceIdentity v1）を必須とし、セル系ではシート・A1範囲、構造化データではJSON Pointer等の`structuralPath`を持てる。CSVの原本は、復号に採用した文字コードを任意の`sourceEncoding`（`utf-8`・`utf-8-bom`・`cp932`）で持つ。UTF-8として厳密に復号できればUTF-8、できなければShift_JISの順で判定する。xlsxなど他の形式には付かない（#758）。
 - `abstained`の主張は**値を持たない**。答えを控えた方式は何も主張しない。理由は`reasonCode`に残す。
 - **providerごとの信頼度を共通の尺度に合成しない**（ADR-0018 D4）。`scores`は`provider`と`scale`で区別する一覧で、最上位に`confidence`は存在しない。同じproviderの同じ尺度は1件だけ。規則による方式は`scores`を持たない。
 - 再現性は`run`で表す。決定論的な経路は「入力ダイジェスト＋設定＋実装版」で再現でき、provider依存の経路はprovider・model・artifact版・parametersを必ず残す。

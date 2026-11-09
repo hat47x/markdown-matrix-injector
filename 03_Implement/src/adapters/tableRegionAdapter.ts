@@ -18,7 +18,7 @@
  * region detector in src/search; moving the detector under core is part of
  * the portable-core work (issue-0203).
  */
-import type { Candidate, Claim, Evidence } from '../core/candidate.js';
+import type { Candidate, Claim, Evidence, SourceLocator } from '../core/candidate.js';
 import { fingerprintOf } from '../core/candidate.js';
 import type { SheetSource } from '../core/sheetSource.js';
 import { sliceRegion } from '../core/tableGeometry.js';
@@ -34,6 +34,8 @@ export interface TableAdapterInput {
   source: string;
   /** SourceIdentity v1 digest of the source file bytes. */
   sourceDigest: string;
+  /** CSV only: the encoding the bytes were decoded with (#758). */
+  sourceEncoding?: SourceLocator['sourceEncoding'];
   sheetName: string;
   sheet: SheetSource;
   maxScanCells?: number;
@@ -110,7 +112,7 @@ function toCandidate(input: TableAdapterInput, region: DetectedRegion, maxScanCe
   const material = rows.map((row) => row.join('\u001f')).join('\u001e');
   return {
     kind: 'table-range',
-    locator: { source: input.source, sourceDigest: input.sourceDigest, sheet: input.sheetName, range: region.a1 },
+    locator: { source: input.source, sourceDigest: input.sourceDigest, ...(input.sourceEncoding ? { sourceEncoding: input.sourceEncoding } : {}), sheet: input.sheetName, range: region.a1 },
     status: 'inferred',
     execution: 'deterministic',
     method: 'M1',
