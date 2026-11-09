@@ -11,6 +11,7 @@
  * listed files, and be deletable; `clear()` / `removeBook()` do the latter
  * and nothing here writes to disk.
  */
+import { LocalizedError } from '../core/messages/index.js';
 import type { WorkbookData } from '../core/workbookLoader.js';
 import { detectTableRegions } from '../importAssist/tableRegions.js';
 import { mineWorkbookGlossary, type GlossaryPair } from './lexicon/documentGlossary.js';
@@ -153,7 +154,8 @@ export interface IndexFilesOptions {
 export interface IndexFilesResult {
   updated: string[];
   unchanged: string[];
-  failed: { path: string; message: string }[];
+  /** `messageId` is the loader's message id when the failure is a known one (e.g. `workbookPasswordProtected`). */
+  failed: { path: string; message: string; messageId?: string }[];
   cancelled: boolean;
   capped: boolean;
 }
@@ -208,7 +210,11 @@ export async function indexWorkbookFiles(
       }
     } catch (error) {
       catalog.removeBook(path);
-      result.failed.push({ path, message: error instanceof Error ? error.message : String(error) });
+      result.failed.push({
+        path,
+        message: error instanceof Error ? error.message : String(error),
+        ...(error instanceof LocalizedError ? { messageId: error.messageId } : {}),
+      });
     }
     done += 1;
     options.onProgress?.(done, paths.length, path);
