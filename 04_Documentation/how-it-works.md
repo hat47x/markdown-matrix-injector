@@ -152,7 +152,7 @@ flowchart TD
 |---|---|---|
 | `.csv` | 自前の **RFC4180 パーサ**（`parseCsv`） | クォート内のカンマ・改行・`""` エスケープを正しく処理。単一シート `Sheet1` として扱う。BOM 除去・全体 trim。非クォートセルは trim、クォートセルは**逐語保持**。 |
 | `.xml` | **署名検証**後に SheetJS へ | 先頭に `mso-application progid="Excel.Sheet"` 等が無ければ「Unsupported XML format」で中断（正本は読まない）。汎用 XML は拒否。 |
-| その他（`.xlsx` 等） | SheetJS `XLSX.readFile` | `dense:true` で読み、`sheet_to_json({ header:1, raw:false, blankrows:false })` で行列化。`null` セルは空文字に。 |
+| その他（`.xlsx` 等） | SheetJS `XLSX.read`（バイト列を渡す） | `dense:true`・`cellDates:true`で読み、`sheet_to_json`を使わずに物理座標のセルを直接参照する（使用範囲の起点と空白行を失わないため）。表示文字列はSheetJSが整形した`cell.w`で、無いときは値から作る（`Date`は`yyyy-mm-dd`、時刻つきは`yyyy-mm-dd hh:mm:ss`のUTC表記。実行環境のタイムゾーンには依存しない）。和暦・曜日・漢数字などの書式はSheetJSが整形できず、Excelの表示とは異なる文字列になる。 |
 
 **日付の正規化（issue-0107）**: XLSX / XMLの Excelが日付型として持つセルは
 `cellDates:true, dateNF:'yyyy-mm-dd'` により ISO 8601（`YYYY-MM-DD`） で描画します。
