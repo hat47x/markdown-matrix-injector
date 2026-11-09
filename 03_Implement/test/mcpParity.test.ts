@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
@@ -278,6 +279,34 @@ test('select and find return the sourceDigest that inspect reports, and CLI and 
   const forSource = found.candidates.filter((c: { reference: string }) => c.reference.includes('基本設計.xlsx'));
   assert.ok(forSource.length > 0);
   for (const candidate of forSource) assert.equal(candidate.sourceDigest, digest);
+});
+
+test('select, find and inspect name the representation and byte length behind sourceDigest, and CLI and MCP agree (#803)', async () => {
+  const bytes = fs.readFileSync(path.join(KIT, SOURCE));
+  const expected = { algorithm: 'sha256', representation: 'source-file-bytes-v1', byteLength: bytes.byteLength };
+  const digest = `sha256:${createHash('sha256').update(bytes).digest('hex')}`;
+
+  const inspectedCli = JSON.parse(runCli(['inspect', SOURCE, '--root', '.', '--json']).stdout);
+  const inspectedMcp = JSON.parse(await callMcp('inspect', { source: SOURCE }));
+  assert.deepEqual(inspectedCli.sourceIdentity, expected);
+  assert.deepEqual(inspectedMcp.sourceIdentity, expected);
+  assert.equal(inspectedMcp.candidates[0].locator.sourceDigest, digest);
+
+  const cli = JSON.parse(runCli(['select', SOURCE, '--table', '機能一覧!A1:F11', '--json', '--root', '.']).stdout);
+  const mcp = JSON.parse(await callMcp('select', { source: SOURCE, table: '機能一覧!A1:F11' }));
+  assert.deepEqual(mcp.sourceIdentity, expected);
+  assert.deepEqual(cli.sourceIdentity, expected);
+  assert.equal(mcp.sourceDigest, digest);
+
+  const found = JSON.parse(await callMcp('find', { query: '機能一覧' }));
+  const forSource = found.candidates.filter((c: { reference: string }) => c.reference.includes('基本設計.xlsx'));
+  assert.ok(forSource.length > 0);
+  for (const candidate of forSource) assert.deepEqual(candidate.sourceIdentity, expected);
+
+  // A refused select still names what its sourceDigest covers.
+  const stale = `sha256:${'0'.repeat(64)}`;
+  const refused = JSON.parse(await callMcp('select', { source: SOURCE, table: '機能一覧!A1:F11', expectedSourceDigest: stale }));
+  assert.deepEqual(refused.sourceIdentity, expected);
 });
 
 test('expected source digest: a matching digest passes and a different one is refused, in CLI and MCP alike', async () => {

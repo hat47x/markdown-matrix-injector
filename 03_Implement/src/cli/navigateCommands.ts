@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import type { Candidate } from '../core/candidate.js';
-import { checkExpectedSourceDigestOfBytes, createSourceIdentityFromBytes } from '../core/sourceIdentity.js';
+import { checkExpectedSourceDigestOfBytes, createSourceIdentityFromBytes, sourceIdentityRefOf } from '../core/sourceIdentity.js';
 import { loadWorkbookFromBytes, type WorkbookData } from '../core/workbookLoader.js';
 import { toRelativeSuggestion } from '../dx/vscodeAdapters.js';
 import { analyzeBook } from '../navigate/catalog.js';
@@ -57,7 +57,9 @@ export function runSelect(args: readonly string[], options: NavigateOptions, io:
   const referencePath = options.from ? toRelativeSuggestion(path.resolve(io.cwd, options.from), bookPath) : `./${path.basename(bookPath)}`;
   // One read: the digest, the pin check and the workbook all come from these bytes (#744).
   const sourceBytes = fs.readFileSync(bookPath);
-  const sourceDigest = createSourceIdentityFromBytes(sourceBytes).digest;
+  const sourceIdentity = createSourceIdentityFromBytes(sourceBytes);
+  const sourceDigest = sourceIdentity.digest;
+  const sourceIdentityRef = sourceIdentityRefOf(sourceIdentity);
   const expected = options['expected-source-digest'];
   if (expected !== undefined) {
     let check;
@@ -73,7 +75,7 @@ export function runSelect(args: readonly string[], options: NavigateOptions, io:
         errors: [{ code: 'SOURCE_DIGEST_MISMATCH', message: check.message }],
         warnings: [],
       };
-      if (options.json) io.out(JSON.stringify({ schema: NAVIGATE_SCHEMA, command: 'select', result, sourceDigest }, null, 2));
+      if (options.json) io.out(JSON.stringify({ schema: NAVIGATE_SCHEMA, command: 'select', result, sourceDigest, sourceIdentity: sourceIdentityRef }, null, 2));
       else io.err(`mmi: ${check.message}`);
       return 1;
     }
@@ -96,7 +98,7 @@ export function runSelect(args: readonly string[], options: NavigateOptions, io:
   });
   if (options.json) {
     const candidate = result.table ? candidateAt(workbook, sourceDigest, referencePath, result.table.sheet, result.table.range) : undefined;
-    io.out(JSON.stringify({ schema: NAVIGATE_SCHEMA, command: 'select', result, sourceDigest, ...(candidate ? { candidate: candidateRef(candidate) } : {}) }, null, 2));
+    io.out(JSON.stringify({ schema: NAVIGATE_SCHEMA, command: 'select', result, sourceDigest, sourceIdentity: sourceIdentityRef, ...(candidate ? { candidate: candidateRef(candidate) } : {}) }, null, 2));
   } else {
     // stdout carries the reference alone so it can be pasted or piped; notes go to stderr.
     if (result.reference) io.out(result.reference);
@@ -125,34 +127,100 @@ export async function runFind(args: readonly string[], options: NavigateOptions,
       return { mtimeMs: stat.mtimeMs, size: stat.size };
     },
   });
-  await index.refresh(listWorkbooks(root));
+  const listed = listWorkbooks(root);
+  const refreshed = await index.refresh(listed);
   const docPath = options.from ? path.resolve(io.cwd, options.from) : path.join(root, 'x.md');
-  const result = index.query(text, (bookPath) => toRelativeSuggestion(docPath, bookPath));
+  // Ask for one more than the cap, so a cut-off list can be told from a complete one (#808).
+  const found = index.query(text, (bookPath) => toRelativeSuggestion(docPath, bookPath), FIND_MAX_CANDIDATES + 1);
+  const candidatesTruncated = found.candidates.length > FIND_MAX_CANDIDATES;
+  const result = candidatesTruncated ? { ...found, candidates: found.candidates.slice(0, FIND_MAX_CANDIDATES) } : found;
+  const coverage = describeFindCoverage(refreshed, root, listed.length, candidatesTruncated);
   const candidates = result.candidates.map((candidate) => {
     const bookPath = candidate.region.bookPath;
     let ref: ReturnType<typeof candidateRef> | undefined;
     let sourceDigest: string | undefined;
+    let identityRef: ReturnType<typeof sourceIdentityRefOf> | undefined;
     try {
       // One read per candidate: the digest and the identity come from the same bytes.
       const bytes = fs.readFileSync(bookPath);
-      const digest = createSourceIdentityFromBytes(bytes).digest;
+      const identity = createSourceIdentityFromBytes(bytes);
+      const digest = identity.digest;
       if (digest === parsedDigests.get(bookPath)) {
         sourceDigest = digest;
+        identityRef = sourceIdentityRefOf(identity);
         const found = candidateAt(loadWorkbookFromBytes(bookPath, bytes), digest, toRelativeSuggestion(docPath, bookPath), candidate.region.sheet, candidate.region.a1);
         ref = found ? candidateRef(found) : undefined;
       }
     } catch {
       sourceDigest = undefined;
+      identityRef = undefined;
       ref = undefined; // the book changed or became unreadable since indexing: no identity to offer
     }
-    return { reference: candidate.markdown, explanation: candidate.explanation, notes: candidate.notes, ...(sourceDigest ? { sourceDigest } : {}), ...(candidate.fit !== undefined ? { fit: candidate.fit } : {}), ...(ref ? { candidate: ref } : {}) };
+    return { reference: candidate.markdown, explanation: candidate.explanation, notes: candidate.notes, ...(sourceDigest ? { sourceDigest } : {}), ...(identityRef ? { sourceIdentity: identityRef } : {}), ...(candidate.fit !== undefined ? { fit: candidate.fit } : {}), ...(ref ? { candidate: ref } : {}) };
   });
   if (options.json) {
-    io.out(JSON.stringify({ schema: NAVIGATE_SCHEMA, command: 'find', status: result.status, reasons: result.reasons, candidates, requiresSelection: true }, null, 2));
+    io.out(JSON.stringify({ schema: NAVIGATE_SCHEMA, command: 'find', status: result.status, reasons: result.reasons, candidates, requiresSelection: true, coverage }, null, 2));
   } else {
-    io.out([...candidates.map((c, i) => `${i + 1}. ${c.reference}\n   ${c.explanation}${c.fit !== undefined ? ` （${fitLabel(c.fit)}）` : ''}`), ...result.reasons.map((reason) => `理由: ${reason}`)].join('\n') ||'候補はありません。');
+    io.out([...candidates.map((c, i) => `${i + 1}. ${c.reference}\n   ${c.explanation}${c.fit !== undefined ? ` （${fitLabel(c.fit)}）` : ''}`), ...result.reasons.map((reason) => `理由: ${reason}`), ...coverageNotes(coverage)].join('\n') ||'候補はありません。');
   }
   return result.status === 'candidates' ? 0 : 1;
+}
+
+/** Candidates `find` returns at most. */
+export const FIND_MAX_CANDIDATES = 5;
+
+/** Why a workbook could not be read, as a value that carries no host path or file text. */
+export type FindUnreadableReason = 'password-protected' | 'empty' | 'not-a-workbook' | 'unreadable';
+
+export interface FindCoverage {
+  /** Workbook files found under the root. */
+  booksListed: number;
+  /** Of those, the ones that went into the index. */
+  booksIndexed: number;
+  /** Workbooks that could not be read, relative to the root. A `no-match` does not cover them. */
+  unreadable: { path: string; reason: FindUnreadableReason }[];
+  /** The index hit its region limit and stopped before the remaining workbooks. */
+  indexCapped: boolean;
+  /** The refresh was cancelled before every workbook was read. */
+  cancelled: boolean;
+  /** More candidates matched than were returned. */
+  candidatesTruncated: boolean;
+  maxCandidates: number;
+}
+
+const UNREADABLE_REASONS: Record<string, FindUnreadableReason> = {
+  workbookPasswordProtected: 'password-protected',
+  workbookEmpty: 'empty',
+  workbookNotWorkbook: 'not-a-workbook',
+};
+
+/** What `find` searched, so "no match" can be told from "could not read" or "stopped early" (#808). Paths are relative to `root`. */
+export function describeFindCoverage(
+  refreshed: { updated: readonly string[]; unchanged: readonly string[]; failed: readonly { path: string; messageId?: string }[]; capped: boolean; cancelled: boolean },
+  root: string,
+  booksListed: number,
+  candidatesTruncated: boolean,
+): FindCoverage {
+  return {
+    booksListed,
+    booksIndexed: refreshed.updated.length + refreshed.unchanged.length,
+    unreadable: refreshed.failed.map((failure) => ({
+      path: path.relative(root, failure.path).split(path.sep).join('/'),
+      reason: (failure.messageId && UNREADABLE_REASONS[failure.messageId]) || 'unreadable',
+    })),
+    indexCapped: refreshed.capped,
+    cancelled: refreshed.cancelled,
+    candidatesTruncated,
+    maxCandidates: FIND_MAX_CANDIDATES,
+  };
+}
+
+function coverageNotes(coverage: FindCoverage): string[] {
+  const notes: string[] = [];
+  for (const failure of coverage.unreadable) notes.push(`注意: ${failure.path} は読めませんでした（${failure.reason}）。この結果はそのブックを含みません。`);
+  if (coverage.indexCapped) notes.push(`注意: 索引の上限で打ち切りました。${coverage.booksIndexed}/${coverage.booksListed}ブックだけを探しました。`);
+  if (coverage.candidatesTruncated) notes.push(`注意: 候補は${coverage.maxCandidates}件までに切り詰めました。ほかにも該当があります。`);
+  return notes;
 }
 
 /** The identity the Candidate contract, ledger and review use for a table (ADR-0019 D8), so a selection can be traced to it. */
