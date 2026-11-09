@@ -8,6 +8,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ## [Unreleased]
 
 ### Added
+- **`sourceIdentity` next to `sourceDigest`** (#803): `select`, `find` (per candidate) and `inspect` return `sourceIdentity: { algorithm, representation, byteLength }`, so a connector can read from the result which bytes the digest covers (`source-file-bytes-v1`) and tell a size difference from a content difference. The `sourceDigest` string and the existing contracts are unchanged. See `04_Documentation/mcp-server.md`.
 - **MCP `tools/list` declares read-only and a surface digest** (#721): the `tools/list` result carries `_meta["mmi/surface"]` (`mmi.mcp-surface/v1`) with per-tool `readOnly` and a `sha256` digest over tool names and `inputSchema` (descriptions excluded); `initialize` repeats `contract`, `readOnly` and `digest`. Tool entries and the protocol version are unchanged. See `04_Documentation/mcp-server.md`.
 - **`find` reports what it searched** (#808): `mmi find --json` and the MCP `find` result gain `coverage` (books listed and indexed, unreadable books with a reason code, whether the index limit stopped the search, whether the candidates were cut at the cap). Existing fields and `status` values are unchanged; a `no-match` no longer hides a password-protected or broken workbook. See `04_Documentation/mcp-server.md`.
 

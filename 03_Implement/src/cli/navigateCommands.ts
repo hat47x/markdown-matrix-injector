@@ -7,7 +7,7 @@ import fs from 'node:fs';
 import path from 'node:path';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import type { Candidate } from '../core/candidate.js';
-import { checkExpectedSourceDigestOfBytes, createSourceIdentityFromBytes } from '../core/sourceIdentity.js';
+import { checkExpectedSourceDigestOfBytes, createSourceIdentityFromBytes, sourceIdentityRefOf } from '../core/sourceIdentity.js';
 import { loadWorkbookFromBytes, type WorkbookData } from '../core/workbookLoader.js';
 import { toRelativeSuggestion } from '../dx/vscodeAdapters.js';
 import { analyzeBook } from '../navigate/catalog.js';
@@ -57,7 +57,9 @@ export function runSelect(args: readonly string[], options: NavigateOptions, io:
   const referencePath = options.from ? toRelativeSuggestion(path.resolve(io.cwd, options.from), bookPath) : `./${path.basename(bookPath)}`;
   // One read: the digest, the pin check and the workbook all come from these bytes (#744).
   const sourceBytes = fs.readFileSync(bookPath);
-  const sourceDigest = createSourceIdentityFromBytes(sourceBytes).digest;
+  const sourceIdentity = createSourceIdentityFromBytes(sourceBytes);
+  const sourceDigest = sourceIdentity.digest;
+  const sourceIdentityRef = sourceIdentityRefOf(sourceIdentity);
   const expected = options['expected-source-digest'];
   if (expected !== undefined) {
     let check;
@@ -73,7 +75,7 @@ export function runSelect(args: readonly string[], options: NavigateOptions, io:
         errors: [{ code: 'SOURCE_DIGEST_MISMATCH', message: check.message }],
         warnings: [],
       };
-      if (options.json) io.out(JSON.stringify({ schema: NAVIGATE_SCHEMA, command: 'select', result, sourceDigest }, null, 2));
+      if (options.json) io.out(JSON.stringify({ schema: NAVIGATE_SCHEMA, command: 'select', result, sourceDigest, sourceIdentity: sourceIdentityRef }, null, 2));
       else io.err(`mmi: ${check.message}`);
       return 1;
     }
@@ -96,7 +98,7 @@ export function runSelect(args: readonly string[], options: NavigateOptions, io:
   });
   if (options.json) {
     const candidate = result.table ? candidateAt(workbook, sourceDigest, referencePath, result.table.sheet, result.table.range) : undefined;
-    io.out(JSON.stringify({ schema: NAVIGATE_SCHEMA, command: 'select', result, sourceDigest, ...(candidate ? { candidate: candidateRef(candidate) } : {}) }, null, 2));
+    io.out(JSON.stringify({ schema: NAVIGATE_SCHEMA, command: 'select', result, sourceDigest, sourceIdentity: sourceIdentityRef, ...(candidate ? { candidate: candidateRef(candidate) } : {}) }, null, 2));
   } else {
     // stdout carries the reference alone so it can be pasted or piped; notes go to stderr.
     if (result.reference) io.out(result.reference);
@@ -137,20 +139,24 @@ export async function runFind(args: readonly string[], options: NavigateOptions,
     const bookPath = candidate.region.bookPath;
     let ref: ReturnType<typeof candidateRef> | undefined;
     let sourceDigest: string | undefined;
+    let identityRef: ReturnType<typeof sourceIdentityRefOf> | undefined;
     try {
       // One read per candidate: the digest and the identity come from the same bytes.
       const bytes = fs.readFileSync(bookPath);
-      const digest = createSourceIdentityFromBytes(bytes).digest;
+      const identity = createSourceIdentityFromBytes(bytes);
+      const digest = identity.digest;
       if (digest === parsedDigests.get(bookPath)) {
         sourceDigest = digest;
+        identityRef = sourceIdentityRefOf(identity);
         const found = candidateAt(loadWorkbookFromBytes(bookPath, bytes), digest, toRelativeSuggestion(docPath, bookPath), candidate.region.sheet, candidate.region.a1);
         ref = found ? candidateRef(found) : undefined;
       }
     } catch {
       sourceDigest = undefined;
+      identityRef = undefined;
       ref = undefined; // the book changed or became unreadable since indexing: no identity to offer
     }
-    return { reference: candidate.markdown, explanation: candidate.explanation, notes: candidate.notes, ...(sourceDigest ? { sourceDigest } : {}), ...(candidate.fit !== undefined ? { fit: candidate.fit } : {}), ...(ref ? { candidate: ref } : {}) };
+    return { reference: candidate.markdown, explanation: candidate.explanation, notes: candidate.notes, ...(sourceDigest ? { sourceDigest } : {}), ...(identityRef ? { sourceIdentity: identityRef } : {}), ...(candidate.fit !== undefined ? { fit: candidate.fit } : {}), ...(ref ? { candidate: ref } : {}) };
   });
   if (options.json) {
     io.out(JSON.stringify({ schema: NAVIGATE_SCHEMA, command: 'find', status: result.status, reasons: result.reasons, candidates, requiresSelection: true, coverage }, null, 2));

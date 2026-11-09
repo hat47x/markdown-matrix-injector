@@ -122,6 +122,10 @@ MCP対応クライアントには、コマンドと引数を次の形で登録�
 
 `select`と`find`の結果は、対象原本の`sourceDigest`を返します。`select`は結果の最上位（`candidate`と同じ階層）、`find`は各候補です。値は`inspect`が各Candidateの`locator.sourceDigest`で返すものと同じで、原本のbytesから取ります。選択結果がどの版の原本に対するものかを、この値で照合できます。`mmi.selection/v0`の本体は変えず、項目を足しただけなので、既存の読み手はそのまま使えます。`handoff`など他のツールの結果には付けていません。
 
+`sourceDigest`が何のbytesのdigestかは、`sourceIdentity`で読み取れます。`select`は結果の最上位、`find`は各候補、`inspect`は結果の最上位に、`{ algorithm, representation, byteLength }`を返します。`representation`は常に`source-file-bytes-v1`（原本ファイルのbytesそのもの）で、`byteLength`はそのbytesの長さです。digestの文字列は変えていません。接続側は、自分で計算したdigestと照合するときに、同じ表現同士を比べていることを返却値で確かめられ、digestが合わないときは`byteLength`でサイズの違いか同じサイズでの内容の違いかを切り分けられます。digestの取り方を変えるときは`representation`の版が変わるため、その値を読んで照合の可否を決めてください。
+
+`sourceIdentity`は、`sourceDigest`を求めたbytesと同じbytesから求めます。`inspect`は、HTML・docx・JSON・YAML・XML・テキスト・表計算ブックのいずれでも、解析に使った1回の読込みのbytesから作るため、各Candidateの`locator.sourceDigest`と必ず対応します。項目の追加は互換変更として扱い、`mmi.selection/v0`と`mmi.semantic-candidate/v1`の本体は変えていません（[#803](https://github.com/hat47x/markdown-matrix-injector/issues/803)）。Candidateの`locator`は項目を固定する契約のため、`sourceIdentity`は`locator`の中ではなく結果の側に置きました。
+
 `sourceDigest`は、`select`・`inspect`・`find`が値や範囲を取り出したbytesそのもののdigestです。各呼出しは原本を1回だけ読み、そのbytesから`sourceDigest`の計算と解析を行うので、読込みの間に原本が差し替わっても、返った`sourceDigest`と内容が別の版になることはありません。`find`は索引の作成と鮮度確認で解析した版と、候補ごとに読み直した版のdigestが同じ場合にだけ、候補の`sourceDigest`と`candidate`を返します。索引の後に原本が変わっていれば、どちらも付けません。
 
 `find`の結果には、探した範囲を示す`coverage`が付きます。`status`が`no-match`でも、これは「探した範囲に該当がない」ことしか意味しません。`coverage`の項目は次のとおりです。

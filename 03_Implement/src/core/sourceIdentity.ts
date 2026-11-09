@@ -16,6 +16,16 @@ export interface SourceIdentityV1 {
   byteLength: number;
 }
 
+/**
+ * What a connector needs next to a `sourceDigest` string to know which bytes it covers:
+ * the algorithm, the representation and the byte length. The digest itself stays in `sourceDigest`.
+ */
+export type SourceIdentityRef = Pick<SourceIdentityV1, 'algorithm' | 'representation' | 'byteLength'>;
+
+export function sourceIdentityRefOf(identity: SourceIdentityV1): SourceIdentityRef {
+  return { algorithm: identity.algorithm, representation: identity.representation, byteLength: identity.byteLength };
+}
+
 export interface ResolvedSourceIdentityV1 {
   resolvedPath: string;
   identity: SourceIdentityV1;
