@@ -168,7 +168,7 @@ function toSourceCell(cell: XLSX.CellObject | undefined): SourceCell | undefined
   }
 
   const value = (cell.v ?? null) as string | number | boolean | Date | null;
-  const text = cell.w !== undefined ? cell.w : (value === null ? '' : String(value));
+  const text = cell.w !== undefined ? cell.w : fallbackCellText(value);
 
   return {
     text,
@@ -176,6 +176,25 @@ function toSourceCell(cell: XLSX.CellObject | undefined): SourceCell | undefined
     value,
     ...(cell.f !== undefined ? { formula: cell.f } : {}),
   };
+}
+
+/**
+ * Display text for a cell SheetJS could not format (`cell.w` is absent), e.g.
+ * a date whose number format SheetJS does not interpret. `String(Date)` is
+ * forbidden here: it embeds the runtime's time zone ("... GMT-0400"), so the
+ * same workbook bytes would expand differently per machine (#811). A Date is
+ * written from its UTC components, which is how SheetJS materialises the
+ * serial number, as `yyyy-mm-dd` (or `yyyy-mm-dd hh:mm:ss` when it carries a
+ * time of day). This is a fallback, not Excel's own display string.
+ */
+function fallbackCellText(value: string | number | boolean | Date | null): string {
+  if (value === null) return '';
+  if (!(value instanceof Date)) return String(value);
+  if (Number.isNaN(value.getTime())) return '';
+  const iso = value.toISOString(); // always UTC: YYYY-MM-DDTHH:mm:ss.sssZ (extended years carry a sign)
+  const date = iso.slice(0, iso.indexOf('T'));
+  const time = iso.slice(iso.indexOf('T') + 1, iso.indexOf('T') + 9);
+  return time === '00:00:00' ? date : `${date} ${time}`;
 }
 
 function decodeCsv(bytes: Uint8Array): string {

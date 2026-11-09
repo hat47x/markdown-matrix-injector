@@ -20,6 +20,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`--base-rev` exports the committed bytes** (#793): `mmi render`/`mmi pdf --base-rev` now writes the blobs of the revision (`git ls-tree` and `git cat-file --batch`) instead of `git archive`, so files marked `export-ignore` are no longer missing from the previous version and `export-subst`, `eol` and `text` conversions no longer apply. Symbolic links and submodules are not exported; Git LFS files are read as pointer text.
 - **PDF/A output turns off image interpolation** (#788, #771): `mmi pdf --variant pdf/a-2a` (the default) and `pdf/a-2b` now add `img { image-rendering: crisp-edges; }` at the start of the document stylesheet, because WeasyPrint writes `Interpolate true` for raster images, which PDF/A forbids (ISO 19005-2 6.2.8). A document with a PNG now passes veraPDF 1.30.3 for PDF/A-2a and 2b; raster images may look coarser when zoomed. A user `--css` or front matter `css` comes later and can override it. `pdf/ua-1` and `none` are unchanged.
 
+### Fixed
+- **A date cell SheetJS cannot format no longer expands to a time-zone dependent string** (#811): when a date-typed cell has a number format SheetJS does not interpret (for example `[$-ja-JP]ge.m.d`) and no display string, the cell text was `String(Date)` (`... GMT-0400 (...)`), so the same workbook expanded differently per machine. It is now `yyyy-mm-dd` (or `yyyy-mm-dd hh:mm:ss` with a time of day, UTC). Japanese-era, weekday and DBNum formats are still not formatted like Excel; this is recorded in `how-it-works.md` and `table-navigation.md`, and the remaining items of #811 stay open.
+
 ## [0.3.0] - 2026-11-05
 
 ### Added
