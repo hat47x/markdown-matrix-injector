@@ -16,7 +16,7 @@ import { fileURLToPath } from 'node:url';
 import { parseArgs } from 'node:util';
 import { readHtmlFragments } from '../adapters/htmlFragmentAdapter.js';
 import { readDocx, type DocxDiagnostic } from '../adapters/docxSourceAdapter.js';
-import { assertExpectedSourceDigestFormat, assertSourceBytesDigest, createSourceIdentityFromBytes, SourceDigestMismatchError } from '../core/sourceIdentity.js';
+import { assertExpectedSourceDigestFormat, assertSourceBytesDigest, createSourceIdentityFromBytes, sourceIdentityRefOf, type SourceIdentityRef, SourceDigestMismatchError } from '../core/sourceIdentity.js';
 import XLSX from 'xlsx';
 import { WorkbookCache } from '../cache/workbookCache.js';
 import { checkDetachedDocument } from '../application/detachCheck.js';
@@ -2115,6 +2115,8 @@ export interface InspectResult {
   source: string;
   /** Public machine-readable contract used by every item in candidates. */
   candidateContract: typeof SEMANTIC_CANDIDATE_CONTRACT;
+  /** Algorithm, representation and byte length of the bytes every candidate's `locator.sourceDigest` covers (#803). */
+  sourceIdentity?: SourceIdentityRef;
   sheets: { name: string; usedRange?: string; regions: InspectRegion[] }[];
   /** Explicit or inferred hierarchy nodes; absent for non-Tree sources. */
   trees?: InspectTree[];
@@ -2285,13 +2287,15 @@ export function inspectSource(
     const bytes = fs.readFileSync(absolutePath);
     assertSourceBytesDigest(bytes, expectedSourceDigest);
     const text = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
+    const identity = createSourceIdentityFromBytes(bytes);
     const parsed = readHtmlFragments(
       text,
       relative,
-      createSourceIdentityFromBytes(bytes).digest,
+      identity.digest,
     );
     return {
       source: relative,
+      sourceIdentity: sourceIdentityRefOf(identity),
       candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
       candidates: [...parsed.candidates],
       htmlFragments: parsed.fragments.map((fragment) => ({
@@ -2317,6 +2321,7 @@ export function inspectSource(
     const parsed = readDocx(bytes, relative);
     return {
       source: relative,
+      sourceIdentity: sourceIdentityRefOf(createSourceIdentityFromBytes(bytes)),
       candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
       candidates: [...parsed.candidates],
       docx: {
@@ -2381,6 +2386,7 @@ export function inspectSource(
   if (standaloneTree) {
     return {
       source: relative,
+      sourceIdentity: standaloneTree.sourceIdentity,
       candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
       candidates: [...standaloneTree.candidates],
       trees: standaloneTree.nodes.map((node) => ({
@@ -2429,6 +2435,7 @@ export function inspectSource(
 
   return {
     source: relative,
+    sourceIdentity: workbookInventory.sourceIdentity,
     candidateContract: SEMANTIC_CANDIDATE_CONTRACT,
     candidates: [...workbookInventory.candidates],
     ...(tabularHierarchy
