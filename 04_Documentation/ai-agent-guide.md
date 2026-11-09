@@ -61,6 +61,8 @@ docs/基本設計書.md:10:29 error MMI_SHEET_NOT_FOUND Sheet not found: 受注�
 参照 3件、エラー 1件、警告・情報 0件
 ```
 
+例の`columns=A,C,I,O,R,T,V`の列文字は、range（`B11:AD19`）の先頭列であるB列を`A`とした相対位置で、原本の列記号ではありません。このため`columns=`を手で書くときは、range の起点を変えると別の列を指します。`mmi select`が作った参照を、手で書き換えないでください。range の幅を超える列文字は、現状では診断なしに空の列になります（[#812](https://github.com/hat47x/markdown-matrix-injector/issues/812)）。
+
 メッセージの言語は環境変数`MMI_LANGUAGE`で選べます（例: `set MMI_LANGUAGE=ja`）。未指定・`auto`のときは英語です。エラーコードと機械処理向けの既定出力は言語が変わっても英語のままです。
 
 ## 知っておくこと
