@@ -98,6 +98,7 @@
 - XMLはSpreadsheet 2003のシグネチャ前提であり、汎用XML互換は対象外。
 - データ正本は外部ファイルであり、本拡張はビューアとして扱う（編集機能は持たない）。
 - CSVはRFC4180準拠（クォート内のカンマ・改行・`""`エスケープに対応）。CSV/TSVいずれも読み込み可能。
+- CSVの文字コードは、UTF-8として厳密に復号できればUTF-8、できなければShift_JIS（CP932）で復号する。UTF-8としてもCP932としても読めるbytesはUTF-8になる。`mmi inspect`・`mmi select`・`mmi find`のJSON出力は、採用した文字コードを`sourceEncoding`（`utf-8`・`utf-8-bom`・`cp932`）で示す。xlsxなどCSV以外には付かない。
 - XLSX/XMLのExcel日付型セルは `YYYY-MM-DD`（ISO 8601）で表示する（ロケール依存の曖昧な短縮表記
   `4/3/26` 等は使用しない）。日付以外の数値・テキストセルはこの変換の対象外（issue-0107）。
 

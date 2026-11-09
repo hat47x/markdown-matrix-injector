@@ -8,7 +8,7 @@ import path from 'node:path';
 import { tableCandidates } from '../adapters/tableRegionAdapter.js';
 import type { Candidate } from '../core/candidate.js';
 import { checkExpectedSourceDigestOfBytes, createSourceIdentityFromBytes } from '../core/sourceIdentity.js';
-import { loadWorkbookFromBytes, type WorkbookData } from '../core/workbookLoader.js';
+import { loadWorkbookFromBytes, type CsvSourceEncoding, type WorkbookData } from '../core/workbookLoader.js';
 import { toRelativeSuggestion } from '../dx/vscodeAdapters.js';
 import { analyzeBook } from '../navigate/catalog.js';
 import { SELECTION_SCHEMA, selectFromBook, type RowSelection, type SelectionResult } from '../navigate/select.js';
@@ -96,7 +96,7 @@ export function runSelect(args: readonly string[], options: NavigateOptions, io:
   });
   if (options.json) {
     const candidate = result.table ? candidateAt(workbook, sourceDigest, referencePath, result.table.sheet, result.table.range) : undefined;
-    io.out(JSON.stringify({ schema: NAVIGATE_SCHEMA, command: 'select', result, sourceDigest, ...(candidate ? { candidate: candidateRef(candidate) } : {}) }, null, 2));
+    io.out(JSON.stringify({ schema: NAVIGATE_SCHEMA, command: 'select', result, sourceDigest, ...(workbook.sourceEncoding ? { sourceEncoding: workbook.sourceEncoding } : {}), ...(candidate ? { candidate: candidateRef(candidate) } : {}) }, null, 2));
   } else {
     // stdout carries the reference alone so it can be pasted or piped; notes go to stderr.
     if (result.reference) io.out(result.reference);
@@ -132,20 +132,24 @@ export async function runFind(args: readonly string[], options: NavigateOptions,
     const bookPath = candidate.region.bookPath;
     let ref: ReturnType<typeof candidateRef> | undefined;
     let sourceDigest: string | undefined;
+    let sourceEncoding: CsvSourceEncoding | undefined;
     try {
       // One read per candidate: the digest and the identity come from the same bytes.
       const bytes = fs.readFileSync(bookPath);
       const digest = createSourceIdentityFromBytes(bytes).digest;
       if (digest === parsedDigests.get(bookPath)) {
         sourceDigest = digest;
-        const found = candidateAt(loadWorkbookFromBytes(bookPath, bytes), digest, toRelativeSuggestion(docPath, bookPath), candidate.region.sheet, candidate.region.a1);
+        const book = loadWorkbookFromBytes(bookPath, bytes);
+        sourceEncoding = book.sourceEncoding;
+        const found = candidateAt(book, digest, toRelativeSuggestion(docPath, bookPath), candidate.region.sheet, candidate.region.a1);
         ref = found ? candidateRef(found) : undefined;
       }
     } catch {
       sourceDigest = undefined;
+      sourceEncoding = undefined;
       ref = undefined; // the book changed or became unreadable since indexing: no identity to offer
     }
-    return { reference: candidate.markdown, explanation: candidate.explanation, notes: candidate.notes, ...(sourceDigest ? { sourceDigest } : {}), ...(candidate.fit !== undefined ? { fit: candidate.fit } : {}), ...(ref ? { candidate: ref } : {}) };
+    return { reference: candidate.markdown, explanation: candidate.explanation, notes: candidate.notes, ...(sourceDigest ? { sourceDigest } : {}), ...(sourceEncoding ? { sourceEncoding } : {}), ...(candidate.fit !== undefined ? { fit: candidate.fit } : {}), ...(ref ? { candidate: ref } : {}) };
   });
   if (options.json) {
     io.out(JSON.stringify({ schema: NAVIGATE_SCHEMA, command: 'find', status: result.status, reasons: result.reasons, candidates, requiresSelection: true }, null, 2));
@@ -161,7 +165,7 @@ function candidateRef(candidate: Candidate): { fingerprint: string; sheet?: stri
 }
 
 function candidatesOf(workbook: WorkbookData, sourceDigest: string, source: string): Candidate[] {
-  return Object.entries(workbook.sheets).flatMap(([sheetName, sheet]) => tableCandidates({ source, sourceDigest, sheetName, sheet }));
+  return Object.entries(workbook.sheets).flatMap(([sheetName, sheet]) => tableCandidates({ source, sourceDigest, ...(workbook.sourceEncoding ? { sourceEncoding: workbook.sourceEncoding } : {}), sheetName, sheet }));
 }
 
 function candidateAt(workbook: WorkbookData, sourceDigest: string, source: string, sheet: string, range: string): Candidate | undefined {
