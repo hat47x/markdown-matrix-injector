@@ -4,25 +4,26 @@ import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
+import os from 'node:os';
 import path from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
+import XLSX from 'xlsx';
 
 import { createMcpServer, MCP_PROTOCOL_VERSION, MCP_TOOL_NAMES } from '../src/cli/mcp.js';
 
 const KIT = fileURLToPath(new URL('../../04_Documentation/kits/basic-design', import.meta.url));
 const CLI = fileURLToPath(new URL('../src/cli/mmi.ts', import.meta.url));
-// Resolve the loader from this package, not from the fixture directory: the
-// CLI subprocess runs with cwd set to the kit, which has no node_modules.
+// Resolve the loader from this package because the CLI runs in a fixture directory.
 const TSX_LOADER = pathToFileURL(createRequire(import.meta.url).resolve('tsx')).href;
 const SOURCE = 'masters/基本設計.xlsx';
 const DOCUMENT = '基本設計書.md';
 
-function runCli(args: readonly string[]): { status: number; stdout: string; stderr: string } {
+function runCli(args: readonly string[], root = KIT): { status: number; stdout: string; stderr: string } {
   const result = spawnSync(
     process.execPath,
     ['--import', TSX_LOADER, CLI, ...args],
     {
-      cwd: KIT,
+      cwd: root,
       encoding: 'utf8',
       maxBuffer: 64 * 1024 * 1024,
     },
@@ -35,8 +36,8 @@ function runCli(args: readonly string[]): { status: number; stdout: string; stde
   };
 }
 
-async function callMcp(name: string, args: unknown): Promise<any> {
-  const server = createMcpServer({ root: KIT, version: 'parity-test' });
+async function callMcp(name: string, args: unknown, root = KIT): Promise<any> {
+  const server = createMcpServer({ root, version: 'parity-test' });
   const initialized = await server.handleLine(JSON.stringify({
     jsonrpc: '2.0',
     id: 1,
@@ -229,6 +230,62 @@ test('find matches mmi find --json', async () => {
   assert.equal(cli.status, 0, cli.stderr);
   const mcp = await callMcp('find', { query: '機能一覧' });
   assert.deepEqual(JSON.parse(mcp), JSON.parse(cli.stdout));
+});
+
+test('find reports unreadable coverage in both MCP and CLI when no workbook can be indexed', async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-find-unreadable-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  fs.mkdirSync(path.join(root, 'sub'));
+  fs.writeFileSync(path.join(root, 'sub', 'empty.xlsx'), '');
+
+  const query = '部品表';
+  const cli = runCli(['find', query, '--json', '--root', '.'], root);
+  assert.equal(cli.status, 1, cli.stderr);
+  const mcp = JSON.parse(await callMcp('find', { query }, root));
+  assert.deepEqual(mcp, JSON.parse(cli.stdout));
+  assert.equal(mcp.status, 'no-match');
+  assert.deepEqual(mcp.candidates, []);
+  assert.deepEqual(mcp.coverage, {
+    booksListed: 1,
+    booksIndexed: 0,
+    unreadable: [{ path: 'sub/empty.xlsx', reason: 'empty' }],
+    indexCapped: false,
+    cancelled: false,
+    candidatesTruncated: false,
+    maxCandidates: 5,
+  });
+  const json = JSON.stringify(mcp);
+  assert.ok(!json.includes(JSON.stringify(root).slice(1, -1)), 'find must not expose the host path');
+  assert.ok(!json.includes(root.split(path.sep).join('/')), 'find must not expose a slash-normalized host path');
+});
+
+test('find reports candidate truncation in both MCP and CLI after indexing all matching workbooks', async (t) => {
+  const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi-find-truncated-'));
+  t.after(() => fs.rmSync(root, { recursive: true, force: true }));
+  const query = '部品表';
+  const book = XLSX.utils.book_new();
+  const rows = [['ID', '名称', '数量'], ['A-1', 'ボルト', 10], ['A-2', 'ナット', 20], ['A-3', 'ワッシャ', 30]];
+  XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(rows), query);
+  const bytes = XLSX.write(book, { type: 'buffer', bookType: 'xlsx' });
+  for (let i = 0; i < 7; i++) {
+    fs.writeFileSync(path.join(root, `${query}-${i}.xlsx`), bytes);
+  }
+
+  const cli = runCli(['find', query, '--json', '--root', '.'], root);
+  assert.equal(cli.status, 0, cli.stderr);
+  const mcp = JSON.parse(await callMcp('find', { query }, root));
+  assert.deepEqual(mcp, JSON.parse(cli.stdout));
+  assert.equal(mcp.status, 'candidates');
+  assert.equal(mcp.candidates.length, 5);
+  assert.deepEqual(mcp.coverage, {
+    booksListed: 7,
+    booksIndexed: 7,
+    unreadable: [],
+    indexCapped: false,
+    cancelled: false,
+    candidatesTruncated: true,
+    maxCandidates: 5,
+  });
 });
 
 test('handoff matches mmi handoff --json and omits values by default', async () => {

@@ -40,7 +40,7 @@ test('find reports workbooks it could not read, so no-match is not read as "noth
       { path: 'sub/偽物.xlsx', reason: 'not-a-workbook' },
       { path: 'sub/空.xlsx', reason: 'empty' },
       { path: '受注一覧.xlsx', reason: 'password-protected' },
-    ].sort((a, b) => a.path.localeCompare(b.path)) as never);
+    ]);
     assert.equal(json.coverage.booksListed, 3);
     assert.equal(json.coverage.booksIndexed, 0);
     assert.equal(json.coverage.indexCapped, false);
