@@ -33,9 +33,9 @@ mmi-mcp --root /path/to/workspace
 | 項目 | 内容 |
 | --- | --- |
 | 版（`version`） | `package.json`の版。コミットごとには上がらないため、版番号だけではコミットを特定できません。 |
-| コミット（`commit`） | ビルド元のコミットSHA（40桁）。配布tarballは作成時のgit HEADを埋め込み、開発用チェックアウトは起動時の`git rev-parse HEAD`で求めます。取れないときは`null`です。チェックアウトでは未コミットの変更を反映しないため、`dirty`と合わせて読みます。 |
+| コミット（`commit`） | ビルド元のコミットSHA（40桁）。配布tarballは作成時のgit HEADを埋め込みます。開発用チェックアウトでは、Gitルート直下の`03_Implement`にパッケージがあり、HEADが`03_Implement/package.json`と`00_Prompt/system_prompt.md`を追跡している場合にだけHEADを返します。パスは実体に解決して照合します。別リポジトリ内のコピーなど、配置が一致しないときや値を取れないときは`null`です。未コミットの変更は`dirty`で確かめてください。 |
 | lockfile digest（`lockfileDigest`） | `package-lock.json`の生バイト列のsha256（`sha256:<hex>`）。tarballは作成元のlockfileの値を埋め込みます。`.gitattributes`が`package-lock.json`の改行をLFに固定するため、`core.autocrlf=true`のGitチェックアウトでもLinuxと同じ値になります。zip展開など`.gitattributes`を使わない取得経路や、改行を手で変換したファイルでは値が変わります。 |
-| 未コミットの変更（`dirty`） | ビルド元に未コミットの変更があるか（`true`/`false`）。追跡対象外のファイルも数え、リリース証跡（`release-evidence.json`）と同じく`git status --porcelain`が空でないかで判定します。チェックアウトは起動時に求め、tarballは作成時の値を埋め込みます。gitがない・3秒で終わらない・この項目を持たない旧tarballでは`null`で、`false`と推測しません。`commit`を版固定の証拠にするときは、`dirty: false`も確かめてください。 |
+| 未コミットの変更（`dirty`） | ビルド元に未コミットの変更があるか（`true`/`false`）。追跡対象外のファイルも数え、リリース証跡（`release-evidence.json`）と同じく`git status --porcelain`が空でないかで判定します。チェックアウトは上記の配置とHEADを確認できた場合に求め、tarballは作成時の値を埋め込みます。値を取れないときやこの項目を持たない旧tarballでは`null`です。版を固定するときは`commit`と`dirty: false`を確かめてください。 |
 | Node.js（`node`） | 応答しているNode.jsの`version`と`major`。 |
 | 提供形態（`distribution`） | `tarball`（配布tarball）、`checkout`（開発用チェックアウト）、`unknown`。 |
 
@@ -195,7 +195,7 @@ CSVを読んだときは、復号に使った文字コードを`sourceEncoding`�
 - サーバ自身は、原本・ledger・成果物・設定ファイルを書き換えません。`inspect`がledgerを参照する場合も読み取りだけです。
 - パスは起動時の`--root`を境界に解決します。root外の絶対パス、`..`による脱出、root外を指すsymlink・junctionを拒否します。
 - ネットワークへ接続しません。通信はクライアントとのstdin/stdoutだけです。
-- 起動する外部プロセスは、開発用チェックアウトから起動したときの`initialize`で、ビルド識別のために実行する`git rev-parse HEAD`と`git status --porcelain`の2つだけです（作業ディレクトリは`mmi-mcp`のパッケージの置き場所で、`--root`のワークスペースではありません）。結果はプロセス内に保持するため、1プロセスにつき最初の`initialize`で1回です。各コマンドの時間切れは3秒で、同期呼出しのため、その間は入力の処理が止まります。配布tarballは作成時に埋め込んだ値を読むだけで、`git`を起動しません。`tools/call`の各ツールは外部プロセスを起動しません。
+- 開発用チェックアウトのビルド識別では、1回の`git rev-parse`でルート・HEAD・上記2ファイルの追跡を確かめ、確認できた場合だけ`git status --porcelain`を実行します。作業ディレクトリは`mmi-mcp`のパッケージの置き場所です。結果はプロセス内に保持するため、1プロセスにつき最初の`initialize`で1回です。各コマンドの時間切れは3秒で、同期呼出しのため、その間は入力の処理が止まります。配布tarballは作成時に埋め込んだ値を読むだけで、`git`を起動しません。`tools/call`の各ツールは外部プロセスを起動しません。
 - 上の`git`は、パッケージの置き場所のチェックアウトの`.git/config`の設定に従います。たとえば`core.fsmonitor`にコマンドが設定されていると、`git status`はそのコマンドを実行します。`GIT_OPTIONAL_LOCKS=0`で索引の更新は避けていますが、設定されたコマンドの実行は止めていません。信頼できないチェックアウトからの起動は避け、配布tarballを使ってください。リポジトリ設定でコマンドを実行させない対処は、利用者に見える挙動の変更を伴うため、Ownerの判断を待っています（[#802](https://github.com/hat47x/markdown-matrix-injector/issues/802)）。
 
 この性質は`test/mcpReadOnly.test.ts`が固定します。基本設計書キット（xlsx）を一時ディレクトリへ複製して`git init`しコミットしたうえで、`MCP_TOOL_NAMES`の全ツール（`render`は`md`と`html`の両方）を呼びます。呼出しの前後で、`.git`を含む全ファイルの相対パス・サイズ・更新時刻・内容のSHA-256が一致することを確かめます。`tools/list`に、抽出・取り込み・実体化・保存・削除を思わせる名前がないことも検査します。新しいツールを加えて、このテストが呼ばない場合は失敗します。

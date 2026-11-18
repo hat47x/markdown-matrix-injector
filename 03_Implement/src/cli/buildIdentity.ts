@@ -1,6 +1,7 @@
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import fs from 'node:fs';
+import path from 'node:path';
 
 export const BUILD_IDENTITY_SCHEMA = 'mmi.build-identity/v1';
 export const BUILD_IDENTITY_FILE = 'build-identity.json';
@@ -32,7 +33,7 @@ interface EmbeddedIdentity {
   dirty: boolean | null;
 }
 
-const COMMIT_PATTERN = /^[0-9a-f]{40}$/u;
+const GIT_SHA_PATTERN = /^[0-9a-f]{40}$/u;
 const DIGEST_PATTERN = /^sha256:[0-9a-f]{64}$/u;
 
 export function sha256Digest(bytes: Uint8Array): string {
@@ -46,7 +47,7 @@ function readEmbedded(packageRoot: URL): EmbeddedIdentity | null {
     ) as Record<string, unknown>;
     if (parsed.schema !== BUILD_IDENTITY_SCHEMA) return null;
     return {
-      commit: typeof parsed.commit === 'string' && COMMIT_PATTERN.test(parsed.commit)
+      commit: typeof parsed.commit === 'string' && GIT_SHA_PATTERN.test(parsed.commit)
         ? parsed.commit
         : null,
       lockfileDigest:
@@ -60,9 +61,12 @@ function readEmbedded(packageRoot: URL): EmbeddedIdentity | null {
   }
 }
 
-function gitHead(cwd: URL): string | null {
+function checkoutHead(cwd: URL): string | null {
   try {
-    const result = spawnSync('git', ['rev-parse', 'HEAD'], {
+    const result = spawnSync('git', [
+      'rev-parse', '--show-toplevel', 'HEAD',
+      'HEAD:03_Implement/package.json', 'HEAD:00_Prompt/system_prompt.md',
+    ], {
       cwd,
       encoding: 'utf8',
       timeout: 3000,
@@ -70,8 +74,14 @@ function gitHead(cwd: URL): string | null {
       // rev-parse は索引を書かないが、念のため任意ロックも使わせない。
       env: { ...process.env, GIT_OPTIONAL_LOCKS: '0' },
     });
-    const head = result.status === 0 ? result.stdout.trim() : '';
-    return COMMIT_PATTERN.test(head) ? head : null;
+    if (result.status !== 0 || result.error) return null;
+    const lines = result.stdout.replace(/\r?\n$/u, '').split(/\r?\n/u);
+    const [top, head, manifest, instructions] = lines;
+    if (lines.length !== 4 || !top || !head || !manifest || !instructions
+      || ![head, manifest, instructions].every((value) => GIT_SHA_PATTERN.test(value))) return null;
+    const topPath = fs.realpathSync(top);
+    const packagePath = fs.realpathSync(cwd);
+    return path.relative(path.join(topPath, '03_Implement'), packagePath) === '' ? head : null;
   } catch {
     return null;
   }
@@ -132,11 +142,12 @@ export function readBuildIdentity(version: string): BuildIdentity {
     if (embedded) {
       cached = { schema: BUILD_IDENTITY_SCHEMA, ...embedded, distribution: 'tarball' };
     } else if (root && fs.existsSync(new URL('tsconfig.json', root))) {
+      const commit = checkoutHead(root);
       cached = {
         schema: BUILD_IDENTITY_SCHEMA,
-        commit: gitHead(root),
+        commit,
         lockfileDigest: lockDigestOf(root),
-        dirty: gitDirty(root),
+        dirty: commit === null ? null : gitDirty(root),
         distribution: 'checkout',
       };
     } else {
