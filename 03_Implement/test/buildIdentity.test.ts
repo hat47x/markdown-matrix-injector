@@ -4,7 +4,7 @@ import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 
 import {
   BUILD_IDENTITY_SCHEMA,
@@ -37,6 +37,50 @@ test('チェックアウトのdirtyは真偽値かnullで、gitHEADが取れる�
   const identity = readBuildIdentity('9.9.9');
   assert.ok(identity.dirty === null || typeof identity.dirty === 'boolean');
   if (identity.commit !== null) assert.equal(typeof identity.dirty, 'boolean');
+});
+
+test('別リポジトリ内のソースコピーは、そのリポジトリのコミットで識別しない', (t) => {
+  const git = (cwd: string, ...args: string[]) => spawnSync('git', args, { cwd, encoding: 'utf8' });
+  if (git(os.tmpdir(), '--version').status !== 0) {
+    t.skip('git is not available');
+    return;
+  }
+  const outer = fs.mkdtempSync(path.join(os.tmpdir(), 'mmi outer-'));
+  try {
+    const initialized = git(outer, 'init', '-q');
+    assert.equal(initialized.status, 0, initialized.stderr);
+    const committed = git(
+      outer, '-c', 'user.name=Fixture', '-c', 'user.email=fixture@example.invalid',
+      '-c', 'commit.gpgsign=false', 'commit', '-q', '--allow-empty', '-m', 'fixture',
+    );
+    assert.equal(committed.status, 0, committed.stderr);
+    // ソース一式を展開しても、未追跡の目印は外側のHEADには属さない。
+    fs.mkdirSync(path.join(outer, '00_Prompt'));
+    fs.copyFileSync(
+      path.join(PROJECT_ROOT, '..', '00_Prompt', 'system_prompt.md'),
+      path.join(outer, '00_Prompt', 'system_prompt.md'),
+    );
+    for (const relativeRoot of ['vendor/mmi', '03_Implement']) {
+      const copy = path.join(outer, relativeRoot);
+      fs.mkdirSync(path.join(copy, 'src', 'cli'), { recursive: true });
+      for (const file of ['package.json', 'package-lock.json', 'tsconfig.json', 'src/cli/buildIdentity.ts']) {
+        fs.copyFileSync(path.join(PROJECT_ROOT, file), path.join(copy, file));
+      }
+      const moduleUrl = pathToFileURL(path.join(copy, 'src', 'cli', 'buildIdentity.ts')).href;
+      const script = `import { readBuildIdentity } from ${JSON.stringify(moduleUrl)}; console.log(JSON.stringify(readBuildIdentity('9.9.9')));`;
+      const run = spawnSync(
+        process.execPath, ['--import', 'tsx', '--input-type=module', '--eval', script],
+        { cwd: PROJECT_ROOT, encoding: 'utf8' },
+      );
+      assert.equal(run.status, 0, run.stderr);
+      const identity = JSON.parse(run.stdout);
+      assert.equal(identity.distribution, 'checkout');
+      assert.equal(identity.commit, null, relativeRoot);
+      assert.equal(identity.dirty, null, relativeRoot);
+    }
+  } finally {
+    fs.rmSync(outer, { recursive: true, force: true });
+  }
 });
 
 test('gitDirtyは、変更なし・変更あり・追跡対象外のファイル・git管理外を区別する', (t) => {
