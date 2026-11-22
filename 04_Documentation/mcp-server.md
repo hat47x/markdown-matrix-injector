@@ -39,7 +39,7 @@ mmi-mcp --root /path/to/workspace
 | Node.js（`node`） | 応答しているNode.jsの`version`と`major`。 |
 | 提供形態（`distribution`） | `tarball`（配布tarball）、`checkout`（開発用チェックアウト）、`unknown`。 |
 
-`serverInfo`は標準の`name`と`version`だけを返し、独自項目は`_meta`に置いています。Node.jsの対応版は`package.json`の`engines.node`（20以上）です。CIでの試験はNode.js 22です。
+`serverInfo`は標準の`name`と`version`だけを返し、独自項目は`_meta`に置いています。Node.jsの対応版は`package.json`の`engines.node`（20以上）です。[CI](../.github/workflows/ci.yml)の主要ジョブはNode.js 22を使います。CIが有効（`MMI_ACTIONS_ENABLED=true`）な場合、`main`へのpushと手動実行では、`node20-minimum`ジョブがUbuntu上のNode.js 20でCLIとMCPの配布パッケージを検証します。
 
 ## 公開面の宣言（読み取り専用と版）
 
@@ -228,7 +228,7 @@ CSVを読んだときは、復号に使った文字コードを`sourceEncoding`�
 - 1プロセスにつき1つのworkspace rootです。複数のrootを切り替える場合は、クライアント側でrootごとにサーバを起動します。
 - 書き込み系の操作をMCPへ加えるかは、初版の利用を見てから判断します（#527のRemaining work）。
 - 実際のMCPクライアント（AIエージェント）からの接続、基本設計書キットでの目録・参照・check・報告の一巡は未実施です。
-- 配布tarballの導入と`mmi`・`mmi-mcp`のsmokeは`npm run package:cli`で検証します。PRではLinuxだけ、Windowsはmainへのpushと手動実行（`workflow_dispatch`）で実行します。macOSとNode 20での確認は未実施です。
+- 配布tarballの導入と`mmi`・`mmi-mcp`のsmokeは`npm run package:cli`で検証します。PRではLinuxだけ、Windowsはmainへのpushと手動実行（`workflow_dispatch`）で実行します。Node.js 20でも、上記の`node20-minimum`ジョブが同じコマンドを実行します。macOSはこのCIの検証対象外です。
 
 ## 検証
 
