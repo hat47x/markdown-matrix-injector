@@ -237,3 +237,9 @@ cd 03_Implement
 node --import tsx --test ./test/mcpServer.test.ts ./test/mcpParity.test.ts
 npm run package:cli
 ```
+
+既定の索引上限（150,000領域）に達した場合の `find` を確認するには、`03_Implement` で次の受入テストを単独で実行します。合成CSVを使い、索引が途中で打ち切られたときにCLIとMCPが同じ `coverage.indexCapped: true` を返すことを確かめます。このテストは通常の単体テストより実行時間とメモリを多く使います。
+
+```sh
+node --import tsx --test ./test/acceptance/findDefaultCap.test.ts
+```
